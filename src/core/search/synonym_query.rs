@@ -14,7 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::{BytesRefValue, BytesRefValueEnum};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
@@ -171,7 +174,7 @@ impl QueryBase for SynonymQuery {
       builder.push_str(&term_query.to_string(field)?);
       if term_and_boost.boost != 1.0 {
         builder.push('^');
-        builder.push_str(&format!("{:.1}", term_and_boost.boost));
+        write!(builder, "{:.1}", term_and_boost.boost)?;
       }
     }
     builder.push(')');
@@ -292,7 +295,7 @@ impl SynonymWeight {
     let mut term_states = Vec::with_capacity(query.terms.len());
 
     for term_and_boost in &query.terms {
-      let term = Term::new(query.field.clone(), term_and_boost.term.clone());
+      let term = Arc::new(Term::new(query.field.clone(), term_and_boost.term.clone()));
       let ts = term_states::build(searcher, term.clone(), true)?;
 
       let ts_doc_freq = ts.doc_freq()?;
@@ -360,14 +363,14 @@ where
     if context.reader().terms(query.get_field())?.is_none() {
       return Ok(None);
     }
-    let field = query.get_field().to_string();
-    let terms = query.get_terms();
-    for_field(field.clone(), move || {
+    let field = query.get_field();
+    let terms: Arc<[Term]> = query.get_terms().into();
+    for_field(field, move || {
       from_terms(
         context,
         doc,
         self.parent_query.clone(),
-        &field,
+        field,
         terms.clone(),
       )
     })
@@ -558,13 +561,13 @@ where
     self.inner.borrow().end_offset()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(
       self
         .inner
         .borrow()
         .get_payload()?
-        .map(|payload| Cow::Owned(payload.into_owned())),
+        .map(|payload| BytesRefValueEnum::Buffer(Cow::Owned(payload.into_owned()))),
     )
   }
 }
@@ -641,13 +644,13 @@ where
     self.inner.borrow().end_offset()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(
       self
         .inner
         .borrow()
         .get_payload()?
-        .map(|payload| Cow::Owned(payload.into_owned())),
+        .map(|payload| BytesRefValueEnum::Buffer(Cow::Owned(payload.into_owned()))),
     )
   }
 }
@@ -1437,9 +1440,9 @@ where
       let boost = term_boosts.remove(0);
       return if self.score_mode == ScoreMode::CompleteNoScores || boost == 1.0 {
         let scorer = if self.score_mode == ScoreMode::TopScores {
-          TermScorer::from_impacts(impact, sim_weight.clone(), norms, false)
+          TermScorer::from_impacts(impact, sim_weight, norms, false)
         } else {
-          TermScorer::from_postings(iterator, sim_weight.clone(), norms)
+          TermScorer::from_postings(iterator, sim_weight, norms)
         };
         Ok(SynonymScorerEnum::C(scorer))
       } else {
@@ -1449,10 +1452,7 @@ where
           TermScorer::from_postings(iterator, sim_weight.clone(), None)
         };
         Ok(SynonymScorerEnum::B(FreqBoostTermScorer::new(
-          boost,
-          scorer,
-          sim_weight.clone(),
-          norms,
+          boost, scorer, sim_weight, norms,
         )?))
       };
     }

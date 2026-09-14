@@ -19,6 +19,7 @@ use std::cmp::{Ordering, max, min};
 use std::sync::Arc;
 
 use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::{BytesRefValue, BytesRefValueEnum};
 use crate::core::index::doc_values_update::{DocValuesUpdate, DocValuesUpdateBase};
 use crate::core::index::term::Term;
 use crate::core::util::accountable::Accountable;
@@ -26,7 +27,6 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::{Bits, BitsEnum2, MatchAllBits};
-use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ram_usage_estimator::{
@@ -99,7 +99,7 @@ impl FieldUpdatesBuffer {
       byte_values: if is_numeric {
         None
       } else {
-        Some(BytesRefArray::new(bytes_used.clone())?)
+        Some(BytesRefArray::new(bytes_used)?)
       },
       docs_upto: vec![doc_upto],
       numeric_values: if is_numeric { Some(vec![]) } else { None },
@@ -338,21 +338,21 @@ impl FieldUpdatesBuffer {
     let mut last_ord = 0;
 
     let result: Result<()> = (|| {
-      while let Some(current) = iterator.next()? {
+      while let Some((current_ord, current)) = iterator.next()? {
         let current = current.into_owned();
         if let Some(last_term) = &last {
           let cmp = current.cmp(last_term);
           debug_assert_ne!(cmp, Ordering::Less, "term in reverse order");
           let last_doc_upto = self.docs_upto[Self::get_array_index(self.docs_upto.len(), last_ord)];
           let current_doc_upto =
-            self.docs_upto[Self::get_array_index(self.docs_upto.len(), iterator.ord())];
+            self.docs_upto[Self::get_array_index(self.docs_upto.len(), current_ord)];
           debug_assert!(
             cmp != Ordering::Equal || last_doc_upto <= current_doc_upto,
             "doc id in reverse order"
           );
         }
         last = Some(current);
-        last_ord = iterator.ord();
+        last_ord = current_ord;
       }
       Ok(())
     })();
@@ -408,7 +408,7 @@ pub struct BufferedUpdateIterator<'a> {
   term_values_iterator: IndexedBytesRefIteratorImpl<'a>,
   look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
   byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
-  buffered_update: BufferedUpdate,
+  buffered_update: BufferedUpdate<'a>,
   updates_with_value: Option<UpdateBits<'a>>,
   fields_length: usize,
   docs_upto_length: usize,
@@ -481,7 +481,7 @@ impl<'a> BufferedUpdateIterator<'a> {
   /// consumed. The returned instance is a shared instance and must be
   /// fully consumed before the next call to this method. The returned borrow
   /// prevents advancing the iterator while the update is still in use.
-  pub(crate) fn next_value(&mut self) -> Result<Option<&BufferedUpdate>> {
+  pub(crate) fn next_value(&mut self) -> Result<Option<&BufferedUpdate<'a>>> {
     let next_term = self.next_term()?;
 
     if let Some(next) = next_term {
@@ -493,10 +493,8 @@ impl<'a> BufferedUpdateIterator<'a> {
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("updates_with_value is missing"))?
         .get(idx)?;
-      buffered_update.term_field.clone_from(
-        &self.field_updates_buffer.fields
-          [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)],
-      );
+      buffered_update.term_field = &self.field_updates_buffer.fields
+        [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)];
       buffered_update.doc_upto = self.field_updates_buffer.docs_upto
         [FieldUpdatesBuffer::get_array_index(self.docs_upto_length, idx)];
 
@@ -513,16 +511,14 @@ impl<'a> BufferedUpdateIterator<'a> {
           debug_assert!(self.numeric_values_length == 0);
           match &mut self.byte_values_iterator {
             Some(iterator) => match iterator.next()? {
-              Some(Cow::Owned(bytes_ref)) => {
+              Some((_, BytesRefValueEnum::Buffer(Cow::Owned(bytes_ref)))) => {
                 buffered_update.binary_value = Some(bytes_ref);
               },
-              Some(Cow::Borrowed(bytes_ref)) => {
+              Some((_, bytes_ref)) => {
                 buffered_update
                   .binary_value
                   .get_or_insert_with(BytesRef::default)
-                  .copy_from_slice(
-                    &bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + bytes_ref.length],
-                  );
+                  .copy_from_slice(bytes_ref.as_bytes());
               },
               None => {
                 buffered_update.binary_value = None;
@@ -548,42 +544,30 @@ impl<'a> BufferedUpdateIterator<'a> {
       if self.buffered_update.term_value.is_none() {
         look_ahead_term_iterator.next()?;
       }
-      let mut last_term: Option<BytesRef<Vec<u8>>> = None;
-      let mut ahead_term;
+      let last_term;
       loop {
-        ahead_term = look_ahead_term_iterator.next()?;
-        match self.term_values_iterator.next()? {
-          Some(Cow::Owned(term)) => {
-            last_term = Some(term);
-          },
-          Some(Cow::Borrowed(term)) => {
-            last_term
-              .get_or_insert_with(BytesRef::default)
-              .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]);
-          },
-          None => {
-            last_term = None;
-          },
-        }
+        let ahead_term = look_ahead_term_iterator.next()?;
+        let current_term = self.term_values_iterator.next()?;
 
-        if let Some(ahead) = ahead_term {
-          let ahead = ahead.into_owned();
-          // Shortcut to avoid equals, we did a stable sort before, so
-          // aheadTerm can only equal
-          // lastTerm when aheadTerm has a lager ord.
-          if look_ahead_term_iterator.ord() > self.term_values_iterator.ord()
-            && let Some(last_term) = last_term.as_mut()
-            && ahead == *last_term
-          {
-            continue;
-          }
+        if let Some((ahead_ord, ahead)) = ahead_term
+          && let Some((current_ord, current)) = current_term.as_ref()
+          // Shortcut to avoid equals: stable sorting puts a later duplicate at a larger ord.
+          && ahead_ord > *current_ord
+          && ahead.as_bytes() == current.as_bytes()
+        {
+          continue;
         }
+        // Only the selected term must outlive the iterator borrow.
+        last_term = current_term.map(|(_, term)| match term {
+          BytesRefValueEnum::Buffer(Cow::Owned(term)) => term,
+          term => BytesRef::from(term.as_bytes()),
+        });
         break;
       }
       Ok(last_term)
     } else {
       match self.term_values_iterator.next()? {
-        Some(term) => Ok(Some(term.into_owned())),
+        Some((_, term)) => Ok(Some(term.into_owned())),
         None => Ok(None),
       }
     }
@@ -593,7 +577,7 @@ impl<'a> BufferedUpdateIterator<'a> {
 /// This struct should not be used as a map key or in data structures that depend on `Hash` and `Eq`.
 #[derive(Default, Clone)]
 
-pub struct BufferedUpdate {
+pub struct BufferedUpdate<'a> {
   /// the max document ID this update should be applied to.
   pub doc_upto: i32,
   /// a numeric value or 0 if this buffer holds binary updates.
@@ -603,7 +587,7 @@ pub struct BufferedUpdate {
   /// true if this update has a value.
   pub has_value: bool,
   /// The update terms field. This will never be None.
-  pub term_field: String,
+  pub term_field: &'a str,
   /// The update terms value. This will never be None.
   pub term_value: Option<BytesRef<Vec<u8>>>,
 }

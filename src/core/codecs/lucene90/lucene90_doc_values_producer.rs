@@ -746,12 +746,12 @@ where
         let ords = self.get_numeric(ords_entry.clone())?;
         BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesOrdinals::new(ords))
       };
-      return BaseSortedDocValues::new(entry.clone(), self.data.clone(), sub, self.merging);
+      return BaseSortedDocValues::new(entry, self.data.clone(), sub, self.merging);
     }
 
     let ords = self.get_numeric(ords_entry.clone())?;
     let sub = BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesOrdinals::new(ords));
-    BaseSortedDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)
+    BaseSortedDocValues::new(entry, self.data.clone(), sub, self.merging)
   }
 
   fn get_sorted_numeric(
@@ -2085,6 +2085,11 @@ impl<R> SortedDocValues for DenseBaseSortedDocValues<R>
 where
   R: RandomAccessInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.value.get_mut(self.doc as usize)? as i32)
   }
@@ -2166,6 +2171,11 @@ impl<I> SortedDocValues for SparseBaseSortedDocValues<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.value.get_mut(self.disi.index_u())? as i32)
   }
@@ -2242,6 +2252,11 @@ impl<I> SortedDocValues for BaseSortedDocValuesOrdinals<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.ords.long_value()? as i32)
   }
@@ -2333,11 +2348,16 @@ impl<I> SortedDocValues for BaseSortedDocValues<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     self.sub.ord_value()
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     self.terms_enum.seek_exact_with_ord(ord as i64)?;
     self.terms_enum.term()
   }
@@ -2455,6 +2475,11 @@ impl<R> SortedSetDocValues for DenseBaseSortedSetDocValues<R>
 where
   R: RandomAccessInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     let ord = self.value.get_mut(self.curr as usize)?;
     self.curr += 1;
@@ -2569,6 +2594,11 @@ impl<I> SortedSetDocValues for SparseBaseSortedSetDocValues<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     self.set()?;
     let ord = self.value.get_mut(self.curr as usize)?;
@@ -2656,6 +2686,11 @@ impl<I> SortedSetDocValues for BaseSortedSetDocValuesOrdinals<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     self.ords.next_value()
   }
@@ -2757,6 +2792,11 @@ impl<I> SortedSetDocValues for BaseSortedSetDocValues<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     self.sub.next_ord()
   }
@@ -2765,7 +2805,7 @@ where
     self.sub.doc_value_count()
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     self.terms_enum.seek_exact_with_ord(ord)?;
     self.terms_enum.term()
   }
@@ -4021,6 +4061,11 @@ impl<I> SortedSetDocValues for Lucene90SortedSetDocValuesEnum<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::Single(values) => values.next_ord(),
@@ -4035,7 +4080,7 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
       Self::Single(values) => values.lookup_ord(ord),
       Self::Multi(values) => values.lookup_ord(ord),

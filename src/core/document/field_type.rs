@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::collections::HashMap;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::hash::{Hash, Hasher};
 
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -521,7 +521,7 @@ impl fmt::Display for FieldType {
       }
       if self.index_options != IndexOptions::DocsAndFreqsAndPositions {
         result.push_str(",indexOptions=");
-        result.push_str(&format!("{:?}", self.index_options));
+        write!(result, "{:?}", self.index_options)?;
       }
     }
 
@@ -530,11 +530,11 @@ impl fmt::Display for FieldType {
         result.push(',');
       }
       result.push_str("pointDimensionCount=");
-      result.push_str(&self.dimension_count.to_string());
+      write!(result, "{}", self.dimension_count)?;
       result.push_str(",pointIndexDimensionCount=");
-      result.push_str(&self.index_dimension_count.to_string());
+      write!(result, "{}", self.index_dimension_count)?;
       result.push_str(",pointNumBytes=");
-      result.push_str(&self.dimension_num_bytes.to_string());
+      write!(result, "{}", self.dimension_num_bytes)?;
     }
 
     if self.doc_values_type != DocValuesType::None {
@@ -542,7 +542,7 @@ impl fmt::Display for FieldType {
         result.push(',');
       }
       result.push_str("docValuesType=");
-      result.push_str(&format!("{:?}", self.doc_values_type));
+      write!(result, "{:?}", self.doc_values_type)?;
     }
 
     write!(f, "{result}")

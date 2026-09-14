@@ -176,14 +176,14 @@ mod compression_numeric_encoding_tests {
 
   #[test]
   fn test_zfloat() -> Result<()> {
-    let buffer = vec![0u8; 5]; // we never need more than 5 bytes
-    let mut out = ByteArrayDataOutput::with_bytes(buffer);
+    let mut buffer = [0u8; 5]; // we never need more than 5 bytes
+    let mut out = ByteArrayDataOutput::with_bytes(buffer.as_mut_slice());
 
     // round-trip small integer values
     for i in i16::MIN..i16::MAX {
       let f = i as f32;
       write_zfloat(&mut out, f)?;
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, out.get_position());
       let g = read_zfloat(&mut input)?;
       assert!(input.eof());
       assert_eq!(BitUtil::float_to_int_bits(f), BitUtil::float_to_int_bits(g));
@@ -208,7 +208,7 @@ mod compression_numeric_encoding_tests {
 
     for &f in &special {
       write_zfloat(&mut out, f)?;
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, out.get_position());
       let g = read_zfloat(&mut input)?;
       assert!(input.eof());
       assert_eq!(BitUtil::float_to_int_bits(f), BitUtil::float_to_int_bits(g));
@@ -232,7 +232,7 @@ mod compression_numeric_encoding_tests {
         len,
         f
       );
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, len);
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, len);
       let g = read_zfloat(&mut input)?;
       assert!(input.eof());
       assert_eq!(BitUtil::float_to_int_bits(f), BitUtil::float_to_int_bits(g));
@@ -244,14 +244,14 @@ mod compression_numeric_encoding_tests {
 
   #[test]
   fn test_zdouble() -> Result<()> {
-    let buffer = vec![0u8; 9]; // we never need more than 9 bytes
-    let mut out = ByteArrayDataOutput::with_bytes(buffer);
+    let mut buffer = [0u8; 9]; // we never need more than 9 bytes
+    let mut out = ByteArrayDataOutput::with_bytes(buffer.as_mut_slice());
 
     // round-trip small integer values
     for i in i16::MIN..i16::MAX {
       let x = i as f64;
       write_zdouble(&mut out, x)?;
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, out.get_position());
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
       assert_eq!(
@@ -279,7 +279,7 @@ mod compression_numeric_encoding_tests {
 
     for &x in &special {
       write_zdouble(&mut out, x)?;
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, out.get_position());
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
       assert_eq!(
@@ -301,7 +301,7 @@ mod compression_numeric_encoding_tests {
         len,
         x
       );
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, len);
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, len);
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
       assert_eq!(
@@ -317,7 +317,7 @@ mod compression_numeric_encoding_tests {
       write_zdouble(&mut out, x)?;
       let len = out.get_position();
       assert!(len <= 5, "length={}, d={}", len, x);
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, len);
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, len);
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
       assert_eq!(
@@ -332,15 +332,15 @@ mod compression_numeric_encoding_tests {
 
   #[test]
   fn test_tlong() -> Result<()> {
-    let buffer = vec![0u8; 10]; // we never need more than 10 bytes
-    let mut out = ByteArrayDataOutput::with_bytes(buffer);
+    let mut buffer = [0u8; 10]; // we never need more than 10 bytes
+    let mut out = ByteArrayDataOutput::with_bytes(buffer.as_mut_slice());
 
     // round-trip small integer values
     for i in i16::MIN..i16::MAX {
       for &mul in &[SECOND, HOUR, DAY] {
         let l1 = i as i64 * mul;
         write_tlong(&mut out, l1)?;
-        let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
+        let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, out.get_position());
         let l2 = read_tlong(&mut input)?;
         assert!(input.eof());
         assert_eq!(l1, l2);
@@ -366,7 +366,7 @@ mod compression_numeric_encoding_tests {
         _ => {},
       }
       write_tlong(&mut out, l1)?;
-      let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
+      let mut input = ByteArrayDataInput::with_range(&*out.bytes, 0, out.get_position());
       let l2 = read_tlong(&mut input)?;
       assert!(input.eof());
       assert_eq!(l1, l2);

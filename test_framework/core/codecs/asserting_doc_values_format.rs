@@ -30,6 +30,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
@@ -225,14 +226,14 @@ where
 
     let value_count = values.get_value_count()?;
     assert!(value_count <= self.max_doc);
-    let mut last_value = None;
+    let mut last_value: Option<BytesRef<Vec<u8>>> = None;
     for ord in 0..value_count {
       let value = values.lookup_ord(ord)?;
       assert!(value.is_valid()?);
       assert!(
         last_value
           .as_ref()
-          .is_none_or(|last_value| value.as_ref() > last_value)
+          .is_none_or(|last_value| value.as_bytes() > last_value.as_bytes())
       );
       last_value = Some(value.into_owned());
     }
@@ -306,14 +307,14 @@ where
     let mut values = values_producer.get_sorted_set(field)?;
 
     let value_count = values.get_value_count()?;
-    let mut last_value = None;
+    let mut last_value: Option<BytesRef<Vec<u8>>> = None;
     for ord in 0..value_count {
       let value = values.lookup_ord(ord)?;
       assert!(value.is_valid()?);
       assert!(
         last_value
           .as_ref()
-          .is_none_or(|last_value| value.as_ref() > last_value)
+          .is_none_or(|last_value| value.as_bytes() > last_value.as_bytes())
       );
       last_value = Some(value.into_owned());
     }

@@ -57,6 +57,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
+use std::borrow::Cow;
 
 #[allow(dead_code)] // for quick search
 struct TestMockAnalyzer;
@@ -354,12 +355,13 @@ fn test_random_regexps() -> Result<()> {
   let minimum = if cfg!(feature = "nightly") { 30 } else { 1 };
   let iterations = at_least(&mut random, minimum);
   for _ in 0..iterations {
-    let automaton = AutomatonTestUtil::random_automaton(&mut random)?;
-    let automaton = Operations::determinize(
-      automaton.as_ref(),
-      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-    )?;
-    let dfa = CharacterRunAutomaton::new(automaton.into_owned())?;
+    let source = AutomatonTestUtil::random_automaton(&mut random)?;
+    let automaton =
+      Operations::determinize(source.as_ref(), Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
+    let dfa = CharacterRunAutomaton::new(match automaton {
+      Cow::Borrowed(_) => source.into_owned(),
+      Cow::Owned(determinized) => determinized,
+    })?;
     let lowercase = random.random();
     let limit = TestUtil::next_int(&mut random, 0, 500);
     let mut analyzer = RandomRegexpsAnalyzer {

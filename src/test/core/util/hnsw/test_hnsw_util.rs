@@ -41,7 +41,7 @@ fn test_tree_with_cycle() -> Result<()> {
     Some(vec![0]),
   ]];
 
-  let mut graph = MockGraph::new(nodes);
+  let mut graph = MockGraph::new(&nodes);
 
   assert!(HnswUtil::is_rooted(&mut graph)?);
   assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![7]);
@@ -60,7 +60,7 @@ fn test_back_linking() -> Result<()> {
     Some(vec![1]),
   ]];
 
-  let mut graph = MockGraph::new(nodes);
+  let mut graph = MockGraph::new(&nodes);
 
   assert!(!HnswUtil::is_rooted(&mut graph)?);
   assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![5, 1, 1]);
@@ -76,7 +76,7 @@ fn test_chain() -> Result<()> {
     Some(vec![0]),
   ]];
 
-  let mut graph = MockGraph::new(nodes);
+  let mut graph = MockGraph::new(&nodes);
 
   assert!(HnswUtil::is_rooted(&mut graph)?);
   assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![4]);
@@ -92,7 +92,7 @@ fn test_two_chains() -> Result<()> {
     Some(vec![1]),
   ]];
 
-  let mut graph = MockGraph::new(nodes);
+  let mut graph = MockGraph::new(&nodes);
 
   assert!(!HnswUtil::is_rooted(&mut graph)?);
   assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![2, 2]);
@@ -112,7 +112,7 @@ fn test_levels() -> Result<()> {
     vec![Some(vec![]), None, None, None],
   ];
 
-  let mut graph = MockGraph::new(nodes);
+  let mut graph = MockGraph::new(&nodes);
 
   assert!(HnswUtil::is_rooted(&mut graph)?);
   assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![4]);
@@ -125,7 +125,7 @@ fn test_levels_not_rooted() -> Result<()> {
     vec![Some(vec![1]), Some(vec![0]), Some(vec![0])],
     vec![Some(vec![]), None, None],
   ];
-  let mut graph = MockGraph::new(nodes);
+  let mut graph = MockGraph::new(&nodes);
 
   assert!(!HnswUtil::is_rooted(&mut graph)?);
   assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![2, 1]);
@@ -171,7 +171,7 @@ fn test_random_graph_rooted_check() -> Result<()> {
       }
     }
 
-    let mut graph = MockGraph::new(nodes.clone());
+    let mut graph = MockGraph::new(&nodes);
 
     let expected = is_rooted(&nodes)?;
     let actual = HnswUtil::is_rooted(&mut graph)?;
@@ -244,14 +244,14 @@ fn level_size(nodes: &[Option<Vec<usize>>]) -> usize {
   count
 }
 
-pub struct MockGraph {
-  nodes: Vec<Vec<Option<Vec<usize>>>>,
+pub struct MockGraph<'a> {
+  nodes: &'a [Vec<Option<Vec<usize>>>],
   current_level: usize,
   current_node: usize,
   current_neighbor: usize,
 }
-impl MockGraph {
-  pub fn new(nodes: Vec<Vec<Option<Vec<usize>>>>) -> Self {
+impl<'a> MockGraph<'a> {
+  pub fn new(nodes: &'a [Vec<Option<Vec<usize>>>]) -> Self {
     Self {
       nodes,
       current_level: 0,
@@ -260,7 +260,7 @@ impl MockGraph {
     }
   }
 }
-impl HnswGraph for MockGraph {
+impl<'a> HnswGraph for MockGraph<'a> {
   fn seek(&mut self, level: usize, target: usize) -> Result<()> {
     assert!(
       level < self.nodes.len(),
@@ -312,7 +312,7 @@ impl HnswGraph for MockGraph {
     Ok(Some(0))
   }
 
-  type NodeIterator = NodeIteratorImpl;
+  type NodeIterator = NodeIteratorImpl<'a>;
 
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
     let mut count = 0;
@@ -323,11 +323,11 @@ impl HnswGraph for MockGraph {
     }
 
     let final_count = count;
-    let v = NodeIteratorImpl::new(self.nodes.clone(), final_count, level);
+    let v = NodeIteratorImpl::new(self.nodes, final_count, level);
     Ok(v)
   }
 }
-impl std::fmt::Display for MockGraph {
+impl std::fmt::Display for MockGraph<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     for level in (0..self.nodes.len()).rev() {
       writeln!(f, "\nLEVEL {}", level)?;
@@ -341,16 +341,16 @@ impl std::fmt::Display for MockGraph {
   }
 }
 
-pub struct NodeIteratorImpl {
+pub struct NodeIteratorImpl<'a> {
   next_node: usize,
   cur_count: usize,
   final_count: usize,
   level: usize,
-  nodes: Vec<Vec<Option<Vec<usize>>>>,
+  nodes: &'a [Vec<Option<Vec<usize>>>],
   size: usize,
 }
-impl NodeIteratorImpl {
-  pub fn new(nodes: Vec<Vec<Option<Vec<usize>>>>, final_count: usize, level: usize) -> Self {
+impl<'a> NodeIteratorImpl<'a> {
+  pub fn new(nodes: &'a [Vec<Option<Vec<usize>>>], final_count: usize, level: usize) -> Self {
     NodeIteratorImpl {
       next_node: 0,
       cur_count: 0,
@@ -362,7 +362,7 @@ impl NodeIteratorImpl {
   }
 }
 
-impl Iterator for NodeIteratorImpl {
+impl Iterator for NodeIteratorImpl<'_> {
   type Item = usize;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -381,7 +381,7 @@ impl Iterator for NodeIteratorImpl {
   }
 }
 
-impl NodesIterator for NodeIteratorImpl {
+impl NodesIterator for NodeIteratorImpl<'_> {
   fn size(&self) -> usize {
     self.size
   }

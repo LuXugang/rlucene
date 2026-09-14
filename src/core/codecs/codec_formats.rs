@@ -1758,7 +1758,7 @@ impl<D: Directory> TermVectorsWriter for CodecTermVectorsWriter<D> {
     }
   }
 
-  fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+  fn start_term(&mut self, term: &BytesRef<&[u8]>, freq: i32) -> Result<()> {
     match self {
       Self::Lucene90(writer) => writer.start_term(term, freq),
       Self::Asserting(writer) => writer.start_term(term, freq),
@@ -1781,7 +1781,7 @@ impl<D: Directory> TermVectorsWriter for CodecTermVectorsWriter<D> {
     position: i32,
     start_offset: i32,
     end_offset: i32,
-    payload: Option<&BytesRef<Vec<u8>>>,
+    payload: Option<&BytesRef<&[u8]>>,
   ) -> Result<()> {
     match self {
       Self::Lucene90(writer) => writer.add_position(position, start_offset, end_offset, payload),

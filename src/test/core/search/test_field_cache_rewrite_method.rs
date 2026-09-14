@@ -58,7 +58,7 @@ impl TestRegexpRandom2 for TestFieldCacheRewriteMethod {
     IRC: IndexReaderContext + Sync,
   {
     let field_cache = RegexpQuery::with_all(
-      Term::from_text(field_name, regexp.clone()),
+      Term::from_text(field_name, &regexp),
       RegExp::NONE,
       0,
       &DefaultProvider,
@@ -67,7 +67,7 @@ impl TestRegexpRandom2 for TestFieldCacheRewriteMethod {
     )?;
 
     let filter = RegexpQuery::with_all(
-      Term::from_text(field_name, regexp.clone()),
+      Term::from_text(field_name, &regexp),
       RegExp::NONE,
       0,
       &DefaultProvider,
@@ -88,13 +88,14 @@ impl TestRegexpRandom2 for TestFieldCacheRewriteMethod {
     let filter_docs = searcher2.search(filter, 25)?;
     let filter2_docs = searcher2.search(filter2, 25)?;
 
+    let field_cache = field_cache.into_query();
     CheckHits::check_equal(
-      &field_cache.clone().into_query(),
+      &field_cache,
       &field_cache_docs.score_docs,
       &filter_docs.score_docs,
     )?;
     CheckHits::check_equal(
-      &field_cache.into_query(),
+      &field_cache,
       &field_cache_docs.score_docs,
       &filter2_docs.score_docs,
     )

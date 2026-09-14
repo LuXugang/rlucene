@@ -302,7 +302,7 @@ fn test_to_string() -> Result<()> {
       query.to_string("ignored")?
     );
 
-    let rewritten = searcher.rewrite(query.clone())?;
+    let rewritten = searcher.rewrite(query)?;
     case.assert_doc_score_query_to_string(&rewritten)?;
 
     let filter: Query = TermQuery::new(Term::from_text("id", "text")).into();

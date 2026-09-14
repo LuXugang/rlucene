@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummyPostingsEnum;
 
@@ -52,7 +51,7 @@ impl PostingsEnum for DummyPostingsEnum {
     dummy_unreachable!()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     dummy_unreachable!()
   }
 }

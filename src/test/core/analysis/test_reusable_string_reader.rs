@@ -32,18 +32,18 @@ fn test_reusable_string_reader() -> Result<()> {
   reader.set_value("foobar");
   let mut buf = ['\0'; 4];
   assert_eq!(reader.read_range(&mut buf, 0, 4)?, 4);
-  assert_eq!(buf.iter().collect::<String>(), "foob");
+  assert_eq!(buf, ['f', 'o', 'o', 'b']);
   assert_eq!(reader.read_range(&mut buf, 0, 2)?, 2);
-  assert_eq!(buf[..2].iter().collect::<String>(), "ar");
+  assert_eq!(buf[..2], ['a', 'r']);
   assert_eq!(reader.read()?, -1);
   reader.close()?;
 
   reader.set_value("foobar");
   assert_eq!(reader.read_range(&mut buf, 1, 0)?, 0);
   assert_eq!(reader.read_range(&mut buf, 1, 3)?, 3);
-  assert_eq!(buf[1..4].iter().collect::<String>(), "foo");
+  assert_eq!(buf[1..4], ['f', 'o', 'o']);
   assert_eq!(reader.read_range(&mut buf, 2, 2)?, 2);
-  assert_eq!(buf[2..4].iter().collect::<String>(), "ba");
+  assert_eq!(buf[2..4], ['b', 'a']);
   assert_eq!(reader.read()?, 'r' as i32);
   assert_eq!(reader.read()?, -1);
   reader.close()?;

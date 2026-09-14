@@ -128,7 +128,7 @@ where
   where
     IC: IndexCommit<Directory = Arc<D>>,
   {
-    let leaf_reads = self.get_sequential_sub_readers().to_vec();
+    let leaf_reads = self.get_sequential_sub_readers();
     let mut finder = FindSegmentsFileImpl2::new(
       self.directory().directory.clone(),
       leaf_reads,
@@ -279,7 +279,7 @@ where
 pub(crate) fn open_with_leaf_sorter<D>(
   directory: Arc<D>,
   infos: SegmentInfos<D>,
-  old_readers: Vec<DefaultLeafReader<D>>,
+  old_readers: &[DefaultLeafReader<D>],
   leaf_sorter: Option<LeafSorter<D>>,
 ) -> Result<StandardDirectoryReader<D>>
 where
@@ -289,7 +289,7 @@ where
   // to lookup a reader using its segment name
   let mut segment_readers = HashMap::with_capacity(old_readers.len());
   for (i, sr) in old_readers.iter().enumerate() {
-    segment_readers.insert(sr.get_segment_name().to_string(), i);
+    segment_readers.insert(sr.get_segment_name(), i);
   }
 
   let mut new_readers: Vec<Option<DefaultLeafReader<D>>> =
@@ -302,7 +302,7 @@ where
 
       // find SegmentReader for this segment
       let old_reader = segment_readers
-        .get(&commit_info.info.name)
+        .get(commit_info.info.name.as_str())
         .map(|old_reader_index| old_readers[*old_reader_index].clone());
 
       // Make a best effort to detect when the app illegally "rm -rf" their
@@ -787,23 +787,21 @@ where
   }
 }
 
-pub struct FindSegmentsFileImpl2<D>
+pub struct FindSegmentsFileImpl2<D, R = Vec<DefaultLeafReader<D>>>
 where
   D: Directory,
+  R: AsRef<[DefaultLeafReader<D>]>,
 {
   directory: Arc<D>,
-  old_readers: Vec<DefaultLeafReader<D>>,
+  old_readers: R,
   leaf_sorter: Option<LeafSorter<D>>,
 }
-impl<D> FindSegmentsFileImpl2<D>
+impl<D, R> FindSegmentsFileImpl2<D, R>
 where
   D: Directory + 'static,
+  R: AsRef<[DefaultLeafReader<D>]>,
 {
-  pub fn new(
-    directory: Arc<D>,
-    old_readers: Vec<DefaultLeafReader<D>>,
-    leaf_sorter: Option<LeafSorter<D>>,
-  ) -> Self {
+  pub fn new(directory: Arc<D>, old_readers: R, leaf_sorter: Option<LeafSorter<D>>) -> Self {
     FindSegmentsFileImpl2 {
       directory,
       old_readers,
@@ -811,9 +809,10 @@ where
     }
   }
 }
-impl<D> FindSegmentsFile for FindSegmentsFileImpl2<D>
+impl<D, R> FindSegmentsFile for FindSegmentsFileImpl2<D, R>
 where
   D: Directory + 'static,
+  R: AsRef<[DefaultLeafReader<D>]>,
 {
   type V = StandardDirectoryReader<D>;
   type D = D;
@@ -827,7 +826,7 @@ where
     do_open_if_changed(
       infos,
       self.directory.clone(),
-      self.old_readers.clone(),
+      self.old_readers.as_ref(),
       self.leaf_sorter.clone(),
     )
   }
@@ -835,7 +834,7 @@ where
 pub(crate) fn do_open_if_changed<D>(
   infos: SegmentInfos<D>,
   directory: Arc<D>,
-  old_readers: Vec<DefaultLeafReader<D>>,
+  old_readers: &[DefaultLeafReader<D>],
   sub_readers_sorter: Option<LeafSorter<D>>,
 ) -> Result<StandardDirectoryReader<D>>
 where

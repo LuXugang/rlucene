@@ -52,7 +52,7 @@ impl Outputs for PositiveIntOutputs {
       debug_assert!(self.valid(output2));
     }
 
-    if Arc::ptr_eq(output1, &self.get_no_output()) || Arc::ptr_eq(output2, &self.get_no_output()) {
+    if Arc::ptr_eq(output1, &NO_OUTPUT) || Arc::ptr_eq(output2, &NO_OUTPUT) {
       self.get_no_output()
     } else {
       debug_assert!(**output1 > 0);

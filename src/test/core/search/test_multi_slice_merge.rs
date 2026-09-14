@@ -170,7 +170,7 @@ fn test_multiple_slices_of_multiple_index_searchers() -> Result<()> {
   let shard_hits = vec![top_docs1, top_docs2];
 
   let merged_hits1 =
-    top_docs::merge_top_docs_with_start(0, shard_hits[0].score_docs.len(), shard_hits.clone())?;
+    top_docs::merge_top_docs_with_start(0, shard_hits[0].score_docs.len(), &shard_hits)?;
   let merged_hits2 =
     top_docs::merge_top_docs_with_start(0, shard_hits[0].score_docs.len(), shard_hits)?;
 

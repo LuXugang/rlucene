@@ -24,6 +24,7 @@ use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
@@ -1847,23 +1848,20 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
     let mut postings = None;
 
-    let mut last_field: Option<String> = None;
+    let mut last_field: Option<&String> = None;
     let mut fields_iterator = fields.iterator()?;
     while fields_iterator.has_next()? {
       let field = fields_iterator
         .next()?
         .ok_or_else(|| LuceneError::illegal_state("Fields.iterator().has_next returned true"))?;
       // MultiFieldsEnum relies upon this order...
-      if last_field
-        .as_ref()
-        .is_some_and(|last_field| field <= last_field)
-      {
+      if last_field.is_some_and(|last_field| field <= last_field) {
         return Err(LuceneError::corrupt_index(format!(
           "fields out of order: lastField={} field={field}",
-          last_field.as_deref().unwrap_or("")
+          last_field.map_or("", String::as_str)
         )));
       }
-      last_field = Some(field.clone());
+      last_field = Some(field);
 
       // check that the field is in fieldinfos, and is indexed.
       let field_info = field_infos.field_info_by_name(field)?.ok_or_else(|| {
@@ -1965,27 +1963,32 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       let mut sum_doc_freq = 0;
       let mut visited_docs = FixedBitSet::new(max_doc.try_convert()?);
       loop {
-        let Some(term) = terms_enum.next()? else {
-          break;
-        };
-        let term = term.into_owned();
-        debug_assert!(term.is_valid()?);
+        let term = {
+          let Some(term) = terms_enum.next()? else {
+            break;
+          };
+          debug_assert!(term.is_valid()?);
 
-        // make sure terms arrive in order according to
-        // the comp
-        if let Some(last_term) = last_term.as_mut() {
-          if last_term.get_bytes_ref() >= &term {
-            return Err(LuceneError::corrupt_index(format!(
-              "terms out of order: lastTerm={} term={term}",
-              last_term.get_bytes_ref()
-            )));
+          // make sure terms arrive in order according to
+          // the comp
+          match &mut last_term {
+            Some(builder) => {
+              if builder.get_bytes_ref() >= term.as_ref() {
+                return Err(LuceneError::corrupt_index(format!(
+                  "terms out of order: lastTerm={} term={term}",
+                  builder.get_bytes_ref()
+                )));
+              }
+              builder.copy_bytes_from_ref(term.as_ref())?;
+              builder.get_bytes_ref()
+            },
+            slot @ None => {
+              let mut builder = BytesRefBuilder::new();
+              builder.copy_bytes_from_ref(term.as_ref())?;
+              slot.insert(builder).get_bytes_ref()
+            },
           }
-          last_term.copy_bytes_from_ref(&term)?;
-        } else {
-          let mut builder = BytesRefBuilder::new();
-          builder.copy_bytes_from_ref(&term)?;
-          last_term = Some(builder);
-        }
+        };
 
         if !is_vectors {
           let min_term = min_term.as_ref().ok_or_else(|| {
@@ -1993,7 +1996,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
               "field=\"{field}\": invalid term: term={term}, minTerm=null"
             ))
           })?;
-          if &term < min_term {
+          if term < min_term {
             return Err(LuceneError::corrupt_index(format!(
               "field=\"{field}\": invalid term: term={term}, minTerm={min_term}"
             )));
@@ -2001,7 +2004,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           let max_term = max_term.as_ref().ok_or_else(|| {
             LuceneError::illegal_state("maxTerm is missing while minTerm is present")
           })?;
-          if &term > max_term {
+          if term > max_term {
             return Err(LuceneError::corrupt_index(format!(
               "field=\"{field}\": invalid term: term={term}, maxTerm={max_term}"
             )));
@@ -2132,6 +2135,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                   let payload = postings.get_payload()?;
                   if let Some(payload) = payload.as_ref() {
                     debug_assert!(payload.is_valid()?);
+                    let payload = payload.as_bytes_ref();
                     if payload.length < 1 {
                       return Err(LuceneError::corrupt_index(format!(
                         "term {term}: doc {doc}: pos {pos} payload length is out of bounds {}",
@@ -2608,8 +2612,8 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
               last_term.get_bytes_ref()
             )));
           }
-          let current_term = terms_enum.term()?.into_owned();
-          if &current_term != last_term.get_bytes_ref() {
+          let current_term = terms_enum.term()?;
+          if current_term.as_ref() != last_term.get_bytes_ref() {
             return Err(LuceneError::corrupt_index(format!(
               "seek to last term {} returned FOUND but seeked to the wrong term {current_term}",
               last_term.get_bytes_ref()
@@ -2669,8 +2673,8 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                   seek_terms[i]
                 )));
               }
-              let current_term = terms_enum.term()?.into_owned();
-              if current_term != seek_terms[i] {
+              let current_term = terms_enum.term()?;
+              if current_term.as_ref() != &seek_terms[i] {
                 return Err(LuceneError::corrupt_index(format!(
                   "seek to existing term {} returned FOUND but seeked to the wrong term {current_term}",
                   seek_terms[i]
@@ -2761,35 +2765,48 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
   {
     let mut all_terms = terms.iterator()?;
     let automaton =
-      Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
+      match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {
+        Cow::Borrowed(_) => automaton,
+        Cow::Owned(determinized) => determinized,
+      };
     let compiled_automaton = CompiledAutomaton::with_binary(automaton.clone(), false, true, true)?;
     let mut run_automaton = ByteRunAutomaton::with_bool(automaton, true)?;
     let mut filtered_terms = terms.intersect(&compiled_automaton, start_term)?;
-    let mut term = if let Some(start_term) = start_term {
+    let mut use_current_term = false;
+    let mut exhausted = false;
+    if let Some(start_term) = start_term {
       match all_terms.seek_ceil(start_term)? {
-        SeekStatus::Found => all_terms.next()?.map(Cow::into_owned),
-        SeekStatus::NotFound => Some(all_terms.term()?.into_owned()),
-        SeekStatus::End => None,
+        SeekStatus::Found => {},
+        SeekStatus::NotFound => use_current_term = true,
+        SeekStatus::End => exhausted = true,
       }
-    } else {
-      all_terms.next()?.map(Cow::into_owned)
-    };
-    while let Some(current_term) = term {
-      if run_automaton.run(
-        &current_term.bytes,
-        current_term.offset,
-        current_term.length,
-      )? {
-        let filtered_term = filtered_terms.next()?.map(Cow::into_owned);
-        if filtered_term.as_ref() != Some(&current_term) {
-          return Err(LuceneError::corrupt_index(format!(
-            "Expected next filtered term: {current_term}, but got {filtered_term:?}"
-          )));
+    }
+    if !exhausted {
+      loop {
+        let current_term = if use_current_term {
+          use_current_term = false;
+          Some(all_terms.term()?)
+        } else {
+          all_terms.next()?
+        };
+        let Some(current_term) = current_term else {
+          break;
+        };
+        if run_automaton.run(
+          &current_term.bytes,
+          current_term.offset,
+          current_term.length,
+        )? {
+          let filtered_term = filtered_terms.next()?;
+          if filtered_term.as_deref() != Some(current_term.as_ref()) {
+            return Err(LuceneError::corrupt_index(format!(
+              "Expected next filtered term: {current_term}, but got {filtered_term:?}"
+            )));
+          }
         }
       }
-      term = all_terms.next()?.map(Cow::into_owned);
     }
-    let filtered_term = filtered_terms.next()?.map(Cow::into_owned);
+    let filtered_term = filtered_terms.next()?;
     if filtered_term.is_some() {
       return Err(LuceneError::corrupt_index(format!(
         "Expected exhausted TermsEnum, but got {filtered_term:?}"
@@ -3324,15 +3341,15 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 /// cell's boundaries.
 ///
 /// This is an internal API.
-pub struct VerifyPointsVisitor {
+pub struct VerifyPointsVisitor<'a> {
   point_count_seen: i64,
   last_doc_id: i32,
   docs_seen: FixedBitSet,
   last_min_packed_value: RefCell<Vec<u8>>,
   last_max_packed_value: RefCell<Vec<u8>>,
   last_packed_value: Vec<u8>,
-  global_min_packed_value: Option<Vec<u8>>,
-  global_max_packed_value: Option<Vec<u8>>,
+  global_min_packed_value: Option<Cow<'a, [u8]>>,
+  global_max_packed_value: Option<Cow<'a, [u8]>>,
   packed_bytes_count: usize,
   packed_index_bytes_count: usize,
   num_data_dims: usize,
@@ -3342,9 +3359,9 @@ pub struct VerifyPointsVisitor {
   field_name: String,
 }
 
-impl VerifyPointsVisitor {
+impl<'a> VerifyPointsVisitor<'a> {
   /// Sole constructor
-  pub fn new<P, FName>(field_name: FName, max_doc: i32, values: &P) -> Result<Self>
+  pub fn new<P, FName>(field_name: FName, max_doc: i32, values: &'a P) -> Result<Self>
   where
     P: PointValues,
     FName: Into<String>,
@@ -3356,12 +3373,8 @@ impl VerifyPointsVisitor {
     let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
     let packed_bytes_count = num_data_dims * bytes_per_dim;
     let packed_index_bytes_count = num_index_dims * bytes_per_dim;
-    let global_min_packed_value = values
-      .get_min_packed_value()?
-      .map(|packed_value| packed_value.into_owned());
-    let global_max_packed_value = values
-      .get_max_packed_value()?
-      .map(|packed_value| packed_value.into_owned());
+    let global_min_packed_value = values.get_min_packed_value()?;
+    let global_max_packed_value = values.get_max_packed_value()?;
     let docs_seen = FixedBitSet::new(max_doc.try_convert()?);
     let last_min_packed_value = RefCell::new(vec![0; packed_index_bytes_count]);
     let last_max_packed_value = RefCell::new(vec![0; packed_index_bytes_count]);
@@ -3388,10 +3401,11 @@ impl VerifyPointsVisitor {
           "getMinPackedValue is null points for field \"{field_name}\" yet size={size}"
         )));
       }
-    } else if global_min_packed_value.as_ref().map(Vec::len) != Some(packed_index_bytes_count) {
+    } else if global_min_packed_value.as_deref().map(<[u8]>::len) != Some(packed_index_bytes_count)
+    {
       return Err(LuceneError::corrupt_index(format!(
         "getMinPackedValue for field \"{field_name}\" return length={} array, but should be {packed_bytes_count}",
-        global_min_packed_value.as_ref().map_or(0, Vec::len)
+        global_min_packed_value.as_deref().map_or(0, <[u8]>::len)
       )));
     }
     if global_max_packed_value.is_none() {
@@ -3400,10 +3414,11 @@ impl VerifyPointsVisitor {
           "getMaxPackedValue is null points for field \"{field_name}\" yet size={size}"
         )));
       }
-    } else if global_max_packed_value.as_ref().map(Vec::len) != Some(packed_index_bytes_count) {
+    } else if global_max_packed_value.as_deref().map(<[u8]>::len) != Some(packed_index_bytes_count)
+    {
       return Err(LuceneError::corrupt_index(format!(
         "getMaxPackedValue for field \"{field_name}\" return length={} array, but should be {packed_bytes_count}",
-        global_max_packed_value.as_ref().map_or(0, Vec::len)
+        global_max_packed_value.as_deref().map_or(0, <[u8]>::len)
       )));
     }
 
@@ -3437,7 +3452,7 @@ impl VerifyPointsVisitor {
   }
 }
 
-impl IntersectVisitor for VerifyPointsVisitor {
+impl IntersectVisitor for VerifyPointsVisitor<'_> {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
     Err(LuceneError::corrupt_index(format!(
       "codec called IntersectVisitor.visit without a packed value for docID={doc_id}"
@@ -3611,7 +3626,7 @@ impl IntersectVisitor for VerifyPointsVisitor {
   }
 }
 
-impl VerifyPointsVisitor {
+impl<'a> VerifyPointsVisitor<'a> {
   fn check_packed_value(&self, desc: &str, packed_value: &[u8], doc_id: i32) -> Result<()> {
     let expected_length = if doc_id < 0 {
       self.packed_index_bytes_count
@@ -4010,7 +4025,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if doc == NO_MORE_DOCS {
         break;
       }
-      let value = binary_doc_values.binary_value()?.into_owned();
+      let value = binary_doc_values.binary_value()?;
       value.is_valid()?;
 
       if !binary_doc_values_2.advance_exact(doc)? {
@@ -4019,7 +4034,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         )));
       }
       let value_2 = binary_doc_values_2.binary_value()?;
-      if value != *value_2 {
+      if *value != *value_2 {
         return Err(LuceneError::corrupt_index(format!(
           "nextDoc and advanceExact report different values: {value} != {value_2}"
         )));
@@ -4635,7 +4650,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                           LuceneError::illegal_state("term-vector postings are missing")
                         })?
                         .get_payload()?
-                        .map(Cow::into_owned);
+                        .map(BytesRefValue::into_owned);
 
                       if payload.is_some() {
                         debug_assert!(vectors_has_payload);
@@ -4646,7 +4661,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                           .as_ref()
                           .ok_or_else(|| LuceneError::illegal_state("postings docs are missing"))?
                           .get_payload()?
-                          .map(Cow::into_owned);
+                          .map(BytesRefValue::into_owned);
                         match (payload, postings_payload) {
                           (None, Some(postings_payload)) => {
                             return Err(LuceneError::corrupt_index(format!(

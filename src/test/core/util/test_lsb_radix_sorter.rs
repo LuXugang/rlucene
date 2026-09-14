@@ -71,7 +71,7 @@ where
     num_bits = TestUtil::next_int(random, num_bits, 32);
   }
   sorter.sort(num_bits as usize, arr, len)?;
-  let actual = arr[..len].to_vec();
+  let actual = &arr[..len];
   assert_eq!(expected, actual);
   Ok(())
 }

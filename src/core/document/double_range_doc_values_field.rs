@@ -189,7 +189,12 @@ impl IndexableField for DoubleRangeDocValuesField {
     self.base.numeric_value()
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     self.base.stored_value()
   }
 

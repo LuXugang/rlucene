@@ -51,11 +51,11 @@ fn test_encode_decode() -> Result<()> {
         continue;
       }
     }
-    let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
+    let mut restored = [0i32; ForUtil::BLOCK_SIZE];
     pfor_util.decode(&mut pdu, &mut restored)?;
 
     let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
-    assert_eq!(restored, expected, "Mismatch at iteration {}", i);
+    assert_eq!(restored.as_slice(), expected, "Mismatch at iteration {}", i);
   }
 
   assert_eq!(end_pointer, pdu.input.get_file_pointer()?);

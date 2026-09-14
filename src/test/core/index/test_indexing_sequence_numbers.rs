@@ -189,14 +189,14 @@ fn test_stress_concurrent_commit() -> Result<()> {
   let num_threads = TestUtil::next_usize(&mut random, 2, 10);
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
   let thread_ops = (0..num_threads)
-    .map(|_| Arc::new(Mutex::new(Vec::new())))
+    .map(|_| Mutex::new(Vec::new()))
     .collect::<Vec<_>>();
   let commit_lock = Arc::new(Mutex::new(()));
   let commits = Arc::new(Mutex::new(Vec::new()));
 
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
-    for (thread_id, ops) in thread_ops.iter().cloned().enumerate() {
+    for (thread_id, ops) in thread_ops.iter().enumerate() {
       let seed = random.random();
       let w = w.clone();
       let starting_gun = starting_gun.clone();
@@ -322,7 +322,7 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   let num_threads = TestUtil::next_usize(&mut random, 2, 10);
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
   let thread_ops = (0..num_threads)
-    .map(|_| Arc::new(Mutex::new(Vec::new())))
+    .map(|_| Mutex::new(Vec::new()))
     .collect::<Vec<_>>();
   let commit_lock = Arc::new(Mutex::new(()));
   let commits = Arc::new(Mutex::new(Vec::new()));
@@ -342,7 +342,7 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
 
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
-    for (thread_id, ops) in thread_ops.iter().cloned().enumerate() {
+    for (thread_id, ops) in thread_ops.iter().enumerate() {
       let seed = random.random();
       let w = w.clone();
       let starting_gun = starting_gun.clone();
@@ -453,14 +453,14 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   let num_threads = TestUtil::next_usize(&mut random, 2, 5);
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
   let thread_ops = (0..num_threads)
-    .map(|_| Arc::new(Mutex::new(Vec::new())))
+    .map(|_| Mutex::new(Vec::new()))
     .collect::<Vec<_>>();
   let commit_lock = Arc::new(Mutex::new(()));
   let commits = Arc::new(Mutex::new(Vec::new()));
 
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
-    for (thread_id, ops) in thread_ops.iter().cloned().enumerate() {
+    for (thread_id, ops) in thread_ops.iter().enumerate() {
       let seed = random.random();
       let w = w.clone();
       let starting_gun = starting_gun.clone();

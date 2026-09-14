@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
-use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValueEnum;
 use crate::core::index::doc_values::{DocValues, Sorted, SortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_options::IndexOptions;
@@ -26,6 +26,7 @@ use crate::core::index::postings_enum::NONE;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::field_comparator::FieldComparator;
@@ -546,11 +547,14 @@ where
       debug_assert!(ord >= 0);
 
       let value = self.terms_index.lookup_ord(ord)?;
-      match (value, comparator.values[slot].as_mut()) {
-        (Cow::Borrowed(value), Some(buffer)) => {
-          buffer.copy_from_slice(&value.bytes[value.offset..value.offset + value.length]);
+      match (&value, comparator.values[slot].as_mut()) {
+        (
+          BytesRefValueEnum::Buffer(Cow::Borrowed(_)) | BytesRefValueEnum::Slice(_),
+          Some(buffer),
+        ) => {
+          buffer.copy_from_slice(value.as_bytes());
         },
-        (value, _) => comparator.values[slot] = Some(value.into_owned()),
+        (_, _) => comparator.values[slot] = Some(value.into_owned()),
       }
     }
 
@@ -698,7 +702,7 @@ where
     debug_assert!(self.disjunction.is_none());
     let mut disjunction = PriorityQueue::new(size, PostingsEnumAndOrdCmp)?;
     if size > 0 {
-      let min_term = doc_values.lookup_ord(min_ord)?;
+      let min_term = doc_values.lookup_ord(min_ord)?.into_value().into_cow();
       if !self.terms.seek_exact(&min_term)? {
         return Err(LuceneError::illegal_state(format!(
           "Term {} exists in doc values but not in the terms index",
@@ -1070,6 +1074,11 @@ impl<LR> SortedDocValues for TermOrdValDocValues<LR>
 where
   LR: LeafReader,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     match self {
       Self::A(values) => values.ord_value(),
@@ -1077,10 +1086,10 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::A(values) => values.lookup_ord(ord),
-      Self::B(values) => values.lookup_ord(ord),
+      Self::A(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::B(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
     }
   }
 

@@ -149,7 +149,7 @@ where
 #[test]
 fn test_sort_without_fill_fields() -> Result<()> {
   let is = setup()?;
-  let sorts = vec![
+  let sorts = [
     Sort::with_fields(vec![SortField::get_field_doc()?])?,
     Sort::new()?,
   ];
@@ -571,7 +571,7 @@ fn test_compute_scores_only_once() -> Result<()> {
   builder.add(baz, Occur::Should)?;
   let query = builder.build();
 
-  let sorts = vec![
+  let sorts = [
     Sort::with_fields(vec![SortField::get_field_score()?])?,
     Sort::with_fields(vec![SortField::new(Some("f"), SortFieldType::Score)?])?,
   ];

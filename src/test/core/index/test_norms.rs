@@ -102,8 +102,9 @@ pub fn build_index(dir: Arc<DirEnum>, random: &mut StdRng) -> Result<()> {
   for _ in 0..num {
     let mut doc = Document::new();
     let boost = TestUtil::next_int(random, 1, 255);
+    let boost_text = boost.to_string();
     let value = (0..boost)
-      .map(|_| boost.to_string())
+      .map(|_| boost_text.as_str())
       .collect::<Vec<_>>()
       .join(" ");
 

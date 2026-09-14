@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::BytesRef;
 use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader::Identity;
@@ -44,6 +46,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -171,15 +174,19 @@ impl PhraseQuery {
     &self.positions
   }
 
-  fn new(slop: usize, terms: Vec<Term>, positions: Vec<usize>) -> Result<Self> {
-    if terms.len() != positions.len() {
+  fn new<T>(slop: usize, terms: T, positions: Vec<usize>) -> Result<Self>
+  where
+    T: Borrow<Vec<Term>> + Into<Arc<Vec<Term>>>,
+  {
+    let terms_ref = terms.borrow();
+    if terms_ref.len() != positions.len() {
       return Err(LuceneError::illegal_argument(
         "Must have as many terms as positions".to_string(),
       ));
     }
-    if terms.len() > 1 {
-      let field = terms[0].field();
-      for term in &terms[1..] {
+    if terms_ref.len() > 1 {
+      let field = terms_ref[0].field();
+      for term in &terms_ref[1..] {
         if term.field() != field {
           return Err(LuceneError::illegal_argument(
             "All terms should have the same field".to_string(),
@@ -198,12 +205,12 @@ impl PhraseQuery {
       }
     }
 
-    let field = terms.first().map(|t| t.field().to_string());
+    let field = terms_ref.first().map(|t| t.field().to_string());
 
     Ok(Self {
       id: Identity::new(),
       slop,
-      terms: Arc::new(terms),
+      terms: terms.into(),
       positions: Arc::new(positions),
       field,
     })
@@ -257,7 +264,7 @@ impl QueryBase for PhraseQuery {
       let text = term.text().unwrap_or_else(|_| "None".to_string());
       match &mut pieces[pos] {
         None => {
-          pieces[pos] = Some(text.to_string());
+          pieces[pos] = Some(text);
         },
         Some(existing) => {
           existing.push('|');
@@ -280,7 +287,7 @@ impl QueryBase for PhraseQuery {
 
     if self.slop != 0 {
       buffer.push('~');
-      buffer.push_str(&self.slop.to_string());
+      write!(buffer, "{}", self.slop)?;
     }
 
     Ok(buffer)
@@ -327,7 +334,7 @@ impl QueryBase for PhraseQuery {
           new_positions.push(p - first_pos);
         }
         Ok(Some(
-          PhraseQuery::new(self.slop, (*self.terms).clone(), new_positions)?.into(),
+          PhraseQuery::new(self.slop, self.terms.clone(), new_positions)?.into(),
         ))
       } else {
         Ok(None)
@@ -501,7 +508,7 @@ where
   Ok(TERM_POSNS_SEEK_OPS_PER_DOC as f32 + exp_occurrences_in_matching_doc * TERM_OPS_PER_POS as f32)
 }
 pub struct PhraseQueryWeightBase {
-  query: Arc<PhraseQuery>,
+  query: PhraseQuery,
   states: Vec<TermStates>,
   boost: f32,
   base: PhraseWeightMeta,
@@ -509,7 +516,7 @@ pub struct PhraseQueryWeightBase {
 impl PhraseQueryWeightBase {
   pub(crate) fn new(query: PhraseQuery, boost: f32, base: PhraseWeightMeta) -> Self {
     Self {
-      query: Arc::new(query),
+      query,
       states: Vec::new(),
       boost,
       base,
@@ -554,8 +561,7 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
       let ts = build(searcher, term.clone(), self.base.score_mode.needs_scores())?;
 
       if self.base.score_mode.needs_scores() && ts.doc_freq()? > 0 {
-        let stats =
-          searcher.term_statistics(term.clone(), ts.doc_freq()?, ts.total_term_freq()?)?;
+        let stats = searcher.term_statistics(term, ts.doc_freq()?, ts.total_term_freq()?)?;
         term_stats.push(stats);
         term_up_to += 1;
       }

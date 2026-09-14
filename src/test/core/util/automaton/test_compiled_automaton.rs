@@ -22,6 +22,8 @@ use std::collections::HashSet;
 use rand::Rng;
 use rand::RngExt;
 
+use std::borrow::Cow;
+
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
@@ -90,15 +92,15 @@ where
     }
 
     let key = BytesRef::from_string(&s);
-    let mut expected: Option<String> = None;
+    let mut expected: Option<Cow<'_, str>> = None;
 
     match term_bytes.binary_search(&key) {
       Ok(_) => {
-        expected = Some(s.clone());
+        expected = Some(Cow::Borrowed(&s));
       },
       Err(insert_pos) => {
         if insert_pos > 0 {
-          expected = Some(term_bytes[insert_pos - 1].utf8_to_string()?);
+          expected = Some(Cow::Owned(term_bytes[insert_pos - 1].utf8_to_string()?));
         }
       },
     }

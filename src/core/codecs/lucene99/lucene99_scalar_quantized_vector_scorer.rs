@@ -62,14 +62,14 @@ where
     ScalarQuantizedRandomVectorScorerSupplier::new(vector_values, similarity_function)
   }
 
-  pub(crate) fn get_random_vector_scorer_f32<V, TV>(
+  pub(crate) fn get_random_vector_scorer_f32<'a, V, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: V,
     target: TV,
   ) -> Result<ScalarQuantizedRandomVectorScorerEnum<V>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<Cow<'a, [f32]>>,
     V: QuantizedByteVectorValues,
   {
     let target = target.into();
@@ -250,13 +250,13 @@ where
 }
 
 fn quantize_query(
-  mut query: Vec<f32>,
+  mut query: Cow<'_, [f32]>,
   quantized_query: &mut [u8],
   similarity_function: VectorSimilarityFunction,
   scalar_quantizer: &ScalarQuantizer,
 ) -> Result<f32> {
   if similarity_function == VectorSimilarityFunction::Cosine {
-    VectorUtil::l2normalize(&mut query)?;
+    VectorUtil::l2normalize(query.to_mut())?;
   }
   Ok(scalar_quantizer.quantize(&query, quantized_query, similarity_function))
 }

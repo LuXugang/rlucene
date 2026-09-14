@@ -191,7 +191,7 @@ fn test_large_array_add() -> Result<()> {
   let len = bytes.len() - offset;
   o.write_bytes_range(&bytes, offset, len)?;
   assert_eq!(len, o.size());
-  let expected = bytes[offset..offset + len].to_vec();
+  let expected = &bytes[offset..offset + len];
   assert_eq!(expected, o.get_array_copy());
   match random.random_bool(0.5) {
     true => {
@@ -218,7 +218,7 @@ fn test_copy_bytes_on_heap() -> Result<()> {
     false,
   )?;
   o.copy_bytes(&mut input, len)?;
-  let expected = bytes[offset..offset + len].to_vec();
+  let expected = &bytes[offset..offset + len];
   match random.random_bool(0.5) {
     true => {
       assert_eq!(o.get_array_copy(), expected);
@@ -243,7 +243,7 @@ fn test_copy_bytes_on_direct_byte_buffer() -> Result<()> {
     false,
   )?;
   o.copy_bytes(&mut input, len)?;
-  let expected = bytes[offset..offset + len].to_vec();
+  let expected = &bytes[offset..offset + len];
   match random.random_bool(0.5) {
     true => {
       assert_eq!(o.get_array_copy(), expected);

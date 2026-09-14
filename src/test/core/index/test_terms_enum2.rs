@@ -132,7 +132,7 @@ where
     doc.add(field.clone());
     writer.add_document(random, doc)?;
   }
-  let v: Vec<BytesRef<Vec<u8>>> = terms.iter().cloned().collect();
+  let v: Vec<&BytesRef<Vec<u8>>> = terms.iter().collect();
   let terms_automaton = Automata::make_string_union(v.as_slice())?;
 
   writer.close(random)?;
@@ -257,7 +257,10 @@ fn test_intersect() -> Result<()> {
     let reg = AutomatonTestUtil::random_regexp(&mut random)?;
     let automaton = RegExp::from_str_with_flags(&reg, RegExp::NONE)?.to_automaton()?;
     let automaton =
-      Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
+      match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {
+        Cow::Borrowed(_) => automaton,
+        Cow::Owned(determinized) => determinized,
+      };
 
     let ca = CompiledAutomaton::new(automaton.clone(), false, false)?;
 
@@ -272,7 +275,7 @@ fn test_intersect() -> Result<()> {
       found.insert(BytesRef::deep_copy_of(&term)?);
     }
 
-    let v: Vec<BytesRef<Vec<u8>>> = found.iter().cloned().collect();
+    let v: Vec<BytesRef<Vec<u8>>> = found.into_iter().collect();
     let actual = Operations::determinize(
       &Automata::make_string_union(v.as_slice())?,
       Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,

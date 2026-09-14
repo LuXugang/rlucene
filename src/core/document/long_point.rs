@@ -134,12 +134,14 @@ impl LongPoint {
   ///
   /// * `field` - Field name.
   /// * `values` - All values to match.
+  ///
+  /// Owned vectors are sorted in place; borrowed slices are copied before sorting.
   pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
   where
     T: Into<String>,
-    V: AsRef<[i64]>,
+    V: Into<Vec<i64>>,
   {
-    let mut sorted_values = values.as_ref().to_vec();
+    let mut sorted_values = values.into();
     sorted_values.sort();
 
     PointInSetQuery::new(
@@ -289,7 +291,12 @@ impl IndexableField for LongPoint {
     }
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     self.parent_field.stored_value()
   }
 

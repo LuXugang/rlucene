@@ -20,6 +20,7 @@ use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, TryIntoInt};
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -125,14 +126,17 @@ impl<D> SegmentCommitInfo<D> {
 
   /// Sets the DocValues updates file names, per field number. Does not deeply
   /// clone the map.
-  pub fn set_doc_values_updates_files(&mut self, dv_updates_files: HashMap<i32, HashSet<String>>) {
+  pub fn set_doc_values_updates_files<T>(&mut self, dv_updates_files: T)
+  where
+    T: Borrow<HashMap<i32, HashSet<String>>>,
+  {
     self.dv_updates_files.clear();
-    for (key, file_set) in dv_updates_files {
+    for (key, file_set) in dv_updates_files.borrow() {
       let mut renamed_set = HashSet::with_capacity(file_set.len());
       for file in file_set {
         renamed_set.insert(named_for_this_segment(&self.info.name, file));
       }
-      self.dv_updates_files.insert(key, renamed_set);
+      self.dv_updates_files.insert(*key, renamed_set);
     }
   }
   /// Returns a reference to the FieldInfos file names.
@@ -143,7 +147,11 @@ impl<D> SegmentCommitInfo<D> {
 
   /// Sets the FieldInfos file names.
   /// Sets the [`FieldInfos`](crate::core::index::field_infos::FieldInfos) file names.
-  pub fn set_field_infos_files(&mut self, field_infos_files: HashSet<String>) {
+  pub fn set_field_infos_files<I, S>(&mut self, field_infos_files: I)
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
     self.field_infos_files.clear();
     for file in field_infos_files {
       self

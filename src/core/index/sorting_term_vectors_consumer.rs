@@ -20,6 +20,7 @@ use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::codecs::term_vectors_writer::{DefaultTermVectorsWriter, TermVectorsWriter};
 use crate::core::codecs::{Codec, Codecs};
+use crate::core::index::bytes_ref::BytesRefValue;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
@@ -45,7 +46,6 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::core::util::{IOUtils, ToInt};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 pub(crate) struct SortingTermVectorsConsumer<D>
@@ -108,7 +108,7 @@ where
       }
     }
     writer.start_document(num_fields)?;
-    let mut last_field_name: Option<String> = None;
+    let mut last_field_name: Option<&String> = None;
     let mut docs_and_positions = None;
     let mut field_count = 0;
     let mut terms_enum;
@@ -127,10 +127,8 @@ where
           };
 
           debug_assert!({
-            let v = last_field_name
-              .as_ref()
-              .is_none_or(|last| field_name.cmp(last).to_int() > 0);
-            last_field_name = Some(field_name.clone());
+            let v = last_field_name.is_none_or(|last| field_name.cmp(last).to_int() > 0);
+            last_field_name = Some(field_name);
             v
           });
 
@@ -167,7 +165,7 @@ where
             term_count += 1;
 
             let freq = terms_enum.total_term_freq()? as i32;
-            writer.start_term(&*terms_enum.term()?, freq)?;
+            writer.start_term(&terms_enum.term()?.as_bytes_ref(), freq)?;
 
             if has_positions || has_offsets {
               docs_and_positions = Some(
@@ -184,13 +182,9 @@ where
                     let start_offset = dap.start_offset()?;
                     let end_offset = dap.end_offset()?;
                     let payload = dap.get_payload()?;
+                    let payload = payload.as_ref().map(BytesRefValue::as_bytes_ref);
                     debug_assert!(!has_positions || pos >= 0);
-                    writer.add_position(
-                      pos,
-                      start_offset,
-                      end_offset,
-                      payload.as_ref().map(Cow::as_ref),
-                    )?;
+                    writer.add_position(pos, start_offset, end_offset, payload.as_ref())?;
                   }
                 },
                 None => {

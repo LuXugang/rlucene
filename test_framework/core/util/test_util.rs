@@ -16,6 +16,7 @@
  */
 use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::util::CoreHelper;
+use std::borrow::Cow;
 
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -764,8 +765,8 @@ impl TestUtil {
 
     for ch in s.chars() {
       match random.random_range(0..=2) {
-        0 => result.push_str(&ch.to_uppercase().to_string()),
-        1 => result.push_str(&ch.to_lowercase().to_string()),
+        0 => result.extend(ch.to_uppercase()),
+        1 => result.extend(ch.to_lowercase()),
         _ => result.push(ch), // leave intact
       }
     }
@@ -1051,7 +1052,12 @@ impl TestUtil {
 
     // truncate to exact length (UTF-16 safe, remove trailing high surrogate if
     // needed)
-    let mut s: String = sb.chars().take(word_len).collect();
+    let end = sb
+      .char_indices()
+      .nth(word_len)
+      .map_or(sb.len(), |(offset, _)| offset);
+    sb.truncate(end);
+    let mut s = sb;
     if s
       .encode_utf16()
       .last()
@@ -1118,18 +1124,18 @@ impl TestUtil {
     terms_enum.postings_with_flags(reuse, flags)
   }
 }
-static OPS: LazyLock<Vec<String>> = LazyLock::new(|| {
-  vec![
-    ".".to_string(),
-    "?".to_string(),
-    format!("{{0,{}}}", TestUtil::MAX_RECURSION_BOUND), // replaces '*'
-    format!("{{1,{}}}", TestUtil::MAX_RECURSION_BOUND), // replaces '+'
-    "(".to_string(),
-    ")".to_string(),
-    "-".to_string(),
-    "[".to_string(),
-    "]".to_string(),
-    "|".to_string(),
+static OPS: LazyLock<[Cow<'static, str>; 10]> = LazyLock::new(|| {
+  [
+    Cow::Borrowed("."),
+    Cow::Borrowed("?"),
+    Cow::Owned(format!("{{0,{}}}", TestUtil::MAX_RECURSION_BOUND)), // replaces '*'
+    Cow::Owned(format!("{{1,{}}}", TestUtil::MAX_RECURSION_BOUND)), // replaces '+'
+    Cow::Borrowed("("),
+    Cow::Borrowed(")"),
+    Cow::Borrowed("-"),
+    Cow::Borrowed("["),
+    Cow::Borrowed("]"),
+    Cow::Borrowed("|"),
   ]
 });
 static HTML_CHAR_ENTITIES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {

@@ -17,7 +17,7 @@
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{
-  BytesRefComparator, Comparator, MSBRadixSorter, MSBRadixSorterBase, MergeSorter, Sorter,
+  BytesRefComparator, MSBRadixSorter, MSBRadixSorterBase, MergeSorter, Sorter,
   StableMSBRadixSorter, StableMSBRadixSorterBase, StringSorterBase,
 };
 
@@ -36,10 +36,12 @@ impl<T> StringSorterBase for StableStringSorter<T>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
 {
+  type Bytes = T::Bytes;
+
   fn get(
     &mut self,
     builder: &mut BytesRefBuilder<Vec<u8>>,
-    result: &mut BytesRef<Vec<u8>>,
+    result: &mut BytesRef<T::Bytes>,
     i: usize,
   ) -> Result<()> {
     self.delegate.get(builder, result, i)
@@ -47,14 +49,14 @@ where
 
   fn fall_back_sorter<'a, C1>(&'a mut self, cmp: &'a mut C1, k: Option<usize>) -> impl Sorter + 'a
   where
-    C1: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+    C1: BytesRefComparator<T::Bytes>,
   {
     fall_back_sorter_stable(cmp, &mut self.delegate, k)
   }
 
   fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
   where
-    C: BytesRefComparator,
+    C: BytesRefComparator<T::Bytes>,
   {
     let length = cmp.compared_bytes_count();
     let delegate = StableMSBRadixSorterImpl {
@@ -67,16 +69,16 @@ where
     MSBRadixSorter::new(length, stable_msb_radix_sorter)
   }
 }
-pub struct StableMSBRadixSorterImpl<'a, T, C> {
+pub struct StableMSBRadixSorterImpl<'a, T: StringSorterBase, C> {
   delegate: &'a mut T,
   cmp: &'a mut C,
   scratch1: BytesRefBuilder<Vec<u8>>,
-  scratch_bytes1: BytesRef<Vec<u8>>,
+  scratch_bytes1: BytesRef<T::Bytes>,
 }
 impl<T, C> Sorter for StableMSBRadixSorterImpl<'_, T, C>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     self.delegate.swap(i, j)
@@ -86,7 +88,7 @@ where
 impl<T, C> MSBRadixSorterBase for StableMSBRadixSorterImpl<'_, T, C>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     self
@@ -99,7 +101,7 @@ where
 impl<T, C> StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_, T, C>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn save(&mut self, i: usize, j: usize) {
     self.delegate.save(i, j)
@@ -114,11 +116,11 @@ where
   }
 }
 
-pub struct MergeSorterStableImpl<'a, T, C> {
+pub struct MergeSorterStableImpl<'a, T: StringSorterBase, C> {
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch2: BytesRefBuilder<Vec<u8>>,
-  scratch_bytes1: BytesRef<Vec<u8>>,
-  scratch_bytes2: BytesRef<Vec<u8>>,
+  scratch_bytes1: BytesRef<T::Bytes>,
+  scratch_bytes2: BytesRef<T::Bytes>,
   cmp: &'a mut C,
   delegate: &'a mut T,
   k: Option<usize>,
@@ -126,7 +128,7 @@ pub struct MergeSorterStableImpl<'a, T, C> {
 impl<T, C> Sorter for MergeSorterStableImpl<'_, T, C>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
     self
@@ -150,13 +152,15 @@ where
 
 impl<T, C> StringSorterBase for MergeSorterStableImpl<'_, T, C>
 where
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
   T: StableStringSorterBase + MSBRadixSorterBase,
 {
+  type Bytes = T::Bytes;
+
   fn get(
     &mut self,
     builder: &mut BytesRefBuilder<Vec<u8>>,
-    result: &mut BytesRef<Vec<u8>>,
+    result: &mut BytesRef<T::Bytes>,
     i: usize,
   ) -> Result<()> {
     self.delegate.get(builder, result, i)
@@ -166,7 +170,7 @@ where
 impl<T, C> StableStringSorterBase for MergeSorterStableImpl<'_, T, C>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn save(&mut self, i: usize, j: usize) {
     self.delegate.save(i, j)
@@ -179,7 +183,7 @@ where
 
 impl<T, C> MSBRadixSorterBase for MergeSorterStableImpl<'_, T, C>
 where
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
   T: StableStringSorterBase + MSBRadixSorterBase,
 {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
@@ -194,7 +198,7 @@ where
 impl<T, C> StableMSBRadixSorterBase for MergeSorterStableImpl<'_, T, C>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn save(&mut self, i: usize, j: usize) {
     self.delegate.save(i, j)
@@ -220,7 +224,7 @@ fn fall_back_sorter_stable<'a, T, C>(
 ) -> impl Sorter + use<'a, T, C>
 where
   T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   let delegate = MergeSorterStableImpl {
     scratch1: BytesRefBuilder::new(),

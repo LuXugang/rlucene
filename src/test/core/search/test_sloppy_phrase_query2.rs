@@ -215,8 +215,10 @@ fn test_repetitive_increasing_sloppiness3_with_holes() -> Result<()> {
     let q1 = builder.clone().build()?;
     builder.set_slop(i + 1);
     let q2 = builder.build()?;
-    case.assert_subset_of(&mut random, &q1.clone().into(), &q2.clone().into())?;
-    case.assert_subset_of(&mut random, &q1.into(), &q2.into())?;
+    let q1 = q1.into();
+    let q2 = q2.into();
+    case.assert_subset_of(&mut random, &q1, &q2)?;
+    case.assert_subset_of(&mut random, &q1, &q2)?;
   }
   Ok(())
 }

@@ -777,7 +777,7 @@ where
   fn add_position(
     &mut self,
     position: i32,
-    payload: Option<Cow<'_, BytesRef<Vec<u8>>>>,
+    payload: Option<&BytesRef<&[u8]>>,
     start_offset: i32,
     end_offset: i32,
     options: &FieldWriteOptions,

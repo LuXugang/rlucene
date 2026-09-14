@@ -82,7 +82,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
     codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, io_context)?;
@@ -117,7 +117,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
     codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, io_context)?;
@@ -153,8 +153,8 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    let original_files: HashSet<String> = ["_123.a".to_string()].iter().cloned().collect();
-    info.set_files(original_files.clone())?;
+    let original_files: HashSet<String> = ["_123.a".to_string()].into_iter().collect();
+    info.set_files(&original_files)?;
     codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, io_context)?;
@@ -206,7 +206,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
     codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, io_context)?;
@@ -252,7 +252,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       attributes.clone(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
     codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, io_context)?;
@@ -298,7 +298,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
     codec
       .segment_info_format()
       .write(dir.as_ref(), &mut info, io_context)?;
@@ -336,7 +336,7 @@ pub trait BaseSegmentInfoFormatTestCase:
           HashMap::new(),
           None,
         )?;
-        info.set_files(HashSet::new())?;
+        info.set_files(HashSet::<String>::new())?;
         codec
           .segment_info_format()
           .write(dir.as_ref(), &mut info, io_context)?;
@@ -524,7 +524,7 @@ pub trait BaseSegmentInfoFormatTestCase:
         HashMap::new(),
         sort,
       )?;
-      info.set_files(HashSet::new())?;
+      info.set_files(HashSet::<String>::new())?;
       codec
         .segment_info_format()
         .write(dir.as_ref(), &mut info, io_context)?;
@@ -566,7 +566,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
 
     enabled.store(true, Ordering::SeqCst);
     match codec.segment_info_format().write(
@@ -615,7 +615,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
 
     enabled.store(true, Ordering::SeqCst);
     match codec.segment_info_format().write(
@@ -664,7 +664,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
     codec.segment_info_format().write(
       dir.as_ref(),
       &mut info,
@@ -719,7 +719,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       HashMap::new(),
       None,
     )?;
-    info.set_files(HashSet::new())?;
+    info.set_files(HashSet::<String>::new())?;
     codec.segment_info_format().write(
       dir.as_ref(),
       &mut info,
@@ -812,7 +812,7 @@ pub trait BaseSegmentInfoFormatTestCase:
         attributes,
         None,
       )?;
-      info.set_files(files.clone())?;
+      info.set_files(&files)?;
       codec
         .segment_info_format()
         .write(dir.as_ref(), &mut info, io_context)?;

@@ -576,12 +576,14 @@ where
                   // Add single document.
                   let document_id = document
                     .get("docid")?
-                    .expect("LineFileDocs document must have docid")
-                    .into_owned();
-                  self.add_document(Term::from_text("docid", &document_id), document.clone())?;
+                    .expect("LineFileDocs document must have docid");
+                  self.add_document(
+                    Term::from_text("docid", document_id.as_str()),
+                    document.clone(),
+                  )?;
                   self.state().add_count.fetch_add(1, Ordering::SeqCst);
                   if random.random_range(0..5) == 3 {
-                    to_delete_ids.push(document_id);
+                    to_delete_ids.push(document_id.into_owned());
                   }
                 }
               } else {
@@ -589,12 +591,14 @@ where
                 // happens.
                 let document_id = document
                   .get("docid")?
-                  .expect("LineFileDocs document must have docid")
-                  .into_owned();
-                self.update_document(Term::from_text("docid", &document_id), document.clone())?;
+                  .expect("LineFileDocs document must have docid");
+                self.update_document(
+                  Term::from_text("docid", document_id.as_str()),
+                  document.clone(),
+                )?;
                 self.state().add_count.fetch_add(1, Ordering::SeqCst);
                 if random.random_range(0..5) == 3 {
-                  to_delete_ids.push(document_id);
+                  to_delete_ids.push(document_id.into_owned());
                 }
               }
 

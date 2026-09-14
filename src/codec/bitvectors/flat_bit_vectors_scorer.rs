@@ -111,17 +111,18 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
   }
 }
 
-pub struct BitRandomVectorScorer<B> {
+pub struct BitRandomVectorScorer<B, Q = Vec<u8>> {
   vector_values: B,
   bit_dimensions: usize,
-  query: Vec<u8>,
+  query: Q,
 }
 
-impl<B> BitRandomVectorScorer<B>
+impl<B, Q> BitRandomVectorScorer<B, Q>
 where
   B: KnnVectorValues,
+  Q: AsRef<[u8]>,
 {
-  pub(crate) fn new(vector_values: B, query: Vec<u8>) -> Self {
+  pub(crate) fn new(vector_values: B, query: Q) -> Self {
     Self {
       bit_dimensions: vector_values.dimension() * u8::BITS as usize,
       vector_values,
@@ -130,15 +131,16 @@ where
   }
 }
 
-impl<B> RandomVectorScorer for BitRandomVectorScorer<B>
+impl<B, Q> RandomVectorScorer for BitRandomVectorScorer<B, Q>
 where
   B: ByteVectorValues,
+  Q: AsRef<[u8]>,
 {
   fn score(&self, node: usize) -> Result<f32> {
     let vector_value = self.vector_values.vector_value(node)?;
     Ok(
       (self.bit_dimensions as i32
-        - VECTOR_UTIL.xor_bit_count(self.query.as_slice(), vector_value.as_bytes()?)?) as f32
+        - VECTOR_UTIL.xor_bit_count(self.query.as_ref(), vector_value.as_bytes()?)?) as f32
         / self.bit_dimensions as f32,
     )
   }
@@ -204,8 +206,8 @@ where
 {
   type Scorer<'a>
     = RandomVectorScorerEnum2<
-    BitRandomVectorScorer<&'a B>,
-    BitRandomVectorScorer<&'a <B as ByteVectorValues>::ByteVectorValues>,
+    BitRandomVectorScorer<&'a B, Cow<'a, [u8]>>,
+    BitRandomVectorScorer<&'a <B as ByteVectorValues>::ByteVectorValues, Cow<'a, [u8]>>,
   >
   where
     Self: 'a,
@@ -219,8 +221,9 @@ where
         Ok(RandomVectorScorerEnum2::B(BitRandomVectorScorer::new(
           vector_values2,
           match query {
-            Cow::Owned(VectorValueEnum::Byte(bytes)) => bytes,
-            value => value.as_bytes()?.to_vec(),
+            Cow::Owned(VectorValueEnum::Byte(bytes)) => Cow::Owned(bytes),
+            Cow::Borrowed(value) => Cow::Borrowed(value.as_bytes()?),
+            Cow::Owned(value) => Cow::Owned(value.as_bytes()?.to_vec()),
           },
         )))
       },
@@ -229,8 +232,9 @@ where
         Ok(RandomVectorScorerEnum2::A(BitRandomVectorScorer::new(
           &self.vector_values,
           match query {
-            Cow::Owned(VectorValueEnum::Byte(bytes)) => bytes,
-            value => value.as_bytes()?.to_vec(),
+            Cow::Owned(VectorValueEnum::Byte(bytes)) => Cow::Owned(bytes),
+            Cow::Borrowed(value) => Cow::Borrowed(value.as_bytes()?),
+            Cow::Owned(value) => Cow::Owned(value.as_bytes()?.to_vec()),
           },
         )))
       },

@@ -1845,7 +1845,7 @@ where
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 3));
   if indexed {
-    doc.add(IntPoint::new("value", vec![3])?);
+    doc.add(IntPoint::new("value", [3])?);
   }
   doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
@@ -1903,7 +1903,7 @@ where
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 3_i64));
   if indexed {
-    doc.add(LongPoint::new("value", vec![3_i64])?);
+    doc.add(LongPoint::new("value", [3_i64])?);
   }
   doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
@@ -1961,7 +1961,7 @@ where
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 1.25));
   if indexed {
-    doc.add(DoublePoint::new("value", vec![1.25])?);
+    doc.add(DoublePoint::new("value", [1.25])?);
   }
   doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
@@ -2019,7 +2019,7 @@ where
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 1.25_f32));
   if indexed {
-    doc.add(FloatPoint::new("value", vec![1.25_f32])?);
+    doc.add(FloatPoint::new("value", [1.25_f32])?);
   }
   doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;

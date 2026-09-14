@@ -98,28 +98,28 @@ fn test_basics() -> Result<()> {
   doc_value.set_location_value(9.0, 9.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   doc = Document::new();
   point.set_location_value(8.0, 8.0)?;
   doc_value.set_location_value(8.0, 8.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   doc = Document::new();
   point.set_location_value(4.0, 4.0)?;
   doc_value.set_location_value(4.0, 4.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   doc = Document::new();
   point.set_location_value(-1.0, -1.0)?;
   doc_value.set_location_value(-1.0, -1.0)?;
   doc.add(point.clone());
   doc.add(doc_value.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;

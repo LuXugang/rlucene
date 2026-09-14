@@ -86,10 +86,10 @@ impl RandomTokenStreamAttr {
     let p_att = PayloadAttributeImpl::new();
     let mut attribute = HashSet::new();
     {
-      attribute.extend(packed.get_attribute_name()?.clone());
+      attribute.extend(packed.get_attribute_name()?.iter().cloned());
       attribute
         .insert(<PermissiveOffsetAttributeImpl as OffsetAttribute>::ATTRIBUTE_NAME.to_string());
-      attribute.extend(p_att.get_attribute_name()?.clone());
+      attribute.extend(p_att.get_attribute_name()?.iter().cloned());
     }
     Ok(Self {
       packed,

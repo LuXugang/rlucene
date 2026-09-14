@@ -24,6 +24,7 @@ use crate::core::codecs::lucene101::lucene101_postings_format::{
 use crate::core::codecs::lucene101::pfor_util::PForUtil;
 use crate::core::codecs::lucene101::postings_util::PostingsUtil;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
@@ -436,6 +437,8 @@ pub struct BlockPostingsEnum<I> {
   pos_delta_buffer: Vec<i32>,
   payload_length_buffer: Vec<i32>,
   payload_bytes: Vec<u8>,
+  // The current payload borrows this block until a refill needs to overwrite it.
+  payload_position: Option<(usize, usize)>,
   offset_start_delta_buffer: Vec<i32>,
   offset_length_buffer: Vec<i32>,
   payload_byte_upto: usize,
@@ -615,6 +618,7 @@ where
       offset_start_delta_buffer,
       offset_length_buffer,
       payload_bytes,
+      payload_position: None,
       payload_byte_upto: 0,
       payload_length: 0,
 
@@ -1215,6 +1219,15 @@ where
           if payload_length != 0 {
             let payload_length = payload_length as usize;
             let need = self.payload_byte_upto + payload_length;
+            if let Some((offset, length)) = self.payload_position {
+              let payload = self
+                .payload
+                .as_mut()
+                .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
+              // Keep the previous position readable if this refill fails.
+              payload.copy_from_slice(&self.payload_bytes[offset..offset + length]);
+              self.payload_position = None;
+            }
             if need > self.payload_bytes.len() {
               ArrayUtil::grow_with_len(&mut self.payload_bytes, need)?;
             }
@@ -1269,6 +1282,15 @@ where
           .input
           .read_vint()?
           .try_convert()?;
+        if let Some((offset, length)) = self.payload_position {
+          let payload = self
+            .payload
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
+          // Grow/read may overwrite the block before the complete refill succeeds.
+          payload.copy_from_slice(&self.payload_bytes[offset..offset + length]);
+          self.payload_position = None;
+        }
         if num_bytes > self.payload_bytes.len() {
           ArrayUtil::grow_no_copy(&mut self.payload_bytes, num_bytes)?;
         }
@@ -1364,13 +1386,14 @@ where
   fn accumulate_payload_and_offsets(&mut self) -> Result<()> {
     if self.needs_payloads {
       self.payload_length = self.payload_length_buffer[self.pos_buffer_upto] as usize;
-      let payload = self
+      let _payload = self
         .payload
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
-      payload.copy_from_slice(
-        &self.payload_bytes[self.payload_byte_upto..self.payload_byte_upto + self.payload_length],
-      );
+      // Preserve the original range check before committing the current position.
+      let _ =
+        &self.payload_bytes[self.payload_byte_upto..self.payload_byte_upto + self.payload_length];
+      self.payload_position = Some((self.payload_byte_upto, self.payload_length));
       self.payload_byte_upto += self.payload_length;
     }
 
@@ -1456,13 +1479,22 @@ where
     }
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     if !self.needs_payloads || self.payload_length == 0 {
       Ok(None)
     } else {
-      Ok(Some(Cow::Borrowed(self.payload.as_ref().ok_or_else(
-        || LuceneError::illegal_state("payload value is missing"),
-      )?)))
+      let payload = self
+        .payload
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
+      Ok(Some(match self.payload_position {
+        Some((offset, length)) => BytesRefValueEnum::Slice(BytesRef {
+          bytes: &self.payload_bytes[offset..offset + length],
+          offset: 0,
+          length,
+        }),
+        None => BytesRefValueEnum::Buffer(Cow::Borrowed(payload)),
+      }))
     }
   }
 }

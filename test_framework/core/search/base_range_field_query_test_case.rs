@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::fields::Fields;
@@ -299,34 +301,35 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
 
         if hits.get(doc_index)? != expected {
           let mut b = String::new();
-          b.push_str(&format!("FAIL (iter {iter}): "));
+          write!(b, "FAIL (iter {iter}): ")?;
           if expected {
-            b.push_str(&format!(
-              "id={} {}should match but did not\n",
+            writeln!(
+              b,
+              "id={} {}should match but did not",
               id,
               if ranges[id].len() > 1 {
                 "(MultiValue) "
               } else {
                 ""
               }
-            ));
+            )?;
           } else {
-            b.push_str(&format!("id={id} should not match but did\n"));
+            writeln!(b, "id={id} should not match but did")?;
           }
-          b.push_str(&format!(" queryRange={query_range}\n"));
+          writeln!(b, " queryRange={query_range}")?;
           b.push_str(if ranges[id].len() > 1 {
             " boxes="
           } else {
             " box="
           });
-          b.push_str(&ranges[id][0].to_string());
+          write!(b, "{}", ranges[id][0])?;
           #[allow(clippy::needless_range_loop)]
           for n in 1..ranges[id].len() {
             b.push_str(", ");
-            b.push_str(&ranges[id][n].to_string());
+            write!(b, "{}", ranges[id][n])?;
           }
-          b.push_str(&format!("\n queryType={query_type:?}\n"));
-          b.push_str(&format!(" deleted?={}", !is_live));
+          writeln!(b, "\n queryType={query_type:?}")?;
+          write!(b, " deleted?={}", !is_live)?;
           unreachable!("wrong hit (first of possibly more):\n\n{b}");
         }
       }

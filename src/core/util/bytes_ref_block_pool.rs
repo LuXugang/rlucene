@@ -17,13 +17,20 @@
 
 use crate::core::index::BytesRef;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::do_hash;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{
   BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps,
 };
+
+/// Location of a term in the byte block pool that produced it.
+/// The location remains valid only while that pool's contents are unchanged.
+pub struct BytesRefBlockPoolPosition {
+  pub block_index: usize,
+  pub offset: usize,
+  pub length: usize,
+}
 
 pub struct BytesRefBlockPool;
 
@@ -42,14 +49,15 @@ impl BytesRefBlockPool {
     byte_block_pool.reset(false, false)
   }
 
-  /// Populates the given [`BytesRef`] with the term starting at `start`.
+  /// Resolves the term starting at `start` without copying its bytes.
+  /// Callers can borrow the range from the same pool or copy it into owned storage.
   pub fn fill_bytes_ref(
     &self,
-    term: &mut BytesRef<Vec<u8>>,
     start: i32,
     byte_block_pool: &ByteBlockPool,
-  ) -> Result<()> {
-    let block = byte_block_pool.get_buffer((start >> BYTE_BLOCK_SHIFT) as usize);
+  ) -> BytesRefBlockPoolPosition {
+    let block_index = (start >> BYTE_BLOCK_SHIFT) as usize;
+    let block = byte_block_pool.get_buffer(block_index);
     let pos = (start & BYTE_BLOCK_MASK) as usize;
 
     let (length, offset) = if (block[pos] & 0x80) == 0 {
@@ -59,18 +67,18 @@ impl BytesRefBlockPool {
       // Length is 2 bytes
       ((BitUtil::get_i16_be(block, pos) & 0x7FFF) as usize, pos + 2)
     };
-    ArrayUtil::grow_no_copy(&mut term.bytes, length)?;
-    term.bytes.copy_from(&block[offset..offset + length], 0);
-    term.offset = 0;
-    term.length = length;
-    Ok(())
+    BytesRefBlockPoolPosition {
+      block_index,
+      offset,
+      length,
+    }
   }
   /// Add a term, returning the start position on the underlying
   /// [`ByteBlockPool`]. This can be used to read back the value using
   /// `fill_bytes_ref`.
   ///
   /// # See Also
-  /// * `fill_bytes_ref(BytesRef, int)`
+  /// * [`Self::fill_bytes_ref`]
   pub fn add_bytes_ref(
     &mut self,
     bytes: &BytesRef<Vec<u8>>,

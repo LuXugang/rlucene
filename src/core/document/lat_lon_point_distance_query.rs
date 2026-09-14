@@ -45,6 +45,7 @@ use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
+use std::fmt::Write as _;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -117,11 +118,11 @@ impl QueryBase for LatLonPointDistanceQuery {
       sb.push_str(&self.field);
       sb.push(':');
     }
-    sb.push_str(&format!("{:.1}", self.latitude));
+    write!(sb, "{:.1}", self.latitude)?;
     sb.push(',');
-    sb.push_str(&format!("{:.1}", self.longitude));
+    write!(sb, "{:.1}", self.longitude)?;
     sb.push_str(" +/- ");
-    sb.push_str(&format!("{:.1}", self.radius_meters));
+    write!(sb, "{:.1}", self.radius_meters)?;
     sb.push_str(" meters");
     Ok(sb)
   }

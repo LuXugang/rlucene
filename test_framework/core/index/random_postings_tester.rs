@@ -21,6 +21,7 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
+use crate::core::index::bytes_ref::{BytesRefValue, BytesRefValueEnum};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -247,10 +248,10 @@ impl RandomPostingsTester {
     max_doc += 1;
 
     let mut all_terms = Vec::new();
-    let mut field_names: Vec<String> = fields.keys().cloned().collect();
+    let mut field_names: Vec<&String> = fields.keys().collect();
     field_names.sort();
     for field in field_names {
-      if let Some(field_terms) = fields.get(&field) {
+      if let Some(field_terms) = fields.get(field) {
         for (ord, term) in field_terms.keys().enumerate() {
           all_terms.push(FieldAndTerm::new(field.clone(), term, ord as i64)?);
         }
@@ -709,6 +710,7 @@ impl RandomPostingsTester {
 
           if do_check_payloads {
             let expected_payload = expected.get_payload()?;
+            let expected_payload = expected_payload.as_ref().map(BytesRefValue::as_bytes_ref);
             if random.random::<f64>() <= payload_check_chance {
               if verbose {
                 println!(
@@ -734,6 +736,7 @@ impl RandomPostingsTester {
                   let payload = payload
                     .as_ref()
                     .ok_or_else(|| LuceneError::illegal_state("should have payload but doesn't"))?;
+                  let payload = payload.as_bytes_ref();
                   assert_eq!(expected_payload.length, payload.length,);
                   for byte_upto in 0..expected_payload.length {
                     assert_eq!(
@@ -743,16 +746,13 @@ impl RandomPostingsTester {
                     );
                   }
 
-                  let payload_copy = BytesRef::deep_copy_of(payload.as_ref())?;
+                  let payload_copy = payload.as_bytes().to_vec();
                   assert_eq!(
                     payload_copy,
-                    BytesRef::deep_copy_of(
-                      postings_enum
-                        .get_payload()?
-                        .as_ref()
-                        .ok_or_else(|| LuceneError::illegal_state("missing payload"))?
-                        .as_ref()
-                    )?,
+                    postings_enum
+                      .get_payload()?
+                      .ok_or_else(|| LuceneError::illegal_state("missing payload"))?
+                      .as_bytes(),
                     "2nd call to getPayload returns something different!"
                   );
                 },
@@ -845,7 +845,10 @@ impl RandomPostingsTester {
             assert_eq!(postings.end_offset()?, impacts_enum.end_offset()?,);
           }
           if do_check_payloads {
-            assert_eq!(postings.get_payload()?, impacts_enum.get_payload()?,);
+            assert_eq!(
+              postings.get_payload()?.map(BytesRefValue::into_owned),
+              impacts_enum.get_payload()?.map(BytesRefValue::into_owned),
+            );
           }
         }
 
@@ -935,7 +938,10 @@ impl RandomPostingsTester {
             assert_eq!(postings.end_offset()?, impacts_enum.end_offset()?,);
           }
           if do_check_payloads {
-            assert_eq!(postings.get_payload()?, impacts_enum.get_payload()?,);
+            assert_eq!(
+              postings.get_payload()?.map(BytesRefValue::into_owned),
+              impacts_enum.get_payload()?.map(BytesRefValue::into_owned),
+            );
           }
         }
 
@@ -1325,11 +1331,11 @@ impl PostingsEnum for SeedPostings {
     Ok(self.end_offset)
   }
 
-  fn get_payload(&self) -> Result<std::option::Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<std::option::Option<BytesRefValueEnum<'_>>> {
     if self.payload.length == 0 {
       Ok(None)
     } else {
-      Ok(Some(Cow::Borrowed(&self.payload)))
+      Ok(Some(Cow::Borrowed(&self.payload).into_value()))
     }
   }
 }
@@ -1731,10 +1737,10 @@ impl RandomPostingsTester {
   {
     let mut thread_state = ThreadState::default();
     let mut term_states: Vec<TermStateEnum> = Vec::new();
-    let mut term_state_terms: Vec<FieldAndTerm> = Vec::new();
+    let mut term_state_terms: Vec<&FieldAndTerm> = Vec::new();
     let mut supports_ords = true;
 
-    let mut all_terms = self.all_terms.clone();
+    let mut all_terms: Vec<&FieldAndTerm> = self.all_terms.iter().collect();
     all_terms.shuffle(random);
 
     let mut upto = 0usize;
@@ -1743,7 +1749,7 @@ impl RandomPostingsTester {
       let use_term_ord = supports_ords && !use_term_state && random.random_range(0..5) == 1;
 
       let (field_and_term, term_state) = if !use_term_state {
-        let field_and_term = all_terms[upto].clone();
+        let field_and_term = all_terms[upto];
         upto += 1;
         if cfg!(feature = "test_log_verbose") {
           if use_term_ord {
@@ -1764,7 +1770,7 @@ impl RandomPostingsTester {
         (field_and_term, None)
       } else {
         let idx = random.random_range(0..term_states.len());
-        let field_and_term = term_state_terms[idx].clone();
+        let field_and_term = term_state_terms[idx];
         if cfg!(feature = "test_log_verbose") {
           println!(
             "\nTEST: seek using TermState to term={}:{}",
@@ -1818,7 +1824,7 @@ impl RandomPostingsTester {
       if options.contains(&Option_::TermState) && !use_term_state && random.random_range(0..5) == 1
       {
         term_states.push(terms_enum.term_state()?);
-        term_state_terms.push(field_and_term.clone());
+        term_state_terms.push(field_and_term);
         saved_term_state = true;
       }
 
@@ -1840,7 +1846,7 @@ impl RandomPostingsTester {
         && random.random_range(0..5) == 1
       {
         term_states.push(terms_enum.term_state()?);
-        term_state_terms.push(field_and_term.clone());
+        term_state_terms.push(field_and_term);
       }
 
       if always_test_max || random.random_range(0..10) == 7 {
@@ -1864,11 +1870,14 @@ impl RandomPostingsTester {
     for field in self.fields.keys() {
       loop {
         let automaton = AutomatonTestUtil::random_automaton(random)?;
-        let automaton = Operations::determinize(
+        let determinized = Operations::determinize(
           automaton.as_ref(),
           Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
         )?;
-        let automaton = automaton.into_owned();
+        let automaton = match determinized {
+          Cow::Borrowed(_) => automaton.into_owned(),
+          Cow::Owned(automaton) => automaton,
+        };
         let mut ca = CompiledAutomaton::new(automaton.clone(), false, true)?;
         if ca.type_ != AutomatonType::Normal {
           continue;

@@ -157,10 +157,8 @@ fn test_create_weight_does_not_seek_if_scores_are_not_needed() -> Result<()> {
   // doc freq instead of creating a scorer.
   assert_eq!(
     1,
-    searcher.search_with_collector_manager(
-      query.clone(),
-      &DummyTotalHitCountCollector::create_manager(),
-    )?
+    searcher
+      .search_with_collector_manager(query, &DummyTotalHitCountCollector::create_manager())?
   );
   let query_with_context: Query = TermQuery::with_term_state(
     Term::from_text("foo", "bar"),
@@ -285,7 +283,7 @@ fn test_with_with_different_score_modes() -> Result<()> {
 
   let reader = writer.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
-  let existing_similarity = searcher.get_similarity().clone();
+  let existing_similarity = searcher.get_similarity();
 
   for score_mode in ScoreMode::values() {
     let scorer_called = Arc::new(AtomicBool::new(false));

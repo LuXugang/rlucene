@@ -21,7 +21,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -35,6 +34,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::term_query::TermQuery;
@@ -719,10 +719,7 @@ fn test_reset_value() -> Result<()> {
 
     let mut bdv = r.get_binary_doc_values("val-bin")?.unwrap();
     assert_eq!(0, bdv.next_doc()?);
-    assert_eq!(
-      BytesRef::from_bytes(vec![5]),
-      bdv.binary_value()?.into_owned()
-    );
+    assert_eq!([5u8].as_slice(), bdv.binary_value()?.as_bytes());
     assert_eq!(NO_MORE_DOCS, bdv.next_doc()?);
     reader.close()?;
   }

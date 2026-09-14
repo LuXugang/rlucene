@@ -67,7 +67,7 @@ pub trait BaseCompoundFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    si.set_files(HashSet::new())?;
+    si.set_files(HashSet::<String>::new())?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -141,8 +141,7 @@ pub trait BaseCompoundFormatTestCase:
       "suffix",
     )?;
 
-    let files_set: HashSet<String> = files.iter().map(|&file| file.to_string()).collect();
-    si.set_files(files_set)?;
+    si.set_files(files)?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -320,7 +319,7 @@ pub trait BaseCompoundFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    si.set_files(HashSet::new())?;
+    si.set_files(HashSet::<String>::new())?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -347,7 +346,7 @@ pub trait BaseCompoundFormatTestCase:
       dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    si.set_files(HashSet::new())?;
+    si.set_files(HashSet::<String>::new())?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -372,7 +371,7 @@ pub trait BaseCompoundFormatTestCase:
       dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    si.set_files(HashSet::new())?;
+    si.set_files(HashSet::<String>::new())?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -397,7 +396,7 @@ pub trait BaseCompoundFormatTestCase:
       dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    si.set_files(HashSet::new())?;
+    si.set_files(HashSet::<String>::new())?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -425,7 +424,7 @@ pub trait BaseCompoundFormatTestCase:
       dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    si.set_files(HashSet::new())?;
+    si.set_files(HashSet::<String>::new())?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -530,7 +529,7 @@ pub trait BaseCompoundFormatTestCase:
       .into_iter()
       .filter(|file| file.starts_with(segment))
       .collect();
-    si.set_files(files.iter().cloned().collect())?;
+    si.set_files(&files)?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -577,8 +576,7 @@ pub trait BaseCompoundFormatTestCase:
     }
     assert_eq!(0, dir.get_file_handle_count());
 
-    let file_sets = files.iter().cloned().collect();
-    si.set_files(file_sets)?;
+    si.set_files(&files)?;
     si.get_codec()?.compound_format().write(
       dir.as_ref(),
       &si,
@@ -802,7 +800,7 @@ pub trait BaseCompoundFormatTestCase:
     let cr = create_large_cfs(random, dir.clone())?;
     let mut is = cr.open_input("_123.f2", &new_io_context(random)?)?;
     is.seek(IndexInput::length(&is)? - 10)?;
-    let mut b = vec![0u8; 100];
+    let mut b = [0u8; 100];
     DataInput::read_bytes(&mut is, b.as_mut_slice(), 0, 10)?;
     let result = DataInput::read_byte(&mut is);
     assert!(matches!(result, Err(LuceneError::Eof(_))));
@@ -967,7 +965,7 @@ pub trait BaseCompoundFormatTestCase:
     let read_bytes = read_tracking_dir.get_read_bytes();
     assert_eq!(created_files, read_bytes.keys().cloned().collect());
     for (file, read) in read_bytes {
-      let mut unread_bytes = read.clone();
+      let mut unread_bytes = read;
       unread_bytes.flip_range(0, unread_bytes.length());
       let next = unread_bytes.next_set_bit(0);
       assert_eq!(
@@ -1201,7 +1199,7 @@ where
     msg
   );
 
-  let mut expected_buffer = vec![0u8; 512];
+  let mut expected_buffer = [0u8; 512];
   let expected_len = expected.length()?;
   let mut test_buffer = vec![0u8; expected_len];
 

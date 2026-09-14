@@ -162,7 +162,7 @@ fn test_multi_term_docs() -> Result<()> {
     SeekStatus::Found,
     te2.seek_ceil(&BytesRef::from_string("wow"))?
   );
-  let term = te2.term()?.into_owned();
+  let term = te2.term()?;
   let mut td = TestUtil::docs_with_reader(&mut random, &mr2, "body", &term, None, 0)?.unwrap();
 
   let terms3 = multi_terms::get_terms(&mr3, "body")?.unwrap();
@@ -978,7 +978,7 @@ fn test_no_dup_commit_file_names() -> Result<()> {
         "file {} was duplicated",
         file_name
       );
-      seen.insert(file_name.clone());
+      seen.insert(file_name);
     }
   }
 

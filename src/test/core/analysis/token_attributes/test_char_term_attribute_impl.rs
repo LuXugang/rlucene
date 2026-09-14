@@ -29,7 +29,7 @@ struct TestCharTermAttributeImpl;
 #[test]
 fn test_resize() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
-  let content: Vec<char> = "hello".chars().collect();
+  let content = ['h', 'e', 'l', 'l', 'o'];
   t.copy_buffer(&content, 0, content.len())?;
 
   for i in 0..2000 {
@@ -58,7 +58,7 @@ fn test_grow() -> Result<()> {
     t.copy_buffer(&chars, 0, chars.len())?;
     assert_eq!(buf.len(), t.length());
     assert_eq!(buf, t.to_string());
-    buf.push_str(&buf.clone());
+    buf.extend_from_within(..);
   }
   assert_eq!(1_048_576, t.length());
 
@@ -67,8 +67,9 @@ fn test_grow() -> Result<()> {
   for _ in 0..20 {
     t.set_empty().append_str(Some(&buf))?;
     assert_eq!(buf.len(), t.length());
-    assert_eq!(buf, t.to_string());
-    buf.push_str(&t.to_string());
+    let term = t.to_string();
+    assert_eq!(buf, term);
+    buf.push_str(&term);
   }
   assert_eq!(1_048_576, t.length());
 
@@ -86,7 +87,7 @@ fn test_grow() -> Result<()> {
 #[test]
 fn test_to_string() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
-  let b: Vec<char> = ['a', 'l', 'o', 'h', 'a'].to_vec();
+  let b = ['a', 'l', 'o', 'h', 'a'];
   t.copy_buffer(&b, 0, 5)?;
   assert_eq!(t.to_string(), "aloha");
 
@@ -98,7 +99,7 @@ fn test_to_string() -> Result<()> {
 #[test]
 fn test_clone() -> Result<()> {
   let mut t = CharTermAttributeImpl::new().unwrap();
-  let content: Vec<char> = "hello".chars().collect();
+  let content = ['h', 'e', 'l', 'l', 'o'];
   t.copy_buffer(&content, 0, 5)?;
 
   let copy = assert_clone_is_equal(&t);
@@ -109,15 +110,15 @@ fn test_clone() -> Result<()> {
 #[test]
 fn test_equals() -> Result<()> {
   let mut t1a = CharTermAttributeImpl::new().unwrap();
-  let content1a: Vec<char> = "hello".chars().collect();
+  let content1a = ['h', 'e', 'l', 'l', 'o'];
   t1a.copy_buffer(&content1a, 0, 5)?;
 
   let mut t1b = CharTermAttributeImpl::new().unwrap();
-  let content1b: Vec<char> = "hello".chars().collect();
+  let content1b = ['h', 'e', 'l', 'l', 'o'];
   t1b.copy_buffer(&content1b, 0, 5)?;
 
   let mut t2 = CharTermAttributeImpl::new().unwrap();
-  let content2: Vec<char> = "hello2".chars().collect();
+  let content2 = ['h', 'e', 'l', 'l', 'o', '2'];
   t2.copy_buffer(&content2, 0, 6)?;
 
   assert!(t1a == t1b);
@@ -133,7 +134,7 @@ fn test_copy_to() -> Result<()> {
   assert_eq!(copy.to_string(), "");
 
   let mut t = CharTermAttributeImpl::new().unwrap();
-  let content: Vec<char> = "hello".chars().collect();
+  let content = ['h', 'e', 'l', 'l', 'o'];
   t.copy_buffer(&content, 0, 5)?;
 
   let copy = assert_copy_is_equal(&t);
@@ -154,10 +155,13 @@ fn test_char_sequence_interface() -> Result<()> {
 
   assert_eq!(s.len(), t.length());
 
-  let sub_sub_sequence: String = t.sub_sequence(1, 3)?.iter().collect();
-  assert_eq!("12", sub_sub_sequence);
-  let sub_sub_sequence: String = t.sub_sequence(0, s.len())?.iter().collect();
-  assert_eq!(s.to_string(), sub_sub_sequence);
+  let sub_sub_sequence = t.sub_sequence(1, 3)?;
+  assert_eq!(['1', '2'].as_slice(), sub_sub_sequence);
+  let sub_sub_sequence = t.sub_sequence(0, s.len())?;
+  assert_eq!(
+    ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].as_slice(),
+    sub_sub_sequence
+  );
 
   let re_full = Regex::new(r"^01\d+$").unwrap();
   assert!(re_full.is_match(&t.to_string()));
@@ -166,8 +170,8 @@ fn test_char_sequence_interface() -> Result<()> {
   let sub_sub_sequence: String = t.sub_sequence(3, 5)?.iter().collect();
   assert!(re_sub.is_match(&sub_sub_sequence));
 
-  let sub_sub_sequence: String = t.sub_sequence(3, 7)?.iter().collect();
-  assert_eq!(s[3..7].to_string(), sub_sub_sequence);
+  let sub_sub_sequence = t.sub_sequence(3, 7)?;
+  assert_eq!(['3', '4', '5', '6'].as_slice(), sub_sub_sequence);
 
   for (i, ch) in s.chars().enumerate() {
     assert_eq!(ch, t.char_at(i)?)

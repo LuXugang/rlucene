@@ -51,11 +51,11 @@ where
   }
 
   let final_max_length = max_length;
-  let delegate = MSBRadixSorterImpl::new(final_max_length, refs[..len].to_vec());
+  let delegate = MSBRadixSorterImpl::new(final_max_length, &mut refs[..len]);
   let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate);
   msb_radix_sorter.sort(0, len)?;
 
-  assert_vecs_equal(&expected, &msb_radix_sorter.get_delegate().refs);
+  assert_vecs_equal(&expected, msb_radix_sorter.get_delegate().refs);
   Ok(())
 }
 #[test]
@@ -202,17 +202,18 @@ fn test_random2() -> Result<()> {
   }
 
   // Run test with generated strings
-  let strings: Vec<BytesRef<Vec<u8>>> = strings_set.into_iter().collect();
-  test(&mut strings.clone(), strings.len(), &mut random)
+  let mut strings: Vec<BytesRef<Vec<u8>>> = strings_set.into_iter().collect();
+  let strings_len = strings.len();
+  test(&mut strings, strings_len, &mut random)
 }
 
-pub struct MSBRadixSorterImpl {
+pub struct MSBRadixSorterImpl<'a> {
   final_max_length: usize,
-  refs: Vec<BytesRef<Vec<u8>>>,
+  refs: &'a mut [BytesRef<Vec<u8>>],
 }
 
-impl MSBRadixSorterImpl {
-  fn new(final_max_length: usize, refs: Vec<BytesRef<Vec<u8>>>) -> Self {
+impl<'a> MSBRadixSorterImpl<'a> {
+  fn new(final_max_length: usize, refs: &'a mut [BytesRef<Vec<u8>>]) -> Self {
     Self {
       final_max_length,
       refs,
@@ -220,7 +221,7 @@ impl MSBRadixSorterImpl {
   }
 }
 
-impl MSBRadixSorterBase for MSBRadixSorterImpl {
+impl MSBRadixSorterBase for MSBRadixSorterImpl<'_> {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     assert!(
       k < self.final_max_length,
@@ -237,7 +238,7 @@ impl MSBRadixSorterBase for MSBRadixSorterImpl {
     }
   }
 }
-impl Sorter for MSBRadixSorterImpl {
+impl Sorter for MSBRadixSorterImpl<'_> {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     self.refs.swap(i, j);
     Ok(())

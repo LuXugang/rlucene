@@ -213,7 +213,6 @@ impl QueryBase for BlendedTermQuery {
       .terms
       .iter()
       .filter(|term| visitor.accept_field(term.field()))
-      .cloned()
       .collect();
     if !terms.is_empty() {
       let query = self.into();

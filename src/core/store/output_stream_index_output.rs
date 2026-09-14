@@ -54,9 +54,9 @@ where
   /// # Errors
   /// Returns an [`IllegalArgumentError`](crate::core::util::error::IllegalArgumentError) if the given buffer size is less than
   /// [`BitUtil::LONG_BYTES`].
-  pub fn new(
-    resource_description: &str,
-    name: &str,
+  pub fn new<R: Into<String>, N: Into<String>>(
+    resource_description: R,
+    name: N,
     inner: W,
     buffer_size: usize,
   ) -> Result<OutputStreamIndexOutput<W>> {
@@ -73,8 +73,8 @@ where
       bytes_written: 0,
       flushed_on_close: false,
       copy_buffer: Vec::new(),
-      name: name.to_string(),
-      resource_description: resource_description.to_string(),
+      name: name.into(),
+      resource_description: resource_description.into(),
     })
   }
 

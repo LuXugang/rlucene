@@ -26,19 +26,19 @@ use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 ///
 /// # Note
 /// - This is an internal API and is not intended for external use.
-pub(crate) struct StringSorter<T, C> {
+pub(crate) struct StringSorter<T: StringSorterBase, C> {
   delegate: T,
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch2: BytesRefBuilder<Vec<u8>>,
-  scratch_bytes1: BytesRef<Vec<u8>>,
-  scratch_bytes2: BytesRef<Vec<u8>>,
+  scratch_bytes1: BytesRef<T::Bytes>,
+  scratch_bytes2: BytesRef<T::Bytes>,
   cmp: C,
 }
 
 impl<T, C> StringSorter<T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   pub fn new(delegate: T, cmp: C) -> StringSorter<T, C> {
     StringSorter {
@@ -59,7 +59,7 @@ where
 impl<T, C> Sorter for StringSorter<T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
     self
@@ -90,16 +90,16 @@ where
   }
 }
 
-pub struct MSBStringRadixSorter<'a, T, C> {
+pub struct MSBStringRadixSorter<'a, T: StringSorterBase, C> {
   scratch1: BytesRefBuilder<Vec<u8>>,
-  scratch_bytes1: BytesRef<Vec<u8>>,
+  scratch_bytes1: BytesRef<T::Bytes>,
   cmp: &'a mut C,
   delegate: &'a mut T,
 }
 impl<'a, T, C> MSBStringRadixSorter<'a, T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   pub fn new(cmp: &'a mut C, delegate: &'a mut T) -> MSBStringRadixSorter<'a, T, C> {
     MSBStringRadixSorter {
@@ -114,7 +114,7 @@ where
 impl<T, C> Sorter for MSBStringRadixSorter<'_, T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     self.delegate.swap(i, j)
@@ -124,7 +124,7 @@ where
 impl<T, C> MSBRadixSorterBase for MSBStringRadixSorter<'_, T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     self
@@ -138,13 +138,13 @@ where
   }
 }
 
-pub struct IntroSorterImpl<'a, T, C> {
-  pivot: BytesRef<Vec<u8>>,
+pub struct IntroSorterImpl<'a, T: StringSorterBase, C> {
+  pivot: BytesRef<T::Bytes>,
   pivot_builder: BytesRefBuilder<Vec<u8>>,
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch2: BytesRefBuilder<Vec<u8>>,
-  scratch_bytes1: BytesRef<Vec<u8>>,
-  scratch_bytes2: BytesRef<Vec<u8>>,
+  scratch_bytes1: BytesRef<T::Bytes>,
+  scratch_bytes2: BytesRef<T::Bytes>,
   cmp: &'a mut C,
   delegate: &'a mut T,
   k: Option<usize>,
@@ -152,7 +152,7 @@ pub struct IntroSorterImpl<'a, T, C> {
 impl<'a, T, C> IntroSorterImpl<'a, T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   pub fn new(cmp: &'a mut C, delegate: &'a mut T, k: Option<usize>) -> IntroSorterImpl<'a, T, C> {
     IntroSorterImpl {
@@ -171,7 +171,7 @@ where
 impl<T, C> Sorter for IntroSorterImpl<'_, T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
     self
@@ -220,27 +220,31 @@ where
 impl<T, C> IntroSorter for IntroSorterImpl<'_, T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
 }
 
 pub trait StringSorterBase: Sorter {
+  /// Storage returned by `get`; borrowed storage must remain valid across swaps
+  /// and subsequent reads, including while a fallback sorter holds its pivot.
+  type Bytes: Default;
+
   fn get(
     &mut self,
     builder: &mut BytesRefBuilder<Vec<u8>>,
-    result: &mut BytesRef<Vec<u8>>,
+    result: &mut BytesRef<Self::Bytes>,
     i: usize,
   ) -> Result<()>;
   fn fall_back_sorter<'a, C>(&'a mut self, cmp: &'a mut C, k: Option<usize>) -> impl Sorter + 'a
   where
-    C: BytesRefComparator,
+    C: BytesRefComparator<Self::Bytes>,
     Self: Sorter + Sized,
   {
     IntroSorterImpl::new(cmp, self, k)
   }
   fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
   where
-    C: BytesRefComparator,
+    C: BytesRefComparator<Self::Bytes>,
     Self: Sorter + Sized,
   {
     let length = cmp.compared_bytes_count();

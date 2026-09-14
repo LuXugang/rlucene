@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::impacts::ImpactsEnum2;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 /// Extension of [`PostingsEnum`] which also provides information about upcoming
 /// impacts.
@@ -63,7 +62,7 @@ macro_rules! define_impacts_enum_enum {
                 }
             }
 
-            fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+            fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
                 match self {
                     $(Self::$V(t) => t.get_payload(),)+
                 }

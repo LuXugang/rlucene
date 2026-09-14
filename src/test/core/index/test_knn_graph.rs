@@ -280,10 +280,9 @@ impl TestKnnGraph {
     let nodes = graph
       .iter()
       .enumerate()
-      .filter_map(|(node, friends)| friends.as_ref().map(|_| node))
-      .collect::<Vec<_>>();
+      .filter_map(|(node, friends)| friends.as_ref().map(|_| node));
     let mut visited = HashSet::new();
-    let mut queue = VecDeque::from([nodes[0]]);
+    let mut queue = VecDeque::from([nodes.clone().next().expect("expected a graph node")]);
     while let Some(node) = queue.pop_front() {
       if !visited.insert(node) {
         continue;

@@ -109,7 +109,12 @@ impl IndexableField for FieldImpl {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     self.parent_field.stored_value()
   }
 
@@ -190,7 +195,12 @@ impl IndexableField for MockIndexableField {
     Ok(None)
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     if let Some(string_value) = self.string_value()? {
       Ok(Some(FieldDataEnum::String(string_value.into_owned())))
     } else {
@@ -409,7 +419,12 @@ impl IndexableField for MyField {
     }
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     if let Some(string_value) = self.string_value()? {
       Ok(Some(FieldDataEnum::String(string_value.into_owned())))
     } else {
@@ -495,7 +510,12 @@ impl IndexableField for CustomField {
     Ok(None)
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     Ok(None)
   }
 

@@ -188,8 +188,7 @@ fn test_with_sort() -> Result<()> {
     old_to_new[sub][upto] = doc_id as i32;
     upto += 1;
     if upto == old_to_new[sub].len() {
-      completed_subs.push(old_to_new[sub].clone());
-      old_to_new.remove(sub);
+      completed_subs.push(old_to_new.remove(sub));
       uptos.remove(sub);
     } else {
       uptos[sub] = upto;
@@ -212,9 +211,9 @@ fn test_with_sort() -> Result<()> {
 
   let mut subs: Vec<Sub<TestSubSorted>> = Vec::new();
 
-  for (i, doc_map) in completed_subs.iter().enumerate() {
+  for (i, doc_map) in completed_subs.into_iter().enumerate() {
     let len = doc_map.len();
-    let doc_map_enum = Rc::new(DocMapMock2::new(doc_map.clone(), live_docs.clone()));
+    let doc_map_enum = Rc::new(DocMapMock2::new(doc_map, live_docs.clone()));
 
     let sub = Sub::new(TestSubSorted::new(doc_map_enum, len as i32, i as i32));
 

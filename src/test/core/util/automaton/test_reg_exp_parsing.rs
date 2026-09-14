@@ -21,6 +21,7 @@ use std::collections::{HashMap, HashSet};
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
+use std::borrow::Cow;
 
 use crate::core::index::BytesRef;
 use crate::core::util::automation::automata::Automata;
@@ -42,7 +43,10 @@ impl TestRegExp {
   where
     R: Rng + ?Sized,
   {
-    let char_palette = "AAAaaaBbbCccc123456 \t".chars().collect::<Vec<_>>();
+    let char_palette = [
+      'A', 'A', 'A', 'a', 'a', 'a', 'B', 'b', 'b', 'C', 'c', 'c', 'c', '1', '2', '3', '4', '5',
+      '6', ' ', '\t',
+    ];
     (0..min_length)
       .map(|_| {
         let i = Self::random_int(random, char_palette.len());
@@ -175,7 +179,10 @@ impl TestRegExp {
     let regex = RegExp::parse(&regex_pattern, RegExp::ALL, match_flags)?;
     let v = regex.to_automaton()?;
     let automaton = Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-    let mut matcher = ByteRunAutomaton::new(automaton.into_owned())?;
+    let mut matcher = ByteRunAutomaton::new(match automaton {
+      Cow::Borrowed(_) => v,
+      Cow::Owned(determinized) => determinized,
+    })?;
 
     let br: BytesRef<Vec<u8>> = BytesRef::from_string(doc_value);
     assert!(
@@ -192,7 +199,10 @@ impl TestRegExp {
       let cs_regex = RegExp::parse(&regex_pattern, RegExp::ALL, 0)?;
       let v = cs_regex.to_automaton()?;
       let cs_automaton = Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-      let mut cs_matcher = ByteRunAutomaton::new(cs_automaton.into_owned())?;
+      let mut cs_matcher = ByteRunAutomaton::new(match cs_automaton {
+        Cow::Borrowed(_) => v,
+        Cow::Owned(determinized) => determinized,
+      })?;
       assert!(
         !cs_matcher.run(&br.bytes, br.offset, br.length)?,
         "[{}] (case-sensitive) should not match [{}]",

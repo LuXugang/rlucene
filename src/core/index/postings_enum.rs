@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 /// Iterates through the postings.
 /// NOTE: you must first call [`next_doc`](DocIdSetIterator::next_doc) before
@@ -49,7 +48,7 @@ pub trait PostingsEnum: DocIdSetIterator {
 
   /// Returns the payload at this position, or None if no payload was indexed.
   /// Do not modify the returned bytes.
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>>;
 }
 
 pub const NONE: i16 = 0;
@@ -144,7 +143,7 @@ macro_rules! define_postings_enum_enum {
                 }
             }
 
-            fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+            fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
                 match self {
                     $(Self::$V(t) => t.get_payload(),)+
                 }

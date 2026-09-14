@@ -129,7 +129,7 @@ where
   pub fn record(&self, searcher: &Arc<ManagedSearcher<DR>>) -> Result<i64> {
     self.ensure_open()?;
     let version = searcher.get_index_reader().get_version()?;
-    if let Some(tracker) = self.searchers.read().get(&version).cloned() {
+    if let Some(tracker) = self.searchers.read().get(&version) {
       if !Arc::ptr_eq(&tracker.searcher, searcher) {
         return Err(LuceneError::illegal_argument(format!(
           "the provided searcher has the same underlying reader version yet the searcher instance differs from before (new={:p} vs old={:p})",

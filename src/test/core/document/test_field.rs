@@ -1316,7 +1316,7 @@ fn test_binary_string_field() -> Result<()> {
 
     if field.field_type().stored() {
       match field.stored_value()? {
-        Some(FieldDataEnum::Binary(v)) => assert_eq!(v, BytesRef::from_string("baz")),
+        Some(FieldDataEnum::Binary(v)) => assert_eq!(v, &BytesRef::from_string("baz")),
         _ => unreachable!(),
       }
     } else {
@@ -1802,16 +1802,16 @@ fn test_knn_vector_field() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir)?;
 
   let mut doc = Document::new();
-  let byte_vector = vec![0u8; 5];
+  let byte_vector = [0u8; 5];
   let byte_field = KnnByteVectorField::with_similarity_function(
     "binary",
-    byte_vector.clone(),
+    byte_vector,
     VectorSimilarityFunction::Euclidean,
   )?;
   assert!(byte_field.binary_value()?.is_none());
   match byte_field.vector_value()? {
     crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Byte(value) => {
-      assert_eq!(value, &byte_vector)
+      assert_eq!(value.as_slice(), byte_vector.as_slice())
     },
     _ => unreachable!("expected byte vector"),
   }
@@ -1823,8 +1823,8 @@ fn test_knn_vector_field() -> Result<()> {
     Err(LuceneError::IllegalArgument(_))
   ));
 
-  let float_vector = vec![1.0f32, 2.0f32];
-  let float_field = KnnFloatVectorField::new("float", float_vector.clone())?;
+  let float_vector = [1.0f32, 2.0f32];
+  let float_field = KnnFloatVectorField::new("float", float_vector)?;
   assert!(float_field.binary_value()?.is_none());
 
   doc.add(byte_field);

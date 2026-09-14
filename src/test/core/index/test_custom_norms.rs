@@ -65,8 +65,9 @@ fn test_float_norms() -> Result<()> {
   for _i in 0..num {
     let mut doc = docs.next_doc()?;
     let boost = TestUtil::next_int(&mut random, 1, 10);
+    let boost_text = boost.to_string();
     let value = (0..boost)
-      .map(|_| boost.to_string())
+      .map(|_| boost_text.as_str())
       .collect::<Vec<_>>()
       .join(" ");
     let f = TextField::from_string(FLOAT_TEST_FIELD, value, Store::Yes)?;

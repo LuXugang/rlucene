@@ -618,7 +618,7 @@ impl<D> SegmentInfos<D> {
     D: Directory,
   {
     let mut find_segments_file = FindSegmentsFileImpl {
-      dir: directory.clone(),
+      dir: directory,
       min_supported_major_version,
     };
     find_segments_file.run()
@@ -680,7 +680,7 @@ impl<D> SegmentInfos<D> {
   where
     IO: IndexOutput,
   {
-    let v = BigInt::from(self.generation).to_str_radix(36).to_string();
+    let v = BigInt::from(self.generation).to_str_radix(36);
     CodecUtil::write_index_header(
       out,
       "segments",

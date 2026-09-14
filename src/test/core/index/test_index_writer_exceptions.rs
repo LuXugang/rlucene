@@ -2181,8 +2181,11 @@ fn test_simulated_corrupt_index2() -> Result<()> {
   let segment_infos = SegmentInfos::read_latest_commit(dir.clone())?;
   for segment in segment_infos.iter() {
     assert!(segment.info.get_use_compound_file());
-    let victims: Vec<String> = segment.info.files()?.iter().cloned().collect();
-    let victim = &victims[random.random_range(0..victims.len())];
+    let victims = segment.info.files()?;
+    let victim = victims
+      .iter()
+      .nth(random.random_range(0..victims.len()))
+      .unwrap();
     dir.delete_file(victim)?;
     corrupted = true;
     break;

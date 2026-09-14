@@ -19,7 +19,7 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TYPE_NOT_STORED, TextField};
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::directory_reader;
 use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
@@ -51,7 +51,6 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use parking_lot::RwLock;
 use rand::{Rng, RngExt};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -473,7 +472,7 @@ impl PostingsEnum for DummyImpactsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

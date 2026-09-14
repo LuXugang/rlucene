@@ -49,7 +49,7 @@ fn test_basic() -> Result<()> {
   let mut terms = basic_terms(&mut random)?;
   terms.sort();
 
-  let a = build(&mut random, terms.clone(), false)?;
+  let a = build(&mut random, Cow::Borrowed(&terms), false)?;
   check_automaton(&terms, a.clone(), false)?;
   check_minimized(&a)?;
 
@@ -61,7 +61,7 @@ fn test_basic_binary() -> Result<()> {
   let mut terms = basic_terms(&mut random)?;
   terms.sort();
 
-  let a = build(&mut random, terms.clone(), true)?;
+  let a = build(&mut random, Cow::Borrowed(&terms), true)?;
   check_automaton(&terms, a.clone(), true)?;
   check_minimized(&a)?;
 
@@ -93,13 +93,13 @@ fn test_random_minimized() -> Result<()> {
       }
     }
 
-    let a = Operations::union_list(&automaton_list.iter().collect::<Vec<_>>())?;
+    let a = Operations::union_list(&automaton_list)?;
     let expected =
       MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
 
     let mut sorted_terms: Vec<_> = terms.into_iter().collect();
     sorted_terms.sort_unstable();
-    let actual = build(&mut random, sorted_terms, build_binary)?;
+    let actual = build(&mut random, Cow::Owned(sorted_terms), build_binary)?;
 
     assert_same_automaton(&expected, &actual)?;
   }
@@ -122,7 +122,11 @@ fn test_large_terms() -> Result<()> {
   let mut random = random();
   let b10k = vec![b'a'; 10_000];
 
-  let result = build(&mut random, vec![BytesRef::from_bytes(b10k.clone())], false);
+  let result = build(
+    &mut random,
+    Cow::Owned(vec![BytesRef::from_bytes(b10k.clone())]),
+    false,
+  );
   assert!(
     matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.starts_with(
         &format!(
@@ -133,7 +137,11 @@ fn test_large_terms() -> Result<()> {
   );
 
   let b1k = ArrayUtil::copy_of_sub_array(&b10k, 0, 1000);
-  build(&mut random, vec![BytesRef::from_bytes(b1k)], false)?; // should not panic
+  build(
+    &mut random,
+    Cow::Owned(vec![BytesRef::from_bytes(b1k)]),
+    false,
+  )?; // should not panic
 
   Ok(())
 }
@@ -164,7 +172,7 @@ where
     let mut sorted: Vec<_> = terms.into_iter().collect();
     sorted.sort_unstable();
 
-    let a = build(random, sorted.clone(), allow_binary)?;
+    let a = build(random, Cow::Borrowed(&sorted), allow_binary)?;
     check_automaton(&sorted, a, allow_binary)?;
   }
 
@@ -230,16 +238,20 @@ where
   ])
 }
 
-fn build<R>(random: &mut R, terms: Vec<BytesRef<Vec<u8>>>, as_binary: bool) -> Result<Automaton>
+fn build<R>(
+  random: &mut R,
+  terms: Cow<'_, [BytesRef<Vec<u8>>]>,
+  as_binary: bool,
+) -> Result<Automaton>
 where
   R: Rng + ?Sized,
 {
   if random.random_bool(0.5) {
-    StringsToAutomaton::build(terms.as_slice(), as_binary)
+    StringsToAutomaton::build(terms.as_ref(), as_binary)
   } else {
     StringsToAutomaton::build_from_iterator(
       &mut TermIterator {
-        it: terms.into_iter(),
+        it: terms.into_owned().into_iter(),
       },
       as_binary,
     )

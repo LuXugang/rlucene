@@ -76,9 +76,9 @@ fn test_random() -> Result<()> {
     let actual_bytes = actual_bytes.into_owned();
     let expected_term = expected.next();
     assert!(expected_term.is_some());
-    let actual_term = Term::new(iter.field().to_string(), actual_bytes);
-
-    assert_eq!(*expected_term.unwrap(), actual_term);
+    let expected_term = expected_term.unwrap();
+    assert_eq!(expected_term.field(), iter.field());
+    assert_eq!(expected_term.bytes(), &actual_bytes);
   }
   assert!(expected.next().is_none());
   Ok(())

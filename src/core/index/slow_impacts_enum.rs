@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
@@ -23,7 +23,6 @@ use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 /// [`ImpactsEnum`] that doesn't index impacts but implements the API in a legal way.
 /// This is typically used for short postings that do not need skipping.
@@ -56,7 +55,7 @@ where
     self.delegate.end_offset()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     self.delegate.get_payload()
   }
 }

@@ -25,6 +25,7 @@ use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValu
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::bytes_ref_builder::BytesRefBuilder;
 use crate::core::index::directory_reader;
@@ -1158,12 +1159,12 @@ pub(super) trait TestLucene90DocValuesFormatTests:
           let ord = sorted.ord_value()?;
           assert!(ord >= 0);
           assert_eq!(
-            new_bytes_ref_from_string(random, &value.to_string())?,
-            sorted.lookup_ord(ord)?.into_owned()
+            new_bytes_ref_from_string::<_, Vec<u8>>(random, &value.to_string())?.as_bytes(),
+            sorted.lookup_ord(ord)?.as_bytes()
           );
           assert_eq!(
-            new_bytes_ref_from_string(random, &value.to_string())?,
-            binary.binary_value()?.into_owned()
+            &new_bytes_ref_from_string(random, &value.to_string())?,
+            binary.binary_value()?.as_ref()
           );
         } else {
           assert!(numeric.doc_id() < doc_id);
@@ -1284,8 +1285,8 @@ pub(super) trait TestLucene90DocValuesFormatTests:
           input.read_bytes(builder.bytes_mut().bytes.as_mut(), 0, len)?;
           let ord = values.next_ord()?;
           assert_eq!(
-            builder.bytes().clone(),
-            values.lookup_ord(ord)?.into_owned()
+            builder.bytes().as_bytes(),
+            values.lookup_ord(ord)?.as_bytes()
           );
         }
       }
@@ -1465,8 +1466,8 @@ pub(super) trait TestLucene90DocValuesFormatTests:
         doc.add(SortedNumericDocValuesField::new("dv", value));
       }
       value_array.sort();
-      write_doc_values.push(value_array.clone());
-      for value in value_array {
+      write_doc_values.push(value_array);
+      for value in write_doc_values.last().unwrap() {
         doc.add(StoredField::from_string("stored", value.to_string())?);
       }
       writer.add_document(doc)?;
@@ -1504,11 +1505,13 @@ pub(super) trait TestLucene90DocValuesFormatTests:
           }
           let write_value_array = &write_doc_values[i as usize];
           assert_eq!(read_value_array, *write_value_array);
-          let expected_stored = expected_stored
-            .into_iter()
-            .map(|value| value.into_owned())
-            .collect::<Vec<_>>();
-          assert_eq!(expected_stored, actual_doc_value);
+          assert!(
+            expected_stored
+              .iter()
+              .map(|value| value.as_ref())
+              .eq(actual_doc_value.iter().map(String::as_str)),
+            "expected stored values: {expected_stored:?}, actual doc values: {actual_doc_value:?}"
+          );
         }
       }
     }
@@ -1862,25 +1865,25 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       .expect("sorted doc values should exist");
     let mut terms_enum = values.terms_enum()?;
     assert_eq!(
-      BytesRef::from_string("abc0defghijkl"),
+      &BytesRef::from_string("abc0defghijkl"),
       terms_enum
         .next()?
         .expect("first term should exist")
-        .into_owned()
+        .as_ref()
     );
     assert_eq!(
-      BytesRef::from_string("abc1defghijkl"),
+      &BytesRef::from_string("abc1defghijkl"),
       terms_enum
         .next()?
         .expect("second term should exist")
-        .into_owned()
+        .as_ref()
     );
     assert_eq!(
-      BytesRef::from_string("abc2defghijkl"),
+      &BytesRef::from_string("abc2defghijkl"),
       terms_enum
         .next()?
         .expect("third term should exist")
-        .into_owned()
+        .as_ref()
     );
     assert!(terms_enum.next()?.is_none());
     reader.close()?;
@@ -1933,17 +1936,17 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     );
     assert_eq!(0, terms_enum.ord()?);
     assert_eq!(
-      BytesRef::from_string(&string_supplier(0)),
-      terms_enum.term()?.into_owned()
+      &BytesRef::from_string(&string_supplier(0)),
+      terms_enum.term()?.as_ref()
     );
 
     for i in 1..num_terms {
       assert_eq!(
-        BytesRef::from_string(&string_supplier(i)),
+        &BytesRef::from_string(&string_supplier(i)),
         terms_enum
           .next()?
           .expect("next term should exist while iterating blocks")
-          .into_owned()
+          .as_ref()
       );
     }
     assert!(terms_enum.next()?.is_none());

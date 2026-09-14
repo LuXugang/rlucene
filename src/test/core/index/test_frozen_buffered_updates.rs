@@ -27,9 +27,10 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
-use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{AtomicCounter, BytesRefArray, Natural, SortableBytesRefArray};
+use crate::core::util::{
+  AtomicCounter, BytesRefArray, IndexedBytesRefIterator, Natural, SortableBytesRefArray,
+};
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_string_field_binary, random, rarely,
 };
@@ -68,7 +69,7 @@ fn test_term_docs_iterator() -> Result<()> {
       }
     }
 
-    let as_list: Vec<BytesRef<Vec<u8>>> = random_ids.iter().cloned().collect();
+    let as_list: Vec<&BytesRef<Vec<u8>>> = random_ids.iter().collect();
     let mut field_to_type = HashMap::new();
 
     for ref_ in &random_ids {
@@ -120,7 +121,8 @@ fn test_term_docs_iterator() -> Result<()> {
     let mut iterator = TermDocsIterator::new(TermsProviderImpl2::new(leaf), sorted);
     let mut bit_set = FixedBitSet::new(reader.max_doc()? as usize);
 
-    while let Some(ref_) = values.next()? {
+    while let Some((_, ref_)) = values.next()? {
+      let ref_ = ref_.into_cow();
       let mut doc_id_set_iterator = iterator.next_term("field", &ref_)?;
 
       if !non_matches {

@@ -206,8 +206,8 @@ pub trait SearchEquivalenceTestBase {
 
     let meta = self.get_meta();
     let max_doc = meta.s1.get_index_reader().max_doc()? as usize;
-    let td1 = meta.s1.search(q1.clone(), max_doc)?;
-    let td2 = meta.s2.search(q2.clone(), max_doc)?;
+    let td1 = meta.s1.search(q1, max_doc)?;
+    let td2 = meta.s2.search(q2, max_doc)?;
 
     assert_eq!(td1.total_hits().value(), td2.total_hits().value());
     for i in 0..td1.score_docs().len() {

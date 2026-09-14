@@ -26,7 +26,7 @@ use crate::core::document::double_field::DoubleField;
 use crate::core::document::double_point::DoublePoint;
 use crate::core::document::double_range::DoubleRange;
 use crate::core::document::double_range_doc_values_field::DoubleRangeDocValuesField;
-use crate::core::document::field::{Field, FieldDataEnum};
+use crate::core::document::field::Field;
 use crate::core::document::float_doc_values_field::FloatDocValuesField;
 use crate::core::document::float_field::FloatField;
 use crate::core::document::float_point::FloatPoint;
@@ -60,7 +60,7 @@ use crate::core::document::xy_doc_values_field::XYDocValuesField;
 use crate::core::document::xy_point_field::XYPointField;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
-  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
+  IndexableField, IndexingTokenStream, ReusedIndexingTokenStream, StoredValueEnum,
 };
 use crate::core::index::indexable_field_type::IndexableFieldTypeEnum;
 use crate::core::index::indexing_chain::ReservedField;
@@ -302,8 +302,15 @@ impl IndexableField for Fields {
     dispatch_fields!(self, |field| field.numeric_value())
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
-    dispatch_fields!(self, |field| field.stored_value())
+  type StoredValue<'a>
+    = StoredValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
+    dispatch_fields!(self, |field| {
+      Ok(field.stored_value()?.map(StoredValueEnum::from))
+    })
   }
 
   fn invertable_type(&self) -> &InvertableType {

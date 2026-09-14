@@ -30,10 +30,7 @@ struct TestUtil;
 
 #[test]
 fn test_binary_search() -> Result<()> {
-  let letters = vec!["A", "E", "J", "K", "L", "O", "T", "z"]
-    .into_iter()
-    .map(|s| s.to_string())
-    .collect::<Vec<_>>();
+  let letters = ["A", "E", "J", "K", "L", "O", "T", "z"];
   let fst = build_fst(&letters, true, false)?;
   let mut arc = Arc::default();
   fst.get_first_arc(&mut arc);
@@ -56,10 +53,7 @@ fn test_binary_search() -> Result<()> {
 }
 #[test]
 fn test_continuous() -> Result<()> {
-  let letters = vec!["A", "B", "C", "D", "E", "F", "G", "H"]
-    .into_iter()
-    .map(|s| s.to_string())
-    .collect::<Vec<_>>();
+  let letters = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
   let fst = build_fst(&letters, true, false)?;
 
@@ -109,8 +103,7 @@ fn verify_read_ceil_arc(
   allow_array_arcs: bool,
   allow_direct_addressing: bool,
 ) -> Result<()> {
-  let words = letters.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-  let fst = build_fst(&words, allow_array_arcs, allow_direct_addressing)?;
+  let fst = build_fst(letters, allow_array_arcs, allow_direct_addressing)?;
 
   let mut first = Arc::default();
   fst.get_first_arc(&mut first);
@@ -142,7 +135,7 @@ fn verify_read_ceil_arc(
 }
 
 pub fn build_fst(
-  words: &[String],
+  words: &[&str],
   allow_array_arcs: bool,
   allow_direct_addressing: bool,
 ) -> Result<FST<NoOutputs, DataOutputEnum<DummyIndexOutput>>> {

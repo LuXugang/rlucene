@@ -176,7 +176,6 @@ impl TestLevenshteinAutomata {
       a = Operations::concatenate(&a, &Automata::make_string(&suffix)?)?;
       list.push(a);
     }
-    let list: Vec<&Automaton> = list.iter().collect();
     let a = Operations::union_list(list.as_slice())?;
     Ok(
       MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
@@ -196,7 +195,6 @@ impl TestLevenshteinAutomata {
         &Automata::make_string(&suffix)?,
       )?);
     }
-    let list: Vec<&Automaton> = list.iter().collect();
     let a = Operations::union_list(list.as_slice())?;
     Ok(
       MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
@@ -220,7 +218,6 @@ impl TestLevenshteinAutomata {
         &Automata::make_string(&suffix)?,
       )?);
     }
-    let list: Vec<&Automaton> = list.iter().collect();
     let a = Operations::union_list(list.as_slice())?;
     Ok(
       MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
@@ -250,7 +247,6 @@ impl TestLevenshteinAutomata {
       }
     }
 
-    let list: Vec<&Automaton> = list.iter().collect();
     let a = Operations::union_list(list.as_slice())?;
     Ok(
       MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?

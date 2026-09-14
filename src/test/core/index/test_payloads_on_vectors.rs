@@ -23,6 +23,7 @@ use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -121,10 +122,10 @@ fn test_mixup_docs() -> Result<()> {
   assert_eq!(0, de.next_doc()?);
   assert_eq!(0, de.next_position()?);
   assert_eq!(
-    &BytesRef::from_string("test"),
+    BytesRef::<Vec<u8>>::from_string("test").as_bytes(),
     de.get_payload()?
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
-      .as_ref()
+      .as_bytes()
   );
   assert_eq!(NO_MORE_DOCS, de.next_doc()?);
   writer.close(&mut random)?;
@@ -199,10 +200,10 @@ fn test_mixup_multi_valued() -> Result<()> {
   assert_eq!(0, de.next_doc()?);
   assert_eq!(3, de.next_position()?);
   assert_eq!(
-    &BytesRef::from_string("test"),
+    BytesRef::<Vec<u8>>::from_string("test").as_bytes(),
     de.get_payload()?
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
-      .as_ref()
+      .as_bytes()
   );
   assert_eq!(NO_MORE_DOCS, de.next_doc()?);
   writer.close(&mut random)?;

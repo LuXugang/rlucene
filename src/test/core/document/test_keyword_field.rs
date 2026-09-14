@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRefValue;
 
 use crate::core::document::field::{FieldBase, FieldDataEnum, Store};
 use crate::core::document::keyword_field::KeywordField;
@@ -65,7 +66,7 @@ fn test_set_bytes_value() -> Result<()> {
       let stored = field.stored_value()?.unwrap();
       match stored {
         FieldDataEnum::Binary(v) => {
-          assert_eq!(new_bytes_ref_from_string(&mut random, "value")?, v);
+          assert_eq!(&new_bytes_ref_from_string(&mut random, "value")?, v);
         },
         _ => unreachable!(""),
       }
@@ -85,7 +86,7 @@ fn test_set_bytes_value() -> Result<()> {
       let stored = field.stored_value()?.unwrap();
       match stored {
         FieldDataEnum::Binary(v) => {
-          assert_eq!(new_bytes_ref_from_string(&mut random, "value2")?, v);
+          assert_eq!(&new_bytes_ref_from_string(&mut random, "value2")?, v);
         },
         _ => unreachable!(""),
       }
@@ -180,8 +181,8 @@ fn test_index_bytes_value() -> Result<()> {
   assert_eq!(1, values.doc_value_count()?);
   assert_eq!(0, values.next_ord()?);
   assert_eq!(
-    &new_bytes_ref_from_string(&mut random, "value")?,
-    values.lookup_ord(0)?.as_ref()
+    new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value")?.as_bytes(),
+    values.lookup_ord(0)?.as_bytes()
   );
 
   let stored_doc = leaf.stored_fields()?.document(0)?;
@@ -219,8 +220,8 @@ fn test_index_string_value() -> Result<()> {
   assert_eq!(1, values.doc_value_count()?);
   assert_eq!(0, values.next_ord()?);
   assert_eq!(
-    &new_bytes_ref_from_string(&mut random, "value")?,
-    values.lookup_ord(0)?.as_ref()
+    new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value")?.as_bytes(),
+    values.lookup_ord(0)?.as_bytes()
   );
 
   let stored_doc = leaf.stored_fields()?.document(0)?;

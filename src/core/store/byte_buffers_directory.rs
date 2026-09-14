@@ -152,7 +152,7 @@ fn output_as_many_buffers(
     file_name,
     data_input
   );
-  Ok(ByteBuffersIndexInput::new(data_input, &input_name))
+  Ok(ByteBuffersIndexInput::new(data_input, input_name))
 }
 
 /// Converts the buffered output to an input backed by one contiguous buffer.
@@ -172,7 +172,7 @@ fn output_as_one_buffer(
     file_name,
     data_input
   );
-  Ok(ByteBuffersIndexInput::new(data_input, &input_name))
+  Ok(ByteBuffersIndexInput::new(data_input, input_name))
 }
 
 /// Converts the buffered output to an input backed by one byte array.
@@ -565,8 +565,8 @@ fn create_output(
 
   Ok(ByteBuffersIndexOutput::with_checksum_and_on_close(
     output,
-    &output_name,
-    &file_name,
+    output_name,
+    file_name,
     Hasher::new(),
     on_close,
   ))

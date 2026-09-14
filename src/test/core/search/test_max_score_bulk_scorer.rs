@@ -66,19 +66,19 @@ where
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let docs: Vec<Vec<&str>> = vec![
-    vec!["A", "B"],      // 0
-    vec!["A"],           // 1
-    vec![],              // 2
-    vec!["A", "B", "C"], // 3
-    vec!["B"],           // 4
-    vec!["B", "C"],      // 5
+  let docs: [&[&str]; 6] = [
+    &["A", "B"],      // 0
+    &["A"],           // 1
+    &[],              // 2
+    &["A", "B", "C"], // 3
+    &["B"],           // 4
+    &["B", "C"],      // 5
   ];
 
   for values in docs {
     let mut doc = Document::new();
     for value in values {
-      doc.add(StringField::from_string("foo", value, Store::No)?);
+      doc.add(StringField::from_string("foo", *value, Store::No)?);
     }
     writer.add_document(doc)?;
 

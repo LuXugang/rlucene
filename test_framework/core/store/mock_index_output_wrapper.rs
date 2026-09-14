@@ -25,6 +25,7 @@ use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWra
 use crate::test_framework::core::util::failure_context::FailurePoint;
 use parking_lot::Mutex;
 use rand::RngExt;
+use std::fmt::Write as _;
 use std::fmt::{Display, Formatter};
 use std::io::Error;
 use std::sync::Arc;
@@ -63,7 +64,6 @@ where
 {
   dir: MockDirectoryWrapper<D>,
   first: bool,
-  pub(crate) name: String,
 
   single_byte: [u8; 1],
 
@@ -84,7 +84,6 @@ where
     Self {
       dir,
       first: true,
-      name: name.clone(),
       single_byte: [0],
       handle: MockIndexOutputHandle {
         state: Arc::new(Mutex::new(MockIndexOutputState { out, closed: false })),
@@ -154,14 +153,14 @@ where
     // If crashed since we were opened, then don't write anything
     if self.dir.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io_with_path(
-        &self.name,
+        &self.handle.name,
         Error::other(format!(
           "{} has crashed; cannot write to {}",
           std::any::type_name::<MockDirectoryWrapper<D>>()
             .rsplit("::")
             .next()
             .unwrap_or("MockDirectoryWrapper"),
-          self.name
+          self.handle.name
         )),
       ));
     }
@@ -204,17 +203,21 @@ where
       let mut message = format!(
         "fake disk full at {} bytes when writing {} (file length={}",
         self.dir.size_in_bytes()?,
-        self.name,
+        self.handle.name,
         self.handle.state.lock().out.get_file_pointer()?
       );
       if free_space > 0 {
-        message.push_str(&format!("; wrote {free_space} of {len} bytes"));
+        write!(message, "; wrote {free_space} of {len} bytes")
+          .expect("writing to a String cannot fail");
       }
       message.push(')');
       if cfg!(feature = "test_log_verbose") {
         eprintln!("MDW: returning a fake disk-full error");
       }
-      return Err(LuceneError::io_with_path(&self.name, Error::other(message)));
+      return Err(LuceneError::io_with_path(
+        &self.handle.name,
+        Error::other(message),
+      ));
     }
     Ok(())
   }
@@ -284,7 +287,7 @@ where
       // Maybe return a random error; only do this on the first write to a new
       // file:
       self.first = false;
-      self.dir.maybe_throw_io_exception(Some(&self.name))?;
+      self.dir.maybe_throw_io_exception(Some(&self.handle.name))?;
     }
     Ok(())
   }
@@ -366,6 +369,6 @@ where
   }
 
   fn get_name(&self) -> &str {
-    &self.name
+    &self.handle.name
   }
 }

@@ -18,7 +18,7 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::DefaultTermVectorsReader;
-use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValueEnum;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -52,6 +52,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::HasIdentity;
@@ -1029,7 +1030,7 @@ where
     self.in_.end_offset()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     if !self.asserting {
       return self.in_.get_payload();
     }
@@ -1048,7 +1049,11 @@ where
       "getPayload() called before nextPosition()!"
     );
     let payload = self.in_.get_payload()?;
-    assert!(payload.as_ref().is_none_or(|payload| payload.length > 0));
+    assert!(
+      payload
+        .as_ref()
+        .is_none_or(|payload| payload.as_bytes_ref().length > 0)
+    );
     Ok(payload)
   }
 }
@@ -1228,7 +1233,7 @@ where
     self.asserting_postings.end_offset()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     self.asserting_postings.get_payload()
   }
 }
@@ -1715,6 +1720,11 @@ impl<DV> SortedDocValues for AssertingSortedDocValues<DV>
 where
   DV: SortedDocValues,
 {
+  type OrdValue<'a>
+    = DV::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     if self.asserting {
       assert_thread("Sorted doc values", self.creation_thread);
@@ -1727,7 +1737,7 @@ where
     Ok(ord)
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     if self.asserting {
       assert_thread("Sorted doc values", self.creation_thread);
       assert!(ord >= 0 && ord < self.value_count);
@@ -2211,6 +2221,11 @@ impl<DV> SortedSetDocValues for AssertingSortedSetDocValues<DV>
 where
   DV: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::Default(in_) => in_.next_ord(),
@@ -2242,9 +2257,9 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::Default(in_) => in_.lookup_ord(ord),
+      Self::Default(in_) => in_.lookup_ord(ord).map(BytesRefValue::into_value),
       Self::Multi {
         creation_thread,
         in_,
@@ -2253,11 +2268,11 @@ where
       } => {
         assert_thread("Sorted set doc values", *creation_thread);
         assert!(ord >= 0 && ord < *value_count);
-        let result = in_.lookup_ord(ord)?;
+        let result = in_.lookup_ord(ord).map(BytesRefValue::into_value)?;
         assert!(result.is_valid()?);
         Ok(result)
       },
-      Self::Single(in_) => in_.lookup_ord(ord),
+      Self::Single(in_) => in_.lookup_ord(ord).map(BytesRefValue::into_value),
     }
   }
 
@@ -2731,7 +2746,11 @@ impl<MPT> MutablePointTree for AssertingMutablePointTree<MPT>
 where
   MPT: MutablePointTree,
 {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
+  fn get_value<'a>(
+    &'a self,
+    i: usize,
+    packed_value: &'a mut BytesRef<Vec<u8>>,
+  ) -> Result<BytesRef<&'a [u8]>> {
     self.in_.get_value(i, packed_value)
   }
 

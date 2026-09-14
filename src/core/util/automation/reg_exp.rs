@@ -18,6 +18,7 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fmt::Write as _;
 
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
@@ -337,8 +338,7 @@ impl RegExp {
         if let Some(e2) = &self.exp2 {
           e2.find_leaves(Union, &mut list, automata, provider)?;
         }
-        let refs: Vec<&crate::core::util::automation::automaton::Automaton> = list.iter().collect();
-        Operations::union_list(&refs)?
+        Operations::union_list(&list)?
       },
 
       Concatenation => {
@@ -349,7 +349,7 @@ impl RegExp {
         if let Some(e2) = &self.exp2 {
           e2.find_leaves(Concatenation, &mut list, automata, provider)?;
         }
-        Operations::concatenate_with_list(&list.iter().collect::<Vec<_>>())?
+        Operations::concatenate_with_list(&list)?
       },
 
       Intersection => {
@@ -512,8 +512,7 @@ impl RegExp {
       .collect();
 
     let automata = list?;
-    let refs: Vec<&Automaton> = automata.iter().collect();
-    Operations::concatenate_with_list(&refs)
+    Operations::concatenate_with_list(&automata)
   }
 
   fn find_leaves<T>(
@@ -590,16 +589,16 @@ impl RegExp {
         b.push('(');
         self.require_exp1()?.to_string_builder(b)?;
         b.push_str("){");
-        b.push_str(&self.min.to_string());
+        write!(b, "{}", self.min)?;
         b.push_str(",}");
       },
       RepeatMinMax => {
         b.push('(');
         self.require_exp1()?.to_string_builder(b)?;
         b.push_str("){");
-        b.push_str(&self.min.to_string());
+        write!(b, "{}", self.min)?;
         b.push(',');
-        b.push_str(&self.max.to_string());
+        write!(b, "{}", self.max)?;
         b.push('}');
       },
       Complement | DeprecatedComplement => {

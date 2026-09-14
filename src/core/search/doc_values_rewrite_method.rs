@@ -198,8 +198,8 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field().to_string());
-    DocValues::is_cacheable(ctx, &[field])
+    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field());
+    DocValues::is_cacheable(ctx, [field])
   }
 }
 
@@ -213,15 +213,15 @@ where
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
   ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
-    let field = dispatch_multi_term_query!(&self.query, |query| query.get_field().to_string());
-    for_field(field.clone(), move || {
-      let values = DocValues::get_sorted_set(context.reader(), &field)?;
+    let field = dispatch_multi_term_query!(&self.query, |query| query.get_field());
+    for_field(field, move || {
+      let values = DocValues::get_sorted_set(context.reader(), field)?;
       let terms_enum = get_terms_enum(&self.query, values)?;
       from_terms_enum(
         context,
         doc,
         Arc::new(self.query.clone().into()),
-        &field,
+        field,
         terms_enum,
       )
     })
@@ -250,8 +250,8 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field().to_string());
-    let values = DocValues::get_sorted_set(context.reader(), &field)?;
+    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field());
+    let values = DocValues::get_sorted_set(context.reader(), field)?;
     if values.get_value_count()? == 0 {
       return Ok(None);
     }
@@ -295,8 +295,8 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
-    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field().to_string());
-    let values = DocValues::get_sorted_set(context.reader(), &field)?;
+    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field());
+    let values = DocValues::get_sorted_set(context.reader(), field)?;
     let mut terms_enum = get_terms_enum(&self.query, values)?;
 
     if terms_enum.next()?.is_none() {
@@ -304,8 +304,8 @@ where
       return Ok(Box::new(v));
     }
 
-    let mut skipper_opt = context.reader().get_doc_values_skipper(&field)?;
-    let mut values = DocValues::get_sorted_set(context.reader(), &field)?;
+    let mut skipper_opt = context.reader().get_doc_values_skipper(field)?;
+    let mut values = DocValues::get_sorted_set(context.reader(), field)?;
     // Create a bit set for the "term set" ordinals (these are the terms provided by the
     // query that are actually present in the doc values field). Cannot use FixedBitSet
     // because we require long index (ord):

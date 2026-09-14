@@ -301,41 +301,39 @@ where
     if from == to {
       return Ok(());
     }
-    values.get_value(from, &mut self.scratch_bytes_ref1)?;
+    let value = values.get_value(from, &mut self.scratch_bytes_ref1)?;
     min_packed_value.copy_from(
-      &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
-        ..self.scratch_bytes_ref1.offset + self.config.packed_index_bytes_length()],
+      &value.bytes[value.offset..value.offset + self.config.packed_index_bytes_length()],
       0,
     );
     max_packed_value.copy_from(
-      &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
-        ..self.scratch_bytes_ref1.offset + self.config.packed_index_bytes_length()],
+      &value.bytes[value.offset..value.offset + self.config.packed_index_bytes_length()],
       0,
     );
 
     for i in from + 1..to {
-      values.get_value(i, &mut self.scratch_bytes_ref1)?;
-      let offset = self.scratch_bytes_ref1.offset;
+      let value = values.get_value(i, &mut self.scratch_bytes_ref1)?;
+      let offset = value.offset;
       for dim in 0..self.config.num_index_dims {
         let start_offset = dim * self.config.bytes_per_dim;
         let end_offset = start_offset + self.config.bytes_per_dim;
 
-        if self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset]
+        if value.bytes[offset + start_offset..offset + end_offset]
           .cmp(&min_packed_value[start_offset..end_offset])
           .to_int()
           < 0
         {
           min_packed_value.copy_from(
-            &self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset],
+            &value.bytes[offset + start_offset..offset + end_offset],
             start_offset,
           );
-        } else if self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset]
+        } else if value.bytes[offset + start_offset..offset + end_offset]
           .cmp(&max_packed_value[start_offset..end_offset])
           .to_int()
           > 0
         {
           max_packed_value.copy_from(
-            &self.scratch_bytes_ref1.bytes[offset + start_offset..offset + end_offset],
+            &value.bytes[offset + start_offset..offset + end_offset],
             start_offset,
           );
         }
@@ -502,7 +500,12 @@ where
       let reader = queue
         .top_mut()
         .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
-      one_dim_writer.add(&reader.packed_value, reader.doc_id)?;
+      let start = reader.packed_value_offset;
+      let end = start + reader.packed_bytes_length;
+      one_dim_writer.add(
+        &reader.merge_intersects_visitor.packed_values[start..end],
+        reader.doc_id,
+      )?;
 
       if reader.next()? {
         queue.update_top()?;
@@ -1487,19 +1490,19 @@ where
       let mut sorted_dim = 0;
       let mut leaf_cardinality = 1;
       {
-        reader.get_value(from, &mut self.scratch_bytes_ref1)?;
+        let first = reader.get_value(from, &mut self.scratch_bytes_ref1)?;
         for i in from + 1..to {
-          reader.get_value(i, &mut self.scratch_bytes_ref2)?;
+          let value = reader.get_value(i, &mut self.scratch_bytes_ref2)?;
           for dim in 0..self.config.num_dims {
             let offset = dim * self.config.bytes_per_dim;
             let dimension_prefix_length = self.common_prefix_lengths[dim];
             let v: usize = self
               .common_prefix_comparator
               .compare(
-                &self.scratch_bytes_ref1.bytes,
-                self.scratch_bytes_ref1.offset + offset,
-                &self.scratch_bytes_ref2.bytes,
-                self.scratch_bytes_ref2.offset + offset,
+                first.bytes,
+                first.offset + offset,
+                value.bytes,
+                value.offset + offset,
               )
               .try_convert()?;
             self.common_prefix_lengths[dim] = v.min(dimension_prefix_length);
@@ -1557,21 +1560,25 @@ where
           &mut self.scratch_bytes_ref1,
           &mut self.scratch_bytes_ref2,
         )?;
-        let mut comparator = &mut self.scratch_bytes_ref1;
-        let mut collector = &mut self.scratch_bytes_ref2;
-        reader.get_value(from, comparator)?;
+        // Keep the previous distinct value across reuse of the cross-block spare.
+        let comparator = &mut self.scratch_bytes_ref1;
+        let collector_spare = &mut self.scratch_bytes_ref2;
+        let first = reader.get_value(from, collector_spare)?;
+        comparator.copy_from_slice(&first.bytes[first.offset..first.offset + first.length]);
         for i in from + 1..to {
-          reader.get_value(i, collector)?;
+          let collector = reader.get_value(i, collector_spare)?;
           for dim in 0..self.config.num_dims {
             let start = dim * self.config.bytes_per_dim;
             if !self.equals_predicate.test(
-              &collector.bytes,
+              collector.bytes,
               collector.offset + start,
               &comparator.bytes,
               comparator.offset + start,
             ) {
               leaf_cardinality += 1;
-              std::mem::swap(&mut collector, &mut comparator);
+              comparator.copy_from_slice(
+                &collector.bytes[collector.offset..collector.offset + collector.length],
+              );
               break;
             }
           }
@@ -1586,14 +1593,17 @@ where
         }
         self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
 
-        // Write the common prefixes:
-        reader.get_value(from, &mut self.scratch_bytes_ref1)?;
-        self.scratch.copy_from(
-          &self.scratch_bytes_ref1.bytes[self.scratch_bytes_ref1.offset
-            ..self.scratch_bytes_ref1.offset + self.config.packed_bytes_length()],
-          0,
-        );
-        self.write_common_prefixes(out, &self.common_prefix_lengths, &self.scratch)?;
+        // Write the common prefixes, borrowing the point directly while writing.
+        let mut spare = std::mem::take(&mut self.scratch_bytes_ref1);
+        let result = reader.get_value(from, &mut spare).and_then(|value| {
+          self.write_common_prefixes(
+            out,
+            &self.common_prefix_lengths,
+            &value.bytes[value.offset..value.offset + self.config.packed_bytes_length()],
+          )
+        });
+        self.scratch_bytes_ref1 = spare;
+        result?;
       }
       // Write the full values:
       let mut packed_values = PackedValuesImpl2 {
@@ -1677,10 +1687,10 @@ where
       let split_offset = right_offset - 1;
       let address = split_offset * self.config.bytes_per_dim;
       split_dimension_values[split_offset] = split_dim as u8;
-      reader.get_value(mid, &mut self.scratch_bytes_ref1)?;
-      let start = self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim);
+      let value = reader.get_value(mid, &mut self.scratch_bytes_ref1)?;
+      let start = value.offset + (split_dim * self.config.bytes_per_dim);
       split_packed_values.copy_from(
-        &self.scratch_bytes_ref1.bytes[start..start + self.config.bytes_per_dim],
+        &value.bytes[start..start + self.config.bytes_per_dim],
         address,
       );
 
@@ -1695,11 +1705,11 @@ where
         self.config.packed_index_bytes_length(),
       );
 
-      let start = self.scratch_bytes_ref1.offset + (split_dim * self.config.bytes_per_dim);
+      let start = value.offset + (split_dim * self.config.bytes_per_dim);
       let end = start + self.config.bytes_per_dim;
       let offset = split_dim * self.config.bytes_per_dim;
-      min_split_packed_value.copy_from(&self.scratch_bytes_ref1.bytes[start..end], offset);
-      max_split_packed_value.copy_from(&self.scratch_bytes_ref1.bytes[start..end], offset);
+      min_split_packed_value.copy_from(&value.bytes[start..end], offset);
+      max_split_packed_value.copy_from(&value.bytes[start..end], offset);
       // recurse
       parent_splits[split_dim] += 1;
       self.build_with_reader(
@@ -2096,17 +2106,13 @@ where
   pub fn close(&mut self) -> Result<()> {
     self.finished = true;
     if let Some(PointWriterEnum::Offline(offline_point_writer)) = self.point_writer.as_mut() {
-      let (temp_file_name, close_result) = {
-        let temp_file_name = offline_point_writer.name.clone();
-        let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          offline_point_writer.close()
-        }));
-        (temp_file_name, close_result)
-      };
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        offline_point_writer.close()
+      }));
       let delete_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          self.temp_dir.delete_file(&temp_file_name)?;
           if let Some(PointWriterEnum::Offline(offline_point_writer)) = self.point_writer.as_mut() {
+            self.temp_dir.delete_file(&offline_point_writer.name)?;
             offline_point_writer.closed = true;
           }
           self.point_writer = None;
@@ -2506,7 +2512,7 @@ where
   merge_intersects_visitor: MergeIntersectsVisitor,
   doc_block_upto: usize,
   doc_id: i32,
-  packed_value: Vec<u8>,
+  packed_value_offset: usize,
 }
 
 impl<S, DM> MergeReader<S, DM>
@@ -2531,7 +2537,7 @@ where
       merge_intersects_visitor,
       doc_block_upto: 0,
       doc_id: -1,
-      packed_value: vec![0u8; packed_bytes_length],
+      packed_value_offset: 0,
     })
   }
   pub fn next(&mut self) -> Result<bool> {
@@ -2559,9 +2565,9 @@ where
         self.doc_id = mapped_doc_id;
         let start = index * self.packed_bytes_length;
         let end = start + self.packed_bytes_length;
-        self
-          .packed_value
-          .copy_from(&self.merge_intersects_visitor.packed_values[start..end], 0);
+        // Validate the current value before making its position available to the merge queue.
+        let _ = &self.merge_intersects_visitor.packed_values[start..end];
+        self.packed_value_offset = start;
         return Ok(true);
       }
     }
@@ -2670,9 +2676,12 @@ where
 {
   fn less_than(&self, a: &Box<MergeReader<S, DM>>, b: &Box<MergeReader<S, DM>>) -> Result<bool> {
     debug_assert!(!std::ptr::eq(a, b));
-    let cmp = self
-      .comparator
-      .compare(&a.packed_value, 0, &b.packed_value, 0);
+    let cmp = self.comparator.compare(
+      &a.merge_intersects_visitor.packed_values,
+      a.packed_value_offset,
+      &b.merge_intersects_visitor.packed_values,
+      b.packed_value_offset,
+    );
 
     if cmp < 0 {
       Ok(true)
@@ -2854,12 +2863,8 @@ where
   M: MutablePointTree,
 {
   fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)> {
-    self.reader.get_value(i + self.from, &mut self.scratch)?;
-    Ok((
-      self.scratch.bytes.as_slice(),
-      self.scratch.offset,
-      self.scratch.length,
-    ))
+    let value = self.reader.get_value(i + self.from, &mut self.scratch)?;
+    Ok((value.bytes, value.offset, value.length))
   }
 }
 struct PackedValuesImpl3<'a, O>

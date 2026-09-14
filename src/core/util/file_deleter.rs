@@ -158,8 +158,8 @@ where
       .map(|rc| rc.count > 0)
       .unwrap_or(false)
   }
-  /// get files that are touched but not incref'ed
-  pub fn get_unrefed_files(&self) -> Result<HashSet<String>> {
+  /// Get files that are touched but not incref'ed, borrowing their names from this deleter.
+  pub fn get_unrefed_files(&self) -> Result<HashSet<&str>> {
     let mut unrefed = HashSet::new();
     for (file_name, rc) in &self.ref_counts {
       if rc.count == 0 {
@@ -169,7 +169,7 @@ where
             &format!("removing unreferenced file \"{file_name}\""),
           )?;
         }
-        unrefed.insert(file_name.clone());
+        unrefed.insert(file_name.as_str());
       }
     }
     Ok(unrefed)

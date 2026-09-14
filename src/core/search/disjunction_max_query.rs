@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -130,7 +132,7 @@ impl QueryBase for DisjunctionMaxQuery {
 
     if self.tie_breaker_multiplier != 0.0 {
       result.push('~');
-      result.push_str(&format!("{:.1}", self.tie_breaker_multiplier));
+      write!(result, "{:.1}", self.tie_breaker_multiplier)?;
     }
 
     Ok(result)

@@ -204,24 +204,37 @@ where
       return Err(LuceneError::illegal_argument("call finish first"));
     }
 
-    let field = update.field.to_string();
+    let field = update.field.as_str();
     let update_bytes = update.ram_bytes_used()?;
+    let is_merging = inner.is_merging;
 
-    let field_updates = inner.pending_dv_updates.entry(field.clone()).or_default();
+    let field_updates = if let Some(updates) = inner.pending_dv_updates.get_mut(field) {
+      updates
+    } else {
+      inner
+        .pending_dv_updates
+        .entry(field.to_owned())
+        .or_default()
+    };
 
     debug_assert!(self.assert_no_dup_gen(field_updates, &update));
     self
       .ram_bytes_used
       .fetch_add(update_bytes, Ordering::SeqCst);
 
-    field_updates.push(update.clone());
-
-    if inner.is_merging {
-      inner
-        .merging_dv_updates
-        .entry(field)
-        .or_default()
-        .push(update);
+    if is_merging {
+      field_updates.push(update.clone());
+      let merging_updates = if let Some(updates) = inner.merging_dv_updates.get_mut(field) {
+        updates
+      } else {
+        inner
+          .merging_dv_updates
+          .entry(field.to_owned())
+          .or_default()
+      };
+      merging_updates.push(update);
+    } else {
+      field_updates.push(update);
     }
     Ok(())
   }
@@ -457,9 +470,7 @@ where
       }
 
       let next_doc_values_gen = info.get_next_doc_values_gen();
-      let segment_suffix = num_bigint::BigInt::from(next_doc_values_gen)
-        .to_str_radix(36)
-        .to_string();
+      let segment_suffix = num_bigint::BigInt::from(next_doc_values_gen).to_str_radix(36);
       let updates_context = IOContext::with_flush(FlushInfo::new(info.info.max_doc()?, bytes))?;
 
       let field_info = infos
@@ -728,7 +739,7 @@ where
         .entry(*field_num)
         .or_insert_with(|| files_set.clone());
     }
-    info.set_doc_values_updates_files(new_dv_files.clone());
+    info.set_doc_values_updates_files(&new_dv_files);
     // if there is a reader open, reopen it to reflect the updates
     if inner.reader.is_some() {
       swap_new_reader_with_latest_live_docs(&mut inner, info)?;
@@ -784,9 +795,12 @@ where
     } = &mut *inner;
 
     for (field, updates) in pending_dv_updates.iter() {
-      let entry = merging_dv_updates
-        .entry(field.clone())
-        .or_insert_with(Vec::new);
+      let entry = match merging_dv_updates.get_mut(field) {
+        Some(entry) => entry,
+        None => merging_dv_updates
+          .entry(field.clone())
+          .or_insert_with(Vec::new),
+      };
       entry.extend(updates.iter().cloned());
     }
 
@@ -1442,7 +1456,7 @@ fn clone_field_info(fi: &FieldInfo, field_number: i32) -> Result<FieldInfo> {
     *fi.get_doc_values_type(),
     *fi.doc_values_skip_index_type(),
     fi.get_doc_values_gen(),
-    fi.attributes().as_ref().clone(),
+    fi.attributes(),
     fi.get_point_dimension_count(),
     fi.get_point_index_dimension_count(),
     fi.get_point_num_bytes(),

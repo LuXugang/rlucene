@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{ByteSource, SharedAccessVec};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, GOOD_FAST_HASH_SEED, HashCode, StringHelper};
 use crate::with_other;
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
@@ -237,22 +238,21 @@ where
 }
 impl<AV> Display for BytesRef<AV>
 where
-  AV: SharedAccessVec<u8>,
+  AV: ByteSource,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-    self.bytes.access(|bytes| {
-      write!(f, "[")?;
-      let end = self.offset + self.length;
+    let bytes = self.bytes.as_slice();
+    write!(f, "[")?;
+    let end = self.offset + self.length;
 
-      for (i, &byte) in bytes[self.offset..end].iter().enumerate() {
-        if i > 0 {
-          write!(f, " ")?;
-        }
-        write!(f, "{byte:02x}")?;
+    for (i, &byte) in bytes[self.offset..end].iter().enumerate() {
+      if i > 0 {
+        write!(f, " ")?;
       }
-      write!(f, "]")?;
-      Ok(())
-    })
+      write!(f, "{byte:02x}")?;
+    }
+    write!(f, "]")?;
+    Ok(())
   }
 }
 impl<AV> HashCode for BytesRef<AV>
@@ -307,5 +307,131 @@ impl<const N: usize> From<[u8; N]> for BytesRef<Vec<u8>> {
 impl<const N: usize> From<&[u8; N]> for BytesRef<Vec<u8>> {
   fn from(value: &[u8; N]) -> Self {
     BytesRef::from(value.as_slice())
+  }
+}
+
+/// A byte value that can expose its contents without taking ownership.
+/// The lifetime is that of its owner borrow, including through enum adapters.
+pub trait BytesRefValue<'a>: Sized {
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]>;
+
+  /// Normalize heterogeneous results without copying their byte storage.
+  fn into_value(self) -> BytesRefValueEnum<'a>;
+
+  fn as_bytes(&self) -> &[u8] {
+    let value = self.as_bytes_ref();
+    &value.bytes[value.offset..value.offset + value.length]
+  }
+
+  /// Move owned storage, or copy a borrowed value when it must outlive the lookup.
+  fn into_owned(self) -> BytesRef<Vec<u8>> {
+    self.into_value().into_cow().into_owned()
+  }
+
+  fn is_valid(&self) -> Result<bool> {
+    let value = self.as_bytes_ref();
+    if value.length > value.bytes.len() {
+      return Err(LuceneError::illegal_state(format!(
+        "length is out of bounds: {},bytes.length= {}",
+        value.length,
+        value.bytes.len()
+      )));
+    }
+    if value.offset > value.bytes.len() {
+      return Err(LuceneError::illegal_state(format!(
+        "offset out of bounds: {},bytes.length= {}",
+        value.offset,
+        value.bytes.len()
+      )));
+    }
+    if value.offset + value.length > value.bytes.len() {
+      return Err(LuceneError::illegal_state(format!(
+        "offset+length out of bounds: offset={},length={},bytes.length= {}",
+        value.offset,
+        value.length,
+        value.bytes.len()
+      )));
+    }
+    Ok(true)
+  }
+
+  fn utf8_to_string(&self) -> Result<String> {
+    let value = self.as_bytes_ref();
+    CoreHelper::check_from_index_size(value.offset, value.length, value.bytes.len())?;
+    std::str::from_utf8(&value.bytes[value.offset..value.offset + value.length])
+      .map(str::to_owned)
+      .map_err(LuceneError::from)
+  }
+}
+
+/// A bounded carrier for enum adapters whose variants return different byte storage.
+/// Buffer-backed results retain their existing borrowing/ownership behavior.
+pub enum BytesRefValueEnum<'a> {
+  Buffer(Cow<'a, BytesRef<Vec<u8>>>),
+  Slice(BytesRef<&'a [u8]>),
+}
+
+impl<'a> BytesRefValueEnum<'a> {
+  /// Adapt to an API requiring Vec-backed BytesRef, copying only a slice-backed value.
+  pub fn into_cow(self) -> Cow<'a, BytesRef<Vec<u8>>> {
+    match self {
+      Self::Buffer(value) => value,
+      Self::Slice(value) => Cow::Owned(BytesRef::from(value.as_bytes().to_vec())),
+    }
+  }
+}
+
+impl<'a> BytesRefValue<'a> for Cow<'a, BytesRef<Vec<u8>>> {
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: &self.bytes,
+      offset: self.offset,
+      length: self.length,
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    BytesRefValueEnum::Buffer(self)
+  }
+}
+
+impl<'a> BytesRefValue<'a> for BytesRef<&'a [u8]> {
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: self.bytes,
+      offset: self.offset,
+      length: self.length,
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    BytesRefValueEnum::Slice(self)
+  }
+}
+
+impl<'a> BytesRefValue<'a> for BytesRefValueEnum<'a> {
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    match self {
+      Self::Buffer(value) => value.as_bytes_ref(),
+      Self::Slice(value) => value.as_bytes_ref(),
+    }
+  }
+
+  fn into_value(self) -> Self {
+    self
+  }
+}
+
+impl<'a> BytesRefValue<'a> for BytesRef<Vec<u8>> {
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: &self.bytes,
+      offset: self.offset,
+      length: self.length,
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    BytesRefValueEnum::Buffer(Cow::Owned(self))
   }
 }

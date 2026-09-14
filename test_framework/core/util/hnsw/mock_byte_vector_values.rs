@@ -28,12 +28,13 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 use rand::RngExt;
 use std::borrow::Cow;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct MockByteVectorValues {
   dimension: usize,
-  dense_values: Vec<Vec<u8>>,
-  pub(crate) values: Vec<Vec<u8>>,
+  dense_values: Arc<Vec<Vec<u8>>>,
+  pub(crate) values: Arc<Vec<Vec<u8>>>,
   num_vectors: usize,
   seed: u64,
 }
@@ -59,13 +60,19 @@ impl MockByteVectorValues {
       .cloned()
       .collect();
     let num_vectors = dense_values.len();
-    Self::new(values, dimension, dense_values, num_vectors, seed)
+    Self::new(
+      Arc::new(values),
+      dimension,
+      Arc::new(dense_values),
+      num_vectors,
+      seed,
+    )
   }
 
   fn new(
-    values: Vec<Vec<u8>>,
+    values: Arc<Vec<Vec<u8>>>,
     dimension: usize,
-    dense_values: Vec<Vec<u8>>,
+    dense_values: Arc<Vec<Vec<u8>>>,
     num_vectors: usize,
     seed: u64,
   ) -> Self {

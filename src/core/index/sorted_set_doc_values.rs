@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
@@ -24,11 +23,11 @@ use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTerm
 use crate::core::index::terms_enum::{
   EmptyTermsEnum, TermsEnum, TermsEnumWithUnsupportedFirstPostings,
 };
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -40,6 +39,12 @@ use std::rc::Rc;
 /// the dictionary value (ordinal) can be retrieved for each document. Ordinals
 /// are dense and in increasing sorted order.
 pub trait SortedSetDocValues: DocValuesIterator {
+  /// Storage returned by an ordinal lookup; callers can borrow its active bytes
+  /// or use `BytesRefValue::into_owned` to retain the value.
+  type OrdValue<'a>: BytesRefValue<'a>
+  where
+    Self: 'a;
+
   /// Returns the next ordinal for the current document. It is illegal to call
   /// this method after
   /// [`advance_exact`](DocValuesIterator::advance_exact) returned
@@ -60,13 +65,13 @@ pub trait SortedSetDocValues: DocValuesIterator {
 
   /// Retrieves the value for the specified ordinal. The returned [`BytesRef`]
   /// may be re-used across calls to `lookup_ord`, so make sure to
-  /// [`BytesRef::deep_copy_of`] it if you want to keep it around.
+  /// use [`BytesRefValue::into_owned`] if you want to keep it around.
   ///
   /// # Arguments
   /// * `ord` - Ordinal to lookup
   ///
   /// See also: [`next_ord`](SortedSetDocValues::next_ord)
-  fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, _ord: i64) -> Result<Self::OrdValue<'_>> {
     Err(LuceneError::need_implemented("this method not implement"))
   }
   /// Returns the number of unique values.
@@ -92,7 +97,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     while low <= high {
       let mid = (low + high) >> 1;
       let term = self.lookup_ord(mid)?;
-      let cmp = term.as_ref().cmp(key).to_int();
+      let cmp = term.as_bytes().cmp(key.as_bytes()).to_int();
       if cmp < 0 {
         low = mid + 1;
       } else if cmp > 0 {
@@ -159,6 +164,11 @@ impl<S> SortedSetDocValues for &mut S
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     (**self).next_ord()
   }
@@ -167,7 +177,7 @@ where
     (**self).doc_value_count()
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     (**self).lookup_ord(ord)
   }
 
@@ -246,6 +256,11 @@ impl<S> SortedSetDocValues for Rc<RefCell<S>>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     self.borrow_mut().next_ord()
   }
@@ -254,8 +269,8 @@ where
     self.borrow_mut().doc_value_count()
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Owned(self.borrow_mut().lookup_ord(ord)?.into_owned()))
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
+    Ok(self.borrow_mut().lookup_ord(ord)?.into_owned())
   }
 
   fn get_value_count(&self) -> Result<i64> {

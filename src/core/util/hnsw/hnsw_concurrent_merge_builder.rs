@@ -155,9 +155,9 @@ where
   }
 
   fn set_info_stream(&mut self, info_stream: InfoStreamMT) {
-    self.info_stream = Arc::clone(&info_stream);
+    self.info_stream = info_stream;
     for worker in &mut self.workers {
-      worker.base.set_info_stream(Arc::clone(&info_stream));
+      worker.base.set_info_stream(Arc::clone(&self.info_stream));
     }
   }
 

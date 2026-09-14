@@ -93,7 +93,6 @@ fn test_get() -> Result<()> {
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
-  let mut scratch = BytesRef::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -114,7 +113,7 @@ fn test_get() -> Result<()> {
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
       if key >= 0 {
-        assert!(strings.insert(str_value.clone(), key).is_none());
+        assert!(strings.insert(str_value, key).is_none());
         assert_eq!(unique_count, key);
         unique_count += 1;
         assert_eq!(hash.size(), count + 1);
@@ -126,8 +125,14 @@ fn test_get() -> Result<()> {
 
     for (key, value) in &strings {
       ref_builder.copy_chars_from_string(key)?;
-      hash.get(*value, &mut scratch, &byte_block_pool)?;
-      assert_eq!(*ref_builder.get_bytes_mut_ref(), scratch);
+      let position = hash.get(*value, &byte_block_pool)?;
+      let block = byte_block_pool.get_buffer(position.block_index);
+      let scratch = &block[position.offset..position.offset + position.length];
+      let expected = ref_builder.get_bytes_ref();
+      assert_eq!(
+        &expected.bytes[expected.offset..expected.offset + expected.length],
+        scratch
+      );
     }
 
     hash.clear(&mut byte_block_pool);
@@ -219,14 +224,15 @@ fn test_sort() -> Result<()> {
       hash.sort(&byte_block_pool)?;
       let len = hash.ids.len();
       assert!(strings.len() < len);
-      let mut scratch = BytesRef::new();
       for (i, string) in strings.iter().enumerate() {
         ref_builder.copy_chars_from_string(string)?;
         let bytes_id = hash.ids[i];
-        hash.get(bytes_id, &mut scratch, &byte_block_pool)?;
-        let sorted_ref = scratch.clone();
+        let position = hash.get(bytes_id, &byte_block_pool)?;
+        let block = byte_block_pool.get_buffer(position.block_index);
+        let sorted_ref = &block[position.offset..position.offset + position.length];
+        let expected = ref_builder.get_bytes_ref();
         assert_eq!(
-          *ref_builder.get_bytes_mut_ref(),
+          &expected.bytes[expected.offset..expected.offset + expected.length],
           sorted_ref,
           "Sorted value mismatch at index {}",
           i
@@ -247,7 +253,6 @@ fn test_add() -> Result<()> {
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
-  let mut scratch = BytesRef::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -268,15 +273,18 @@ fn test_add() -> Result<()> {
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
 
       if key >= 0 {
-        assert!(strings.insert(str_value.clone()));
+        assert!(strings.insert(str_value));
         assert_eq!(unique_count, key);
         assert_eq!(hash.size(), count + 1);
         unique_count += 1;
       } else {
-        assert!(!strings.insert(str_value.clone()));
+        strings.reserve(1);
+        assert!(strings.contains(&str_value));
         assert!(((-key - 1) as usize) < count);
-        hash.get(-key - 1, &mut scratch, &byte_block_pool)?;
-        assert_eq!(str_value, scratch.utf8_to_string()?);
+        let position = hash.get(-key - 1, &byte_block_pool)?;
+        let block = byte_block_pool.get_buffer(position.block_index);
+        let scratch = &block[position.offset..position.offset + position.length];
+        assert_eq!(str_value, std::str::from_utf8(scratch)?);
         assert_eq!(count, hash.size());
       }
     }
@@ -294,7 +302,6 @@ fn test_find() -> Result<()> {
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
-  let mut scratch = BytesRef::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -315,14 +322,17 @@ fn test_find() -> Result<()> {
       let key = hash.find(ref_builder.get_bytes_mut_ref(), &byte_block_pool)?;
 
       if key >= 0 {
-        assert!(!strings.insert(str_value.clone()));
+        strings.reserve(1);
+        assert!(strings.contains(&str_value));
         assert!((key as usize) < count);
-        hash.get(key, &mut scratch, &byte_block_pool)?;
-        assert_eq!(str_value, scratch.utf8_to_string()?);
+        let position = hash.get(key, &byte_block_pool)?;
+        let block = byte_block_pool.get_buffer(position.block_index);
+        let scratch = &block[position.offset..position.offset + position.length];
+        assert_eq!(str_value, std::str::from_utf8(scratch)?);
         assert_eq!(count, hash.size());
       } else {
         let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut byte_block_pool)?;
-        assert!(strings.insert(str_value.clone()));
+        assert!(strings.insert(str_value));
         assert_eq!(unique_count, key);
         assert_eq!(hash.size(), count + 1);
         unique_count += 1;
@@ -374,7 +384,6 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
         let byte_block_pool = &byte_block_pool;
 
         handles.push(scope.spawn(move || -> Result<()> {
-          let mut scratch = BytesRef::new();
           latch.count_down();
           latch.wait();
 
@@ -385,8 +394,10 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
             if id < 0 {
               not_found.fetch_add(1, Ordering::SeqCst);
             } else {
-              hash.get(id, &mut scratch, byte_block_pool)?;
-              if scratch != find {
+              let position = hash.get(id, byte_block_pool)?;
+              let block = byte_block_pool.get_buffer(position.block_index);
+              let scratch = &block[position.offset..position.offset + position.length];
+              if scratch != &find.bytes[find.offset..find.offset + find.length] {
                 not_equals.fetch_add(1, Ordering::SeqCst);
               }
             }
@@ -468,7 +479,6 @@ fn test_add_by_pool_offset() -> Result<()> {
   let mut hash = new_hash(&mut random)?;
   let mut offset_hash = new_hash(&mut random)?;
   let mut ref_builder = BytesRefBuilder::new();
-  let mut scratch = BytesRef::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -489,7 +499,7 @@ fn test_add_by_pool_offset() -> Result<()> {
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut pool)?;
 
       if key >= 0 {
-        assert!(strings.insert(str_value.clone()));
+        assert!(strings.insert(str_value));
         assert_eq!(unique_count, key);
         assert_eq!(hash.size(), count + 1);
 
@@ -499,15 +509,20 @@ fn test_add_by_pool_offset() -> Result<()> {
 
         unique_count += 1;
       } else {
-        assert!(!strings.insert(str_value.clone()));
+        strings.reserve(1);
+        assert!(strings.contains(&str_value));
         assert!(((-key - 1) as usize) < count);
-        hash.get(-key - 1, &mut scratch, &pool)?;
-        assert_eq!(str_value, scratch.utf8_to_string()?);
+        let position = hash.get(-key - 1, &pool)?;
+        let block = pool.get_buffer(position.block_index);
+        let scratch = &block[position.offset..position.offset + position.length];
+        assert_eq!(str_value, std::str::from_utf8(scratch)?);
         assert_eq!(count, hash.size());
         let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1)?, &mut pool)?;
         assert!(((-offset_key - 1) as usize) < count);
-        hash.get(-offset_key - 1, &mut scratch, &pool)?;
-        assert_eq!(str_value, scratch.utf8_to_string()?);
+        let position = hash.get(-offset_key - 1, &pool)?;
+        let block = pool.get_buffer(position.block_index);
+        let scratch = &block[position.offset..position.offset + position.length];
+        assert_eq!(str_value, std::str::from_utf8(scratch)?);
         assert_eq!(count, hash.size());
       }
     }
@@ -517,10 +532,12 @@ fn test_add_by_pool_offset() -> Result<()> {
     for string in &strings {
       ref_builder.copy_chars_from_string(string)?;
       let key = hash.add(ref_builder.get_bytes_mut_ref(), &mut pool)?;
-      offset_hash.get(-key - 1, &mut scratch, &pool)?;
-      let bytes_ref = scratch.clone();
+      let position = offset_hash.get(-key - 1, &pool)?;
+      let block = pool.get_buffer(position.block_index);
+      let bytes_ref = &block[position.offset..position.offset + position.length];
+      let expected = ref_builder.get_bytes_ref();
       assert_eq!(
-        *ref_builder.get_bytes_mut_ref(),
+        &expected.bytes[expected.offset..expected.offset + expected.length],
         bytes_ref,
         "Values should match."
       );
@@ -547,14 +564,15 @@ fn assert_all_in(
   pool: &mut ByteBlockPool,
 ) -> Result<()> {
   let mut ref_builder = BytesRefBuilder::new();
-  let mut scratch = BytesRef::new();
   let count = hash.size();
 
   for string in strings {
     ref_builder.copy_chars_from_string(string)?;
     let key = hash.add(ref_builder.get_bytes_mut_ref(), pool)?; // add again to check duplicates
-    hash.get((-key) - 1, &mut scratch, pool)?;
-    assert_eq!(*string, scratch.utf8_to_string()?);
+    let position = hash.get((-key) - 1, pool)?;
+    let block = pool.get_buffer(position.block_index);
+    let scratch = &block[position.offset..position.offset + position.length];
+    assert_eq!(*string, std::str::from_utf8(scratch)?);
     assert_eq!(
       count,
       hash.size(),

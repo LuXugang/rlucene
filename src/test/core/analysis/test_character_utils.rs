@@ -17,7 +17,6 @@
 
 use crate::core::analysis::character_utils::CharacterUtils;
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::util::lucene_test_case::random;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -31,11 +30,9 @@ fn test_lower_upper() -> Result<()> {
   assert!(CharacterUtils::fill_with_num(&mut buffer, &mut reader, 3)?);
   assert_eq!(buffer.length, 3);
   CharacterUtils::convert_to_lower_case(&mut buffer.buffer, 1, 3);
-  let s: String = buffer.buffer.iter().collect();
-  assert_eq!(s, "Abc");
+  assert_eq!(buffer.buffer.as_slice(), &['A', 'b', 'c']);
   CharacterUtils::get_upper_case(&mut buffer.buffer, 1, 3);
-  let s2: String = buffer.buffer.iter().collect();
-  assert_eq!(s2, "ABC");
+  assert_eq!(buffer.buffer.as_slice(), &['A', 'B', 'C']);
   Ok(())
 }
 #[test]
@@ -52,8 +49,8 @@ fn test_conversions() -> Result<()> {
   let code_point_count = CharacterUtils::get_code_points(&orig, o1, orig.len() - o1, &mut buf, o2)?;
   let char_count = CharacterUtils::get_chars(&buf, o2, code_point_count, &mut restored, o3)?;
   assert_eq!(orig.len() - o1, char_count);
-  let orig_sub = ArrayUtil::copy_of_sub_array(&orig, o1, o1 + char_count);
-  let restored_sub = ArrayUtil::copy_of_sub_array(&restored, o3, o3 + char_count);
+  let orig_sub = &orig[o1..o1 + char_count];
+  let restored_sub = &restored[o3..o3 + char_count];
   assert_eq!(orig_sub, restored_sub);
   Ok(())
 }
@@ -81,15 +78,14 @@ fn test_fill_no_high_surrogate() -> Result<()> {
   assert!(CharacterUtils::fill_with_num(&mut buffer, &mut reader, 6)?);
   assert_eq!(buffer.offset, 0);
   assert_eq!(buffer.length, 6);
-  let s: String = buffer.get_buffer().iter().collect();
-  assert_eq!(s, "hellow");
+  assert_eq!(buffer.get_buffer(), &['h', 'e', 'l', 'l', 'o', 'w']);
   assert!(!CharacterUtils::fill_with_num(&mut buffer, &mut reader, 6)?);
   assert_eq!(buffer.offset, 0);
   assert_eq!(buffer.length, 4);
-  let s2: String = buffer.buffer[buffer.offset..buffer.offset + buffer.length]
-    .iter()
-    .collect();
-  assert_eq!(s2, "orld");
+  assert_eq!(
+    &buffer.buffer[buffer.offset..buffer.offset + buffer.length],
+    &['o', 'r', 'l', 'd']
+  );
   assert!(!CharacterUtils::fill(&mut buffer, &mut reader)?);
 
   Ok(())

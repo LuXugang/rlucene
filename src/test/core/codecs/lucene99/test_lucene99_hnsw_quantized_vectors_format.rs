@@ -301,9 +301,9 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
     let mut expected_corrections = vec![0.0; num_vectors];
     let mut expected_vectors = vec![vec![0; dim]; num_vectors];
     for (i, vector) in vectors.iter().enumerate() {
-      let mut vector = vector.as_floats()?.to_vec();
+      let mut vector = std::borrow::Cow::Borrowed(vector.as_floats()?);
       if similarity_function == VectorSimilarityFunction::Cosine {
-        VectorUtil::l2normalize(&mut vector)?;
+        VectorUtil::l2normalize(vector.to_mut())?;
       }
       expected_corrections[i] =
         scalar_quantizer.quantize(&vector, &mut expected_vectors[i], similarity_function);

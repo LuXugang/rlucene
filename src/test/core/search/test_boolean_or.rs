@@ -351,7 +351,7 @@ fn test_sub_scorer_next_is_not_match() -> Result<()> {
 
   bs.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
 
-  let expected = vec![4000, 5000, 100000, 1000001, 1000051, 9_999_998, 9_999_999];
+  let expected = [4000, 5000, 100000, 1000001, 1000051, 9_999_998, 9_999_999];
   assert_eq!(collector.matches, expected);
 
   Ok(())

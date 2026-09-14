@@ -23,9 +23,13 @@ use std::borrow::Cow;
 /// One leaf [PointTree] whose order of points can be changed.
 /// This trait is useful for codecs to optimize flush.
 pub trait MutablePointTree: PointTree {
-  /// Set `packed_value` with a reference to the packed bytes of the i-th
-  /// value.
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> lucene_error::Result<()>;
+  /// Return the packed bytes of the i-th value, borrowing the tree or the
+  /// supplied spare when the value needs to be assembled across blocks.
+  fn get_value<'a>(
+    &'a self,
+    i: usize,
+    spare: &'a mut BytesRef<Vec<u8>>,
+  ) -> lucene_error::Result<BytesRef<&'a [u8]>>;
 
   /// Get the k-th byte of the i-th value.
   fn get_byte_at(&self, i: usize, k: usize) -> u8;
@@ -139,7 +143,11 @@ where
   A: MutablePointTree,
   B: MutablePointTree,
 {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> lucene_error::Result<()> {
+  fn get_value<'a>(
+    &'a self,
+    i: usize,
+    packed_value: &'a mut BytesRef<Vec<u8>>,
+  ) -> lucene_error::Result<BytesRef<&'a [u8]>> {
     match self {
       MutablePointTreeEnum2::A(t) => t.get_value(i, packed_value),
       MutablePointTreeEnum2::B(s) => s.get_value(i, packed_value),

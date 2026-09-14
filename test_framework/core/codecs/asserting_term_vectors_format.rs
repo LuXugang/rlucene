@@ -272,7 +272,7 @@ where
     Ok(())
   }
 
-  fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+  fn start_term(&mut self, term: &BytesRef<&[u8]>, freq: i32) -> Result<()> {
     assert!(self.doc_status == Status::Started);
     assert!(self.field_status == Status::Started);
     assert!(self.term_status != Status::Started);
@@ -298,7 +298,7 @@ where
     position: i32,
     start_offset: i32,
     end_offset: i32,
-    payload: Option<&BytesRef<Vec<u8>>>,
+    payload: Option<&BytesRef<&[u8]>>,
   ) -> Result<()> {
     assert!(self.doc_status == Status::Started);
     assert!(self.field_status == Status::Started);

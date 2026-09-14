@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 #![allow(deprecated)]
+use std::fmt::Write as _;
+
 use crate::core::index::doc_values::SortedDocValuesWithEmpty;
 use crate::core::index::doc_values::{DocValues, NumericDocValuesWithEmpty};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -638,7 +640,7 @@ impl Display for SortField {
     }
     if let Some(ref missing_value) = self.missing_value {
       buffer.push_str(" missingValue=");
-      buffer.push_str(&format!("{missing_value}"));
+      write!(buffer, "{missing_value}")?;
     }
     write!(f, "{buffer}")
   }

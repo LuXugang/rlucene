@@ -27,6 +27,7 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::OpenMode;
@@ -278,7 +279,7 @@ where
       for postings in &mut tps {
         postings.next_position()?;
         if let Some(payload) = postings.get_payload()? {
-          let payload = payload.as_ref();
+          let payload = payload.as_bytes_ref();
           let end = offset + payload.length;
           verify_payload_data[offset..end]
             .copy_from_slice(&payload.bytes[payload.offset..payload.offset + payload.length]);
@@ -303,6 +304,7 @@ where
   let payload = tp
     .get_payload()?
     .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
+  let payload = payload.as_bytes_ref();
   assert_eq!(1, payload.length);
   assert_eq!(payload.bytes[payload.offset], payload_data[num_terms]);
   tp.next_doc()?;
@@ -313,6 +315,7 @@ where
   let payload = tp
     .get_payload()?
     .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
+  let payload = payload.as_bytes_ref();
   assert_eq!(1, payload.length);
   assert_eq!(payload.bytes[payload.offset], payload_data[5 * num_terms]);
 
@@ -325,18 +328,18 @@ where
   .ok_or_else(|| LuceneError::illegal_state("term postings not found"))?;
   tp.next_doc()?;
   tp.next_position()?;
-  assert_eq!(1, tp.get_payload()?.unwrap().length);
+  assert_eq!(1, tp.get_payload()?.unwrap().as_bytes_ref().length);
   tp.advance(skip_interval as i32 - 1)?;
   tp.next_position()?;
-  assert_eq!(1, tp.get_payload()?.unwrap().length);
+  assert_eq!(1, tp.get_payload()?.unwrap().as_bytes_ref().length);
   tp.advance(2 * skip_interval as i32 - 1)?;
   tp.next_position()?;
-  assert_eq!(1, tp.get_payload()?.unwrap().length);
+  assert_eq!(1, tp.get_payload()?.unwrap().as_bytes_ref().length);
   tp.advance(3 * skip_interval as i32 - 1)?;
   tp.next_position()?;
   assert_eq!(
     3 * skip_interval - 2 * num_docs - 1,
-    tp.get_payload()?.unwrap().length
+    tp.get_payload()?.unwrap().as_bytes_ref().length
   );
 
   let analyzer = PayloadAnalyzer::new();
@@ -368,9 +371,10 @@ where
   let br = tp
     .get_payload()?
     .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
+  let br = br.as_bytes_ref();
   let mut portion = vec![0; 1500];
   portion.copy_from_slice(&payload_data[100..1600]);
-  assert_byte_array_equals_range(portion.as_ref(), br.bytes.as_slice(), br.offset, br.length);
+  assert_byte_array_equals_range(portion.as_ref(), br.bytes, br.offset, br.length);
   Ok(())
 }
 
@@ -487,10 +491,12 @@ impl PayloadAnalyzer {
   }
 
   fn set_payload_data(&self, field: &str, data: Vec<u8>, offset: usize, length: usize) {
-    self
-      .field_to_data
-      .lock()
-      .insert(field.to_string(), PayloadData::new(data, offset, length));
+    let mut field_to_data = self.field_to_data.lock();
+    if let Some(payload) = field_to_data.get_mut(field) {
+      *payload = PayloadData::new(data, offset, length);
+    } else {
+      field_to_data.insert(field.to_string(), PayloadData::new(data, offset, length));
+    }
   }
 }
 
@@ -577,9 +583,10 @@ where
       .ok_or_else(|| LuceneError::illegal_state("payload data is not set"))?;
     let attr = self.token_filter_base.input.get_attribute_source_mut();
     let len = attr.length()?;
-    let term = attr.buffer()?[..len].iter().collect::<String>();
+    let term = &attr.buffer()?[..len];
 
-    if self.offset + payload_data.length <= payload_data.data.len() && !term.ends_with("NO PAYLOAD")
+    if self.offset + payload_data.length <= payload_data.data.len()
+      && !term.ends_with(&['N', 'O', ' ', 'P', 'A', 'Y', 'L', 'O', 'A', 'D'])
     {
       let payload =
         BytesRef::from_slice(payload_data.data.clone(), self.offset, payload_data.length);
@@ -685,6 +692,7 @@ fn test_thread_safety() -> Result<()> {
         let payload = tp
           .get_payload()?
           .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
+        let payload = payload.as_bytes_ref();
         assert_eq!(term_text, payload.utf8_to_string()?);
       }
     }
@@ -879,10 +887,10 @@ fn test_mixup_docs() -> Result<()> {
   de.next_doc()?;
   de.next_position()?;
   assert_eq!(
-    &BytesRef::from_string("test"),
+    BytesRef::<Vec<u8>>::from_string("test").as_bytes(),
     de.get_payload()?
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
-      .as_ref()
+      .as_bytes()
   );
   writer.close(&mut random)?;
 
@@ -936,10 +944,10 @@ fn test_mixup_multi_valued() -> Result<()> {
   de.next_doc()?;
   de.next_position()?;
   assert_eq!(
-    &BytesRef::from_string("test"),
+    BytesRef::<Vec<u8>>::from_string("test").as_bytes(),
     de.get_payload()?
       .ok_or_else(|| LuceneError::illegal_state("payload missing"))?
-      .as_ref()
+      .as_bytes()
   );
   writer.close(&mut random)?;
 

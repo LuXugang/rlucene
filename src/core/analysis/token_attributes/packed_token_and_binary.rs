@@ -51,8 +51,8 @@ impl BinaryTokenStreamAttributeImpl {
     let mut attribute = HashSet::new();
     #[cfg(any(test, debug_assertions))]
     {
-      attribute.extend(packed_token.get_attribute_name()?.clone());
-      attribute.extend(binary.get_attribute_name()?.clone());
+      attribute.extend(packed_token.get_attribute_name()?.iter().cloned());
+      attribute.extend(binary.get_attribute_name()?.iter().cloned());
     }
     Ok(Self {
       packed_token,

@@ -3092,7 +3092,7 @@ fn test_point_range_equals() -> Result<()> {
     CoreHelper::calculate_hash(&q2)
   );
 
-  let mut other = ones.clone();
+  let mut other = ones;
   other[2] = 5;
   assert_ne!(
     q1,
@@ -3158,7 +3158,7 @@ fn test_point_exact_equals() -> Result<()> {
     CoreHelper::calculate_hash(&q2)
   );
 
-  let mut other = ones.clone();
+  let mut other = ones;
   other[2] = 5;
   assert_ne!(q1, BinaryPoint::new_exact_query("a", other)?);
   assert_eq!(q1.get_lower_point(), q2.get_lower_point());
@@ -3219,9 +3219,9 @@ fn test_point_in_set_equals() -> Result<()> {
     CoreHelper::calculate_hash(&q1),
     CoreHelper::calculate_hash(&q2)
   );
-  let mut other = ones.clone();
+  let mut other = ones;
   other[2] = 5;
-  assert_ne!(q1, BinaryPoint::new_set_query("a", [zeros.clone(), other])?);
+  assert_ne!(q1, BinaryPoint::new_set_query("a", [zeros, other])?);
 
   Ok(())
 }
@@ -3497,7 +3497,7 @@ impl BytesRefIterator for MultiDimIntSetBytesRefIterator {
     if self.upto >= self.packed_values.len() {
       return Ok(None);
     }
-    self.value.bytes = self.packed_values[self.upto].clone();
+    self.value.bytes = std::mem::take(&mut self.packed_values[self.upto]);
     self.value.offset = 0;
     self.value.length = self.value.bytes.len();
     self.upto += 1;

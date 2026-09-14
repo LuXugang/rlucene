@@ -177,7 +177,7 @@ fn test_intro_sort() -> Result<()> {
     assert_eq!(a1, a2);
 
     a1 = create_random_array(&mut random, 2000);
-    a2 = a1.clone();
+    a2.clone_from(&a1);
     ArrayUtil::intro_sort_with_comparator(&mut a1, ReverseOrder::new())?;
     a2.sort_by(|x, y| y.cmp(x)); // reverse order
     assert_eq!(a1, a2);
@@ -229,7 +229,7 @@ fn test_tim_sort() -> Result<()> {
     assert_eq!(a1, a2);
 
     a1 = create_random_array(&mut random, 2000);
-    a2 = a1.clone();
+    a2.clone_from(&a1);
     ArrayUtil::tim_sort_with_comparator(&mut a1, ReverseOrder::new())?;
     a2.sort_by(|a, b| b.cmp(a));
     assert_eq!(a1, a2);
@@ -399,14 +399,14 @@ where
   let mut expected = arr.clone();
   expected[from..to].sort();
 
-  let mut actual = arr.clone();
+  let mut actual = arr;
   ArrayUtil::select(&mut actual, from, to, k, &NaturalOrder::new())?;
 
   assert_eq!(expected[k], actual[k]);
 
   for (i, &value) in actual.iter().enumerate() {
     if i < from || i >= to {
-      assert_eq!(arr[i], value);
+      assert_eq!(expected[i], value);
     } else if i <= k {
       assert!(value <= actual[k]);
     } else {
@@ -568,10 +568,13 @@ fn test_grow_in_range() -> Result<()> {
 }
 #[test]
 fn test_copy_of_sub_array() {
-  let short_array: Vec<i16> = vec![1, 2, 3];
-  assert_eq!(vec![1], ArrayUtil::copy_of_sub_array(&short_array, 0, 1));
+  let short_array: [i16; 3] = [1, 2, 3];
   assert_eq!(
-    vec![1, 2, 3],
+    [1].as_slice(),
+    ArrayUtil::copy_of_sub_array(&short_array, 0, 1)
+  );
+  assert_eq!(
+    [1, 2, 3].as_slice(),
     ArrayUtil::copy_of_sub_array(&short_array, 0, 3)
   );
   assert_eq!(
@@ -579,10 +582,13 @@ fn test_copy_of_sub_array() {
     ArrayUtil::copy_of_sub_array(&short_array, 0, 0)
   );
 
-  let int_array: Vec<i32> = vec![1, 2, 3];
-  assert_eq!(vec![1, 2], ArrayUtil::copy_of_sub_array(&int_array, 0, 2));
+  let int_array: [i32; 3] = [1, 2, 3];
   assert_eq!(
-    vec![1, 2, 3],
+    [1, 2].as_slice(),
+    ArrayUtil::copy_of_sub_array(&int_array, 0, 2)
+  );
+  assert_eq!(
+    [1, 2, 3].as_slice(),
     ArrayUtil::copy_of_sub_array(&int_array, 0, 3)
   );
   assert_eq!(
@@ -590,10 +596,13 @@ fn test_copy_of_sub_array() {
     ArrayUtil::copy_of_sub_array(&int_array, 1, 1)
   );
 
-  let long_array: Vec<i64> = vec![1, 2, 3];
-  assert_eq!(vec![2], ArrayUtil::copy_of_sub_array(&long_array, 1, 2));
+  let long_array: [i64; 3] = [1, 2, 3];
   assert_eq!(
-    vec![1, 2, 3],
+    [2].as_slice(),
+    ArrayUtil::copy_of_sub_array(&long_array, 1, 2)
+  );
+  assert_eq!(
+    [1, 2, 3].as_slice(),
     ArrayUtil::copy_of_sub_array(&long_array, 0, 3)
   );
   assert_eq!(
@@ -601,7 +610,7 @@ fn test_copy_of_sub_array() {
     ArrayUtil::copy_of_sub_array(&long_array, 2, 2)
   );
 
-  let float_array: Vec<f32> = vec![0.1, 0.2, 0.3];
+  let float_array: [f32; 3] = [0.1, 0.2, 0.3];
   assert!(array_equals_f32(
     &[0.2, 0.3],
     &ArrayUtil::copy_of_sub_array(&float_array, 1, 3),
@@ -617,7 +626,7 @@ fn test_copy_of_sub_array() {
     ArrayUtil::copy_of_sub_array(&float_array, 0, 0)
   );
 
-  let double_array: Vec<f64> = vec![0.1, 0.2, 0.3];
+  let double_array: [f64; 3] = [0.1, 0.2, 0.3];
   assert!(array_equals_f64(
     &[0.3],
     &ArrayUtil::copy_of_sub_array(&double_array, 2, 3),
@@ -633,10 +642,13 @@ fn test_copy_of_sub_array() {
     ArrayUtil::copy_of_sub_array(&double_array, 1, 1)
   );
 
-  let byte_array: Vec<u8> = vec![1, 2, 3];
-  assert_eq!(vec![1], ArrayUtil::copy_of_sub_array(&byte_array, 0, 1));
+  let byte_array: [u8; 3] = [1, 2, 3];
   assert_eq!(
-    vec![1, 2, 3],
+    [1].as_slice(),
+    ArrayUtil::copy_of_sub_array(&byte_array, 0, 1)
+  );
+  assert_eq!(
+    [1, 2, 3].as_slice(),
     ArrayUtil::copy_of_sub_array(&byte_array, 0, 3)
   );
   assert_eq!(
@@ -644,13 +656,13 @@ fn test_copy_of_sub_array() {
     ArrayUtil::copy_of_sub_array(&byte_array, 1, 1)
   );
 
-  let char_array: Vec<char> = vec!['a', 'b', 'c'];
+  let char_array: [char; 3] = ['a', 'b', 'c'];
   assert_eq!(
-    vec!['a', 'b'],
+    ['a', 'b'].as_slice(),
     ArrayUtil::copy_of_sub_array(&char_array, 0, 2)
   );
   assert_eq!(
-    vec!['a', 'b', 'c'],
+    ['a', 'b', 'c'].as_slice(),
     ArrayUtil::copy_of_sub_array(&char_array, 0, 3)
   );
   assert_eq!(
@@ -658,13 +670,13 @@ fn test_copy_of_sub_array() {
     ArrayUtil::copy_of_sub_array(&char_array, 1, 1)
   );
 
-  let object_array: Vec<String> = vec!["a1".to_string(), "b2".to_string(), "c3".to_string()];
+  let object_array: [String; 3] = ["a1".to_string(), "b2".to_string(), "c3".to_string()];
   assert_eq!(
-    vec!["a1".to_string()],
+    ["a1".to_string()].as_slice(),
     ArrayUtil::copy_of_sub_array(&object_array, 0, 1)
   );
   assert_eq!(
-    vec!["a1".to_string(), "b2".to_string(), "c3".to_string()],
+    ["a1".to_string(), "b2".to_string(), "c3".to_string()].as_slice(),
     ArrayUtil::copy_of_sub_array(&object_array, 0, 3)
   );
   assert_eq!(

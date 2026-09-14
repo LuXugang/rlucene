@@ -57,7 +57,7 @@ where
     {
       attribute.insert(<Self as CharTermAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
-      attribute.extend(sub.get_attribute_name()?.clone())
+      attribute.extend(sub.get_attribute_name()?.iter().cloned())
     }
 
     let size = ArrayUtil::oversize(Self::MIN_BUFFER_SIZE, std::mem::size_of::<char>())?;

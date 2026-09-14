@@ -14,15 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::index_writer::MAX_POSITION;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::multi_postings_enum::MultiPostingsEnum;
 use crate::core::index::postings_enum::PostingsEnum;
-use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of_with_max_count};
+use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of_with_max_count};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 use std::rc::Rc;
 
 /// Exposes flex API, merged from flex API of sub-segments, remapping docIDs (this is used for segment merging).
@@ -226,7 +226,7 @@ where
     self.current_postings_ref()?.end_offset()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     self.current_postings_ref()?.get_payload()
   }
 }

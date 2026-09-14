@@ -23,7 +23,7 @@ use rand::RngExt;
 
 use crate::core::index::BytesRef;
 use crate::core::util::CoreHelper;
-use crate::core::util::access::{SharedAccessVec, WritableVec};
+use crate::core::util::access::{ByteSource, SharedAccessVec, WritableVec};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
@@ -52,26 +52,22 @@ impl StringHelper {
     current_term: &BytesRef<BV>,
   ) -> Result<usize>
   where
-    AV: SharedAccessVec<u8>,
-    BV: SharedAccessVec<u8>,
+    AV: ByteSource,
+    BV: ByteSource,
   {
-    with_other!(
-      prior_term.bytes,
-      current_term.bytes,
-      |prior_term_bytes, current_term_bytes| {
-        let mismatch = CoreHelper::miss_match_u8(
-          &prior_term_bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
-          &current_term_bytes[current_term.offset..(current_term.offset + current_term.length)],
-        );
+    let prior_term_bytes = prior_term.bytes.as_slice();
+    let current_term_bytes = current_term.bytes.as_slice();
+    let mismatch = CoreHelper::miss_match_u8(
+      &prior_term_bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
+      &current_term_bytes[current_term.offset..(current_term.offset + current_term.length)],
+    );
 
-        if mismatch < 0 {
-          return Err(LuceneError::illegal_argument(format!(
-            "terms out of order: priorTerm={prior_term}, currentTerm={current_term}"
-          )));
-        }
-        Ok(mismatch as usize)
-      }
-    )
+    if mismatch < 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "terms out of order: priorTerm={prior_term}, currentTerm={current_term}"
+      )));
+    }
+    Ok(mismatch as usize)
   }
   /// Returns the length of `current_term` needed for use as a sort key so
   /// that `BytesRef::compare_to()` still returns the same result.
@@ -90,8 +86,8 @@ impl StringHelper {
     current_term: &BytesRef<BV>,
   ) -> Result<usize>
   where
-    AV: SharedAccessVec<u8>,
-    BV: SharedAccessVec<u8>,
+    AV: ByteSource,
+    BV: ByteSource,
   {
     let difference = Self::bytes_difference(prior_term, current_term)?;
     Ok(difference + 1)

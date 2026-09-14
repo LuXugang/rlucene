@@ -81,7 +81,7 @@ pub fn pad(n: i32) -> String {
   b.push_str(p);
 
   let s = n.to_string();
-  for _ in s.len()..=i32::MAX.to_string().len() {
+  for _ in s.len()..=(i32::MAX.ilog10() + 1) as usize {
     b.push('0');
   }
   b.push_str(&s);

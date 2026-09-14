@@ -226,7 +226,7 @@ fn zz_unpackcmap_blocks_with_offset(packed: &str, offset: usize, result: &mut [i
   j
 }
 
-static ZZ_ACTION: LazyLock<Vec<i32>> = LazyLock::new(zz_unpack_action);
+static ZZ_ACTION: LazyLock<[i32; 59]> = LazyLock::new(zz_unpack_action);
 
 const ZZ_ACTION_PACKED_0: &str = "\u{1}\0\u{2}\u{1}\u{1}\u{2}\u{1}\u{3}\u{1}\u{1}\u{1}\u{4}\u{1}\u{3}\u{1}\u{2}\
 \u{1}\u{5}\u{1}\u{6}\u{1}\u{1}\u{1}\u{4}\u{1}\u{7}\u{1}\u{8}\u{1}\u{9}\u{1}\u{1}\
@@ -235,8 +235,8 @@ const ZZ_ACTION_PACKED_0: &str = "\u{1}\0\u{2}\u{1}\u{1}\u{2}\u{1}\u{3}\u{1}\u{1
 \u{1}\0\u{4}\u{4}\u{1}\0\u{1}\u{4}\u{2}\0\u{1}\u{4}\u{2}\u{3}\u{2}\u{4}\
 \u{1}\0\u{3}\u{4}\u{1}\u{3}\u{3}\u{4}";
 
-fn zz_unpack_action() -> Vec<i32> {
-  let mut result = vec![0; 59];
+fn zz_unpack_action() -> [i32; 59] {
+  let mut result = [0; 59];
   zz_unpack_action_with_offset(ZZ_ACTION_PACKED_0, 0, &mut result);
   result
 }
@@ -259,7 +259,7 @@ fn zz_unpack_action_with_offset(packed: &str, offset: usize, result: &mut [i32])
 }
 
 /// Translates a state to a row index in the transition table
-static ZZ_ROWMAP: LazyLock<Vec<usize>> = LazyLock::new(zz_unpack_row_map);
+static ZZ_ROWMAP: LazyLock<[usize; 59]> = LazyLock::new(zz_unpack_row_map);
 const ZZ_ROWMAP_PACKED_0: &str = "\0\0\0\u{1d}\0\u{3a}\0\u{57}\0\u{74}\0\u{91}\0\u{ae}\0\u{cb}\
 \0\u{e8}\0\u{105}\0\u{122}\0\u{13f}\0\u{15c}\0\u{179}\0\u{196}\0\u{1b3}\
 \0\u{1d0}\0\u{1ed}\0\u{3a}\0\u{20a}\0\u{227}\0\u{244}\0\u{261}\0\u{27e}\
@@ -268,8 +268,8 @@ const ZZ_ROWMAP_PACKED_0: &str = "\0\0\0\u{1d}\0\u{3a}\0\u{57}\0\u{74}\0\u{91}\0
 \0\u{414}\0\u{431}\0\u{44e}\0\u{46b}\0\u{488}\0\u{4a5}\0\u{4c2}\0\u{4df}\
 \0\u{4fc}\0\u{519}\0\u{536}\0\u{553}\0\u{1d}\0\u{570}\0\u{58d}\0\u{5aa}\
 \0\u{5c7}\0\u{74}\0\u{5e4}";
-fn zz_unpack_row_map() -> Vec<usize> {
-  let mut result = vec![0; 59];
+fn zz_unpack_row_map() -> [usize; 59] {
+  let mut result = [0; 59];
   zz_unpack_row_map_with_offset(ZZ_ROWMAP_PACKED_0, 0, &mut result);
   result
 }
@@ -381,13 +381,13 @@ const ZZ_ERROR_MSG: [&str; 3] = [
   "Error: pushback value was too large",
 ];
 /// ZZ_ATTRIBUTE[aState] contains the attributes of state aState
-static ZZ_ATTRIBUTE: LazyLock<Vec<i32>> = LazyLock::new(zz_unpack_attribute);
+static ZZ_ATTRIBUTE: LazyLock<[i32; 59]> = LazyLock::new(zz_unpack_attribute);
 const ZZ_ATTRIBUTE_PACKED_0: &str = "\u{1}\0\u{1}\u{9}\u{10}\u{1}\u{1}\0\u{1}\u{1}\u{2}\0\u{3}\u{1}\u{1}\0\
 \u{2}\u{1}\u{1}\0\u{3}\u{1}\u{1}\0\u{1}\u{1}\u{1}\0\u{2}\u{1}\u{1}\0\
 \u{4}\u{1}\u{1}\0\u{1}\u{1}\u{2}\0\u{5}\u{1}\u{1}\0\u{1}\u{9}\u{6}\u{1}";
 
-fn zz_unpack_attribute() -> Vec<i32> {
-  let mut result = vec![0; 59];
+fn zz_unpack_attribute() -> [i32; 59] {
+  let mut result = [0; 59];
   zz_unpack_attribute_with_offset(ZZ_ATTRIBUTE_PACKED_0, 0, &mut result);
   result
 }

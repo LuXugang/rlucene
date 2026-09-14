@@ -167,7 +167,7 @@ fn test_fuzziness() -> Result<()> {
   hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(3, hits.len(), "3 documents should match");
 
-  let mut order = vec!["bbbbb", "abbbb", "aabbb"];
+  let mut order: &[&str] = &["bbbbb", "abbbb", "aabbb"];
   let mut stored_fields = searcher.stored_fields()?;
   for i in 0..hits.len() {
     let document = stored_fields.document(hits[i].doc)?;
@@ -189,7 +189,7 @@ fn test_fuzziness() -> Result<()> {
   hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(2, hits.len(), "only 2 documents should match");
 
-  order = vec!["bbbbb", "abbbb"];
+  order = &["bbbbb", "abbbb"];
   for i in 0..hits.len() {
     let document = stored_fields.document(hits[i].doc)?;
     let term = document
@@ -624,7 +624,7 @@ fn test_single_query_exact_match_scores_highest() -> Result<()> {
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_similarity(classic_similarity::new());
   writer.close(&mut random)?;
-  let search_terms = vec!["smith", "smythe", "smdssasd"];
+  let search_terms = ["smith", "smythe", "smdssasd"];
   let mut stored_fields = searcher.stored_fields()?;
   for search_term in search_terms {
     let query = FuzzyQuery::with_max_edits_and_prefix(Term::from_text("field", search_term), 2, 1)?;
@@ -1020,7 +1020,7 @@ fn test_random() -> Result<()> {
     let prefix_length = random.random_range(0..query_term.len());
     let query_prefix = &query_term[0..prefix_length];
 
-    let mut expected: Vec<Vec<TermAndScore>> = Vec::with_capacity(3);
+    let mut expected: Vec<Vec<TermAndScore<'_>>> = Vec::with_capacity(3);
     for _ed in 0..3 {
       expected.push(Vec::new());
     }
@@ -1031,7 +1031,7 @@ fn test_random() -> Result<()> {
       let mut ed = get_distance(term, &query_term);
       let score = 1.0 - ed as f32 / std::cmp::min(query_term.len(), term.len()) as f32;
       while ed < 3 {
-        expected[ed].push(TermAndScore::new(term.clone(), score));
+        expected[ed].push(TermAndScore::new(term, score));
         ed += 1;
       }
     }
@@ -1066,7 +1066,7 @@ fn test_random() -> Result<()> {
       let limit = std::cmp::min(queue_size, expected[ed].len());
       #[allow(clippy::needless_range_loop)]
       for i in 0..limit {
-        expected_top.insert(expected[ed][i].term.clone());
+        expected_top.insert(expected[ed][i].term.to_string());
       }
 
       if actual != expected_top {
@@ -1110,36 +1110,36 @@ fn test_random() -> Result<()> {
 }
 
 #[derive(Debug, Clone)]
-struct TermAndScore {
-  term: String,
+struct TermAndScore<'a> {
+  term: &'a str,
   score: f32,
 }
 
-impl TermAndScore {
-  fn new(term: String, score: f32) -> Self {
+impl<'a> TermAndScore<'a> {
+  fn new(term: &'a str, score: f32) -> Self {
     Self { term, score }
   }
 }
 
-impl Eq for TermAndScore {}
+impl Eq for TermAndScore<'_> {}
 
-impl PartialEq for TermAndScore {
+impl PartialEq for TermAndScore<'_> {
   fn eq(&self, other: &Self) -> bool {
     self.term == other.term && CoreHelper::compare_f32(self.score, other.score).is_eq()
   }
 }
 
-impl Ord for TermAndScore {
+impl Ord for TermAndScore<'_> {
   fn cmp(&self, other: &Self) -> Ordering {
     other
       .score
       .partial_cmp(&self.score)
       .unwrap_or(Ordering::Equal)
-      .then_with(|| self.term.cmp(&other.term))
+      .then_with(|| self.term.cmp(other.term))
   }
 }
 
-impl PartialOrd for TermAndScore {
+impl PartialOrd for TermAndScore<'_> {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(other))
   }

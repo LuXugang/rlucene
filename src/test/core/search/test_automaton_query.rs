@@ -104,15 +104,15 @@ where
   doc.add(title_field.clone());
   doc.add(field.clone());
   doc.add(footer_field.clone());
-  writer.add_document(random, doc.clone())?;
+  writer.add_document(random, doc)?;
 
   doc = Document::new();
   field
     .set_string_value("doc three has some different stuff with numbers 1234 5678.9 and letter b")?;
-  doc.add(title_field.clone());
-  doc.add(field.clone());
-  doc.add(footer_field.clone());
-  writer.add_document(random, doc.clone())?;
+  doc.add(title_field);
+  doc.add(field);
+  doc.add(footer_field);
+  writer.add_document(random, doc)?;
 
   let reader = writer.get_reader(random)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -357,7 +357,10 @@ fn test_hash_code_with_threads() -> Result<()> {
   for _ in 0..at_least(&mut random, 100) {
     let automaton = AutomatonTestUtil::random_automaton(&mut random)?;
     let automaton =
-      Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
+      match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {
+        std::borrow::Cow::Borrowed(_) => automaton.into_owned(),
+        std::borrow::Cow::Owned(determinized) => determinized,
+      };
     queries.push(AutomatonQuery::from_automaton(
       Term::from_text("bogus", "bogus"),
       automaton,

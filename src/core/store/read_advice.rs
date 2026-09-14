@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::env;
 
 use strum::EnumCount;
@@ -52,7 +53,15 @@ impl ReadAdvice {
   }
 
   pub fn from_str_custom(s: &str) -> Option<ReadAdvice> {
-    match s.to_uppercase().as_str() {
+    let uppercase = if s
+      .bytes()
+      .all(|byte| byte.is_ascii() && !byte.is_ascii_lowercase())
+    {
+      Cow::Borrowed(s)
+    } else {
+      Cow::Owned(s.to_uppercase())
+    };
+    match uppercase.as_ref() {
       "NORMAL" => Some(ReadAdvice::Normal),
       "RANDOM" => Some(ReadAdvice::Random),
       "SEQUENTIAL" => Some(ReadAdvice::Sequential),

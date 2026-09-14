@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRefValue;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -59,7 +60,10 @@ where
       return Ok(None);
     }
     let term = self.values.lookup_ord(self.current_ord)?;
-    self.scratch.copy_bytes_from_ref(term.as_ref())?;
+    let term = term.as_bytes_ref();
+    self
+      .scratch
+      .copy_bytes_from_vec(term.bytes, term.offset, term.length)?;
     Ok(Some(Cow::Borrowed(self.scratch.get_bytes_ref())))
   }
 }
@@ -116,7 +120,10 @@ where
         Ok(SeekStatus::End)
       } else {
         let next_term = self.values.lookup_ord(self.current_ord)?;
-        self.scratch.copy_bytes_from_ref(next_term.as_ref())?;
+        let next_term = next_term.as_bytes_ref();
+        self
+          .scratch
+          .copy_bytes_from_vec(next_term.bytes, next_term.offset, next_term.length)?;
         Ok(SeekStatus::NotFound)
       }
     }
@@ -129,7 +136,10 @@ where
     );
     self.current_ord = ord as i32;
     let term = self.values.lookup_ord(self.current_ord)?;
-    self.scratch.copy_bytes_from_ref(term.as_ref())?;
+    let term = term.as_bytes_ref();
+    self
+      .scratch
+      .copy_bytes_from_vec(term.bytes, term.offset, term.length)?;
     Ok(())
   }
 

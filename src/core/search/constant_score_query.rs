@@ -87,7 +87,7 @@ impl Hash for ConstantScoreQuery {
   where
     H: Hasher,
   {
-    std::any::type_name::<Self>().to_string().hash(state);
+    std::any::type_name::<Self>().hash(state);
     self.query.hash(state);
   }
 }

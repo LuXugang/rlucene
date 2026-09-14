@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::long_point::LongPoint;
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
@@ -119,9 +121,9 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     }
 
     s.push('[');
-    s.push_str(&self.lower_value.to_string());
+    write!(s, "{}", self.lower_value)?;
     s.push_str(" TO ");
-    s.push_str(&self.upper_value.to_string());
+    write!(s, "{}", self.upper_value)?;
     s.push(']');
     Ok(s)
   }

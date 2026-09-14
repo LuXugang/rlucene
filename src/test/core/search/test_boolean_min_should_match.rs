@@ -50,7 +50,7 @@ fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {
-  let data = vec![
+  let data = [
     Some("A 1 2 3 4 5 6"),
     Some("Z       4 5 6"),
     None,
@@ -412,7 +412,7 @@ fn test_random_queries() -> Result<()> {
   ];
   let max_lev = 4;
 
-  let min_nr_cb = CallbackImpl::new(field.clone(), &vals);
+  let min_nr_cb = CallbackImpl::new(&field, &vals);
 
   let num = at_least(&mut random, 20);
   for i in 0..num {
@@ -447,7 +447,7 @@ fn test_random_queries() -> Result<()> {
     let top1 = s.search(q1.clone(), 100)?;
     let top2 = s.search(q2.clone(), 100)?;
     if i < 100 {
-      QueryUtils::check_from_searcher(&mut random, q1.clone(), s)?;
+      QueryUtils::check_from_searcher(&mut random, q1, s)?;
       QueryUtils::check_from_searcher(&mut random, q2.clone(), s)?;
     }
     assert_subset_of_same_scores(&q2, top1, top2)?;
@@ -522,7 +522,7 @@ fn test_rewrite_negate() -> Result<()> {
   let q1 = q1.build();
   let q2 = q2.build();
 
-  let top1 = s.search(q1.clone(), 100)?;
+  let top1 = s.search(q1, 100)?;
   let top2 = s.search(q2.clone(), 100)?;
   assert_subset_of_same_scores(&q2, top1, top2)?;
   Ok(())
@@ -562,11 +562,11 @@ where
   Ok(())
 }
 pub(crate) struct CallbackImpl<'a> {
-  field: String,
+  field: &'a str,
   vals: &'a [String],
 }
 impl<'a> CallbackImpl<'a> {
-  fn new(field: String, vals: &'a [String]) -> Self {
+  fn new(field: &'a str, vals: &'a [String]) -> Self {
     Self { field, vals }
   }
 }
@@ -586,7 +586,7 @@ impl Callback for CallbackImpl<'_> {
 
     if random.random_bool(0.5) {
       let random_term = Term::from_text(
-        &self.field,
+        self.field,
         &self.vals[random.random_range(0..self.vals.len())],
       );
       q.add(TermQuery::new(random_term), Occur::MustNot)?;

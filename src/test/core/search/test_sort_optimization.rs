@@ -107,7 +107,7 @@ fn test_long_sort_optimization() -> Result<()> {
   for i in 0..num_docs {
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("my_field", i as i64));
-    doc.add(LongPoint::new("my_field", vec![i as i64])?);
+    doc.add(LongPoint::new("my_field", [i as i64])?);
     writer.add_document(doc)?;
     if i == 7000 {
       writer.flush()?;
@@ -285,7 +285,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     // miss values on every 500th document
     if i % 500 != 0 {
       doc.add(NumericDocValuesField::new("my_field", i as i64));
-      doc.add(LongPoint::new("my_field", vec![i as i64])?);
+      doc.add(LongPoint::new("my_field", [i as i64])?);
     }
     writer.add_document(doc)?;
     if i == 7000 {
@@ -425,7 +425,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     let mut doc = Document::new();
     if i > miss_values_num_docs {
       doc.add(NumericDocValuesField::new("my_field", i as i64));
-      doc.add(LongPoint::new("my_field", vec![i as i64])?);
+      doc.add(LongPoint::new("my_field", [i as i64])?);
     }
     writer.add_document(doc)?;
   }
@@ -513,7 +513,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
   for i in 1..=num_docs {
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("my_field1", 100));
-    doc.add(IntPoint::new("my_field1", vec![100])?);
+    doc.add(IntPoint::new("my_field1", [100])?);
     doc.add(NumericDocValuesField::new(
       "my_field2",
       (num_docs - i) as i64,
@@ -615,7 +615,7 @@ fn test_float_sort_optimization() -> Result<()> {
     let mut doc = Document::new();
     let f = i as f32;
     doc.add(FloatDocValuesField::new("my_field", f));
-    doc.add(FloatPoint::new("my_field", vec![f])?);
+    doc.add(FloatPoint::new("my_field", [f])?);
     writer.add_document(doc)?;
   }
 
@@ -937,7 +937,7 @@ fn test_doc_sort_optimization() -> Result<()> {
   let mut seg = 1;
   for i in 0..num_docs {
     let mut doc = Document::new();
-    doc.add(LongPoint::new("lf", vec![i as i64])?);
+    doc.add(LongPoint::new("lf", [i as i64])?);
     doc.add(StoredField::from_i32("slf", i)?);
     doc.add(StringField::from_string(
       "tf",
@@ -985,8 +985,7 @@ fn test_doc_sort_optimization() -> Result<()> {
   }
   // sort by _doc with a bool query should skip all non-competitive documents
   {
-    let collector_manager =
-      TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
+    let collector_manager = TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
 
     let lower_range = 40;
 
@@ -1042,7 +1041,7 @@ fn test_doc_sort() -> Result<()> {
     )?);
 
     if i < 2 {
-      doc.add(LongPoint::new("lf", vec![1])?);
+      doc.add(LongPoint::new("lf", [1])?);
     }
 
     writer.add_document(doc)?;
@@ -1067,8 +1066,7 @@ fn test_doc_sort() -> Result<()> {
   let sort = Sort::with_fields(vec![SortField::get_field_doc()?])?;
 
   {
-    let collector_manager =
-      TopFieldCollectorManager::new(sort.clone(), num_hits, total_hits_threshold)?;
+    let collector_manager = TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
 
     let mut bq = Builder::new();
     bq.add(LongPoint::new_exact_query("lf", 1)?, Occur::Must)?;
@@ -1178,7 +1176,7 @@ fn test_max_doc_visited() -> Result<()> {
   for i in 0..num_docs {
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("my_field", (i as i64) + offset));
-    doc.add(LongPoint::new("my_field", vec![(i as i64) + offset])?);
+    doc.add(LongPoint::new("my_field", [(i as i64) + offset])?);
     writer.add_document(doc)?;
 
     if i >= 5000 && !flushed {
@@ -1191,7 +1189,7 @@ fn test_max_doc_visited() -> Result<()> {
         "my_field",
         smallest_value as i64,
       ));
-      doc.add(LongPoint::new("my_field", vec![smallest_value as i64])?);
+      doc.add(LongPoint::new("my_field", [smallest_value as i64])?);
       writer.add_document(doc)?;
     }
   }
@@ -1263,7 +1261,7 @@ fn test_random_long() -> Result<()> {
   for seq_no in &seq_nos {
     let mut doc = Document::new();
     doc.add(NumericDocValuesField::new("seq_no", *seq_no));
-    doc.add(LongPoint::new("seq_no", vec![*seq_no])?);
+    doc.add(LongPoint::new("seq_no", [*seq_no])?);
 
     writer.add_document(doc)?;
     pending_docs += 1;
@@ -1667,7 +1665,7 @@ where
 fn assert_sort<R, DR>(
   random: &mut R,
   reader: DR,
-  sort: Sort,
+  mut sort: Sort,
   n: usize,
   after: Option<FieldDoc>,
 ) -> Result<TopFieldDocs>
@@ -1677,18 +1675,18 @@ where
   <DR as CompositeReader>::LeafReader: Send + Sync,
 {
   let top_docs = assert_search_hits(random, reader.clone(), sort.clone(), n, after.clone())?;
-  let mut sort_fields = sort.get_sort().to_vec();
+  let mut sort_fields = sort.take_sort();
   // A secondary sort on reverse doc ID is the best way to catch bugs if the comparator filters
   // too aggressively
   sort_fields.push(SortField::with_reverse::<String>(None, SortFieldType::Doc, true)?.into());
 
   let after2 = match after {
     Some(after) => {
-      let mut after_fields = after.fields.clone();
+      let mut after_fields = after.fields;
       after_fields.push(i32::MAX.into());
       Some(FieldDoc::with_fields(
-        after.doc(),
-        after.score(),
+        after.base.doc,
+        after.base.score,
         after_fields,
       ))
     },
@@ -1713,7 +1711,7 @@ where
 {
   let searcher = new_searcher_with_reader(reader.clone())?;
   let query = MatchAllDocsQuery::new();
-  let manager = TopFieldCollectorManager::with_after(sort.clone(), n, after.clone(), n)?;
+  let manager = TopFieldCollectorManager::with_after(sort, n, after, n)?;
   let top_docs = searcher.search_with_collector_manager(query.clone(), &manager)?;
 
   let unoptimized_reader = NoIndexDirectoryReader::new(reader)?;

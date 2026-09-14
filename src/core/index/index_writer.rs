@@ -579,7 +579,7 @@ where
         reader_pool.enable_reader_pooling();
       }
       let deleter = IndexFileDeleter::new(
-        files.clone(),
+        files,
         directory_orig.clone(),
         directory.clone(),
         conf.get_index_deletion_policy(),
@@ -2095,12 +2095,7 @@ where
             info,
             &mut inner,
             rld.index_created_version_major,
-          )?;
-          inner
-            .reader
-            .as_ref()
-            .ok_or_else(|| LuceneError::illegal_state("merged segment reader is missing"))?
-            .clone()
+          )?
         };
         let warm_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
           merged_segment_warmer.warm(&sr)
@@ -3286,9 +3281,9 @@ where
     SD: Directory,
   {
     let mut seen_dir_ids = HashSet::with_capacity(dirs.len());
-    let self_dir_id = self.directory_orig.identity().clone();
+    let self_dir_id = self.directory_orig.identity();
     for dir in dirs {
-      let dir_id = dir.identity().clone();
+      let dir_id = dir.identity();
       if dir_id == self_dir_id {
         return Err(LuceneError::illegal_argument(
           "Cannot add directory to itself",
@@ -3995,7 +3990,7 @@ where
       info.info.get_index_sort(),
     )?;
 
-    new_info.set_files(info.info.files()?.clone())?;
+    new_info.set_files(info.info.files()?)?;
 
     let mut new_info_per_commit = SegmentCommitInfo::new(
       new_info,
@@ -4006,13 +4001,13 @@ where
       info.get_doc_values_gen(),
       info.get_id().copied(),
     );
-    new_info_per_commit.set_field_infos_files(info.get_field_infos_files().clone());
-    new_info_per_commit.set_doc_values_updates_files(info.get_doc_values_updates_files().clone());
+    new_info_per_commit.set_field_infos_files(info.get_field_infos_files());
+    new_info_per_commit.set_doc_values_updates_files(info.get_doc_values_updates_files());
     let mut copied_files = HashSet::new();
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       for file in info.files()? {
-        let new_filename = named_for_this_segment(seg_name, file.clone());
+        let new_filename = named_for_this_segment(seg_name, &file);
         self
           .directory
           .copy_from(info.info.dir.as_ref(), &file, &new_filename, context)?;
@@ -5010,9 +5005,12 @@ where
       // and re-resolve against the newly merged segment:
       let merging_dv_updates = rld.get_merging_dv_updates();
       for (field, updates_list) in merging_dv_updates {
-        let mapped_field = mapped_dv_updates
-          .entry(field.clone())
-          .or_insert_with(HashMap::new);
+        let mapped_field = match mapped_dv_updates.get_mut(&field) {
+          Some(mapped_field) => mapped_field,
+          None => mapped_dv_updates
+            .entry(field.clone())
+            .or_insert_with(HashMap::new),
+        };
 
         for updates in updates_list {
           if self.buffered_updates_stream.still_running(updates.del_gen) {
@@ -6700,12 +6698,13 @@ where
         start_ns.elapsed().as_secs_f64(),
       );
       if iter > 0 {
-        message.push_str(&format!("; {} iters due to concurrent merges", iter + 1));
+        write!(message, "; {} iters due to concurrent merges", iter + 1)?;
       }
-      message.push_str(&format!(
+      write!(
+        message,
         "; {} packets remain",
         self.buffered_updates_stream.get_pending_updates_count()
-      ));
+      )?;
       self.info_stream.message("BD", &message)?;
     }
     Ok(())
@@ -8164,7 +8163,7 @@ use crate::test_framework::core::internal::index_writer_access::IndexWriterAcces
 use crossbeam::queue::SegQueue;
 use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::time::{Duration, Instant};
@@ -8334,7 +8333,7 @@ where
   // Now merge all added files
   let mut success = false;
   let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-    let codec = info.get_codec()?.clone();
+    let codec = info.get_codec()?;
     codec.compound_format().write(directory, info, context)?;
     success = true;
     Ok(())
@@ -8861,7 +8860,7 @@ impl DocModifier for DocModifierImpl2 {
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let mut field_updates_map: HashMap<
-        String,
+        &str,
         DocValuesFieldUpdates<DocValuesFieldUpdatesBaseEnum>,
       > = HashMap::new();
 
@@ -8875,28 +8874,33 @@ impl DocModifier for DocModifierImpl2 {
             )));
           },
         }
-        let doc_values_field_updates = match field_updates_map.entry(update.field.clone()) {
-          std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
-          std::collections::hash_map::Entry::Vacant(entry) => {
-            let sub: DocValuesFieldUpdatesBaseEnum = match update.doc_values_type {
-              DocValuesType::Numeric => NumericDocValuesFieldUpdates::new()?.into(),
-              DocValuesType::Binary => BinaryDocValuesFieldUpdates::new()?.into(),
-              _ => {
-                return Err(LuceneError::unsupported_operation(format!(
-                  "typ: {} is not supported",
-                  update.doc_values_type
-                )));
+        let doc_values_field_updates =
+          if let Some(updates) = field_updates_map.get_mut(update.field.as_str()) {
+            updates
+          } else {
+            match field_updates_map.entry(update.field.as_str()) {
+              std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+              std::collections::hash_map::Entry::Vacant(entry) => {
+                let sub: DocValuesFieldUpdatesBaseEnum = match update.doc_values_type {
+                  DocValuesType::Numeric => NumericDocValuesFieldUpdates::new()?.into(),
+                  DocValuesType::Binary => BinaryDocValuesFieldUpdates::new()?.into(),
+                  _ => {
+                    return Err(LuceneError::unsupported_operation(format!(
+                      "typ: {} is not supported",
+                      update.doc_values_type
+                    )));
+                  },
+                };
+                entry.insert(DocValuesFieldUpdates::new(
+                  max_doc,
+                  next_gen,
+                  update.field.clone(),
+                  sub.sub_type(),
+                  sub,
+                )?)
               },
-            };
-            entry.insert(DocValuesFieldUpdates::new(
-              max_doc,
-              next_gen,
-              update.field.clone(),
-              sub.sub_type(),
-              sub,
-            )?)
-          },
-        };
+            }
+          };
 
         if update.has_value() {
           match &update.sub_update {

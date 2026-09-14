@@ -426,11 +426,11 @@ where
     let copy = QuantizedByteVectorValues::copy(self)?;
     let iterator = copy.iterator()?;
     let similarity_function = copy.base.similarity_function;
-    let random_vector_scorer = self.base.vectors_scorer.get_random_vector_scorer_f32(
-      similarity_function,
-      copy,
-      target.to_vec(),
-    )?;
+    let random_vector_scorer =
+      self
+        .base
+        .vectors_scorer
+        .get_random_vector_scorer_f32(similarity_function, copy, target)?;
     Ok(Some(DenseVectorScorer::new(iterator, random_vector_scorer)))
   }
 
@@ -675,11 +675,11 @@ where
     let copy = QuantizedByteVectorValues::copy(self)?;
     let iterator = copy.iterator()?;
     let similarity_function = copy.base.similarity_function;
-    let random_vector_scorer = self.base.vectors_scorer.get_random_vector_scorer_f32(
-      similarity_function,
-      copy,
-      target.to_vec(),
-    )?;
+    let random_vector_scorer =
+      self
+        .base
+        .vectors_scorer
+        .get_random_vector_scorer_f32(similarity_function, copy, target)?;
     Ok(Some(SparseVectorScorer::new(
       iterator,
       random_vector_scorer,

@@ -34,11 +34,11 @@ fn test_msb_vlong() -> Result<()> {
 }
 
 fn assert_msb_vlong(l: i64) -> Result<()> {
-  let buffer = vec![0u8; 10];
-  let mut output = ByteArrayDataOutput::with_bytes(buffer);
+  let mut buffer = [0u8; 10];
+  let mut output = ByteArrayDataOutput::with_bytes(buffer.as_mut_slice());
   write_msb_vlong(&mut output, l)?;
   let len = output.get_position();
-  let mut input = ByteArrayDataInput::with_range(output.bytes.as_slice(), 0, len);
+  let mut input = ByteArrayDataInput::with_range(&*output.bytes, 0, len);
   let recovered = read_msb_vlong(&mut input)?;
   assert_eq!(
     recovered, l,

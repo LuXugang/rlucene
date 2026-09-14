@@ -366,7 +366,7 @@ fn test_next_bit_set() -> Result<()> {
     set_bits.push(random.random_range(0..len));
   }
   let mut num_bits = len + random.random_range(0..10);
-  check_next_set_bit_array(&mut random, set_bits.clone(), num_bits)?;
+  check_next_set_bit_array(&mut random, set_bits, num_bits)?;
   num_bits = len + random.random_range(0..10);
   check_next_set_bit_array(&mut random, vec![], num_bits)?;
 

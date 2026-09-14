@@ -66,9 +66,10 @@ pub struct FieldInfo {
   store_term_vector: AtomicBool,
 }
 impl FieldInfo {
-  /// Creates a new instance.
+  /// Creates a new instance. Attribute snapshots may be shared until either instance
+  /// changes an attribute, when the map is copied on write.
   #[allow(clippy::too_many_arguments)]
-  pub fn new<T>(
+  pub fn new<T, A>(
     name: T,
     number: i32,
     store_term_vector: bool,
@@ -78,7 +79,7 @@ impl FieldInfo {
     doc_values: DocValuesType,
     doc_values_skip_index: DocValuesSkipIndexType,
     dv_gen: i64,
-    attributes: HashMap<String, String>,
+    attributes: A,
     point_dimension_count: usize,
     point_index_dimension_count: usize,
     point_num_bytes: usize,
@@ -90,6 +91,7 @@ impl FieldInfo {
   ) -> Result<Self>
   where
     T: Into<String>,
+    A: Into<Arc<HashMap<String, String>>>,
   {
     let doc_values_type = doc_values;
 
@@ -98,7 +100,7 @@ impl FieldInfo {
     } else {
       (false, false, false)
     };
-    let attributes = Mutex::new(Arc::new(attributes));
+    let attributes = Mutex::new(attributes.into());
 
     let v = FieldInfo {
       name: name.into(),

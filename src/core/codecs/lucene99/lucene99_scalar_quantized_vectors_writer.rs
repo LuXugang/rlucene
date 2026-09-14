@@ -378,7 +378,7 @@ where
       "temp",
       segment_write_state.context,
     )?;
-    let temp_quantized_vector_name = temp_quantized_vector_data.get_name().to_string();
+    let mut temp_quantized_vector_name = temp_quantized_vector_data.get_name().to_string();
     let mut quantization_data_input = None;
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
@@ -452,7 +452,7 @@ where
             docs_with_field.cardinality(),
             random_vector_scorer_supplier,
             segment_write_state.directory,
-            temp_quantized_vector_name.clone(),
+            std::mem::take(&mut temp_quantized_vector_name),
             quantization_data_input,
           ),
         ))

@@ -85,7 +85,11 @@ fn test_int_conversion_and_ordering() -> Result<()> {
       "Forward and backward conversion failed for value: {}",
       value
     );
-    previous = Some(BytesRef::from_bytes(current.bytes.clone()));
+    if let Some(previous) = &mut previous {
+      previous.copy_from_slice(&current.bytes);
+    } else {
+      previous = Some(BytesRef::from_bytes(current.bytes.clone()));
+    }
   }
   Ok(())
 }
@@ -116,7 +120,11 @@ fn test_big_int_conversion_and_ordering() -> Result<()> {
       "Forward and backward conversion failed for value: {}",
       big_int
     );
-    previous = Some(BytesRef::from_bytes(current.bytes.clone()));
+    if let Some(previous) = &mut previous {
+      previous.copy_from_slice(&current.bytes);
+    } else {
+      previous = Some(BytesRef::from_bytes(current.bytes.clone()));
+    }
   }
 
   Ok(())
@@ -474,15 +482,13 @@ fn test_add() -> Result<()> {
 
     NumericUtils::add(num_bytes, 0, &v1_bytes, &v2_bytes, &mut result)?;
 
-    let v1_clone = v1.clone();
-    let v2_clone = v2.clone();
-    let sum = v1.add(v2);
+    let sum = (&v1).add(&v2);
 
     let result_bigint = BigInt::from_bytes_be(Sign::Plus, &result);
     assert_eq!(
       result_bigint, sum,
       "sum={} v1={} v2={} but result={}",
-      sum, v1_clone, v2_clone, result_bigint
+      sum, v1, v2, result_bigint
     );
   }
 
@@ -542,15 +548,13 @@ fn test_subtract() -> Result<()> {
 
     NumericUtils::subtract(num_bytes, 0, &v1_bytes, &v2_bytes, &mut result)?;
 
-    let v1_clone = v1.clone();
-    let v2_clone = v2.clone();
-    let diff = v1.sub(v2);
+    let diff = (&v1).sub(&v2);
 
     let result_bigint = BigInt::from_signed_bytes_be(&result);
     assert_eq!(
       result_bigint, diff,
       "diff={} result={} v1={} v2={}",
-      diff, result_bigint, v1_clone, v2_clone
+      diff, result_bigint, v1, v2
     );
   }
 

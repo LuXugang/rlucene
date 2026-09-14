@@ -141,17 +141,17 @@ fn test_all_docs() -> Result<()> {
   let searcher = new_searcher_with_reader(Arc::new(reader))?;
 
   let query = TermRangeQuery::new("content", None, None, true, true)?;
-  assert_eq!(4, searcher.search(query.clone(), 1000)?.score_docs.len());
+  assert_eq!(4, searcher.search(query, 1000)?.score_docs.len());
 
   let query = TermRangeQuery::new_string_range("content", Some(""), None::<String>, true, true)?;
-  assert_eq!(4, searcher.search(query.clone(), 1000)?.score_docs.len());
+  assert_eq!(4, searcher.search(query, 1000)?.score_docs.len());
 
   let query = TermRangeQuery::new_string_range("content", Some(""), None::<String>, true, false)?;
-  assert_eq!(4, searcher.search(query.clone(), 1000)?.score_docs.len());
+  assert_eq!(4, searcher.search(query, 1000)?.score_docs.len());
 
   // and now another one
   let query = TermRangeQuery::new_string_range("content", Some("B"), None::<String>, true, true)?;
-  assert_eq!(3, searcher.search(query.clone(), 1000)?.score_docs.len());
+  assert_eq!(3, searcher.search(query, 1000)?.score_docs.len());
 
   Ok(())
 }
@@ -217,7 +217,7 @@ where
     },
   };
 
-  let mut allowed_terms: HashSet<String> = terms.iter().map(|s| (*s).to_string()).collect();
+  let mut allowed_terms: HashSet<&str> = terms.iter().copied().collect();
   assert_eq!(allowed_terms.len(), bq.clauses().len());
 
   for c in bq.clauses() {
@@ -230,9 +230,13 @@ where
       },
     };
 
-    let term = tq.term.text()?.to_string();
-    assert!(allowed_terms.contains(&term), "invalid term: {}", term);
-    allowed_terms.remove(&term);
+    let term = tq.term.text()?;
+    assert!(
+      allowed_terms.contains(term.as_str()),
+      "invalid term: {}",
+      term
+    );
+    allowed_terms.remove(term.as_str());
   }
 
   assert_eq!(0, allowed_terms.len());

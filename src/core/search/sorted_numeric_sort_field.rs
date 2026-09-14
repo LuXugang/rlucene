@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
@@ -344,15 +346,15 @@ impl Display for SortedNumericSortField {
       None => return Err(std::fmt::Error),
     };
     debug_assert!(self.base.get_field().is_some());
-    buffer.push_str(&format!("<sortednumeric: \"{}\">", field));
+    write!(buffer, "<sortednumeric: \"{}\">", field)?;
     if self.base.reverse {
       buffer.push('!');
     }
     if let Some(missing_value) = &self.base.missing_value {
-      buffer.push_str(&format!(" missingValue={missing_value}"));
+      write!(buffer, " missingValue={missing_value}")?;
     }
-    buffer.push_str(&format!(" selector={:?}", self.selector));
-    buffer.push_str(&format!(" type={:?}", self.type_));
+    write!(buffer, " selector={:?}", self.selector)?;
+    write!(buffer, " type={:?}", self.type_)?;
     write!(f, "{buffer}")
   }
 }

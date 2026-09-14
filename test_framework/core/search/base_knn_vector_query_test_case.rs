@@ -162,7 +162,7 @@ pub trait BaseKnnVectorQueryTestCase {
       self.get_knn_vector_query_no_filter("f1", vec![0.0, 1.0], 10)?
     );
 
-    assert_ne!(Some(q1.clone()), None);
+    assert_ne!(Some(&q1), None);
 
     let term_query: Query = TermQuery::new(Term::from_text("f1", "x")).into();
     let q1_query: Query = q1.clone().into();
@@ -1326,12 +1326,9 @@ pub trait BaseKnnVectorQueryTestCase {
   where
     IR: IndexReader,
   {
-    let actual_id = reader
-      .stored_fields()?
-      .document(score_doc.doc)?
-      .get("id")?
-      .map(|v| v.into_owned());
-    assert_eq!(Some(expected_id.to_string()), actual_id);
+    let document = reader.stored_fields()?.document(score_doc.doc)?;
+    let actual_id = document.get("id")?;
+    assert_eq!(Some(expected_id), actual_id.as_deref().map(String::as_str));
     Ok(())
   }
 

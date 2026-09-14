@@ -26,12 +26,13 @@ use crate::core::util::bytes_ref_hash::DEFAULT_CAPACITY;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_string, size_of_vec};
-use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter};
+use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter, SliceCopyOps};
 #[cfg(test)]
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::fmt::Write as _;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::sync::atomic::AtomicI32;
@@ -252,28 +253,26 @@ impl fmt::Display for BufferedUpdates {
     } else {
       let mut s = format!("gen={}", self.gen_);
       if !self.delete_terms.is_empty() {
-        s.push_str(&format!(
-          " {} unique deleted terms",
-          self.delete_terms.size()
-        ));
+        write!(s, " {} unique deleted terms", self.delete_terms.size())?;
       }
       if !self.delete_queries.is_empty() {
-        s.push_str(&format!(" {} deleted queries", self.delete_queries.len()));
+        write!(s, " {} deleted queries", self.delete_queries.len())?;
       }
       if self
         .num_field_updates
         .load(std::sync::atomic::Ordering::SeqCst)
         != 0
       {
-        s.push_str(&format!(
+        write!(
+          s,
           " {} field updates",
           self
             .num_field_updates
             .load(std::sync::atomic::Ordering::SeqCst)
-        ));
+        )?;
       }
       if bytes_used != 0 {
-        s.push_str(&format!(" bytesUsed={bytes_used}"));
+        write!(s, " bytesUsed={bytes_used}")?;
       }
       write!(f, "{s}")
     }
@@ -378,9 +377,16 @@ impl DeletedTerms {
       terms.bytes_ref_hash.sort(&self.pool)?;
       let indices = &terms.bytes_ref_hash.ids;
       for &index in &indices[..terms.bytes_ref_hash.count] {
-        terms
-          .bytes_ref_hash
-          .get(index, &mut scratch.bytes, &self.pool)?;
+        let position = terms.bytes_ref_hash.get(index, &self.pool)?;
+        let block = self.pool.get_buffer(position.block_index);
+        // The consumer's Term currently requires owned bytes.
+        ArrayUtil::grow_no_copy(&mut scratch.bytes.bytes, position.length)?;
+        scratch.bytes.bytes.copy_from(
+          &block[position.offset..position.offset + position.length],
+          0,
+        );
+        scratch.bytes.offset = 0;
+        scratch.bytes.length = position.length;
         consumer(&scratch, terms.values[index as usize])?;
       }
     }
@@ -446,12 +452,15 @@ impl BytesRefIntMap {
     }
   }
   fn key_set(&self, pool: &ByteBlockPool) -> Result<HashSet<BytesRef<Vec<u8>>>> {
-    let mut scratch = BytesRef::new();
     let mut set = HashSet::new();
 
     for i in 0..self.bytes_ref_hash.size() {
-      self.bytes_ref_hash.get(i as i32, &mut scratch, pool)?;
-      set.insert(BytesRef::deep_copy_of(&scratch)?);
+      let position = self.bytes_ref_hash.get(i as i32, pool)?;
+      let block = pool.get_buffer(position.block_index);
+      // Each set entry must outlive the pool and subsequent hash changes.
+      set.insert(BytesRef::from_bytes(
+        block[position.offset..position.offset + position.length].to_vec(),
+      ));
     }
     Ok(set)
   }

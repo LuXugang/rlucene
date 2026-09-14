@@ -76,7 +76,7 @@ fn test_to_euclidean() -> Result<()> {
   let floats = random_floats(&mut random, num_vecs, dims);
   for confidence_interval in confidence_intervals(dims) {
     let error = CoreHelper::max_f32((100.0 - confidence_interval) * 0.01, 0.01);
-    let float_vector_values = from_floats(floats.clone());
+    let float_vector_values = from_floats(&floats);
     let scalar_quantizer =
       ScalarQuantizer::from_vectors(&float_vector_values, confidence_interval, num_vecs, 7)?;
     let mut quantized = vec![Vec::new(); floats.len()];
@@ -86,7 +86,7 @@ fn test_to_euclidean() -> Result<()> {
       &mut quantized,
       VectorSimilarityFunction::Euclidean,
     );
-    let query = floats[0][0..dims].to_vec();
+    let query = &floats[0][0..dims];
     let quantized_similarity = ScalarQuantizedVectorSimilarity::from_vector_similarity(
       VectorSimilarityFunction::Euclidean,
       scalar_quantizer.get_constant_multiplier(),
@@ -96,7 +96,7 @@ fn test_to_euclidean() -> Result<()> {
       &floats,
       &quantized,
       &offsets,
-      &query,
+      query,
       error,
       VectorSimilarityFunction::Euclidean,
       &quantized_similarity,
@@ -159,7 +159,7 @@ fn test_to_dot_product() -> Result<()> {
   }
   for confidence_interval in confidence_intervals(dims) {
     let error = CoreHelper::max_f32((100.0 - confidence_interval) * 0.01, 0.01);
-    let float_vector_values = from_floats(floats.clone());
+    let float_vector_values = from_floats(&floats);
     let scalar_quantizer =
       ScalarQuantizer::from_vectors(&float_vector_values, confidence_interval, num_vecs, 7)?;
     let mut quantized = vec![Vec::new(); floats.len()];
@@ -199,7 +199,7 @@ fn test_to_max_inner_product() -> Result<()> {
   let floats = random_floats(&mut random, num_vecs, dims);
   for confidence_interval in confidence_intervals(dims) {
     let error = CoreHelper::max_f32((100.0 - confidence_interval) * 0.5, 0.5);
-    let float_vector_values = from_floats(floats.clone());
+    let float_vector_values = from_floats(&floats);
     let scalar_quantizer =
       ScalarQuantizer::from_vectors(&float_vector_values, confidence_interval, num_vecs, 7)?;
     let mut quantized = vec![Vec::new(); floats.len()];
@@ -276,8 +276,9 @@ fn quantize_vectors_normalized(
   similarity_function: VectorSimilarityFunction,
 ) -> Result<Vec<f32>> {
   let mut offsets = vec![0.0; floats.len()];
+  let mut v = Vec::new();
   for (i, f) in floats.iter().enumerate() {
-    let mut v = f.clone();
+    v.clone_from(f);
     VectorUtil::l2normalize(&mut v)?;
     quantized[i] = vec![0; v.len()];
     offsets[i] = scalar_quantizer.quantize(&v, &mut quantized[i], similarity_function);

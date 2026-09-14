@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -140,6 +139,11 @@ impl<S> SortedSetDocValues for SingletonSortedSetDocValues<S>
 where
   S: SortedDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     Ok(self.ord)
   }
@@ -148,7 +152,7 @@ where
     Ok(1)
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     self.inner_mut()?.lookup_ord(ord as i32)
   }
 

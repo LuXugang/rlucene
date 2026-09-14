@@ -41,7 +41,7 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -139,7 +139,7 @@ impl QueryBase for LatLonDocValuesQuery {
       sb.push_str(&self.field);
       sb.push(':');
     }
-    sb.push_str(&format!("{:?}", self.query_relation));
+    write!(sb, "{:?}", self.query_relation)?;
     sb.push(':');
     sb.push_str("geometries(");
     for (i, geometry) in self.geometries.iter().enumerate() {

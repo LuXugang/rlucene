@@ -119,9 +119,9 @@ fn test_delete_left_over_files() -> Result<()> {
 
   // read in index to try to not depend on codec-specific filenames so much
   let sis = SegmentInfos::read_latest_commit(dir.clone())?;
-  let _si0 = sis.info(0).unwrap().info.clone();
-  let _si1 = sis.info(1).unwrap().info.clone();
-  let _si3 = sis.info(3).unwrap().info.clone();
+  let _si0 = &sis.info(0).unwrap().info;
+  let _si1 = &sis.info(1).unwrap().info;
+  let _si3 = &sis.info(3).unwrap().info;
 
   // Now, artificially create an extra .del file & extra
   // .s0 file:
@@ -211,18 +211,18 @@ fn test_delete_left_over_files() -> Result<()> {
 }
 
 fn diff_files(files1: &[String], files2: &[String]) -> HashSet<String> {
-  let set1: HashSet<String> = files1.iter().cloned().collect();
-  let set2: HashSet<String> = files2.iter().cloned().collect();
+  let set1: HashSet<&String> = files1.iter().collect();
+  let set2: HashSet<&String> = files2.iter().collect();
   let mut extra = HashSet::new();
 
   for item in &set1 {
     if !set2.contains(item) {
-      extra.insert(item.clone());
+      extra.insert((*item).clone());
     }
   }
   for item in &set2 {
     if !set1.contains(item) {
-      extra.insert(item.clone());
+      extra.insert((*item).clone());
     }
   }
 

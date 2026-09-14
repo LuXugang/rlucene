@@ -17,7 +17,6 @@
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_writer_base::PostingsWriterBase;
-use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -25,6 +24,7 @@ use crate::core::index::postings_enum::{FREQS, OFFSETS, PAYLOADS, POSITIONS, Pos
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
@@ -176,9 +176,14 @@ where
           } else {
             (-1, -1)
           };
-          self
-            .sub
-            .add_position(pos, payload, start_offset, end_offset, &self.options)?;
+          let payload = payload.as_ref().map(BytesRefValue::as_bytes_ref);
+          self.sub.add_position(
+            pos,
+            payload.as_ref(),
+            start_offset,
+            end_offset,
+            &self.options,
+          )?;
         }
       }
 
@@ -279,7 +284,7 @@ pub trait PushPostingsWriterBaseAbstract {
   fn add_position(
     &mut self,
     position: i32,
-    payload: Option<Cow<'_, BytesRef<Vec<u8>>>>,
+    payload: Option<&BytesRef<&[u8]>>,
     start_offset: i32,
     end_offset: i32,
     options: &FieldWriteOptions,

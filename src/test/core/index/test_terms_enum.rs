@@ -271,11 +271,11 @@ fn test_intersect_random() -> Result<()> {
     } else {
       for s in &terms {
         let s2 = if random.random::<f64>() <= keep_pct {
-          s.clone()
+          Cow::Borrowed(s.as_str())
         } else {
-          get_random_string(&mut random)
+          Cow::Owned(get_random_string(&mut random))
         };
-        accept_terms.insert(s2.clone());
+        accept_terms.insert(s2.as_ref().to_owned());
         sorted_accept_terms.insert(new_bytes_ref_from_string(&mut random, &s2)?);
       }
       let v: Vec<BytesRef<Vec<u8>>> = sorted_accept_terms.into_iter().collect();
@@ -366,12 +366,13 @@ fn test_intersect_random() -> Result<()> {
   dir.close()
 }
 
-fn make_index<R>(
+fn make_index<R, T>(
   random: &mut R,
-  terms: &[String],
+  terms: &[T],
 ) -> Result<(StandardDirectoryReader<DirEnum>, std::sync::Arc<DirEnum>)>
 where
   R: Rng + ?Sized,
+  T: AsRef<str>,
 {
   let dir = new_directory_shared(random)?;
   let mock = MockAnalyzer::new(random);
@@ -381,7 +382,7 @@ where
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   for term in terms {
     let mut doc = Document::new();
-    let field = new_string_field(random, FIELD, term, No, &mut field_to_type)?;
+    let field = new_string_field(random, FIELD, term.as_ref(), No, &mut field_to_type)?;
     doc.add(field);
     writer.add_document(random, doc)?;
   }
@@ -402,17 +403,7 @@ fn test_easy() -> Result<()> {
   // No floor arcs:
   let (reader, dir) = make_index(
     &mut random,
-    &[
-      "aa0".to_string(),
-      "aa1".to_string(),
-      "aa2".to_string(),
-      "aa3".to_string(),
-      "bb0".to_string(),
-      "bb1".to_string(),
-      "bb2".to_string(),
-      "bb3".to_string(),
-      "aa".to_string(),
-    ],
+    &["aa0", "aa1", "aa2", "aa3", "bb0", "bb1", "bb2", "bb3", "aa"],
   )?;
 
   // First term in block:
@@ -472,12 +463,9 @@ fn test_easy() -> Result<()> {
 fn test_floor_blocks() -> Result<()> {
   let mut random = random();
 
-  let terms = vec![
+  let terms = [
     "aa0", "aa1", "aa2", "aa3", "aa4", "aa5", "aa6", "aa7", "aa8", "aa9", "aa", "xx",
-  ]
-  .into_iter()
-  .map(String::from)
-  .collect::<Vec<_>>();
+  ];
 
   let (reader, dir) = make_index(&mut random, &terms)?;
 
@@ -560,19 +548,20 @@ where
     }
   }
 }
-fn test_random_seeks<'a, R, IR>(
+fn test_random_seeks<'a, R, IR, S>(
   random: &mut R,
   reader: &'a IR,
-  valid_term_strings: &[String],
+  valid_term_strings: &[S],
 ) -> Result<()>
 where
   R: Rng + ?Sized,
   IR: IndexReader,
   IR::ContextKind: IndexReaderContextKind<&'a IR>,
+  S: AsRef<str>,
 {
   let mut valid_terms: Vec<BytesRef<Vec<u8>>> = valid_term_strings
     .iter()
-    .map(|s| new_bytes_ref_from_string(random, s.as_str()))
+    .map(|s| new_bytes_ref_from_string(random, s.as_ref()))
     .collect::<Result<_>>()?;
   valid_terms.sort();
 
@@ -580,7 +569,7 @@ where
 
   let end_loc: isize = -(valid_terms.len() as isize) - 1;
 
-  let mut term_states = Vec::new();
+  let mut term_states: Vec<(&BytesRef<Vec<u8>>, _)> = Vec::new();
 
   for _iter in 0..(100 * random_multiplier()) {
     let (t, mut loc, term_state) = if random.random_range(0..6) == 4 {
@@ -590,16 +579,16 @@ where
         Ok(p) => p as isize,
         Err(p) => -(p as isize) - 1,
       };
-      (t, loc, None)
+      (Cow::Owned(t), loc, None)
     } else if !term_states.is_empty() && random.random_range(0..4) == 1 {
       let (t, st) = &term_states[random.random_range(0..term_states.len())];
       let loc = valid_terms.binary_search(t).unwrap() as isize;
 
-      (t.clone(), loc, Some(st))
+      (Cow::Borrowed(*t), loc, Some(st))
     } else {
       // pick valid term
       let idx = random.random_range(0..valid_terms.len());
-      let t = valid_terms[idx].clone();
+      let t = Cow::Borrowed(&valid_terms[idx]);
       (t, idx as isize, None)
     };
 
@@ -624,7 +613,7 @@ where
 
     #[allow(clippy::if_same_then_else)]
     if loc >= 0 {
-      assert_eq!(&t, te.term()?.as_ref());
+      assert_eq!(t.as_ref(), te.term()?.as_ref());
     } else if do_seek_exact {
       continue;
     } else if loc == end_loc {
@@ -646,7 +635,7 @@ where
       } else {
         assert_eq!(&valid_terms[loc], t2.unwrap().as_ref());
         if random.random_range(0..40) == 17 && term_states.len() < 100 {
-          term_states.push((valid_terms[loc].clone(), te.term_state()?));
+          term_states.push((&valid_terms[loc], te.term_state()?));
         }
       }
     }
@@ -1042,20 +1031,20 @@ fn test_common_prefix_terms() -> Result<()> {
   let mut stored_fields = r.stored_fields()?;
 
   let iters = at_least_usize(&mut random, num_terms * 3);
-  let terms_list: Vec<String> = terms.iter().cloned().collect();
+  let terms_list: Vec<&str> = terms.iter().map(String::as_str).collect();
   for _iter in 0..iters {
     let term;
     let should_exist;
     if random.random_bool(0.5) {
-      term = terms_list[random.random_range(0..terms.len())].clone();
+      term = Cow::Borrowed(terms_list[random.random_range(0..terms.len())]);
       should_exist = true;
     } else {
-      term = format!(
+      term = Cow::Owned(format!(
         "{}{}",
         prefix,
         TestUtil::random_simple_string_range(&mut random, 1, 20)
-      );
-      should_exist = terms.contains(&term);
+      ));
+      should_exist = terms.contains(term.as_ref());
     }
 
     let term_bytes_ref = BytesRef::from_string(&term);
@@ -1068,7 +1057,7 @@ fn test_common_prefix_terms() -> Result<()> {
       assert_ne!(doc_id, NO_MORE_DOCS);
       assert_eq!(doc_id, pk_lookup.lookup(&term_bytes_ref)?);
       let doc = stored_fields.document(doc_id)?;
-      assert_eq!(term, *doc.get("id")?.unwrap());
+      assert_eq!(term.as_ref(), doc.get("id")?.unwrap().as_str());
 
       if random.random_range(0..7) == 1 {
         terms_enum.next()?;

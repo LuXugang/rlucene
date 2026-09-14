@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
@@ -228,13 +230,13 @@ impl TestFSTs {
     {
       let outputs = IntSequenceOutputs::get_singleton();
       let pairs = terms
-        .iter()
+        .into_iter()
         .enumerate()
         .map(|(idx, term)| {
           let s = idx.to_string();
           let vec = s.chars().map(|ch| ch as i32).collect();
           InputOutput {
-            input: term.clone(),
+            input: term,
             output: IntsRef::from_slice(Arc::new(vec), 0, s.len()),
           }
         })
@@ -378,12 +380,12 @@ fn test_basic_fsa() -> Result<()> {
     {
       let outputs = ByteSequenceOutputs::get_singleton();
       let pairs = terms2
-        .iter()
+        .into_iter()
         .enumerate()
         .map(|(idx, term)| {
           let output = new_bytes_ref_from_string(&mut random, &idx.to_string()).expect("");
           InputOutput {
-            input: term.clone(),
+            input: term,
             output,
           }
         })
@@ -675,7 +677,9 @@ fn test_simple() -> Result<()> {
   assert_eq!(*seek_result.as_ref().unwrap().output, 17);
 
   // seekCeil("aa") -> goes to "b"
-  seek_result = fst_enum.seek_ceil(&new_bytes_ref_from_string(&mut random, "aa")?.clone())?;
+  let aa_ceil = new_bytes_ref_from_string(&mut random, "aa")?;
+  debug_assert!(aa_ceil.is_valid().is_ok());
+  seek_result = fst_enum.seek_ceil(&aa_ceil)?;
   assert!(seek_result.is_some());
   let result = seek_result.unwrap();
   assert_eq!(result.input, b);
@@ -729,7 +733,10 @@ fn test_primary_keys() -> Result<()> {
     let s = new_searcher_with_reader(r)?;
     w.close(&mut random)?;
 
-    let mut all_ids_list: Vec<String> = all_ids.iter().cloned().collect();
+    let mut all_ids_list: Vec<Cow<'_, str>> = all_ids
+      .iter()
+      .map(|id| Cow::Borrowed(id.as_str()))
+      .collect();
     let mut sorted_all_ids_list = all_ids_list.clone();
     sorted_all_ids_list.sort();
 
@@ -747,13 +754,13 @@ fn test_primary_keys() -> Result<()> {
         }
       };
       out_of_bounds.insert(id_string.clone());
-      all_ids_list.push(id_string);
+      all_ids_list.push(Cow::Owned(id_string));
     }
 
     // Verify w/ TermQuery
     for _ in 0..2 * num_ids {
       let id = &all_ids_list[random.random_range(0..all_ids_list.len())];
-      let exists = !out_of_bounds.contains(id);
+      let exists = !out_of_bounds.contains(id.as_ref());
       if cfg!(feature = "test_log_verbose") {
         println!(
           "TEST: TermQuery {}id={}",
@@ -775,33 +782,37 @@ fn test_primary_keys() -> Result<()> {
       .expect("terms should exist")
       .iterator()?;
     for _ in 0..2 * num_ids {
-      let (id, next_id, exists): (String, Option<String>, bool) = if random.random::<bool>() {
-        let id = all_ids_list[random.random_range(0..all_ids_list.len())].clone();
-        let exists = !out_of_bounds.contains(&id);
-        if cfg!(feature = "test_log_verbose") {
-          println!(
-            "TEST: exactOnly {}id={}",
-            if exists { "" } else { "non-exist " },
-            id
-          );
-        }
-        (id, None, exists)
-      } else {
-        // Pick ID between two IDs:
-        let idv = TestUtil::next_usize(&mut random, 0, num_ids - 2);
-        let (id, next_id) = if cycle == 0 {
-          (format!("{:07}a", idv), format!("{:07}", idv + 1))
+      let (id, next_id, exists): (Cow<'_, str>, Option<Cow<'_, str>>, bool) =
+        if random.random::<bool>() {
+          let id = Cow::Borrowed(all_ids_list[random.random_range(0..all_ids_list.len())].as_ref());
+          let exists = !out_of_bounds.contains(id.as_ref());
+          if cfg!(feature = "test_log_verbose") {
+            println!(
+              "TEST: exactOnly {}id={}",
+              if exists { "" } else { "non-exist " },
+              id
+            );
+          }
+          (id, None, exists)
         } else {
-          (
-            format!("{}a", sorted_all_ids_list[idv]),
-            sorted_all_ids_list[idv + 1].clone(),
-          )
+          // Pick ID between two IDs:
+          let idv = TestUtil::next_usize(&mut random, 0, num_ids - 2);
+          let (id, next_id) = if cycle == 0 {
+            (
+              Cow::Owned(format!("{:07}a", idv)),
+              Cow::Owned(format!("{:07}", idv + 1)),
+            )
+          } else {
+            (
+              Cow::Owned(format!("{}a", sorted_all_ids_list[idv])),
+              Cow::Borrowed(sorted_all_ids_list[idv + 1].as_ref()),
+            )
+          };
+          if cfg!(feature = "test_log_verbose") {
+            println!("TEST: not exactOnly id={} nextID={}", id, next_id);
+          }
+          (id, Some(next_id), false)
         };
-        if cfg!(feature = "test_log_verbose") {
-          println!("TEST: not exactOnly id={} nextID={}", id, next_id);
-        }
-        (id, Some(next_id), false)
-      };
 
       let status = if next_id.is_none() {
         if terms_enum.seek_exact(&new_bytes_ref_from_string(&mut random, &id)?)? {
@@ -867,11 +878,11 @@ fn test_random_term_lookup() -> Result<()> {
   let searcher = index_searcher::from_reader(reader)?;
   writer.close(&mut random)?;
 
-  let mut all_terms_list: Vec<String> = all_terms.iter().cloned().collect();
+  let mut all_terms_list: Vec<&String> = all_terms.iter().collect();
   all_terms_list.shuffle(&mut random);
 
   for term in all_terms_list {
-    let query = TermQuery::new(Term::from_text("field", &term));
+    let query = TermQuery::new(Term::from_text("field", term));
     let count = searcher.count(query)?;
     assert_eq!(
       count, 1,
@@ -1351,7 +1362,9 @@ fn test_shortest_paths_random() -> Result<()> {
     }
 
     for j in 1..s.len() {
-      all_prefixes.insert(s[..j].to_string());
+      if !all_prefixes.contains(&s[..j]) {
+        all_prefixes.insert(s[..j].to_string());
+      }
     }
     let weight = TestUtil::next_int(&mut random, 1, 100) as i64;
     slow_completor.insert(s, weight);

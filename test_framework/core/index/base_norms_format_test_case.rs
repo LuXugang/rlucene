@@ -51,6 +51,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
+use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
@@ -487,6 +488,7 @@ pub trait BaseNormsFormatTestCase:
     let dir = Arc::new(self.apply_created_version_major(random, dir)?);
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let norms = Arc::new(norms);
     conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
       norms.clone(),
     )));
@@ -650,6 +652,7 @@ pub trait BaseNormsFormatTestCase:
     let analyzer = MockAnalyzer::new(random);
     let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     conf.set_merge_policy(NoMergePolicy::default());
+    let norms = Arc::new(norms);
     conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
       norms.clone(),
     )));
@@ -832,13 +835,13 @@ where
   values
 }
 
-pub struct CannedNormSimilarity {
-  norms: Vec<i64>,
+pub struct CannedNormSimilarity<N = Vec<i64>> {
+  norms: N,
   index: AtomicUsize,
 }
 
-impl CannedNormSimilarity {
-  pub fn new(norms: Vec<i64>) -> CannedNormSimilarity {
+impl<N> CannedNormSimilarity<N> {
+  pub fn new(norms: N) -> Self {
     CannedNormSimilarity {
       norms,
       index: AtomicUsize::new(0),
@@ -846,18 +849,21 @@ impl CannedNormSimilarity {
   }
 }
 
-impl Display for CannedNormSimilarity {
+impl<N> Display for CannedNormSimilarity<N> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
+    f.write_str(concat!(module_path!(), "::CannedNormSimilarity"))
   }
 }
 
-impl Similarity for CannedNormSimilarity {
+impl<N> Similarity for CannedNormSimilarity<N>
+where
+  N: Borrow<Vec<i64>>,
+{
   fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
     assert!(state.get_length() > 0);
     loop {
       let idx = self.index.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-      let norm = self.norms[idx];
+      let norm = self.norms.borrow()[idx];
       if norm != 0 {
         return Ok(norm);
       }

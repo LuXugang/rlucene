@@ -217,7 +217,7 @@ fn test_2b_terms() -> Result<()> {
   }
   let mut saved_terms = saved_terms.expect("saved terms must exist");
   let num_saved_terms = saved_terms.len();
-  let mut big_ord_terms = saved_terms[num_saved_terms - 10..].to_vec();
+  let mut big_ord_terms: Vec<_> = saved_terms[num_saved_terms - 10..].iter().collect();
   println!("TEST: test big ord terms...");
   test_saved_terms(&mut random, Arc::clone(&reader), &mut big_ord_terms)?;
   println!("TEST: test all saved terms...");
@@ -258,13 +258,10 @@ where
   Ok(saved_terms)
 }
 
-fn test_saved_terms<IR>(
-  random: &mut StdRng,
-  reader: IR,
-  terms: &mut [BytesRef<Vec<u8>>],
-) -> Result<()>
+fn test_saved_terms<IR, T>(random: &mut StdRng, reader: IR, terms: &mut [T]) -> Result<()>
 where
   IR: IndexReader + Clone,
+  T: std::borrow::Borrow<BytesRef<Vec<u8>>>,
   IndexReaderContextType<IR>: Sync + 'static,
 {
   println!("TEST: run {} terms on reader", terms.len());
@@ -274,7 +271,7 @@ where
   let mut terms_enum = terms_data.iterator()?;
   let mut failed = false;
   for _ in 0..10 * terms.len() {
-    let term = &terms[random.random_range(0..terms.len())];
+    let term = terms[random.random_range(0..terms.len())].borrow();
     println!("TEST: search {term}");
     let t0 = Instant::now();
     let count = searcher.count(TermQuery::new(Term::new("field", term.clone())))?;

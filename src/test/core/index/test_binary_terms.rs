@@ -79,13 +79,9 @@ fn test_binary() -> Result<()> {
     let query = TermQuery::new(term);
     let docs = is.search(query, 5)?;
     assert_eq!(docs.total_hits().value(), 1);
-    let v = is
-      .stored_fields()?
-      .document(docs.score_docs[0].doc)?
-      .get("id")?
-      .unwrap()
-      .to_string();
-    assert_eq!(v, i.to_string());
+    let stored_doc = is.stored_fields()?.document(docs.score_docs[0].doc)?;
+    let v = stored_doc.get("id")?.unwrap();
+    assert_eq!(v.as_str(), i.to_string().as_str());
   }
 
   Ok(())

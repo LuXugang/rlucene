@@ -80,7 +80,7 @@ where
       // gen'd files are written outside CFS, so use SegInfo directory
       dv_dir = CompoundDirectoryEnum::B(si.info.dir.as_ref());
       let v = BigInt::from(gen_).to_str_radix(36);
-      segment_suffix = v.to_string();
+      segment_suffix = v;
     }
 
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;

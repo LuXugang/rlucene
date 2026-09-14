@@ -381,34 +381,64 @@ fn test_lru_eviction() -> Result<()> {
 
   searcher.set_query_caching_policy(always_cache());
   searcher.search(ConstantScoreQuery::new(red.clone()), 1)?;
-  assert_eq!(vec![red.clone()], cached_queries(&query_cache));
+  {
+    let expected = [&red];
+    let actual = cached_queries(&query_cache);
+    assert!(
+      expected.len() == actual.len() && expected.into_iter().eq(actual.iter()),
+      "expected: {expected:?}, actual: {actual:?}"
+    );
+  }
 
   searcher.search(ConstantScoreQuery::new(green.clone()), 1)?;
-  assert_eq!(
-    vec![red.clone(), green.clone()],
-    cached_queries(&query_cache)
-  );
+  {
+    let expected = [&red, &green];
+    let actual = cached_queries(&query_cache);
+    assert!(
+      expected.len() == actual.len() && expected.into_iter().eq(actual.iter()),
+      "expected: {expected:?}, actual: {actual:?}"
+    );
+  }
 
   searcher.search(ConstantScoreQuery::new(red.clone()), 1)?;
-  assert_eq!(
-    vec![green.clone(), red.clone()],
-    cached_queries(&query_cache)
-  );
+  {
+    let expected = [&green, &red];
+    let actual = cached_queries(&query_cache);
+    assert!(
+      expected.len() == actual.len() && expected.into_iter().eq(actual.iter()),
+      "expected: {expected:?}, actual: {actual:?}"
+    );
+  }
 
   searcher.search(ConstantScoreQuery::new(blue.clone()), 1)?;
-  assert_eq!(
-    vec![red.clone(), blue.clone()],
-    cached_queries(&query_cache)
-  );
+  {
+    let expected = [&red, &blue];
+    let actual = cached_queries(&query_cache);
+    assert!(
+      expected.len() == actual.len() && expected.into_iter().eq(actual.iter()),
+      "expected: {expected:?}, actual: {actual:?}"
+    );
+  }
 
   searcher.search(ConstantScoreQuery::new(blue.clone()), 1)?;
-  assert_eq!(
-    vec![red.clone(), blue.clone()],
-    cached_queries(&query_cache)
-  );
+  {
+    let expected = [&red, &blue];
+    let actual = cached_queries(&query_cache);
+    assert!(
+      expected.len() == actual.len() && expected.into_iter().eq(actual.iter()),
+      "expected: {expected:?}, actual: {actual:?}"
+    );
+  }
 
   searcher.search(ConstantScoreQuery::new(green.clone()), 1)?;
-  assert_eq!(vec![blue, green.clone()], cached_queries(&query_cache));
+  {
+    let expected = [&blue, &green];
+    let actual = cached_queries(&query_cache);
+    assert!(
+      expected.len() == actual.len() && expected.into_iter().eq(actual.iter()),
+      "expected: {expected:?}, actual: {actual:?}"
+    );
+  }
 
   searcher.set_query_caching_policy(never_cache());
   searcher.search(ConstantScoreQuery::new(red), 1)?;

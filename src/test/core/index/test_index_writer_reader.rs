@@ -177,15 +177,12 @@ fn test_update_document() -> Result<()> {
     8000.to_string(),
     STRING_TYPE_STORED_WITH_TVS.clone(),
   ));
-  writer.update_document_with_term(Term::from_text("id", id10.clone()), new_doc)?;
+  writer.update_document_with_term(Term::from_text("id", &id10), new_doc)?;
   assert!(!r1.is_current()?);
 
   let r2 = directory_reader::open_from_writer(&writer)?;
   assert!(r2.is_current()?);
-  assert_eq!(
-    0,
-    count(&mut random, &Term::from_text("id", id10.clone()), &r2)?
-  );
+  assert_eq!(0, count(&mut random, &Term::from_text("id", &id10), &r2)?);
   assert_eq!(
     1,
     count(&mut random, &Term::from_text("id", 8000.to_string()), &r2)?
@@ -387,16 +384,10 @@ fn test_delete_from_index_writer() -> Result<()> {
     .expect("id field should be stored")
     .into_owned();
 
-  writer.delete_documents_with_terms(vec![Term::from_text("id", id10.clone())])?;
+  writer.delete_documents_with_terms(vec![Term::from_text("id", &id10)])?;
   let r2 = directory_reader::open_from_writer(&writer)?;
-  assert_eq!(
-    1,
-    count(&mut random, &Term::from_text("id", id10.clone()), &r1)?
-  );
-  assert_eq!(
-    0,
-    count(&mut random, &Term::from_text("id", id10.clone()), &r2)?
-  );
+  assert_eq!(1, count(&mut random, &Term::from_text("id", &id10), &r1)?);
+  assert_eq!(0, count(&mut random, &Term::from_text("id", &id10), &r2)?);
 
   let id50 = stored_fields
     .document(50)?
@@ -405,18 +396,12 @@ fn test_delete_from_index_writer() -> Result<()> {
     .string_value()?
     .expect("id field should be stored")
     .into_owned();
-  assert_eq!(
-    1,
-    count(&mut random, &Term::from_text("id", id50.clone()), &r1)?
-  );
+  assert_eq!(1, count(&mut random, &Term::from_text("id", &id50), &r1)?);
 
-  writer.delete_documents_with_terms(vec![Term::from_text("id", id50.clone())])?;
+  writer.delete_documents_with_terms(vec![Term::from_text("id", &id50)])?;
 
   let r3 = directory_reader::open_from_writer(&writer)?;
-  assert_eq!(
-    0,
-    count(&mut random, &Term::from_text("id", id10.clone()), &r3)?
-  );
+  assert_eq!(0, count(&mut random, &Term::from_text("id", &id10), &r3)?);
   assert_eq!(0, count(&mut random, &Term::from_text("id", id50), &r3)?);
 
   let id75 = stored_fields
@@ -426,14 +411,10 @@ fn test_delete_from_index_writer() -> Result<()> {
     .string_value()?
     .expect("id field should be stored")
     .into_owned();
-  writer.delete_documents_with_queries(vec![
-    TermQuery::new(Term::from_text("id", id75.clone())).into(),
-  ])?;
+  writer
+    .delete_documents_with_queries(vec![TermQuery::new(Term::from_text("id", &id75)).into()])?;
   let r4 = directory_reader::open_from_writer(&writer)?;
-  assert_eq!(
-    1,
-    count(&mut random, &Term::from_text("id", id75.clone()), &r3)?
-  );
+  assert_eq!(1, count(&mut random, &Term::from_text("id", &id75), &r3)?);
   assert_eq!(0, count(&mut random, &Term::from_text("id", id75), &r4)?);
 
   r1.close()?;

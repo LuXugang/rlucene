@@ -108,7 +108,7 @@ impl TestLucene90PointsFormat {
       let mut doc = Document::new();
       if i == num_docs / 2 {
         total_values += 1;
-        doc.add(BinaryPoint::new("f", vec![unique_point_value.to_vec()])?);
+        doc.add(BinaryPoint::new("f", [&unique_point_value])?);
       } else {
         let num_values = if multi_values {
           TestUtil::next_int(random, 2, 100)
@@ -122,7 +122,7 @@ impl TestLucene90PointsFormat {
               break;
             }
           }
-          doc.add(BinaryPoint::new("f", vec![point_value.to_vec()])?);
+          doc.add(BinaryPoint::new("f", [&point_value])?);
           total_values += 1;
         }
       }
@@ -205,13 +205,7 @@ impl TestLucene90PointsFormat {
       let mut doc = Document::new();
       if i == num_docs / 2 {
         total_values += 1;
-        doc.add(BinaryPoint::new(
-          "f",
-          vec![
-            unique_point_value[0].to_vec(),
-            unique_point_value[1].to_vec(),
-          ],
-        )?);
+        doc.add(BinaryPoint::new("f", unique_point_value)?);
       } else {
         let num_values = if multi_values {
           TestUtil::next_int(random, 2, 100)
@@ -226,10 +220,7 @@ impl TestLucene90PointsFormat {
               break;
             }
           }
-          doc.add(BinaryPoint::new(
-            "f",
-            vec![point_value[0].to_vec(), point_value[1].to_vec()],
-          )?);
+          doc.add(BinaryPoint::new("f", point_value)?);
           total_values += 1;
         }
       }

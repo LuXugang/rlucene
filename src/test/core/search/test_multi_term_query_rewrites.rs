@@ -142,36 +142,36 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<TestMultiTermQueryRewritesC
     multi_searcher_dupls,
   })
 }
-fn extract_inner_query(q: Query) -> Query {
+fn extract_inner_query(q: &Query) -> &Query {
   match q {
-    Query::ConstantScore(q) => q.into_inner(),
+    Query::ConstantScore(q) => q.get_query(),
     _ => q,
   }
 }
 
-fn extract_term(q: Query) -> Arc<Term> {
+fn extract_term(q: &Query) -> &Term {
   let q = extract_inner_query(q);
   match q {
-    Query::Term(q) => q.get_term(),
+    Query::Term(q) => q.term.as_ref(),
     _ => unreachable!("expected TermQuery"),
   }
 }
 
 fn check_boolean_query_order(q: Query) {
-  let q = extract_inner_query(q);
+  let q = extract_inner_query(&q);
   let bq = match q {
     Query::Boolean(q) => q,
     _ => unreachable!("expected BooleanQuery"),
   };
-  let mut last: Option<Arc<Term>> = None;
+  let mut last: Option<&Term> = None;
   for clause in bq.clauses().iter() {
-    let act = extract_term(clause.query.clone());
+    let act = extract_term(&clause.query);
 
     if let Some(last) = last {
       assert!(last < act, "sort order of terms in BQ violated");
     }
 
-    last = Some(act.clone());
+    last = Some(act);
   }
 }
 fn check_duplicate_terms<T>(method: T) -> Result<()>
@@ -225,7 +225,7 @@ fn check_boolean_query_boosts(bq: Query) -> Result<()> {
     _ => unreachable!("expected BooleanQuery"),
   };
   for clause in bq.clauses() {
-    let boost_q = match clause.query.clone() {
+    let boost_q = match &clause.query {
       Query::Boost(q) => q,
       _ => unreachable!("expected BoostQuery"),
     };

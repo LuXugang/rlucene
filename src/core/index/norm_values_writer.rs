@@ -37,6 +37,7 @@ use crate::core::util::packed::packed_long_values::{
   Builder, PackedLongValues, PackedLongValuesIterator,
 };
 use crate::core::util::{Counter, SharedCounter};
+use std::borrow::Borrow;
 use std::sync::Arc;
 
 /// Buffers up pending long per doc, then flushes when segment flushes.
@@ -110,7 +111,7 @@ impl NormValuesWriter {
       None => None,
     };
 
-    let mut norms_producer = NormsProducerImpl::new(sorted, &self.docs_with_field, values)?;
+    let mut norms_producer = NormsProducerImpl::new(sorted, &self.docs_with_field, &values)?;
     norms_consumer.add_norms_field(&self.field_info, &mut norms_producer)?;
 
     Ok(())
@@ -120,13 +121,13 @@ impl NormValuesWriter {
 struct NormsProducerImpl<'a> {
   sorted: Option<NumericDVs<FixedBitSet>>,
   docs_with_field: &'a DocsWithFieldSet,
-  values: PackedLongValues,
+  values: &'a PackedLongValues,
 }
 impl<'a> NormsProducerImpl<'a> {
   pub(crate) fn new(
     sorted: Option<NumericDVs<FixedBitSet>>,
     docs_with_field: &'a DocsWithFieldSet,
-    values: PackedLongValues,
+    values: &'a PackedLongValues,
   ) -> Result<Self> {
     Ok(Self {
       sorted,
@@ -138,8 +139,8 @@ impl<'a> NormsProducerImpl<'a> {
 
 impl CloseableRef for NormsProducerImpl<'_> {}
 
-impl NormsProducer for NormsProducerImpl<'_> {
-  type NumericDocValues = BufferedSortingNorms;
+impl<'a> NormsProducer for NormsProducerImpl<'a> {
+  type NumericDocValues = BufferedSortingNorms<&'a PackedLongValues>;
 
   fn get_norms(&self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     match &self.sorted {
@@ -147,7 +148,7 @@ impl NormsProducer for NormsProducerImpl<'_> {
         sorted.clone(),
       ))),
       None => Ok(BufferedSortingNorms::Buffered(BufferedNorms::new(
-        &self.values,
+        self.values,
         self.docs_with_field.iterator()?,
       )?)),
     }
@@ -159,30 +160,27 @@ impl NormsProducer for NormsProducerImpl<'_> {
 }
 
 /// iterates over the values we have in ram
-pub(crate) struct BufferedNorms {
-  iter: PackedLongValuesIterator,
+pub(crate) struct BufferedNorms<V = PackedLongValues> {
+  iter: PackedLongValuesIterator<V>,
   doc_with_field: DocsWithFieldSetDISI,
   value: i64,
 }
-impl BufferedNorms {
-  pub(crate) fn new(
-    values: &PackedLongValues,
-    doc_with_field: DocsWithFieldSetDISI,
-  ) -> Result<Self> {
+impl<V: Borrow<PackedLongValues>> BufferedNorms<V> {
+  pub(crate) fn new(values: V, doc_with_field: DocsWithFieldSetDISI) -> Result<Self> {
     Ok(Self {
-      iter: values.iterator()?,
+      iter: PackedLongValuesIterator::new(values)?,
       doc_with_field,
       value: 0,
     })
   }
 }
 
-pub(crate) enum BufferedSortingNorms {
-  Buffered(BufferedNorms),
+pub(crate) enum BufferedSortingNorms<V = PackedLongValues> {
+  Buffered(BufferedNorms<V>),
   Sorting(SortingNumericDocValues<FixedBitSet>),
 }
 
-impl DocValuesIterator for BufferedSortingNorms {
+impl<V: Borrow<PackedLongValues>> DocValuesIterator for BufferedSortingNorms<V> {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
       Self::Buffered(inner) => inner.advance_exact(target),
@@ -191,10 +189,16 @@ impl DocValuesIterator for BufferedSortingNorms {
   }
 }
 
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BufferedSortingNorms {}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BufferedSortingNorms {}
+impl<V: Borrow<PackedLongValues>>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BufferedSortingNorms<V>
+{
+}
+impl<V: Borrow<PackedLongValues>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortingNorms<V>
+{
+}
 
-impl DocIdSetIterator for BufferedSortingNorms {
+impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingNorms<V> {
   fn doc_id(&self) -> i32 {
     match self {
       Self::Buffered(inner) => inner.doc_id(),
@@ -231,7 +235,7 @@ impl DocIdSetIterator for BufferedSortingNorms {
   }
 }
 
-impl NumericDocValues for BufferedSortingNorms {
+impl<V: Borrow<PackedLongValues>> NumericDocValues for BufferedSortingNorms<V> {
   fn long_value(&mut self) -> Result<i64> {
     match self {
       Self::Buffered(inner) => inner.long_value(),
@@ -240,16 +244,22 @@ impl NumericDocValues for BufferedSortingNorms {
   }
 }
 
-impl DocValuesIterator for BufferedNorms {
+impl<V: Borrow<PackedLongValues>> DocValuesIterator for BufferedNorms<V> {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
 
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BufferedNorms {}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BufferedNorms {}
+impl<V: Borrow<PackedLongValues>>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BufferedNorms<V>
+{
+}
+impl<V: Borrow<PackedLongValues>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedNorms<V>
+{
+}
 
-impl DocIdSetIterator for BufferedNorms {
+impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedNorms<V> {
   fn doc_id(&self) -> i32 {
     self.doc_with_field.doc_id()
   }
@@ -271,7 +281,7 @@ impl DocIdSetIterator for BufferedNorms {
   }
 }
 
-impl NumericDocValues for BufferedNorms {
+impl<V: Borrow<PackedLongValues>> NumericDocValues for BufferedNorms<V> {
   fn long_value(&mut self) -> Result<i64> {
     Ok(self.value)
   }

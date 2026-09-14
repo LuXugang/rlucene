@@ -18,6 +18,7 @@ use crate::core::geo::polygon::Polygon;
 use crate::core::geo::rectangle::Rectangle;
 use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::fmt::Write as _;
 
 pub struct EarthDebugger {
   b: String,
@@ -57,10 +58,12 @@ impl EarthDebugger {
     b.push_str("    <script src=\"http://www.webglearth.com/v2/api.js\"></script>\n");
     b.push_str("    <script>\n");
     b.push_str("      function initialize() {\n");
-    b.push_str(&format!(
-      "        var earth = new WE.map('earth_div', {{center: [{}, {}], altitude: {}}});\n",
+    writeln!(
+      b,
+      "        var earth = new WE.map('earth_div', {{center: [{}, {}], altitude: {}}});",
       center_lat, center_lon, altitude_meters
-    ));
+    )
+    .expect("writing to a String cannot fail");
     Self {
       b,
       next_shape: 0,
@@ -78,24 +81,21 @@ impl EarthDebugger {
     let name = format!("poly{}", self.next_shape);
     self.next_shape += 1;
 
-    self
-      .b
-      .push_str(&format!("        var {} = WE.polygon([\n", name));
+    writeln!(self.b, "        var {} = WE.polygon([", name)
+      .expect("writing to a String cannot fail");
     let poly_lats = poly.get_poly_lats();
     let poly_lons = poly.get_poly_lons();
     for i in 0..poly_lats.len() {
-      self.b.push_str(&format!(
-        "          [{}, {}],\n",
-        poly_lats[i], poly_lons[i]
-      ));
+      writeln!(self.b, "          [{}, {}],", poly_lats[i], poly_lons[i])
+        .expect("writing to a String cannot fail");
     }
-    self.b.push_str(&format!(
-      "        ], {{color: '{}', fillColor: \"#000000\", fillOpacity: 0.0001}});\n",
+    writeln!(
+      self.b,
+      "        ], {{color: '{}', fillColor: \"#000000\", fillOpacity: 0.0001}});",
       color
-    ));
-    self
-      .b
-      .push_str(&format!("        {}.addTo(earth);\n", name));
+    )
+    .expect("writing to a String cannot fail");
+    writeln!(self.b, "        {}.addTo(earth);", name).expect("writing to a String cannot fail");
 
     for hole in poly.get_holes() {
       self.add_polygon_with_color(hole, "#ffffff");
@@ -115,11 +115,13 @@ impl EarthDebugger {
   fn draw_segment(&mut self, min_lat: f64, max_lat: f64, min_lon: f64, max_lon: f64) {
     let steps = self.get_step_count(min_lat, max_lat, min_lon, max_lon);
     for i in 0..steps {
-      self.b.push_str(&format!(
-        "          [{}, {}],\n",
+      writeln!(
+        self.b,
+        "          [{}, {}],",
         min_lat + (max_lat - min_lat) * i as f64 / steps as f64,
         min_lon + (max_lon - min_lon) * i as f64 / steps as f64
-      ));
+      )
+      .expect("writing to a String cannot fail");
     }
   }
 
@@ -138,13 +140,14 @@ impl EarthDebugger {
     let name = format!("rect{}", self.next_shape);
     self.next_shape += 1;
 
-    self.b.push_str(&format!(
-      "        // lat: {} TO {}; lon: {} TO {}\n",
+    writeln!(
+      self.b,
+      "        // lat: {} TO {}; lon: {} TO {}",
       min_lat, max_lat, min_lon, max_lon
-    ));
-    self
-      .b
-      .push_str(&format!("        var {} = WE.polygon([\n", name));
+    )
+    .expect("writing to a String cannot fail");
+    writeln!(self.b, "        var {} = WE.polygon([", name)
+      .expect("writing to a String cannot fail");
 
     self.b.push_str("          // min -> max lat, min lon\n");
     self.draw_segment(min_lat, max_lat, min_lon, min_lon);
@@ -159,45 +162,39 @@ impl EarthDebugger {
     self.draw_segment(min_lat, min_lat, max_lon, min_lon);
 
     self.b.push_str("          // min lat, min lon\n");
-    self
-      .b
-      .push_str(&format!("          [{}, {}]\n", min_lat, min_lon));
-    self.b.push_str(&format!(
-      "        ], {{color: \"{}\", fillColor: \"{}\"}});\n",
+    writeln!(self.b, "          [{}, {}]", min_lat, min_lon)
+      .expect("writing to a String cannot fail");
+    writeln!(
+      self.b,
+      "        ], {{color: \"{}\", fillColor: \"{}\"}});",
       color, color
-    ));
-    self
-      .b
-      .push_str(&format!("        {}.addTo(earth);\n", name));
+    )
+    .expect("writing to a String cannot fail");
+    writeln!(self.b, "        {}.addTo(earth);", name).expect("writing to a String cannot fail");
   }
 
   pub fn add_lat_line(&mut self, lat: f64, min_lon: f64, max_lon: f64) {
     let name = format!("latline{}", self.next_shape);
     self.next_shape += 1;
 
-    self
-      .b
-      .push_str(&format!("        var {} = WE.polygon([\n", name));
+    writeln!(self.b, "        var {} = WE.polygon([", name)
+      .expect("writing to a String cannot fail");
     let steps = self.get_step_count(lat, lat, min_lon, max_lon);
     let mut lon = min_lon;
     while lon <= max_lon {
-      self.b.push_str(&format!("          [{}, {}],\n", lat, lon));
+      writeln!(self.b, "          [{}, {}],", lat, lon).expect("writing to a String cannot fail");
       lon += (max_lon - min_lon) / steps as f64;
     }
-    self
-      .b
-      .push_str(&format!("          [{}, {}],\n", lat, max_lon));
+    writeln!(self.b, "          [{}, {}],", lat, max_lon).expect("writing to a String cannot fail");
     lon -= (max_lon - min_lon) / steps as f64;
     while lon >= min_lon {
-      self.b.push_str(&format!("          [{}, {}],\n", lat, lon));
+      writeln!(self.b, "          [{}, {}],", lat, lon).expect("writing to a String cannot fail");
       lon -= (max_lon - min_lon) / steps as f64;
     }
     self.b.push_str(
             "        ], {color: \"#ff0000\", fillColor: \"#ffffff\", opacity: 1, fillOpacity: 0.0001});\n",
         );
-    self
-      .b
-      .push_str(&format!("        {}.addTo(earth);\n", name));
+    writeln!(self.b, "        {}.addTo(earth);", name).expect("writing to a String cannot fail");
   }
 
   #[allow(dead_code)]
@@ -205,36 +202,33 @@ impl EarthDebugger {
     let name = format!("lonline{}", self.next_shape);
     self.next_shape += 1;
 
-    self
-      .b
-      .push_str(&format!("        var {} = WE.polygon([\n", name));
+    writeln!(self.b, "        var {} = WE.polygon([", name)
+      .expect("writing to a String cannot fail");
     let steps = self.get_step_count(min_lat, max_lat, lon, lon);
     let mut lat = min_lat;
     while lat <= max_lat {
-      self.b.push_str(&format!("          [{}, {}],\n", lat, lon));
+      writeln!(self.b, "          [{}, {}],", lat, lon).expect("writing to a String cannot fail");
       lat += (max_lat - min_lat) / steps as f64;
     }
-    self
-      .b
-      .push_str(&format!("          [{}, {}],\n", max_lat, lon));
+    writeln!(self.b, "          [{}, {}],", max_lat, lon).expect("writing to a String cannot fail");
     lat -= (max_lat - min_lat) / 36.0;
     while lat >= min_lat {
-      self.b.push_str(&format!("          [{}, {}],\n", lat, lon));
+      writeln!(self.b, "          [{}, {}],", lat, lon).expect("writing to a String cannot fail");
       lat -= (max_lat - min_lat) / steps as f64;
     }
     self.b.push_str(
             "        ], {color: \"#ff0000\", fillColor: \"#ffffff\", opacity: 1, fillOpacity: 0.0001});\n",
         );
-    self
-      .b
-      .push_str(&format!("        {}.addTo(earth);\n", name));
+    writeln!(self.b, "        {}.addTo(earth);", name).expect("writing to a String cannot fail");
   }
 
   pub fn add_point(&mut self, lat: f64, lon: f64) {
-    self.b.push_str(&format!(
-      "        WE.marker([{}, {}]).addTo(earth);\n",
+    writeln!(
+      self.b,
+      "        WE.marker([{}, {}]).addTo(earth);",
       lat, lon
-    ));
+    )
+    .expect("writing to a String cannot fail");
   }
 
   pub fn add_circle(
@@ -247,16 +241,13 @@ impl EarthDebugger {
     self.add_point(center_lat, center_lon);
     let name = format!("circle{}", self.next_shape);
     self.next_shape += 1;
-    self
-      .b
-      .push_str(&format!("        var {} = WE.polygon([\n", name));
+    writeln!(self.b, "        var {} = WE.polygon([", name)
+      .expect("writing to a String cannot fail");
     Self::inverse_haversin(&mut self.b, center_lat, center_lon, radius_meters);
     self
       .b
       .push_str("        ], {color: '#00ff00', fillColor: \"#000000\", fillOpacity: 0.0001 });\n");
-    self
-      .b
-      .push_str(&format!("        {}.addTo(earth);\n", name));
+    writeln!(self.b, "        {}.addTo(earth);", name).expect("writing to a String cannot fail");
 
     if also_add_bbox {
       let box_ = Rectangle::from_point_distance(center_lat, center_lon, radius_meters)?;
@@ -302,7 +293,7 @@ impl EarthDebugger {
     self.b.push_str("  </body>\n");
     self.b.push_str("</html>\n");
 
-    Ok(self.b.clone())
+    Ok(std::mem::take(&mut self.b))
   }
 
   fn inverse_haversin(b: &mut String, center_lat: f64, center_lon: f64, radius_meters: f64) {
@@ -333,7 +324,7 @@ impl EarthDebugger {
         last_distance_meters = distance_meters;
 
         if (distance_meters - radius_meters).abs() < 0.1 {
-          b.push_str(&format!("          [{}, {}],\n", lat, lon));
+          writeln!(b, "          [{}, {}],", lat, lon).expect("writing to a String cannot fail");
           break;
         }
         if distance_meters > radius_meters {

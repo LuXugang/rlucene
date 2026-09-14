@@ -28,6 +28,7 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_infos::get_merged_field_infos;
@@ -264,7 +265,7 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
   bytes[0] = 1;
   b = BytesRef::from_bytes(bytes.clone());
   doc = Document::new();
-  doc.add(SortedDocValuesField::new("field", b.clone()));
+  doc.add(SortedDocValuesField::new("field", b));
   w.add_document(doc)?;
   w.force_merge(1)?;
   let r = directory_reader::open_from_writer(&w)?;
@@ -281,8 +282,7 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
   assert_eq!(bytes.len(), bytes1.length);
 
   bytes[0] = 0;
-  let b0 = BytesRef::from_bytes(bytes.clone());
-  assert_eq!(&b0, bytes1.as_ref());
+  assert_eq!(bytes.as_slice(), bytes1.as_bytes());
 
   assert_eq!(1, s.next_doc()?);
   let ord2 = s.ord_value()?;
@@ -290,8 +290,7 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
   assert_eq!(bytes.len(), bytes1.length);
 
   bytes[0] = 1;
-  let b1 = BytesRef::from_bytes(bytes.clone());
-  assert_eq!(&b1, bytes1.as_ref());
+  assert_eq!(bytes.as_slice(), bytes1.as_bytes());
 
   w.close()?;
 

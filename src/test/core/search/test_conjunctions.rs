@@ -256,7 +256,7 @@ impl Collector for TestCollector {
 
       let term = tq.get_term();
       assert_eq!("field", term.field());
-      terms.insert(term.text()?.clone());
+      terms.insert(term.text()?);
     }
 
     assert_eq!(2, terms.len());

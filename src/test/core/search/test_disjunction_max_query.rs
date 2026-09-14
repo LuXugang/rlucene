@@ -433,7 +433,7 @@ fn test_boolean_required_equal_scores() -> Result<()> {
       0.0,
     )?;
     builder.add(q1.clone(), Occur::Must)?;
-    QueryUtils::check_from_searcher(&mut random, q1.clone(), &s)?;
+    QueryUtils::check_from_searcher(&mut random, q1, &s)?;
   }
 
   {
@@ -442,7 +442,7 @@ fn test_boolean_required_equal_scores() -> Result<()> {
       0.0,
     )?;
     builder.add(q2.clone(), Occur::Must)?;
-    QueryUtils::check_from_searcher(&mut random, q2.clone(), &s)?;
+    QueryUtils::check_from_searcher(&mut random, q2, &s)?;
   }
 
   let q = builder.build();
@@ -476,7 +476,7 @@ fn test_boolean_optional_no_tiebreaker() -> Result<()> {
       vec![tq("hed", "albino").into(), tq("dek", "albino").into()],
       0.0,
     )?;
-    builder.add(q1.clone(), Occur::Should)?;
+    builder.add(q1, Occur::Should)?;
   }
 
   {
@@ -484,7 +484,7 @@ fn test_boolean_optional_no_tiebreaker() -> Result<()> {
       vec![tq("hed", "elephant").into(), tq("dek", "elephant").into()],
       0.0,
     )?;
-    builder.add(q2.clone(), Occur::Should)?;
+    builder.add(q2, Occur::Should)?;
   }
 
   let q = builder.build();

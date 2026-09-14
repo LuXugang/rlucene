@@ -141,8 +141,8 @@ impl QueryBase for IndexOrDocValuesQuery {
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let index_rewrite_id = self.index_query.identity().clone();
-    let dv_rewrite_id = self.dv_query.identity().clone();
+    let index_rewrite_id = self.index_query.identity();
+    let dv_rewrite_id = self.dv_query.identity();
     let index_rewrite = index_searcher.rewrite(self.index_query.as_ref().clone())?;
     let dv_rewrite = index_searcher.rewrite(self.dv_query.as_ref().clone())?;
 
@@ -151,7 +151,7 @@ impl QueryBase for IndexOrDocValuesQuery {
     {
       return Ok(Some(MatchAllDocsQuery::new().into()));
     }
-    if &index_rewrite_id != index_rewrite.identity() || &dv_rewrite_id != dv_rewrite.identity() {
+    if index_rewrite_id != index_rewrite.identity() || dv_rewrite_id != dv_rewrite.identity() {
       Ok(Some(
         IndexOrDocValuesQuery::new(index_rewrite, dv_rewrite).into(),
       ))

@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use std::fmt::Write as _;
+
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LeafReader};
@@ -45,7 +47,6 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{HasIdentity, SliceCopyOps};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -267,7 +268,7 @@ impl QueryBase for MultiPhraseQuery {
     buffer.push('"');
     if self.slop != 0 {
       buffer.push('~');
-      buffer.push_str(&self.slop.to_string());
+      write!(buffer, "{}", self.slop)?;
     }
     Ok(buffer)
   }
@@ -334,8 +335,8 @@ impl QueryBase for MultiPhraseQuery {
 }
 
 pub struct MultiPhraseQueryWeightBase {
-  query: Arc<MultiPhraseQuery>,
-  term_states: HashMap<Term, TermStates>,
+  query: MultiPhraseQuery,
+  term_states: HashMap<Arc<Term>, TermStates>,
   boost: f32,
   base: PhraseWeightMeta,
 }
@@ -343,7 +344,7 @@ pub struct MultiPhraseQueryWeightBase {
 impl MultiPhraseQueryWeightBase {
   pub(crate) fn new(query: MultiPhraseQuery, boost: f32, base: PhraseWeightMeta) -> Self {
     Self {
-      query: Arc::new(query),
+      query,
       term_states: HashMap::new(),
       boost,
       base,
@@ -364,24 +365,18 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
     for terms in &*self.query.term_arrays {
       for term in terms {
         if !self.term_states.contains_key(term) {
-          let ts = build(
-            searcher,
-            Arc::new(term.clone()),
-            self.base.score_mode.needs_scores(),
-          )?;
-          self.term_states.insert(term.clone(), ts);
+          let term = Arc::new(term.clone());
+          let ts = build(searcher, term.clone(), self.base.score_mode.needs_scores())?;
+          self.term_states.insert(term, ts);
         }
         if self.base.score_mode.needs_scores() {
-          let ts = self
+          let (term, ts) = self
             .term_states
-            .get(term)
+            .get_key_value(term)
             .ok_or_else(|| LuceneError::illegal_state("term state should have been built"))?;
           if ts.doc_freq()? > 0 {
-            let stats = searcher.term_statistics(
-              Arc::new(term.clone()),
-              ts.doc_freq()?,
-              ts.total_term_freq()?,
-            )?;
+            let stats =
+              searcher.term_statistics(term.clone(), ts.doc_freq()?, ts.total_term_freq()?)?;
             all_term_stats.push(stats);
           }
         }
@@ -681,7 +676,7 @@ where
     Ok(-1)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(None)
   }
 }
@@ -930,7 +925,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
     self.base.subs()[top.pe].end_offset()
   }
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     let top = self
       .pos_queue
       .top()
@@ -1039,7 +1034,7 @@ where
     }
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     match self {
       Self::Single(postings) => postings.get_payload(),
       Self::UnionFull(postings) => postings.get_payload(),

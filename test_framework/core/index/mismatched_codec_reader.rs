@@ -385,7 +385,7 @@ where
     S: StoredFieldsWriter,
     V: StoredFieldVisitor,
   {
-    let mut mismatched_visitor = MismatchedVisitor::new(visitor, self.shuffled.clone());
+    let mut mismatched_visitor = MismatchedVisitor::new(visitor, self.shuffled.as_ref());
     self
       .in_
       .document_with_visitor(doc_id, &mut mismatched_visitor, writer)

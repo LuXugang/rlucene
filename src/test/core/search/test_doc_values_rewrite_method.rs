@@ -106,7 +106,7 @@ where
       ));
 
       doc.add(SortedSetDocValuesField::indexed_field(
-        &(field_name.clone() + "_with-skip"),
+        field_name.clone() + "_with-skip",
         BytesRef::from_string(&s),
       ));
 
@@ -136,7 +136,7 @@ where
   IRC: crate::core::index::index_reader_context::IndexReaderContext + Sync,
 {
   let doc_values = RegexpQuery::with_all(
-    Term::from_text(field_name, regexp.clone()),
+    Term::from_text(field_name, &regexp),
     RegExp::NONE,
     0,
     &DefaultProvider,
@@ -144,7 +144,7 @@ where
     DocValuesRewriteMethod,
   )?;
   let doc_values_with_skip = RegexpQuery::with_all(
-    Term::from_text(&(field_name.to_string() + "_with-skip"), regexp.clone()),
+    Term::from_text(&(field_name.to_string() + "_with-skip"), &regexp),
     RegExp::NONE,
     0,
     &DefaultProvider,
@@ -187,19 +187,19 @@ fn test_regexps() -> Result<()> {
 fn test_equals() -> Result<()> {
   let mut random = random();
   let context = set_up(&mut random)?;
-  let field_name = context.0.clone();
+  let field_name = &context.0;
 
   {
-    let a1 = RegexpQuery::with_flags(Term::from_text(&field_name, "[aA]"), RegExp::NONE)?;
-    let a2 = RegexpQuery::with_flags(Term::from_text(&field_name, "[aA]"), RegExp::NONE)?;
-    let b = RegexpQuery::with_flags(Term::from_text(&field_name, "[bB]"), RegExp::NONE)?;
+    let a1 = RegexpQuery::with_flags(Term::from_text(field_name, "[aA]"), RegExp::NONE)?;
+    let a2 = RegexpQuery::with_flags(Term::from_text(field_name, "[aA]"), RegExp::NONE)?;
+    let b = RegexpQuery::with_flags(Term::from_text(field_name, "[bB]"), RegExp::NONE)?;
     QueryUtils::check_equal(&a1, &a2);
     QueryUtils::check_unequal(&a1, &b);
   }
 
   {
     let a1 = RegexpQuery::with_all(
-      Term::from_text(&field_name, "[aA]"),
+      Term::from_text(field_name, "[aA]"),
       RegExp::NONE,
       0,
       &DefaultProvider,
@@ -207,7 +207,7 @@ fn test_equals() -> Result<()> {
       DocValuesRewriteMethod,
     )?;
     let a2 = RegexpQuery::with_all(
-      Term::from_text(&field_name, "[aA]"),
+      Term::from_text(field_name, "[aA]"),
       RegExp::NONE,
       0,
       &DefaultProvider,
@@ -215,7 +215,7 @@ fn test_equals() -> Result<()> {
       DocValuesRewriteMethod,
     )?;
     let b = RegexpQuery::with_all(
-      Term::from_text(&field_name, "[bB]"),
+      Term::from_text(field_name, "[bB]"),
       RegExp::NONE,
       0,
       &DefaultProvider,

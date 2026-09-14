@@ -338,7 +338,7 @@ pub trait BaseSimilarityTestCase {
         term[0].get_doc_freq() - 1,
         term[0].get_total_term_freq() - 1,
       )?;
-      let prev_term = vec![prev_term];
+      let prev_term = [prev_term];
 
       let prev_term_scorer = similarity.scorer(boost, corpus, prev_term.as_slice())?;
 
@@ -475,7 +475,7 @@ pub trait BaseSimilarityTestCase {
                 r * (i32::MAX as f32)
               },
             };
-            let term = vec![term];
+            let term = [term];
             Self::do_test_scoring(
               &similarity,
               &corpus,

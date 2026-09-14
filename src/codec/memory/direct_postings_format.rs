@@ -19,6 +19,7 @@ use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::{BytesRefValue, BytesRefValueEnum};
 use crate::core::index::fields::{FieldIterEnum2, Fields};
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::Identity;
@@ -610,6 +611,7 @@ impl DirectField {
                 }
                 if has_payloads {
                   if let Some(payload) = postings_enum2.get_payload()? {
+                    let payload = payload.as_bytes_ref();
                     scratch.add(payload.length as i32);
                     payload_output.extend_from_slice(
                       &payload.bytes[payload.offset..payload.offset + payload.length],
@@ -662,6 +664,7 @@ impl DirectField {
               for pos in 0..position_count {
                 doc_positions[pos_upto] = postings_enum2.next_position()?;
                 if has_payloads && let Some(payload) = postings_enum2.get_payload()? {
+                  let payload = payload.as_bytes_ref();
                   payloads
                     .as_mut()
                     .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?[upto]
@@ -1856,7 +1859,7 @@ impl PostingsEnum for DirectPostingsEnum {
     }
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     match self {
       Self::LowFreqDocsNoTf(value) => value.get_payload(),
       Self::LowFreqDocsNoPos(value) => value.get_payload(),
@@ -1935,7 +1938,7 @@ impl PostingsEnum for LowFreqDocsEnumNoTf {
     Ok(-1)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(None)
   }
 }
@@ -2007,7 +2010,7 @@ impl PostingsEnum for LowFreqDocsEnumNoPos {
     Ok(-1)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(None)
   }
 }
@@ -2095,7 +2098,7 @@ impl PostingsEnum for LowFreqDocsEnum {
     Ok(-1)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(None)
   }
 }
@@ -2105,7 +2108,8 @@ pub struct LowFreqPostingsEnum {
   pos_mult: usize,
   has_offsets: bool,
   has_payloads: bool,
-  payload: Option<BytesRef<Vec<u8>>>,
+  // Kept independently of cursors that next_doc may advance.
+  payload_position: Option<(usize, usize)>,
   upto: usize,
   doc_id: i32,
   freq: i32,
@@ -2131,7 +2135,7 @@ impl LowFreqPostingsEnum {
       pos_mult,
       has_offsets,
       has_payloads,
-      payload: None,
+      payload_position: None,
       upto: 0,
       doc_id: -1,
       freq: 0,
@@ -2220,13 +2224,10 @@ impl PostingsEnum for LowFreqPostingsEnum {
           .payloads
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?;
-        let bytes = &payloads[self.payload_offset..self.payload_offset + self.payload_length];
-        self
-          .payload
-          .get_or_insert_with(BytesRef::new)
-          .copy_from_slice(bytes);
+        let _ = &payloads[self.payload_offset..self.payload_offset + self.payload_length];
+        self.payload_position = Some((self.payload_offset, self.payload_length));
       } else {
-        self.payload = None;
+        self.payload_position = None;
       }
       self.payload_offset += self.payload_length;
     }
@@ -2241,8 +2242,20 @@ impl PostingsEnum for LowFreqPostingsEnum {
     Ok(self.end_offset)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Ok(self.payload.as_ref().map(Cow::Borrowed))
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
+    let Some((offset, length)) = self.payload_position else {
+      return Ok(None);
+    };
+    let payloads = self
+      .term
+      .payloads
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?;
+    Ok(Some(BytesRefValueEnum::Slice(BytesRef {
+      bytes: &payloads[offset..offset + length],
+      offset: 0,
+      length,
+    })))
   }
 }
 
@@ -2373,7 +2386,7 @@ impl PostingsEnum for HighFreqDocsEnum {
     Ok(-1)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(None)
   }
 }
@@ -2385,7 +2398,8 @@ pub struct HighFreqPostingsEnum {
   upto: Option<usize>,
   doc_id: i32,
   pos_upto: i32,
-  payload: Option<BytesRef<Vec<u8>>>,
+  // The last successful payload may belong to an earlier document.
+  payload_position: Option<(usize, usize)>,
 }
 
 impl HighFreqPostingsEnum {
@@ -2397,7 +2411,7 @@ impl HighFreqPostingsEnum {
       upto: None,
       doc_id: -1,
       pos_upto: 0,
-      payload: None,
+      payload_position: None,
     }
   }
 
@@ -2510,16 +2524,14 @@ impl PostingsEnum for HighFreqPostingsEnum {
       .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[upto]
       [self.pos_upto as usize];
     if let Some(payloads) = &self.term.payloads {
-      if let Some(bytes) = &payloads[upto][(self.pos_upto / self.pos_jump) as usize] {
-        self
-          .payload
-          .get_or_insert_with(BytesRef::new)
-          .copy_from_slice(bytes);
+      let position_index = (self.pos_upto / self.pos_jump) as usize;
+      if payloads[upto][position_index].is_some() {
+        self.payload_position = Some((upto, position_index));
       } else {
-        self.payload = None;
+        self.payload_position = None;
       }
     } else {
-      self.payload = None;
+      self.payload_position = None;
     }
     Ok(position)
   }
@@ -2560,7 +2572,20 @@ impl PostingsEnum for HighFreqPostingsEnum {
     }
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Ok(self.payload.as_ref().map(Cow::Borrowed))
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
+    let Some((doc_index, position_index)) = self.payload_position else {
+      return Ok(None);
+    };
+    let bytes = self
+      .term
+      .payloads
+      .as_ref()
+      .and_then(|payloads| payloads[doc_index][position_index].as_ref())
+      .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
+    Ok(Some(BytesRefValueEnum::Slice(BytesRef {
+      bytes,
+      offset: 0,
+      length: bytes.len(),
+    })))
   }
 }

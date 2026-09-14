@@ -88,10 +88,10 @@ impl FSDirectoryBase for NIOFSDirectory {
   type Output = BufferedIndexInput<NIOFSIndexInput>;
   fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output> {
     let file_path = path.join(name);
-    let file_name = file_path.to_string_lossy().to_string();
     let file = match File::open(&file_path) {
       Ok(file) => file,
       Err(err) => {
+        let file_name = file_path.to_string_lossy().into_owned();
         return Err(LuceneError::io_with_path(file_name, err));
       },
     };
@@ -125,7 +125,7 @@ pub struct NIOFSIndexInput {
   off: usize,
   /// end offset (start+length)
   end: usize,
-  resource_desc: String,
+  resource_desc: Arc<str>,
   buffer_size: usize,
 }
 
@@ -144,7 +144,7 @@ impl NIOFSIndexInput {
       is_clone: false,
       off: 0,
       end: len,
-      resource_desc: resource_desc.to_string(),
+      resource_desc: Arc::from(resource_desc),
       buffer_size,
     })
   }
@@ -160,7 +160,7 @@ impl NIOFSIndexInput {
       is_clone: true,
       off,
       end: off + length,
-      resource_desc: resource_desc.to_string(),
+      resource_desc: Arc::from(resource_desc),
       buffer_size,
     }
   }

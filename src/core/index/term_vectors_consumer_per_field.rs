@@ -99,7 +99,6 @@ impl TermVectorsConsumerPerField {
     tv: &mut TW,
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
-    flush_term: &mut BytesRef<Vec<u8>>,
   ) -> Result<()>
   where
     TW: TermVectorsWriter,
@@ -127,13 +126,16 @@ impl TermVectorsConsumerPerField {
         for &term_id in &term_ids[..num_postings] {
           let term_id = term_id as usize;
           let freq = postings.freqs[term_id];
-          self.term_byte_pool.fill_bytes_ref(
-            flush_term,
-            postings.parent.text_starts[term_id],
-            byte_pool,
-          )?;
-
-          tv.start_term(flush_term, freq)?;
+          let position = self
+            .term_byte_pool
+            .fill_bytes_ref(postings.parent.text_starts[term_id], byte_pool);
+          let block = byte_pool.get_buffer(position.block_index);
+          let flush_term = BytesRef {
+            bytes: &block[position.offset..position.offset + position.length],
+            offset: 0,
+            length: position.length,
+          };
+          tv.start_term(&flush_term, freq)?;
 
           if self.do_vector_positions || self.do_vector_offsets {
             let positions = if self.do_vector_positions {
@@ -432,7 +434,7 @@ impl TermVectorsConsumerPerField {
     }
     term_vectors_consumer.add_field_to_flush(PerFieldMeta {
       idx: field_index,
-      field_name: self.field_info.name.clone(),
+      field_info: Some(Arc::clone(&self.field_info)),
     })
   }
 }

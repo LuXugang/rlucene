@@ -56,15 +56,19 @@ pub trait ScoringRewrite: TermCollectingRewrite {
     self.collect_terms(index_searcher.get_top_reader_context(), query, &mut col)?;
 
     let size = col.terms.size();
-    let mut br = BytesRef::new();
     #[allow(clippy::needless_range_loop)]
     if size > 0 {
       col.terms.sort(&col.block_pool)?;
       let sort = col.terms.ids.as_slice();
       for i in 0..size {
         let pos = sort[i];
-        col.terms.get(pos, &mut br, &col.block_pool)?;
-        let term = Term::new(query.get_field(), std::mem::take(&mut br));
+        let position = col.terms.get(pos, &col.block_pool)?;
+        let block = col.block_pool.get_buffer(position.block_index);
+        // The query clause retains this term after the collector is dropped.
+        let term = Term::new(
+          query.get_field(),
+          &block[position.offset..position.offset + position.length],
+        );
         let pos = pos as usize;
         let term_state = std::mem::take(&mut col.terms.bytes_start_array.term_state[pos]);
 

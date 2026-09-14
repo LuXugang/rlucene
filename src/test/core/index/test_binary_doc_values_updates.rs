@@ -22,6 +22,7 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{CacheHelper, IndexReader};
@@ -683,7 +684,7 @@ fn test_different_dv_format_per_field() -> Result<()> {
     assert_eq!(i, sdv.next_doc()?);
     let ord_value = sdv.ord_value()?;
     let term = sdv.lookup_ord(ord_value)?;
-    assert_eq!(&BytesRef::from_string("value"), term.as_ref());
+    assert_eq!(b"value", term.as_bytes());
   }
 
   reader.close()?;

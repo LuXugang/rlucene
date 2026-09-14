@@ -30,6 +30,7 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
@@ -419,9 +420,15 @@ fn test_sort_on_add_indices_random() -> Result<()> {
     let expected = BytesRef::from_string(&ids.long_value()?.to_string());
     assert_eq!(&expected, binary_dv.binary_value()?.as_ref());
     let ord = binary_sorted_dv.ord_value()?;
-    assert_eq!(&expected, binary_sorted_dv.lookup_ord(ord)?.as_ref());
+    assert_eq!(
+      expected.as_bytes(),
+      binary_sorted_dv.lookup_ord(ord)?.as_bytes()
+    );
     let ord = sorted_set_dv.next_ord()?;
-    assert_eq!(&expected, sorted_set_dv.lookup_ord(ord)?.as_ref());
+    assert_eq!(
+      expected.as_bytes(),
+      sorted_set_dv.lookup_ord(ord)?.as_bytes()
+    );
     assert_eq!(1, sorted_set_dv.doc_value_count()?);
     assert_eq!(1, sorted_numeric_dv.doc_value_count()?);
     assert_eq!(ids.long_value()?, sorted_numeric_dv.next_value()?);

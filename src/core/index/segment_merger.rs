@@ -265,7 +265,7 @@ where
   fn merge_field_infos(&mut self) -> Result<()> {
     for reader_field_infos in &self.merge_state.field_infos {
       for fi in reader_field_infos.iter() {
-        self.field_infos_builder.add(fi.clone())?;
+        self.field_infos_builder.add(fi.as_ref())?;
       }
     }
 

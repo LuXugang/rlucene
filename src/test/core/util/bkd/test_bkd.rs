@@ -680,11 +680,11 @@ fn test_one_dim_low_card() -> Result<()> {
   for doc_value in doc_values.iter_mut().take(num_docs) {
     for (dim, val) in doc_value.iter_mut().take(num_data_dims).enumerate() {
       if dim == the_low_card_dim {
-        *val = if random.random_bool(0.5) {
-          value1.clone()
+        val.clone_from(if random.random_bool(0.5) {
+          &value1
         } else {
-          value2.clone()
-        };
+          &value2
+        });
       } else {
         random.fill_bytes(val);
       }
@@ -727,11 +727,11 @@ fn test_one_dim_two_values() -> Result<()> {
   for doc_value in doc_values.iter_mut().take(num_docs) {
     for (dim, val) in doc_value.iter_mut().take(num_data_dims).enumerate() {
       if dim == the_dim {
-        *val = if random.random_bool(0.5) {
-          value1.clone()
+        val.clone_from(if random.random_bool(0.5) {
+          &value1
         } else {
-          value2.clone()
-        };
+          &value2
+        });
       } else {
         random.fill_bytes(val);
       }
@@ -813,14 +813,10 @@ fn test_multi_valued() -> Result<()> {
     }
   }
 
-  let doc_values_array: Vec<Vec<Vec<u8>>> = doc_values.clone();
-  let mut doc_ids_array = vec![0i32; doc_ids.len()];
-  doc_ids_array.copy_from_slice(&doc_ids[..doc_ids.len()]);
-
   verify(
     &mut random,
-    &doc_values_array,
-    Some(doc_ids_array),
+    &doc_values,
+    Some(doc_ids),
     num_data_dims,
     num_index_dims,
     num_bytes_per_dim,
@@ -2070,9 +2066,16 @@ impl TryClone for MutablePointTreeMock1 {
 }
 
 impl MutablePointTree for MutablePointTreeMock1 {
-  fn get_value(&self, _i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
-    packed_value.bytes = self.point_value.clone();
-    Ok(())
+  fn get_value<'a>(
+    &'a self,
+    _i: usize,
+    spare: &'a mut BytesRef<Vec<u8>>,
+  ) -> Result<BytesRef<&'a [u8]>> {
+    Ok(BytesRef {
+      bytes: &self.point_value,
+      offset: spare.offset,
+      length: spare.length,
+    })
   }
 
   fn get_byte_at(&self, _i: usize, k: usize) -> u8 {
@@ -2168,11 +2171,16 @@ impl TryClone for MutablePointTreeMock2 {
 }
 
 impl MutablePointTree for MutablePointTreeMock2 {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
-    packed_value.bytes = self.point_values[i].clone();
-    packed_value.offset = 0;
-    packed_value.length = self.num_bytes_per_dim;
-    Ok(())
+  fn get_value<'a>(
+    &'a self,
+    i: usize,
+    _spare: &'a mut BytesRef<Vec<u8>>,
+  ) -> Result<BytesRef<&'a [u8]>> {
+    Ok(BytesRef {
+      bytes: &self.point_values[i],
+      offset: 0,
+      length: self.num_bytes_per_dim,
+    })
   }
 
   fn get_byte_at(&self, i: usize, k: usize) -> u8 {

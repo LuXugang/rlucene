@@ -26,6 +26,7 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::check_index::CheckIndex;
 use crate::core::index::directory_reader;
@@ -169,7 +170,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
     for i in 0..hits.score_docs.len() {
       let hit_doc = stored_fields.document(hits.score_docs[i].doc)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -224,7 +225,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -280,7 +281,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -346,7 +347,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let hit_doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(hit_doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -420,7 +421,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
       let hit_doc_id = hits.score_docs[0].doc;
       let hit_doc = stored_fields.document(hit_doc_id)?;
-      assert_eq!(id, hit_doc.get("id")?.unwrap().into_owned());
+      assert_eq!(id.as_str(), hit_doc.get("id")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -481,7 +482,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -550,7 +551,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -559,8 +560,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv.advance(doc_id)?);
       let ord = dv.ord_value()?;
       assert_eq!(
-        &new_bytes_ref_from_string(random, "hello hello")?,
-        dv.lookup_ord(ord)?.as_ref()
+        new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello hello")?.as_bytes(),
+        dv.lookup_ord(ord)?.as_bytes()
       );
 
       let mut dv2 = leaf.reader().get_numeric_doc_values("dv2")?.unwrap();
@@ -627,7 +628,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -636,8 +637,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv.advance(doc_id)?);
       let ord = dv.ord_value()?;
       assert_eq!(
-        &new_bytes_ref_from_string(random, "hello hello")?,
-        dv.lookup_ord(ord)?.as_ref()
+        new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello hello")?.as_bytes(),
+        dv.lookup_ord(ord)?.as_bytes()
       );
 
       let mut dv2 = leaf.reader().get_numeric_doc_values("dv3")?.unwrap();
@@ -862,7 +863,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let hit_doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(hit_doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
 
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
@@ -1033,15 +1034,15 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for i in 0..hits.score_docs.len() {
       let doc_id = hits.score_docs[i].doc;
       let hit_doc = stored_fields.document(doc_id)?;
-      assert_eq!(text, hit_doc.get("fieldname")?.unwrap().into_owned());
+      assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
       assert_eq!(1, isearcher.get_leaf_contexts()?.len());
       let leaf = &isearcher.get_leaf_contexts()?[0];
       let mut dv = leaf.reader().get_sorted_doc_values("dv")?.unwrap();
       assert_eq!(doc_id, dv.advance(doc_id)?);
       let ord = dv.ord_value()?;
       assert_eq!(
-        &new_bytes_ref_from_string(random, "hello world")?,
-        dv.lookup_ord(ord)?.as_ref()
+        new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello world")?.as_bytes(),
+        dv.lookup_ord(ord)?.as_bytes()
       );
     }
     isearcher.reader_context.reader().close()?;
@@ -1201,12 +1202,12 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_doc()?);
     let ord = dv.ord_value()?;
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello world 1")?,
-      dv.lookup_ord(ord)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello world 1")?.as_bytes(),
+      dv.lookup_ord(ord)?.as_bytes()
     );
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello world 2")?,
-      dv.lookup_ord(1)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello world 2")?.as_bytes(),
+      dv.lookup_ord(1)?.as_bytes()
     );
     let mut stored_fields = leaf.stored_fields()?;
     for i in 0..2 {
@@ -1345,8 +1346,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_doc()?);
     let ord = dv.ord_value()?;
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello world 2")?,
-      dv.lookup_ord(ord)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello world 2")?.as_bytes(),
+      dv.lookup_ord(ord)?.as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
     ireader.close()?;
@@ -1611,7 +1612,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let mut dv = leaves[0].reader().get_sorted_doc_values("dv")?.unwrap();
     assert_eq!(0, dv.next_doc()?);
     let ord = dv.ord_value()?;
-    assert_eq!(&b, dv.lookup_ord(ord)?.as_ref());
+    assert_eq!(b.as_bytes(), dv.lookup_ord(ord)?.as_bytes());
     ireader.close()?;
     directory.close()?;
     Ok(())
@@ -1922,10 +1923,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let max_doc = leaf_reader.max_doc()?;
 
       for i in 0..max_doc {
-        let stored_value = stored_fields
-          .document(i)?
-          .get("stored")?
-          .map(|s| s.into_owned());
+        let stored_doc = stored_fields.document(i)?;
+        let stored_value = stored_doc.get("stored")?;
         if let Some(stored_value) = stored_value {
           assert_eq!(i, doc_values.doc_id());
           assert_eq!(
@@ -1976,12 +1975,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       };
 
       for doc in 0..max_doc {
-        let stored_values = stored_fields
-          .document(doc)?
-          .get_values(stored_field)?
-          .into_iter()
-          .map(|v| v.into_owned())
-          .collect::<Vec<_>>();
+        let stored_doc = stored_fields.document(doc)?;
+        let stored_values = stored_doc.get_values(stored_field)?;
 
         if stored_values.is_empty() {
           assert!(!doc_values.advance_exact(doc)?);
@@ -2013,12 +2008,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let mut doc_values = reader.get_sorted_numeric_doc_values(dv_field)?.unwrap();
         let mut doc = random.random_range(0..max_doc);
         while doc < max_doc {
-          let stored_values = stored_fields
-            .document(doc)?
-            .get_values(stored_field)?
-            .into_iter()
-            .map(|v| v.into_owned())
-            .collect::<Vec<_>>();
+          let stored_doc = stored_fields.document(doc)?;
+          let stored_values = stored_doc.get_values(stored_field)?;
 
           if doc_values.advance_exact(doc)? {
             assert_eq!(doc, doc_values.doc_id());
@@ -2061,12 +2052,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
           doc = next_doc;
           if doc != NO_MORE_DOCS {
-            let stored_values = stored_fields
-              .document(doc)?
-              .get_values(stored_field)?
-              .into_iter()
-              .map(|v| v.into_owned())
-              .collect::<Vec<_>>();
+            let stored_doc = stored_fields.document(doc)?;
+            let stored_values = stored_doc.get_values(stored_field)?;
             let repeats = 1 + random.random_range(0..3);
             for r in 0..repeats {
               if r > 0 || random.random_bool(0.5) {
@@ -2533,7 +2520,10 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         if let Some(binary_value) = binary_value {
           assert_eq!(i, doc_values.doc_id());
           let ord = doc_values.ord_value()?;
-          assert_eq!(binary_value.as_ref(), doc_values.lookup_ord(ord)?.as_ref());
+          assert_eq!(
+            binary_value.as_bytes(),
+            doc_values.lookup_ord(ord)?.as_bytes()
+          );
           doc_values.next_doc()?;
         } else {
           assert!(doc_values.doc_id() > i);
@@ -2560,7 +2550,10 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         if let Some(binary_value) = binary_value {
           assert_eq!(i, doc_values.doc_id());
           let ord = doc_values.ord_value()?;
-          assert_eq!(binary_value.as_ref(), doc_values.lookup_ord(ord)?.as_ref());
+          assert_eq!(
+            binary_value.as_bytes(),
+            doc_values.lookup_ord(ord)?.as_bytes()
+          );
           doc_values.next_doc()?;
         } else {
           assert!(doc_values.doc_id() > i);
@@ -2675,8 +2668,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     Ok(())
   }
@@ -2708,8 +2701,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
 
     let mut dv = leaf.get_sorted_set_doc_values("field2")?.unwrap();
@@ -2717,8 +2710,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "world")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "world")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     Ok(())
   }
@@ -2761,16 +2754,16 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
 
     assert_eq!(1, dv.next_doc()?);
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(1, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "world")?,
-      dv.lookup_ord(1)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "world")?.as_bytes(),
+      dv.lookup_ord(1)?.as_bytes()
     );
     Ok(())
   }
@@ -2804,12 +2797,12 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(1, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     assert_eq!(
-      &new_bytes_ref_from_string(random, "world")?,
-      dv.lookup_ord(1)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "world")?.as_bytes(),
+      dv.lookup_ord(1)?.as_bytes()
     );
     Ok(())
   }
@@ -2843,12 +2836,12 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(1, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     assert_eq!(
-      &new_bytes_ref_from_string(random, "world")?,
-      dv.lookup_ord(1)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "world")?.as_bytes(),
+      dv.lookup_ord(1)?.as_bytes()
     );
     Ok(())
   }
@@ -2903,16 +2896,16 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(1, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "beer")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "beer")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(1)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(1)?.as_bytes()
     );
     assert_eq!(
-      &new_bytes_ref_from_string(random, "world")?,
-      dv.lookup_ord(2)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "world")?.as_bytes(),
+      dv.lookup_ord(2)?.as_bytes()
     );
     Ok(())
   }
@@ -2947,8 +2940,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     Ok(())
   }
@@ -2984,8 +2977,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     Ok(())
   }
@@ -3021,8 +3014,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     Ok(())
   }
@@ -3059,8 +3052,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.doc_value_count()?);
     assert_eq!(0, dv.next_ord()?);
     assert_eq!(
-      &new_bytes_ref_from_string(random, "hello")?,
-      dv.lookup_ord(0)?.as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?.as_bytes(),
+      dv.lookup_ord(0)?.as_bytes()
     );
     Ok(())
   }
@@ -3253,12 +3246,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       };
 
       for doc in 0..max_doc {
-        let stored_values = stored_fields
-          .document(doc)?
-          .get_values(stored_field)?
-          .into_iter()
-          .map(|v| v.into_owned())
-          .collect::<Vec<_>>();
+        let stored_doc = stored_fields.document(doc)?;
+        let stored_values = stored_doc.get_values(stored_field)?;
         if stored_values.is_empty() {
           assert!(!doc_values.advance_exact(doc)?);
           continue;
@@ -3291,12 +3280,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let mut doc_values = reader.get_sorted_set_doc_values(dv_field)?.unwrap();
         let mut doc = random.random_range(0..max_doc);
         while doc < max_doc {
-          let stored_values = stored_fields
-            .document(doc)?
-            .get_values(stored_field)?
-            .into_iter()
-            .map(|v| v.into_owned())
-            .collect::<Vec<_>>();
+          let stored_doc = stored_fields.document(doc)?;
+          let stored_values = stored_doc.get_values(stored_field)?;
           if doc_values.advance_exact(doc)? {
             assert_eq!(doc, doc_values.doc_id());
             assert_eq!(stored_values.len() as i32, doc_values.doc_value_count()?);
@@ -3340,12 +3325,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
           }
           doc = next_doc;
           if doc != NO_MORE_DOCS {
-            let stored_values = stored_fields
-              .document(doc)?
-              .get_values(stored_field)?
-              .into_iter()
-              .map(|v| v.into_owned())
-              .collect::<Vec<_>>();
+            let stored_doc = stored_fields.document(doc)?;
+            let stored_values = stored_doc.get_values(stored_field)?;
             let repeats = 1 + random.random_range(0..3);
             for r in 0..repeats {
               if r > 0 || random.random_bool(0.5) {
@@ -3420,7 +3401,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         doc.add(StoredField::from_string("stored", value)?);
       }
 
-      let mut unordered = values.iter().cloned().collect::<Vec<_>>();
+      let mut unordered = values.into_iter().collect::<Vec<_>>();
       unordered.shuffle(random);
       for value in unordered {
         doc.add(SortedSetDocValuesField::new(
@@ -4108,7 +4089,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
               assert_eq!(j, sorted.next_doc()?);
               let ord = sorted.ord_value()?;
-              assert_eq!(&binary_value, sorted.lookup_ord(ord)?.as_ref());
+              assert_eq!(binary_value.as_bytes(), sorted.lookup_ord(ord)?.as_bytes());
 
               let expected = stored_doc
                 .get("storedNum")?
@@ -4248,7 +4229,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
                 let sorted = sorted.as_mut().expect("dvSorted should exist");
                 assert_eq!(j, sorted.next_doc()?);
                 let ord = sorted.ord_value()?;
-                assert_eq!(binary_value.as_ref(), sorted.lookup_ord(ord)?.as_ref());
+                assert_eq!(binary_value.as_bytes(), sorted.lookup_ord(ord)?.as_bytes());
               }
 
               let number = stored_doc.get("storedNum")?;
@@ -4830,8 +4811,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let _ = enum1.next()?;
       let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       let term1 = BytesRef::deep_copy_of(enum1.next()?.unwrap().as_ref())?;
-      assert_eq!(term1, enum1.term()?.into_owned());
-      assert_eq!(term2, enum2.term()?.into_owned());
+      assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
+      assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
 
     {
@@ -4846,8 +4827,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let seek_term = BytesRef::from_bytes(seek_term_bytes);
       enum1.seek_ceil(&seek_term)?;
       let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
-      assert_eq!(term1, enum1.term()?.into_owned());
-      assert_eq!(term2, enum2.term()?.into_owned());
+      assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
+      assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
 
     {
@@ -4858,8 +4839,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       enum1.seek_ceil(&terms[1])?;
       let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
-      assert_eq!(term1, enum1.term()?.into_owned());
-      assert_eq!(term2, enum2.term()?.into_owned());
+      assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
+      assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
 
     {
@@ -4870,8 +4851,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       assert!(enum1.seek_exact(&terms[1])?);
       let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
-      assert_eq!(term1, enum1.term()?.into_owned());
-      assert_eq!(term2, enum2.term()?.into_owned());
+      assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
+      assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
 
     {
@@ -4882,8 +4863,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       enum1.seek_exact_with_ord(1)?;
       let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
-      assert_eq!(term1, enum1.term()?.into_owned());
-      assert_eq!(term2, enum2.term()?.into_owned());
+      assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
+      assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
     Ok(())
   }

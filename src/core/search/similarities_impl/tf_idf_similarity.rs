@@ -415,7 +415,7 @@ impl TFIDFScorer {
   }
   fn explain_score(
     &self,
-    freq: &Explanation,
+    freq: Explanation,
     encoded_norm: i64,
     norm_table: &[f32],
   ) -> Result<Explanation> {
@@ -437,13 +437,12 @@ impl TFIDFScorer {
     let tf = Explanation::match_(
       value,
       format!("tf(freq={}), with freq of:", freq_value),
-      vec![freq.clone()],
+      vec![freq],
     );
 
-    let tf_value = tf
-      .value
-      .to_f32()
-      .ok_or_else(|| LuceneError::illegal_argument(format!("invalid idf#value: {}", freq.value)))?;
+    let tf_value = tf.value.to_f32().ok_or_else(|| {
+      LuceneError::illegal_argument(format!("invalid idf#value: {}", tf.get_details()[0].value))
+    })?;
     subs.push(tf);
 
     let idx = (encoded_norm & 0xFF) as usize;
@@ -468,7 +467,7 @@ impl SimScorer for TFIDFScorer {
   }
 
   fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
-    self.explain_score(&freq, norm, &self.norm_table)
+    self.explain_score(freq, norm, &self.norm_table)
   }
 }
 #[derive(Clone)]

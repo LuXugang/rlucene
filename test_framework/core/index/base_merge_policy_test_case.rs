@@ -176,7 +176,7 @@ pub trait BaseMergePolicyTestCase {
         HashMap::new(),
         None,
       )?;
-      info.set_files(HashSet::new())?;
+      info.set_files(HashSet::<String>::new())?;
 
       infos.add(SegmentCommitInfo::new(
         info,

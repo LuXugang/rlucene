@@ -1075,7 +1075,7 @@ fn test_delete_all_point_docs() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "0", Store::No)?);
-  doc.add(LongPoint::new("long", vec![17])?);
+  doc.add(LongPoint::new("long", [17])?);
   doc.add(NumericDocValuesField::new("long", 17));
   iw.add_document(&mut random, doc)?;
 

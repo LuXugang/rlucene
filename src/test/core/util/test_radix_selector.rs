@@ -54,7 +54,7 @@ where
     random.fill_bytes(&mut bytes);
     arr.push(BytesRef::from_bytes(bytes));
   }
-  do_test(random, &arr, from, to, max_len)
+  do_test(random, arr, from, to, max_len)
 }
 
 #[test]
@@ -90,12 +90,12 @@ where
       .bytes
       .copy_within(offset_2..offset_2 + copy_len, offset_1);
   }
-  do_test(random, &arr, from, to, max_len)
+  do_test(random, arr, from, to, max_len)
 }
 
 pub fn do_test<R>(
   random: &mut R,
-  arr: &[BytesRef<Vec<u8>>],
+  arr: Vec<BytesRef<Vec<u8>>>,
   from: usize,
   to: usize,
   max_len: usize,
@@ -108,7 +108,7 @@ where
   let mut expected = arr.to_vec();
   expected[from..to].sort();
 
-  let mut actual = arr.to_vec();
+  let actual = arr;
   let enforced_max_len = if random.random_bool(0.5) {
     max_len
   } else {
@@ -122,12 +122,12 @@ where
 
   let mut selector = RadixSelector::new(enforced_max_len, selector_impl);
   Selector::select(&mut selector, from, to, k)?;
-  actual = selector.get_sub_selector().actual.clone();
+  let actual = &selector.get_sub_selector().actual;
 
   assert_eq!(expected[k], actual[k]);
   for i in 0..actual.len() {
     if i < from || i >= to {
-      assert_eq!(&arr[i], &actual[i]);
+      assert_eq!(&expected[i], &actual[i]);
     } else if i <= k {
       assert_ne!(actual[i].cmp(&actual[k]), Ordering::Greater);
     } else {
@@ -152,7 +152,7 @@ impl Selector for RadixSelectorMock {
 impl RadixSelectorBase for RadixSelectorMock {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     assert!(k < self.enforced_max_len);
-    let b = self.actual[i].clone();
+    let b = &self.actual[i];
     if k < b.length {
       Ok(b.bytes[k] as i32)
     } else {

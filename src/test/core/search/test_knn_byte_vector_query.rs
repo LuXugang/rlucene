@@ -344,7 +344,7 @@ impl TestKnnByteVectorQuery {
       query.to_string("ignored")?
     );
 
-    let rewritten = searcher.rewrite(query.clone())?;
+    let rewritten = searcher.rewrite(query)?;
     self.assert_doc_score_query_to_string(&rewritten)?;
 
     // test with filter

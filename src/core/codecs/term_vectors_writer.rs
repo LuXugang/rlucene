@@ -17,6 +17,7 @@
 use crate::core::codecs::DefaultTermVectorsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
+use crate::core::index::bytes_ref::BytesRefValue;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
@@ -93,7 +94,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     Ok(())
   }
 
-  fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()>;
+  fn start_term(&mut self, term: &BytesRef<&[u8]>, freq: i32) -> Result<()>;
 
   fn finish_term(&mut self) -> Result<()> {
     Ok(())
@@ -104,7 +105,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     position: i32,
     start_offset: i32,
     end_offset: i32,
-    payload: Option<&BytesRef<Vec<u8>>>,
+    payload: Option<&BytesRef<&[u8]>>,
   ) -> Result<()>;
 
   /// Called before [`Closeable::close`], passing in the number of documents
@@ -243,7 +244,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
         term_count += 1;
 
         let freq = terms_enum.total_term_freq()? as i32;
-        self.start_term(terms_enum.term()?.as_ref(), freq)?;
+        self.start_term(&terms_enum.term()?.as_bytes_ref(), freq)?;
 
         if has_positions || has_offsets {
           let mut docs_and_positions_enum = terms_enum
@@ -260,7 +261,8 @@ pub trait TermVectorsWriter: Accountable + Closeable {
             let payload = docs_and_positions_enum.get_payload()?;
 
             debug_assert!(!has_positions || pos >= 0);
-            self.add_position(pos, start_offset, end_offset, payload.as_deref())?;
+            let payload = payload.as_ref().map(BytesRefValue::as_bytes_ref);
+            self.add_position(pos, start_offset, end_offset, payload.as_ref())?;
           }
           docs_and_positions_reuse = Some(docs_and_positions_enum);
         }
@@ -327,7 +329,8 @@ impl TermVectorsWriterDefaults {
         (-1, -1)
       };
 
-      writer.add_position(position, start_offset, end_offset, this_payload)?;
+      let this_payload = this_payload.map(BytesRefValue::as_bytes_ref);
+      writer.add_position(position, start_offset, end_offset, this_payload.as_ref())?;
     }
 
     Ok(())
@@ -444,7 +447,7 @@ where
     }
   }
 
-  fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+  fn start_term(&mut self, term: &BytesRef<&[u8]>, freq: i32) -> Result<()> {
     match self {
       Self::A(inner) => inner.start_term(term, freq),
       Self::B(inner) => inner.start_term(term, freq),
@@ -463,7 +466,7 @@ where
     position: i32,
     start_offset: i32,
     end_offset: i32,
-    payload: Option<&BytesRef<Vec<u8>>>,
+    payload: Option<&BytesRef<&[u8]>>,
   ) -> Result<()> {
     match self {
       Self::A(inner) => inner.add_position(position, start_offset, end_offset, payload),

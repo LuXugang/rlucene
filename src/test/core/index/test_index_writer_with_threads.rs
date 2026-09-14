@@ -150,9 +150,7 @@ fn test_immediate_disk_full_with_threads() -> Result<()> {
     dir.set_max_size_in_bytes(4 * 1024 + 20 * iter as i64);
 
     let sync_start = Barrier::new(NUM_THREADS + 1);
-    let add_counts = (0..NUM_THREADS)
-      .map(|_| AtomicUsize::new(0))
-      .collect::<Vec<_>>();
+    let add_counts = [const { AtomicUsize::new(0) }; NUM_THREADS];
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::new();
       for add_count in &add_counts {
@@ -208,9 +206,7 @@ fn test_close_with_threads() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), config)?;
 
     let sync_start = Barrier::new(NUM_THREADS + 1);
-    let add_counts = (0..NUM_THREADS)
-      .map(|_| AtomicUsize::new(0))
-      .collect::<Vec<_>>();
+    let add_counts = [const { AtomicUsize::new(0) }; NUM_THREADS];
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::new();
       for add_count in &add_counts {
@@ -303,9 +299,7 @@ where
     let writer = IndexWriter::new(dir.clone(), config)?;
 
     let sync_start = Barrier::new(NUM_THREADS + 1);
-    let add_counts = (0..NUM_THREADS)
-      .map(|_| AtomicUsize::new(0))
-      .collect::<Vec<_>>();
+    let add_counts = [const { AtomicUsize::new(0) }; NUM_THREADS];
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::new();
       for add_count in &add_counts {

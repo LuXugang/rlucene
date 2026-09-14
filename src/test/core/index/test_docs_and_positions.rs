@@ -44,6 +44,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
+use std::fmt::Write as _;
 
 #[allow(dead_code)] // for quick search
 pub struct TestDocsAndPositions;
@@ -194,14 +195,14 @@ fn test_random_positions() -> Result<()> {
     let mut builder = String::new();
     for j in 0..num {
       let next_int: i32 = random.random_range(0..max);
-      builder.push_str(&format!("{} ", next_int));
+      write!(builder, "{} ", next_int)?;
       if next_int == term {
         positions.push(j);
       }
     }
 
     if positions.is_empty() {
-      builder.push_str(&format!("{}", term));
+      write!(builder, "{}", term)?;
       positions.push(num);
     }
 

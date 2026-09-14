@@ -607,17 +607,21 @@ fn test_bulk_get() -> Result<()> {
         msg
       );
       for (i, &item) in arr.iter().enumerate() {
-        let m = format!("{}, i={}", msg, i);
         if i >= off && i < off + gets {
           assert_eq!(
             ints.get(i - off + index),
             item,
             "{}: value mismatch at index {}",
-            m,
+            format_args!("{}, i={}", msg, i),
             i
           );
         } else {
-          assert_eq!(item, 0, "{}: array values outside range should be 0", m);
+          assert_eq!(
+            item,
+            0,
+            "{}: array values outside range should be 0",
+            format_args!("{}, i={}", msg, i)
+          );
         }
       }
     }
@@ -654,13 +658,12 @@ fn test_bulk_set() -> Result<()> {
         msg
       );
       for i in 0..ints.size() {
-        let m = format!("{}, i={}", msg, i);
         if i >= index && i < index + sets {
           assert_eq!(
             ints.get(i),
             arr[off + (i - index)],
             "{}: value mismatch at index {}",
-            m,
+            format_args!("{}, i={}", msg, i),
             i
           );
         } else {
@@ -668,7 +671,7 @@ fn test_bulk_set() -> Result<()> {
             ints.get(i),
             0,
             "{}: array values outside range should be 0",
-            m
+            format_args!("{}, i={}", msg, i)
           );
         }
       }
@@ -701,13 +704,12 @@ fn test_copy() -> Result<()> {
         );
         PackedInts::copy(&mut r1, off1, &mut r2, off2, len, mem)?;
         for i in 0..r2.size() {
-          let m = format!("{}, i={}", msg, i);
           if i >= off2 && i < off2 + len {
             assert_eq!(
               r1.get(i - off2 + off1),
               r2.get(i),
               "{}: Values mismatch at index {}",
-              m,
+              format_args!("{}, i={}", msg, i),
               i
             );
           } else {
@@ -715,7 +717,7 @@ fn test_copy() -> Result<()> {
               r2.get(i),
               0,
               "{}: Unexpected non-zero value at index {}",
-              m,
+              format_args!("{}, i={}", msg, i),
               i
             );
           }
@@ -1104,16 +1106,18 @@ fn test_encode_decode() -> Result<()> {
         8 * blocks_offset2,
         byte_iterations,
       );
-      assert_eq!(
+      assert!(
+        blocks2.iter().copied().eq(
+          blocks3
+            .as_chunks::<8>()
+            .0
+            .iter()
+            .map(|chunk| u64::from_be_bytes(*chunk))
+        ),
+        "{}: Byte-encoded blocks mismatch original blocks: expected {:?}, actual {:?}",
+        msg,
         blocks2,
         blocks3
-          .as_chunks::<8>()
-          .0
-          .iter()
-          .map(|chunk| u64::from_be_bytes(*chunk))
-          .collect::<Vec<_>>(),
-        "{}: Byte-encoded blocks mismatch original blocks",
-        msg
       );
       if bpv <= 32 {
         let mut blocks4 = vec![0u8; blocks3.len()];

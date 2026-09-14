@@ -175,7 +175,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
       )?
     );
 
-    assert_ne!(Some(query.clone()), None);
+    assert_ne!(Some(&query), None);
 
     assert_ne!(
       query,
@@ -787,13 +787,8 @@ pub trait BaseVectorSimilarityQueryTestCase {
   where
     IRC: IndexReaderContext,
   {
-    let id = searcher
-      .get_index_reader()
-      .stored_fields()?
-      .document(doc)?
-      .get(id_field)?
-      .map(|value| value.into_owned())
-      .expect("id field should be stored");
+    let document = searcher.get_index_reader().stored_fields()?.document(doc)?;
+    let id = document.get(id_field)?.expect("id field should be stored");
     Ok(id.parse::<i32>().expect("stored id should be an i32"))
   }
   fn get_random_vectors<R>(&self, random: &mut R, num_docs: usize, dim: usize) -> Vec<Self::Vector>

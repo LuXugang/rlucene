@@ -442,7 +442,8 @@ impl GeoTestUtil {
     result[0][gons] = result[0][0];
     result[1][gons] = result[1][0];
 
-    Polygon::new(result[0].clone(), result[1].clone(), vec![])
+    let [lats, lons] = result;
+    Polygon::new(lats, lons, vec![])
   }
 
   pub fn next_point<R>(random: &mut R) -> Result<Point>

@@ -60,10 +60,10 @@ use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 pub struct TestMinShouldMatch2;
-const ALWAYS_TERMS: &[&str] = &["a"];
-const COMMON_TERMS: &[&str] = &["b", "c", "d"];
-const MEDIUM_TERMS: &[&str] = &["e", "f", "g"];
-const RARE_TERMS: &[&str] = &[
+const ALWAYS_TERMS: &[&str; 1] = &["a"];
+const COMMON_TERMS: &[&str; 3] = &["b", "c", "d"];
+const MEDIUM_TERMS: &[&str; 3] = &["e", "f", "g"];
+const RARE_TERMS: &[&str; 19] = &[
   "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
 ];
 
@@ -110,11 +110,11 @@ where
   searcher.set_similarity(classic_similarity::new());
   Ok(searcher)
 }
-fn add_some<R>(random: &mut R, doc: &mut Document, values: &[&str]) -> Result<()>
+fn add_some<R, const N: usize>(random: &mut R, doc: &mut Document, values: &[&str; N]) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let mut list: Vec<&str> = values.to_vec();
+  let mut list = *values;
   list.shuffle(random);
   let how_many = TestUtil::next_usize(random, 1, list.len());
   for value in list.iter().take(how_many) {

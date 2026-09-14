@@ -153,7 +153,7 @@ impl FrozenBufferedUpdates {
     // Retain the source map if a fallible freeze operation fails, as Map.copyOf does in Java.
     let field_updates = std::mem::take(&mut updates.field_updates);
     Ok(Self {
-      info_stream: info_stream.clone(),
+      info_stream,
       delete_terms,
       delete_queries,
       delete_query_limits,
@@ -319,7 +319,7 @@ impl FrozenBufferedUpdates {
           ))
         })?;
         if let Some(doc_id_set_iterator) =
-          term_docs_iterator.next_term(buffered_update.term_field.as_str(), term_value)?
+          term_docs_iterator.next_term(buffered_update.term_field, term_value)?
         {
           let limit = if del_gen == seg_state.del_gen {
             debug_assert!(segment_private_deletes);

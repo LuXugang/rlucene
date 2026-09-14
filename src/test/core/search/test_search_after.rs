@@ -347,7 +347,7 @@ where
       }
     }
 
-    if paged.score_docs().is_empty() {
+    if paged.score_docs().len() == 0 {
       break;
     }
 
@@ -379,8 +379,8 @@ where
 
   let mut stored_fields = searcher.stored_fields()?;
   for i in 0..paged.score_docs().len() {
-    let sd1 = &all.score_docs()[page_start + i];
-    let sd2 = &paged.score_docs()[i];
+    let sd1 = all.score_docs().nth(page_start + i).unwrap();
+    let sd2 = paged.score_docs().nth(i).unwrap();
 
     if cfg!(feature = "test_log_verbose") {
       println!("    hit {}", page_start + i);
@@ -414,18 +414,15 @@ impl TopDocEnum {
       TopDocEnum::Score(score_docs) => score_docs.total_hits(),
     }
   }
-  fn score_docs(&self) -> Vec<ScoreDoc> {
-    match self {
-      TopDocEnum::Field(field_docs) => {
-        let mut r = Vec::new();
-
-        for v in field_docs.base.score_docs.iter() {
-          r.push(v.score_doc().clone());
-        }
-        r
-      },
-      TopDocEnum::Score(score_docs) => score_docs.score_docs.clone(),
-    }
+  fn score_docs(&self) -> impl ExactSizeIterator<Item = &ScoreDoc> {
+    let len = match self {
+      TopDocEnum::Field(field_docs) => field_docs.base.score_docs.len(),
+      TopDocEnum::Score(score_docs) => score_docs.score_docs.len(),
+    };
+    (0..len).map(move |index| match self {
+      TopDocEnum::Field(field_docs) => field_docs.base.score_docs[index].score_doc(),
+      TopDocEnum::Score(score_docs) => &score_docs.score_docs[index],
+    })
   }
   fn same_field(&self, other: &Self) {
     match (self, other) {

@@ -110,15 +110,15 @@ fn test_reverse_date_sort() -> Result<()> {
     actual_order.push(document.get(TEXT_FIELD)?.unwrap().as_ref().to_string());
   }
 
-  let expected_order = vec![
-    "Document 5".to_string(),
-    "Document 4".to_string(),
-    "Document 3".to_string(),
-    "Document 2".to_string(),
-    "Document 1".to_string(),
+  let expected_order = [
+    "Document 5",
+    "Document 4",
+    "Document 3",
+    "Document 2",
+    "Document 1",
   ];
 
-  assert_eq!(expected_order, actual_order);
+  assert_eq!(expected_order.as_slice(), actual_order);
 
   Ok(())
 }

@@ -27,7 +27,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::cell::RefMut;
 use std::fmt::Display;
 
@@ -83,9 +83,14 @@ pub trait IndexableField: Display {
   /// present if this field has a numeric value.
   fn numeric_value(&self) -> Result<Option<Number>>;
 
+  /// Storage returned for a stored field, either borrowed or independently owned.
+  type StoredValue<'a>: Borrow<FieldDataEnum>
+  where
+    Self: 'a;
+
   /// Stored value. This method is called to populate stored fields and must
-  /// return a present value if the field stored.
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>>;
+  /// return a present value if the field is stored.
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>>;
 
   /// Describes how this field should be inverted. This must return a present
   /// value if the field indexes terms and postings.
@@ -97,6 +102,33 @@ pub trait IndexableField: Display {
 
   fn vector_value(&self) -> Result<&VectorValueEnum> {
     Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+/// Stored field data returned by an enum whose variants use different ownership.
+pub enum StoredValueEnum<'a> {
+  Borrowed(&'a FieldDataEnum),
+  Owned(FieldDataEnum),
+}
+
+impl Borrow<FieldDataEnum> for StoredValueEnum<'_> {
+  fn borrow(&self) -> &FieldDataEnum {
+    match self {
+      Self::Borrowed(value) => value,
+      Self::Owned(value) => value,
+    }
+  }
+}
+
+impl<'a> From<&'a FieldDataEnum> for StoredValueEnum<'a> {
+  fn from(value: &'a FieldDataEnum) -> Self {
+    Self::Borrowed(value)
+  }
+}
+
+impl From<FieldDataEnum> for StoredValueEnum<'_> {
+  fn from(value: FieldDataEnum) -> Self {
+    Self::Owned(value)
   }
 }
 

@@ -92,7 +92,7 @@ fn test_same_hits_as_point_range_query() -> Result<()> {
       for _ in 0..num_values {
         let value = TestUtil::next_long(&mut random, -100, 10000);
         doc.add(SortedNumericDocValuesField::new("dv", value));
-        doc.add(LongPoint::new("idx", vec![value])?);
+        doc.add(LongPoint::new("idx", [value])?);
       }
 
       iw.add_document(&mut random, doc)?;
@@ -802,7 +802,7 @@ where
   let field = field.into();
   let mut doc = Document::new();
   doc.add(SortedNumericDocValuesField::new(&field, value));
-  doc.add(LongPoint::new(&field, vec![value])?);
+  doc.add(LongPoint::new(&field, [value])?);
   Ok(doc)
 }
 
@@ -1048,7 +1048,7 @@ where
   for _ in 0..repeat {
     let mut doc = Document::new();
     doc.add(SortedNumericDocValuesField::new(field, value));
-    doc.add(LongPoint::new(field, vec![value])?);
+    doc.add(LongPoint::new(field, [value])?);
     index_writer.add_document(random, doc)?;
   }
   Ok(())

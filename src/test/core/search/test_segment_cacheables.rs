@@ -111,14 +111,14 @@ fn test_multiple_doc_values_delegates() -> Result<()> {
   let dv34 = TestCacheable::doc_values(&["field3", "field4"]);
   let dv12 = TestCacheable::doc_values(&["field1", "field2"]);
 
-  let seg_dv1 = TestCacheable::all(vec![seg.clone(), dv1.clone()]);
+  let seg_dv1 = TestCacheable::all(vec![seg, dv1.clone()]);
   let dv2_dv34 = TestCacheable::all(vec![dv2.clone(), dv34.clone()]);
-  let dv2_non = TestCacheable::all(vec![dv2.clone(), non.clone()]);
+  let dv2_non = TestCacheable::all(vec![dv2, non]);
 
   let seg_dv1_dv2_dv34 = TestCacheable::all(vec![seg_dv1.clone(), dv2_dv34.clone()]);
 
-  let dv1_dv3 = TestCacheable::all(vec![dv1.clone(), dv3.clone()]);
-  let dv12_dv1_dv3 = TestCacheable::all(vec![dv12.clone(), dv1_dv3.clone()]);
+  let dv1_dv3 = TestCacheable::all(vec![dv1, dv3]);
+  let dv12_dv1_dv3 = TestCacheable::all(vec![dv12, dv1_dv3.clone()]);
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

@@ -21,6 +21,8 @@ use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
+use crate::core::index::BytesRefValue;
+use crate::core::index::BytesRefValueEnum;
 use crate::core::index::doc_values::{DocValues, EmptySortedSet, SortedDocValuesWithEmpty};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
@@ -56,15 +58,19 @@ use crate::core::util::packed::packed_long_values::{
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
-use std::borrow::Cow;
+use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-type BufferedWriterSortedSetDocValues = BufferedSortedSetDocValues<DocsWithFieldSetDISI>;
+type BufferedWriterSortedSetDocValues<V = PackedLongValues> =
+  BufferedSortedSetDocValues<DocsWithFieldSetDISI, V>;
 
-pub(crate) enum SortedSetDocValuesWriterValues {
-  Buffered(BufferedWriterSortedSetDocValues),
-  Sorting(SortingSortedSetDocValues<BufferedWriterSortedSetDocValues>),
+pub(crate) enum SortedSetDocValuesWriterValues<
+  V: Borrow<PackedLongValues> = PackedLongValues,
+  O: Borrow<DocOrds> = DocOrds,
+> {
+  Buffered(BufferedWriterSortedSetDocValues<V>),
+  Sorting(SortingSortedSetDocValues<BufferedWriterSortedSetDocValues<V>, O>),
 }
 
 pub(crate) enum SortedSetDocValuesWriterDocIdSetIterator {
@@ -72,7 +78,9 @@ pub(crate) enum SortedSetDocValuesWriterDocIdSetIterator {
   Singleton(SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>),
 }
 
-impl DocValuesIterator for SortedSetDocValuesWriterValues {
+impl<V: Borrow<PackedLongValues>, O: Borrow<DocOrds>> DocValuesIterator
+  for SortedSetDocValuesWriterValues<V, O>
+{
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
       Self::Buffered(values) => values.advance_exact(target),
@@ -81,16 +89,20 @@ impl DocValuesIterator for SortedSetDocValuesWriterValues {
   }
 }
 
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortedSetDocValuesWriterValues
+impl<V: Borrow<PackedLongValues>, O: Borrow<DocOrds>>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedSetDocValuesWriterValues<V, O>
 {
 }
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for SortedSetDocValuesWriterValues
+impl<V: Borrow<PackedLongValues>, O: Borrow<DocOrds>>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedSetDocValuesWriterValues<V, O>
 {
 }
 
-impl DocIdSetIterator for SortedSetDocValuesWriterValues {
+impl<V: Borrow<PackedLongValues>, O: Borrow<DocOrds>> DocIdSetIterator
+  for SortedSetDocValuesWriterValues<V, O>
+{
   fn doc_id(&self) -> i32 {
     match self {
       Self::Buffered(values) => values.doc_id(),
@@ -127,7 +139,14 @@ impl DocIdSetIterator for SortedSetDocValuesWriterValues {
   }
 }
 
-impl SortedSetDocValues for SortedSetDocValuesWriterValues {
+impl<V: Borrow<PackedLongValues>, O: Borrow<DocOrds>> SortedSetDocValues
+  for SortedSetDocValuesWriterValues<V, O>
+{
+  type OrdValue<'a>
+    = BytesRef<&'a [u8]>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::Buffered(values) => values.next_ord(),
@@ -142,7 +161,7 @@ impl SortedSetDocValues for SortedSetDocValuesWriterValues {
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
       Self::Buffered(values) => values.lookup_ord(ord),
       Self::Sorting(values) => values.lookup_ord(ord),
@@ -156,7 +175,10 @@ impl SortedSetDocValues for SortedSetDocValuesWriterValues {
     }
   }
 
-  type TermsEnum<'a> = SortedSetDocValuesTermsEnum<&'a mut Self>;
+  type TermsEnum<'a>
+    = SortedSetDocValuesTermsEnum<&'a mut Self>
+  where
+    Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     self.default_terms_enum()
@@ -221,6 +243,11 @@ impl DocIdSetIterator for SortedSetDocValuesWriterDocIdSetIterator {
 }
 
 impl SortedSetDocValues for SortedSetDocValuesWriterDocIdSetIterator {
+  type OrdValue<'a>
+    = BytesRef<&'a [u8]>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::Buffered(values) => values.next_ord(),
@@ -235,7 +262,7 @@ impl SortedSetDocValues for SortedSetDocValuesWriterDocIdSetIterator {
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
       Self::Buffered(values) => values.lookup_ord(ord),
       Self::Singleton(values) => values.lookup_ord(ord),
@@ -440,15 +467,19 @@ impl SortedSetDocValuesWriter {
           ord_map,
           hash,
           pool,
-          ords,
-          ords_counts,
+          || ords.clone(),
+          || ords_counts.clone(),
           max_count,
           docs_iter,
         )?,
       )),
       None => Ok(SortedSetDocValuesWriterDocIdSetIterator::Singleton(
         DocValues::singleton_sorted(BufferedSortedDocValues::new(
-          hash, pool, ords, ord_map, docs_iter,
+          hash,
+          pool,
+          || ords.clone(),
+          ord_map,
+          docs_iter,
         )?)?,
       )),
     }
@@ -518,8 +549,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         ord_map.clone(),
         frozen_hash.clone(),
         self.pool.clone(),
-        ords,
-        ord_counts,
+        || ords,
+        || ord_counts,
         self.max_count,
         docs_iter,
       )?;
@@ -542,7 +573,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       ord_counts,
       self.max_count,
       &self.docs_with_field,
-      doc_ords,
+      doc_ords.as_ref(),
     );
     dv_consumer.add_sorted_set_field(write_state, segment_info, &self.field_info, &producer)?;
     Ok(())
@@ -612,7 +643,7 @@ pub(crate) struct DocValuesProducerImpl1<'a> {
   ord_counts: &'a PackedLongValues,
   max_count: usize,
   docs_with_field: &'a DocsWithFieldSet,
-  doc_ords: Option<DocOrds>,
+  doc_ords: Option<&'a DocOrds>,
 }
 
 impl CloseableRef for DocValuesProducerImpl1<'_> {
@@ -632,7 +663,7 @@ impl<'a> DocValuesProducerImpl1<'a> {
     ord_counts: &'a PackedLongValues,
     max_count: usize,
     docs_with_field: &'a DocsWithFieldSet,
-    doc_ords: Option<DocOrds>,
+    doc_ords: Option<&'a DocOrds>,
   ) -> Self {
     Self {
       field_info,
@@ -647,12 +678,12 @@ impl<'a> DocValuesProducerImpl1<'a> {
     }
   }
 }
-impl DocValuesProducer for DocValuesProducerImpl1<'_> {
+impl<'a> DocValuesProducer for DocValuesProducerImpl1<'a> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
   type SortedNumericDocValues = DummySortedNumericDocValues;
-  type SortedSetDocValues = SortedSetDocValuesWriterValues;
+  type SortedSetDocValues = SortedSetDocValuesWriterValues<&'a PackedLongValues, &'a DocOrds>;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     if !Arc::ptr_eq(&self.field_info, field_info) {
@@ -663,14 +694,14 @@ impl DocValuesProducer for DocValuesProducerImpl1<'_> {
       self.ord_map.clone(),
       self.hash.clone(),
       self.pool.clone(),
-      self.ords,
-      self.ord_counts,
+      || self.ords,
+      || self.ord_counts,
       self.max_count,
       docs_iter,
     )?;
     match &self.doc_ords {
       Some(ords) => Ok(SortedSetDocValuesWriterValues::Sorting(
-        SortingSortedSetDocValues::new(buf, ords.clone()),
+        SortingSortedSetDocValues::new(buf, *ords),
       )),
       None => Ok(SortedSetDocValuesWriterValues::Buffered(buf)),
     }
@@ -699,12 +730,13 @@ impl<'a> DocValuesProducerImpl2<'a> {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl2<'_> {
+impl<'a> DocValuesProducer for DocValuesProducerImpl2<'a> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
   type SortedNumericDocValues = DummySortedNumericDocValues;
-  type SortedSetDocValues = SingletonSortedSetDocValues<SortedDocValuesWriterValues>;
+  type SortedSetDocValues =
+    SingletonSortedSetDocValues<SortedDocValuesWriterValues<&'a PackedLongValues>>;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     DocValues::singleton_sorted(self.single_value_producer.get_sorted(field_info)?)
@@ -713,26 +745,26 @@ impl DocValuesProducer for DocValuesProducerImpl2<'_> {
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) struct BufferedSortedSetDocValues<D> {
+pub(crate) struct BufferedSortedSetDocValues<D, V: Borrow<PackedLongValues> = PackedLongValues> {
   ord_map: Arc<Vec<i32>>,
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
-  scratch: BytesRef<Vec<u8>>,
-  ords_iter: PackedLongValuesIterator,
-  ord_counts_iter: PackedLongValuesIterator,
+  ords_iter: PackedLongValuesIterator<V>,
+  ord_counts_iter: PackedLongValuesIterator<V>,
   docs_with_field: D,
   current_doc: Vec<i32>,
   ord_count: usize,
   ord_upto: usize,
 }
 
-impl<D> BufferedSortedSetDocValues<D> {
+impl<D, V: Borrow<PackedLongValues>> BufferedSortedSetDocValues<D, V> {
+  // Decode the first stream before cloning or decoding the second owned stream.
   pub(crate) fn new(
     ord_map: Arc<Vec<i32>>,
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
-    ords: &PackedLongValues,
-    ord_counts: &PackedLongValues,
+    ords: impl FnOnce() -> V,
+    ord_counts: impl FnOnce() -> V,
     max_count: usize,
     docs_with_field: D,
   ) -> Result<Self> {
@@ -740,9 +772,8 @@ impl<D> BufferedSortedSetDocValues<D> {
       ord_map,
       hash,
       pool,
-      scratch: BytesRef::new(),
-      ords_iter: ords.iterator()?,
-      ord_counts_iter: ord_counts.iterator()?,
+      ords_iter: PackedLongValuesIterator::new(ords())?,
+      ord_counts_iter: PackedLongValuesIterator::new(ord_counts())?,
       docs_with_field,
       current_doc: vec![0; max_count],
       ord_count: 0,
@@ -751,20 +782,21 @@ impl<D> BufferedSortedSetDocValues<D> {
   }
 }
 
-impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BufferedSortedSetDocValues<D>
+impl<D, V: Borrow<PackedLongValues>>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BufferedSortedSetDocValues<D, V>
 where
   D: DocIdSetIterator,
 {
 }
-impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for BufferedSortedSetDocValues<D>
+impl<D, V: Borrow<PackedLongValues>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortedSetDocValues<D, V>
 where
   D: DocIdSetIterator,
 {
 }
 
-impl<D> DocIdSetIterator for BufferedSortedSetDocValues<D>
+impl<D, V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortedSetDocValues<D, V>
 where
   D: DocIdSetIterator,
 {
@@ -797,7 +829,7 @@ where
   }
 }
 
-impl<D> DocValuesIterator for BufferedSortedSetDocValues<D>
+impl<D, V: Borrow<PackedLongValues>> DocValuesIterator for BufferedSortedSetDocValues<D, V>
 where
   D: DocIdSetIterator,
 {
@@ -806,10 +838,15 @@ where
   }
 }
 
-impl<D> SortedSetDocValues for BufferedSortedSetDocValues<D>
+impl<D, V: Borrow<PackedLongValues>> SortedSetDocValues for BufferedSortedSetDocValues<D, V>
 where
   D: DocIdSetIterator,
 {
+  type OrdValue<'a>
+    = BytesRef<&'a [u8]>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     let ord = self.current_doc[self.ord_upto] as i64;
     self.ord_upto += 1;
@@ -820,14 +857,17 @@ where
     Ok(self.ord_count as i32)
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     debug_assert!(ord >= 0 && (ord as usize) < self.ord_map.len());
     let idx: i32 = ord.try_convert()?;
     let hash_idx = self.hash.ids[idx as usize];
-    self
-      .hash
-      .get(hash_idx, &mut self.scratch, self.pool.as_ref())?;
-    Ok(Cow::Borrowed(&self.scratch))
+    let position = self.hash.get(hash_idx, self.pool.as_ref())?;
+    let block = self.pool.get_buffer(position.block_index);
+    Ok(BytesRef {
+      bytes: block,
+      offset: position.offset,
+      length: position.length,
+    })
   }
 
   fn get_value_count(&self) -> Result<i64> {
@@ -837,7 +877,7 @@ where
   type TermsEnum<'a>
     = SortedSetDocValuesTermsEnum<&'a mut Self>
   where
-    D: 'a;
+    Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     self.default_terms_enum()
@@ -846,16 +886,16 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub struct SortingSortedSetDocValues<S> {
+pub struct SortingSortedSetDocValues<S, O: Borrow<DocOrds> = DocOrds> {
   input: S,
-  ords: DocOrds,
+  ords: O,
   doc_id: i32,
   ord_upto: Option<usize>,
   count: i32,
 }
 
-impl<S> SortingSortedSetDocValues<S> {
-  pub(crate) fn new(input: S, ords: DocOrds) -> Self {
+impl<S, O: Borrow<DocOrds>> SortingSortedSetDocValues<S, O> {
+  pub(crate) fn new(input: S, ords: O) -> Self {
     Self {
       input,
       ords,
@@ -867,13 +907,13 @@ impl<S> SortingSortedSetDocValues<S> {
 
   fn init_count(&mut self) -> Result<()> {
     let doc_id = self.doc_id.try_convert()?;
-    self.ord_upto = self.ords.offsets[doc_id].checked_sub(1);
-    self.count = self.ords.doc_value_counts.get(doc_id) as i32;
+    self.ord_upto = self.ords.borrow().offsets[doc_id].checked_sub(1);
+    self.count = self.ords.borrow().doc_value_counts.get(doc_id) as i32;
     Ok(())
   }
 }
 
-impl<S> DocValuesIterator for SortingSortedSetDocValues<S>
+impl<S, O: Borrow<DocOrds>> DocValuesIterator for SortingSortedSetDocValues<S, O>
 where
   S: SortedSetDocValues,
 {
@@ -881,24 +921,24 @@ where
     // Needed by `IndexSorter::StringSorter`.
     self.doc_id = target;
     self.init_count()?;
-    Ok(self.ords.offsets[self.doc_id as usize] > 0)
+    Ok(self.ords.borrow().offsets[self.doc_id as usize] > 0)
   }
 }
 
-impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortingSortedSetDocValues<S>
+impl<S, O: Borrow<DocOrds>> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingSortedSetDocValues<S, O>
 where
   S: SortedSetDocValues,
 {
 }
-impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for SortingSortedSetDocValues<S>
+impl<S, O: Borrow<DocOrds>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortingSortedSetDocValues<S, O>
 where
   S: SortedSetDocValues,
 {
 }
 
-impl<S> DocIdSetIterator for SortingSortedSetDocValues<S>
+impl<S, O: Borrow<DocOrds>> DocIdSetIterator for SortingSortedSetDocValues<S, O>
 where
   S: SortedSetDocValues,
 {
@@ -910,11 +950,11 @@ where
     loop {
       self.doc_id += 1;
       let doc_index = self.doc_id as usize;
-      if doc_index == self.ords.offsets.len() {
+      if doc_index == self.ords.borrow().offsets.len() {
         self.doc_id = NO_MORE_DOCS;
         return Ok(self.doc_id);
       }
-      if self.ords.offsets[doc_index] > 0 {
+      if self.ords.borrow().offsets[doc_index] > 0 {
         break;
       }
     }
@@ -931,15 +971,20 @@ where
   }
 }
 
-impl<S> SortedSetDocValues for SortingSortedSetDocValues<S>
+impl<S, O: Borrow<DocOrds>> SortedSetDocValues for SortingSortedSetDocValues<S, O>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     let ord_upto = self
       .ord_upto
       .ok_or_else(|| LuceneError::illegal_state("value -1 does not fit into usize"))?;
-    let ord = self.ords.ords.get(ord_upto)?;
+    let ord = self.ords.borrow().ords.get(ord_upto)?;
     self.ord_upto = Some(ord_upto + 1);
     Ok(ord)
   }
@@ -949,7 +994,7 @@ where
     Ok(self.count)
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     self.input.lookup_ord(ord)
   }
 
@@ -960,7 +1005,7 @@ where
   type TermsEnum<'a>
     = SortedSetDocValuesTermsEnum<&'a mut Self>
   where
-    S: 'a;
+    Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     self.default_terms_enum()
@@ -969,11 +1014,10 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-#[derive(Clone)]
 pub struct DocOrds {
-  pub(crate) offsets: Arc<Vec<usize>>,
+  pub(crate) offsets: Vec<usize>,
   pub(crate) ords: PackedLongValues,
-  pub(crate) doc_value_counts: Arc<GrowableWriter>,
+  pub(crate) doc_value_counts: GrowableWriter,
 }
 pub const START_BITS_PER_VALUE: i32 = 2;
 impl DocOrds {
@@ -1019,9 +1063,9 @@ impl DocOrds {
     let ords = builder.build()?;
 
     Ok(DocOrds {
-      offsets: Arc::new(offsets),
+      offsets,
       ords,
-      doc_value_counts: Arc::new(doc_value_counts),
+      doc_value_counts,
     })
   }
 }
@@ -1106,6 +1150,11 @@ where
   A: SortedSetDocValues,
   B: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       SortedSetDocValuesEnum2::A(t) => t.next_ord(),
@@ -1120,10 +1169,10 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, _ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, _ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      SortedSetDocValuesEnum2::A(t) => t.lookup_ord(_ord),
-      SortedSetDocValuesEnum2::B(s) => s.lookup_ord(_ord),
+      SortedSetDocValuesEnum2::A(t) => t.lookup_ord(_ord).map(BytesRefValue::into_value),
+      SortedSetDocValuesEnum2::B(s) => s.lookup_ord(_ord).map(BytesRefValue::into_value),
     }
   }
 
@@ -1247,6 +1296,11 @@ where
   A: SortedSetDocValues,
   B: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::A(values) => values.next_ord(),
@@ -1261,10 +1315,10 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::A(values) => values.lookup_ord(ord),
-      Self::B(values) => values.lookup_ord(ord),
+      Self::A(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::B(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
     }
   }
 
@@ -1388,6 +1442,11 @@ impl<A> SortedSetDocValues for SortedSetDocValuesWithEmpty<A>
 where
   A: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::A(inner) => inner.next_ord(),
@@ -1402,10 +1461,10 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::A(inner) => inner.lookup_ord(ord),
-      Self::B(inner) => inner.lookup_ord(ord),
+      Self::A(inner) => inner.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::B(inner) => inner.lookup_ord(ord).map(BytesRefValue::into_value),
     }
   }
 
@@ -1532,6 +1591,11 @@ where
   A: SortedSetDocValues,
   B: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::Singleton(values) => values.next_ord(),
@@ -1546,10 +1610,10 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::Singleton(values) => values.lookup_ord(ord),
-      Self::Multi(values) => values.lookup_ord(ord),
+      Self::Singleton(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::Multi(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
     }
   }
 

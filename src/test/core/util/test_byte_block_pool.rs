@@ -21,6 +21,8 @@ use rand::{Rng, RngExt};
 use std::sync::Arc;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use std::borrow::Cow;
+
 use crate::core::util::allocator_byte::{DirectAllocatorByte, DirectTrackingAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
@@ -100,7 +102,7 @@ fn test_read_and_write() -> Result<()> {
           )?;
         },
         1 => {
-          let mut scratch = BytesRef::<Vec<u8>>::new();
+          let mut scratch = BytesRef::<std::borrow::Cow<'_, Vec<u8>>>::new();
           pool.set_bytes_ref(
             &mut builder,
             &mut scratch,
@@ -150,9 +152,9 @@ fn test_large_random_blocks() -> Result<()> {
     }
     let mut bytes = vec![0; size];
     random.fill_bytes(&mut bytes);
-    let bytes_clone = bytes.clone();
+    let bytes_index = iterms.len();
     iterms.push(bytes);
-    pool.append_bytes_ref(&BytesRef::from_bytes(bytes_clone))?;
+    pool.append_bytes_ref(&BytesRef::from_bytes(Cow::Borrowed(&iterms[bytes_index])))?;
     total_bytes += size;
 
     // make sure we report the correct position

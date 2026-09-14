@@ -101,7 +101,7 @@ fn test_update_delete_slices() -> Result<()> {
   while let Some(byte_ref) = iter.next()? {
     bytes_ref.copy_bytes_from_ref(&byte_ref)?;
     let term = Term::new(iter.field().to_string(), bytes_ref.get_bytes_ref_copy()?);
-    frozen_set.insert(term.clone());
+    frozen_set.insert(term);
   }
   assert_eq!(unique_values, frozen_set);
   let num_deletes_after = queue.num_global_term_deletes();
@@ -133,9 +133,9 @@ fn test_clear() -> Result<()> {
   for i in 0..size {
     let term = Term::from_text("id", i.to_string());
     if random.random_range(0..10) == 0 {
-      queue.add_delete_query(Vec::from([TermQuery::new(term.clone()).into()]))?;
+      queue.add_delete_query(Vec::from([TermQuery::new(term).into()]))?;
     } else {
-      queue.add_delete_term(vec![term.clone()])?;
+      queue.add_delete_term(vec![term])?;
     }
     assert!(queue.any_changes(None));
 
@@ -159,10 +159,10 @@ fn test_any_changes() -> Result<()> {
   for i in 0..size {
     let term = Term::from_text("id", i.to_string());
     if random.random_range(0..10) == 0 {
-      queue.add_delete_query(vec![TermQuery::new(term.clone()).into()])?;
+      queue.add_delete_query(vec![TermQuery::new(term).into()])?;
       queries_since_freeze += 1;
     } else {
-      queue.add_delete_term(vec![term.clone()])?;
+      queue.add_delete_term(vec![term])?;
       terms_since_freeze += 1;
     }
 

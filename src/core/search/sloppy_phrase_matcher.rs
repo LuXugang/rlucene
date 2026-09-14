@@ -620,19 +620,19 @@ where
   }
 
   /// map each term to the single group that contains it
-  fn term_groups(
+  fn term_groups<'a>(
     &self,
-    tord: &LinkedHashMap<Term, usize>,
+    tord: &'a LinkedHashMap<Term, usize>,
     bb: Vec<FixedBitSet>,
-  ) -> Result<HashMap<Term, usize>> {
-    let mut tg: HashMap<Term, usize> = HashMap::new();
+  ) -> Result<HashMap<&'a Term, usize>> {
+    let mut tg: HashMap<&Term, usize> = HashMap::new();
     let terms: Vec<&Term> = tord.keys().collect();
 
     for (i, bits) in bb.iter().enumerate() {
       let mut ord = bits.next_set_bit(0);
 
       while ord != NO_MORE_DOCS as usize {
-        tg.insert((*terms[ord]).clone(), i);
+        tg.insert(terms[ord], i);
 
         let next = ord + 1;
         if next >= bits.length() {

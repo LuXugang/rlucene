@@ -94,7 +94,7 @@ fn add_clause<R>(
 where
   R: Rng + ?Sized,
 {
-  let rnd = sets[random.random_range(0..sets.len())].clone();
+  let rnd = &sets[random.random_range(0..sets.len())];
   let q = BitSetQuery::new(rnd.clone());
   bq.add(q, Occur::Must)?;
 

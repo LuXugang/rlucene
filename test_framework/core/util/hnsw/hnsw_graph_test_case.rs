@@ -961,13 +961,13 @@ where
         }
       }
 
-      let actual_top_k_docs = top_docs
+      let mut actual_top_k_docs = top_docs
         .score_docs
         .iter()
         .take(top_k)
         .map(|doc| doc.doc as usize)
         .collect::<Vec<_>>();
-      total_matches += compute_overlap(&actual_top_k_docs, &expected.nodes());
+      total_matches += compute_overlap(&mut actual_top_k_docs, &mut expected.nodes());
     }
 
     let overlap = total_matches as f64 / (100 * top_k) as f64;
@@ -1047,17 +1047,16 @@ where
     for (mut expect, mut actual) in expects.into_iter().zip(actuals) {
       let expect = expect.top_docs()?;
       let actual = actual.top_docs()?;
-      let expected_docs = expect
-        .score_docs
-        .iter()
-        .map(|score_doc| score_doc.doc)
-        .collect::<Vec<_>>();
-      let actual_docs = actual
-        .score_docs
-        .iter()
-        .map(|score_doc| score_doc.doc)
-        .collect::<Vec<_>>();
-      assert_eq!(expected_docs, actual_docs);
+      assert!(
+        expect
+          .score_docs
+          .iter()
+          .map(|score_doc| score_doc.doc)
+          .eq(actual.score_docs.iter().map(|score_doc| score_doc.doc)),
+        "expected docs: {:?}, actual docs: {:?}",
+        expect.score_docs,
+        actual.score_docs
+      );
     }
 
     Ok(())
@@ -1426,14 +1425,14 @@ where
   H: HnswGraph,
 {
   for level in 0..initializer.num_levels()? {
-    let final_graph_nodes_on_level = nodes_iterator_to_array(graph.get_nodes_on_level(level)?);
-    let initializer_graph_nodes_on_level = map_array_and_sort(
+    let mut final_graph_nodes_on_level = nodes_iterator_to_array(graph.get_nodes_on_level(level)?);
+    let mut initializer_graph_nodes_on_level = map_array_and_sort(
       &nodes_iterator_to_array(initializer.get_nodes_on_level(level)?),
       new_ordinals,
     );
     let overlap = compute_overlap(
-      &final_graph_nodes_on_level,
-      &initializer_graph_nodes_on_level,
+      &mut final_graph_nodes_on_level,
+      &mut initializer_graph_nodes_on_level,
     );
     assert_eq!(initializer_graph_nodes_on_level.len(), overlap);
   }
@@ -1545,9 +1544,7 @@ where
   Ok(offset_ordinal_map)
 }
 
-fn compute_overlap(left: &[usize], right: &[usize]) -> usize {
-  let mut left = left.to_vec();
-  let mut right = right.to_vec();
+fn compute_overlap(left: &mut [usize], right: &mut [usize]) -> usize {
   left.sort_unstable();
   right.sort_unstable();
 

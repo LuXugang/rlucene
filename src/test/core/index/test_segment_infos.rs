@@ -104,7 +104,7 @@ fn test_versions_one_segment() -> Result<()> {
     HashMap::new(),
     None,
   )?;
-  info.set_files(HashSet::new())?;
+  info.set_files(HashSet::<String>::new())?;
   codec
     .segment_info_format()
     .write(directory.as_ref(), &mut info, io_context)?;
@@ -147,7 +147,7 @@ fn test_versions_two_segments() -> Result<()> {
     HashMap::new(),
     None,
   )?;
-  info_0.set_files(HashSet::new())?;
+  info_0.set_files(HashSet::<String>::new())?;
   codec
     .segment_info_format()
     .write(directory.as_ref(), &mut info_0, io_context)?;
@@ -172,7 +172,7 @@ fn test_versions_two_segments() -> Result<()> {
     HashMap::new(),
     None,
   )?;
-  info_1.set_files(HashSet::new())?;
+  info_1.set_files(HashSet::<String>::new())?;
   codec
     .segment_info_format()
     .write(directory.as_ref(), &mut info_1, io_context)?;
@@ -412,7 +412,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     HashMap::new(),
     None,
   )?;
-  info_0.set_files(HashSet::new())?;
+  info_0.set_files(HashSet::<String>::new())?;
   codec
     .segment_info_format()
     .write(dir.as_ref(), &mut info_0, io_context)?;
@@ -435,7 +435,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
     HashMap::new(),
     None,
   )?;
-  info_1.set_files(HashSet::new())?;
+  info_1.set_files(HashSet::<String>::new())?;
   codec
     .segment_info_format()
     .write(dir.as_ref(), &mut info_1, io_context)?;

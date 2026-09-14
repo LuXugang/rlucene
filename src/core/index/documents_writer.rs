@@ -609,7 +609,7 @@ where
             })?
           };
           let ticket = ticket.ok_or_else(|| LuceneError::illegal_state("ticket returned None"))?;
-          has_ticket = Some(ticket.clone());
+          let ticket = has_ticket.insert(ticket);
           let flushing_docs_in_ram = flushing_dwpt.state.get_num_docs_in_ram();
           {
             let mut dwpt = flushing_dwpt.dwpt.lock();
@@ -619,7 +619,7 @@ where
                 let v = dwpt.flush(&self.flush_notifications, writer)?;
                 match v {
                   Some(new_segment) => {
-                    self.ticket_queue.add_segment(&ticket, new_segment)?;
+                    self.ticket_queue.add_segment(ticket, new_segment)?;
                     dwpt_success = true;
                     Ok(())
                   },
@@ -835,7 +835,8 @@ where
   {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       if self.info_stream.is_enabled("DW") {
-        let thread_name = thread::current().name().unwrap_or("<unnamed>").to_string();
+        let current_thread = thread::current();
+        let thread_name = current_thread.name().unwrap_or("<unnamed>");
         self.info_stream.message(
           "DW",
           &format!("{thread_name} finishFullFlush success={success}"),

@@ -33,7 +33,7 @@ use crate::test_framework::core::util::lucene_test_case::random;
 use crate::test_framework::f32_equals;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::collections::HashSet;
 use strum::EnumCount;
 
@@ -54,7 +54,7 @@ fn test_tiny_vectors() -> Result<()> {
       }
     }
     for bits in [4, 7] {
-      let float_vector_values = from_floats(floats.clone());
+      let float_vector_values = from_floats(&floats);
       let actual_function = if function == VectorSimilarityFunction::Cosine {
         VectorSimilarityFunction::DotProduct
       } else {
@@ -96,7 +96,7 @@ fn test_nan_and_inf_value_failure() {
       }
     }
     for bits in [4, 7] {
-      let float_vector_values = from_floats(floats.clone());
+      let float_vector_values = from_floats(&floats);
       assert!(matches!(
         ScalarQuantizer::from_vectors(&float_vector_values, 0.9, num_vecs, bits),
         Err(error) if error.is_illegal_state_error()
@@ -127,7 +127,7 @@ fn test_quantize_and_de_quantize_7_bit() -> Result<()> {
   let similarity_function = VectorSimilarityFunction::DotProduct;
 
   let floats = random_floats(&mut random, num_vecs, dims);
-  let float_vector_values = from_floats(floats.clone());
+  let float_vector_values = from_floats(&floats);
   let scalar_quantizer = ScalarQuantizer::from_vectors(&float_vector_values, 1.0, num_vecs, 7)?;
   let mut dequantized = vec![0.0; dims];
   let mut quantized = vec![0; dims];
@@ -193,8 +193,7 @@ fn test_scalar_with_sampling() -> Result<()> {
   // Should not return an error.
   {
     let num_deleted = random.random_range(0..num_vecs - 1) + 1;
-    let float_vector_values =
-      from_floats_with_random_deletions(&mut random, floats.clone(), num_deleted);
+    let float_vector_values = from_floats_with_random_deletions(&mut random, &floats, num_deleted);
     ScalarQuantizer::from_vectors_with_sample_size(
       &float_vector_values,
       0.99,
@@ -205,8 +204,7 @@ fn test_scalar_with_sampling() -> Result<()> {
   }
   {
     let num_deleted = random.random_range(0..num_vecs - 1) + 1;
-    let float_vector_values =
-      from_floats_with_random_deletions(&mut random, floats.clone(), num_deleted);
+    let float_vector_values = from_floats_with_random_deletions(&mut random, &floats, num_deleted);
     ScalarQuantizer::from_vectors_with_sample_size(
       &float_vector_values,
       0.99,
@@ -217,8 +215,7 @@ fn test_scalar_with_sampling() -> Result<()> {
   }
   {
     let num_deleted = random.random_range(0..num_vecs - 1) + 1;
-    let float_vector_values =
-      from_floats_with_random_deletions(&mut random, floats.clone(), num_deleted);
+    let float_vector_values = from_floats_with_random_deletions(&mut random, &floats, num_deleted);
     ScalarQuantizer::from_vectors_with_sample_size(
       &float_vector_values,
       0.99,
@@ -252,7 +249,7 @@ fn test_from_vectors_auto_interval_4_bit() -> Result<()> {
   for v in &mut floats {
     VectorUtil::l2normalize(v)?;
   }
-  let float_vector_values = from_floats(floats.clone());
+  let float_vector_values = from_floats(&floats);
   let scalar_quantizer = ScalarQuantizer::from_vectors_auto_interval(
     &float_vector_values,
     similarity_function,
@@ -309,41 +306,43 @@ pub(crate) fn random_floats(random: &mut StdRng, num: usize, dims: usize) -> Vec
   floats
 }
 
-pub(crate) fn from_floats(floats: Vec<Vec<f32>>) -> TestSimpleFloatVectorValues {
+pub(crate) fn from_floats<F: Borrow<Vec<Vec<f32>>> + Clone>(
+  floats: F,
+) -> TestSimpleFloatVectorValues<F> {
   TestSimpleFloatVectorValues::new(floats, None)
 }
 
-fn from_floats_with_random_deletions(
+fn from_floats_with_random_deletions<F: Borrow<Vec<Vec<f32>>> + Clone>(
   random: &mut StdRng,
-  floats: Vec<Vec<f32>>,
+  floats: F,
   num_deleted: usize,
-) -> TestSimpleFloatVectorValues {
+) -> TestSimpleFloatVectorValues<F> {
   let mut deleted_vectors = HashSet::new();
   for _ in 0..num_deleted {
-    deleted_vectors.insert(random.random_range(0..floats.len()));
+    deleted_vectors.insert(random.random_range(0..floats.borrow().len()));
   }
   TestSimpleFloatVectorValues::new(floats, Some(deleted_vectors))
 }
 
 #[derive(Clone)]
-pub(crate) struct TestSimpleFloatVectorValues {
-  pub(crate) floats: Vec<Vec<f32>>,
+pub(crate) struct TestSimpleFloatVectorValues<F = Vec<Vec<f32>>> {
+  pub(crate) floats: F,
   pub(crate) deleted_vectors: Option<HashSet<usize>>,
   pub(crate) ord_to_doc: Vec<usize>,
   pub(crate) num_live_vectors: usize,
 }
 
-impl TestSimpleFloatVectorValues {
-  pub(crate) fn new(values: Vec<Vec<f32>>, deleted_vectors: Option<HashSet<usize>>) -> Self {
+impl<F: Borrow<Vec<Vec<f32>>> + Clone> TestSimpleFloatVectorValues<F> {
+  pub(crate) fn new(values: F, deleted_vectors: Option<HashSet<usize>>) -> Self {
     let num_live_vectors = deleted_vectors
       .as_ref()
-      .map_or(values.len(), |deleted_vectors| {
-        values.len() - deleted_vectors.len()
+      .map_or(values.borrow().len(), |deleted_vectors| {
+        values.borrow().len() - deleted_vectors.len()
       });
     let mut ord_to_doc = vec![0; num_live_vectors];
     if let Some(deleted_vectors) = &deleted_vectors {
       let mut ord = 0;
-      for doc in 0..values.len() {
+      for doc in 0..values.borrow().len() {
         if !deleted_vectors.contains(&doc) {
           ord_to_doc[ord] = doc;
           ord += 1;
@@ -363,13 +362,13 @@ impl TestSimpleFloatVectorValues {
   }
 }
 
-impl KnnVectorValues for TestSimpleFloatVectorValues {
+impl<F: Borrow<Vec<Vec<f32>>> + Clone> KnnVectorValues for TestSimpleFloatVectorValues<F> {
   fn dimension(&self) -> usize {
-    self.floats[0].len()
+    self.floats.borrow()[0].len()
   }
 
   fn size(&self) -> usize {
-    self.floats.len()
+    self.floats.borrow().len()
   }
 
   fn ord_to_doc(&self, ord: usize) -> Result<usize> {
@@ -403,16 +402,16 @@ impl KnnVectorValues for TestSimpleFloatVectorValues {
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     Ok(TestSimpleDocIndexIterator::new(
-      self.floats.len(),
+      self.floats.borrow().len(),
       self.deleted_vectors.clone(),
     ))
   }
 }
 
-impl FloatVectorValues for TestSimpleFloatVectorValues {
+impl<F: Borrow<Vec<Vec<f32>>> + Clone> FloatVectorValues for TestSimpleFloatVectorValues<F> {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     Ok(Cow::Owned(VectorValueEnum::Float(
-      self.floats[self.ord_to_doc(ord)?].clone(),
+      self.floats.borrow()[self.ord_to_doc(ord)?].clone(),
     )))
   }
 

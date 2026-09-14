@@ -183,9 +183,9 @@ fn test_sortable_bits() {
 #[test]
 fn test_sortable_bytes() {
   for i in i16::MIN as i32 + 1..=i16::MAX as i32 {
-    let mut previous = vec![0u8; HalfFloatPoint::BYTES];
+    let mut previous = [0u8; HalfFloatPoint::BYTES];
     HalfFloatPoint::short_to_sortable_bytes((i - 1) as i16, &mut previous, 0);
-    let mut current = vec![0u8; HalfFloatPoint::BYTES];
+    let mut current = [0u8; HalfFloatPoint::BYTES];
     HalfFloatPoint::short_to_sortable_bytes(i as i16, &mut current, 0);
     assert!(previous < current);
     assert_eq!(

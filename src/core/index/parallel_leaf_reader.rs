@@ -241,12 +241,12 @@ where
     for complete_reader_index in &parallel_reader_indices {
       let reader = &complete_reader_set[*complete_reader_index];
       let leaf_meta_data = reader.get_metadata()?;
-      let leaf_index_sort = leaf_meta_data.get_sort().clone();
+      let leaf_index_sort = leaf_meta_data.get_sort();
       if index_sort.is_none() {
-        index_sort = leaf_index_sort;
+        index_sort = leaf_index_sort.clone();
       } else if let Some(index_sort) = &index_sort
         && let Some(leaf_index_sort) = leaf_index_sort
-        && index_sort != &leaf_index_sort
+        && index_sort != leaf_index_sort
       {
         return Err(LuceneError::illegal_argument(format!(
           "cannot combine LeafReaders that have different index sorts: saw both sort={} and {}",
@@ -268,7 +268,7 @@ where
       for field_info in reader_field_infos.iter() {
         // NOTE: the first reader having a given field wins.
         if !field_to_reader.contains_key(&field_info.name) {
-          builder.add_with_dv_gen(field_info.clone(), field_info.get_doc_values_gen())?;
+          builder.add_with_dv_gen(field_info.as_ref(), field_info.get_doc_values_gen())?;
           field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
           // Only add these if the reader responsible for that field name is
           // the current reader.

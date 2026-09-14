@@ -43,6 +43,7 @@ use crate::test_framework::core::util::throttled_index_output::ThrottledIndexOut
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::io::{Error, ErrorKind};
@@ -518,16 +519,16 @@ where
       if self.state.always_corrupt.load(Ordering::SeqCst) && damage == 3 {
         damage = 4;
       }
-      let action: String;
+      let action: Cow<'_, str>;
 
       match damage {
         0 => {
-          action = "deleted".to_string();
+          action = Cow::Borrowed("deleted");
           self.delete_file(&name)?;
         },
 
         1 => {
-          action = "zeroed".to_string();
+          action = Cow::Borrowed("zeroed");
           // Zero out file entirely
           let length = self.file_length(&name)?;
 
@@ -553,7 +554,7 @@ where
         },
 
         2 => {
-          action = "partially truncated".to_string();
+          action = Cow::Borrowed("partially truncated");
           // Partially Truncate the file:
 
           // First, make temp file and copy only half this
@@ -637,12 +638,12 @@ where
 
         3 => {
           // The file survived intact:
-          action = "didn't change".to_string();
+          action = Cow::Borrowed("didn't change");
         },
 
         4 => {
           // Corrupt one bit randomly in the file:
-          let mut action_text = "didn't change".to_string();
+          let mut action_text = Cow::Borrowed("didn't change");
           let temp_file_name = (|| -> Result<String> {
             let base = self.state.base.lock();
             let mut temp_out = base.get_delegate().create_temp_output(
@@ -683,9 +684,9 @@ where
                   b ^= 1 << bit_to_flip;
                   temp_out.write_byte(b)?;
 
-                  action_text = format!(
+                  action_text = Cow::Owned(format!(
                     "flip bit {bit_to_flip} of byte {byte_to_corrupt} out of {length} bytes"
-                  );
+                  ));
 
                   // Copy last part unchanged:
                   let bytes_left = length - byte_to_corrupt - 1;
@@ -746,7 +747,7 @@ where
         },
 
         5 => {
-          action = "fully truncated".to_string();
+          action = Cow::Borrowed("fully truncated");
           // Totally truncate the file to zero bytes
           self.delete_file(&name)?;
 
@@ -1394,7 +1395,7 @@ where
       &randomized_context,
     )?;
     let name = delegate_output.get_name().to_string();
-    if !name.to_lowercase().ends_with(".tmp") {
+    if !name.ends_with(".tmp") && !name.to_lowercase().ends_with(".tmp") {
       return Err(LuceneError::illegal_state(format!(
         "wrapped directory failed to use .tmp extension: got: {name}"
       )));

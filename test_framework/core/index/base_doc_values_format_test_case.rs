@@ -22,6 +22,7 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::check_index::CheckIndex;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
@@ -904,14 +905,14 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     assert_eq!(0, sorted.next_doc()?);
     let ord = sorted.ord_value()?;
     assert_eq!(
-      &BytesRef::from_string("search"),
-      sorted.lookup_ord(ord)?.as_ref()
+      BytesRef::<Vec<u8>>::from_string("search").as_bytes(),
+      sorted.lookup_ord(ord)?.as_bytes()
     );
     assert_eq!(1, sorted.next_doc()?);
     let ord = sorted.ord_value()?;
     assert_eq!(
-      &BytesRef::from_string("search"),
-      sorted.lookup_ord(ord)?.as_ref()
+      BytesRef::<Vec<u8>>::from_string("search").as_bytes(),
+      sorted.lookup_ord(ord)?.as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, sorted.next_doc()?);
 
@@ -930,14 +931,14 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     assert_eq!(0, sorted_set.next_doc()?);
     let ord = sorted_set.next_ord()?;
     assert_eq!(
-      &BytesRef::from_string("engine"),
-      sorted_set.lookup_ord(ord)?.as_ref()
+      BytesRef::<Vec<u8>>::from_string("engine").as_bytes(),
+      sorted_set.lookup_ord(ord)?.as_bytes()
     );
     assert_eq!(1, sorted_set.next_doc()?);
     let ord = sorted_set.next_ord()?;
     assert_eq!(
-      &BytesRef::from_string("engine"),
-      sorted_set.lookup_ord(ord)?.as_ref()
+      BytesRef::<Vec<u8>>::from_string("engine").as_bytes(),
+      sorted_set.lookup_ord(ord)?.as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, sorted_set.next_doc()?);
 

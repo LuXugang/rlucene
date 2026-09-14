@@ -17,18 +17,18 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::access::{SharedAccessVec, WritableVec};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValueEnum};
+use crate::core::util::access::WritableVec;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::byte_block_pool::{BYTE_BLOCK_MASK, BYTE_BLOCK_SHIFT, BYTE_BLOCK_SIZE};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::core::util::{
   ByteBlockPool, BytesRefComparator, Counter, MSBRadixSorterBase, SharedCounter, SliceCopyOps,
-  Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase,
+  Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase, TryIntoInt,
 };
 
 /// A simple append-only random-access array that stores full copies of the
@@ -110,15 +110,16 @@ impl BytesRefArray {
   /// Used only by the sorting function below to set a [`BytesRef`] with the
   /// specified slice, avoiding copying bytes in the common case when the
   /// slice is contained in a single block in the byte block pool.
-  fn set_bytes_ref<AV>(
-    &self,
-    spare: &mut BytesRefBuilder<AV>,
-    result: &mut BytesRef<AV>,
+  #[allow(
+    clippy::owned_cow,
+    reason = "Matches ByteBlockPool's Vec carrier, which preserves reusable cross-block capacity"
+  )]
+  fn set_bytes_ref<'a>(
+    &'a self,
+    spare: &mut BytesRefBuilder<Vec<u8>>,
+    result: &mut BytesRef<Cow<'a, Vec<u8>>>,
     index: usize,
-  ) -> Result<()>
-  where
-    AV: SharedAccessVec<u8> + WritableVec<u8>,
-  {
+  ) -> Result<()> {
     if index >= self.last_element {
       return Err(LuceneError::array_index_out_of_bounds(format!(
         "index: {}, last_element: {}",
@@ -151,9 +152,9 @@ impl BytesRefArray {
   /// # Returns
   /// A [`SortState`] that can be used in
   /// [`BytesRefArray::iterator_with_state`] with the given sort state.
-  pub fn sort<C>(&self, comp: C, stable: bool) -> Result<SortState>
+  pub fn sort<'a, C>(&'a self, comp: C, stable: bool) -> Result<SortState>
   where
-    C: BytesRefComparator,
+    C: BytesRefComparator<Cow<'a, Vec<u8>>>,
   {
     let size = self.size();
     let mut ordered_entries: Vec<usize> = (0..size).collect();
@@ -240,7 +241,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     self.last_element
   }
 
-  /// Returns a [`BytesRefIterator`] with point-in-time semantics. The
+  /// Returns an [`IndexedBytesRefIterator`] with point-in-time semantics. The
   /// iterator provides access to all [`BytesRef`] instances appended so
   /// far.
   ///
@@ -255,7 +256,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
 
   fn iterator<C>(&'a self, comp: C) -> Result<Self::Iter>
   where
-    C: BytesRefComparator,
+    C: BytesRefComparator<Cow<'a, Vec<u8>>>,
   {
     let ords = self.sort(comp, false)?;
     Ok(self.iterator_with_state(Arc::from(ords)))
@@ -281,7 +282,6 @@ pub struct IndexedBytesRefIteratorImpl<'a> {
   pos: usize,
   pub(crate) ord: usize,
   sort_state: Arc<SortState>,
-  spare: BytesRefBuilder<Vec<u8>>,
   size: usize,
   bytes_ref_array: &'a BytesRefArray,
   result: BytesRef<Vec<u8>>,
@@ -298,65 +298,104 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
       pos: 0,
       ord: 0,
       sort_state,
-      spare: BytesRefBuilder::new(),
       size: bytes_ref_array.size(),
       bytes_ref_array,
       result: BytesRef::new(),
     }
   }
 }
-impl BytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
-  fn next(&'_ mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
+  fn next(&mut self) -> Result<Option<(usize, BytesRefValueEnum<'_>)>> {
     if self.pos < self.size {
       self.ord = match self.sort_state.indices.as_ref() {
         None => self.pos,
         Some(indices) => indices[self.pos],
       };
 
-      self
-        .bytes_ref_array
-        .set_bytes_ref(&mut self.spare, &mut self.result, self.ord)?;
+      let array = self.bytes_ref_array;
+      if self.ord >= array.last_element {
+        return Err(LuceneError::array_index_out_of_bounds(format!(
+          "index: {}, last_element: {}",
+          self.ord, array.last_element
+        )));
+      }
+      let offset = array.offsets[self.ord];
+      let length = if self.ord == array.last_element - 1 {
+        array.current_offset - offset
+      } else {
+        array.offsets[self.ord + 1] - offset
+      };
+      // Retain the growth error before updating the result or converting
+      // the offset, even when a contiguous value no longer needs a copy.
+      if self.result.bytes.len() < length {
+        ArrayUtil::oversize(length, size_of::<u8>())?;
+      }
+      let offset = offset as i64;
+      let pos = (offset & BYTE_BLOCK_MASK as i64) as usize;
+      if pos + length > BYTE_BLOCK_SIZE as usize {
+        ArrayUtil::grow_no_copy(&mut self.result.bytes, length)?;
+      }
+      self.result.length = length;
+      let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;
+      let value = if pos + length <= BYTE_BLOCK_SIZE as usize {
+        let bytes = &array.pool.get_buffer(buffer_index as usize)[pos..pos + length];
+        self.result.offset = 0;
+        BytesRefValueEnum::Slice(BytesRef {
+          bytes,
+          offset: 0,
+          length,
+        })
+      } else {
+        self.result.offset = 0;
+        array
+          .pool
+          .read_bytes(offset, &mut self.result.bytes, 0, length)?;
+        BytesRefValueEnum::Buffer(Cow::Borrowed(&self.result))
+      };
       self.pos += 1;
-      Ok(Some(Cow::Borrowed(&self.result)))
+      Ok(Some((self.ord, value)))
     } else {
       Ok(None)
     }
   }
-}
-impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
   fn ord(&self) -> usize {
     self.ord
   }
 }
 
 pub trait IndexedBytesRefIterator {
+  /// Returns the next ordinal and value, borrowing a pool block when contiguous.
+  fn next(&mut self) -> Result<Option<(usize, BytesRefValueEnum<'_>)>>;
+
   /// Returns the ordinal position of the element that was returned in the
-  /// latest call to [`next`](BytesRefIterator::next).
+  /// latest call to [`next`](Self::next).
   ///
   /// # Warning
-  /// This method must not be called if [`next`](BytesRefIterator::next) has
+  /// This method must not be called if [`next`](Self::next) has
   /// not been called yet, or if the last call to
-  /// [`next`](BytesRefIterator::next) returned `None`.
+  /// [`next`](Self::next) returned `None`.
   fn ord(&self) -> usize;
 }
 
-struct StableStringSorterImpl<'a> {
+struct StableStringSorterImpl<'a, 'o> {
   tmp: Vec<usize>,
-  ordered_entries: &'a mut [usize],
+  ordered_entries: &'o mut [usize],
   bytes_ref_array: &'a BytesRefArray,
 }
-impl Sorter for StableStringSorterImpl<'_> {
+impl Sorter for StableStringSorterImpl<'_, '_> {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     self.ordered_entries.swap(i, j);
     Ok(())
   }
 }
 
-impl StringSorterBase for StableStringSorterImpl<'_> {
+impl<'a> StringSorterBase for StableStringSorterImpl<'a, '_> {
+  type Bytes = Cow<'a, Vec<u8>>;
+
   fn get(
     &mut self,
     builder: &mut BytesRefBuilder<Vec<u8>>,
-    result: &mut BytesRef<Vec<u8>>,
+    result: &mut BytesRef<Cow<'a, Vec<u8>>>,
     i: usize,
   ) -> Result<()> {
     self
@@ -365,7 +404,7 @@ impl StringSorterBase for StableStringSorterImpl<'_> {
   }
 }
 
-impl StableStringSorterBase for StableStringSorterImpl<'_> {
+impl StableStringSorterBase for StableStringSorterImpl<'_, '_> {
   fn save(&mut self, i: usize, j: usize) {
     self.tmp[j] = self.ordered_entries[i];
   }
@@ -373,23 +412,25 @@ impl StableStringSorterBase for StableStringSorterImpl<'_> {
     self.ordered_entries.copy_from(&self.tmp[i..j], i);
   }
 }
-impl MSBRadixSorterBase for StableStringSorterImpl<'_> {}
+impl MSBRadixSorterBase for StableStringSorterImpl<'_, '_> {}
 
-struct StringSorterImpl<'a> {
-  ordered_entries: &'a mut [usize],
+struct StringSorterImpl<'a, 'o> {
+  ordered_entries: &'o mut [usize],
   bytes_ref_array: &'a BytesRefArray,
 }
-impl Sorter for StringSorterImpl<'_> {
+impl Sorter for StringSorterImpl<'_, '_> {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     self.ordered_entries.swap(i, j);
     Ok(())
   }
 }
-impl StringSorterBase for StringSorterImpl<'_> {
+impl<'a> StringSorterBase for StringSorterImpl<'a, '_> {
+  type Bytes = Cow<'a, Vec<u8>>;
+
   fn get(
     &mut self,
     builder: &mut BytesRefBuilder<Vec<u8>>,
-    result: &mut BytesRef<Vec<u8>>,
+    result: &mut BytesRef<Cow<'a, Vec<u8>>>,
     i: usize,
   ) -> Result<()> {
     self

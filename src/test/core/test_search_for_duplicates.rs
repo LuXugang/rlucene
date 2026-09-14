@@ -40,6 +40,8 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
+use std::fmt::Write as _;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 pub struct TestSearchForDuplicates;
@@ -96,16 +98,20 @@ where
 
   let mut output = String::new();
   let query = TermQuery::new(Term::from_text(PRIORITY_FIELD, HIGH_PRIORITY));
-  output.push_str(&format!("Query: {}\n", query.to_string(PRIORITY_FIELD)?));
+  writeln!(output, "Query: {}", query.to_string(PRIORITY_FIELD)?)
+    .expect("writing to a String cannot fail");
 
+  let sort = Arc::new(sort);
   let hits = searcher.search_with_sort_score(query, max_docs, sort.clone(), true)?;
-  output.push_str(&format!("{} total results\n\n", hits.score_docs().len()));
+  write!(output, "{} total results\n\n", hits.score_docs().len())
+    .expect("writing to a String cannot fail");
   {
     let mut stored_fields = searcher.stored_fields()?;
     for (i, hit) in hits.score_docs().iter().enumerate() {
       if i < 10 || (i > 94 && i < 105) {
         let d = stored_fields.document(hit.doc())?;
-        output.push_str(&format!("{} {}\n", i, d.get(ID_FIELD)?.unwrap()));
+        writeln!(output, "{} {}", i, d.get(ID_FIELD)?.unwrap())
+          .expect("writing to a String cannot fail");
       }
     }
   }
@@ -122,19 +128,23 @@ where
     Occur::Should,
   )?;
   let boolean_query = boolean_query.build();
-  output.push_str(&format!(
-    "Query: {}\n",
+  writeln!(
+    output,
+    "Query: {}",
     boolean_query.to_string(PRIORITY_FIELD)?
-  ));
+  )
+  .expect("writing to a String cannot fail");
 
   let hits = searcher.search_with_sort_score(boolean_query, max_docs, sort, true)?;
-  output.push_str(&format!("{} total results\n\n", hits.score_docs().len()));
+  write!(output, "{} total results\n\n", hits.score_docs().len())
+    .expect("writing to a String cannot fail");
   {
     let mut stored_fields = searcher.stored_fields()?;
     for (i, hit) in hits.score_docs().iter().enumerate() {
       if i < 10 || (i > 94 && i < 105) {
         let d = stored_fields.document(hit.doc())?;
-        output.push_str(&format!("{} {}\n", i, d.get(ID_FIELD)?.unwrap()));
+        writeln!(output, "{} {}", i, d.get(ID_FIELD)?.unwrap())
+          .expect("writing to a String cannot fail");
       }
     }
   }

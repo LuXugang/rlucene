@@ -228,10 +228,10 @@ fn test_random_automaton_query() -> Result<()> {
     while per_query_vocab.len() < term_num {
       if random.random_bool(0.5) {
         let idx = random.random_range(0..vocab_list.len());
-        per_query_vocab.insert(vocab_list[idx].clone());
+        per_query_vocab.insert(&vocab_list[idx]);
       } else {
         let idx = random.random_range(0..foreign_vocab_list.len());
-        per_query_vocab.insert(foreign_vocab_list[idx].clone());
+        per_query_vocab.insert(&foreign_vocab_list[idx]);
       }
     }
 

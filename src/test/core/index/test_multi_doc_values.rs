@@ -22,6 +22,7 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::IndexReader;
@@ -246,8 +247,8 @@ fn test_sorted() -> Result<()> {
 
     let multi_ord_value = multi.ord_value()?;
     let multi_ord = multi.lookup_ord(multi_ord_value)?;
-    let actual = multi_ord.as_ref();
-    assert_eq!(&expected, actual);
+    let actual = multi_ord.as_bytes();
+    assert_eq!(expected.as_bytes(), actual);
 
     // check ord
     assert_eq!(single.ord_value()?, multi.ord_value()?);
@@ -329,9 +330,9 @@ fn test_sorted_with_lots_of_dups() -> Result<()> {
 
     let multi_ord_value = multi.ord_value()?;
     let multi_ord = multi.lookup_ord(multi_ord_value)?;
-    let actual = multi_ord.as_ref();
+    let actual = multi_ord.as_bytes();
 
-    assert_eq!(&expected, actual);
+    assert_eq!(expected.as_bytes(), actual);
   }
 
   test_random_advance(
@@ -400,9 +401,9 @@ fn test_sorted_set() -> Result<()> {
 
       let value_count = single.get_value_count()?;
       for i in 0..value_count {
-        let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref())?;
+        let expected = single.lookup_ord(i)?;
         let actual = multi.lookup_ord(i)?;
-        assert_eq!(&expected, actual.as_ref());
+        assert_eq!(expected.as_bytes(), actual.as_bytes());
       }
 
       loop {
@@ -495,9 +496,9 @@ fn test_sorted_set_with_dups() -> Result<()> {
       // check values
       let value_count = single.get_value_count()?;
       for i in 0..value_count {
-        let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref())?;
+        let expected = single.lookup_ord(i)?;
         let actual = multi.lookup_ord(i)?;
-        assert_eq!(&expected, actual.as_ref());
+        assert_eq!(expected.as_bytes(), actual.as_bytes());
       }
 
       // check ord list

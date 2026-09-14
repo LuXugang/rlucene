@@ -77,6 +77,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::SliceRandom;
+use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -101,7 +102,7 @@ fn test_all_docs_in_field_term() -> Result<()> {
     random_terms.insert(new_bytes_ref_from_string(&mut random, &term_string)?);
   }
   assert_eq!(BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD, random_terms.len());
-  let other_terms: Vec<_> = random_terms.iter().cloned().collect();
+  let other_terms: Vec<_> = random_terms.into_iter().collect();
 
   let num_docs = 10 * other_terms.len();
   for i in 0..num_docs {
@@ -1144,9 +1145,12 @@ fn test_visitor() -> Result<()> {
     where
       Self: 'a;
 
-    fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+    fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
       assert_eq!(1, terms.len());
-      assert_eq!(Term::from_text("field", "term1"), terms[0]);
+      assert_eq!(
+        &Term::from_text("field", "term1"),
+        Borrow::<Term>::borrow(&terms[0])
+      );
       Ok(())
     }
 
@@ -1181,7 +1185,7 @@ fn test_visitor() -> Result<()> {
     where
       Self: 'a;
 
-    fn consume_terms(&mut self, _query: QueryRef<'_>, _terms: &[Term]) -> Result<()> {
+    fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, _terms: &[T]) -> Result<()> {
       panic!("TermInSetQuery with multiple terms should build automaton")
     }
 
@@ -1240,16 +1244,16 @@ fn test_terms_iterator() -> Result<()> {
   )?;
   iterator = query.get_bytes_ref_iterator()?;
   assert_eq!(
-    new_bytes_ref_from_string(&mut random, "term1")?,
-    iterator.next()?.unwrap().into_owned()
+    &new_bytes_ref_from_string(&mut random, "term1")?,
+    iterator.next()?.unwrap().as_ref()
   );
   assert_eq!(
-    new_bytes_ref_from_string(&mut random, "term2")?,
-    iterator.next()?.unwrap().into_owned()
+    &new_bytes_ref_from_string(&mut random, "term2")?,
+    iterator.next()?.unwrap().as_ref()
   );
   assert_eq!(
-    new_bytes_ref_from_string(&mut random, "term3")?,
-    iterator.next()?.unwrap().into_owned()
+    &new_bytes_ref_from_string(&mut random, "term3")?,
+    iterator.next()?.unwrap().as_ref()
   );
   assert!(iterator.next()?.is_none());
   Ok(())

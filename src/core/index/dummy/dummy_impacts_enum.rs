@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::dummy::dummy_impacts::DummyImpacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummyImpactsEnum;
 
@@ -42,7 +41,7 @@ impl PostingsEnum for DummyImpactsEnum {
     dummy_unreachable!()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     dummy_unreachable!()
   }
 }

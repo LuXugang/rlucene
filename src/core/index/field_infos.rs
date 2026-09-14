@@ -27,6 +27,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::LazyLock;
@@ -541,13 +542,13 @@ where
   let parent_field = get_and_validate_parent_field(leaves)?;
 
   let mut builder = Builder::new(Arc::new(Mutex::new(FieldNumbers::new(
-    soft_deletes_field.clone(),
-    parent_field.clone(),
+    soft_deletes_field,
+    parent_field,
   )?)));
 
   for leaf in leaves {
     for field_info in leaf.reader().get_field_infos()?.iter() {
-      builder.add(field_info.clone())?;
+      builder.add(field_info.as_ref())?;
     }
   }
 
@@ -564,12 +565,13 @@ where
   let mut set = false;
 
   for ctx in leaves {
-    let field = ctx.reader().get_field_infos()?.get_parent_field().cloned();
+    let field_infos = ctx.reader().get_field_infos()?;
+    let field = field_infos.get_parent_field();
 
     if !set {
-      the_field = field;
+      the_field = field.cloned();
       set = true;
-    } else if field != the_field {
+    } else if field != the_field.as_ref() {
       return Err(LuceneError::illegal_state(format!(
         "expected parent doc field to be \"{:?}\" across all segments \
                  but found a segment with different field \"{:?}\"",
@@ -1073,13 +1075,20 @@ impl Builder {
     }
   }
 
-  pub fn add(&mut self, fi: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
+  pub fn add<F>(&mut self, fi: F) -> Result<Arc<FieldInfo>>
+  where
+    F: Borrow<FieldInfo>,
+  {
     self.add_with_dv_gen(fi, -1)
   }
 
-  pub fn add_with_dv_gen(&mut self, fi: Arc<FieldInfo>, dv_gen: i64) -> Result<Arc<FieldInfo>> {
+  pub fn add_with_dv_gen<F>(&mut self, fi: F, dv_gen: i64) -> Result<Arc<FieldInfo>>
+  where
+    F: Borrow<FieldInfo>,
+  {
+    let fi = fi.borrow();
     if let Some(cur_fi) = self.field_info(&fi.name) {
-      cur_fi.verify_same_schema(&fi)?;
+      cur_fi.verify_same_schema(fi)?;
 
       let attributes = fi.attributes();
       for (k, v) in attributes.iter() {
@@ -1088,13 +1097,13 @@ impl Builder {
       if fi.has_payloads() {
         cur_fi.set_store_payloads()?;
       }
-      return Ok(cur_fi.clone());
+      return Ok(cur_fi);
     }
 
     self.assert_not_finished()?;
 
-    let field_number = self.global_field_numbers.lock().add_or_get(&fi)?;
-    let attributes = fi.attributes().as_ref().clone();
+    let field_number = self.global_field_numbers.lock().add_or_get(fi)?;
+    let attributes = fi.attributes();
     let fi_new = Arc::new(FieldInfo::new(
       fi.name.clone(),
       field_number,

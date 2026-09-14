@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -228,9 +230,13 @@ impl QueryBase for TermRangeQuery {
     let lower_str = match self.lower_term.as_ref() {
       Some(term) => {
         let s = term.utf8_to_string()?;
-        if s == "*" { "\\*".to_string() } else { s }
+        if s == "*" {
+          Cow::Borrowed("\\*")
+        } else {
+          Cow::Owned(s)
+        }
       },
-      None => "*".to_string(),
+      None => Cow::Borrowed("*"),
     };
     buffer.push_str(&lower_str);
 
@@ -239,9 +245,13 @@ impl QueryBase for TermRangeQuery {
     let upper_str = match self.upper_term.as_ref() {
       Some(term) => {
         let s = term.utf8_to_string()?;
-        if s == "*" { "\\*".to_string() } else { s }
+        if s == "*" {
+          Cow::Borrowed("\\*")
+        } else {
+          Cow::Owned(s)
+        }
       },
-      None => "*".to_string(),
+      None => Cow::Borrowed("*"),
     };
     buffer.push_str(&upper_str);
 

@@ -17,6 +17,7 @@
 use crate::core::index::BytesRef;
 use crate::core::util::BytesRefComparator;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
 
 pub trait SortableBytesRefArray<'a> {
   /// Append a new value
@@ -30,5 +31,5 @@ pub trait SortableBytesRefArray<'a> {
   type Iter;
   fn iterator<C>(&'a self, comp: C) -> Result<Self::Iter>
   where
-    C: BytesRefComparator;
+    C: BytesRefComparator<Cow<'a, Vec<u8>>>;
 }

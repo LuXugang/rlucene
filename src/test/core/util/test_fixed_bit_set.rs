@@ -38,18 +38,18 @@ use std::rc::Rc;
 
 pub struct TestFixedBitSet;
 
-struct CopyBits {
-  bits: FixedBitSet,
+struct CopyBits<'a> {
+  bits: &'a FixedBitSet,
   id: Identity,
 }
 
-impl HasIdentity for CopyBits {
+impl HasIdentity for CopyBits<'_> {
   fn identity(&self) -> &Identity {
     &self.id
   }
 }
 
-impl Bits for CopyBits {
+impl Bits for CopyBits<'_> {
   fn get(&self, index: usize) -> Result<bool> {
     self.bits.get(index)
   }
@@ -765,7 +765,7 @@ fn test_copy_of() -> Result<()> {
   assert_eq!(fixed_bit_set, mutable_copy);
 
   let bits_to_copy = CopyBits {
-    bits: fixed_bit_set.clone(),
+    bits: &fixed_bit_set,
     id: Identity::new(),
   };
   let mutable_copy = bits_to_copy.copy_of()?;

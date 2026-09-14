@@ -277,9 +277,10 @@ where
     if let Some(payloads) = payloads
       && let Some(payload) = &payloads[i]
     {
+      let actual = attr.get_payload()?.unwrap();
       assert_eq!(
-        &BytesRef::from_bytes(payload.clone()),
-        attr.get_payload()?.unwrap()
+        payload.as_slice(),
+        &actual.bytes[actual.offset..actual.offset + actual.length]
       );
     }
     if pos_incr_att {
@@ -957,7 +958,7 @@ where
   R: Rng + ?Sized,
 {
   with_analyzer_token_stream(a, input, |ts| {
-    let len: Vec<char> = input.chars().collect();
+    let len = input.chars().count();
     assert_token_stream_contents8(
       ts,
       output,
@@ -966,7 +967,7 @@ where
       types,
       pos_increments,
       pos_lengths,
-      Some(len.len() as i32),
+      Some(len as i32),
       boost,
     )
   })?;
@@ -993,7 +994,7 @@ where
   R: Rng + ?Sized,
 {
   with_analyzer_token_stream(a, input, |ts| {
-    let len: Vec<char> = input.chars().collect();
+    let len = input.chars().count();
     assert_token_stream_contents6(
       ts,
       output,
@@ -1002,7 +1003,7 @@ where
       types,
       pos_increments,
       pos_lengths,
-      Some(len.len() as i32),
+      Some(len as i32),
       graph_offsets_are_correct,
     )
   })?;
@@ -1030,7 +1031,7 @@ where
   R: Rng + ?Sized,
 {
   with_analyzer_token_stream(a, input, |ts| {
-    let len: Vec<char> = input.chars().collect();
+    let len = input.chars().count();
     assert_token_stream_contents4(
       ts,
       output,
@@ -1039,7 +1040,7 @@ where
       types,
       pos_increments,
       pos_lengths,
-      Some(len.len() as i32),
+      Some(len as i32),
       None,
       None,
       graph_offsets_are_correct,

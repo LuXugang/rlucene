@@ -19,6 +19,7 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::query::QueryRef;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Borrow;
 use std::collections::HashSet;
 
 /// Allows recursion through a query tree.
@@ -36,7 +37,7 @@ pub trait QueryVisitor {
   ///
   /// - `query`: the leaf query
   /// - `terms`: the terms the query will match on
-  fn consume_terms(&mut self, _query: QueryRef<'_>, _terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, _terms: &[T]) -> Result<()> {
     Ok(())
   }
 
@@ -122,7 +123,7 @@ where
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, query: QueryRef<'_>, terms: &[T]) -> Result<()> {
     match self {
       Self::Visitor(visitor) => visitor.consume_terms(query, terms),
       Self::Empty => Ok(()),
@@ -181,7 +182,7 @@ where
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, query: QueryRef<'_>, terms: &[T]) -> Result<()> {
     (**self).consume_terms(query, terms)
   }
 
@@ -230,9 +231,13 @@ impl QueryVisitor for TermCollector<'_> {
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
     match self {
-      Self::Collector(term_set) => term_set.extend(terms.iter().cloned()),
+      Self::Collector(term_set) => term_set.extend(
+        terms
+          .iter()
+          .map(|term| Borrow::<Term>::borrow(term).clone()),
+      ),
       Self::Empty(_) => {},
     }
     Ok(())

@@ -37,7 +37,7 @@ fn test_reverse_with_parents() -> Result<()> {
   let mut config = IndexWriterConfig::new()?;
   config.set_parent_field("_parent");
   let w = IndexWriter::new(dir.clone(), config)?;
-  let docs = vec![Document::new(); 5];
+  let docs: [Document; 5] = std::array::from_fn(|_| Document::new());
   w.add_documents(docs[0..2].to_vec())?;
   w.add_documents(docs[0..4].to_vec())?;
   w.add_documents(docs[0..3].to_vec())?;

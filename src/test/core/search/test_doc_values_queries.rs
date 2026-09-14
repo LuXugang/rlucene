@@ -119,7 +119,7 @@ fn test_duel_point_numeric_sorted_with_skipper_range_query() -> Result<()> {
     let mut doc = Document::new();
 
     doc.add(NumericDocValuesField::indexed_field("dv", value));
-    doc.add(LongPoint::new("idx", vec![value])?);
+    doc.add(LongPoint::new("idx", [value])?);
     iw.add_document(&mut random, doc)?;
   }
 
@@ -194,7 +194,7 @@ fn do_test_duel_point_range_numeric_range_query(
           doc.add(NumericDocValuesField::new("dv", value));
         }
 
-        doc.add(LongPoint::new("idx", vec![value])?);
+        doc.add(LongPoint::new("idx", [value])?);
       }
 
       iw.add_document(&mut random, doc)?;
@@ -272,7 +272,7 @@ fn do_test_duel_point_range_sorted_range_query(
       for _ in 0..num_values {
         let value = TestUtil::next_long(&mut random, -100, 10000);
 
-        let mut encoded = vec![0u8; 8];
+        let mut encoded = [0u8; 8];
         LongPoint::encode_dimension(value, &mut encoded, 0);
 
         if sorted_set {
@@ -299,7 +299,7 @@ fn do_test_duel_point_range_sorted_range_query(
           ));
         }
 
-        doc.add(LongPoint::new("idx", vec![value])?);
+        doc.add(LongPoint::new("idx", [value])?);
       }
 
       iw.add_document(&mut random, doc)?;
@@ -329,8 +329,8 @@ fn do_test_duel_point_range_sorted_range_query(
       };
 
       // encoded boundaries
-      let mut encoded_min = vec![0u8; 8];
-      let mut encoded_max = vec![0u8; 8];
+      let mut encoded_min = [0u8; 8];
+      let mut encoded_max = [0u8; 8];
       LongPoint::encode_dimension(min, encoded_min.as_mut(), 0);
       LongPoint::encode_dimension(max, encoded_max.as_mut(), 0);
 
@@ -440,7 +440,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
     let value = TestUtil::next_long(&mut random, -100, 10000);
 
     // encode value → BytesRef
-    let mut encoded = vec![0u8; 8];
+    let mut encoded = [0u8; 8];
     LongPoint::encode_dimension(value, &mut encoded, 0);
 
     let mut doc = Document::new();
@@ -449,7 +449,7 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
       new_bytes_ref_from_bytes(&mut random, encoded.as_ref())?,
     ));
 
-    doc.add(LongPoint::new("idx", vec![value])?);
+    doc.add(LongPoint::new("idx", [value])?);
 
     iw.add_document(&mut random, doc)?;
   }
@@ -471,8 +471,8 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
       TestUtil::next_long(&mut random, -100, 10000)
     };
 
-    let mut encoded_min = vec![0u8; 8];
-    let mut encoded_max = vec![0u8; 8];
+    let mut encoded_min = [0u8; 8];
+    let mut encoded_max = [0u8; 8];
     LongPoint::encode_dimension(min, encoded_min.as_mut(), 0);
     LongPoint::encode_dimension(max, encoded_max.as_mut(), 0);
 

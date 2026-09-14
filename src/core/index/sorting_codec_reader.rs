@@ -110,8 +110,8 @@ pub enum CachedObject {
   Numeric(NumericDVs<FixedBitSet>),
   Binary(BinaryDVs),
   Sorted(Arc<Vec<i32>>),
-  SortedNumeric(LongValues),
-  SortedSet(DocOrds),
+  SortedNumeric(Arc<LongValues>),
+  SortedSet(Arc<DocOrds>),
 }
 
 /// An [`CodecReader`] which supports sorting documents by a given [`Sort`]. This can be used to
@@ -896,8 +896,10 @@ where
     Ok(SortingSortedDocValues::new(old_doc_values, ords))
   }
 
-  type SortedNumericDocValues =
-    SortingSortedNumericDocValues<<DVP as DocValuesProducer>::SortedNumericDocValues>;
+  type SortedNumericDocValues = SortingSortedNumericDocValues<
+    <DVP as DocValuesProducer>::SortedNumericDocValues,
+    Arc<LongValues>,
+  >;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
     let mut old_doc_values = self.delegate.get_sorted_numeric(field)?;
@@ -911,7 +913,7 @@ where
           &mut old_doc_values,
           PackedInts::FAST,
         )?;
-        Ok(CachedObject::SortedNumeric(long_values))
+        Ok(CachedObject::SortedNumeric(Arc::new(long_values)))
       },
       &self.inner,
     )?;
@@ -931,7 +933,7 @@ where
   }
 
   type SortedSetDocValues =
-    SortingSortedSetDocValues<<DVP as DocValuesProducer>::SortedSetDocValues>;
+    SortingSortedSetDocValues<<DVP as DocValuesProducer>::SortedSetDocValues, Arc<DocOrds>>;
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     let mut old_doc_values = self.delegate.get_sorted_set(field)?;
@@ -946,7 +948,7 @@ where
           PackedInts::FAST,
           START_BITS_PER_VALUE,
         )?;
-        Ok(CachedObject::SortedSet(doc_ords))
+        Ok(CachedObject::SortedSet(Arc::new(doc_ords)))
       },
       &self.inner,
     )?;
@@ -1213,6 +1215,11 @@ impl<S> SortedDocValues for SortingCodecReaderSortedDocValues<S>
 where
   S: SortedDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     match self {
       Self::Original(values) => values.ord_value(),
@@ -1220,7 +1227,7 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     match self {
       Self::Original(values) => values.lookup_ord(ord),
       Self::Sorting(values) => values.lookup_ord(ord),
@@ -1260,7 +1267,7 @@ where
 
 pub enum SortingCodecReaderSortedSetDocValues<S> {
   Original(S),
-  Sorting(SortingSortedSetDocValues<S>),
+  Sorting(SortingSortedSetDocValues<S, Arc<DocOrds>>),
 }
 
 impl<S> DocValuesIterator for SortingCodecReaderSortedSetDocValues<S>
@@ -1333,7 +1340,7 @@ where
   S: SortedSetDocValues,
 {
   Original(S::TermsEnum<'a>),
-  Sorting(SortedSetDocValuesTermsEnum<&'a mut SortingSortedSetDocValues<S>>),
+  Sorting(SortedSetDocValuesTermsEnum<&'a mut SortingSortedSetDocValues<S, Arc<DocOrds>>>),
 }
 
 impl<'a, S> BytesRefIterator for SortingCodecReaderSortedSetDocValuesTermsEnum<'a, S>
@@ -1497,6 +1504,11 @@ impl<S> SortedSetDocValues for SortingCodecReaderSortedSetDocValues<S>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::Original(values) => values.next_ord(),
@@ -1511,7 +1523,7 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
       Self::Original(values) => values.lookup_ord(ord),
       Self::Sorting(values) => values.lookup_ord(ord),
@@ -1731,7 +1743,7 @@ where
 
 pub enum SortingCodecReaderSortedNumericDocValues<S> {
   Original(S),
-  Sorting(SortingSortedNumericDocValues<S>),
+  Sorting(SortingSortedNumericDocValues<S, Arc<LongValues>>),
 }
 
 impl<S> DocValuesIterator for SortingCodecReaderSortedNumericDocValues<S>
@@ -3073,7 +3085,7 @@ where
   where
     IV: IntersectVisitor,
   {
-    let mut visitor = SortingIntersectVisitor::new(self.doc_map.clone(), visitor);
+    let mut visitor = SortingIntersectVisitor::new(&self.doc_map, visitor);
     self.index_tree.visit_doc_values(&mut visitor)
   }
 
@@ -3081,23 +3093,23 @@ where
   where
     IV: IntersectVisitor,
   {
-    let mut visitor = SortingIntersectVisitor::new(self.doc_map.clone(), visitor);
+    let mut visitor = SortingIntersectVisitor::new(&self.doc_map, visitor);
     self.index_tree.visit_doc_values(&mut visitor)
   }
 }
 
 pub struct SortingIntersectVisitor<'a, DM, IV> {
-  doc_map: DM,
+  doc_map: &'a DM,
   visitor: &'a mut IV,
 }
 impl<'a, DM, IV> SortingIntersectVisitor<'a, DM, IV> {
-  fn new(doc_map: DM, visitor: &'a mut IV) -> Self {
+  fn new(doc_map: &'a DM, visitor: &'a mut IV) -> Self {
     Self { doc_map, visitor }
   }
 }
 impl<DM, IV> IntersectVisitor for SortingIntersectVisitor<'_, DM, IV>
 where
-  DM: DocMap + Clone,
+  DM: DocMap,
   IV: IntersectVisitor,
 {
   fn visit(&mut self, doc_id: i32) -> Result<()> {

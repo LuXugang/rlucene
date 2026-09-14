@@ -18,6 +18,7 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnumTermStateImpl;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
@@ -34,6 +35,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::EmptyAttributeSource;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
@@ -41,7 +43,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
-use crate::core::util::{ByteBlockPool, ToInt};
+use crate::core::util::{ByteBlockPool, SliceCopyOps, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -271,9 +273,17 @@ impl BytesRefIterator for FreqProxTermsEnum {
     };
 
     let text_start = p.parent.text_starts[term_id as usize];
-    self
+    let position = self
       .terms_pool
-      .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
+      .fill_bytes_ref(text_start, self.byte_pool.as_ref());
+    let block = self.byte_pool.as_ref().get_buffer(position.block_index);
+    ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
+    self.scratch.bytes.copy_from(
+      &block[position.offset..position.offset + position.length],
+      0,
+    );
+    self.scratch.offset = 0;
+    self.scratch.length = position.length;
 
     Ok(Some(Cow::Borrowed(&self.scratch)))
   }
@@ -323,6 +333,7 @@ impl TermsEnum for FreqProxTermsEnum {
 
     let mut lo = 0;
     let mut hi = self.num_terms as i32 - 1;
+    let mut last_position = None;
 
     while hi >= lo {
       let mid = (lo + hi) >> 1;
@@ -330,34 +341,67 @@ impl TermsEnum for FreqProxTermsEnum {
       let term_id = sorted_term_ids[mid_index];
       let text_start = postings_array.parent.text_starts[term_id as usize];
 
-      self
+      let position = self
         .terms_pool
-        .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
-      let cmp = self.scratch.cmp(text).to_int();
+        .fill_bytes_ref(text_start, self.byte_pool.as_ref());
+      let block = self.byte_pool.as_ref().get_buffer(position.block_index);
+      let cmp = block[position.offset..position.offset + position.length]
+        .cmp(&text.bytes[text.offset..text.offset + text.length])
+        .to_int();
 
       if cmp < 0 {
         lo = mid + 1;
       } else if cmp > 0 {
         hi = mid - 1;
       } else {
-        // found
+        // Keep only the final term; intermediate probes borrow the pool directly.
+        ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
+        self.scratch.bytes.copy_from(
+          &block[position.offset..position.offset + position.length],
+          0,
+        );
+        self.scratch.offset = 0;
+        self.scratch.length = position.length;
         self.ord = Some(mid_index);
         debug_assert_eq!((*self.term()?).cmp(text).to_int(), 0);
         return Ok(SeekStatus::Found);
       }
+      last_position = Some(position);
+    }
+
+    // Preserve the last probe at End, and the previous scratch for an empty dictionary.
+    let lo_index = lo as usize;
+    if lo_index >= self.num_terms
+      && let Some(position) = last_position
+    {
+      let block = self.byte_pool.as_ref().get_buffer(position.block_index);
+      ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
+      self.scratch.bytes.copy_from(
+        &block[position.offset..position.offset + position.length],
+        0,
+      );
+      self.scratch.offset = 0;
+      self.scratch.length = position.length;
     }
 
     // not found
-    let lo_index = lo as usize;
     self.ord = Some(lo_index);
     if lo_index >= self.num_terms {
       Ok(SeekStatus::End)
     } else {
       let term_id = sorted_term_ids[lo_index];
       let text_start = postings_array.parent.text_starts[term_id as usize];
-      self
+      let position = self
         .terms_pool
-        .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
+        .fill_bytes_ref(text_start, self.byte_pool.as_ref());
+      let block = self.byte_pool.as_ref().get_buffer(position.block_index);
+      ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
+      self.scratch.bytes.copy_from(
+        &block[position.offset..position.offset + position.length],
+        0,
+      );
+      self.scratch.offset = 0;
+      self.scratch.length = position.length;
       debug_assert!((*self.term()?).cmp(text).to_int() > 0);
       Ok(SeekStatus::NotFound)
     }
@@ -379,9 +423,17 @@ impl TermsEnum for FreqProxTermsEnum {
     };
 
     let text_start = p.parent.text_starts[term_id as usize];
-    self
+    let position = self
       .terms_pool
-      .fill_bytes_ref(&mut self.scratch, text_start, self.byte_pool.as_ref())?;
+      .fill_bytes_ref(text_start, self.byte_pool.as_ref());
+    let block = self.byte_pool.as_ref().get_buffer(position.block_index);
+    ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
+    self.scratch.bytes.copy_from(
+      &block[position.offset..position.offset + position.length],
+      0,
+    );
+    self.scratch.offset = 0;
+    self.scratch.length = position.length;
 
     Ok(())
   }
@@ -629,7 +681,7 @@ impl PostingsEnum for FreqProxDocsEnum {
     Ok(-1)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(None)
   }
 }
@@ -813,9 +865,11 @@ impl PostingsEnum for FreqProxPostingsEnum {
     Ok(self.end_offset)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     if self.has_payload {
-      Ok(Some(Cow::Borrowed(&self.payload.bytes_ref)))
+      Ok(Some(BytesRefValueEnum::Buffer(Cow::Borrowed(
+        &self.payload.bytes_ref,
+      ))))
     } else {
       Ok(None)
     }

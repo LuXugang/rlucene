@@ -148,14 +148,14 @@ where
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
   ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
-    let field = self.q.get_field().to_string();
-    let Some(terms) = context.reader().terms(&field)? else {
+    let field = self.q.get_field();
+    let Some(terms) = context.reader().terms(field)? else {
       return Ok(None);
     };
     let terms = Rc::new(terms);
-    for_field(field.clone(), move || {
+    for_field(field, move || {
       let terms_enum = self.q.get_terms_enum(terms.clone())?;
-      from_terms_enum(context, doc, self.query.clone(), &field, terms_enum)
+      from_terms_enum(context, doc, self.query.clone(), field, terms_enum)
     })
   }
 

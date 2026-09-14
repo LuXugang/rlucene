@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
 
 use std::fs::{self, File};
 use std::io;
@@ -495,7 +496,7 @@ impl IOUtils {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
         Err(error) => Err(LuceneError::io_with_path(
-          path.to_string_lossy().to_string(),
+          path.to_string_lossy().into_owned(),
           error,
         )),
       }
@@ -533,7 +534,7 @@ impl IOUtils {
       String::from("Could not remove the following files (in the order of attempts):\n");
     for (path, error) in unremoved {
       let absolute = std::path::absolute(&path).unwrap_or(path);
-      message.push_str(&format!("   {}: {error}\n", absolute.display()));
+      writeln!(message, "   {}: {error}", absolute.display())?;
     }
     Err(LuceneError::Io {
       source: io::Error::other(message),
@@ -621,20 +622,20 @@ impl IOUtils {
           io::ErrorKind::NotFound => {
             LuceneError::not_such_file(format!("Directory not found: {}", file_to_sync.display()))
           },
-          _ => LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e),
+          _ => LuceneError::io_with_path(file_to_sync.to_string_lossy().into_owned(), e),
         })?
     } else {
       File::options()
         .write(true)
         .open(file_to_sync)
-        .map_err(|e| LuceneError::io_with_path(file_to_sync.to_string_lossy().to_string(), e))?
+        .map_err(|e| LuceneError::io_with_path(file_to_sync.to_string_lossy().into_owned(), e))?
     };
 
     let sync_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       if let Err(error) = file.sync_all() {
         if !is_dir {
           return Err(LuceneError::io_with_path(
-            file_to_sync.to_string_lossy().to_string(),
+            file_to_sync.to_string_lossy().into_owned(),
             error,
           ));
         }

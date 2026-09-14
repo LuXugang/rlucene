@@ -258,7 +258,7 @@ impl LatLonPoint {
       let left = Self::new_box_internal(field, left_open, upper.clone())?;
       q.add(left, Occur::Should)?;
 
-      let mut right_open = upper.clone();
+      let mut right_open = upper;
       NumericUtils::int_to_sortable_bytes(i32::MAX, &mut right_open, BitUtil::INT_BYTES);
       let right = Self::new_box_internal(field, lower, right_open)?;
       q.add(right, Occur::Should)?;
@@ -582,7 +582,12 @@ impl IndexableField for LatLonPoint {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     self.parent_field.stored_value()
   }
 

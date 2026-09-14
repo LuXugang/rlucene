@@ -213,9 +213,9 @@ where
       i += 1;
     }
 
-    let docs = tmp_docs[0..i].to_vec();
-    let scores = tmp_scores[0..i].to_vec();
-    let ss = BlockScoreScorer::new(docs, scores, self.block_length);
+    tmp_docs.truncate(i);
+    tmp_scores.truncate(i);
+    let ss = BlockScoreScorer::new(tmp_docs, tmp_scores, self.block_length);
     Ok(Some(Box::new(DefaultScorerSupplier::new(ss))))
   }
 }

@@ -49,7 +49,7 @@ use crate::core::util::{
   AtomicCounter, ByteBlockPool, BytesRefArray, Counter, SharedCounter, SortableBytesRefArray,
   TryIntoInt,
 };
-use std::borrow::Cow;
+use std::borrow::{Borrow, Cow};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -162,7 +162,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
           ));
         };
         let mut buffered_binary_doc_values = BufferedBinaryDocValues::new(
-          final_lengths,
+          || final_lengths,
           self.max_length,
           get_data_input(&self.bytes_out.paged_bytes)?,
           self.docs_with_field.iterator()?,
@@ -201,7 +201,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
       ));
     };
     BufferedBinaryDocValues::new(
-      final_lengths,
+      || final_lengths.clone(),
       self.max_length,
       get_data_input(&self.bytes_out.paged_bytes)?,
       self.docs_with_field.iterator()?,
@@ -252,12 +252,12 @@ impl<'a> DocValuesProducerImpl<'a> {
   }
 }
 
-pub(crate) enum BufferedSortingBinaryDocValues {
-  Buffered(BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>),
+pub(crate) enum BufferedSortingBinaryDocValues<V = PackedLongValues> {
+  Buffered(BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput, V>),
   Sorting(SortingBinaryDocValues),
 }
 
-impl DocValuesIterator for BufferedSortingBinaryDocValues {
+impl<V: Borrow<PackedLongValues>> DocValuesIterator for BufferedSortingBinaryDocValues<V> {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
     match self {
       Self::Buffered(inner) => inner.advance_exact(_target),
@@ -266,16 +266,17 @@ impl DocValuesIterator for BufferedSortingBinaryDocValues {
   }
 }
 
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BufferedSortingBinaryDocValues
+impl<V: Borrow<PackedLongValues>>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BufferedSortingBinaryDocValues<V>
 {
 }
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for BufferedSortingBinaryDocValues
+impl<V: Borrow<PackedLongValues>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortingBinaryDocValues<V>
 {
 }
 
-impl DocIdSetIterator for BufferedSortingBinaryDocValues {
+impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingBinaryDocValues<V> {
   fn doc_id(&self) -> i32 {
     match self {
       Self::Buffered(inner) => inner.doc_id(),
@@ -305,7 +306,7 @@ impl DocIdSetIterator for BufferedSortingBinaryDocValues {
   }
 }
 
-impl BinaryDocValues for BufferedSortingBinaryDocValues {
+impl<V: Borrow<PackedLongValues>> BinaryDocValues for BufferedSortingBinaryDocValues<V> {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
       Self::Buffered(inner) => inner.binary_value(),
@@ -314,9 +315,9 @@ impl BinaryDocValues for BufferedSortingBinaryDocValues {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl<'_> {
+impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
   type NumericDocValues = DummyNumericDocValues;
-  type BinaryDocValues = BufferedSortingBinaryDocValues;
+  type BinaryDocValues = BufferedSortingBinaryDocValues<&'a PackedLongValues>;
 
   fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     if !Arc::ptr_eq(field_info, &self.field_info) {
@@ -328,7 +329,7 @@ impl DocValuesProducer for DocValuesProducerImpl<'_> {
       )),
       None => Ok(BufferedSortingBinaryDocValues::Buffered(
         BufferedBinaryDocValues::new(
-          self.final_lengths,
+          || self.final_lengths,
           self.max_length,
           get_data_input(self.paged_bytes)?,
           self.docs_with_field.iterator()?,
@@ -344,47 +345,50 @@ impl DocValuesProducer for DocValuesProducerImpl<'_> {
 }
 
 // iterates over the values we have in ram
-pub(crate) struct BufferedBinaryDocValues<D, DI> {
+pub(crate) struct BufferedBinaryDocValues<D, DI, V = PackedLongValues> {
   value: BytesRefBuilder<Vec<u8>>,
-  lengths_iterator: PackedLongValuesIterator,
+  lengths_iterator: PackedLongValuesIterator<V>,
   docs_with_field: D,
   bytes_iter: DI,
 }
 
-impl<D, DI> BufferedBinaryDocValues<D, DI> {
+impl<D, DI, V: Borrow<PackedLongValues>> BufferedBinaryDocValues<D, DI, V> {
   pub(crate) fn new(
-    lengths: &PackedLongValues,
+    lengths: impl FnOnce() -> V,
     max_length: usize,
     bytes_iter: DI,
     docs_with_field: D,
   ) -> Result<Self> {
     let mut value = BytesRefBuilder::new();
     value.grow(max_length)?;
+    // Acquire owned lengths only after grow succeeds, preserving the original clone order.
     Ok(Self {
       value,
-      lengths_iterator: lengths.iterator()?,
+      lengths_iterator: PackedLongValuesIterator::new(lengths())?,
       docs_with_field,
       bytes_iter,
     })
   }
 }
 
-impl<D, DI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BufferedBinaryDocValues<D, DI>
+impl<D, DI, V: Borrow<PackedLongValues>>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BufferedBinaryDocValues<D, DI, V>
 where
   D: DocIdSetIterator,
   DI: DataInput,
 {
 }
-impl<D, DI> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for BufferedBinaryDocValues<D, DI>
+impl<D, DI, V: Borrow<PackedLongValues>>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedBinaryDocValues<D, DI, V>
 where
   D: DocIdSetIterator,
   DI: DataInput,
 {
 }
 
-impl<D, DI> DocIdSetIterator for BufferedBinaryDocValues<D, DI>
+impl<D, DI, V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedBinaryDocValues<D, DI, V>
 where
   D: DocIdSetIterator,
   DI: DataInput,
@@ -414,7 +418,7 @@ where
   }
 }
 
-impl<D, DI> DocValuesIterator for BufferedBinaryDocValues<D, DI>
+impl<D, DI, V: Borrow<PackedLongValues>> DocValuesIterator for BufferedBinaryDocValues<D, DI, V>
 where
   D: DocIdSetIterator,
   DI: DataInput,
@@ -424,7 +428,7 @@ where
   }
 }
 
-impl<D, DI> BinaryDocValues for BufferedBinaryDocValues<D, DI>
+impl<D, DI, V: Borrow<PackedLongValues>> BinaryDocValues for BufferedBinaryDocValues<D, DI, V>
 where
   D: DocIdSetIterator,
   DI: DataInput,

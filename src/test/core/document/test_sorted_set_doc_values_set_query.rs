@@ -56,16 +56,17 @@ fn test_missing_terms() -> Result<()> {
   for i in 0..100 {
     let mut doc = Document::new();
     let term = i * 10;
+    let term = term.to_string();
     doc.add(new_string_field(
       &mut random,
       field_name,
-      term.to_string(),
+      term.as_str(),
       Store::Yes,
       &mut field_to_type,
     )?);
     doc.add(SortedDocValuesField::new(
       field_name,
-      BytesRef::from_string(&term.to_string()),
+      BytesRef::from_string(&term),
     ));
     w.add_document(&mut random, doc)?;
   }
@@ -190,11 +191,11 @@ fn test_duel_terms_query() -> Result<()> {
       let num_query_terms = TestUtil::next_int(&mut random, 1, end);
       let mut query_terms = Vec::new();
       for _ in 0..num_query_terms {
-        query_terms.push(all_terms[random.random_range(0..all_terms.len())].clone());
+        query_terms.push(&all_terms[random.random_range(0..all_terms.len())]);
       }
       let mut bq = Builder::new();
       for term in &query_terms {
-        bq.add(TermQuery::new(term.clone()), Occur::Should)?;
+        bq.add(TermQuery::new((*term).clone()), Occur::Should)?;
       }
       let q1 = BoostQuery::new(ConstantScoreQuery::new(bq.build()), boost)?;
       let mut bytes_terms = Vec::new();
@@ -259,11 +260,11 @@ fn test_approximation() -> Result<()> {
       let num_query_terms = TestUtil::next_int(&mut random, 1, end);
       let mut query_terms = Vec::new();
       for _ in 0..num_query_terms {
-        query_terms.push(all_terms[random.random_range(0..all_terms.len())].clone());
+        query_terms.push(&all_terms[random.random_range(0..all_terms.len())]);
       }
       let mut bq = Builder::new();
       for term in &query_terms {
-        bq.add(TermQuery::new(term.clone()), Occur::Should)?;
+        bq.add(TermQuery::new((*term).clone()), Occur::Should)?;
       }
       let q1 = BoostQuery::new(ConstantScoreQuery::new(bq.build()), boost)?;
       let mut bytes_terms = Vec::new();

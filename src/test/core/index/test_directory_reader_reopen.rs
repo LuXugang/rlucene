@@ -160,7 +160,7 @@ where
         let mut stored_fields = reader.stored_fields()?;
         let previous_iteration_doc = stored_fields.document(n)?;
         let id = previous_iteration_doc.get("id")?;
-        assert_eq!(Some(format!("{k}_{j}")), id.map(|value| value.into_owned()));
+        assert_eq!(Some(format!("{k}_{j}")).as_ref(), id.as_deref());
       }
     }
     iwriter.commit()?;
@@ -883,10 +883,7 @@ where
       assert_eq!(doc1.get_fields().len(), doc2.get_fields().len());
       for (field1, field2) in doc1.get_fields().iter().zip(doc2.get_fields().iter()) {
         assert_eq!(field1.name(), field2.name());
-        assert_eq!(
-          field1.string_value()?.map(|value| value.into_owned()),
-          field2.string_value()?.map(|value| value.into_owned())
-        );
+        assert_eq!(field1.string_value()?, field2.string_value()?);
       }
     }
   }

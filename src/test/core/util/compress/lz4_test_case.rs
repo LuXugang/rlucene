@@ -263,9 +263,9 @@ pub(crate) trait LZ4TestCase {
     R: Rng + ?Sized,
   {
     // literals and match lengths <= 15
-    let data: Vec<u8> = "1234562345673456745678910123".to_string().into_bytes();
-    Self::do_test(random, data.as_slice(), &mut self.new_hash_table())?;
-    Self::do_test_with_dictionary(random, data.as_slice(), &mut self.new_hash_table())?;
+    let data = b"1234562345673456745678910123";
+    Self::do_test(random, data, &mut self.new_hash_table())?;
+    Self::do_test_with_dictionary(random, data, &mut self.new_hash_table())?;
     Ok(())
   }
 
@@ -363,7 +363,7 @@ pub(crate) trait LZ4TestCase {
       13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, -19, -24, -101, -35,
     ];
     let len = data.len();
-    let data_u8: Vec<u8> = data.iter().map(|&x| x as u8).collect();
+    let data_u8: Vec<u8> = data.into_iter().map(|x| x as u8).collect();
     Self::do_test_with_offset(
       random,
       data_u8.as_slice(),
@@ -381,7 +381,7 @@ pub(crate) trait LZ4TestCase {
     let dict_off = 0;
     let dict_len = 6;
     let len = b.len() - dict_len;
-    let byte: Vec<u8> = b.iter().map(|&x| x as u8).collect();
+    let byte: Vec<u8> = b.into_iter().map(|x| x as u8).collect();
 
     Self::do_test_with_dictionary_inner(
       random,

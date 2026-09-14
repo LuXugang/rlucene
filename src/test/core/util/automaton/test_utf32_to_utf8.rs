@@ -17,6 +17,7 @@
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, new_bytes_ref_from_string, random,
 };
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::string::FromUtf16Error;
 
@@ -202,8 +203,11 @@ fn test_special_case2() -> Result<()> {
 
   let re = RegExp::from_string(".+\u{0775}")?;
   let mut automaton = re.to_automaton()?;
-  automaton =
-    Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
+  automaton = match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+  {
+    Cow::Borrowed(_) => automaton,
+    Cow::Owned(determinized) => determinized,
+  };
 
   let cra = CharacterRunAutomaton::new(automaton.clone())?;
   let mut bra = ByteRunAutomaton::new(automaton)?;
@@ -232,8 +236,11 @@ fn test_special_case3() -> Result<()> {
 
   let re = RegExp::from_string(&regex_str)?;
   let mut automaton = re.to_automaton()?;
-  automaton =
-    Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
+  automaton = match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+  {
+    Cow::Borrowed(_) => automaton,
+    Cow::Owned(determinized) => determinized,
+  };
 
   let cra = CharacterRunAutomaton::new(automaton.clone())?;
   let mut bra = ByteRunAutomaton::new(automaton)?;
@@ -255,7 +262,10 @@ fn test_random_regexes() -> Result<()> {
     let s = AutomatonTestUtil::random_regexp(&mut random)?;
     let mut automaton = RegExp::from_str_with_flags(&s, RegExp::NONE)?.to_automaton()?;
     automaton =
-      Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?.into_owned();
+      match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {
+        Cow::Borrowed(_) => automaton,
+        Cow::Owned(determinized) => determinized,
+      };
     assert_automaton(&mut random, &automaton)?;
   }
 

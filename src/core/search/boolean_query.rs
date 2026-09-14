@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term_states::build;
@@ -232,7 +234,7 @@ impl BooleanQuery {
 
     for clause in &self.clauses {
       let term_query = match &clause.query {
-        Query::Term(q) => q.clone(),
+        Query::Term(q) => q,
         _ => {
           return Err(LuceneError::unsupported_operation("expected TermQuery"));
         },
@@ -240,9 +242,9 @@ impl BooleanQuery {
 
       let term_query = if term_query.get_term_states().is_none() {
         let term_states = build(index_searcher, term_query.get_term(), false)?;
-        TermQuery::with_term_state(term_query.get_term().clone(), Some(Arc::new(term_states)))
+        TermQuery::with_term_state(term_query.get_term(), Some(Arc::new(term_states)))
       } else {
-        term_query
+        term_query.clone()
       };
 
       new_query.add(term_query.clone(), Occur::Must)?;
@@ -301,7 +303,7 @@ impl QueryBase for BooleanQuery {
     }
 
     for (i, clause) in self.clauses.iter().enumerate() {
-      buffer.push_str(&clause.occur.to_string());
+      write!(buffer, "{}", clause.occur)?;
       let is_boolean = matches!(&clause.query, Query::Boolean(_));
       if is_boolean {
         buffer.push('(');
@@ -322,7 +324,7 @@ impl QueryBase for BooleanQuery {
 
     if self.minimum_number_should_match > 0 {
       buffer.push('~');
-      buffer.push_str(&self.minimum_number_should_match.to_string());
+      write!(buffer, "{}", self.minimum_number_should_match)?;
     }
 
     Ok(buffer)

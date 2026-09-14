@@ -103,7 +103,7 @@ impl Collector for TotalHitCountCollector {
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
   {
-    if let Some(early_terminated_map) = self.early_terminated_map.clone() {
+    if let Some(early_terminated_map) = &self.early_terminated_map {
       let (early_terminated, first) = {
         let mut early_terminated_map = early_terminated_map.lock();
         match early_terminated_map.entry(context.base().id().clone()) {

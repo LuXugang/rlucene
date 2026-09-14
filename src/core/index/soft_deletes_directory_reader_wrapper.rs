@@ -82,7 +82,6 @@ where
   ) -> Result<Self> {
     let leaf_reads = in_.get_sequential_sub_readers().to_vec();
 
-    let field = wrapper.field.clone();
     let wrapped_readers = wrapper.wrap_readers(leaf_reads)?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(wrapped_readers, None, &index_base)?;
@@ -92,7 +91,7 @@ where
 
     Ok(Self {
       in_,
-      field,
+      field: wrapper.field,
       base,
       index_base,
       reader_cache_helper,

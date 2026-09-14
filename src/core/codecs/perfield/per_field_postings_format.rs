@@ -240,20 +240,26 @@ where
           // First time we are seeing this format; create a new instance.
 
           // Bump the suffix.
-          let suffix = suffixes
-            .entry(format_name.to_string())
-            .and_modify(|suffix| *suffix += 1)
-            .or_insert(0);
+          let suffix = match suffixes.get_mut(format_name) {
+            Some(suffix) => {
+              *suffix += 1;
+              *suffix
+            },
+            None => {
+              suffixes.insert(format_name.to_string(), 0);
+              0
+            },
+          };
           let segment_suffix = get_full_segment_suffix(
             field,
             &write_state.segment_suffix,
-            get_suffix(format_name, *suffix),
+            get_suffix(format_name, suffix),
           )?;
           &mut entry
             .insert((
               format,
               FieldsGroupBuilder::new(
-                *suffix,
+                suffix,
                 SegmentWriteState::copy_with_suffix(write_state, segment_suffix),
               ),
             ))
@@ -293,7 +299,7 @@ where
     F: Fields,
     N: NormsProducer,
   {
-    let base = Arc::clone(&self.base);
+    let base = &self.base;
     let groups = {
       let mut indexed_field_names = fields.iterator()?;
       Self::build_fields_group_mapping(base.as_ref(), write_state, &mut indexed_field_names)
@@ -342,7 +348,7 @@ where
       iterators.push(fields_producer.iterator()?);
     }
     let mut indexed_field_names = MergedIterator::new(iterators)?;
-    let base = Arc::clone(&self.base);
+    let base = &self.base;
     let groups =
       Self::build_fields_group_mapping(base.as_ref(), write_state, &mut indexed_field_names)?;
 
@@ -350,7 +356,7 @@ where
     for (format, group) in groups.into_values() {
       let mut consumer = format.fields_consumer(&group.state, segment_info)?;
       let merge_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let restricted = PerFieldMergeState::restrict_fields(merge_state, &group.fields)?;
+        let restricted = PerFieldMergeState::restrict_fields(merge_state, group.fields)?;
         consumer.merge(&group.state, segment_info, &restricted, norms)
       }));
       let close_result =

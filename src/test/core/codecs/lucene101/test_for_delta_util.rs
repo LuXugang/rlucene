@@ -56,7 +56,7 @@ fn test_encode_decode() -> Result<()> {
     let mut for_delta_util = ForDeltaUtil::new();
 
     for i in 0..iterations {
-      let mut source = vec![0i32; ForUtil::BLOCK_SIZE];
+      let mut source = [0i32; ForUtil::BLOCK_SIZE];
       for j in 0..ForUtil::BLOCK_SIZE {
         source[j] = values[i * ForUtil::BLOCK_SIZE + j] as i32;
       }
@@ -73,10 +73,10 @@ fn test_encode_decode() -> Result<()> {
 
     for i in 0..iterations {
       let base = 0i32;
-      let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
+      let mut restored = [0i32; ForUtil::BLOCK_SIZE];
       for_delta_util.decode_and_prefix_sum(&mut pdu, base, &mut restored)?;
 
-      let mut expected = vec![0i32; ForUtil::BLOCK_SIZE];
+      let mut expected = [0i32; ForUtil::BLOCK_SIZE];
       for j in 0..ForUtil::BLOCK_SIZE {
         expected[j] = values[i * ForUtil::BLOCK_SIZE + j] as i32;
         if j > 0 {

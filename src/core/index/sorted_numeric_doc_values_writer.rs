@@ -50,20 +50,24 @@ use crate::core::util::packed::packed_long_values::{
 };
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{ByteBlockPool, Counter, SharedCounter, TryIntoInt};
+use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 type BufferedSingleSortedNumericDocValues =
   SingletonSortedNumericDocValues<BufferedNumericDocValues>;
-type BufferedMultiSortedNumericDocValues = BufferedSortedNumericDocValues<DocsWithFieldSetDISI>;
+type BufferedMultiSortedNumericDocValues<P = PackedLongValues> =
+  BufferedSortedNumericDocValues<DocsWithFieldSetDISI, P>;
 
-pub(crate) enum SortedNumericDocValuesWriterValues {
+pub(crate) enum SortedNumericDocValuesWriterValues<P = PackedLongValues, V = LongValues> {
   Single(BufferedSingleSortedNumericDocValues),
-  Multi(BufferedMultiSortedNumericDocValues),
-  SortedMulti(SortingSortedNumericDocValues<BufferedMultiSortedNumericDocValues>),
+  Multi(BufferedMultiSortedNumericDocValues<P>),
+  SortedMulti(SortingSortedNumericDocValues<BufferedMultiSortedNumericDocValues<P>, V>),
 }
 
-impl DocValuesIterator for SortedNumericDocValuesWriterValues {
+impl<P: Borrow<PackedLongValues>, V: Borrow<LongValues>> DocValuesIterator
+  for SortedNumericDocValuesWriterValues<P, V>
+{
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
       Self::Single(values) => values.advance_exact(target),
@@ -73,16 +77,20 @@ impl DocValuesIterator for SortedNumericDocValuesWriterValues {
   }
 }
 
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortedNumericDocValuesWriterValues
+impl<P: Borrow<PackedLongValues>, V: Borrow<LongValues>>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesWriterValues<P, V>
 {
 }
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for SortedNumericDocValuesWriterValues
+impl<P: Borrow<PackedLongValues>, V: Borrow<LongValues>>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedNumericDocValuesWriterValues<P, V>
 {
 }
 
-impl DocIdSetIterator for SortedNumericDocValuesWriterValues {
+impl<P: Borrow<PackedLongValues>, V: Borrow<LongValues>> DocIdSetIterator
+  for SortedNumericDocValuesWriterValues<P, V>
+{
   fn doc_id(&self) -> i32 {
     match self {
       Self::Single(values) => values.doc_id(),
@@ -124,7 +132,9 @@ impl DocIdSetIterator for SortedNumericDocValuesWriterValues {
   }
 }
 
-impl SortedNumericDocValues for SortedNumericDocValuesWriterValues {
+impl<P: Borrow<PackedLongValues>, V: Borrow<LongValues>> SortedNumericDocValues
+  for SortedNumericDocValuesWriterValues<P, V>
+{
   fn next_value(&mut self) -> Result<i64> {
     match self {
       Self::Single(values) => values.next_value(),
@@ -276,13 +286,14 @@ impl SortedNumericDocValuesWriter {
 
     match value_counts {
       None => {
-        let dv = BufferedNumericDocValues::new(values, iter)?;
+        let dv = BufferedNumericDocValues::new(values.clone(), iter)?;
         Ok(SortedNumericDocValuesWriterValues::Single(
           DocValues::singleton_numeric(dv)?,
         ))
       },
       Some(value_counts) => {
-        let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter)?;
+        let dv =
+          BufferedSortedNumericDocValues::new(|| values.clone(), || value_counts.clone(), iter)?;
         Ok(SortedNumericDocValuesWriterValues::Multi(dv))
       },
     }
@@ -342,8 +353,8 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
     };
     let sorted = if let Some(sort_map) = sort_map {
       let mut v = BufferedSortedNumericDocValues::new(
-        values,
-        value_counts,
+        || values,
+        || value_counts,
         self.docs_with_field.iterator()?,
       )?;
       Some(LongValues::new(
@@ -360,7 +371,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
       self.field_info.clone(),
       &self.docs_with_field,
       values,
-      sorted,
+      sorted.as_ref(),
       value_counts,
     )?;
     dv_consumer.add_sorted_numeric_field(write_state, segment_info, &self.field_info, &producer)
@@ -413,11 +424,12 @@ impl<'a> DocValuesProducerImpl1<'a> {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl1<'_> {
+impl<'a> DocValuesProducer for DocValuesProducerImpl1<'a> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
-  type SortedNumericDocValues = SingletonSortedNumericDocValues<BufferedSortingNumericDocValues>;
+  type SortedNumericDocValues =
+    SingletonSortedNumericDocValues<BufferedSortingNumericDocValues<&'a PackedLongValues>>;
 
   fn get_sorted_numeric(
     &self,
@@ -435,7 +447,7 @@ pub(crate) struct DocValuesProducerImpl2<'a> {
   field_info: Arc<FieldInfo>,
   docs_with_field: &'a DocsWithFieldSet,
   values: &'a PackedLongValues,
-  sorted: Option<LongValues>,
+  sorted: Option<&'a LongValues>,
   value_counts: &'a PackedLongValues,
 }
 
@@ -450,7 +462,7 @@ impl<'a> DocValuesProducerImpl2<'a> {
     field_info: Arc<FieldInfo>,
     docs_with_field: &'a DocsWithFieldSet,
     values: &'a PackedLongValues,
-    sorted: Option<LongValues>,
+    sorted: Option<&'a LongValues>,
     value_counts: &'a PackedLongValues,
   ) -> Result<Self> {
     Ok(Self {
@@ -463,11 +475,12 @@ impl<'a> DocValuesProducerImpl2<'a> {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl2<'_> {
+impl<'a> DocValuesProducer for DocValuesProducerImpl2<'a> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
-  type SortedNumericDocValues = SortedNumericDocValuesWriterValues;
+  type SortedNumericDocValues =
+    SortedNumericDocValuesWriterValues<&'a PackedLongValues, &'a LongValues>;
 
   fn get_sorted_numeric(
     &self,
@@ -477,13 +490,13 @@ impl DocValuesProducer for DocValuesProducerImpl2<'_> {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     let buf = BufferedSortedNumericDocValues::new(
-      self.values,
-      self.value_counts,
+      || self.values,
+      || self.value_counts,
       self.docs_with_field.iterator()?,
     )?;
     match &self.sorted {
       Some(sorted) => Ok(SortedNumericDocValuesWriterValues::SortedMulti(
-        SortingSortedNumericDocValues::new(buf, sorted.clone()),
+        SortingSortedNumericDocValues::new(buf, *sorted),
       )),
       None => Ok(SortedNumericDocValuesWriterValues::Multi(buf)),
     }
@@ -493,23 +506,24 @@ impl DocValuesProducer for DocValuesProducerImpl2<'_> {
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) struct BufferedSortedNumericDocValues<D> {
-  values_iter: PackedLongValuesIterator,
-  value_counts_iter: PackedLongValuesIterator,
+pub(crate) struct BufferedSortedNumericDocValues<D, P = PackedLongValues> {
+  values_iter: PackedLongValuesIterator<P>,
+  value_counts_iter: PackedLongValuesIterator<P>,
   docs_with_field: D,
   value_count: i32,
   value_upto: i32,
 }
 
-impl<D> BufferedSortedNumericDocValues<D> {
-  pub(crate) fn new(
-    values: &PackedLongValues,
-    value_counts: &PackedLongValues,
-    docs_with_field: D,
-  ) -> Result<Self> {
+impl<D, P: Borrow<PackedLongValues>> BufferedSortedNumericDocValues<D, P> {
+  // Defer owned clones so the values stream decodes before cloning the counts stream.
+  pub(crate) fn new<F, C>(values: F, value_counts: C, docs_with_field: D) -> Result<Self>
+  where
+    F: FnOnce() -> P,
+    C: FnOnce() -> P,
+  {
     Ok(Self {
-      values_iter: values.iterator()?,
-      value_counts_iter: value_counts.iterator()?,
+      values_iter: PackedLongValuesIterator::new(values())?,
+      value_counts_iter: PackedLongValuesIterator::new(value_counts())?,
       docs_with_field,
       value_count: 0,
       value_upto: 0,
@@ -517,31 +531,35 @@ impl<D> BufferedSortedNumericDocValues<D> {
   }
 }
 
-impl<D> DocValuesIterator for BufferedSortedNumericDocValues<D>
+impl<D, P> DocValuesIterator for BufferedSortedNumericDocValues<D, P>
 where
   D: DocIdSetIterator,
+  P: Borrow<PackedLongValues>,
 {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
 
-impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BufferedSortedNumericDocValues<D>
+impl<D, P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BufferedSortedNumericDocValues<D, P>
 where
   D: DocIdSetIterator,
+  P: Borrow<PackedLongValues>,
 {
 }
-impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for BufferedSortedNumericDocValues<D>
+impl<D, P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortedNumericDocValues<D, P>
 where
   D: DocIdSetIterator,
+  P: Borrow<PackedLongValues>,
 {
 }
 
-impl<D> DocIdSetIterator for BufferedSortedNumericDocValues<D>
+impl<D, P> DocIdSetIterator for BufferedSortedNumericDocValues<D, P>
 where
   D: DocIdSetIterator,
+  P: Borrow<PackedLongValues>,
 {
   fn doc_id(&self) -> i32 {
     self.docs_with_field.doc_id()
@@ -569,9 +587,10 @@ where
   }
 }
 
-impl<D> SortedNumericDocValues for BufferedSortedNumericDocValues<D>
+impl<D, P> SortedNumericDocValues for BufferedSortedNumericDocValues<D, P>
 where
   D: DocIdSetIterator,
+  P: Borrow<PackedLongValues>,
 {
   fn next_value(&mut self) -> Result<i64> {
     self.value_upto += 1;
@@ -585,15 +604,15 @@ where
   type NumericDocValues = DummyNumericDocValues;
 }
 
-pub struct SortingSortedNumericDocValues<S> {
+pub struct SortingSortedNumericDocValues<S, V = LongValues> {
   input: S,
-  values: LongValues,
+  values: V,
   doc_id: i32,
   upto: usize,
   num_values: i32,
 }
-impl<S> SortingSortedNumericDocValues<S> {
-  pub(crate) fn new(input: S, values: LongValues) -> Self {
+impl<S, V> SortingSortedNumericDocValues<S, V> {
+  pub(crate) fn new(input: S, values: V) -> Self {
     Self {
       input,
       values,
@@ -604,16 +623,22 @@ impl<S> SortingSortedNumericDocValues<S> {
   }
 }
 
-impl<S> DocValuesIterator for SortingSortedNumericDocValues<S>
+impl<S, V> DocValuesIterator for SortingSortedNumericDocValues<S, V>
 where
   S: SortedNumericDocValues,
+  V: Borrow<LongValues>,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.doc_id = target;
-    self.upto = self.values.offsets[self.doc_id as usize];
+    self.upto = self.values.borrow().offsets[self.doc_id as usize];
 
     if self.upto > 0 {
-      self.num_values = self.values.values.get(self.upto - 1)?.try_convert()?;
+      self.num_values = self
+        .values
+        .borrow()
+        .values
+        .get(self.upto - 1)?
+        .try_convert()?;
       Ok(true)
     } else {
       Ok(false)
@@ -621,22 +646,25 @@ where
   }
 }
 
-impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortingSortedNumericDocValues<S>
+impl<S, V> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingSortedNumericDocValues<S, V>
 where
   S: SortedNumericDocValues,
+  V: Borrow<LongValues>,
 {
 }
-impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for SortingSortedNumericDocValues<S>
+impl<S, V> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortingSortedNumericDocValues<S, V>
 where
   S: SortedNumericDocValues,
+  V: Borrow<LongValues>,
 {
 }
 
-impl<S> DocIdSetIterator for SortingSortedNumericDocValues<S>
+impl<S, V> DocIdSetIterator for SortingSortedNumericDocValues<S, V>
 where
   S: SortedNumericDocValues,
+  V: Borrow<LongValues>,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -646,14 +674,19 @@ where
     loop {
       self.doc_id += 1;
       let doc_index = self.doc_id as usize;
-      if doc_index >= self.values.offsets.len() {
+      if doc_index >= self.values.borrow().offsets.len() {
         self.doc_id = NO_MORE_DOCS;
         return Ok(self.doc_id);
       }
-      let offset = self.values.offsets[doc_index];
+      let offset = self.values.borrow().offsets[doc_index];
       if offset > 0 {
         self.upto = offset;
-        self.num_values = self.values.values.get(self.upto - 1)?.try_convert()?;
+        self.num_values = self
+          .values
+          .borrow()
+          .values
+          .get(self.upto - 1)?
+          .try_convert()?;
         return Ok(self.doc_id);
       }
     }
@@ -668,12 +701,13 @@ where
   }
 }
 
-impl<S> SortedNumericDocValues for SortingSortedNumericDocValues<S>
+impl<S, V> SortedNumericDocValues for SortingSortedNumericDocValues<S, V>
 where
   S: SortedNumericDocValues,
+  V: Borrow<LongValues>,
 {
   fn next_value(&mut self) -> Result<i64> {
-    let v = self.values.values.get(self.upto)?;
+    let v = self.values.borrow().values.get(self.upto)?;
     self.upto += 1;
     Ok(v)
   }
@@ -685,9 +719,8 @@ where
   type NumericDocValues = DummyNumericDocValues;
 }
 
-#[derive(Clone)]
 pub struct LongValues {
-  pub(crate) offsets: Arc<Vec<usize>>,
+  pub(crate) offsets: Vec<usize>,
   pub(crate) values: PackedLongValues,
 }
 impl LongValues {
@@ -724,7 +757,7 @@ impl LongValues {
     }
 
     Ok(LongValues {
-      offsets: Arc::new(offsets),
+      offsets,
       values: value_builder.build()?,
     })
   }

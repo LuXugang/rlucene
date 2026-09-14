@@ -25,6 +25,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_log_merge_policy, new_search_executor, new_searcher_with_reader, new_string_field,
   new_text_field, random, random_multiplier,
 };
+use std::borrow::Borrow;
 
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -600,13 +601,7 @@ fn test_filter_clause_behaves_like_must() -> Result<()> {
   let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let cases: Vec<Vec<&str>> = vec![
-    vec!["a", "d"],
-    vec!["a", "b", "d"],
-    vec!["d"],
-    vec!["e"],
-    vec![],
-  ];
+  let cases: [&[&str]; 5] = [&["a", "d"], &["a", "b", "d"], &["d"], &["e"], &[]];
 
   for required_terms in cases {
     let mut bq1 = Builder::new();
@@ -636,9 +631,9 @@ where
 {
   let mut bq2_builder = Builder::new();
   let min_should_match = bq.get_minimum_number_should_match();
-  for c in bq.clone().clauses.into_iter() {
+  for c in &bq.clauses {
     if *c.occur() != Occur::Filter {
-      bq2_builder.add_clause(c)?;
+      bq2_builder.add_clause(c.clone())?;
     }
   }
   bq2_builder.set_minimum_number_should_match(min_should_match);
@@ -990,7 +985,7 @@ fn test_query_matches_count() -> Result<()> {
   b.add(TermQuery::new(Term::from_text("field", "c")), Occur::Should)?;
   let built_query: Query = b.build().into();
 
-  assert_eq!(num_matching_docs, searcher.count(built_query.clone())?);
+  assert_eq!(num_matching_docs, searcher.count(built_query)?);
 
   Ok(())
 }
@@ -1006,7 +1001,7 @@ fn test_conjunction_matches_count() -> Result<()> {
   doc.add(long_point.clone());
   let mut string_field = StringField::from_string("string", "abc", No)?;
   doc.add(string_field.clone());
-  writer.add_document(doc.clone())?;
+  writer.add_document(doc)?;
 
   long_point.set_long_value(10)?;
   string_field.set_string_value("xyz")?;
@@ -1114,7 +1109,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   let mut string_field = StringField::from_string("string", "abc", No)?;
   doc.add(string_field.clone());
 
-  writer.add_document(doc.clone())?;
+  writer.add_document(doc)?;
 
   long_point.set_long_value(10)?;
   long_point_3dim.set_long_values([10i64, 11i64, 12i64])?;
@@ -1451,17 +1446,17 @@ fn test_disjunction_two_clauses_matches_count_and_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let doc_content: Vec<Vec<&str>> = vec![
-    vec!["A", "B"],      // 0
-    vec!["A"],           // 1
-    vec![],              // 2
-    vec!["A", "B", "C"], // 3
-    vec!["B"],           // 4
-    vec!["B", "C"],      // 5
+  let doc_content: [&[&str]; 6] = [
+    &["A", "B"],      // 0
+    &["A"],           // 1
+    &[],              // 2
+    &["A", "B", "C"], // 3
+    &["B"],           // 4
+    &["B", "C"],      // 5
   ];
 
   // result sorted by score
-  let match_doc_score: Vec<(i32, f32)> = vec![
+  let match_doc_score: [(i32, f32); 5] = [
     (0, (2 + 1) as f32),
     (3, (2 + 1) as f32),
     (1, 2f32),
@@ -1477,7 +1472,7 @@ fn test_disjunction_two_clauses_matches_count_and_score() -> Result<()> {
     for values in doc_content {
       let mut doc = Document::new();
       for v in values {
-        doc.add(StringField::from_string("foo", v, Store::No)?);
+        doc.add(StringField::from_string("foo", *v, Store::No)?);
       }
       w.add_document(doc)?;
     }
@@ -1569,12 +1564,12 @@ fn test_prohibited_matches_count() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut doc = Document::new();
-  doc.add(LongPoint::new("long", vec![3])?);
+  doc.add(LongPoint::new("long", [3])?);
   doc.add(StringField::from_string("string", "abc", No)?);
   writer.add_document(doc)?;
 
   let mut doc = Document::new();
-  doc.add(LongPoint::new("long", vec![10])?);
+  doc.add(LongPoint::new("long", [10])?);
   doc.add(StringField::from_string("string", "xyz", No)?);
   writer.add_document(doc)?;
 
@@ -1727,15 +1722,15 @@ fn test_to_string() -> Result<()> {
 }
 #[test]
 fn test_query_visitor() -> Result<()> {
-  struct Visitor {
-    expected: Option<Term>,
-    a: Term,
-    b: Term,
-    c: Term,
-    d: Term,
+  struct Visitor<'a> {
+    expected: Option<&'a Term>,
+    a: &'a Term,
+    b: &'a Term,
+    c: &'a Term,
+    d: &'a Term,
   }
 
-  impl QueryVisitor for Visitor {
+  impl QueryVisitor for Visitor<'_> {
     type SubVisitor<'a>
       = &'a mut Self
     where
@@ -1746,20 +1741,17 @@ fn test_query_visitor() -> Result<()> {
       occur: Occur,
       _parent: QueryRef<'_>,
     ) -> Self::SubVisitor<'a> {
-      self.expected = Some(
-        match occur {
-          Occur::Should => &self.a,
-          Occur::Must => &self.b,
-          Occur::Filter => &self.c,
-          Occur::MustNot => &self.d,
-        }
-        .clone(),
-      );
+      self.expected = Some(match occur {
+        Occur::Should => self.a,
+        Occur::Must => self.b,
+        Occur::Filter => self.c,
+        Occur::MustNot => self.d,
+      });
       self
     }
 
-    fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
-      assert_eq!(self.expected.as_ref(), terms.first());
+    fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
+      assert_eq!(self.expected, terms.first().map(Borrow::<Term>::borrow));
       Ok(())
     }
   }
@@ -1777,10 +1769,10 @@ fn test_query_visitor() -> Result<()> {
 
   query.visit(&mut Visitor {
     expected: None,
-    a,
-    b,
-    c,
-    d,
+    a: &a,
+    b: &b,
+    c: &c,
+    d: &d,
   })?;
   Ok(())
 }

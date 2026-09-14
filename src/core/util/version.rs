@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 
@@ -217,13 +218,13 @@ impl Version {
   /// # Note
   /// This is an internal API.
   pub fn parse_leniently(version: &str) -> Result<Version, VersionError> {
-    let version_orig = version.to_string();
+    let version_orig = version;
     let version_upper = version.to_uppercase();
 
     match version_upper.as_str() {
       "LATEST" | "LUCENE_CURRENT" => Ok(LATEST.clone()),
       _ => {
-        let mut version = version_upper.clone();
+        let mut version = version_upper;
         let patterns = [
           (r"^LUCENE_(\d+)_(\d+)_(\d+)$", "$1.$2.$3"),
           (r"^LUCENE_(\d+)_(\d+)$", "$1.$2.0"),
@@ -238,7 +239,9 @@ impl Version {
               return Err(VersionError::parse_error_with_error("", err.into()));
             },
           };
-          version = re.replace_all(&version, *replacement).to_string();
+          if let Cow::Owned(replaced) = re.replace_all(&version, *replacement) {
+            version = replaced;
+          }
         }
 
         // Try parsing the modified version string

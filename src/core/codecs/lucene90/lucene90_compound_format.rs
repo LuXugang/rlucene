@@ -103,16 +103,16 @@ impl Lucene90CompoundFormat {
       {
         for filename in files {
           let file_length = directory.file_length(filename)?;
-          pq.add(SizedFile::new(
-            filename.to_string(),
-            file_length.try_convert()?,
-          ))?;
+          pq.add(SizedFile {
+            name: filename.as_str(),
+            length: file_length.try_convert()?,
+          })?;
         }
       }
     }
     while pq.size() > 0 {
       let sized_file = pq.pop_unchecked()?;
-      let file = &sized_file.name;
+      let file = sized_file.name;
       let start_offset = data.align_file_pointer(BitUtil::LONG_BYTES)?;
       let mut file_input = directory.open_checksum_input(file)?;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -206,8 +206,8 @@ impl CompoundFormat for Lucene90CompoundFormat {
   }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SizedFile {
-  pub name: String,
+pub struct SizedFile<N = String> {
+  pub name: N,
   pub length: i64,
 }
 
@@ -225,8 +225,8 @@ impl SizedFile {
 }
 
 pub struct SizedFileQueueCmp;
-impl Compare<SizedFile> for SizedFileQueueCmp {
-  fn less_than(&self, sf1: &SizedFile, sf2: &SizedFile) -> Result<bool> {
+impl<N> Compare<SizedFile<N>> for SizedFileQueueCmp {
+  fn less_than(&self, sf1: &SizedFile<N>, sf2: &SizedFile<N>) -> Result<bool> {
     Ok(sf1.length < sf2.length)
   }
 }

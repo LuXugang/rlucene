@@ -88,8 +88,8 @@ pub trait PointsWriter: Closeable {
       point_values.push(values);
       doc_maps.push(merge_state.doc_maps[i].clone())
     }
-    let mut points_reader: PointsReaderImpl<_, Rc<MergeStateDocMap<CR>>> =
-      PointsReaderImpl::new(field_info.clone(), max_point_count, point_values, doc_maps);
+    let mut points_reader: PointsReaderImpl<'_, _, Rc<MergeStateDocMap<CR>>> =
+      PointsReaderImpl::new(field_info.as_ref(), max_point_count, point_values, doc_maps);
     self.write_field(
       field_info,
       &mut points_reader,
@@ -207,18 +207,18 @@ where
   }
 }
 
-struct PointsReaderImpl<P, DM> {
-  field_info: Arc<FieldInfo>,
+struct PointsReaderImpl<'a, P, DM> {
+  field_info: &'a FieldInfo,
   final_max_point_count: usize,
   point_value: Rc<Vec<P>>,
   doc_map: Rc<Vec<DM>>,
 }
 
-impl<P, DM> CloseableRef for PointsReaderImpl<P, DM> {}
+impl<P, DM> CloseableRef for PointsReaderImpl<'_, P, DM> {}
 
-impl<P, DM> PointsReaderImpl<P, DM> {
+impl<'a, P, DM> PointsReaderImpl<'a, P, DM> {
   fn new(
-    field_info: Arc<FieldInfo>,
+    field_info: &'a FieldInfo,
     final_max_point_count: usize,
     point_value: Vec<P>,
     doc_map: Vec<DM>,
@@ -232,7 +232,7 @@ impl<P, DM> PointsReaderImpl<P, DM> {
   }
 }
 
-impl<P, DM> PointsReader for PointsReaderImpl<P, DM>
+impl<P, DM> PointsReader for PointsReaderImpl<'_, P, DM>
 where
   P: PointValues,
   DM: DocMap,

@@ -30,6 +30,7 @@ use crate::test_framework::core::index::base_compound_format_test_case::{
 };
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::util::test_util::TestUtil;
+use std::collections::HashSet;
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90CompoundFormat;
 
@@ -205,9 +206,9 @@ impl TestLucene90CompoundFormat {
       ordered_files.push(filename);
     }
 
-    let mut shuffled_files = ordered_files.clone();
+    let mut shuffled_files: Vec<_> = ordered_files.iter().collect();
     shuffled_files.shuffle(random);
-    let files = shuffled_files.into_iter().collect();
+    let files: HashSet<&String> = shuffled_files.into_iter().collect();
     si.set_files(files)?;
 
     si.get_codec()?.compound_format().write(

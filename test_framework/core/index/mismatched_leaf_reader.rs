@@ -22,24 +22,29 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 use rand::prelude::SliceRandom;
+use std::borrow::Borrow;
 use std::sync::Arc;
 
 #[allow(unused)] // for quick search; mirrors Java MismatchedLeafReader.
 pub struct MismatchedLeafReader;
 
-pub struct MismatchedVisitor<'a, V> {
+pub struct MismatchedVisitor<'a, V, F = Arc<FieldInfos>> {
   visitor: &'a mut V,
-  shuffled: Arc<FieldInfos>,
+  shuffled: F,
 }
 
-impl<'a, V> MismatchedVisitor<'a, V> {
-  pub fn new(visitor: &'a mut V, shuffled: Arc<FieldInfos>) -> Self {
+impl<'a, V, F> MismatchedVisitor<'a, V, F>
+where
+  F: Borrow<FieldInfos>,
+{
+  pub fn new(visitor: &'a mut V, shuffled: F) -> Self {
     Self { visitor, shuffled }
   }
 
   fn renumber(&self, field_info: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
     self
       .shuffled
+      .borrow()
       .field_info_by_name(&field_info.name)?
       .ok_or_else(|| {
         LuceneError::illegal_state(format!(
@@ -50,9 +55,10 @@ impl<'a, V> MismatchedVisitor<'a, V> {
   }
 }
 
-impl<V> StoredFieldVisitor for MismatchedVisitor<'_, V>
+impl<V, F> StoredFieldVisitor for MismatchedVisitor<'_, V, F>
 where
   V: StoredFieldVisitor,
+  F: Borrow<FieldInfos>,
 {
   fn binary_field<S>(
     &mut self,
@@ -150,7 +156,7 @@ pub fn shuffle_infos<R>(infos: &FieldInfos, random: &mut R) -> Result<FieldInfos
 where
   R: Rng + ?Sized,
 {
-  let mut shuffled: Vec<Arc<FieldInfo>> = infos.iter().cloned().collect();
+  let mut shuffled: Vec<&Arc<FieldInfo>> = infos.iter().collect();
   shuffled.shuffle(random);
 
   let mut new_infos = Vec::with_capacity(shuffled.len());

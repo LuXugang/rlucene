@@ -58,7 +58,7 @@ where
   R: Rng + ?Sized,
 {
   automata.shuffle(random);
-  let lex = Operations::union_list(&automata.iter().collect::<Vec<_>>())?;
+  let lex = Operations::union_list(&automata)?;
   let lex = Operations::determinize(&lex, 1_000_000)?;
   assert!(AutomatonTestUtil::is_finite(&lex)?);
 

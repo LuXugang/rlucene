@@ -180,7 +180,7 @@ pub trait DocValuesConsumer: Closeable {
     MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge1 {
-      merge_field_info: merge_field_info.clone(),
+      merge_field_info,
       merge_state,
     };
     self.add_numeric_field(write_state, segment_info, merge_field_info, &producer)?;
@@ -198,7 +198,7 @@ pub trait DocValuesConsumer: Closeable {
     MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge2 {
-      merge_field_info: merge_field_info.clone(),
+      merge_field_info,
       merge_state,
     };
     self.add_binary_field(write_state, segment_info, merge_field_info, &producer)
@@ -215,7 +215,7 @@ pub trait DocValuesConsumer: Closeable {
     MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge3 {
-      merge_field_info: merge_field_info.clone(),
+      merge_field_info,
       merge_state,
     };
     self.add_sorted_numeric_field(write_state, segment_info, merge_field_info, &producer)
@@ -298,7 +298,7 @@ pub trait DocValuesConsumer: Closeable {
     // step 2: create ordinal map (this conceptually does the "merging")
     let ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;
     let producer = EmptyDocValuesProducerMerge4 {
-      field_info: field_info.clone(),
+      field_info,
       merge_state,
       map: Rc::new(ordinal_map),
     };
@@ -382,7 +382,7 @@ pub trait DocValuesConsumer: Closeable {
     // step 2: create ordinal map (this conceptually does the "merging")
     let ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;
     let v = EmptyDocValuesProducerMerge5 {
-      merge_field_info: merge_field_info.clone(),
+      merge_field_info,
       merge_state,
       map: Rc::new(ordinal_map),
     };
@@ -528,7 +528,7 @@ where
   }
 }
 pub(crate) struct EmptyDocValuesProducerMerge1<'a, MS> {
-  merge_field_info: Arc<FieldInfo>,
+  merge_field_info: &'a Arc<FieldInfo>,
   merge_state: &'a MS,
 }
 
@@ -544,7 +544,7 @@ where
   >;
 
   fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    if !Arc::ptr_eq(field_info, &self.merge_field_info) {
+    if !Arc::ptr_eq(field_info, self.merge_field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
 
@@ -694,7 +694,7 @@ where
   }
 }
 pub(crate) struct EmptyDocValuesProducerMerge2<'a, MS> {
-  merge_field_info: Arc<FieldInfo>,
+  merge_field_info: &'a Arc<FieldInfo>,
   merge_state: &'a MS,
 }
 
@@ -709,7 +709,7 @@ where
     BinaryDocValuesMerge<<MS::DocValuesProducer as DocValuesProducer>::BinaryDocValues, MS::DocMap>;
 
   fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    if !Arc::ptr_eq(field_info, &self.merge_field_info) {
+    if !Arc::ptr_eq(field_info, self.merge_field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
 
@@ -881,7 +881,7 @@ where
   type NumericDocValues = DummyNumericDocValues;
 }
 pub(crate) struct EmptyDocValuesProducerMerge3<'a, MS> {
-  merge_field_info: Arc<FieldInfo>,
+  merge_field_info: &'a Arc<FieldInfo>,
   merge_state: &'a MS,
 }
 
@@ -913,7 +913,7 @@ where
     &self,
     field_info: &Arc<FieldInfo>,
   ) -> Result<Self::SortedNumericDocValues> {
-    if !Arc::ptr_eq(field_info, &self.merge_field_info) {
+    if !Arc::ptr_eq(field_info, self.merge_field_info) {
       return Err(LuceneError::illegal_argument("wrong FieldInfo"));
     }
     // We must make new iterators + DocIDMerger for each iterator:
@@ -956,7 +956,7 @@ where
       for mut sub in subs {
         let single_valued_values = sub.sub.values.get_numeric_doc_values()?;
         single_valued_subs.push(Sub::new(NumericDocValuesSub::new(
-          sub.sub.doc_map.clone(),
+          sub.sub.doc_map,
           single_valued_values,
         )));
       }
@@ -1037,7 +1037,7 @@ where
 }
 
 pub(crate) struct EmptyDocValuesProducerMerge4<'a, MS> {
-  field_info: Arc<FieldInfo>,
+  field_info: &'a Arc<FieldInfo>,
   merge_state: &'a MS,
   map: Rc<OrdinalMap>,
 }
@@ -1056,7 +1056,7 @@ where
   >;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-    if !Arc::ptr_eq(field, &self.field_info) {
+    if !Arc::ptr_eq(field, self.field_info) {
       return Err(LuceneError::illegal_argument("wrong FieldInfo"));
     }
 
@@ -1165,6 +1165,11 @@ where
   S: SortedDocValues,
   DM: DocMap,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     let current = *self
       .current
@@ -1176,7 +1181,7 @@ where
     Ok(current_sub.sub.map.get(sub_ord as usize)? as i32)
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     let ord = ord as usize;
     let segment_number = self.map.get_first_segment_number(ord)?;
     let segment_ord = self.map.get_first_segment_ord(ord)? as i32;
@@ -1481,6 +1486,11 @@ where
   S: SortedSetDocValues,
   DM: DocMap,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     let current = *self
       .current_sub
@@ -1491,7 +1501,7 @@ where
     current_sub.sub.map.get(sub_ord as usize)
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     let ord = ord as usize;
     let segment_number = self.map.get_first_segment_number(ord)?;
     let segment_ord = self.map.get_first_segment_ord(ord)?;
@@ -1528,7 +1538,7 @@ where
     Self: 'a;
 }
 pub(crate) struct EmptyDocValuesProducerMerge5<'a, MS> {
-  merge_field_info: Arc<FieldInfo>,
+  merge_field_info: &'a Arc<FieldInfo>,
   merge_state: &'a MS,
   map: Rc<OrdinalMap>,
 }
@@ -1561,7 +1571,7 @@ where
   >;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-    if !Arc::ptr_eq(field_info, &self.merge_field_info) {
+    if !Arc::ptr_eq(field_info, self.merge_field_info) {
       return Err(LuceneError::illegal_argument("wrong FieldInfo"));
     }
 
@@ -1620,9 +1630,9 @@ where
       for mut sub in subs {
         let single = sub.sub.values.get_sorted_doc_values()?;
         single_valued_subs.push(Sub::new(SortedDocValuesSub::new(
-          sub.sub.doc_map.clone(),
+          sub.sub.doc_map,
           single,
-          sub.sub.map.clone(),
+          sub.sub.map,
         )));
       }
 

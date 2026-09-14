@@ -28,7 +28,7 @@ struct TestPackedTokenAttributeImpl;
 fn test_clone() -> Result<()> {
   let mut t = PackedTokenAttributeImpl::new()?;
   t.sub.set_offset(0, 5)?;
-  let content: Vec<char> = "hello".chars().collect();
+  let content = ['h', 'e', 'l', 'l', 'o'];
   t.copy_buffer(&content, 0, 5)?;
   let copy = assert_clone_is_equal(&t);
   assert_eq!(t.to_string(), copy.to_string());
@@ -43,7 +43,7 @@ fn test_copy_to() -> Result<()> {
 
   let mut t = PackedTokenAttributeImpl::new()?;
   t.sub.set_offset(0, 5)?;
-  let content: Vec<char> = "hello".chars().collect();
+  let content = ['h', 'e', 'l', 'l', 'o'];
   t.copy_buffer(&content, 0, 5)?;
 
   copy = assert_copy_is_equal(&t);

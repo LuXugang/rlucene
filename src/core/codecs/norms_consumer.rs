@@ -70,7 +70,7 @@ pub trait NormsConsumer: Closeable {
       producer.check_integrity()?;
     }
 
-    for field_info in merge_state.merge_field_infos.clone().as_ref() {
+    for field_info in merge_state.merge_field_infos.as_ref() {
       if field_info.has_norms() {
         self.merge_norms_field(field_info, merge_state)?;
       }
@@ -92,7 +92,7 @@ pub trait NormsConsumer: Closeable {
     CR: CodecReader,
   {
     let mut norms_producer = NormsProducerMerge {
-      merge_field_info: merge_field_info.clone(),
+      merge_field_info,
       merge_state,
     };
     self.add_norms_field(merge_field_info, &mut norms_producer)?;
@@ -162,7 +162,7 @@ struct NormsProducerMerge<'a, D, CR>
 where
   CR: CodecReader,
 {
-  merge_field_info: Arc<FieldInfo>,
+  merge_field_info: &'a Arc<FieldInfo>,
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
@@ -178,7 +178,7 @@ where
   >;
 
   fn get_norms(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    if !Arc::ptr_eq(field_info, &self.merge_field_info) {
+    if !Arc::ptr_eq(field_info, self.merge_field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
 

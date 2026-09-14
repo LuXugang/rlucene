@@ -74,10 +74,12 @@ fn naive_union(strings: &[BytesRef<Vec<u8>>]) -> Result<Automaton> {
     let s = bref.utf8_to_string()?;
     string_list.push(Automata::make_string(&s)?);
   }
-  let automata: Vec<&Automaton> = string_list.iter().collect();
-  let union = Operations::union_list(&automata)?;
+  let union = Operations::union_list(&string_list)?;
   let det = Operations::determinize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-  Ok(det.into_owned())
+  Ok(match det {
+    Cow::Borrowed(_) => union,
+    Cow::Owned(determinized) => determinized,
+  })
 }
 ///  Test concatenation with empty language returns empty
 #[test]

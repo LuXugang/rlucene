@@ -16,7 +16,7 @@
  */
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{ByteSource, SharedAccessVec};
 
 pub struct ToStringUtils;
 
@@ -27,7 +27,7 @@ impl ToStringUtils {
 
   pub fn bytes_ref_to_string<AV>(b: &BytesRef<AV>) -> String
   where
-    AV: SharedAccessVec<u8>,
+    AV: SharedAccessVec<u8> + ByteSource,
   {
     b.bytes.access(|bytes| {
       if bytes.is_empty() {
@@ -47,7 +47,7 @@ impl ToStringUtils {
 
   pub fn bytes_ref_to_string_from_builder<AV>(b: &BytesRefBuilder<AV>) -> String
   where
-    AV: SharedAccessVec<u8>,
+    AV: SharedAccessVec<u8> + ByteSource,
   {
     Self::bytes_ref_to_string(b.get_bytes_ref())
   }

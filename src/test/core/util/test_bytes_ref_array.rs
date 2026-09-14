@@ -21,8 +21,8 @@ use std::sync::Arc;
 
 use rand::RngExt;
 
-use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue};
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{
   AtomicCounter, BytesRefArray, IndexedBytesRefIterator, Natural, NaturalOrder,
@@ -82,7 +82,7 @@ fn test_append() -> Result<()> {
       for string in &string_list {
         let value = iterator.next()?;
         assert!(value.is_some());
-        assert_eq!(*string, value.expect("not fail").utf8_to_string()?,);
+        assert_eq!(*string, value.expect("not fail").1.utf8_to_string()?,);
       }
     }
   }
@@ -117,7 +117,7 @@ fn test_sort() -> Result<()> {
       let mut iter1 = SortableBytesRefArray::iterator(&list, Natural::default())?;
 
       let mut i = 0;
-      while let Some(next) = iter1.next()? {
+      while let Some((_, next)) = iter1.next()? {
         assert_eq!(
           string_list[i],
           next.utf8_to_string()?,
@@ -136,7 +136,7 @@ fn test_sort() -> Result<()> {
 
     let mut iter2 = SortableBytesRefArray::iterator(&list, NaturalOrder)?;
     let mut i = 0;
-    while let Some(next) = iter2.next()? {
+    while let Some((_, next)) = iter2.next()? {
       assert_eq!(
         string_list[i],
         next.utf8_to_string()?,
@@ -198,7 +198,7 @@ fn test_stable_sort() -> Result<()> {
     let mut last_ord = None;
     let mut last = None;
 
-    while let Some(next) = iter.next()? {
+    while let Some((ord, next)) = iter.next()? {
       let next = next.into_owned();
       assert_eq!(
         string_list[i],
@@ -210,12 +210,13 @@ fn test_stable_sort() -> Result<()> {
       if let Some(last_ref) = &last
         && next == *last_ref
       {
-        let ord = iter.ord();
         assert!(last_ord.is_none() || Some(ord) > last_ord);
       }
 
-      last = Some(BytesRef::deep_copy_of(&next)?);
-      last_ord = Some(iter.ord());
+      CoreHelper::check_from_index_size(next.offset, next.length, next.bytes.len())?;
+      last = Some(next);
+      assert_eq!(ord, iter.ord());
+      last_ord = Some(ord);
       i += 1;
     }
 

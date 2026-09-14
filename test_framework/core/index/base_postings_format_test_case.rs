@@ -37,6 +37,7 @@ use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
@@ -480,7 +481,7 @@ where
     for _ in 0..10 {
       let term = BytesRef::from_string(&self.state.random_realistic_unicode_string());
       if terms_enum.seek_ceil(&term)? == SeekStatus::NotFound {
-        assert!(term < terms_enum.term()?.into_owned());
+        assert!(term.as_bytes() < terms_enum.term()?.as_bytes());
       }
     }
 
@@ -641,7 +642,7 @@ pub trait BasePostingsFormatTestCase:
       true,
     )?;
 
-    let mut all_terms = postings_tester.all_terms().to_vec();
+    let mut all_terms = postings_tester.all_terms().iter().collect::<Vec<_>>();
     all_terms.shuffle(random);
     let field_and_term = all_terms.into_iter().next().unwrap();
 
@@ -1013,12 +1014,11 @@ pub trait BasePostingsFormatTestCase:
         .expect("LineFileDocs must have a body");
       let body_value = body
         .string_value()?
-        .expect("the body field must have a string value")
-        .into_owned();
+        .expect("the body field must have a string value");
       let mut just_body_doc = Document::new();
       just_body_doc.add(TextField::from_string(
         "body",
-        body_value.clone(),
+        body_value.as_str(),
         Store::No,
       )?);
       writer.add_document(random, just_body_doc)?;
@@ -1640,16 +1640,16 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert_eq!(-1, docs_and_positions_enum.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
@@ -1663,16 +1663,16 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert_eq!(-1, docs_and_positions_enum2.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
@@ -1687,15 +1687,15 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert_eq!(-1, docs_and_positions_enum.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
@@ -1708,15 +1708,15 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum2.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert_eq!(-1, docs_and_positions_enum2.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
@@ -1732,16 +1732,16 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert_eq!(-1, docs_and_positions_enum.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
@@ -1755,16 +1755,16 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert_eq!(-1, docs_and_positions_enum2.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
     let mut docs_and_positions_enum = leaf
@@ -1777,15 +1777,15 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert_eq!(-1, docs_and_positions_enum.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
     let mut docs_and_positions_enum2 =
@@ -1797,15 +1797,15 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(-1, docs_and_positions_enum2.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert_eq!(-1, docs_and_positions_enum2.start_offset()?);
     assert_eq!(-1, docs_and_positions_enum2.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
@@ -1893,8 +1893,8 @@ pub trait BasePostingsFormatTestCase:
     );
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert!(
@@ -1905,8 +1905,8 @@ pub trait BasePostingsFormatTestCase:
     );
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
@@ -1925,8 +1925,8 @@ pub trait BasePostingsFormatTestCase:
     );
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert!(
@@ -1938,8 +1938,8 @@ pub trait BasePostingsFormatTestCase:
     );
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
@@ -1957,8 +1957,8 @@ pub trait BasePostingsFormatTestCase:
       docs_and_positions_enum.end_offset()? == -1 || docs_and_positions_enum.end_offset()? == 3
     );
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert!(
@@ -1968,8 +1968,8 @@ pub trait BasePostingsFormatTestCase:
       docs_and_positions_enum.end_offset()? == -1 || docs_and_positions_enum.end_offset()? == 7
     );
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
@@ -1987,8 +1987,8 @@ pub trait BasePostingsFormatTestCase:
       docs_and_positions_enum2.end_offset()? == -1 || docs_and_positions_enum2.end_offset()? == 3
     );
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert!(
@@ -1999,8 +1999,8 @@ pub trait BasePostingsFormatTestCase:
       docs_and_positions_enum2.end_offset()? == -1 || docs_and_positions_enum2.end_offset()? == 7
     );
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
@@ -2015,16 +2015,16 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(3, docs_and_positions_enum.end_offset()?);
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert_eq!(4, docs_and_positions_enum.start_offset()?);
     assert_eq!(7, docs_and_positions_enum.end_offset()?);
     assert!(
       docs_and_positions_enum.get_payload()?.is_none()
-        || docs_and_positions_enum.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
@@ -2038,16 +2038,16 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(3, docs_and_positions_enum2.end_offset()?);
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay1")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay1").as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert_eq!(4, docs_and_positions_enum2.start_offset()?);
     assert_eq!(7, docs_and_positions_enum2.end_offset()?);
     assert!(
       docs_and_positions_enum2.get_payload()?.is_none()
-        || docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
-          == &BytesRef::from_string("pay2")
+        || docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
+          == BytesRef::<Vec<u8>>::from_string("pay2").as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 
@@ -2061,15 +2061,15 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(0, docs_and_positions_enum.start_offset()?);
     assert_eq!(3, docs_and_positions_enum.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum.next_position()?);
     assert_eq!(4, docs_and_positions_enum.start_offset()?);
     assert_eq!(7, docs_and_positions_enum.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
@@ -2082,15 +2082,15 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(0, docs_and_positions_enum2.start_offset()?);
     assert_eq!(3, docs_and_positions_enum2.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay1"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay1").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(1, docs_and_positions_enum2.next_position()?);
     assert_eq!(4, docs_and_positions_enum2.start_offset()?);
     assert_eq!(7, docs_and_positions_enum2.end_offset()?);
     assert_eq!(
-      &BytesRef::from_string("pay2"),
-      docs_and_positions_enum2.get_payload()?.unwrap().as_ref()
+      BytesRef::<Vec<u8>>::from_string("pay2").as_bytes(),
+      docs_and_positions_enum2.get_payload()?.unwrap().as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum2.next_doc()?);
 

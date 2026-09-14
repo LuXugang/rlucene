@@ -689,7 +689,7 @@ where
           &scorer_supplier,
           self.m,
           self.beam_width,
-          merge_exec.clone(),
+          merge_exec,
           num_merge_workers,
           Some(Arc::clone(&merge_state.intra_merge_task_executor)),
           num_merge_workers,

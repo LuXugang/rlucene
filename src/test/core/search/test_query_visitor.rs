@@ -25,6 +25,7 @@ use crate::core::search::query::{Query, QueryBase, QueryRef};
 use crate::core::search::query_visitor::{DefaultQueryVisitor, QueryVisitor, term_collector};
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
@@ -341,8 +342,12 @@ impl QueryVisitor for AllTermsVisitor<'_> {
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
-    self.0.extend(terms.iter().cloned());
+  fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
+    self.0.extend(
+      terms
+        .iter()
+        .map(|term| Borrow::<Term>::borrow(term).clone()),
+    );
     Ok(())
   }
 
@@ -361,8 +366,12 @@ impl QueryVisitor for FieldTermsVisitor<'_> {
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
-    self.0.extend(terms.iter().cloned());
+  fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
+    self.0.extend(
+      terms
+        .iter()
+        .map(|term| Borrow::<Term>::borrow(term).clone()),
+    );
     Ok(())
   }
 
@@ -381,14 +390,14 @@ impl<'n> QueryVisitor for BoostedTermExtractor<'n> {
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
     if let Self::Extractor {
       boost,
       terms_to_boosts,
     } = self
     {
       for term in terms {
-        terms_to_boosts.insert(term.clone(), *boost);
+        terms_to_boosts.insert(Borrow::<Term>::borrow(term).clone(), *boost);
       }
     }
     Ok(())
@@ -425,7 +434,7 @@ impl<'n> QueryVisitor for QueryTypeCounter<'n> {
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, query: QueryRef<'_>, _terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, query: QueryRef<'_>, _terms: &[T]) -> Result<()> {
     self.count_query(query);
     Ok(())
   }
@@ -455,11 +464,16 @@ impl<'n> QueryVisitor for QueryNodeVisitor<'n> {
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, _query: QueryRef<'_>, terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
     if let Self::Node(node) = self {
       match node {
         QueryNode::Conjunction(children) | QueryNode::Disjunction(children) => {
-          children.extend(terms.iter().cloned().map(QueryNode::Term));
+          children.extend(
+            terms
+              .iter()
+              .map(|term| Borrow::<Term>::borrow(term).clone())
+              .map(QueryNode::Term),
+          );
         },
         QueryNode::Term(_) => unreachable!(),
       }

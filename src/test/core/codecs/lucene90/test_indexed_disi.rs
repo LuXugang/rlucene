@@ -400,7 +400,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
 
   set.set(start + MAX_ARRAY_LENGTH as usize + random.random_range(0..100))?;
   let mut out = dir.create_output("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
-  let mut v = BitSetIterator::new(set.clone(), (MAX_ARRAY_LENGTH + 1) as i64)?;
+  let mut v = BitSetIterator::new(set, (MAX_ARRAY_LENGTH + 1) as i64)?;
   write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)?;
   let set = v.bits;
   let length = out.get_file_pointer()?;

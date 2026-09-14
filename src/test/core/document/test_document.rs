@@ -237,16 +237,31 @@ fn test_get_values() -> Result<()> {
   let doc = make_document_with_fields()?;
 
   let keyword_values = doc.get_values("keyword")?;
-  let keyword_str: Vec<&str> = keyword_values.iter().map(|s| s.as_str()).collect();
-  assert_eq!(keyword_str, vec!["test1", "test2"]);
+  assert!(
+    keyword_values
+      .iter()
+      .map(|s| s.as_str())
+      .eq(["test1", "test2"]),
+    "unexpected keyword values: {keyword_values:?}"
+  );
 
   let text_values = doc.get_values("text")?;
-  let text_str: Vec<&str> = text_values.iter().map(|s| s.as_str()).collect();
-  assert_eq!(text_str, vec!["test1", "test2"]);
+  assert!(
+    text_values
+      .iter()
+      .map(|s| s.as_str())
+      .eq(["test1", "test2"]),
+    "unexpected text values: {text_values:?}"
+  );
 
   let unindexed_values = doc.get_values("unindexed")?;
-  let unindexed_str: Vec<&str> = unindexed_values.iter().map(|s| s.as_str()).collect();
-  assert_eq!(unindexed_str, vec!["test1", "test2"]);
+  assert!(
+    unindexed_values
+      .iter()
+      .map(|s| s.as_str())
+      .eq(["test1", "test2"]),
+    "unexpected unindexed values: {unindexed_values:?}"
+  );
 
   let nope_values = doc.get_values("nope")?;
   assert!(nope_values.is_empty());
@@ -371,19 +386,19 @@ fn test_field_set_value() -> Result<()> {
   doc.add(field2.clone());
 
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
-  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, doc)?;
 
   field.set_string_value("id2")?;
   doc = Document::new();
   doc.add(field.clone());
   doc.add(field2.clone());
-  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, doc)?;
 
   field.set_string_value("id3")?;
   doc = Document::new();
   doc.add(field.clone());
   doc.add(field2.clone());
-  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, doc)?;
 
   let reader = writer.get_reader(&mut random)?;
   let searcher = index_searcher::from_reader(reader)?;
@@ -449,16 +464,13 @@ fn test_numeric_field_as_string() -> Result<()> {
   doc.add(StoredField::from_i32("int", 4)?);
 
   let values = doc.get_values("int")?;
-  assert_eq!(
-    values.iter().map(|v| v.as_ref()).collect::<Vec<&String>>(),
-    vec!["5", "4"]
-  );
+  assert!(values.iter().map(|v| v.as_ref().as_str()).eq(["5", "4"]));
 
   // index it
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
-  iw.add_document(&mut random, doc.clone())?;
+  iw.add_document(&mut random, doc)?;
 
   let ir = iw.get_reader(&mut random)?;
   let sdoc = ir.stored_fields()?.document(0)?;
@@ -467,10 +479,7 @@ fn test_numeric_field_as_string() -> Result<()> {
   assert_eq!(None, sdoc.get("somethingElse")?);
 
   let svalues = sdoc.get_values("int")?;
-  assert_eq!(
-    svalues.iter().map(|v| v.as_ref()).collect::<Vec<&String>>(),
-    vec!["5", "4"]
-  );
+  assert!(svalues.iter().map(|v| v.as_ref().as_str()).eq(["5", "4"]));
 
   iw.close(&mut random)?;
   Ok(())

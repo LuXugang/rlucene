@@ -31,6 +31,7 @@ use crate::core::codecs::lucene90::fields_index_reader::FieldsIndexReader;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::base_terms_enum::BaseTermsEnumTermStateImpl;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
@@ -1746,17 +1747,18 @@ impl PostingsEnum for TVPostingsEnum {
     }
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     let _ = self.check_position()?;
     if self.payload_index.is_empty() || self.payload_length == 0 {
       Ok(None)
     } else {
-      // TODO: always data copy here
-      let v =
-        self.payload.bytes[self.payload_offset..self.payload_offset + self.payload_length].to_vec();
-
-      let v = BytesRef::from_slice(v, 0, self.payload_length);
-      Ok(Some(Cow::Owned(v)))
+      let bytes =
+        &self.payload.bytes[self.payload_offset..self.payload_offset + self.payload_length];
+      Ok(Some(BytesRefValueEnum::Slice(BytesRef {
+        bytes,
+        offset: 0,
+        length: self.payload_length,
+      })))
     }
   }
 }

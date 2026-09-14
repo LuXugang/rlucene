@@ -51,7 +51,7 @@ use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderC
 use crate::core::index::index_sorter::DocComparatorEnum2;
 use crate::core::index::index_sorter::{DocComparator, IndexSorter};
 use crate::core::store::IO_CONTEXT_DEFAULT;
-use std::borrow::{BorrowMut, Cow};
+use std::borrow::{Borrow, BorrowMut, Cow};
 
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
@@ -232,8 +232,7 @@ where
       freq_prox_term_int_pool,
       byte_pool,
     };
-    let vector_values_consumer =
-      VectorValuesConsumer::new(codec.clone(), directory.clone(), info_stream.clone())?;
+    let vector_values_consumer = VectorValuesConsumer::new(codec, directory, info_stream.clone())?;
     Ok(IndexingChain {
       bytes_used,
       terms_hash,
@@ -1093,7 +1092,8 @@ where
       let stored_value = field
         .stored_value()?
         .ok_or_else(|| LuceneError::illegal_argument("Cannot store a null value"))?;
-      if let FieldDataEnum::String(s) = &stored_value
+      let stored_value: &FieldDataEnum = stored_value.borrow();
+      if let FieldDataEnum::String(s) = stored_value
         && s.len() > MAX_STORED_STRING_LENGTH
       {
         return Err(LuceneError::illegal_argument(format!(
@@ -1110,7 +1110,7 @@ where
           pf.field_info
             .as_ref()
             .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?,
-          &stored_value,
+          stored_value,
         )
       )?;
     }
@@ -1537,8 +1537,7 @@ impl PerField {
     let fi = self
       .field_info
       .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?
-      .clone();
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
     let state = FieldInvertState::new(
       self.index_created_version_major,
       fi.name.clone(),
@@ -2883,7 +2882,12 @@ where
     self.delegate.numeric_value()
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = T::StoredValue<'a>
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     self.delegate.stored_value()
   }
   fn invertable_type(&self) -> &InvertableType {

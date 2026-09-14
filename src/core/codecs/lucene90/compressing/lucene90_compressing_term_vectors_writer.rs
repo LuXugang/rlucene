@@ -64,8 +64,6 @@ pub struct Lucene90CompressingTermVectorsWriter<D>
 where
   D: Directory,
 {
-  #[allow(dead_code)] // Kept to mirror Java, which only reads this field during construction.
-  segment: String,
   index_writer: FieldsIndexWriter<D>,
   meta_stream: D::IndexOutput,
   vectors_stream: D::IndexOutput,
@@ -121,7 +119,7 @@ where
     debug_assert!(chunk_size > 0);
     debug_assert!(max_docs_per_chunk > 0);
 
-    let segment = si.name.clone();
+    let segment = &si.name;
     let compressor = compression_mode.new_compressor();
     let term_suffixes = ByteBuffersDataOutput::new_resettable_instance();
     let payload_bytes = ByteBuffersDataOutput::new_resettable_instance();
@@ -138,7 +136,7 @@ where
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("directory is missing"))?;
       meta_stream = Some(dir.create_output(
-        &IndexFileNames::segment_file_name(&segment, segment_suffix, VECTORS_META_EXTENSION),
+        &IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_META_EXTENSION),
         context,
       )?);
       let meta = meta_stream
@@ -160,7 +158,7 @@ where
       );
 
       vectors_stream = Some(dir.create_output(
-        &IndexFileNames::segment_file_name(&segment, segment_suffix, VECTORS_EXTENSION),
+        &IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_EXTENSION),
         context,
       )?);
       let vectors = vectors_stream
@@ -182,7 +180,7 @@ where
         directory
           .take()
           .ok_or_else(|| LuceneError::illegal_state("directory is missing"))?,
-        &segment,
+        segment,
         segment_suffix,
         VECTORS_INDEX_EXTENSION,
         VECTORS_INDEX_CODEC_NAME,
@@ -231,7 +229,6 @@ where
       index_writer.ok_or_else(|| LuceneError::illegal_state("fields index writer is missing"))?;
 
     Ok(Self {
-      segment,
       index_writer,
       meta_stream,
       vectors_stream,
@@ -1019,7 +1016,7 @@ where
     Ok(())
   }
 
-  fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+  fn start_term(&mut self, term: &BytesRef<&[u8]>, freq: i32) -> Result<()> {
     debug_assert!(freq >= 1);
 
     let prefix: usize = if self.last_term.length == 0 {
@@ -1048,7 +1045,7 @@ where
     debug_assert!((term.offset + prefix) <= i32::MAX as usize);
     self
       .term_suffixes
-      .write_bytes_range(&term.bytes, term.offset + prefix, suffix_len)?;
+      .write_bytes_range(term.bytes, term.offset + prefix, suffix_len)?;
     // copy last term
     if self.last_term.bytes.len() < term.length {
       ArrayUtil::grow_no_copy(&mut self.last_term.bytes, term.length)?;
@@ -1069,7 +1066,7 @@ where
     position: i32,
     start_offset: i32,
     end_offset: i32,
-    payload: Option<&BytesRef<Vec<u8>>>,
+    payload: Option<&BytesRef<&[u8]>>,
   ) -> Result<()> {
     let cur_field = match self.pending_docs[self.cur_doc]
       .fields
@@ -1104,7 +1101,7 @@ where
     {
       self
         .payload_bytes
-        .write_bytes_range(&p.bytes, p.offset, p.length)?;
+        .write_bytes_range(p.bytes, p.offset, p.length)?;
     }
     Ok(())
   }

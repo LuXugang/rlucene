@@ -132,12 +132,12 @@ where
 
 #[test]
 fn test_vint15() -> Result<()> {
-  let buffer = vec![0u8; 5];
-  let mut out = ByteArrayDataOutput::with_bytes(buffer);
+  let mut buffer = [0u8; 5];
+  let mut out = ByteArrayDataOutput::with_bytes(buffer.as_mut_slice());
   for &i in &[0i32, 1, 127, 128, 32767, 32768, i32::MAX] {
     out.reset()?;
     write_vint15(&mut out, i)?;
-    let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
+    let mut inp = ByteArrayDataInput::with_bytes(&*out.bytes);
     let v = read_vint15(&mut inp)?;
     assert_eq!(v, i);
     assert_eq!(inp.get_position(), out.get_position());
@@ -147,11 +147,12 @@ fn test_vint15() -> Result<()> {
 #[test]
 fn test_vlong15() -> Result<()> {
   // buffer size should accommodate the largest encoded value
-  let mut out = ByteArrayDataOutput::with_bytes(vec![0u8; 9]);
+  let mut buffer = [0u8; 9];
+  let mut out = ByteArrayDataOutput::with_bytes(buffer.as_mut_slice());
   for &i in &[0i64, 1, 127, 128, 32_767, 32_768, i32::MAX as i64, i64::MAX] {
     out.reset()?;
     write_vlong15(&mut out, i)?;
-    let mut inp = ByteArrayDataInput::with_bytes(out.bytes.as_slice());
+    let mut inp = ByteArrayDataInput::with_bytes(&*out.bytes);
     let v = read_vlong15(&mut inp)?;
     assert_eq!(v, i);
     assert_eq!(inp.get_position(), out.get_position());
@@ -203,16 +204,16 @@ fn test_final_block() -> Result<()> {
 }
 #[test]
 fn test_impact_serialization() -> Result<()> {
-  let cases = vec![
-    vec![Impact { freq: 1, norm: 1 }],
-    vec![Impact { freq: 1, norm: 42 }],
-    vec![Impact {
+  let cases: &[&[Impact]] = &[
+    &[Impact { freq: 1, norm: 1 }],
+    &[Impact { freq: 1, norm: 42 }],
+    &[Impact {
       freq: 1,
       norm: -100,
     }],
-    vec![Impact { freq: 30, norm: 1 }],
-    vec![Impact { freq: 500, norm: 1 }],
-    vec![
+    &[Impact { freq: 30, norm: 1 }],
+    &[Impact { freq: 500, norm: 1 }],
+    &[
       Impact { freq: 1, norm: 7 },
       Impact { freq: 3, norm: 9 },
       Impact { freq: 7, norm: 10 },
@@ -220,7 +221,7 @@ fn test_impact_serialization() -> Result<()> {
       Impact { freq: 20, norm: 13 },
       Impact { freq: 28, norm: 14 },
     ],
-    vec![
+    &[
       Impact { freq: 2, norm: 2 },
       Impact { freq: 10, norm: 10 },
       Impact { freq: 12, norm: 50 },
@@ -240,7 +241,7 @@ fn test_impact_serialization() -> Result<()> {
   ];
 
   for impacts in cases {
-    do_test_impact_serialization(&impacts)?;
+    do_test_impact_serialization(impacts)?;
   }
 
   Ok(())

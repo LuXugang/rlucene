@@ -80,6 +80,7 @@ use parking_lot::Mutex;
 #[cfg(not(test))]
 use parking_lot::RwLock;
 use rayon::ThreadPool;
+use std::borrow::Borrow;
 #[cfg(test)]
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -507,7 +508,7 @@ where
     let mut top_field_docs = self.search_with_collector_manager(query.clone(), &manager)?;
 
     if do_doc_scores {
-      populate_scores(top_field_docs.score_docs_mut(), self, query.clone())?;
+      populate_scores(top_field_docs.score_docs_mut(), self, query)?;
     }
 
     Ok(top_field_docs)
@@ -2128,7 +2129,7 @@ impl QueryVisitor for NumClausesCheckVisitor {
   where
     Self: 'a;
 
-  fn consume_terms(&mut self, _query: QueryRef<'_>, _terms: &[Term]) -> Result<()> {
+  fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, _terms: &[T]) -> Result<()> {
     if self.num_clauses > get_max_clause_count() {
       return Err(new_nested());
     }

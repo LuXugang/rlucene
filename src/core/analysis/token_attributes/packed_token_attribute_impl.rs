@@ -87,7 +87,7 @@ impl PackedTokenAttributeImpl {
     #[cfg(test)]
     {
       attribute.insert(<Self as CheckClearAttributesAttribute>::ATTRIBUTE_NAME.to_string());
-      attribute.extend(token.get_attribute_name()?.clone())
+      attribute.extend(token.get_attribute_name()?.iter().cloned())
     }
     let sub = Self {
       start_offset: 0,

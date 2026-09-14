@@ -149,7 +149,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
             Lucene90LiveDocsFormat::VERSION_START,
             Lucene90LiveDocsFormat::VERSION_CURRENT,
             info.info.get_id(),
-            &BigInt::from(gen_).to_str_radix(36).to_string(),
+            &BigInt::from(gen_).to_str_radix(36),
           )?;
 
           let fbs = Self::read_fixed_bit_set(&mut input, length)?;
@@ -212,7 +212,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
           Lucene90LiveDocsFormat::CODEC_NAME,
           Lucene90LiveDocsFormat::VERSION_CURRENT,
           info.info.get_id(),
-          &BigInt::from(gen_).to_str_radix(36).to_string(),
+          &BigInt::from(gen_).to_str_radix(36),
         )?;
 
         let del_count = Self::write_bits(&mut output, bits)?;

@@ -19,7 +19,6 @@ use crate::core::codecs::codec;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::codecs::{Codec, CodecTermVectorsWriter, Codecs};
-use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::indexing_chain::PerField;
 use crate::core::index::segment_info::SegmentInfo;
@@ -37,7 +36,6 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
-use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, IOUtils, TryIntoInt};
 #[cfg(test)]
 use crate::test_framework::core::util::failure_context::{
@@ -56,7 +54,6 @@ where
   num_vector_fields: usize,
   pub(crate) last_doc_id: i32,
   per_fields_idxs: Vec<PerFieldMeta>,
-  flush_term: BytesRef<Vec<u8>>,
   hook: TermVectorsConsumerHook<D>,
   pub(crate) base: TermsHash,
 }
@@ -76,11 +73,11 @@ pub(crate) struct TermVectorsConsumerDefaults;
 /// Parameter `idx` is the index of the [`PerField`] where the [`TermVectorsConsumerPerField`] resides.
 /// [`PerField`] itself is located in the [`IndexingChain`](crate::core::index::indexing_chain::IndexingChain)'s `doc_fields` array.
 ///
-/// Parameter `field_name` is the field name.
+/// Parameter `field_info` provides the field name; `None` is an empty padding entry.
 #[derive(Clone, Default)]
 pub(crate) struct PerFieldMeta {
   pub(crate) idx: usize,
-  pub(crate) field_name: String,
+  pub(crate) field_info: Option<Arc<FieldInfo>>,
 }
 
 impl Eq for PerFieldMeta {}
@@ -99,7 +96,15 @@ impl PartialOrd<Self> for PerFieldMeta {
 
 impl Ord for PerFieldMeta {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.field_name.cmp(&other.field_name)
+    let name = self
+      .field_info
+      .as_ref()
+      .map_or("", |info| info.name.as_str());
+    let other_name = other
+      .field_info
+      .as_ref()
+      .map_or("", |info| info.name.as_str());
+    name.cmp(other_name)
   }
 }
 
@@ -170,21 +175,20 @@ where
     per_field: &mut TermVectorsConsumerPerField,
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
-    flush_term: &mut BytesRef<Vec<u8>>,
   ) -> Result<()> {
     match self {
       Self::Default { writer } => {
         let writer = writer
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-        per_field.write_to_writer(writer, int_pool, byte_pool, flush_term)
+        per_field.write_to_writer(writer, int_pool, byte_pool)
       },
       Self::Sorting(hook) => {
         let writer = hook
           .writer
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-        per_field.write_to_writer(writer, int_pool, byte_pool, flush_term)
+        per_field.write_to_writer(writer, int_pool, byte_pool)
       },
     }
   }
@@ -216,7 +220,6 @@ where
       num_vector_fields: 0,
       last_doc_id: 0,
       per_fields_idxs: per_fields,
-      flush_term: BytesRef::new(),
       base,
       hook,
     }
@@ -302,9 +305,7 @@ where
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
   ) -> Result<()> {
-    self
-      .hook
-      .write_per_field(per_field, int_pool, byte_pool, &mut self.flush_term)
+    self.hook.write_per_field(per_field, int_pool, byte_pool)
   }
   pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) -> Result<()> {
     let num_vector_fields = self.num_vector_fields;
@@ -365,12 +366,7 @@ where
   D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(
-      self
-        .hook
-        .ram_bytes_used()?
-        .saturating_add(size_of_vec(&self.flush_term.bytes)),
-    )
+    self.hook.ram_bytes_used()
   }
 }
 

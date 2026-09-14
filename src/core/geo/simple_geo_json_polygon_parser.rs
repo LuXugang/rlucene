@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::core::geo::polygon::Polygon;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
@@ -29,7 +31,7 @@ enum JsonValue {
 pub struct SimpleGeoJSONPolygonParser<'a> {
   input: &'a str,
   upto: usize,
-  poly_type: Option<String>,
+  poly_type: Option<&'static str>,
   coordinates: Option<Vec<JsonValue>>,
 }
 
@@ -111,16 +113,16 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
 
       let value = if ch == '[' {
         let new_path = if path.is_empty() {
-          key.clone()
+          Cow::Borrowed(key.as_str())
         } else {
-          format!("{}.{}", path, key)
+          Cow::Owned(format!("{}.{}", path, key))
         };
         self.parse_array(&new_path)?
       } else if ch == '{' {
         let new_path = if path.is_empty() {
-          key.clone()
+          Cow::Borrowed(key.as_str())
         } else {
-          format!("{}.{}", path, key)
+          Cow::Owned(format!("{}.{}", path, key))
         };
         self.parse_object(&new_path)?;
         JsonValue::Null
@@ -178,9 +180,9 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
         };
 
         if type_name == "Polygon" && Self::is_valid_geometry_path(path) {
-          self.poly_type = Some("Polygon".to_string());
+          self.poly_type = Some("Polygon");
         } else if type_name == "MultiPolygon" && Self::is_valid_geometry_path(path) {
-          self.poly_type = Some("MultiPolygon".to_string());
+          self.poly_type = Some("MultiPolygon");
         } else if (type_name == "FeatureCollection" || type_name == "Feature")
           && (path == "features.[]" || path.is_empty())
         {
@@ -481,9 +483,9 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
   {
     let end = self.input.len().min(self.upto + 1);
     let fragment = if self.upto < 50 {
-      self.input[..end].to_string()
+      Cow::Borrowed(&self.input[..end])
     } else {
-      format!("...{}", &self.input[self.upto - 50..end])
+      Cow::Owned(format!("...{}", &self.input[self.upto - 50..end]))
     };
 
     LuceneError::illegal_state(format!(

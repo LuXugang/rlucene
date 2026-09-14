@@ -188,7 +188,7 @@ pub trait Analyzer: Closeable + Send + Sync {
       debug_assert!(text.len() <= i32::MAX as usize);
       let mut ts = self.normalize_from_ts(
         field_name,
-        StringTokenStream::new(att, &filtered, text.len() as i32).into(),
+        StringTokenStream::new(att, filtered, text.len() as i32).into(),
       )?;
 
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
@@ -606,9 +606,9 @@ pub struct StringTokenStream {
   att: Attributes,
 }
 impl StringTokenStream {
-  fn new(att: Attributes, value: &str, length: i32) -> Self {
+  fn new(att: Attributes, value: String, length: i32) -> Self {
     Self {
-      value: value.to_string(),
+      value,
       length,
       used: true,
       att,

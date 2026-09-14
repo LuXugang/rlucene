@@ -19,6 +19,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::FieldBase;
 use crate::core::document::fields::Fields;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
@@ -117,8 +118,7 @@ fn test_fixed_binary() -> Result<()> {
       bytes[3] = expected_value as u8;
       assert_eq!(i, values.next_doc()?);
       let term = values.binary_value()?;
-      let expected = BytesRef::from_bytes(bytes.clone());
-      assert_eq!(&expected, term.as_ref());
+      assert_eq!(bytes.as_slice(), term.as_bytes());
       expected_value += 1;
     }
   }

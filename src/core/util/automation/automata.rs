@@ -21,6 +21,7 @@ use crate::core::util::automation::strings_to_automaton::StringsToAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, ToInt};
+use std::borrow::Borrow;
 
 /// Construction of basic automata.
 pub struct Automata;
@@ -563,7 +564,10 @@ impl Automata {
   /// Returns:
   /// - An [`Automaton`] accepting all input strings. The resulting automaton
   ///   is codepoint-based (full Unicode codepoints on transitions).
-  pub fn make_string_union(utf8_strings: &[BytesRef<Vec<u8>>]) -> Result<Automaton> {
+  pub fn make_string_union<B>(utf8_strings: &[B]) -> Result<Automaton>
+  where
+    B: Borrow<BytesRef<Vec<u8>>>,
+  {
     if utf8_strings.is_empty() {
       Automata::make_empty()
     } else {
@@ -581,7 +585,10 @@ impl Automata {
   /// Returns:
   /// - An [`Automaton`] accepting all input strings. The resulting automaton
   ///   is codepoint-based (full Unicode codepoints on transitions).
-  pub fn make_binary_string_union(utf8_strings: &[BytesRef<Vec<u8>>]) -> Result<Automaton> {
+  pub fn make_binary_string_union<B>(utf8_strings: &[B]) -> Result<Automaton>
+  where
+    B: Borrow<BytesRef<Vec<u8>>>,
+  {
     if utf8_strings.is_empty() {
       Automata::make_empty()
     } else {

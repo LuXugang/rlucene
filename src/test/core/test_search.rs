@@ -38,6 +38,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_text_field, random,
 };
 use std::collections::HashMap;
+use std::fmt::Write as _;
 #[allow(dead_code)] // for quick search
 pub struct TestSearch;
 
@@ -91,19 +92,23 @@ fn do_test_search(use_compound_file: bool) -> Result<String> {
 
   let mut output = String::new();
   for query in build_queries()? {
-    output.push_str(&format!("Query: {}\n", query.to_string("contents")?));
+    writeln!(output, "Query: {}", query.to_string("contents")?)
+      .expect("writing to a String cannot fail");
 
     let hits = searcher.search_with_sort_score(query, 1000, sort.clone(), true)?;
-    output.push_str(&format!("{} total results\n", hits.total_hits().value()));
+    writeln!(output, "{} total results", hits.total_hits().value())
+      .expect("writing to a String cannot fail");
     let mut stored_fields = searcher.stored_fields()?;
     for (i, hit) in hits.score_docs().iter().take(10).enumerate() {
       let d = stored_fields.document(hit.doc())?;
-      output.push_str(&format!(
-        "{} {} {}\n",
+      writeln!(
+        output,
+        "{} {} {}",
         i,
         hit.score(),
         d.get("contents")?.unwrap()
-      ));
+      )
+      .expect("writing to a String cannot fail");
     }
   }
 

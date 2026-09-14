@@ -34,8 +34,8 @@ struct TestStringSorter;
 fn test(refs: Vec<BytesRef<Vec<u8>>>, len: usize) -> Result<()> {
   test_impl(refs[..len].to_vec(), len, Natural::default())?;
   test_impl(refs[..len].to_vec(), len, NaturalOrder)?;
-  test_stable(refs[..len].to_vec(), len, Natural::default())?;
-  test_stable(refs[..len].to_vec(), len, NaturalOrder)?;
+  test_stable(&refs[..len], len, Natural::default())?;
+  test_stable(&refs[..len], len, NaturalOrder)?;
   Ok(())
 }
 
@@ -45,7 +45,7 @@ where
 {
   let mut expected: Vec<BytesRef<Vec<u8>>> = refs.clone();
   expected.sort();
-  let delegate = StringSorterTestImpl::new(refs.clone());
+  let delegate = StringSorterTestImpl::new(refs);
   let mut string_sorter = StringSorter::new(delegate, comparator);
   string_sorter.sort(0, len)?;
 
@@ -53,7 +53,7 @@ where
   Ok(())
 }
 
-fn test_stable<C>(refs: Vec<BytesRef<Vec<u8>>>, len: usize, comparator: C) -> Result<()>
+fn test_stable<C>(refs: &[BytesRef<Vec<u8>>], len: usize, comparator: C) -> Result<()>
 where
   C: BytesRefComparator,
 {
@@ -61,7 +61,7 @@ where
   let mut actual = refs[..len].to_vec();
   expected.sort();
 
-  let actual_before_sorted = actual.clone();
+  let actual_before_sorted = &refs[..len];
   let mut ord: Vec<usize> = (0..len).collect();
   let ord_len = ord.len();
   let delegate = StableStringSorterTestImpl {
@@ -73,7 +73,7 @@ where
   let mut stable_string_sorter = StringSorter::new(string_sorter, comparator);
   stable_string_sorter.sort(0, len)?;
   // `actual` is not sorted, but `ord` is sorted
-  assert_vecs_equal(&actual_before_sorted, &actual);
+  assert_vecs_equal(actual_before_sorted, &actual);
   for i in 0..len {
     assert_eq!(
       &expected[i], &refs[ord[i]],
@@ -190,6 +190,8 @@ impl Sorter for StringSorterTestImpl {
   }
 }
 impl StringSorterBase for StringSorterTestImpl {
+  type Bytes = Vec<u8>;
+
   fn get(
     &mut self,
     _builder: &mut BytesRefBuilder<Vec<u8>>,
@@ -199,7 +201,7 @@ impl StringSorterBase for StringSorterTestImpl {
     let ref_item = &self.refs[i];
     result.offset = ref_item.offset;
     result.length = ref_item.length;
-    result.bytes = ref_item.bytes.clone();
+    result.bytes.clone_from(&ref_item.bytes);
     Ok(())
   }
 }
@@ -211,6 +213,8 @@ struct StableStringSorterTestImpl<'a> {
 }
 
 impl StringSorterBase for StableStringSorterTestImpl<'_> {
+  type Bytes = Vec<u8>;
+
   fn get(
     &mut self,
     _builder: &mut BytesRefBuilder<Vec<u8>>,
@@ -220,7 +224,7 @@ impl StringSorterBase for StableStringSorterTestImpl<'_> {
     let ref_item = &self.refs[self.ord[i]];
     result.offset = ref_item.offset;
     result.length = ref_item.length;
-    result.bytes = ref_item.bytes.clone();
+    result.bytes.clone_from(&ref_item.bytes);
     Ok(())
   }
 }

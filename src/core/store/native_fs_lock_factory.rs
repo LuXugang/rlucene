@@ -20,8 +20,8 @@ use std::fs;
 use std::fs::{File, Metadata, OpenOptions};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
@@ -75,7 +75,7 @@ use crate::core::util::io_utils::IOUtils;
 /// # See Also
 /// - [`lock_factory`](crate::core::store::lock_factory)
 pub struct NativeFSLockFactory {
-  lock_held: Arc<Mutex<HashSet<String>>>,
+  lock_held: &'static Mutex<HashSet<String>>,
 }
 
 impl Default for NativeFSLockFactory {
@@ -109,7 +109,7 @@ impl Display for NativeFSLockFactory {
 impl FSLockFactory for NativeFSLockFactory {
   fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
     fs::create_dir_all(dir)
-      .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
+      .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().into_owned(), e))?;
 
     let lock_file = dir.join(lock_name);
 
@@ -123,12 +123,12 @@ impl FSLockFactory for NativeFSLockFactory {
       .open(&lock_file)?;
     let real_path = lock_file
       .canonicalize()
-      .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
-    let real_path_str = real_path.to_string_lossy().to_string();
+      .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().into_owned(), e))?;
+    let real_path_str = real_path.to_string_lossy();
     let metadata = file.metadata()?;
 
     let mut lock_held = self.lock_held.lock();
-    if !lock_held.insert(real_path_str.clone()) {
+    if !lock_held.insert(real_path_str.to_string()) {
       return Err(LuceneError::lock_obtain_failed(format!(
         "Lock held by this virtual machine: {real_path_str}"
       )));
@@ -173,17 +173,15 @@ impl Drop for NativeFSLock {
   }
 }
 
-static LOCK_HELD: OnceLock<Arc<Mutex<HashSet<String>>>> = OnceLock::new();
+static LOCK_HELD: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
 
-fn get_lock_held() -> Arc<Mutex<HashSet<String>>> {
-  LOCK_HELD
-    .get_or_init(|| Arc::new(Mutex::new(HashSet::new())))
-    .clone()
+fn get_lock_held() -> &'static Mutex<HashSet<String>> {
+  LOCK_HELD.get_or_init(|| Mutex::new(HashSet::new()))
 }
 
 fn clear_lock_held(path: &Path) -> Result<()> {
-  let path = path.to_string_lossy().to_string();
-  if !get_lock_held().lock().remove(&path) {
+  let path = path.to_string_lossy();
+  if !get_lock_held().lock().remove(path.as_ref()) {
     return Err(LuceneError::already_closed(format!(
       "Lock path was cleared but never marked as held: {path}"
     )));
@@ -290,7 +288,7 @@ impl Lock for NativeFSLock {
       )));
     }
 
-    let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
+    let lock_held = LOCK_HELD.get_or_init(|| Mutex::new(HashSet::new()));
     let lock_held = lock_held.lock();
     if !lock_held.contains(self.path.to_string_lossy().as_ref()) {
       return Err(LuceneError::already_closed(format!(

@@ -40,10 +40,13 @@ pub struct ByteBuffersIndexInput<B> {
   closed: AtomicBool,
 }
 impl<B> ByteBuffersIndexInput<B> {
-  pub fn new(data_input: ByteBuffersDataInput<B>, resource_description: &str) -> Self {
+  pub fn new<S: Into<String>>(
+    data_input: ByteBuffersDataInput<B>,
+    resource_description: S,
+  ) -> Self {
     Self {
       in_: data_input,
-      resource_description: resource_description.to_string(),
+      resource_description: resource_description.into(),
       closed: AtomicBool::new(false),
     }
   }
@@ -222,7 +225,7 @@ where
   {
     self.ensure_open()?;
     let slice = self.in_.slice(0, self.in_.length())?;
-    let mut cloned = ByteBuffersIndexInput::new(slice, format!("(clone of) {self}").as_str());
+    let mut cloned = ByteBuffersIndexInput::new(slice, format!("(clone of) {self}"));
     cloned.seek(self.get_file_pointer()?)?;
     Ok(cloned)
   }
@@ -262,7 +265,7 @@ where
     );
     Ok(ByteBuffersIndexInput::new(
       self.in_.slice(offset, length)?,
-      &resource_description,
+      resource_description,
     ))
   }
 

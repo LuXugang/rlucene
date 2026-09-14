@@ -28,6 +28,7 @@ use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::index_options::IndexOptions;
@@ -188,11 +189,10 @@ fn do_test_numbers(with_payloads: bool) -> Result<()> {
     let mut stored_fields = reader.stored_fields()?;
     while dp.next_doc()? != NO_MORE_DOCS {
       let doc = dp.doc_id();
-      let stored_numbers = stored_fields
-        .document(doc)?
+      let stored_doc = stored_fields.document(doc)?;
+      let stored_numbers = stored_doc
         .get("numbers")?
-        .expect("stored numbers field must exist")
-        .into_owned();
+        .expect("stored numbers field must exist");
       let freq = dp.freq()?;
       for _ in 0..freq {
         dp.next_position()?;
@@ -217,11 +217,10 @@ fn do_test_numbers(with_payloads: bool) -> Result<()> {
     let mut stored_fields = reader.stored_fields()?;
     let doc = dp.advance(num)?;
     assert_eq!(num, doc);
-    let stored_numbers = stored_fields
-      .document(doc)?
+    let stored_doc = stored_fields.document(doc)?;
+    let stored_numbers = stored_doc
       .get("numbers")?
-      .expect("stored numbers field must exist")
-      .into_owned();
+      .expect("stored numbers field must exist");
     let freq = dp.freq()?;
     for _ in 0..freq {
       dp.next_position()?;

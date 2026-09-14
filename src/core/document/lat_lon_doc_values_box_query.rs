@@ -34,6 +34,7 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Write as _;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -121,13 +122,29 @@ impl QueryBase for LatLonDocValuesBoxQuery {
       out.push(':');
     }
     out.push_str("box(minLat=");
-    out.push_str(&GeoEncodingUtils::decode_latitude(self.min_latitude).to_string());
+    write!(
+      out,
+      "{}",
+      GeoEncodingUtils::decode_latitude(self.min_latitude)
+    )?;
     out.push_str(", maxLat=");
-    out.push_str(&GeoEncodingUtils::decode_latitude(self.max_latitude).to_string());
+    write!(
+      out,
+      "{}",
+      GeoEncodingUtils::decode_latitude(self.max_latitude)
+    )?;
     out.push_str(", minLon=");
-    out.push_str(&GeoEncodingUtils::decode_longitude(self.min_longitude).to_string());
+    write!(
+      out,
+      "{}",
+      GeoEncodingUtils::decode_longitude(self.min_longitude)
+    )?;
     out.push_str(", maxLon=");
-    out.push_str(&GeoEncodingUtils::decode_longitude(self.max_longitude).to_string());
+    write!(
+      out,
+      "{}",
+      GeoEncodingUtils::decode_longitude(self.max_longitude)
+    )?;
     out.push(')');
     Ok(out)
   }

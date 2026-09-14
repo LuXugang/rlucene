@@ -437,8 +437,12 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     for _ in 0..num_asserts {
       let doc_id = random.random_range(0..num_docs);
       let stored_doc = stored_fields.document(doc_id)?;
-      let actual = stored_doc.get("docid")?.map(|value| value.into_owned());
-      assert_eq!(Some(doc_id.to_string()), actual);
+      let actual = stored_doc.get("docid")?;
+      let expected = doc_id.to_string();
+      assert_eq!(
+        Some(expected.as_str()),
+        actual.as_deref().map(String::as_str)
+      );
     }
     reader.close()?;
     dir.close()?;

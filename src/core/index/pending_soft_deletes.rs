@@ -343,9 +343,7 @@ where
       )
     }
   } else {
-    let segment_suffix = BigInt::from(info.get_field_infos_gen())
-      .to_str_radix(36)
-      .to_string();
+    let segment_suffix = BigInt::from(info.get_field_infos_gen()).to_str_radix(36);
     codec.field_infos_format().read(
       seg_info.dir.as_ref(),
       seg_info,

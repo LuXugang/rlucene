@@ -57,7 +57,7 @@ fn test_prefix_query() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   let query = PrefixQuery::new(Term::from_text("category", "/Computers"))?;
-  let hits = searcher.search(query.clone(), 1000)?.score_docs;
+  let hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(
     3,
     hits.len(),
@@ -65,11 +65,11 @@ fn test_prefix_query() -> Result<()> {
   );
 
   let query = PrefixQuery::new(Term::from_text("category", "/Computers/Mac"))?;
-  let hits = searcher.search(query.clone(), 1000)?.score_docs;
+  let hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(1, hits.len(), "One in /Computers/Mac");
 
   let query = PrefixQuery::new(Term::from_text("category", ""))?;
-  let hits = searcher.search(query.clone(), 1000)?.score_docs;
+  let hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(3, hits.len(), "everything");
 
   writer.close(&mut random)?;

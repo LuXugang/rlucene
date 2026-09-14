@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::array_util::ArrayUtil;
@@ -38,7 +40,7 @@ use crate::core::util::unicode_util::{UTF8CodePoint, UnicodeUtil};
 /// - [`Automata::make_binary_string_union_iter`](Automaton::make_binary_string_union_iter)
 pub(crate) struct StringsToAutomaton {
   /// A "registry" for state interning.
-  pub(crate) state_registry: HashMap<StateKey, usize>,
+  pub(crate) state_registry: HashMap<State, usize>,
   /// All automaton states. State references are stored as indexes into this
   /// vector.
   pub(crate) all_states: Vec<State>,
@@ -117,11 +119,14 @@ impl StringsToAutomaton {
   /// binary-sorted. Creates an [`Automaton`] with either UTF-8 codepoints
   /// as transition labels or binary (compiled) transition labels based on
   /// `as_binary`.
-  pub(crate) fn build(input: &[BytesRef<Vec<u8>>], as_binary: bool) -> Result<Automaton> {
+  pub(crate) fn build<B>(input: &[B], as_binary: bool) -> Result<Automaton>
+  where
+    B: Borrow<BytesRef<Vec<u8>>>,
+  {
     let mut builder = StringsToAutomaton::new();
 
     for b in input {
-      builder.add(b, as_binary)?;
+      builder.add(b.borrow(), as_binary)?;
     }
 
     builder.complete_and_convert()
@@ -231,11 +236,12 @@ impl StringsToAutomaton {
     if self.all_states[child].has_children() {
       self.replace_or_register(child)?;
     }
-    let state_key = StateKey::from(&self.all_states[child]);
-    if let Some(&registered) = self.state_registry.get(&state_key) {
+    if let Some(&registered) = self.state_registry.get(&self.all_states[child]) {
       self.all_states[state].replace_last_child(registered);
     } else {
-      self.state_registry.insert(state_key, child);
+      self
+        .state_registry
+        .insert(self.all_states[child].clone(), child);
     }
     Ok(())
   }
@@ -321,19 +327,18 @@ impl State {
   }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub(crate) struct StateKey {
-  is_final: bool,
-  labels: Vec<i32>,
-  states: Vec<usize>,
+impl PartialEq for State {
+  fn eq(&self, other: &Self) -> bool {
+    self.is_final == other.is_final && self.labels == other.labels && self.states == other.states
+  }
 }
 
-impl From<&State> for StateKey {
-  fn from(state: &State) -> Self {
-    StateKey {
-      is_final: state.is_final,
-      labels: state.labels.clone(),
-      states: state.states.clone(),
-    }
+impl Eq for State {}
+
+impl Hash for State {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.is_final.hash(state);
+    self.labels.hash(state);
+    self.states.hash(state);
   }
 }

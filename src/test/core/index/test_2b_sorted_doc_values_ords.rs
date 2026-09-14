@@ -19,6 +19,7 @@ use crate::core::document::field::FieldBase;
 use crate::core::document::fields::Fields;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
@@ -108,11 +109,11 @@ fn test_2b_ords() -> Result<()> {
       bytes[1] = (counter >> 16) as u8;
       bytes[2] = (counter >> 8) as u8;
       bytes[3] = counter as u8;
-      let expected = BytesRef::from_bytes(bytes.clone());
+      let expected: BytesRef<Vec<u8>> = BytesRef::from_bytes(bytes.clone());
       counter += 1;
       let ord = values.ord_value()?;
       let term = values.lookup_ord(ord)?;
-      assert_eq!(&expected, term.as_ref());
+      assert_eq!(expected.as_bytes(), term.as_bytes());
     }
   }
 

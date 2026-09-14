@@ -19,6 +19,7 @@ use crate::core::document::field::FieldBase;
 use crate::core::document::fields::Fields;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values::DocValues;
@@ -104,10 +105,10 @@ fn test_fixed_sorted() -> Result<()> {
       assert_eq!(i, values.next_doc()?);
       bytes[0] = (expected_value >> 8) as u8;
       bytes[1] = expected_value as u8;
-      let expected = BytesRef::from_bytes(bytes.clone());
+      let expected: BytesRef<Vec<u8>> = BytesRef::from_bytes(bytes.clone());
       let ord = values.ord_value()?;
       let term = values.lookup_ord(ord)?;
-      assert_eq!(&expected, term.as_ref());
+      assert_eq!(expected.as_bytes(), term.as_bytes());
       expected_value += 1;
     }
   }

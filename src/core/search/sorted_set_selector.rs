@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
+use crate::core::index::BytesRefValueEnum;
 
-use crate::core::index::BytesRef;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -166,11 +166,16 @@ impl<S> SortedDocValues for MinValue<S>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.ord)
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     self.inner.lookup_ord(ord as i64)
   }
 
@@ -269,11 +274,16 @@ impl<S> SortedDocValues for MaxValue<S>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.ord)
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     self.inner.lookup_ord(ord as i64)
   }
 
@@ -375,11 +385,16 @@ impl<S> SortedDocValues for MiddleMinValue<S>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.ord)
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     self.inner.lookup_ord(ord as i64)
   }
 
@@ -480,11 +495,16 @@ impl<S> SortedDocValues for MiddleMaxValue<S>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.ord)
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     self.inner.lookup_ord(ord as i64)
   }
 
@@ -601,6 +621,11 @@ impl<S> SortedDocValues for SortedDocValuesWrap<S>
 where
   S: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     match self {
       SortedDocValuesWrap::Singleton(single) => single.ord_value(),
@@ -611,13 +636,19 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     match self {
-      SortedDocValuesWrap::Singleton(single) => single.lookup_ord(ord),
-      SortedDocValuesWrap::Min(min) => min.lookup_ord(ord),
-      SortedDocValuesWrap::Max(max) => max.lookup_ord(ord),
-      SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.lookup_ord(ord),
-      SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.lookup_ord(ord),
+      SortedDocValuesWrap::Singleton(single) => {
+        single.lookup_ord(ord).map(BytesRefValue::into_value)
+      },
+      SortedDocValuesWrap::Min(min) => min.lookup_ord(ord).map(BytesRefValue::into_value),
+      SortedDocValuesWrap::Max(max) => max.lookup_ord(ord).map(BytesRefValue::into_value),
+      SortedDocValuesWrap::MiddleMin(middle_min) => {
+        middle_min.lookup_ord(ord).map(BytesRefValue::into_value)
+      },
+      SortedDocValuesWrap::MiddleMax(middle_max) => {
+        middle_max.lookup_ord(ord).map(BytesRefValue::into_value)
+      },
     }
   }
 

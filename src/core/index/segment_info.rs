@@ -291,7 +291,11 @@ impl<D> SegmentInfo<D> {
   }
 
   /// Sets the files written for this segment.
-  pub fn set_files(&mut self, files: HashSet<String>) -> Result<()> {
+  pub fn set_files<I, S>(&mut self, files: I) -> Result<()>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
     self.set_files = Some(HashSet::new());
     self.add_files(files)
   }
@@ -382,13 +386,14 @@ impl<D> SegmentInfo<D> {
   }
 
   /// Add these files to the set of files written for this segment.
-  pub fn add_files<I>(&mut self, files: I) -> Result<()>
+  pub fn add_files<I, S>(&mut self, files: I) -> Result<()>
   where
-    I: IntoIterator<Item = String>,
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
   {
-    let files: Vec<String> = files.into_iter().collect();
+    let files: Vec<S> = files.into_iter().collect();
     self.check_file_names(&files)?;
-    let files: Vec<String> = files.into_iter().collect();
+    let files: Vec<S> = files.into_iter().collect();
     match self.set_files {
       Some(ref mut set_files) => {
         for f in files {
@@ -416,11 +421,13 @@ impl<D> SegmentInfo<D> {
     Ok(())
   }
 
-  fn check_file_names<'a, I>(&self, files: I) -> Result<()>
+  fn check_file_names<I, S>(&self, files: I) -> Result<()>
   where
-    I: IntoIterator<Item = &'a String>,
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
   {
     for file in files {
+      let file = file.as_ref();
       // Check if the file name matches the codec file pattern
       if !CODEC_FILE_PATTERN.is_match(file) {
         return Err(LuceneError::illegal_argument(format!(
@@ -549,6 +556,10 @@ use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 
 /// Strips any segment name from the file and renames it with this segment.
 /// This is because "segment names" can change, e.g., by addIndexes(Dir).
-pub fn named_for_this_segment(name: &str, file: String) -> String {
-  format!("{}{}", name, IndexFileNames::strip_segment_name(&file))
+pub fn named_for_this_segment<T: AsRef<str>>(name: &str, file: T) -> String {
+  format!(
+    "{}{}",
+    name,
+    IndexFileNames::strip_segment_name(file.as_ref())
+  )
 }

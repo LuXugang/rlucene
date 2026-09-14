@@ -288,7 +288,7 @@ where
 }
 
 struct TermBytesRefIterator {
-  terms: Vec<Term>,
+  terms: Arc<[Term]>,
   index: usize,
 }
 impl BytesRefIterator for TermBytesRefIterator {
@@ -310,14 +310,14 @@ pub(crate) fn from_terms<'a, LR>(
   doc: i32,
   query: Arc<Query>,
   field: &str,
-  terms: Vec<Term>,
+  terms: Arc<[Term]>,
 ) -> Result<Option<QueryWeightMatchesIterator<'a>>>
 where
   LR: LeafReader,
   <LR::Terms as Terms>::TermsEnum: 'a,
   <<LR::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'a,
 {
-  for term in &terms {
+  for term in terms.iter() {
     if term.field() != field {
       return Err(LuceneError::illegal_argument(format!(
         "Tried to generate iterator from terms in multiple fields: expected [{}] but got [{}]",

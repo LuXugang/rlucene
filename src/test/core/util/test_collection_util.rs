@@ -43,7 +43,7 @@ fn test_intro_sort() -> Result<()> {
     list2.sort();
     assert_eq!(list1, list2);
     let mut list1 = create_random_list(&mut random, 2000);
-    let mut list2 = list1.clone();
+    list2.clone_from(&list1);
     CollectionUtil::intro_sort_with_comparator(&mut list1, ReverseOrder::new())?;
     list2.sort_by(|a, b| b.cmp(a));
     assert_eq!(list1, list2);
@@ -66,7 +66,7 @@ fn test_tim_sort() -> Result<()> {
     assert_eq!(list1, list2);
 
     let mut list1 = create_random_list(&mut random, 2000);
-    let mut list2 = list1.clone();
+    list2.clone_from(&list1);
     CollectionUtil::tim_sort_with_comparator(&mut list1, ReverseOrder::new())?;
     list2.sort_by(|a, b| b.cmp(a));
     assert_eq!(list1, list2);

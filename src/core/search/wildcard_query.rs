@@ -221,8 +221,7 @@ pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Resul
       },
     }
   }
-  let automata = automata.iter().collect::<Vec<_>>();
-  let a = Operations::concatenate_with_list(automata.as_ref())?;
+  let a = Operations::concatenate_with_list(&automata)?;
   let v = Operations::determinize(&a, determinize_work_limit as usize)?;
   match v {
     Cow::Borrowed(_) => Ok(a),

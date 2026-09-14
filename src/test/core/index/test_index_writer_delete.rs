@@ -683,7 +683,7 @@ where
 {
   let reader = directory_reader::open(dir)?;
   let searcher = new_searcher_with_reader(reader)?;
-  let top_docs = searcher.search(TermQuery::new(term.clone()), 1000)?;
+  let top_docs = searcher.search(TermQuery::new(term), 1000)?;
   let hit_count = top_docs.total_hits.value() as i64;
   searcher.get_index_reader().close()?;
   Ok(hit_count)

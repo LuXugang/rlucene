@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::{FloatVectorValues, check_field};
 use crate::core::index::index_reader::Identity;
@@ -179,10 +181,10 @@ impl QueryBase for KnnFloatVectorQuery {
     buffer.push(':');
     buffer.push_str(&self.base.field);
     buffer.push('[');
-    buffer.push_str(&self.target[0].to_string());
+    write!(buffer, "{}", self.target[0])?;
     buffer.push_str(",...]");
     buffer.push('[');
-    buffer.push_str(&self.base.k.to_string());
+    write!(buffer, "{}", self.base.k)?;
     buffer.push(']');
     if let Some(filter) = &self.base.filter {
       buffer.push('[');

@@ -74,8 +74,11 @@ fn test() -> Result<()> {
     let expected = BytesRef::from_bytes(bytes);
 
     let mut actual = BytesRef::new();
-    reader.fill_slice(&mut actual, net_bytes, num_bytes)?;
-    assert_eq!(expected, actual);
+    let value = reader.fill_slice(&mut actual, net_bytes, num_bytes)?;
+    assert_eq!(
+      &expected.bytes[expected.offset..expected.offset + expected.length],
+      &value.bytes[value.offset..value.offset + value.length]
+    );
 
     net_bytes += num_bytes;
   }

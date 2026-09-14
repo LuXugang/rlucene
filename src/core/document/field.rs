@@ -674,14 +674,19 @@ impl IndexableField for Field {
     }
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     if !self.indexable_field_type.stored() {
       return Ok(None);
     }
 
     match &self.fields_data {
       FieldDataEnum::Number(_) | FieldDataEnum::Binary(_) | FieldDataEnum::String(_) => {
-        Ok(Some(self.fields_data.try_clone()?))
+        Ok(Some(&self.fields_data))
       },
       _ => Err(LuceneError::illegal_state(
         "stored field data must be numeric, binary, or a string",

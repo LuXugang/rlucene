@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 /// Exposes [`PostingsEnum`], merged from [`PostingsEnum`] API of sub-segments.
@@ -234,7 +233,7 @@ where
     self.current_postings_ref()?.end_offset()
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     self.current_postings_ref()?.get_payload()
   }
 }

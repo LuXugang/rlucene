@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::index::BytesRefValue;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::ord_term_state::OrdTermState;
@@ -54,7 +55,10 @@ where
       return Ok(None);
     }
     let term = self.values.lookup_ord(self.current_ord)?;
-    self.scratch.copy_bytes_from_ref(&term)?;
+    let term = term.as_bytes_ref();
+    self
+      .scratch
+      .copy_bytes_from_vec(term.bytes, term.offset, term.length)?;
     Ok(Some(Cow::Borrowed(self.scratch.get_bytes_ref())))
   }
 }
@@ -113,7 +117,10 @@ where
       } else {
         // perform lookup of next larger term
         let next_term = self.values.lookup_ord(self.current_ord)?;
-        self.scratch.copy_bytes_from_ref(&next_term)?;
+        let next_term = next_term.as_bytes_ref();
+        self
+          .scratch
+          .copy_bytes_from_vec(next_term.bytes, next_term.offset, next_term.length)?;
         Ok(SeekStatus::NotFound)
       }
     }
@@ -126,7 +133,10 @@ where
     );
     self.current_ord = ord;
     let term = self.values.lookup_ord(self.current_ord)?;
-    self.scratch.copy_bytes_from_ref(term.as_ref())?;
+    let term = term.as_bytes_ref();
+    self
+      .scratch
+      .copy_bytes_from_vec(term.bytes, term.offset, term.length)?;
     Ok(())
   }
 

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use bit_set::BitSet;
+use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
@@ -61,10 +62,11 @@ impl Operations {
   /// the given automata.
   ///
   /// Complexity: linear in the total number of states.
-  pub fn concatenate_with_list(l: &[&Automaton]) -> Result<Automaton> {
+  pub fn concatenate_with_list<A: Borrow<Automaton>>(l: &[A]) -> Result<Automaton> {
     let mut result = Automaton::new();
     // First pass: create all states
     for a in l {
+      let a = a.borrow();
       if a.get_num_states() == 0 {
         result.finish_state()?;
         return Ok(result);
@@ -80,10 +82,10 @@ impl Operations {
     let mut state_offset = 0;
     let mut t = Transition::default();
     for i in 0..l.len() {
-      let a = l[i];
+      let a = l[i].borrow();
       let num_states = a.get_num_states();
       let next_a = if i + 1 < l.len() {
-        Some(l[i + 1])
+        Some(l[i + 1].borrow())
       } else {
         None
       };
@@ -115,7 +117,7 @@ impl Operations {
               if fa.is_accept(0) {
                 follow_offset += fa.get_num_states();
                 if upto + 1 < l.len() {
-                  follow_a = Some(l[upto + 1]);
+                  follow_a = Some(l[upto + 1].borrow());
                 } else {
                   follow_a = None;
                 }
@@ -498,20 +500,20 @@ impl Operations {
   /// given automata.
   ///
   /// Complexity: linear in the number of states.
-  // TODO: 可以改成`l: &[Automaton]`
-  pub fn union_list(l: &[&Automaton]) -> Result<Automaton> {
+  pub fn union_list<A: Borrow<Automaton>>(l: &[A]) -> Result<Automaton> {
     let mut result = Automaton::new();
     // Create initial state:
     result.create_state()?;
 
     // Copy over all automata
     for a in l {
-      result.copy(a)?;
+      result.copy(a.borrow())?;
     }
 
     // Add epsilon transitions from new initial state
     let mut state_offset = 1;
     for a in l {
+      let a = a.borrow();
       if a.get_num_states() == 0 {
         continue;
       }

@@ -21,6 +21,7 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::BytesRef;
 use crate::core::index::buffered_updates::BufferedUpdates;
+use crate::core::index::bytes_ref::{BytesRefValue, BytesRefValueEnum};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
@@ -607,7 +608,7 @@ where
     }
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     match self {
       Self::A(postings) => postings.get_payload(),
       Self::B(postings) => postings.get_payload(),
@@ -720,7 +721,7 @@ where
     Ok(-1)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(None)
   }
 }
@@ -930,10 +931,11 @@ impl<P> SortingPostingsEnum<P> {
         }
 
         if let Some(payload) = payload_opt {
+          let payload = payload.as_bytes_ref();
           self.buffer.write_vint(payload.length as i32)?;
           self
             .buffer
-            .write_bytes_range(&payload.bytes, payload.offset, payload.length)?;
+            .write_bytes_range(payload.bytes, payload.offset, payload.length)?;
         }
       }
     }
@@ -1050,11 +1052,11 @@ where
     Ok(self.end_offset)
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     if self.payload.length == 0 {
       Ok(None)
     } else {
-      Ok(Some(Cow::Borrowed(&self.payload)))
+      Ok(Some(Cow::Borrowed(&self.payload).into_value()))
     }
   }
 }

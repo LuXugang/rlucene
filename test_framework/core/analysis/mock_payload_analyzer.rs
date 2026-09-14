@@ -49,7 +49,7 @@ impl Default for MockPayloadAnalyzer {
 impl Analyzer for MockPayloadAnalyzer {
   fn create_components(&self, field_name: &str) -> Result<TokenStreamComponents> {
     let tokenizer = MockTokenizer::new(random());
-    let filter = MockPayloadFilter::new(tokenizer, field_name.to_string());
+    let filter = MockPayloadFilter::new(tokenizer, field_name);
     Ok(TokenStreamComponents::new(
       Box::new(filter) as Box<dyn TokenStream + Send + Sync>,
       None,
@@ -74,7 +74,6 @@ where
   TS: TokenStream,
 {
   token_filter_base: TokenFilterBase<TS>,
-  _field_name: String,
   pos: i32,
   i: i32,
 }
@@ -83,10 +82,9 @@ impl<TS> MockPayloadFilter<TS>
 where
   TS: TokenStream,
 {
-  fn new(input: TS, field_name: String) -> Self {
+  fn new(input: TS, _field_name: &str) -> Self {
     Self {
       token_filter_base: TokenFilterBase::new(input),
-      _field_name: field_name,
       pos: 0,
       i: 0,
     }
@@ -109,7 +107,9 @@ where
   fn increment_token(&mut self) -> Result<bool> {
     if self.token_filter_base.input.increment_token()? {
       let attr = self.token_filter_base.input.get_attribute_source_mut();
-      attr.set_payload(Some(BytesRef::from_string(&format!("pos: {}", self.pos))))?;
+      attr.set_payload(Some(BytesRef::from_bytes(
+        format!("pos: {}", self.pos).into_bytes(),
+      )))?;
       let pos_incr = if self.pos == 0 || self.i % 2 == 1 {
         1
       } else {

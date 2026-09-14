@@ -167,7 +167,7 @@ pub trait BaseStoredFieldsFormatTestCase:
     }
 
     if !docs.is_empty() {
-      let ids_list = docs.keys().cloned().collect::<Vec<_>>();
+      let ids_list = docs.keys().collect::<Vec<_>>();
       for _ in 0..2 {
         let reader =
           self.maybe_wrap_with_merging_reader(directory_reader::open_from_writer(&writer.w)?)?;
@@ -175,16 +175,16 @@ pub trait BaseStoredFieldsFormatTestCase:
         let mut stored_fields = searcher.stored_fields()?;
 
         for _ in 0..at_least(random, 100) {
-          let test_id = ids_list[random.random_range(0..ids_list.len())].clone();
-          let hits = searcher.search(TermQuery::new(Term::from_text("id", test_id.clone())), 1)?;
+          let test_id = ids_list[random.random_range(0..ids_list.len())];
+          let hits = searcher.search(TermQuery::new(Term::from_text("id", test_id)), 1)?;
           assert_eq!(1, hits.total_hits.value());
 
           let doc = stored_fields.document(hits.score_docs[0].doc)?;
-          let expected = docs.get(&test_id).unwrap();
+          let expected = docs.get(test_id).unwrap();
           for i in 0..field_count {
             assert_eq!(
-              expected.get(&format!("f{i}"))?.map(|v| v.into_owned()),
-              doc.get(&format!("f{i}"))?.map(|v| v.into_owned()),
+              expected.get(&format!("f{i}"))?,
+              doc.get(&format!("f{i}"))?,
               "doc {test_id}, field f{i} is wrong",
             );
           }
@@ -451,8 +451,8 @@ pub trait BaseStoredFieldsFormatTestCase:
       match field_name {
         "bytes" => {
           let binary = field.binary_value()?.unwrap();
-          let actual = binary.bytes[binary.offset..binary.offset + binary.length].to_vec();
-          assert_eq!(bytes, actual);
+          let actual = &binary.bytes[binary.offset..binary.offset + binary.length];
+          assert_eq!(bytes.as_slice(), actual);
         },
         "string" => {
           assert_eq!(
@@ -751,10 +751,10 @@ pub trait BaseStoredFieldsFormatTestCase:
       doc.add(StoredField::from_f32("f", random.random())?);
       let string_value = string_values[random.random_range(0..string_values.len())].clone();
       doc.add(StoredField::from_string("s", string_value)?);
-      let binary_value = string_values[random.random_range(0..string_values.len())].clone();
+      let binary_value = &string_values[random.random_range(0..string_values.len())];
       doc.add(StoredField::from_bytes_ref(
         "b",
-        BytesRef::from_string(&binary_value),
+        BytesRef::from_string(binary_value),
       )?);
       docs.push(doc.clone());
       writer.add_document(random, doc)?;
@@ -1003,9 +1003,10 @@ pub trait BaseStoredFieldsFormatTestCase:
       let doc = stored_fields.document(i)?;
       assert_eq!(10, doc.get_fields().len());
       for j in 0..10 {
+        let name = j.to_string();
         assert_eq!(
-          Some(j.to_string()),
-          doc.get(&j.to_string())?.map(|value| value.into_owned())
+          Some(name.as_str()),
+          doc.get(&name)?.as_deref().map(String::as_str)
         );
       }
     }
@@ -1119,10 +1120,10 @@ pub trait BaseStoredFieldsFormatTestCase:
           let expected_fields = docs[test_id]
             .get_fields()
             .iter()
-            .filter(|field| field.field_type().stored())
-            .collect::<Vec<_>>();
+            .filter(|field| field.field_type().stored());
+          let expected_count = expected_fields.clone().count();
           let actual_doc = actual_stored_fields.document(hits.score_docs[0].doc)?;
-          assert_eq!(expected_fields.len(), actual_doc.get_fields().len());
+          assert_eq!(expected_count, actual_doc.get_fields().len());
           for expected_field in expected_fields {
             let actual_fields = actual_doc.get_fields_with_name(expected_field.name());
             assert_eq!(1, actual_fields.len());
@@ -1156,7 +1157,7 @@ pub trait BaseStoredFieldsFormatTestCase:
         // Add normally.
         iw.add_document(random, docs[&id].clone())?;
       }
-      added_ids.push(id.clone());
+      added_ids.push(id);
       if random.random_range(0..100) < 5 {
         let deleting_id = added_ids.remove(random.random_range(0..added_ids.len()));
         if random.random_bool(0.5) {

@@ -21,7 +21,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::text_field::TextField;
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
@@ -62,7 +62,6 @@ use crate::test_framework::core::util::lucene_test_case::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::LazyLock;
@@ -447,8 +446,8 @@ fn test_phrase_query_in_conjunction_scorer() -> Result<()> {
     assert_eq!(2, hits.len());
 
     let mut b = Builder::new();
-    b.add(phrase_query.clone(), Occur::Must)?;
-    b.add(term_query.clone(), Occur::Must)?;
+    b.add(phrase_query, Occur::Must)?;
+    b.add(term_query, Occur::Must)?;
     let boolean_query2: Query = b.build().into();
     let top_docs = searcher.search(boolean_query2.clone(), 1000)?;
     let hits = top_docs.score_docs();
@@ -934,7 +933,7 @@ fn test_top_phrases() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
-  let mut docs = DOCS.to_vec();
+  let mut docs = DOCS;
   docs.shuffle(&mut random);
 
   for value in docs {
@@ -1213,7 +1212,7 @@ impl PostingsEnum for DummyImpactsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

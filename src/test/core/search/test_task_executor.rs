@@ -204,19 +204,17 @@ where
 fn test_invoke_all_does_not_leave_tasks_behind() -> Result<()> {
   let tasks_executed = AtomicUsize::new(0);
   let task_executor = TaskExecutor::direct();
-  let tasks = (0..100)
-    .map(|index| {
-      let tasks_executed = &tasks_executed;
-      move || -> Result<()> {
-        tasks_executed.fetch_add(1, Ordering::SeqCst);
-        if index == 0 {
-          Err(LuceneError::illegal_state("error"))
-        } else {
-          panic!("must not be called since the first task failing cancels all subsequent tasks")
-        }
+  let tasks = (0..100).map(|index| {
+    let tasks_executed = &tasks_executed;
+    move || -> Result<()> {
+      tasks_executed.fetch_add(1, Ordering::SeqCst);
+      if index == 0 {
+        Err(LuceneError::illegal_state("error"))
+      } else {
+        panic!("must not be called since the first task failing cancels all subsequent tasks")
       }
-    })
-    .collect::<Vec<_>>();
+    }
+  });
   let error = task_executor
     .invoke_all(tasks)
     .expect_err("the first callable must fail");
@@ -231,16 +229,13 @@ fn test_invoke_all_does_not_leave_tasks_behind() -> Result<()> {
 fn test_invoke_all_catches_multiple_exceptions() -> Result<()> {
   let task_executor = TaskExecutor::new(new_search_executor(2)?);
   let barrier = Arc::new(Barrier::new(2));
-  let tasks = ["error A", "error B"]
-    .into_iter()
-    .map(|message| {
-      let barrier = barrier.clone();
-      move || -> Result<()> {
-        barrier.wait();
-        Err(LuceneError::illegal_state(message))
-      }
-    })
-    .collect::<Vec<_>>();
+  let tasks = ["error A", "error B"].into_iter().map(|message| {
+    let barrier = barrier.clone();
+    move || -> Result<()> {
+      barrier.wait();
+      Err(LuceneError::illegal_state(message))
+    }
+  });
 
   let error = task_executor
     .invoke_all(tasks)
@@ -265,22 +260,20 @@ fn test_cancel_tasks_on_exception() -> Result<()> {
   let throwing_task = random.random_range(0..num_tasks);
   let error = random.random_bool(0.5);
   let executed_tasks = AtomicUsize::new(0);
-  let tasks = (0..num_tasks)
-    .map(|index| {
-      let executed_tasks = &executed_tasks;
-      move || {
-        if index == throwing_task {
-          if error {
-            panic!("error");
-          }
-          return Err(LuceneError::illegal_state("error"));
+  let tasks = (0..num_tasks).map(|index| {
+    let executed_tasks = &executed_tasks;
+    move || {
+      if index == throwing_task {
+        if error {
+          panic!("error");
         }
-        assert!(index < throwing_task, "task should not have started");
-        executed_tasks.fetch_add(1, Ordering::SeqCst);
-        Ok(())
+        return Err(LuceneError::illegal_state("error"));
       }
-    })
-    .collect::<Vec<_>>();
+      assert!(index < throwing_task, "task should not have started");
+      executed_tasks.fetch_add(1, Ordering::SeqCst);
+      Ok(())
+    }
+  });
 
   if error {
     let panic = catch_unwind(AssertUnwindSafe(|| task_executor.invoke_all(tasks)))
@@ -303,14 +296,12 @@ fn test_task_rejection_does_not_fail_execution() {}
 #[test]
 fn test_results_keep_callable_order() -> Result<()> {
   let task_executor = TaskExecutor::new(new_search_executor(2)?);
-  let tasks = (0..10)
-    .map(|index| {
-      move || {
-        thread::sleep(Duration::from_millis((10 - index) as u64));
-        Ok(index)
-      }
-    })
-    .collect::<Vec<_>>();
+  let tasks = (0..10).map(|index| {
+    move || {
+      thread::sleep(Duration::from_millis((10 - index) as u64));
+      Ok(index)
+    }
+  });
   assert_eq!(
     (0..10).collect::<Vec<_>>(),
     task_executor.invoke_all(tasks)?

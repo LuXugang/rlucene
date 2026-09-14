@@ -33,6 +33,7 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::{TYPE_NOT_STORED, TextField};
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::directory_reader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -3851,7 +3852,6 @@ fn test_delete_by_term_or_query() -> Result<()> {
         .unwrap()
         .string_value()?
         .unwrap()
-        .into_owned()
         .parse::<usize>()?;
 
       assert!(values.advance_exact(id)?);
@@ -3908,20 +3908,14 @@ fn test_sort_docs() -> Result<()> {
   let terms = leaf_reader.terms("field")?.unwrap();
   let mut field_terms = terms.iterator()?;
 
-  assert_eq!(
-    BytesRef::from_string("a"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"a".as_slice(), field_terms.next()?.unwrap().as_bytes());
   let mut postings = field_terms.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(1, postings.next_doc()?);
   assert_eq!(3, postings.next_doc()?);
   assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
-  assert_eq!(
-    BytesRef::from_string("b"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"b".as_slice(), field_terms.next()?.unwrap().as_bytes());
   postings = field_terms.postings_with_flags(Some(postings), ALL as i32)?;
   assert_eq!(2, postings.next_doc()?);
   assert_eq!(4, postings.next_doc()?);
@@ -3985,10 +3979,7 @@ fn test_sort_docs_and_freqs() -> Result<()> {
   let terms = leaf_reader.terms("field")?.unwrap();
   let mut field_terms = terms.iterator()?;
 
-  assert_eq!(
-    BytesRef::from_string("a"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"a".as_slice(), field_terms.next()?.unwrap().as_bytes());
   let mut postings = field_terms.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(3, postings.freq()?);
@@ -3998,10 +3989,7 @@ fn test_sort_docs_and_freqs() -> Result<()> {
   assert_eq!(1, postings.freq()?);
   assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
-  assert_eq!(
-    BytesRef::from_string("b"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"b".as_slice(), field_terms.next()?.unwrap().as_bytes());
   postings = field_terms.postings_with_flags(Some(postings), ALL as i32)?;
   assert_eq!(2, postings.next_doc()?);
   assert_eq!(1, postings.freq()?);
@@ -4063,10 +4051,7 @@ fn test_sort_docs_and_freqs_and_positions() -> Result<()> {
   let terms = leaf_reader.terms("field")?.unwrap();
   let mut field_terms = terms.iterator()?;
 
-  assert_eq!(
-    BytesRef::from_string("a"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"a".as_slice(), field_terms.next()?.unwrap().as_bytes());
   let mut postings = field_terms.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(1, postings.freq()?);
@@ -4083,10 +4068,7 @@ fn test_sort_docs_and_freqs_and_positions() -> Result<()> {
 
   assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
-  assert_eq!(
-    BytesRef::from_string("b"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"b".as_slice(), field_terms.next()?.unwrap().as_bytes());
   postings = field_terms.postings_with_flags(Some(postings), ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(3, postings.freq()?);
@@ -4162,10 +4144,7 @@ fn test_sort_docs_and_freqs_and_positions_and_offsets() -> Result<()> {
   let terms = leaf_reader.terms("field")?.unwrap();
   let mut field_terms = terms.iterator()?;
 
-  assert_eq!(
-    BytesRef::from_string("a"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"a".as_slice(), field_terms.next()?.unwrap().as_bytes());
   let mut postings = field_terms.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(1, postings.freq()?);
@@ -4190,10 +4169,7 @@ fn test_sort_docs_and_freqs_and_positions_and_offsets() -> Result<()> {
 
   assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
-  assert_eq!(
-    BytesRef::from_string("b"),
-    field_terms.next()?.unwrap().into_owned()
-  );
+  assert_eq!(b"b".as_slice(), field_terms.next()?.unwrap().as_bytes());
   postings = field_terms.postings_with_flags(Some(postings), ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(3, postings.freq()?);

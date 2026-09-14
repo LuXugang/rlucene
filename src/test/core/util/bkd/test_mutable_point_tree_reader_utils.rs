@@ -73,9 +73,9 @@ where
     &mut common_prefix_lengths,
     is_doc_id_incremental,
   );
-  let mut reader = DummyPointsReader::new(&points);
+  let mut reader = DummyPointsReader::new(points.clone());
   MutablePointTreeReaderUtils::sort(&config, max_doc, &mut reader, 0, points.len())?;
-  let mut sorted_points = points.clone();
+  let mut sorted_points = points;
   sorted_points.sort_by(|o1, o2| {
     let cmp = o1.packed_value.cmp(&o2.packed_value);
     if cmp == std::cmp::Ordering::Equal {
@@ -84,7 +84,7 @@ where
       cmp
     }
   });
-  assert_ne!(points.as_ptr(), reader.points.as_ptr());
+  assert_ne!(sorted_points.as_ptr(), reader.points.as_ptr());
   assert_eq!(sorted_points.len(), reader.points.len());
 
   let mut prev_point: Option<&Point> = None;
@@ -122,19 +122,20 @@ where
   let mut common_prefix_lengths = vec![0; config.num_dims];
   let points = create_random_points(random, &config, max_doc, &mut common_prefix_lengths, false);
   let sorted_dim = random.random_range(0..config.num_index_dims);
-  let mut reader = DummyPointsReader::new(&points);
+  let num_points = points.len();
+  let mut reader = DummyPointsReader::new(points);
   MutablePointTreeReaderUtils::sort_by_dim(
     &config,
     sorted_dim,
     &common_prefix_lengths,
     &mut reader,
     0,
-    points.len(),
+    num_points,
     &mut BytesRef::default(),
     &mut BytesRef::default(),
   )?;
   let offset = sorted_dim * config.bytes_per_dim;
-  for i in 1..points.len() {
+  for i in 1..num_points {
     let previous_value = &reader.points[i - 1].packed_value;
     let current_value = &reader.points[i].packed_value;
 
@@ -187,8 +188,9 @@ where
   let max_doc = TestUtil::next_int(random, 1, end);
   let points = create_random_points(random, &config, max_doc, &mut common_prefix_lengths, false);
   let split_dim = random.random_range(0..config.num_index_dims);
-  let mut reader = DummyPointsReader::new(&points);
-  let pivot = TestUtil::next_usize(random, 0, points.len() - 1);
+  let num_points = points.len();
+  let mut reader = DummyPointsReader::new(points);
+  let pivot = TestUtil::next_usize(random, 0, num_points - 1);
 
   MutablePointTreeReaderUtils::partition(
     &config,
@@ -197,7 +199,7 @@ where
     common_prefix_lengths[split_dim],
     &mut reader,
     0,
-    points.len(),
+    num_points,
     pivot,
     &mut BytesRef::default(),
     &mut BytesRef::default(),
@@ -206,7 +208,7 @@ where
   let pivot_value = &pivot_point.packed_value;
   let offset = split_dim * config.bytes_per_dim;
 
-  for i in 0..points.len() {
+  for i in 0..num_points {
     let value = &reader.points[i].packed_value;
     let dim_start = value.offset + offset;
     let dim_end = value.offset + (offset + config.bytes_per_dim);
@@ -405,10 +407,11 @@ impl TryClone for DummyPointsReader {
 }
 
 impl DummyPointsReader {
-  fn new(points: &[Point]) -> Self {
+  fn new(points: Vec<Point>) -> Self {
+    let length = points.len();
     Self {
-      points: points.to_vec(),
-      temp: vec![Point::default(); points.len()],
+      points,
+      temp: vec![Point::default(); length],
     }
   }
 }
@@ -426,12 +429,17 @@ impl PointTree for DummyPointsReader {
   }
 }
 impl MutablePointTree for DummyPointsReader {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
+  fn get_value<'a>(
+    &'a self,
+    i: usize,
+    _spare: &'a mut BytesRef<Vec<u8>>,
+  ) -> Result<BytesRef<&'a [u8]>> {
     let point = &self.points[i].packed_value;
-    packed_value.bytes = point.bytes.clone();
-    packed_value.offset = point.offset;
-    packed_value.length = point.length;
-    Ok(())
+    Ok(BytesRef {
+      bytes: &point.bytes,
+      offset: point.offset,
+      length: point.length,
+    })
   }
 
   fn get_byte_at(&self, i: usize, k: usize) -> u8 {

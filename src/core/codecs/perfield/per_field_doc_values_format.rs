@@ -164,7 +164,7 @@ where
     D1: Directory<IndexOutput = DVC::IndexOutput>,
     B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
   {
-    let base = Arc::clone(&self.base);
+    let base = &self.base;
     let mut loaded_format = None;
     if field.get_doc_values_gen() != -1 {
       let mut format_name = None;
@@ -180,10 +180,10 @@ where
       Some(format) => format.as_ref(),
       None => base.get_doc_values_format_for_field(&field.name)?,
     };
-    let format_name = format.get_name().to_string();
+    let format_name = format.get_name();
     let identity = format.identity().clone();
 
-    field.put_attribute(PER_FIELD_FORMAT_KEY.to_string(), format_name.clone());
+    field.put_attribute(PER_FIELD_FORMAT_KEY.to_string(), format_name.to_string());
     let mut suffix = None;
 
     match self.formats.get(&identity) {
@@ -210,23 +210,29 @@ where
 
         if suffix.is_none() {
           // Bump the suffix.
-          suffix = Some(
-            *self
-              .suffixes
-              .entry(format_name.clone())
-              .and_modify(|suffix| *suffix += 1)
-              .or_insert(0),
-          );
+          suffix = Some(match self.suffixes.get_mut(format_name) {
+            Some(suffix) => {
+              *suffix += 1;
+              *suffix
+            },
+            None => {
+              self.suffixes.insert(format_name.to_string(), 0);
+              0
+            },
+          });
         }
         let suffix = suffix.ok_or_else(|| {
           LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
         })?;
-        self.suffixes.insert(format_name.clone(), suffix);
+        match self.suffixes.get_mut(format_name) {
+          Some(previous_suffix) => *previous_suffix = suffix,
+          None => {
+            self.suffixes.insert(format_name.to_string(), suffix);
+          },
+        }
 
-        let segment_suffix = get_full_segment_suffix(
-          &write_state.segment_suffix,
-          &get_suffix(&format_name, suffix),
-        );
+        let segment_suffix =
+          get_full_segment_suffix(&write_state.segment_suffix, get_suffix(format_name, suffix));
         let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
         let consumer = format.fields_consumer(&state, segment_info)?;
         self
@@ -235,7 +241,7 @@ where
       },
       Some(consumer) => {
         // We've already seen this format, so just grab its suffix.
-        if !self.suffixes.contains_key(&format_name) {
+        if !self.suffixes.contains_key(format_name) {
           return Err(LuceneError::illegal_state(format!(
             "no suffix for format name: {format_name}"
           )));
@@ -248,10 +254,8 @@ where
       LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
     })?;
     field.put_attribute(PER_FIELD_SUFFIX_KEY.to_string(), suffix.to_string());
-    let segment_suffix = get_full_segment_suffix(
-      &write_state.segment_suffix,
-      &get_suffix(&format_name, suffix),
-    );
+    let segment_suffix =
+      get_full_segment_suffix(&write_state.segment_suffix, get_suffix(format_name, suffix));
     let consumer = self.formats.get_mut(&identity).ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "missing doc values consumer for field: {}",
@@ -383,7 +387,7 @@ where
 
     // Delegate the merge to the appropriate consumer.
     for (identity, (segment_suffix, fields)) in consumers_to_fields {
-      let restricted = PerFieldMergeState::restrict_fields(merge_state, &fields)?;
+      let restricted = PerFieldMergeState::restrict_fields(merge_state, fields)?;
       let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
       let consumer = self
         .formats
@@ -412,9 +416,9 @@ where
   format!("{format_name}_{suffix}")
 }
 
-fn get_full_segment_suffix(outer_segment_suffix: &str, segment_suffix: &str) -> String {
+fn get_full_segment_suffix(outer_segment_suffix: &str, segment_suffix: String) -> String {
   if outer_segment_suffix.is_empty() {
-    segment_suffix.to_string()
+    segment_suffix
   } else {
     format!("{outer_segment_suffix}_{segment_suffix}")
   }
@@ -523,10 +527,8 @@ where
               "missing attribute: {PER_FIELD_SUFFIX_KEY} for field: {field_name}"
             ))
           })?;
-        let segment_suffix = get_full_segment_suffix(
-          &read_state.segment_suffix,
-          &get_suffix(&format_name, suffix),
-        );
+        let segment_suffix =
+          get_full_segment_suffix(&read_state.segment_suffix, get_suffix(&format_name, suffix));
         if !formats.contains_key(&segment_suffix) {
           let format = PF::for_name(&format_name)?;
           let state = SegmentReadState::copy_with_suffix(read_state, &segment_suffix);

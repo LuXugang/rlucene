@@ -432,7 +432,12 @@ impl IndexableField for BinaryPoint {
     ))
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     self.parent_field.stored_value()
   }
 
@@ -469,7 +474,14 @@ pub struct BinaryPointInSetQuery;
 
 impl PointInSetBase for BinaryPointInSetQuery {
   fn to_string(&self, value: &[u8]) -> Result<String> {
-    Ok(BytesRef::from_bytes(value.to_vec()).to_string())
+    Ok(
+      BytesRef {
+        bytes: value,
+        offset: 0,
+        length: value.len(),
+      }
+      .to_string(),
+    )
   }
 }
 

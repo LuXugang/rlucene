@@ -559,6 +559,11 @@ impl<S> SortedDocValues for MultiSortedDocValues<S>
 where
   S: SortedDocValues,
 {
+  type OrdValue<'a>
+    = S::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     let seg_idx = match self.current_values {
       Some(i) => i,
@@ -575,7 +580,7 @@ where
     Ok(global_ord as i32)
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     let ord = ord as usize;
     let sub_index = self.mapping.get_first_segment_number(ord)?;
     let segment_ord = self.mapping.get_first_segment_ord(ord)?.try_convert()?;
@@ -774,6 +779,11 @@ impl<T> SortedSetDocValues for MultiSortedSetDocValues<T>
 where
   T: SortedSetDocValues,
 {
+  type OrdValue<'a>
+    = T::OrdValue<'a>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     let idx = match self.current_values {
       Some(i) => i,
@@ -796,7 +806,7 @@ where
     self.values[idx].doc_value_count()
   }
 
-  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     let ord = ord as usize;
     let sub_index = self.mapping.get_first_segment_number(ord)?;
     let segment_ord = self.mapping.get_first_segment_ord(ord)?;

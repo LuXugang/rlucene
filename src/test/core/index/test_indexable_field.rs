@@ -25,7 +25,7 @@ use crate::core::document::field::{FieldDataEnum, IndexingTokenStreamEnum3, Stor
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::stored_field::stored_field_type;
-use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValue;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::fields::Fields as FieldsTrait;
@@ -155,8 +155,8 @@ fn test_arbitrary_fields() -> Result<()> {
           let tfv = term_vectors.get(doc_id)?.unwrap().terms(&name)?.unwrap();
           let mut terms_enum = tfv.iterator()?;
           assert_eq!(
-            BytesRef::from_string(&counter.to_string()),
-            terms_enum.next()?.unwrap().into_owned()
+            counter.to_string().as_bytes(),
+            terms_enum.next()?.unwrap().as_bytes()
           );
           assert_eq!(1, terms_enum.total_term_freq()?);
           let mut dp_enum = terms_enum.postings_with_flags(None, ALL as i32)?;
@@ -164,10 +164,7 @@ fn test_arbitrary_fields() -> Result<()> {
           assert_eq!(1, dp_enum.freq()?);
           assert_eq!(1, dp_enum.next_position()?);
 
-          assert_eq!(
-            BytesRef::from_string("text"),
-            terms_enum.next()?.unwrap().into_owned()
-          );
+          assert_eq!(b"text", terms_enum.next()?.unwrap().as_bytes());
           assert_eq!(1, terms_enum.total_term_freq()?);
           let mut dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
           assert_ne!(NO_MORE_DOCS, dp_enum.next_doc()?);

@@ -226,7 +226,13 @@ fn test_early_termination() -> Result<()> {
   let mcm = MultiCollectorManager::new(vec![&cm1, &cm2])?;
   let results = collect_all(&leaves[0], &expected, &mcm)?;
   assert_eq!(2, results.len());
-  assert_eq!(Some(expected.iter().copied().collect()), results[0]);
+  assert!(
+    results[0].as_ref().is_some_and(|actual| {
+      expected.len() == actual.len() && expected.iter().eq(actual.iter())
+    }),
+    "expected: Some({expected:?}), actual: {:?}",
+    results[0]
+  );
   assert_eq!(None, results[1]);
 
   // If multiple wrapped collector managers return collection-terminated errors, the

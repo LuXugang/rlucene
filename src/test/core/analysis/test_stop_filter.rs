@@ -115,13 +115,13 @@ fn test_token_positions_with_concatenated_stopword_filters() -> Result<()> {
   // e.g. [a, c, e] [b, d]
   let partition = random.random_range(0..stop_words.len());
   stop_words.shuffle(&mut random);
-  let stop_words_random_partition = stop_words[..partition].to_vec();
-  let mut stop_words_remaining: HashSet<String> = stop_words.iter().cloned().collect();
-  for stop_word in &stop_words_random_partition {
+  let stop_words_random_partition = &stop_words[..partition];
+  let mut stop_words_remaining: HashSet<&String> = stop_words.iter().collect();
+  for stop_word in stop_words_random_partition {
     stop_words_remaining.remove(stop_word);
   }
 
-  let first_stop_set = StopFilter::make_stop_set(&stop_words_random_partition);
+  let first_stop_set = StopFilter::make_stop_set(stop_words_random_partition);
   let second_stop_set = StopFilter::make_stop_set_with_ignore_case(&stop_words_remaining, false);
   let mut input = MockTokenizer::with_default_max_token_length(
     random_from_seed(random.random()),
@@ -217,8 +217,8 @@ where
       continue;
     }
     assert!(stop_filter.increment_token()?);
-    let token = English::int_to_english(i as i32).trim().to_string();
-    assert_eq!(token, stop_filter.get_attribute_source().to_string());
+    let token = English::int_to_english(i as i32);
+    assert_eq!(token.trim(), stop_filter.get_attribute_source().to_string());
   }
   assert!(!stop_filter.increment_token()?);
   stop_filter.end()?;

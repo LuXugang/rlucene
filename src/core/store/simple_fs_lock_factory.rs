@@ -80,7 +80,7 @@ impl Display for SimpleFSLockFactory {
 impl FSLockFactory for SimpleFSLockFactory {
   fn obtain_fs_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
     fs::create_dir_all(dir)
-      .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().to_string(), e))?;
+      .map_err(|e| LuceneError::io_with_path(dir.to_string_lossy().into_owned(), e))?;
 
     let lock_file = dir.join(lock_name);
     match OpenOptions::new()
@@ -91,22 +91,22 @@ impl FSLockFactory for SimpleFSLockFactory {
       Ok(file) => {
         let metadata = file
           .metadata()
-          .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
+          .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().into_owned(), e))?;
         let creation_time = metadata
           .created()
           .or_else(|_| metadata.modified())
-          .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e))?;
+          .map_err(|e| LuceneError::io_with_path(lock_file.to_string_lossy().into_owned(), e))?;
         Ok(SimpleFSLock::new(lock_file, creation_time))
       },
       Err(e) if e.kind() == ErrorKind::AlreadyExists || e.kind() == ErrorKind::PermissionDenied => {
-        let error = LuceneError::io_with_path(lock_file.to_string_lossy().to_string(), e);
+        let error = LuceneError::io_with_path(lock_file.to_string_lossy().into_owned(), e);
         let mut lock_obtain_failed_error =
           LuceneError::lock_obtain_failed(format!("Lock held elsewhere: {}", lock_file.display()));
         lock_obtain_failed_error.add_suppressed(error);
         Err(lock_obtain_failed_error)
       },
       Err(e) => Err(LuceneError::io_with_path(
-        lock_file.to_string_lossy().to_string(),
+        lock_file.to_string_lossy().into_owned(),
         e,
       )),
     }
@@ -189,10 +189,10 @@ impl Lock for SimpleFSLock {
     }
 
     let metadata = fs::metadata(&self.path)
-      .map_err(|e| LuceneError::io_with_path(self.path.to_string_lossy().to_string(), e))?;
+      .map_err(|e| LuceneError::io_with_path(self.path.to_string_lossy().into_owned(), e))?;
     let creation_time = metadata
       .created()
-      .map_err(|e| LuceneError::io_with_path(self.path.to_string_lossy().to_string(), e))?;
+      .map_err(|e| LuceneError::io_with_path(self.path.to_string_lossy().into_owned(), e))?;
     if self.creation_time != creation_time {
       return Err(LuceneError::already_closed(format!(
         "Underlying file changed by an external force at {creation_time:?}, (lock={self})"

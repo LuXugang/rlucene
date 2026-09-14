@@ -44,7 +44,7 @@ where
     let val: i32 = random.random();
 
     let o1 = cmap.put(&key, val);
-    let o2 = hmap.insert(hmap_key.clone(), val);
+    let o2 = hmap.insert(hmap_key, val);
     assert_eq!(o1, o2, "put return value mismatch");
     assert_eq!(
       val,

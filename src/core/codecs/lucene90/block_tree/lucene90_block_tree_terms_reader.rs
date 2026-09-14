@@ -292,7 +292,7 @@ where
         postings_reader: postings_reader
           .take()
           .ok_or_else(|| LuceneError::illegal_state("postings reader is missing"))?,
-        segment: segment.clone(),
+        segment,
         version,
       }));
       shared_index_in =

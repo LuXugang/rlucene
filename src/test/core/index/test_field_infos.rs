@@ -143,8 +143,8 @@ fn test_field_attributes() -> Result<()> {
   type1.put_attribute("testKey2", "testValue2")?;
 
   let mut d2 = Document::new();
-  d2.add(Field::new("f1", "v2", type1.clone()));
-  d2.add(Field::new("f2", "v2", type2.clone()));
+  d2.add(Field::new("f1", "v2", type1));
+  d2.add(Field::new("f2", "v2", type2));
   writer.add_document(d2)?;
   writer.commit()?;
   writer.force_merge(1)?;
@@ -204,8 +204,8 @@ fn test_field_attributes_single_segment() -> Result<()> {
   type2.set_stored(true)?;
   type2.put_attribute("att4", "attdoc2")?;
 
-  d2.add(Field::new("f1", "v2", type1.clone()));
-  d2.add(Field::new("f2", "v2", type2.clone()));
+  d2.add(Field::new("f1", "v2", type1));
+  d2.add(Field::new("f2", "v2", type2));
   writer.add_document(d2)?;
 
   writer.commit()?;
@@ -237,7 +237,7 @@ fn test_merged_field_infos_empty() -> Result<()> {
   let reader = directory_reader::open_from_writer(&writer)?;
   let actual = get_merged_field_infos(&reader)?;
 
-  assert!(Arc::ptr_eq(&EMPTY.clone(), &actual));
+  assert!(Arc::ptr_eq(&EMPTY, &actual));
   reader.close()?;
   writer.close()?;
   dir.close()?;

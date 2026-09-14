@@ -186,7 +186,7 @@ impl DoubleField {
   {
     let values = values.into();
     let field = field.into();
-    let point_query = DoublePoint::new_set_query(field.clone(), &values)?;
+    let point_query = DoublePoint::new_set_query(field.clone(), values.as_slice())?;
     let dv_query = SortedNumericDocValuesField::new_slow_set_query(
       field,
       values
@@ -266,12 +266,13 @@ impl IndexableField for DoubleField {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
-    self
-      .stored_value
-      .as_ref()
-      .map(FieldDataEnum::try_clone)
-      .transpose()
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
+    Ok(self.stored_value.as_ref())
   }
 
   fn invertable_type(&self) -> &InvertableType {

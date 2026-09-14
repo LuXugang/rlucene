@@ -499,7 +499,7 @@ fn test_read_longs() -> Result<()> {
         bb[6] = byten(offset + 6);
         bb[7] = byten(offset + 7);
 
-        let expected_value = i64::from_le_bytes(bb.clone().try_into().unwrap());
+        let expected_value = i64::from_le_bytes(bb.as_slice().try_into().unwrap());
         assert_eq!(
           expected_value, *actual_value,
           "Mismatch at alignment={}, bulk_read={}, idx={}",

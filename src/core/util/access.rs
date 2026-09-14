@@ -18,6 +18,7 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
+use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 /// A small abstraction that unifies access to an inner value `T`,
@@ -108,6 +109,35 @@ pub trait SharedAccessVec<T>: Clone + Default {
   fn new() -> Self;
   fn with_capacity(capacity: usize) -> Result<Self>;
   fn from_vec(v: Vec<T>) -> Self;
+}
+
+impl<T: Clone + Default> SharedAccessVec<T> for Cow<'_, Vec<T>> {
+  fn access<F, R>(&self, f: F) -> R
+  where
+    F: FnOnce(&Vec<T>) -> R,
+  {
+    f(self.as_ref())
+  }
+
+  fn slice_clone(&self, offset: usize, length: usize) -> Self {
+    Cow::Owned(ArrayUtil::copy_of_sub_array(
+      self.as_ref(),
+      offset,
+      offset + length,
+    ))
+  }
+
+  fn new() -> Self {
+    Cow::Owned(Vec::new())
+  }
+
+  fn with_capacity(capacity: usize) -> Result<Self> {
+    Ok(Cow::Owned(vec![T::default(); capacity]))
+  }
+
+  fn from_vec(v: Vec<T>) -> Self {
+    Cow::Owned(v)
+  }
 }
 
 // Vec<T>
@@ -208,6 +238,12 @@ macro_rules! with_other {
 }
 pub trait ByteSource: Default {
   fn as_slice(&self) -> &[u8];
+}
+
+impl ByteSource for Cow<'_, Vec<u8>> {
+  fn as_slice(&self) -> &[u8] {
+    self.as_ref().as_slice()
+  }
 }
 impl ByteSource for Vec<u8> {
   fn as_slice(&self) -> &[u8] {

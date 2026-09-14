@@ -60,8 +60,6 @@ pub struct Lucene90CompressingStoredFieldsWriter<D>
 where
   D: Directory,
 {
-  #[allow(dead_code)] // Kept to mirror Java, which only reads this field during construction.
-  segment: String,
   index_writer: FieldsIndexWriter<D>,
   meta_stream: D::IndexOutput,
   fields_stream: D::IndexOutput,
@@ -96,13 +94,13 @@ where
     max_docs_per_chunk: i32,
     block_shift: i32,
   ) -> Result<Self> {
-    let segment = si.name.clone();
+    let segment = &si.name;
     let compressor = compression_mode.new_compressor();
     let buffered_docs = ByteBuffersDataOutput::new_resettable_instance();
     let num_stored_fields = vec![0; 16];
     let end_offsets = vec![0; 16];
 
-    let meta_file = IndexFileNames::segment_file_name(&segment, segment_suffix, META_EXTENSION);
+    let meta_file = IndexFileNames::segment_file_name(segment, segment_suffix, META_EXTENSION);
     let mut directory = Some(directory);
     let mut meta_stream = None;
     let mut fields_stream = None;
@@ -129,7 +127,7 @@ where
       );
 
       let fields_file =
-        IndexFileNames::segment_file_name(&segment, segment_suffix, FIELDS_EXTENSION);
+        IndexFileNames::segment_file_name(segment, segment_suffix, FIELDS_EXTENSION);
       fields_stream = Some(dir.create_output(&fields_file, context)?);
       let fields = fields_stream
         .as_mut()
@@ -150,7 +148,7 @@ where
         directory
           .take()
           .ok_or_else(|| LuceneError::illegal_state("directory is missing"))?,
-        &segment,
+        segment,
         segment_suffix,
         INDEX_EXTENSION,
         INDEX_CODEC_NAME,
@@ -182,7 +180,6 @@ where
       index_writer.ok_or_else(|| LuceneError::illegal_state("fields index writer is missing"))?;
 
     Ok(Self {
-      segment,
       compression_mode,
       compressor,
       closed: false,

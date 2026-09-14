@@ -320,9 +320,8 @@ where
 
       debug_assert!(self.valid_output(last_output));
 
-      let common_output_prefix;
-      if !self.no_output.is_same_reference(last_output) {
-        common_output_prefix = self.fst.outputs.common(&output, last_output);
+      let common_output_prefix = if !self.no_output.is_same_reference(last_output) {
+        let common_output_prefix = self.fst.outputs.common(&output, last_output);
         debug_assert!(self.valid_output(&common_output_prefix));
 
         let word_suffix = self
@@ -331,13 +330,14 @@ where
           .subtract(last_output, &common_output_prefix);
         debug_assert!(self.valid_output(&word_suffix));
 
-        UnCompiledNode::set_last_output(label, common_output_prefix.clone(), self, idx - 1)?;
+        UnCompiledNode::set_last_output(label, common_output_prefix, self, idx - 1)?;
         UnCompiledNode::prepend_output(&word_suffix, self, idx)?;
+        self.frontier[idx - 1].get_last_output(label)
       } else {
-        common_output_prefix = self.no_output.clone();
-      }
+        &self.no_output
+      };
 
-      output = self.fst.outputs.subtract(&output, &common_output_prefix);
+      output = self.fst.outputs.subtract(&output, common_output_prefix);
       debug_assert!(self.valid_output(&output));
     }
     if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {

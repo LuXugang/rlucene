@@ -23,6 +23,7 @@ use crate::core::codecs::{Codec, codec};
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
+use crate::core::index::bytes_ref::{BytesRefValue, BytesRefValueEnum};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -453,7 +454,7 @@ where
         .get_payload()?
         .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
       if random.random_range(0..3) < 2 {
-        assert_eq!(payload, other_payload.as_ref());
+        assert_eq!(payload.as_bytes(), other_payload.as_bytes());
       }
     } else {
       assert!(pos_enum.get_payload()?.is_none());
@@ -999,12 +1000,12 @@ impl PostingsEnum for DataPostingsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     Ok(
       self.term_data.positions.as_ref().unwrap()[self.doc_upto as usize][self.pos_upto as usize]
         .payload
         .as_ref()
-        .map(Cow::Borrowed),
+        .map(|value| Cow::Borrowed(value).into_value()),
     )
   }
 }

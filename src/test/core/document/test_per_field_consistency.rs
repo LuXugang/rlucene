@@ -43,7 +43,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random,
 };
-use rand::prelude::IndexedRandom;
 use rand::{Rng, RngExt};
 #[allow(dead_code)] // for quick search
 pub struct TestPerFieldConsistency;
@@ -52,14 +51,12 @@ where
   R: Rng + ?Sized,
 {
   let mut field_type = FieldType::new();
-  let mut index_options = *IndexOptions::values()
-    .collect::<Vec<_>>()
-    .choose(random)
+  let mut index_options = IndexOptions::values()
+    .nth(random.random_range(..IndexOptions::values().count()))
     .unwrap();
   while index_options == IndexOptions::None {
-    index_options = *IndexOptions::values()
-      .collect::<Vec<_>>()
-      .choose(random)
+    index_options = IndexOptions::values()
+      .nth(random.random_range(..IndexOptions::values().count()))
       .unwrap();
   }
   field_type.set_index_options(index_options)?;

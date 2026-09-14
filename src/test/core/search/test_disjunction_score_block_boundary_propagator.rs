@@ -34,7 +34,7 @@ fn test_basics() -> Result<()> {
   let scorer2 = FakeScorer::new(50, 1.5);
   let scorer3 = FakeScorer::new(30, 2.0);
   let scorer4 = FakeScorer::new(80, 3.0);
-  let mut scorers = vec![scorer1, scorer2, scorer3, scorer4];
+  let mut scorers = [scorer1, scorer2, scorer3, scorer4];
   scorers.shuffle(&mut random);
 
   let mut propagator = DisjunctionScoreBlockBoundaryPropagator::new(scorers.as_mut_slice())?;

@@ -365,7 +365,11 @@ fn test_track_create() -> Result<()> {
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
-  assert_eq!(dir.get_created_files(), HashSet::from(["foo".to_string()]));
+  let created_files = dir.get_created_files();
+  assert!(
+    created_files.len() == 1 && created_files.contains("foo"),
+    "expected only foo, got {created_files:?}"
+  );
   Ok(())
 }
 
@@ -375,7 +379,11 @@ fn test_track_delete() -> Result<()> {
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
-  assert_eq!(dir.get_created_files(), HashSet::from(["foo".to_string()]));
+  let created_files = dir.get_created_files();
+  assert!(
+    created_files.len() == 1 && created_files.contains("foo"),
+    "expected only foo, got {created_files:?}"
+  );
   dir.delete_file("foo")?;
   assert_eq!(dir.get_created_files(), HashSet::new());
   Ok(())
@@ -387,9 +395,17 @@ fn test_track_rename() -> Result<()> {
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
-  assert_eq!(dir.get_created_files(), HashSet::from(["foo".to_string()]));
+  let created_files = dir.get_created_files();
+  assert!(
+    created_files.len() == 1 && created_files.contains("foo"),
+    "expected only foo, got {created_files:?}"
+  );
   dir.rename("foo", "bar")?;
-  assert_eq!(dir.get_created_files(), HashSet::from(["bar".to_string()]));
+  let created_files = dir.get_created_files();
+  assert!(
+    created_files.len() == 1 && created_files.contains("bar"),
+    "expected only bar, got {created_files:?}"
+  );
   Ok(())
 }
 
@@ -401,16 +417,22 @@ fn test_track_copy_from() -> Result<()> {
 
   let mut out = source.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
-  assert_eq!(
-    source.get_created_files(),
-    HashSet::from(["foo".to_string()])
+  let created_files = source.get_created_files();
+  assert!(
+    created_files.len() == 1 && created_files.contains("foo"),
+    "expected only foo, got {created_files:?}"
   );
 
   dest.copy_from(&source, "foo", "bar", &new_io_context(&mut random)?)?;
-  assert_eq!(dest.get_created_files(), HashSet::from(["bar".to_string()]));
-  assert_eq!(
-    source.get_created_files(),
-    HashSet::from(["foo".to_string()])
+  let created_files = dest.get_created_files();
+  assert!(
+    created_files.len() == 1 && created_files.contains("bar"),
+    "expected only bar, got {created_files:?}"
+  );
+  let created_files = source.get_created_files();
+  assert!(
+    created_files.len() == 1 && created_files.contains("foo"),
+    "expected only foo, got {created_files:?}"
   );
   Ok(())
 }

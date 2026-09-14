@@ -207,7 +207,12 @@ impl IndexableField for TextField {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+  type StoredValue<'a>
+    = &'a FieldDataEnum
+  where
+    Self: 'a;
+
+  fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
     if self.has_stored_value {
       self.parent_field.stored_value()
     } else {

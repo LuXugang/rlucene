@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
-use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValueEnum;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -31,6 +31,7 @@ use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -935,6 +936,11 @@ impl DocIdSetIterator for EmptySorted {
 }
 
 impl SortedDocValues for EmptySorted {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     debug_assert!(
       false,
@@ -943,7 +949,7 @@ impl SortedDocValues for EmptySorted {
     Ok(-1)
   }
 
-  fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, _ord: i32) -> Result<Self::OrdValue<'_>> {
     Ok(Cow::Owned(std::mem::take(&mut self.empty)))
   }
 
@@ -1194,6 +1200,11 @@ impl<A> SortedDocValues for SortedDocValuesWithEmpty<A>
 where
   A: SortedDocValues,
 {
+  type OrdValue<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     match self {
       Self::A(inner) => inner.ord_value(),
@@ -1201,10 +1212,10 @@ where
     }
   }
 
-  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::A(inner) => inner.lookup_ord(ord),
-      Self::B(inner) => inner.lookup_ord(ord),
+      Self::A(inner) => inner.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::B(inner) => inner.lookup_ord(ord).map(BytesRefValue::into_value),
     }
   }
 

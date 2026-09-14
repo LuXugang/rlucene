@@ -267,8 +267,7 @@ impl CheckHits {
   where
     IRC: IndexReaderContext + Sync + 'static,
   {
-    let manager =
-      ExplanationAsserterManager::new(query.clone(), default_field_name, searcher, deep);
+    let manager = ExplanationAsserterManager::new(query, default_field_name, searcher, deep);
     searcher.search_with_collector_manager(query.clone(), &manager)
   }
 
@@ -662,7 +661,7 @@ struct ExplanationAsserterManager<'a, IRC>
 where
   IRC: 'static,
 {
-  q: Query,
+  q: &'a Query,
   default_field_name: &'a str,
   s: &'a IndexSearcher<IRC>,
   deep: bool,
@@ -672,7 +671,7 @@ impl<'a, IRC> ExplanationAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn new(q: Query, default_field_name: &'a str, s: &'a IndexSearcher<IRC>, deep: bool) -> Self {
+  fn new(q: &'a Query, default_field_name: &'a str, s: &'a IndexSearcher<IRC>, deep: bool) -> Self {
     Self {
       q,
       default_field_name,
@@ -691,7 +690,7 @@ where
   type T = ();
 
   fn new_collector(&self) -> Result<Self::C> {
-    ExplanationAsserter::new(self.q.clone(), self.default_field_name, self.s, self.deep)
+    ExplanationAsserter::new(self.q, self.default_field_name, self.s, self.deep)
   }
 
   fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
@@ -742,7 +741,7 @@ struct ExplanationAsserter<'a, IRC>
 where
   IRC: 'static,
 {
-  q: Query,
+  q: &'a Query,
   s: &'a IndexSearcher<IRC>,
   d: String,
   deep: bool,
@@ -755,7 +754,7 @@ where
 {
   /// Constructs an instance which does shallow tests on the Explanation.
   fn new(
-    q: Query,
+    q: &'a Query,
     default_field_name: &str,
     s: &'a IndexSearcher<IRC>,
     deep: bool,

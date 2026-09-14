@@ -26,6 +26,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
+use strum::EnumCount;
 
 use parking_lot::Mutex;
 use rand::Rng;
@@ -152,14 +153,14 @@ pub trait BaseDirectoryTestCase {
     let file = "foo.txt";
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
-    assert!(!dir.list_all()?.contains(&file.to_string()));
+    assert!(!dir.list_all()?.iter().any(|name| name == file));
 
     let mut output = dir.create_output(file, io_context)?;
     output.close()?;
-    assert!(dir.list_all()?.contains(&file.to_string()));
+    assert!(dir.list_all()?.iter().any(|name| name == file));
 
     dir.delete_file(file)?;
-    assert!(!dir.list_all()?.contains(&file.to_string()));
+    assert!(!dir.list_all()?.iter().any(|name| name == file));
 
     let result = dir.delete_file(file);
     assert!(result.is_err());
@@ -730,12 +731,11 @@ pub trait BaseDirectoryTestCase {
       let mut output = dir.create_output("stringset", &io_context)?;
       output.write_set_of_strings(
         &["test1".to_string(), "test2".to_string()]
-          .iter()
-          .cloned()
+          .into_iter()
           .collect(),
       )?;
       output.write_set_of_strings(&HashSet::new())?;
-      output.write_set_of_strings(&["test3".to_string()].iter().cloned().collect())?;
+      output.write_set_of_strings(&["test3".to_string()].into_iter().collect())?;
       output.close()?;
     }
 
@@ -743,19 +743,19 @@ pub trait BaseDirectoryTestCase {
       let mut input = dir.open_input("stringset", &io_context)?;
 
       let set1 = input.read_set_of_strings()?;
-      assert_eq!(
-        set1,
-        ["test1".to_string(), "test2".to_string()]
-          .iter()
-          .cloned()
-          .collect()
+      assert!(
+        set1.len() == 2 && set1.contains("test1") && set1.contains("test2"),
+        "actual set: {set1:?}"
       );
 
       let set2 = input.read_set_of_strings()?;
       assert_eq!(set2, HashSet::new());
 
       let set3 = input.read_set_of_strings()?;
-      assert_eq!(set3, ["test3".to_string()].iter().cloned().collect());
+      assert!(
+        set3.len() == 1 && set3.contains("test3"),
+        "actual set: {set3:?}"
+      );
 
       assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
       CloseableRef::close(&input)?;
@@ -804,11 +804,10 @@ pub trait BaseDirectoryTestCase {
       map2_clone.insert("bogus1".to_string(), "bogus2".to_string()); // This will not affect the original `map2`
 
       let map3 = input.read_map_of_strings()?;
-      let expected_singleton_map: HashMap<String, String> =
-        [(String::from("key"), String::from("value"))]
-          .into_iter()
-          .collect();
-      assert_eq!(map3, expected_singleton_map);
+      assert!(
+        map3.len() == 1 && map3.get("key").map(String::as_str) == Some("value"),
+        "actual map: {map3:?}"
+      );
 
       let mut map3_clone = map3.clone();
       map3_clone.insert("bogus1".to_string(), "bogus2".to_string()); // This will not affect the original `map3`
@@ -1258,7 +1257,6 @@ pub trait BaseDirectoryTestCase {
     let data_len = random.random_range(header_len + 1..10000);
     let mut data = vec![0u8; data_len];
     random.fill_bytes(&mut data);
-    let data_clone = data.clone();
 
     let mut output = dir.create_output("data", io_context)?;
     output.write_bytes_with_len(&data, data_len)?;
@@ -1305,7 +1303,7 @@ pub trait BaseDirectoryTestCase {
       let mut data_copy = vec![0u8; data_len];
       let mut input_copy = dir.open_input(&file_name, io_context)?;
 
-      data_copy.copy_from(&data_clone[..header_len], 0);
+      data_copy.copy_from(&data[..header_len], 0);
 
       DataInput::read_bytes(
         &mut input_copy,
@@ -1314,7 +1312,7 @@ pub trait BaseDirectoryTestCase {
         data_len - header_len,
       )?;
 
-      assert_eq!(data_clone, data_copy, "Data mismatch in copy{}", i);
+      assert_eq!(data, data_copy, "Data mismatch in copy{}", i);
       CloseableRef::close(&input_copy)?;
     }
     input.close()?;
@@ -2207,7 +2205,12 @@ pub trait BaseDirectoryTestCase {
     } else {
       orig.take().expect("original input")
     };
-    let read_advices: Vec<ReadAdvice> = ReadAdvice::values().collect();
+    let read_advices: [ReadAdvice; ReadAdvice::COUNT] = [
+      ReadAdvice::Normal,
+      ReadAdvice::Random,
+      ReadAdvice::Sequential,
+      ReadAdvice::RandomPreload,
+    ];
 
     // Read advice updated at start
     input.update_read_advice(read_advices[random.random_range(0..read_advices.len())])?;

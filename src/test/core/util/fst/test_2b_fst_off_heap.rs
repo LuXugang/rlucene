@@ -56,8 +56,7 @@ const LIMIT: i64 = 3 * 1024 * 1024 * 1024;
 #[test]
 #[ignore = "monster"]
 fn test() -> Result<()> {
-  let mut ints = vec![0; 7];
-  let mut input = IntsRef::from_slice(ints.clone(), 0, ints.len());
+  let mut input = IntsRef::from_slice(vec![0; 7], 0, 7);
   let seed = random().random::<u64>();
 
   let temp_dir = create_temp_dir_with_prefix("2BFSTOffHeap")?;
@@ -76,15 +75,13 @@ fn test() -> Result<()> {
 
     let mut count = 0;
     let mut r = StdRng::seed_from_u64(seed);
-    let mut ints2 = vec![0; 200];
-    let mut input2 = IntsRef::from_slice(ints2.clone(), 0, ints2.len());
+    let mut input2 = IntsRef::from_slice(vec![0; 200], 0, 200);
     let mut start_time = Instant::now();
     loop {
       // println!("add: {input} -> {output}");
-      for value in &mut ints2[10..] {
+      for value in &mut input2.ints[10..] {
         *value = r.random_range(0..256);
       }
-      input2.ints.clone_from(&ints2);
       fst_compiler.add(&input2, no_output.clone())?;
       count += 1;
       if count % 100_000 == 0 {
@@ -100,7 +97,7 @@ fn test() -> Result<()> {
       if fst_compiler.get_node_count() > i32::MAX as i64 + 100 * 1024 * 1024 {
         break;
       }
-      next_input(&mut r, &mut ints2);
+      next_input(&mut r, &mut input2.ints);
     }
 
     let metadata = fst_compiler.compile()?.unwrap();
@@ -123,36 +120,36 @@ fn test() -> Result<()> {
           fst_compiler.get_node_count(),
           fst_compiler.get_arc_count()
         );
-        ints2.fill(0);
-        input2.ints.clone_from(&ints2);
+        input2.ints.fill(0);
         r = StdRng::seed_from_u64(seed);
         start_time = Instant::now();
         for i in 0..count {
           if i % 1_000_000 == 0 {
             println!("{}...: took {} seconds", i, start_time.elapsed().as_secs());
           }
-          for value in &mut ints2[10..] {
+          for value in &mut input2.ints[10..] {
             *value = r.random_range(0..256);
           }
-          input2.ints.clone_from(&ints2);
-          assert_eq!(Some(no_output.clone()), Util::get_from_ints(&fst, &input2)?);
-          next_input(&mut r, &mut ints2);
+          assert_eq!(
+            Some(&no_output),
+            Util::get_from_ints(&fst, &input2)?.as_ref()
+          );
+          next_input(&mut r, &mut input2.ints);
         }
 
         println!("\nTEST: enum all input/outputs");
         let mut fst_enum = IntsRefFSTEnum::new(fst)?;
-        ints2.fill(0);
+        input2.ints.fill(0);
         r = StdRng::seed_from_u64(seed);
         let mut upto = 0;
         while let Some(pair) = fst_enum.next_value()? {
-          for value in &mut ints2[10..] {
+          for value in &mut input2.ints[10..] {
             *value = r.random_range(0..256);
           }
-          input2.ints.clone_from(&ints2);
           assert_eq!(input2, pair.input);
           assert_eq!(no_output, pair.output);
           upto += 1;
-          next_input(&mut r, &mut ints2);
+          next_input(&mut r, &mut input2.ints);
         }
         assert_eq!(count, upto);
         fst = fst_enum.base.fst;
@@ -176,8 +173,7 @@ fn test() -> Result<()> {
     let mut fst_compiler = builder.build()?;
 
     let mut output_bytes = vec![0; 20];
-    ints.fill(0);
-    input.ints.clone_from(&ints);
+    input.ints.fill(0);
     let mut count = 0;
     let mut r = StdRng::seed_from_u64(seed);
     loop {
@@ -195,8 +191,7 @@ fn test() -> Result<()> {
           break;
         }
       }
-      next_input(&mut r, &mut ints);
-      input.ints.clone_from(&ints);
+      next_input(&mut r, &mut input.ints);
     }
 
     let metadata = fst_compiler.compile()?.unwrap();
@@ -220,34 +215,40 @@ fn test() -> Result<()> {
           fst_compiler.get_arc_count()
         );
         r = StdRng::seed_from_u64(seed);
-        ints.fill(0);
-        input.ints.clone_from(&ints);
+        input.ints.fill(0);
         let start_time = Instant::now();
         for i in 0..count {
           if i % 1_000_000 == 0 {
             println!("{}...: took {} seconds", i, start_time.elapsed().as_secs());
           }
           r.fill(&mut output_bytes[..]);
-          let output = BytesRef::from_bytes(Arc::new(output_bytes.clone()));
-          assert_eq!(Some(output), Util::get_from_ints(&fst, &input)?);
-          next_input(&mut r, &mut ints);
-          input.ints.clone_from(&ints);
+          let actual_output = Util::get_from_ints(&fst, &input)?;
+          assert_eq!(
+            Some(output_bytes.as_slice()),
+            actual_output
+              .as_ref()
+              .map(|output| &output.bytes[output.offset..output.offset + output.length]),
+            "actual output: {actual_output:?}"
+          );
+          next_input(&mut r, &mut input.ints);
         }
 
         println!("\nTEST: enum all input/outputs");
         let mut fst_enum = IntsRefFSTEnum::new(fst)?;
-        ints.fill(0);
-        input.ints.clone_from(&ints);
+        input.ints.fill(0);
         r = StdRng::seed_from_u64(seed);
         let mut upto = 0;
         while let Some(pair) = fst_enum.next_value()? {
           assert_eq!(input, pair.input);
           r.fill(&mut output_bytes[..]);
-          let output = BytesRef::from_bytes(Arc::new(output_bytes.clone()));
-          assert_eq!(output, pair.output);
+          assert_eq!(
+            output_bytes.as_slice(),
+            &pair.output.bytes[pair.output.offset..pair.output.offset + pair.output.length],
+            "actual output: {:?}",
+            pair.output
+          );
           upto += 1;
-          next_input(&mut r, &mut ints);
-          input.ints.clone_from(&ints);
+          next_input(&mut r, &mut input.ints);
         }
         assert_eq!(count, upto);
         fst = fst_enum.base.fst;
@@ -271,8 +272,7 @@ fn test() -> Result<()> {
     let mut fst_compiler = builder.build()?;
 
     let mut output = 1_i64;
-    ints.fill(0);
-    input.ints.clone_from(&ints);
+    input.ints.fill(0);
     let mut count = 0;
     let mut r = StdRng::seed_from_u64(seed);
     loop {
@@ -289,8 +289,7 @@ fn test() -> Result<()> {
           break;
         }
       }
-      next_input(&mut r, &mut ints);
-      input.ints.clone_from(&ints);
+      next_input(&mut r, &mut input.ints);
     }
 
     let metadata = fst_compiler.compile()?.unwrap();
@@ -313,8 +312,7 @@ fn test() -> Result<()> {
           fst_compiler.get_node_count(),
           fst_compiler.get_arc_count()
         );
-        ints.fill(0);
-        input.ints.clone_from(&ints);
+        input.ints.fill(0);
         output = 1;
         r = StdRng::seed_from_u64(seed);
         let start_time = Instant::now();
@@ -324,14 +322,12 @@ fn test() -> Result<()> {
           }
           assert_eq!(Some(Arc::new(output)), Util::get_from_ints(&fst, &input)?);
           output += 1 + r.random_range(0..10);
-          next_input(&mut r, &mut ints);
-          input.ints.clone_from(&ints);
+          next_input(&mut r, &mut input.ints);
         }
 
         println!("\nTEST: enum all input/outputs");
         let mut fst_enum = IntsRefFSTEnum::new(fst)?;
-        ints.fill(0);
-        input.ints.clone_from(&ints);
+        input.ints.fill(0);
         r = StdRng::seed_from_u64(seed);
         let mut upto = 0;
         output = 1;
@@ -340,8 +336,7 @@ fn test() -> Result<()> {
           assert_eq!(output, *pair.output);
           output += 1 + r.random_range(0..10);
           upto += 1;
-          next_input(&mut r, &mut ints);
-          input.ints.clone_from(&ints);
+          next_input(&mut r, &mut input.ints);
         }
         assert_eq!(count, upto);
         fst = fst_enum.base.fst;

@@ -147,20 +147,17 @@ pub fn size_of_string(s: &String) -> i64 {
 /// Returns `size` in human-readable units (GB, MB, KB or bytes).
 pub fn human_readable_units(bytes: i64) -> String {
   if bytes / ONE_GB > 0 {
-    format!(
-      "{} GB",
-      format_with_one_decimal(bytes as f64 / ONE_GB as f64)
-    )
+    let mut formatted = format_with_one_decimal(bytes as f64 / ONE_GB as f64);
+    formatted.push_str(" GB");
+    formatted
   } else if bytes / ONE_MB > 0 {
-    format!(
-      "{} MB",
-      format_with_one_decimal(bytes as f64 / ONE_MB as f64)
-    )
+    let mut formatted = format_with_one_decimal(bytes as f64 / ONE_MB as f64);
+    formatted.push_str(" MB");
+    formatted
   } else if bytes / ONE_KB > 0 {
-    format!(
-      "{} KB",
-      format_with_one_decimal(bytes as f64 / ONE_KB as f64)
-    )
+    let mut formatted = format_with_one_decimal(bytes as f64 / ONE_KB as f64);
+    formatted.push_str(" KB");
+    formatted
   } else {
     format!("{} bytes", bytes)
   }

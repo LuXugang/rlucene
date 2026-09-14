@@ -110,7 +110,7 @@ pub trait BasePointsFormatTestCase:
     for i in 0..20 {
       let mut doc = Document::new();
       NumericUtils::int_to_sortable_bytes(i, &mut point, 0);
-      doc.add(BinaryPoint::new("dim", vec![point.clone()])?);
+      doc.add(BinaryPoint::new("dim", [point.as_slice()])?);
       w.add_document(doc)?;
     }
 
@@ -141,7 +141,7 @@ pub trait BasePointsFormatTestCase:
     for i in 0..20 {
       let mut doc = Document::new();
       NumericUtils::int_to_sortable_bytes(i, &mut point, 0);
-      doc.add(BinaryPoint::new("dim", vec![point.clone()])?);
+      doc.add(BinaryPoint::new("dim", [point.as_slice()])?);
       w.add_document(doc)?;
       if i == 10 {
         w.commit()?;
@@ -174,7 +174,7 @@ pub trait BasePointsFormatTestCase:
     for i in 0..10i32 {
       let mut doc = Document::new();
       NumericUtils::int_to_sortable_bytes(i, &mut point, 0);
-      doc.add(BinaryPoint::new("dim", vec![point.clone()])?);
+      doc.add(BinaryPoint::new("dim", [point.as_slice()])?);
       doc.add(NumericDocValuesField::new("id", i as i64));
       doc.add(new_string_field(
         random,

@@ -40,10 +40,23 @@ fn test_result_collection() -> Result<()> {
   }
 
   let top_docs = collector.top_docs()?;
-  let result_nodes: Vec<i32> = top_docs.score_docs.iter().map(|sd| sd.doc).collect();
   let result_scores: Vec<f32> = top_docs.score_docs.iter().map(|sd| sd.score).collect();
   // All nodes above resultSimilarity appear in order of collection
-  assert_eq!(result_nodes, vec![4, 3, 2, 7, 9]);
+  let expected_nodes = [4, 3, 2, 7, 9];
+  assert!(
+    top_docs
+      .score_docs
+      .iter()
+      .map(|sd| sd.doc)
+      .eq(expected_nodes),
+    "expected nodes: {:?}, actual nodes: {:?}",
+    expected_nodes,
+    top_docs
+      .score_docs
+      .iter()
+      .map(|sd| sd.doc)
+      .collect::<Vec<_>>()
+  );
   assert_eq_approx(&result_scores, &[0.5, 0.6, 0.9, 0.7, 0.8], 1e-3);
   // All nodes above resultSimilarity appear in order of collection
   let expected_min = [0.1, 0.2, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3];

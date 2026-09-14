@@ -132,6 +132,11 @@ impl<I> SortedDocValues for BaseSortedDocValuesEnum<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     match self {
       Self::Dense(sub) => sub.ord_value(),
@@ -226,6 +231,11 @@ impl<I> SortedSetDocValues for BaseSortedSetDocValuesEnum<I>
 where
   I: IndexInput,
 {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next_ord(&mut self) -> Result<i64> {
     match self {
       Self::Dense(sub) => sub.next_ord(),

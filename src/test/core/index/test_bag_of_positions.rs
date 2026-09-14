@@ -133,7 +133,7 @@ fn test() -> Result<()> {
 
           // Create document and add field
           let mut doc = Document::new();
-          doc.add(Field::new("field", text.as_str(), field_type.clone()));
+          doc.add(Field::new("field", text, field_type.clone()));
           iw.add_document(&mut thread_random, doc)?;
         }
 

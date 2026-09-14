@@ -129,7 +129,7 @@ fn test_phrase_prefix() -> Result<()> {
     }
   }
 
-  let terms: Vec<_> = terms_with_prefix.iter().cloned().collect();
+  let terms: Vec<_> = terms_with_prefix.into_iter().collect();
 
   query1builder.add_terms(&terms)?;
   query2builder.add_terms(&terms)?;

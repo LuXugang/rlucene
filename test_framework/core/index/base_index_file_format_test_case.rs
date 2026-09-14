@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::bytes_ref::BytesRefValue;
 
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
@@ -140,9 +141,7 @@ where
   LR: LeafReader + Clone,
 {
   fn new(reader: &'a LR) -> Result<Self> {
-    let mut indexed_fields = get_indexed_fields(reader.clone())?
-      .into_iter()
-      .collect::<Vec<_>>();
+    let mut indexed_fields = get_indexed_fields(reader)?.into_iter().collect::<Vec<_>>();
     indexed_fields.sort();
     Ok(Self {
       one_doc_reader: reader,
@@ -850,7 +849,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
     config.set_use_compound_file(false);
     config.set_merge_policy(merge_policy);
     let writer = IndexWriter::new(dir2.clone(), config)?;
-    let leaves = reader.get_sequential_sub_readers().to_vec();
+    let leaves = reader.get_sequential_sub_readers().iter().cloned();
     writer.add_indexes_from_codec_readers(leaves)?;
     writer.commit()?;
     writer.close()?;
@@ -999,7 +998,10 @@ pub trait BaseIndexFileFormatTestCase: Sized {
     let body_result = (|| {
       consumer.start_document(1)?;
       consumer.start_field(field.as_ref(), 1, false, false, false)?;
-      consumer.start_term(&crate::core::index::BytesRef::from_string("testing"), 2)?;
+      consumer.start_term(
+        &crate::core::index::BytesRef::<Vec<u8>>::from_string("testing").as_bytes_ref(),
+        2,
+      )?;
       consumer.finish_term()?;
       consumer.finish_field()?;
       consumer.finish_document()?;

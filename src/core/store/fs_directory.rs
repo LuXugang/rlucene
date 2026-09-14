@@ -34,7 +34,6 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::{fs, io};
@@ -61,7 +60,7 @@ where
   pub(crate) directory: PathBuf,
   /// Maps files that we are trying to delete (or we tried already but
   /// failed) before attempting to delete that key.
-  pending_deletes: Arc<Mutex<HashSet<String>>>,
+  pending_deletes: Mutex<HashSet<String>>,
   ops_since_last_delete: AtomicU32,
   /// Used to generate temp file names in
   /// [`Directory::create_temp_output`].
@@ -93,7 +92,7 @@ where
     let base = BaseDirectoryBase::new(lock_factory);
     Ok(FSDirectory {
       directory,
-      pending_deletes: Arc::new(Mutex::new(HashSet::new())),
+      pending_deletes: Mutex::new(HashSet::new()),
       ops_since_last_delete: AtomicU32::new(0),
       next_temp_file_counter: AtomicU64::new(0),
       sub_fs_directory,
@@ -196,7 +195,7 @@ where
           Ok(())
         } else {
           Err(LuceneError::io_with_path(
-            file_path.to_string_lossy().to_string(),
+            file_path.to_string_lossy().into_owned(),
             e,
           ))
         }
@@ -307,7 +306,7 @@ where
 
     let file_path = self.directory.join(name);
     let metadata = fs::metadata(&file_path)
-      .map_err(|e| LuceneError::io_with_path(file_path.to_string_lossy().to_string(), e))?;
+      .map_err(|e| LuceneError::io_with_path(file_path.to_string_lossy().into_owned(), e))?;
     let length = metadata.len();
     Ok(length as usize)
   }
@@ -330,10 +329,10 @@ where
       .write(true)
       .create_new(true)
       .open(&file_path)
-      .map_err(|err| LuceneError::io_with_path(file_path.to_string_lossy().to_string(), err))?;
+      .map_err(|err| LuceneError::io_with_path(file_path.to_string_lossy().into_owned(), err))?;
 
     OutputStreamIndexOutput::new(
-      format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
+      format!("FSIndexOutput(path=\"{}\")", file_path.display()),
       name,
       file,
       CHUNK_SIZE,
@@ -370,8 +369,8 @@ where
       {
         Ok(file) => {
           return OutputStreamIndexOutput::new(
-            format!("FSIndexOutput(path=\"{}\")", file_path.display()).as_str(),
-            &name,
+            format!("FSIndexOutput(path=\"{}\")", file_path.display()),
+            name,
             file,
             CHUNK_SIZE,
           );
@@ -381,7 +380,7 @@ where
         },
         Err(e) => {
           return Err(LuceneError::io_with_path(
-            file_path.to_string_lossy().to_string(),
+            file_path.to_string_lossy().into_owned(),
             e,
           ));
         },

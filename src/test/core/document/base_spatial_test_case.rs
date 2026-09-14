@@ -503,7 +503,7 @@ pub trait BaseSpatialTestCase {
       let query_line = self.random_query_line(random, shapes)?;
       let query_line_2d = self.to_line_2d(vec![query_line.clone()])?;
       let query_relation = POINT_LINE_RELATIONS[random.random_range(0..POINT_LINE_RELATIONS.len())];
-      let query = self.new_line_query(FIELD_NAME, query_relation, vec![query_line.clone()])?;
+      let query = self.new_line_query(FIELD_NAME, query_relation, vec![query_line])?;
       let hits = self.search_index(searcher, query.clone(), max_doc)?;
 
       let mut doc_id_to_id =
@@ -559,8 +559,7 @@ pub trait BaseSpatialTestCase {
       let query_polygon = self.random_query_polygon(random)?;
       let query_polygon_2d = self.to_polygon_2d(vec![query_polygon.clone()])?;
       let query_relation = QUERY_RELATIONS[random.random_range(0..QUERY_RELATIONS.len())];
-      let query =
-        self.new_polygon_query(FIELD_NAME, query_relation, vec![query_polygon.clone()])?;
+      let query = self.new_polygon_query(FIELD_NAME, query_relation, vec![query_polygon])?;
       let hits = self.search_index(searcher, query.clone(), max_doc)?;
 
       let mut doc_id_to_id =

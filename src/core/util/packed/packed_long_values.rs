@@ -25,37 +25,23 @@ use crate::core::util::packed::monotonic_long_values::MonotonicLongValuesBuilder
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::read_enum::PackedIntsReadEnum;
 use crate::core::util::packed::{Mutable, NullReader, PackedInts, Reader};
-use crate::core::util::ram_usage_estimator::size_of_vec;
+use crate::core::util::ram_usage_estimator::{size_of_slice, size_of_vec};
+use std::borrow::Borrow;
 use std::mem::size_of_val;
 use std::sync::Arc;
 
 /// Utility struct to compress integers into a [`LongValues`] instance.
+#[derive(Clone)]
 pub struct PackedLongValues {
   page_shift: i32,
   pub(crate) page_mask: usize,
-  pub(crate) values: Vec<Arc<PackedIntsReadEnum>>,
+  pub(crate) values: Arc<[PackedIntsReadEnum]>,
   pub(crate) size: i64,
 
   ram_bytes_used: i64,
   sub_long_values: Option<Arc<DeltaPackedLongValues>>,
 }
 
-impl Clone for PackedLongValues {
-  fn clone(&self) -> Self {
-    let values = self.values.clone();
-    Self {
-      page_shift: self.page_shift,
-      page_mask: self.page_mask,
-      ram_bytes_used: self
-        .ram_bytes_used
-        .saturating_sub(size_of_vec(&self.values))
-        .saturating_add(size_of_vec(&values)),
-      values,
-      size: self.size,
-      sub_long_values: self.sub_long_values.clone(),
-    }
-  }
-}
 const MIN_PAGE_SIZE: i32 = 64;
 // More than 1M doesn't really makes sense with these appending buffers
 // since their goal is to try to have small numbers of bits per value
@@ -122,12 +108,11 @@ impl PackedLongValues {
     sub_packed_long_values: Option<DeltaPackedLongValues>,
   ) -> Result<Self> {
     let sub_long_values = sub_packed_long_values.map(Arc::new);
-    let values: Vec<Arc<PackedIntsReadEnum>> = values.into_iter().map(Arc::new).collect();
-    let mut ram_bytes_used = size_of_vec(&values);
-    for value in &values {
-      ram_bytes_used = ram_bytes_used
-        .saturating_add(size_of_val(value.as_ref()) as i64)
-        .saturating_add(value.ram_bytes_used()?);
+    let values: Arc<[PackedIntsReadEnum]> = values.into();
+    // Page slots are inline in the shared slice; readers account for their backing storage.
+    let mut ram_bytes_used = size_of_slice(&values);
+    for value in values.iter() {
+      ram_bytes_used = ram_bytes_used.saturating_add(value.ram_bytes_used()?);
     }
     if let Some(sub_long_values) = &sub_long_values {
       ram_bytes_used = ram_bytes_used
@@ -398,22 +383,18 @@ impl Accountable for Builder {
   }
 }
 
-pub struct PackedLongValuesIterator {
-  packed_long_values: PackedLongValues,
+pub struct PackedLongValuesIterator<V = PackedLongValues> {
+  packed_long_values: V,
   current_values: Vec<i64>,
   v_off: usize,
   p_off: usize,
   current_count: usize,
 }
 
-impl PackedLongValuesIterator {
-  pub fn new(packed_long_values: PackedLongValues) -> Result<Self> {
-    let current_values = vec![
-      0;
-      packed_long_values
-        .size
-        .min((packed_long_values.page_mask + 1) as i64) as usize
-    ];
+impl<V: Borrow<PackedLongValues>> PackedLongValuesIterator<V> {
+  pub fn new(packed_long_values: V) -> Result<Self> {
+    let values = packed_long_values.borrow();
+    let current_values = vec![0; values.size.min((values.page_mask + 1) as i64) as usize];
     let mut iterator = PackedLongValuesIterator {
       packed_long_values,
       current_values,
@@ -426,13 +407,11 @@ impl PackedLongValuesIterator {
   }
 
   fn fill_block(&mut self) -> Result<()> {
-    if (self.v_off) >= self.packed_long_values.values.len() {
+    let values = self.packed_long_values.borrow();
+    if (self.v_off) >= values.values.len() {
       self.current_count = 0;
     } else {
-      self.current_count =
-        self
-          .packed_long_values
-          .decode_block(self.v_off, &mut self.current_values, 0)?;
+      self.current_count = values.decode_block(self.v_off, &mut self.current_values, 0)?;
       debug_assert!(self.current_count > 0);
     }
     Ok(())

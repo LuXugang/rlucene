@@ -100,15 +100,15 @@ fn vector_non_zero_scoring_test(bits: i32, compress: bool) -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   // keep vecs `0` so dot product is `0`
-  let mut vec1 = vec![0_u8; 32];
-  let mut vec2 = vec![0_u8; 32];
+  let mut vec1: Cow<'_, [u8]> = Cow::Borrowed(&[0_u8; 32]);
+  let mut vec2: Cow<'_, [u8]> = Cow::Borrowed(&[0_u8; 32]);
   if compress && bits == 4 {
     let mut vec1_compressed = vec![0; 16];
     let mut vec2_compressed = vec![0; 16];
     compress_bytes(&vec1, &mut vec1_compressed)?;
     compress_bytes(&vec2, &mut vec2_compressed)?;
-    vec1 = vec1_compressed;
-    vec2 = vec2_compressed;
+    vec1 = Cow::Owned(vec1_compressed);
+    vec2 = Cow::Owned(vec2_compressed);
   }
   let file_name = "test_non_zero_scores-32";
   {
@@ -148,7 +148,7 @@ fn vector_non_zero_scoring_test(bits: i32, compress: bool) -> Result<()> {
       VectorSimilarityFunction::MaximumInnerProduct,
     ] {
       let random_scorer =
-        scorer.get_random_vector_scorer_f32(function, values.clone(), query_vector.clone())?;
+        scorer.get_random_vector_scorer_f32(function, values.clone(), query_vector.as_slice())?;
       assert!(random_scorer.score(0)? >= 0.0);
       assert!(random_scorer.score(1)? >= 0.0);
     }
@@ -230,8 +230,7 @@ fn vector_scoring_test(bits: i32, compress: bool) -> Result<()> {
         _ => panic!("reader is not Lucene99HnswVectorsReader"),
       };
       let quantized_values = quantized_reader.get_quantized_vector_values("field")?;
-      let random_scorer =
-        get_random_vector_scorer(similarity_function, quantized_values, vector.clone())?;
+      let random_scorer = get_random_vector_scorer(similarity_function, quantized_values, &vector)?;
       let raw_scores = stored_vectors
         .iter()
         .map(|stored_vector| similarity_function.compare_f32(&vector, stored_vector))
@@ -249,7 +248,7 @@ fn vector_scoring_test(bits: i32, compress: bool) -> Result<()> {
 fn get_random_vector_scorer<V>(
   function: VectorSimilarityFunction,
   values: V,
-  vector: Vec<f32>,
+  vector: &[f32],
 ) -> Result<ScalarQuantizedRandomVectorScorerEnum<V>>
 where
   V: QuantizedByteVectorValues,

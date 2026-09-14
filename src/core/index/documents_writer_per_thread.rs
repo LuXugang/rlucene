@@ -702,7 +702,7 @@ where
         // flushFailed; otherwise the replacement dummy reports no files.
         let mut replacement_segment_info = SegmentInfo::dummy(dir);
         replacement_segment_info.name = self.segment_info.name.clone();
-        replacement_segment_info.set_files(self.segment_info.files()?.clone())?;
+        replacement_segment_info.set_files(self.segment_info.files()?)?;
         let segment_info_per_commit = SegmentCommitInfo::new(
           std::mem::replace(&mut self.segment_info, replacement_segment_info),
           0,
@@ -933,7 +933,7 @@ where
         let segment_info = Arc::get_mut(&mut new_segment.info).ok_or_else(|| {
           LuceneError::illegal_state("flushed segment info must be uniquely owned while sealing")
         })?;
-        let codec = segment_info.get_codec()?.clone();
+        let codec = segment_info.get_codec()?;
         codec
           .segment_info_format()
           .write(self.directory.as_ref(), segment_info, &context)?;
@@ -954,7 +954,7 @@ where
               ),
             )?;
           }
-          let codec = new_segment.info.get_codec()?.clone();
+          let codec = new_segment.info.get_codec()?;
           match sort_map {
             Some(map) => {
               codec.live_docs_format().write_live_docs(
@@ -989,7 +989,7 @@ where
       let mirror_result = new_segment
         .info
         .files()
-        .and_then(|files| self.segment_info.set_files(files.clone()));
+        .and_then(|files| self.segment_info.set_files(files));
       if !success && self.info_stream.is_enabled("DWPT") {
         self.info_stream.message(
           "DWPT",

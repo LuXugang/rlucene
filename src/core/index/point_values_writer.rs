@@ -138,30 +138,30 @@ impl PointValuesWriter {
       },
       None => MutablePointTreeEnum2::A(points),
     };
-    let mut reader = PointsReaderImpl::new(values, self.field_info.clone());
+    let mut reader = PointsReaderImpl::new(values, self.field_info.as_ref());
 
     writer.write_field(&self.field_info, &mut reader, state, segment_info)
   }
 }
-struct PointsReaderImpl<DM> {
+struct PointsReaderImpl<'a, DM> {
   values: RefCell<
     MutablePointTreeEnum2<
       MutablePointTreeImpl,
       MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >,
   >,
-  field_info: Arc<FieldInfo>,
+  field_info: &'a FieldInfo,
 }
 
-impl<DM> CloseableRef for PointsReaderImpl<DM> {}
+impl<DM> CloseableRef for PointsReaderImpl<'_, DM> {}
 
-impl<DM> PointsReaderImpl<DM> {
+impl<'a, DM> PointsReaderImpl<'a, DM> {
   pub(crate) fn new(
     values: MutablePointTreeEnum2<
       MutablePointTreeImpl,
       MutableSortingPointValues<MutablePointTreeImpl, DM>,
     >,
-    field_info: Arc<FieldInfo>,
+    field_info: &'a FieldInfo,
   ) -> Self {
     Self {
       values: RefCell::new(values),
@@ -170,7 +170,7 @@ impl<DM> PointsReaderImpl<DM> {
   }
 }
 
-impl<DM> PointsReader for PointsReaderImpl<DM>
+impl<DM> PointsReader for PointsReaderImpl<'_, DM>
 where
   DM: DocMap + Clone,
 {
@@ -289,7 +289,11 @@ where
   M: MutablePointTree,
   DM: DocMap + Clone,
 {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
+  fn get_value<'a>(
+    &'a self,
+    i: usize,
+    packed_value: &'a mut BytesRef<Vec<u8>>,
+  ) -> Result<BytesRef<&'a [u8]>> {
     self.input.get_value(i, packed_value)
   }
 
@@ -344,17 +348,17 @@ where
   where
     IV: IntersectVisitor,
   {
-    let mut intersect_visitor = IntersectVisitorImpl::new(visitor, self.doc_map.clone());
+    let mut intersect_visitor = IntersectVisitorImpl::new(visitor, &self.doc_map);
     self.input.visit_doc_values(&mut intersect_visitor)
   }
 }
 
 struct IntersectVisitorImpl<'a, IV, DM> {
   visitor: &'a mut IV,
-  doc_map: DM,
+  doc_map: &'a DM,
 }
 impl<'a, IV, DM> IntersectVisitorImpl<'a, IV, DM> {
-  pub(crate) fn new(visitor: &'a mut IV, doc_map: DM) -> Self {
+  pub(crate) fn new(visitor: &'a mut IV, doc_map: &'a DM) -> Self {
     Self { visitor, doc_map }
   }
 }
@@ -419,16 +423,13 @@ impl PointTree for MutablePointTreeImpl {
     IV: IntersectVisitor,
   {
     let mut scratch = BytesRef::new();
-    let mut packed_value = vec![0u8; self.packed_bytes_length];
     for i in 0..self.num_points {
-      self.get_value(i, &mut scratch)?;
-      debug_assert_eq!(scratch.length, self.packed_bytes_length);
-      packed_value.copy_from(
-        &scratch.bytes[scratch.offset..scratch.offset + self.packed_bytes_length],
-        0,
-      );
+      let packed_value = self.get_value(i, &mut scratch)?;
+      debug_assert_eq!(packed_value.length, self.packed_bytes_length);
+      let packed_value =
+        &packed_value.bytes[packed_value.offset..packed_value.offset + self.packed_bytes_length];
       let doc_id = self.get_doc_id(i)?;
-      visitor.visit_with_packed_value(doc_id, &packed_value)?;
+      visitor.visit_with_packed_value(doc_id, packed_value)?;
     }
     Ok(())
   }
@@ -460,7 +461,11 @@ impl Clone for MutablePointTreeImpl {
 }
 
 impl MutablePointTree for MutablePointTreeImpl {
-  fn get_value(&self, i: usize, packed_value: &mut BytesRef<Vec<u8>>) -> Result<()> {
+  fn get_value<'a>(
+    &'a self,
+    i: usize,
+    packed_value: &'a mut BytesRef<Vec<u8>>,
+  ) -> Result<BytesRef<&'a [u8]>> {
     let offset = self.packed_bytes_length * self.ords[i];
     self
       .bytes_reader

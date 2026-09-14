@@ -64,8 +64,7 @@ pub static ENGLISH_STOPSET: LazyLock<CharacterRunAutomaton> = LazyLock::new(|| {
     Automata::make_string("will").expect(""),
     Automata::make_string("with").expect(""),
   ];
-  let refs = automata.iter().collect::<Vec<_>>();
-  let union = Operations::union_list(&refs).expect("union should not fail");
+  let union = Operations::union_list(&automata).expect("union should not fail");
   let deterministic = Operations::determinize(&union, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)
     .expect("determinize should not fail")
     .into_owned();

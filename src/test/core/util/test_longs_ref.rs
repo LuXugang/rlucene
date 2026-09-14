@@ -37,7 +37,7 @@ fn test_from_longs() {
   assert_eq!(i.offset, 0);
   assert_eq!(i.length, 4);
 
-  let i2 = LongsRef::from_slice(longs.clone(), 1, 3);
+  let i2 = LongsRef::from_slice(longs, 1, 3);
   let expected_longs = vec![2, 3, 4];
   let expected = LongsRef::from_slice(expected_longs, 0, 3);
   assert!(i2.eq(&expected));

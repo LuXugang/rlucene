@@ -88,10 +88,10 @@ impl<C> ByteBuffersIndexOutput<C>
 where
   C: ByteBuffersIndexOutputOnClose,
 {
-  pub fn with_checksum_and_on_close(
+  pub fn with_checksum_and_on_close<R: Into<String>, N: Into<String>>(
     delegate: ByteBuffersDataOutput,
-    resource_description: &str,
-    name: &str,
+    resource_description: R,
+    name: N,
     checksum: Hasher,
     on_close: C,
   ) -> Self
@@ -103,8 +103,8 @@ where
       last_checksum: 0,
       delegate,
       on_close,
-      name: name.to_string(),
-      resource_description: resource_description.to_string(),
+      name: name.into(),
+      resource_description: resource_description.into(),
       checksum,
       closed: false,
     }

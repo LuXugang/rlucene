@@ -236,23 +236,26 @@ pub trait BaseXYPointTestCase {
   /// NaN distance queries are not allowed.
   fn test_distance_nan(&self) -> Result<()> {
     let expected = self.new_distance_query("field", 18.0, 19.0, f32::NAN);
-    assert!(
-      matches!(expected, Err(err) if err.to_string().contains("radius") && err.to_string().contains("NaN"))
-    );
+    assert!(matches!(expected, Err(err) if {
+      let message = err.to_string();
+      message.contains("radius") && message.contains("NaN")
+    }));
     Ok(())
   }
 
   /// Inf distance queries are not allowed.
   fn test_distance_inf(&self) -> Result<()> {
     let expected = self.new_distance_query("field", 18.0, 19.0, f32::INFINITY);
-    assert!(
-      matches!(expected, Err(err) if err.to_string().contains("radius") && err.to_string().contains("finite"))
-    );
+    assert!(matches!(expected, Err(err) if {
+      let message = err.to_string();
+      message.contains("radius") && message.contains("finite")
+    }));
 
     let expected = self.new_distance_query("field", 18.0, 19.0, f32::NEG_INFINITY);
-    assert!(
-      matches!(expected, Err(err) if err.to_string().contains("radius") && err.to_string().contains("bigger than 0"))
-    );
+    assert!(matches!(expected, Err(err) if {
+      let message = err.to_string();
+      message.contains("radius") && message.contains("bigger than 0")
+    }));
 
     Ok(())
   }
@@ -756,7 +759,7 @@ pub trait BaseXYPointTestCase {
       let query =
         self.new_rect_query(FIELD_NAME, rect.min_x, rect.max_x, rect.min_y, rect.max_y)?;
 
-      let hits = self.search_index(&s, query.clone(), max_doc)?;
+      let hits = self.search_index(&s, query, max_doc)?;
 
       let mut doc_id_to_id =
         MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
@@ -832,7 +835,7 @@ pub trait BaseXYPointTestCase {
 
       let query = self.new_distance_query(FIELD_NAME, center_x, center_y, radius)?;
 
-      let hits = self.search_index(&s, query.clone(), max_doc)?;
+      let hits = self.search_index(&s, query, max_doc)?;
 
       let mut doc_id_to_id =
         MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
@@ -906,7 +909,7 @@ pub trait BaseXYPointTestCase {
       let polygon = self.next_polygon(random)?;
       let query = self.new_polygon_query(FIELD_NAME, vec![polygon.clone()])?;
 
-      let hits = self.search_index(&s, query.clone(), max_doc)?;
+      let hits = self.search_index(&s, query, max_doc)?;
 
       let mut doc_id_to_id =
         MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
@@ -976,7 +979,7 @@ pub trait BaseXYPointTestCase {
       let query = self.new_geometry_query(FIELD_NAME, geometries.clone())?;
       let component_2d = xy_geometry::create(&geometries)?;
 
-      let hits = self.search_index(&s, query.clone(), max_doc)?;
+      let hits = self.search_index(&s, query, max_doc)?;
 
       let mut doc_id_to_id =
         MultiDocValues::get_numeric_values(s.reader_context.reader(), "id")?.unwrap();
@@ -1303,10 +1306,7 @@ pub trait BaseXYPointTestCase {
     assert_eq!(q1, q2);
     assert_ne!(
       q1,
-      self.new_polygon_query(
-        "field2",
-        vec![XYPolygon::new(xs.clone(), ys.clone(), vec![])?]
-      )?
+      self.new_polygon_query("field2", vec![XYPolygon::new(xs, ys, vec![])?])?
     );
     Ok(())
   }

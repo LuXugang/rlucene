@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::index_reader::Identity;
 /// A [`Query`] wrapper that allows giving a boost to the wrapped query.
 ///
@@ -86,7 +88,7 @@ impl QueryBase for BoostQuery {
     s.push_str(&inner);
     s.push(')');
     s.push('^');
-    s.push_str(&format!("{:.1}", self.boost));
+    write!(s, "{:.1}", self.boost)?;
     Ok(s)
   }
 

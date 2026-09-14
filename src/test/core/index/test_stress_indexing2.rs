@@ -19,6 +19,7 @@ use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::Fields as DocumentFields;
 use crate::core::document::text_field;
+use crate::core::index::bytes_ref::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos;
 use crate::core::index::fields::Fields as IndexFields;
@@ -614,13 +615,7 @@ fn verify_equals_document(d1: &Document, d2: &Document) -> Result<()> {
     if f1.binary_value()?.is_some() {
       assert!(f2.binary_value()?.is_some());
     } else {
-      assert_eq!(
-        f1.string_value()?.map(|value| value.into_owned()),
-        f2.string_value()?.map(|value| value.into_owned()),
-        "{} : {}",
-        d1,
-        d2
-      );
+      assert_eq!(f1.string_value()?, f2.string_value()?, "{} : {}", d1, d2);
     }
   }
   Ok(())
@@ -656,12 +651,11 @@ where
     let terms2 = d2.terms(field2)?.expect("terms missing in d2");
     let mut terms_enum2 = terms2.iterator()?;
 
-    while let Some(term1) = terms_enum1.next()?.map(|term| term.into_owned()) {
-      let term2 = terms_enum2
-        .next()?
-        .expect("term missing in d2")
-        .into_owned();
-      assert_eq!(term1, term2);
+    while let Some(term1) = terms_enum1.next()? {
+      let term2 = terms_enum2.next()?.expect("term missing in d2");
+      assert_eq!(term1.as_bytes(), term2.as_bytes());
+      drop(term1);
+      drop(term2);
       assert_eq!(
         terms_enum1.total_term_freq()?,
         terms_enum2.total_term_freq()?

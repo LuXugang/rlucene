@@ -22,8 +22,9 @@ struct TestNamedSPILoader;
 
 #[test]
 fn test_lookup() -> Result<()> {
-  let current_name = codec::get_default().get_name().to_string();
-  let codec = codec::for_name(&current_name)?;
+  let current_codec = codec::get_default();
+  let current_name = current_codec.get_name();
+  let codec = codec::for_name(current_name)?;
   assert_eq!(current_name, codec.get_name());
   Ok(())
 }

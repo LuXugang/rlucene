@@ -18,6 +18,7 @@ use std::cmp::Ordering;
 use std::collections::{HashSet, VecDeque};
 use std::fmt;
 use std::fmt::Display;
+use std::fmt::Write as _;
 use std::io::Write;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
@@ -267,10 +268,11 @@ impl Util {
             };
 
             if !target_has_arcs(&arc) && arc.is_final() && arc.next_final_output() != no_output {
-              outs.push_str(&format!(
+              write!(
+                outs,
                 "/[{}]",
                 fst.outputs.output_to_string(&arc.next_final_output())
-              ));
+              )?;
             }
 
             let arc_color = if arc.flag(BIT_TARGET_NEXT) {

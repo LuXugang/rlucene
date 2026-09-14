@@ -276,24 +276,26 @@ fn test_ignore_stored_fields() -> Result<()> {
     vec![ir1.clone()],
   )?;
   assert_eq!(
-    Some("v1".to_string()),
+    Some("v1"),
     pr.stored_fields()?
       .document(0)?
       .get_field("f1")
       .map(IndexableField::string_value)
       .transpose()?
       .flatten()
-      .map(|value| value.into_owned())
+      .as_deref()
+      .map(String::as_str)
   );
   assert_eq!(
-    Some("v1".to_string()),
+    Some("v1"),
     pr.stored_fields()?
       .document(0)?
       .get_field("f2")
       .map(IndexableField::string_value)
       .transpose()?
       .flatten()
-      .map(|value| value.into_owned())
+      .as_deref()
+      .map(String::as_str)
   );
   assert!(pr.stored_fields()?.document(0)?.get_field("f3").is_none());
   assert!(pr.stored_fields()?.document(0)?.get_field("f4").is_none());
@@ -320,24 +322,26 @@ fn test_ignore_stored_fields() -> Result<()> {
   // Without overlapping readers.
   let pr = ParallelLeafReader::new_with_stored_fields(true, vec![ir2.clone()], vec![ir1.clone()])?;
   assert_eq!(
-    Some("v1".to_string()),
+    Some("v1"),
     pr.stored_fields()?
       .document(0)?
       .get_field("f1")
       .map(IndexableField::string_value)
       .transpose()?
       .flatten()
-      .map(|value| value.into_owned())
+      .as_deref()
+      .map(String::as_str)
   );
   assert_eq!(
-    Some("v1".to_string()),
+    Some("v1"),
     pr.stored_fields()?
       .document(0)?
       .get_field("f2")
       .map(IndexableField::string_value)
       .transpose()?
       .flatten()
-      .map(|value| value.into_owned())
+      .as_deref()
+      .map(String::as_str)
   );
   assert!(pr.stored_fields()?.document(0)?.get_field("f3").is_none());
   assert!(pr.stored_fields()?.document(0)?.get_field("f4").is_none());
@@ -373,14 +377,12 @@ fn query_test(parallel: &ParallelSearcher, single: &SingleSearcher, query: Query
         .get_field(field)
         .map(IndexableField::string_value)
         .transpose()?
-        .flatten()
-        .map(|value| value.into_owned());
+        .flatten();
       let single_value = doc_single
         .get_field(field)
         .map(IndexableField::string_value)
         .transpose()?
-        .flatten()
-        .map(|value| value.into_owned());
+        .flatten();
       assert_eq!(parallel_value, single_value);
     }
   }

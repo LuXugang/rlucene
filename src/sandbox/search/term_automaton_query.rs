@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::Identity;
@@ -57,6 +59,7 @@ use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_string, s
 use crate::sandbox::search::term_automaton_scorer::{EnumAndScorer, TermAutomatonScorer};
 #[cfg(test)]
 use crate::test_framework::core::search::test_term_automaton_query::CustomTermAutomatonQuery;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -219,8 +222,14 @@ impl TermAutomatonQuery {
       automaton = new_automaton;
     }
 
-    let deterministic = Operations::determinize(&automaton, determinize_work_limit)?.into_owned();
-    let det = Operations::remove_dead_states(&deterministic)?.into_owned();
+    let deterministic = match Operations::determinize(&automaton, determinize_work_limit)? {
+      Cow::Borrowed(_) => automaton,
+      Cow::Owned(deterministic) => deterministic,
+    };
+    let det = match Operations::remove_dead_states(&deterministic)? {
+      Cow::Borrowed(_) => deterministic,
+      Cow::Owned(det) => det,
+    };
 
     if det.is_accept(0) {
       return Err(LuceneError::illegal_state("cannot accept the empty string"));
@@ -278,13 +287,13 @@ impl TermAutomatonQuery {
     let mut transition = Transition::default();
     for state in 0..num_states {
       builder.push_str("  ");
-      builder.push_str(&state.to_string());
+      write!(builder, "{}", state)?;
       if det.is_accept(state) {
         builder.push_str(" [shape=doublecircle,label=\"");
       } else {
         builder.push_str(" [shape=circle,label=\"");
       }
-      builder.push_str(&state.to_string());
+      write!(builder, "{}", state)?;
       builder.push_str("\"]\n");
       let count = det.init_transition(state, &mut transition);
       for _ in 0..count {
@@ -292,9 +301,9 @@ impl TermAutomatonQuery {
         debug_assert!(transition.max >= transition.min);
         for term_id in transition.min..=transition.max {
           builder.push_str("  ");
-          builder.push_str(&state.to_string());
+          write!(builder, "{}", state)?;
           builder.push_str(" -> ");
-          builder.push_str(&transition.dest.to_string());
+          write!(builder, "{}", transition.dest)?;
           builder.push_str(" [label=\"");
           if term_id == self.any_term_id {
             builder.push('*');
@@ -526,7 +535,7 @@ impl QueryBase for TermAutomatonQuery {
     let mut value = format!("TermAutomatonQuery(field={}", self.field);
     if let Some(det) = &self.det {
       value.push_str(" numStates=");
-      value.push_str(&det.get_num_states().to_string());
+      write!(value, "{}", det.get_num_states())?;
     }
     value.push(')');
     Ok(value)

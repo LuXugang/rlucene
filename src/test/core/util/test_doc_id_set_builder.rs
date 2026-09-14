@@ -168,7 +168,7 @@ fn test_random() -> Result<()> {
         j += 1;
         doc = it.next_doc()?;
       }
-      (j, it.get_bit_set().clone())
+      (j, it.bits)
     };
 
     let docs = v;

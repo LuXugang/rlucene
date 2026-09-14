@@ -120,7 +120,7 @@ fn test() -> Result<()> {
         }
 
         let mut doc = Document::new();
-        doc.add(Field::new("field", text.as_str(), field_type.clone()));
+        doc.add(Field::new("field", text, field_type.clone()));
         if let Err(e) = iw.add_document(&mut thread_random, doc) {
           panic!("thread indexing failed: {:?}", e);
         }

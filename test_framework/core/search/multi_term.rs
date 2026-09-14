@@ -187,8 +187,11 @@ pub struct DumbPrefixQuery {
 impl DumbPrefixQuery {
   pub fn new(term: Term) -> Self {
     Self {
-      field: term.field().to_string(),
-      prefix: term.bytes().clone(),
+      field: term.field,
+      prefix: {
+        debug_assert!(term.bytes.is_valid().is_ok());
+        term.bytes
+      },
       id: Identity::default(),
     }
   }
@@ -327,16 +330,15 @@ pub struct DumbRegexpQuery {
 impl DumbRegexpQuery {
   pub fn new(term: Term, flags: i32) -> Result<Self> {
     let re = RegExp::parse(&term.text()?, flags, 0)?;
-    let automaton = match Operations::determinize(
-      &re.to_automaton()?,
-      Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
-    )? {
-      Cow::Owned(o) => o,
-      Cow::Borrowed(b) => b.clone(),
-    };
+    let automaton = re.to_automaton()?;
+    let automaton =
+      match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {
+        Cow::Owned(o) => o,
+        Cow::Borrowed(_) => automaton,
+      };
 
     Ok(Self {
-      field: term.field().to_string(),
+      field: term.field,
       run_automaton: CharacterRunAutomaton::new(automaton)?,
       id: Identity::default(),
     })

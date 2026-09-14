@@ -287,8 +287,7 @@ fn make_document(doc_text: &str) -> Result<Document> {
 }
 
 fn make_phrase_query(terms: &str) -> Result<PhraseQuery> {
-  let terms = terms.split_whitespace().collect::<Vec<_>>();
-  PhraseQuery::from_terms(0, "f", &terms)
+  PhraseQuery::from_terms(0, "f", terms.split_whitespace())
 }
 
 #[derive(Default)]
@@ -470,7 +469,7 @@ fn test_slop_with_holes() -> Result<()> {
 
   f.set_string_value("drug druggy drug druggy drug")?;
   doc = Document::new();
-  doc.add(f.clone());
+  doc.add(f);
   writer.add_document(&mut random, doc)?;
 
   let reader = writer.get_reader(&mut random)?;

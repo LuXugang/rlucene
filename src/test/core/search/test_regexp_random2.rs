@@ -77,9 +77,9 @@ pub(crate) trait TestRegexpRandom2 {
   where
     IRC: IndexReaderContext + Sync,
   {
-    let smart = RegexpQuery::with_flags(Term::from_text(field_name, regexp.clone()), RegExp::NONE)?;
+    let smart = RegexpQuery::with_flags(Term::from_text(field_name, &regexp), RegExp::NONE)?;
     let nfa_query = RegexpQuery::with_all_and_determinization(
-      Term::from_text(field_name, regexp.clone()),
+      Term::from_text(field_name, &regexp),
       RegExp::NONE,
       0,
       &DefaultProvider,
@@ -90,7 +90,7 @@ pub(crate) trait TestRegexpRandom2 {
     let dumb = DumbRegexpQuery::new(Term::from_text(field_name, regexp), RegExp::NONE)?;
 
     let smart_docs = searcher1.search(smart.clone(), 25)?;
-    let dumb_docs = searcher2.search(dumb.clone(), 25)?;
+    let dumb_docs = searcher2.search(dumb, 25)?;
     let nfa_docs = searcher3.search(nfa_query.clone(), 25)?;
 
     CheckHits::check_equal(

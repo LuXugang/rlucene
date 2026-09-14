@@ -61,7 +61,7 @@ fn test_simple() -> Result<()> {
     let dummy_searcher = dummy_index_searcher(dummy_directory()?)?;
     let rewrite = query
       .rewrite(&dummy_searcher)?
-      .unwrap_or_else(|| query.clone().into());
+      .unwrap_or_else(|| query.into());
     assert!(matches!(rewrite, Query::MatchNoDocs(_)));
     assert_eq!(
       rewrite.to_string("")?,
@@ -137,7 +137,7 @@ fn test_query() -> Result<()> {
   assert_eq!(searcher.count(query.clone())?, 1);
 
   let hits = searcher.search(query.clone(), 1000)?.score_docs;
-  let rewrite = searcher.rewrite(query.clone())?;
+  let rewrite = searcher.rewrite(query)?;
 
   assert_eq!(hits.len(), 1);
   assert_eq!(rewrite.to_string("")?, "key:one");

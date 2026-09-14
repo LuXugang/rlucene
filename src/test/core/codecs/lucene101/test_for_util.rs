@@ -55,7 +55,7 @@ fn test_encode_decode() -> Result<()> {
     let mut for_util = ForUtil::new();
 
     for i in 0..iterations {
-      let mut source = vec![0i32; ForUtil::BLOCK_SIZE];
+      let mut source = [0i32; ForUtil::BLOCK_SIZE];
       let mut or = 0i64;
 
       for j in 0..ForUtil::BLOCK_SIZE {
@@ -81,12 +81,12 @@ fn test_encode_decode() -> Result<()> {
     for i in 0..iterations {
       let bits_per_value = pdu.input.read_byte()? as i32;
       let current_fp = pdu.input.get_file_pointer()?;
-      let mut restored = vec![0i32; ForUtil::BLOCK_SIZE];
+      let mut restored = [0i32; ForUtil::BLOCK_SIZE];
 
       for_util.decode(bits_per_value, &mut pdu, &mut restored)?;
 
       let expected = &values[i * ForUtil::BLOCK_SIZE..(i + 1) * ForUtil::BLOCK_SIZE];
-      assert_eq!(restored, expected, "Mismatch at iteration {}", i);
+      assert_eq!(restored.as_slice(), expected, "Mismatch at iteration {}", i);
 
       let expected_bytes = ForUtil::num_bytes(bits_per_value);
       let actual_bytes = pdu.input.get_file_pointer()? - current_fp;

@@ -132,14 +132,14 @@ where
   assert!(!codec_name.is_empty());
 
   let extension = match IndexFileNames::get_extension(file) {
-    Some(ext) => ext.to_string(),
+    Some(ext) => ext,
     None => {
       assert!(file.starts_with(IndexFileNames::SEGMENTS));
-      "<segments> (not a real extension, designates segments file)".to_string()
+      "<segments> (not a real extension, designates segments file)"
     },
   };
 
-  let previous = names_to_extensions.insert(codec_name.clone(), extension.clone());
+  let previous = names_to_extensions.insert(codec_name.clone(), extension.to_string());
   if let Some(previous) = previous {
     assert_eq!(
       previous, extension,

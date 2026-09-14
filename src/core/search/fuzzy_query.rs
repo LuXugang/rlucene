@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
@@ -267,7 +269,7 @@ impl QueryBase for FuzzyQuery {
     }
     buffer.push_str(&self.term.text()?);
     buffer.push('~');
-    buffer.push_str(&self.max_edits.to_string());
+    write!(buffer, "{}", self.max_edits)?;
     Ok(buffer)
   }
 

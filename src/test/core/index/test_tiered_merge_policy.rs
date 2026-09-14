@@ -933,13 +933,13 @@ where
     );
   }
 
-  let before_set: HashSet<_> = seg_names_before.iter().cloned().collect();
-  let after_set: HashSet<_> = seg_names_after.iter().cloned().collect();
+  let before_set: HashSet<_> = seg_names_before.iter().collect();
+  let after_set: HashSet<_> = seg_names_after.iter().collect();
 
-  let test_before: Vec<_> = before_set.difference(&after_set).cloned().collect();
-  let test_after: Vec<_> = after_set.difference(&before_set).cloned().collect();
+  let test_before = before_set.difference(&after_set).count();
+  let test_after = after_set.difference(&before_set).count();
 
-  if test_before.len() != 2 || test_after.len() != 1 {
+  if test_before != 2 || test_after != 1 {
     panic!(
       "Expected two unique 'before' segments and one unique 'after' segment: {:?} After list: {:?}",
       seg_names_before, seg_names_after

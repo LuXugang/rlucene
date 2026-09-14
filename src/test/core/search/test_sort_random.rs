@@ -44,6 +44,7 @@ use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -100,7 +101,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
       None
     };
 
-    doc_values.push(br.clone());
+    doc_values.push(br);
     doc.add(NumericDocValuesField::new("id", num_docs_indexed as i64));
     doc.add(StoredField::from_i32("id", num_docs_indexed as i32)?);
     writer.add_document(&mut random, doc)?;
@@ -139,7 +140,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
     let filter = RandomQuery::new(seed, density, doc_values.clone());
     let hits = searcher.search_with_sort_score(filter.clone(), hit_count, sort, false)?;
 
-    let mut expected = filter.match_values.lock().clone();
+    let mut expected = std::mem::take(&mut *filter.match_values.lock());
     expected.sort_by(|a, b| compare_optional_bytes_ref(a.as_ref(), b.as_ref(), sort_missing_last));
     if reverse {
       expected.reverse();
@@ -156,7 +157,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
         },
       };
       let actual = field_doc_sort_value(fd.fields.first())?;
-      let expected_value = expected.get(hit_idx).cloned().unwrap();
+      let expected_value = expected.get(hit_idx).unwrap().as_ref();
       assert_eq!(expected_value, actual);
     }
   }
@@ -189,10 +190,15 @@ fn compare_optional_bytes_ref(
   }
 }
 
-fn field_doc_sort_value(value: Option<&FieldComparatorValue>) -> Result<Option<BytesRef<Vec<u8>>>> {
+fn field_doc_sort_value(
+  value: Option<&FieldComparatorValue>,
+) -> Result<Option<&BytesRef<Vec<u8>>>> {
   match value {
     Some(FieldComparatorValue::Missing) | None => Ok(None),
-    Some(FieldComparatorValue::TermVal(bytes)) => Ok(Some(BytesRef::deep_copy_of(bytes)?)),
+    Some(FieldComparatorValue::TermVal(bytes)) => {
+      CoreHelper::check_from_index_size(bytes.offset, bytes.length, bytes.bytes.len())?;
+      Ok(Some(bytes))
+    },
     Some(other) => Err(LuceneError::illegal_state(format!(
       "expected string sort value, got {other:?}"
     ))),

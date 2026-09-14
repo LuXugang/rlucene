@@ -26,7 +26,6 @@ use crate::core::document::knn_byte_vector_field::KnnByteVectorField;
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::check_index::Level;
 use crate::core::index::directory_reader;
@@ -56,6 +55,7 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::knn_collector::KnnCollector;
@@ -1438,7 +1438,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         *value = Some(Self::random_normalized_vector(random, dimension)?);
       }
 
-      self.add_float(random, &iw, field_name, i, value.clone(), similarity)?;
+      self.add_float(random, &iw, field_name, i, value.take(), similarity)?;
 
       if random.random_range(0..10) == 2 {
         iw.delete_documents_with_terms(vec![Term::from_text(
@@ -1521,7 +1521,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         *value = Some(Self::random_vector8(random, dimension)?);
       }
 
-      self.add_byte(random, &iw, field_name, i, value.clone(), similarity)?;
+      self.add_byte(random, &iw, field_name, i, value.take(), similarity)?;
 
       if random.random_range(0..10) == 2 {
         iw.delete_documents_with_terms(vec![Term::from_text(
@@ -2156,14 +2156,7 @@ pub trait BaseKnnVectorsFormatTestCase:
           .as_ref()
           .is_none_or(|bits| bits.get(doc_id as usize).expect(""))
         {
-          assert_eq!(
-            0,
-            values[id]
-              .as_ref()
-              .unwrap()
-              .cmp(&BytesRef::from_bytes(v.to_vec()))
-              .to_int()
-          );
+          assert_eq!(0, values[id].as_ref().unwrap().as_bytes().cmp(v).to_int());
           value_count += 1;
         } else {
           num_deletes += 1;

@@ -58,7 +58,7 @@ where
 
   let k = TestUtil::next_usize(random, from, to - 1);
   let mut expected = arr.clone();
-  let mut actual = arr.clone();
+  let mut actual = arr;
   expected[from..to].sort();
   let sub_selector = IntroSelectorMock::new(&mut actual);
   let mut selector = IntroSelector::new(sub_selector);
@@ -70,7 +70,7 @@ where
   assert_eq!(expected[k], actual[k]);
   for i in 0..actual.len() {
     if i < from || i >= to {
-      assert_eq!(arr[i], actual[i]);
+      assert_eq!(expected[i], actual[i]);
     } else if i <= k {
       assert!(actual[i] <= actual[k]);
     } else {

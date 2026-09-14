@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 
+use std::borrow::Cow;
+
 use crate::core::index::{BytesRef, BytesRefBuilder};
-use crate::core::util::access::{SharedAccessVec, WritableVec};
+use crate::core::util::access::SharedAccessVec;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::{AllocatorByte, AllocatorByteEnum, DirectAllocatorByte};
 use crate::core::util::array_util::ArrayUtil;
@@ -137,48 +139,42 @@ impl ByteBlockPool {
     Ok(next_upto)
   }
 
-  /// Fills the provided [`BytesRef`] with the bytes at the specified offset
-  /// and length. # Parameters
-  /// - `_builder`: This parameter is currently unused but retained for future
-  ///   compatibility.See Note
-  /// # Note
-  /// In Java, the length of result is adjusted through BytesRefBuilder,
-  /// whereas in Rust Lucene, to avoid copying, we operate directly on result.
-  ///
-  /// However, we retain the corresponding trait definitions from Java Lucene to
-  /// maintain consistency with the original implementation as much as
-  /// possible.
-  pub fn set_bytes_ref<AV>(
-    &self,
-    _builder: &mut BytesRefBuilder<AV>,
-    result: &mut BytesRef<AV>,
+  /// Point at a pool block when the value is contiguous. The builder retains
+  /// the owned buffer between cross-block reads so switching to a borrowed
+  /// page does not discard its capacity.
+  pub fn set_bytes_ref<'a>(
+    &'a self,
+    builder: &mut BytesRefBuilder<Vec<u8>>,
+    result: &mut BytesRef<Cow<'a, Vec<u8>>>,
     offset: i64,
     length: usize,
-  ) -> Result<()>
-  where
-    AV: SharedAccessVec<u8> + WritableVec<u8>,
-  {
-    result
-      .bytes
-      .access_mut(|bytes| ArrayUtil::grow_no_copy(bytes, length))?;
+  ) -> Result<()> {
+    // Preserve the existing growth error before changing the result or
+    // converting the offset, including when no allocation is needed now.
+    if result.bytes.len() < length {
+      ArrayUtil::oversize(length, size_of::<u8>())?;
+    }
+    let pos = (offset & BYTE_BLOCK_MASK as i64) as usize;
+    if pos + length > BYTE_BLOCK_SIZE as usize {
+      if matches!(result.bytes, Cow::Borrowed(_)) {
+        result.bytes = Cow::Owned(std::mem::take(&mut builder.get_bytes_mut_ref().bytes));
+      }
+      ArrayUtil::grow_no_copy(result.bytes.to_mut(), length)?;
+    }
     result.length = length;
     let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;
-    let pos = (offset & BYTE_BLOCK_MASK as i64) as usize;
     if pos + length <= BYTE_BLOCK_SIZE as usize {
-      // Common case: The slice lives in a single block.
-      result
-        .bytes
-        .copy(&self.buffers[buffer_index as usize][pos..pos + length], 0);
-      result.offset = 0;
+      let block = &self.buffers[buffer_index as usize];
+      let _ = &block[pos..pos + length];
+      let previous = std::mem::replace(&mut result.bytes, Cow::Borrowed(block));
+      if let Cow::Owned(bytes) = previous {
+        builder.get_bytes_mut_ref().bytes = bytes;
+      }
+      result.offset = pos;
     } else {
-      // builder.grow_no_copy(length);
+      let bytes = result.bytes.to_mut();
       result.offset = 0;
-      result.bytes.access_mut(|bytes| {
-        self.read_bytes(offset, bytes, 0, length)?;
-        // Help the compiler infer types.
-        Ok::<(), LuceneError>(())
-      })?;
-      // builder.get().bytes.clone_from(&result.bytes);
+      self.read_bytes(offset, bytes, 0, length)?;
     }
     Ok(())
   }

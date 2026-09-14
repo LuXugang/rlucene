@@ -196,14 +196,14 @@ fn test_raw_index_input_read() -> Result<()> {
   let mut random = random();
   let context = &*CONTEXT;
 
-  let read_test_bytes = READ_TEST_BYTES.to_vec();
+  let read_test_bytes = READ_TEST_BYTES;
 
   for _ in 0..10 {
     let dir = new_directory_shared(&mut random)?;
 
     {
       let mut os = dir.create_output("foo", &new_io_context(&mut random)?)?;
-      os.write_bytes_with_len(&read_test_bytes, read_test_bytes.len())?;
+      os.write_bytes_with_len(read_test_bytes, read_test_bytes.len())?;
     }
 
     {

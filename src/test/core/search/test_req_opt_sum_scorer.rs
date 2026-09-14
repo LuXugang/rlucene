@@ -433,7 +433,7 @@ where
     };
 
     let collector_manager = TopScoreDocCollectorManager::new(10, 1)?;
-    let top_docs = searcher.search_with_collector_manager(q.clone(), &collector_manager)?;
+    let top_docs = searcher.search_with_collector_manager(q, &collector_manager)?;
     let actual = top_docs.score_docs;
     CheckHits::check_equal(&query, &expected, &actual)?;
 
@@ -482,7 +482,7 @@ where
 
     query = {
       let mut b = Builder::new();
-      b.add(query.clone(), Occur::Must)?.add(
+      b.add(query, Occur::Must)?.add(
         RandomApproximationQuery::new(TermQuery::new(Term::from_text("f", "C")), random),
         Occur::Filter,
       )?;

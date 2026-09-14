@@ -72,7 +72,7 @@ where
   where
     I1: IndexInput,
   {
-    let (mut reader, version) = Self::init_with_meta(meta_in, data_in.clone())?;
+    let (mut reader, version) = Self::init_with_meta(meta_in, data_in)?;
 
     let (min_leaf_block_fp, index_start_pointer) = if version >= VERSION_META_FILE {
       (

@@ -1016,7 +1016,10 @@ where
     _ => unreachable!(),
   }
 }
-fn has_massive_term(terms: &[BytesRef<Vec<u8>>]) -> bool {
+fn has_massive_term<'a, I>(terms: I) -> bool
+where
+  I: IntoIterator<Item = &'a BytesRef<Vec<u8>>>,
+{
   for term in terms {
     if term.length > Automata::MAX_STRING_UNION_TERM_LENGTH as usize {
       return true;
@@ -1024,23 +1027,26 @@ fn has_massive_term(terms: &[BytesRef<Vec<u8>>]) -> bool {
   }
   false
 }
-fn union_terms<R>(terms: &[BytesRef<Vec<u8>>], rng: &mut R) -> Result<Automaton>
+fn union_terms<'a, R, I>(terms: I, rng: &mut R) -> Result<Automaton>
 where
   R: Rng + ?Sized,
+  I: Clone + IntoIterator<Item = &'a BytesRef<Vec<u8>>>,
 {
-  let a = if rng.random_bool(0.5) || has_massive_term(terms) {
+  let a = if rng.random_bool(0.5) || has_massive_term(terms.clone()) {
     let owned_automata: Vec<Automaton> = terms
-      .iter()
+      .into_iter()
       .map(|term| Automata::make_string(&term.utf8_to_string()?))
       .collect::<Result<Vec<_>>>()?;
-    let refs: Vec<&Automaton> = owned_automata.iter().collect();
-    Operations::union_list(&refs)?
+    Operations::union_list(&owned_automata)?
   } else {
-    let mut terms_list = terms.to_vec();
+    let mut terms_list: Vec<_> = terms.into_iter().collect();
     terms_list.sort();
     Automata::make_string_union(&terms_list)?
   };
-  Ok(random_no_op(&a, rng)?.into_owned())
+  Ok(match random_no_op(&a, rng)? {
+    Cow::Borrowed(_) => a,
+    Cow::Owned(transformed) => transformed,
+  })
 }
 fn get_random_string<R>(random: &mut R) -> String
 where
@@ -1060,11 +1066,8 @@ fn test_random_finite() -> Result<()> {
     terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
   }
 
-  let mut a = Cow::Owned(union_terms(
-    &terms.iter().cloned().collect::<Vec<_>>(),
-    &mut random,
-  )?);
-  assert_same(&terms.iter().cloned().collect::<Vec<_>>(), &a, &mut random)?;
+  let mut a = Cow::Owned(union_terms(&terms, &mut random)?);
+  assert_same(&terms, &a, &mut random)?;
 
   for _ in 0..iters {
     match random.random_range(0..15) {
@@ -1126,7 +1129,7 @@ fn test_random_finite() -> Result<()> {
         }
         let mut combined = terms.clone();
         combined.extend(new_terms.iter().cloned());
-        let a2 = union_terms(&new_terms.iter().cloned().collect::<Vec<_>>(), &mut random)?;
+        let a2 = union_terms(&new_terms, &mut random)?;
         terms = combined;
         a = Cow::Owned(Operations::union(&a, &a2)?);
       },
@@ -1153,7 +1156,7 @@ fn test_random_finite() -> Result<()> {
           let removed = terms.remove(t);
           assert!(removed)
         }
-        let a2 = union_terms(&to_remove.iter().cloned().collect::<Vec<_>>(), &mut random)?;
+        let a2 = union_terms(&to_remove, &mut random)?;
         if let Cow::Owned(o) = Operations::minus(&a, &a2, i32::MAX as usize)? {
           a = Cow::Owned(o);
         }
@@ -1192,8 +1195,7 @@ fn test_random_finite() -> Result<()> {
           });
         }
 
-        let refs: Vec<&Automaton> = as_.iter().collect();
-        let v = Operations::union_list(&refs)?;
+        let v = Operations::union_list(&as_)?;
         let a2 = random_no_op(&v, &mut random)?;
         if let Cow::Owned(o) =
           Operations::minus(&a, &a2, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
@@ -1230,8 +1232,7 @@ fn test_random_finite() -> Result<()> {
           as_.push(a2);
         }
 
-        let refs: Vec<&Automaton> = as_.iter().collect();
-        let mut a2 = Cow::Owned(Operations::union_list(&refs)?);
+        let mut a2 = Cow::Owned(Operations::union_list(&as_)?);
         if random.random_bool(0.5) {
           if let Cow::Owned(o) =
             Operations::determinize(&a2, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
@@ -1328,8 +1329,7 @@ fn test_random_finite() -> Result<()> {
           }
         }
 
-        let add_vec: Vec<_> = add_terms.iter().cloned().collect();
-        let a2 = union_terms(&add_vec, &mut random)?;
+        let a2 = union_terms(&add_terms, &mut random)?;
 
         let mut new_terms = BTreeSet::new();
 
@@ -1372,7 +1372,7 @@ fn test_random_finite() -> Result<()> {
 
       _ => {}, // others omitted for brevity
     }
-    assert_same(&terms.iter().cloned().collect::<Vec<_>>(), &a, &mut random)?;
+    assert_same(&terms, &a, &mut random)?;
     let left = AutomatonTestUtil::is_deterministic_slow(&a)?;
     let right = a.is_deterministic();
     assert_eq!(left, right);
@@ -1380,7 +1380,7 @@ fn test_random_finite() -> Result<()> {
       a = Cow::Owned(verify_topo_sort(&a)?)
     }
   }
-  assert_same(&terms.iter().cloned().collect::<Vec<_>>(), &a, &mut random)?;
+  assert_same(&terms, &a, &mut random)?;
 
   Ok(())
 }
@@ -1421,9 +1421,10 @@ pub fn verify_topo_sort(a: &Automaton) -> Result<Automaton> {
   Ok(a2)
 }
 
-pub fn assert_same<R>(terms: &[BytesRef<Vec<u8>>], a: &Automaton, random: &mut R) -> Result<()>
+pub fn assert_same<'a, R, I>(terms: I, a: &Automaton, random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
+  I: Clone + IntoIterator<Item = &'a BytesRef<Vec<u8>>>,
 {
   assert!(AutomatonTestUtil::is_finite(a)?);
   assert!(!Operations::is_total(a)?);
@@ -1432,7 +1433,7 @@ where
 
   // Make sure all terms are accepted:
   let mut scratch: IntsRefBuilder<Vec<i32>> = IntsRefBuilder::new();
-  for term in terms {
+  for term in terms.clone() {
     Util::to_ints_ref(term, &mut scratch)?;
     let s = term.utf8_to_string()?;
     assert!(
@@ -1444,11 +1445,11 @@ where
 
   // Use getFiniteStrings:
   let mut expected = HashSet::new();
-  for term in terms {
+  for term in terms.clone() {
     let mut ints_ref = IntsRefBuilder::new();
     let s = term.utf8_to_string()?;
     Util::to_utf32(&s, &mut ints_ref)?;
-    expected.insert(ints_ref.to_ints_ref());
+    expected.insert(ints_ref.get_owner());
   }
   let actual = TestOperations::get_finite_strings(a)?;
 
@@ -1467,7 +1468,7 @@ where
     unreachable!("mismatch");
   }
   // check same language via determinized unionTerms
-  let v0 = &union_terms(terms, random)?;
+  let v0 = &union_terms(terms.clone(), random)?;
   let v1 = Operations::determinize(v0, i32::MAX as usize)?;
   let a2 = Operations::remove_dead_states(&v1)?;
   let v0 = Operations::determinize(a, i32::MAX as usize)?;
@@ -1479,10 +1480,10 @@ where
   let utf8 = random_no_op(&v, random)?;
 
   let mut expected2 = HashSet::new();
-  for term in terms {
+  for term in terms.clone() {
     let mut ints_ref = IntsRefBuilder::new();
     Util::to_ints_ref(term, &mut ints_ref)?;
-    expected2.insert(ints_ref.to_ints_ref());
+    expected2.insert(ints_ref.get_owner());
   }
 
   assert_eq!(expected2, TestOperations::get_finite_strings(&utf8)?);
@@ -1495,17 +1496,12 @@ fn accepts(a: &Automaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
   Ok(Operations::run_ints_ref(a, builder.get()))
 }
 fn make_binary_interval(
-  min_term: Option<BytesRef<Vec<u8>>>,
+  min_term: Option<&BytesRef<Vec<u8>>>,
   min_inclusive: bool,
-  max_term: Option<BytesRef<Vec<u8>>>,
+  max_term: Option<&BytesRef<Vec<u8>>>,
   max_inclusive: bool,
 ) -> Result<Automaton> {
-  let a = Automata::make_binary_interval(
-    min_term.as_ref(),
-    min_inclusive,
-    max_term.as_ref(),
-    max_inclusive,
-  )?;
+  let a = Automata::make_binary_interval(min_term, min_inclusive, max_term, max_inclusive)?;
   let min_a = MinimizationOperations::minimize(&a, i32::MAX as usize)?;
 
   if min_a.get_num_states() != a.get_num_states() {
@@ -1521,9 +1517,9 @@ fn test_make_binary_interval_finite_cases_basic() -> Result<()> {
 
   // 0 (incl) - 00 (incl)
   let a = make_binary_interval(
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
     true,
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
     true,
   )?;
   assert!(AutomatonTestUtil::is_finite(&a)?);
@@ -1543,9 +1539,9 @@ fn test_make_binary_interval_finite_cases_basic() -> Result<()> {
 
   // '' (incl) - 00 (incl)
   let a = make_binary_interval(
-    Some(new_bytes_ref_empty(&mut random)?),
+    Some(&new_bytes_ref_empty(&mut random)?),
     true,
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
     true,
   )?;
   assert!(AutomatonTestUtil::is_finite(&a)?);
@@ -1565,9 +1561,9 @@ fn test_make_binary_interval_finite_cases_basic() -> Result<()> {
 
   // '' (excl) - 00 (incl)
   let a = make_binary_interval(
-    Some(new_bytes_ref_empty(&mut random)?),
+    Some(&new_bytes_ref_empty(&mut random)?),
     false,
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
     true,
   )?;
   assert!(AutomatonTestUtil::is_finite(&a)?);
@@ -1587,9 +1583,9 @@ fn test_make_binary_interval_finite_cases_basic() -> Result<()> {
 
   // 0 (excl) - 00 (incl)
   let a = make_binary_interval(
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
     false,
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
     true,
   )?;
   assert!(AutomatonTestUtil::is_finite(&a)?);
@@ -1609,9 +1605,9 @@ fn test_make_binary_interval_finite_cases_basic() -> Result<()> {
 
   // 0 (excl) - 00 (excl)
   let a = make_binary_interval(
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 1)?),
     false,
-    Some(new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
+    Some(&new_bytes_ref(&mut random, zeros.as_slice(), 0, 2)?),
     false,
   )?;
   assert!(AutomatonTestUtil::is_finite(&a)?);
@@ -1661,9 +1657,15 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     let max_inclusive = random.random_bool(0.5);
 
     let a = make_binary_interval(
-      Some(min_term.clone()),
+      Some({
+        debug_assert!(min_term.is_valid().is_ok());
+        &min_term
+      }),
       min_inclusive,
-      Some(max_term.clone()),
+      Some({
+        debug_assert!(max_term.is_valid().is_ok());
+        &max_term
+      }),
       max_inclusive,
     )?;
     assert!(AutomatonTestUtil::is_finite(&a)?);
@@ -1720,9 +1722,15 @@ fn test_make_binary_interval_random() -> Result<()> {
     let max_inclusive = random.random_bool(0.5);
 
     let a = make_binary_interval(
-      Some(min_term.clone()),
+      Some({
+        debug_assert!(min_term.is_valid().is_ok());
+        &min_term
+      }),
       min_inclusive,
-      Some(max_term.clone()),
+      Some({
+        debug_assert!(max_term.is_valid().is_ok());
+        &max_term
+      }),
       max_inclusive,
     )?;
 
@@ -1746,7 +1754,7 @@ fn test_make_binary_interval_random() -> Result<()> {
 
       let mut ints_builder = IntsRefBuilder::new();
       Util::to_ints_ref(&term, &mut ints_builder)?;
-      let actual = Operations::run_ints_ref(&a, &ints_builder.to_ints_ref());
+      let actual = Operations::run_ints_ref(&a, ints_builder.get());
       assert_eq!(expected, actual,);
     }
   }
@@ -1760,7 +1768,8 @@ where
   let mut builder = IntsRefBuilder::new();
   let b: BytesRef<Vec<u8>> = new_bytes_ref_from_string(random, s)?;
   Util::to_ints_ref(&b, &mut builder)?;
-  Ok(builder.get().clone())
+  builder.get();
+  Ok(builder.get_owner())
 }
 
 #[test]
@@ -2053,7 +2062,8 @@ fn to_ints_ref(s: &str) -> IntsRef<Vec<i32>> {
   for ch in s.chars() {
     let _ = builder.append(ch as i32);
   }
-  builder.get().clone()
+  builder.get();
+  builder.get_owner()
 }
 #[test]
 fn test_get_singleton() -> Result<()> {

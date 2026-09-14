@@ -1107,13 +1107,13 @@ where
   match expected_opt {
     Some(expected) => {
       assert_eq!(
-        Some(expected.get_min_packed_value()?.unwrap().into_owned()),
-        get_min_packed_value(&reader1, "field")?
+        Some(expected.get_min_packed_value()?.unwrap().as_ref()),
+        get_min_packed_value(&reader1, "field")?.as_deref()
       );
 
       assert_eq!(
-        Some(expected.get_max_packed_value()?.unwrap().into_owned()),
-        get_max_packed_value(&reader1, "field")?
+        Some(expected.get_max_packed_value()?.unwrap().as_ref()),
+        get_max_packed_value(&reader1, "field")?.as_deref()
       );
 
       assert_eq!(expected.get_doc_count()?, get_doc_count(&reader1, "field")?);

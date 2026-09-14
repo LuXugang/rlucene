@@ -122,7 +122,7 @@ where
   }
   for doc_field in &DOC_FIELDS {
     doc.add(Field::new(FIELD, *doc_field, ft.clone()));
-    writer.add_document(random, doc.clone())?;
+    writer.add_document(random, doc)?;
 
     doc = Document::new();
     for _ in 0..num_filler_docs {
@@ -263,10 +263,10 @@ fn queries_test<R>(
 where
   R: Rng + ?Sized,
 {
-  let mut exp_doc_nrs = exp_doc_nrs.to_vec();
+  let mut exp_doc_nrs = std::borrow::Cow::Borrowed(exp_doc_nrs);
 
   if ctx.num_filler_docs > 0 {
-    for doc in &mut exp_doc_nrs {
+    for doc in exp_doc_nrs.to_mut() {
       *doc = ctx.pre_filler_docs as i32 + ((ctx.num_filler_docs as i32 + 1) * *doc);
     }
   }
@@ -294,9 +294,9 @@ where
   let top_docs = ctx
     .single_segment_searcher
     .search_with_collector_manager(query.clone(), &collector_manager)?;
-  let hits2 = top_docs.score_docs.clone();
+  let hits2 = &top_docs.score_docs;
 
-  CheckHits::check_hits_query(&query, &hits1, &hits2, &exp_doc_nrs)?;
+  CheckHits::check_hits_query(&query, &hits1, hits2, &exp_doc_nrs)?;
 
   assert_eq!(
     ctx.mul_factor * top_docs.total_hits.value(),
@@ -499,8 +499,8 @@ fn test_random_queries() -> Result<()> {
       let top_docs = ctx
         .searcher
         .search_with_collector_manager(query.clone(), &cm)?;
-      let hits2 = top_docs.base.score_docs.clone();
-      CheckHits::check_equal(&query, &hits1.base.score_docs, &hits2)?;
+      let hits2 = &top_docs.base.score_docs;
+      CheckHits::check_equal(&query, &hits1.base.score_docs, hits2)?;
 
       let mut q3 = Builder::new();
       q3.add(query.clone(), Occur::Should)?;

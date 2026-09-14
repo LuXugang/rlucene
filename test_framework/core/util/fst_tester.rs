@@ -29,7 +29,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::ToInt;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::{Arc, END_LABEL, FST, InputType, read_metadata};
 use crate::core::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
 use crate::core::util::fst_impl::fst_reader::FstReader;
@@ -105,18 +105,15 @@ where
     }
     let mut fst_compiler = fst_compiler_builder.build()?;
     for pair in &self.pairs {
-      pair.input.ints.access(|ints| {
-        // TODO: 没有判断是否为
-        // if let Some(list) = pair.output.as_list_of_longs() {
-        //     for value in list {
-        //         fst_compiler.add(&pair.input, &value)?;
-        //     }
-        // } else {
-        let v = IntsRef::from_slice(ints.clone(), pair.input.offset, pair.input.length);
-        fst_compiler.add(&v, pair.output.clone())?;
-        // Help the compiler infer types.
-        Ok::<(), LuceneError>(())
-      })?;
+      // TODO: 没有判断是否为
+      // if let Some(list) = pair.output.as_list_of_longs() {
+      //     for value in list {
+      //         fst_compiler.add(&pair.input, &value)?;
+      //     }
+      // } else {
+      #[cfg(debug_assertions)]
+      debug_assert!(matches!(pair.input.is_valid(), Ok(true)));
+      fst_compiler.add(&pair.input, pair.output.clone())?;
     }
     let fst_metadata_opt = fst_compiler.compile()?;
     let node_count = fst_compiler.get_node_count();
@@ -404,11 +401,10 @@ where
     for _ in 0..num {
       let output = random_accepted_word(fst.as_mut().unwrap(), &mut scratch, &mut self.random)?;
       let key = scratch.get();
-      let error_msg = format!(
-        "accepted word {} is not valid",
-        input_to_string(input_mode, key)?
-      );
-      let expected = terms_map.get(key).expect(&error_msg);
+      let error_word = input_to_string(input_mode, key)?;
+      let expected = terms_map
+        .get(key)
+        .unwrap_or_else(|| panic!("accepted word {} is not valid", error_word));
       assert!(
         self.outputs_equal(expected, &output),
         "mismatched output for {}",
@@ -434,7 +430,8 @@ where
           let mut ir_builder = IntsRefBuilder::default();
           let term = to_ints_ref_from_string_with_builder(&term_str, input_mode, &mut ir_builder);
 
-          let target = InputOutput::new(term.clone(), self.outputs.get_no_output());
+          let target = InputOutput::new(term, self.outputs.get_no_output());
+          let term = &target.input;
           let pos = self.pairs.binary_search_by(|p| p.input.cmp(&target.input));
 
           if let Err(pos) = pos {
@@ -444,31 +441,31 @@ where
               if cfg!(feature = "test_log_verbose") {
                 println!(
                   "  do non-exist seekExact term={}",
-                  input_to_string(input_mode, &term)?
+                  input_to_string(input_mode, term)?
                 );
               }
               pos = -1;
-              fst_enum.seek_exact(&term)?
+              fst_enum.seek_exact(term)?
             // } else if false{
             } else if self.random.random_bool(0.5) {
               if cfg!(feature = "test_log_verbose") {
                 println!(
                   "  do non-exist seekFloor term={}",
-                  input_to_string(input_mode, &term)?
+                  input_to_string(input_mode, term)?
                 );
               }
 
               pos = pos.saturating_sub(1);
-              fst_enum.seek_floor(&term)?
+              fst_enum.seek_floor(term)?
             } else {
               if cfg!(feature = "test_log_verbose") {
                 println!(
                   "  do non-exist seekCeil term={}",
-                  input_to_string(input_mode, &term)?
+                  input_to_string(input_mode, term)?
                 );
               }
 
-              fst_enum.seek_ceil(&term)?
+              fst_enum.seek_ceil(term)?
             };
 
             if pos != -1 && pos < self.pairs.len() as i32 {

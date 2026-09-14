@@ -20,14 +20,14 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
+use crate::core::util::bytes_ref_block_pool::{BytesRefBlockPool, BytesRefBlockPoolPosition};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::most_significant_bit_radix_sort::LENGTH_THRESHOLD;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{
-  AtomicCounter, ByteBlockPool, BytesRefComparator, Comparator, Counter, GOOD_FAST_HASH_SEED,
-  HISTOGRAM_SIZE, LEVEL_THRESHOLD, MSBRadixSorter, MSBRadixSorterBase, Natural, SharedCounter,
-  Sorter, StringHelper, StringSorter, StringSorterBase,
+  AtomicCounter, ByteBlockPool, BytesRefComparator, Counter, GOOD_FAST_HASH_SEED, HISTOGRAM_SIZE,
+  LEVEL_THRESHOLD, MSBRadixSorter, MSBRadixSorterBase, Natural, SharedCounter, Sorter,
+  StringHelper, StringSorter, StringSorterBase,
 };
 
 /// [`BytesRefHash`] is a special purpose hash-map like data structure optimized
@@ -102,26 +102,22 @@ where
   pub fn size(&self) -> usize {
     self.count
   }
-  /// Populates and returns a [`BytesRef`] with the bytes for the given
-  /// `bytesID`.
+  /// Returns the pool position of the bytes for the given `bytes_id` without
+  /// copying them.
   ///
   /// # Note
-  /// The given `bytesID` must be a positive integer less than the current
+  /// The given `bytes_id` must be a non-negative integer less than the current
   /// size (`size()`).
   ///
   /// # Arguments
-  /// - `bytesID`: The ID.
-  /// - `ref`: The [`BytesRef`] to populate.
+  /// - `bytes_id`: The ID.
+  /// - `pool`: The same byte pool used to add the value.
   ///
   /// # Returns
-  /// The given [`BytesRef`] instance populated with the bytes for the given
-  /// `bytesID`.
-  pub fn get(
-    &self,
-    bytes_id: i32,
-    ref_: &mut BytesRef<Vec<u8>>,
-    pool: &ByteBlockPool,
-  ) -> Result<()> {
+  /// A position in `pool`. Borrow its bytes while reading, or copy them when
+  /// independent ownership is needed. The position does not keep the pool alive
+  /// and must not be reused after its contents are reset or changed.
+  pub fn get(&self, bytes_id: i32, pool: &ByteBlockPool) -> Result<BytesRefBlockPoolPosition> {
     debug_assert!(
       !self.bytes_start_array.need_init(),
       "bytes_start is null - not initialized"
@@ -133,7 +129,7 @@ where
       "bytesID exceeds bytes_start len"
     );
     let value = self.bytes_start_array.get_value(bytes_id)?;
-    self.pool.fill_bytes_ref(ref_, value, pool)
+    Ok(self.pool.fill_bytes_ref(value, pool))
   }
 
   /// Returns the id array in arbitrary order. Valid ids start at offset 0 and
@@ -517,7 +513,7 @@ pub(crate) struct StringSorterImpl<'a, BSA> {
   bytes_start_array: &'a BSA,
   k: usize,
   cmp: Natural,
-  scratch_bytes: BytesRef<Vec<u8>>,
+  scratch_bytes: BytesRef<&'a [u8]>,
 }
 impl<'a, BSA> StringSorterImpl<'a, BSA>
 where
@@ -538,7 +534,7 @@ where
       bytes_start_array,
       k: 0,
       cmp: Natural::default(),
-      scratch_bytes: BytesRef::new(),
+      scratch_bytes: BytesRef::default(),
     }
   }
   fn swap_bucket_cache(&mut self, i: usize, j: usize) -> Result<()> {
@@ -625,25 +621,30 @@ where
     Ok(())
   }
 }
-impl<BSA> StringSorterBase for StringSorterImpl<'_, BSA>
+impl<'a, BSA> StringSorterBase for StringSorterImpl<'a, BSA>
 where
   BSA: BytesStartArray,
 {
+  type Bytes = &'a [u8];
+
   fn get(
     &mut self,
     _builder: &mut BytesRefBuilder<Vec<u8>>,
-    result: &mut BytesRef<Vec<u8>>,
+    result: &mut BytesRef<Self::Bytes>,
     i: usize,
   ) -> Result<()> {
     let start = self.bytes_start_array.get_value(self.compact[i] as usize)?;
-    self
-      .pool
-      .fill_bytes_ref(result, start, self.byte_block_pool)
+    let position = self.pool.fill_bytes_ref(start, self.byte_block_pool);
+    let block = self.byte_block_pool.get_buffer(position.block_index);
+    result.bytes = &block[position.offset..position.offset + position.length];
+    result.offset = 0;
+    result.length = position.length;
+    Ok(())
   }
 
   fn radix_sorter<'b, C1>(&'b mut self, cmp: &'b mut C1) -> impl Sorter + 'b
   where
-    C1: BytesRefComparator + Comparator<BytesRef<Vec<u8>>>,
+    C1: BytesRefComparator<Self::Bytes>,
     Self: Sorter + Sized,
   {
     let length = cmp.compared_bytes_count();
@@ -767,7 +768,7 @@ pub struct MSBStringHashRadixSorter<'a, T, C> {
 impl<'a, T, C> MSBStringHashRadixSorter<'a, T, C>
 where
   T: StringSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   pub fn new(cmp: &'a mut C, delegate: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
     MSBStringHashRadixSorter { cmp, delegate }
@@ -777,7 +778,7 @@ where
 impl<T, C> Sorter for MSBStringHashRadixSorter<'_, T, C>
 where
   T: StringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     self.delegate.swap(i, j)
@@ -787,7 +788,7 @@ where
 impl<T, C> MSBRadixSorterBase for MSBStringHashRadixSorter<'_, T, C>
 where
   T: StringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
+  C: BytesRefComparator<T::Bytes>,
 {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     self.delegate.byte_at(i, k)

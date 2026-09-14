@@ -280,7 +280,7 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
     }));
 
     if !success {
-      IOUtils::delete_files_ignoring_exceptions(self, &[dest.to_string()]);
+      IOUtils::delete_files_ignoring_exceptions(self, [dest]);
     }
     unwrap_caught_result!(result)
   }
@@ -1836,6 +1836,10 @@ impl DirEnum {
 }
 
 #[cfg(test)]
+#[allow(
+  clippy::large_enum_variant,
+  reason = "Keep concrete test directories inline without adding a FileSwitchDir heap allocation"
+)]
 pub(crate) enum RawDirEnum {
   Nio(NioDir),
   MMap(MMapDir),

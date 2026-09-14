@@ -44,8 +44,8 @@ where
   MS: MergeStateAccess,
 {
   /// Creates a new merge-state view from `in_` that only exposes `fields`.
-  pub(crate) fn restrict_fields(in_: &'a MS, fields: &[String]) -> Result<Self> {
-    let fields = Arc::new(fields.to_vec());
+  pub(crate) fn restrict_fields(in_: &'a MS, fields: Vec<String>) -> Result<Self> {
+    let fields = Arc::new(fields);
     let filtered_names = Arc::new(fields.iter().cloned().collect::<HashSet<_>>());
     let mut field_infos = Vec::with_capacity(in_.field_infos().len());
     for info in in_.field_infos() {

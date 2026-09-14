@@ -150,7 +150,7 @@ where
     self.delegate.finish_field()
   }
 
-  fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
+  fn start_term(&mut self, term: &BytesRef<&[u8]>, freq: i32) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from TermVectorsWriter::start_term()",
@@ -173,7 +173,7 @@ where
     position: i32,
     start_offset: i32,
     end_offset: i32,
-    payload: Option<&BytesRef<Vec<u8>>>,
+    payload: Option<&BytesRef<&[u8]>>,
   ) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(

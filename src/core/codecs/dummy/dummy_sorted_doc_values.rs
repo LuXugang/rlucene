@@ -57,11 +57,16 @@ impl DocIdSetIterator for DummySortedDocValues {
 }
 
 impl SortedDocValues for DummySortedDocValues {
+  type OrdValue<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn ord_value(&mut self) -> Result<i32> {
     dummy_unreachable!()
   }
 
-  fn lookup_ord(&mut self, _ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn lookup_ord(&mut self, _ord: i32) -> Result<Self::OrdValue<'_>> {
     dummy_unreachable!()
   }
 

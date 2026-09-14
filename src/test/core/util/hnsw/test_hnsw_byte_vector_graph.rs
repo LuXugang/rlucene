@@ -38,6 +38,7 @@ use crate::test_framework::core::util::hnsw::mock_byte_vector_values::MockByteVe
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 pub struct TestHnswByteVectorGraph {
@@ -170,7 +171,7 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
     let mut vectors = vec![Vec::new(); size];
     let pregenerated_values = match pregenerated_vector_values {
       KnnVectorValuesEnm2::B(_) => unreachable!("unexpected float vector values"),
-      KnnVectorValuesEnm2::A(byte_vector_values) => byte_vector_values.values,
+      KnnVectorValuesEnm2::A(byte_vector_values) => Arc::unwrap_or_clone(byte_vector_values.values),
     };
 
     vectors[..pregenerated_offset].clone_from_slice(&random_vectors[..pregenerated_offset]);

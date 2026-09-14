@@ -371,7 +371,7 @@ where
         inner.lock().document_with_visitor(doc_id, visitor, writer)
       },
       StoredFieldsReaderInner::Mismatched { inner, shuffled } => {
-        let mut mismatched_visitor = MismatchedVisitor::new(visitor, shuffled.clone());
+        let mut mismatched_visitor = MismatchedVisitor::new(visitor, shuffled.as_ref());
         inner.document_with_visitor(doc_id, &mut mismatched_visitor, writer)
       },
     }
