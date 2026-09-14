@@ -499,6 +499,7 @@ where
     Ok(self.length)
   }
 
+  #[inline]
   fn read_byte(&mut self, pos: usize) -> Result<u8> {
     let pos = pos + self.offset;
     if pos >= self.length + self.offset {
