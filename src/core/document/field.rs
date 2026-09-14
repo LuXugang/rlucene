@@ -540,7 +540,7 @@ impl IndexableField for Field {
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("should StringTokenStream here"))?;
         match stream {
-          ReusedIndexingTokenStream::B(s) => s.set_value(string_value),
+          ReusedIndexingTokenStream::B(s) => s.set_value(string_value)?,
           ReusedIndexingTokenStream::A(_) => {
             return Err(LuceneError::illegal_state("should StringTokenStream here"));
           },
@@ -967,6 +967,7 @@ impl TokenStream for BinaryTokenStream {
 pub struct StringTokenStream {
   used: bool,
   value: Option<String>,
+  end_offset: i32,
   token_stream_base: TokenStreamBase,
 }
 impl StringTokenStream {
@@ -975,11 +976,15 @@ impl StringTokenStream {
     Self {
       used: false,
       value: None,
+      end_offset: 0,
       token_stream_base: TokenStreamBase::new(Attributes::default()),
     }
   }
-  pub(crate) fn set_value(&mut self, value: String) {
+  pub(crate) fn set_value(&mut self, value: String) -> Result<()> {
+    self.end_offset = i32::try_from(value.encode_utf16().count())
+      .map_err(|_| LuceneError::illegal_argument("string UTF-16 length exceeds i32::MAX"))?;
     self.value = Some(value);
+    Ok(())
   }
 }
 
@@ -1007,22 +1012,18 @@ impl TokenStream for StringTokenStream {
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_argument("set_value() not call?"))?;
     self.token_stream_base.att.append_str(Some(value))?;
-    debug_assert!(value.len() <= i32::MAX as usize);
-    self
-      .token_stream_base
-      .att
-      .set_offset(0, value.len() as i32)?;
+    self.token_stream_base.att.set_offset(0, self.end_offset)?;
     self.used = true;
     Ok(true)
   }
 
   fn end(&mut self) -> Result<()> {
     self.default_end()?;
-    let final_offset = self
+    self
       .value
       .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("StringTokenStream value is not set"))?
-      .len() as i32;
+      .ok_or_else(|| LuceneError::illegal_state("StringTokenStream value is not set"))?;
+    let final_offset = self.end_offset;
     self
       .token_stream_base
       .att
