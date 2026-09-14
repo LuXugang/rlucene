@@ -246,9 +246,10 @@ pub struct DocComparatorIterator {
 }
 impl DocComparatorIterator {
   pub fn new(competitive_iterator: DocComparatorCompetitiveIterator) -> Self {
+    let doc_id = competitive_iterator.doc_id();
     Self {
       competitive_iterator,
-      doc_id: 0,
+      doc_id,
     }
   }
 }
@@ -260,11 +261,11 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocCompa
 
 impl DocIdSetIterator for DocComparatorIterator {
   fn doc_id(&self) -> i32 {
-    self.competitive_iterator.doc_id()
+    self.doc_id
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.advance(self.doc_id() + 1)
+    self.advance(self.doc_id + 1)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
