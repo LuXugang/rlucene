@@ -31,8 +31,8 @@ where
   dir: D,
   name: String,
   suffix: String,
-  extension: String,
-  codec_name: String,
+  extension: &'static str,
+  codec_name: &'static str,
   id: [u8; StringHelper::ID_LENGTH],
   block_shift: i32,
   io_context: IOContext,
@@ -59,8 +59,8 @@ where
     dir: D,
     name: &str,
     suffix: &str,
-    extension: &str,
-    codec_name: &str,
+    extension: &'static str,
+    codec_name: &'static str,
     id: [u8; StringHelper::ID_LENGTH],
     block_shift: i32,
     io_context: IOContext, // TODO:avoid copy? could wrap with Rc?
@@ -114,8 +114,8 @@ where
       dir,
       name: name.to_string(),
       suffix: suffix.to_string(),
-      extension: extension.to_string(),
-      codec_name: codec_name.to_string(),
+      extension,
+      codec_name,
       id,
       block_shift,
       io_context,
@@ -168,7 +168,7 @@ where
     close_result?;
 
     let mut data_out = self.dir.create_output(
-      &IndexFileNames::segment_file_name(&self.name, &self.suffix, &self.extension),
+      &IndexFileNames::segment_file_name(&self.name, &self.suffix, self.extension),
       &self.io_context,
     )?;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {

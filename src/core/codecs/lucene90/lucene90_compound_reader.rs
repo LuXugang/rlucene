@@ -206,11 +206,13 @@ where
 {
   /// Returns an array of strings, one for each file in the directory.
   fn list_all(&self) -> Result<Vec<String>> {
-    let mut res: Vec<String> = self.entries.keys().cloned().collect();
-    for entry in &mut res {
-      *entry = format!("{}{}", self.segment_name, entry);
-    }
-    Ok(res)
+    Ok(
+      self
+        .entries
+        .keys()
+        .map(|entry| format!("{}{}", self.segment_name, entry))
+        .collect(),
+    )
   }
 
   fn delete_file(&self, _name: &str) -> Result<()> {

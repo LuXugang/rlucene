@@ -32,6 +32,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, HasIdentity};
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, LazyLock, OnceLock};
 
@@ -149,8 +150,8 @@ impl Display for Lucene99ScalarQuantizedVectorsFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     let confidence_interval = self
       .confidence_interval
-      .map(|value| value.to_string())
-      .unwrap_or_else(|| "null".to_string());
+      .map(|value| Cow::Owned(value.to_string()))
+      .unwrap_or(Cow::Borrowed("null"));
     write!(
       f,
       "{}(name={}, confidenceInterval={}, bits={}, compress={}, flatVectorScorer={}, rawVectorFormat={})",

@@ -423,10 +423,7 @@ impl TFIDFScorer {
     let mut subs = Vec::new();
 
     if self.boost != 1.0 {
-      subs.push(Explanation::match_no_details(
-        self.boost,
-        "boost".to_string(),
-      ));
+      subs.push(Explanation::match_no_details(self.boost, "boost"));
     }
 
     subs.push(self.idf.clone());
@@ -449,7 +446,7 @@ impl TFIDFScorer {
     let idx = (encoded_norm & 0xFF) as usize;
     let norm = norm_table[idx];
 
-    let field_norm = Explanation::match_no_details(norm, "fieldNorm".to_string());
+    let field_norm = Explanation::match_no_details(norm, "fieldNorm");
     subs.push(field_norm);
 
     let score = self.query_weight * tf_value * norm;
@@ -583,16 +580,10 @@ pub trait TFIDFSimilarityBase {
 
     Explanation::match_(
       idf,
-      "idf(doc_freq, doc_count)".to_string(),
+      "idf(doc_freq, doc_count)",
       vec![
-        Explanation::match_no_details(
-          df,
-          "doc_freq, number of documents containing term".to_string(),
-        ),
-        Explanation::match_no_details(
-          doc_count,
-          "doc_count, total number of documents with field".to_string(),
-        ),
+        Explanation::match_no_details(df, "doc_freq, number of documents containing term"),
+        Explanation::match_no_details(doc_count, "doc_count, total number of documents with field"),
       ],
     )
   }
@@ -631,7 +622,7 @@ pub trait TFIDFSimilarityBase {
       idf += v as f64;
       subs.push(idf_explain);
     }
-    Explanation::match_(idf as f32, "idf(), sum of:".to_string(), subs)
+    Explanation::match_(idf as f32, "idf(), sum of:", subs)
   }
   /// Computes a score factor based on a term's document frequency (the number of documents which
   /// contain the term). This value is multiplied by the [`Self::tf`] factor for each term in

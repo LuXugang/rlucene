@@ -129,7 +129,11 @@ impl QueryBase for TermQuery {
     }
     match self.term.text() {
       Ok(text) => {
-        buffer.push_str(&text);
+        if buffer.is_empty() {
+          buffer = text;
+        } else {
+          buffer.push_str(&text);
+        }
       },
       Err(_) => {
         buffer.push_str("<?>");
@@ -368,10 +372,8 @@ where
         norm = norms.long_value()?;
       }
 
-      let freq_explanation = Explanation::match_no_details(
-        freq,
-        "freq, occurrences of term within document".to_string(),
-      );
+      let freq_explanation =
+        Explanation::match_no_details(freq, "freq, occurrences of term within document");
 
       let sim_scorer = self
         .sim_scorer
@@ -383,17 +385,13 @@ where
         score_explanation.value.clone(),
         format!(
           "weight({:?} in {}) [{}], result of:",
-          <Self as Weight<IRC>>::get_query(self),
-          doc,
-          self.similarity,
+          self.parent_query, doc, self.similarity,
         ),
         vec![score_explanation],
       ));
     }
 
-    Ok(Explanation::no_match_no_details(
-      "no matching term".to_string(),
-    ))
+    Ok(Explanation::no_match_no_details("no matching term"))
   }
 
   fn get_query(&self) -> Arc<Query> {

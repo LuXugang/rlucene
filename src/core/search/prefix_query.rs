@@ -77,7 +77,14 @@ impl QueryBase for PrefixQuery {
       buffer.push(':');
     }
 
-    buffer.push_str(&self.base.term.text()?);
+    {
+      let text = self.base.term.text()?;
+      if buffer.is_empty() {
+        buffer = text;
+      } else {
+        buffer.push_str(&text);
+      }
+    }
     buffer.push('*');
     Ok(buffer)
   }

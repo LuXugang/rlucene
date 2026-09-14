@@ -25,14 +25,15 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
 
 /// A [`TermVectorsFormat`] that compresses chunks of documents together in order to improve the compression ratio.
 #[derive(Clone)]
 pub struct Lucene90CompressingTermVectorsFormat {
-  format_name: String,
-  segment_suffix: String,
+  format_name: Cow<'static, str>,
+  segment_suffix: Cow<'static, str>,
   compression_mode: CompressionModeEnum,
   chunk_size: i32,
   max_docs_per_chunk: i32,
@@ -64,9 +65,9 @@ impl Lucene90CompressingTermVectorsFormat {
   /// - `block_size`: The number of chunks to store in an index block
   ///
   /// See also: [`CompressionMode`](crate::core::codecs::compression::compression_mode::CompressionMode)
-  pub fn new(
-    format_name: &str,
-    segment_suffix: &str,
+  pub fn new<N: Into<Cow<'static, str>>, S: Into<Cow<'static, str>>>(
+    format_name: N,
+    segment_suffix: S,
     compression_mode: CompressionModeEnum,
     chunk_size: i32,
     max_docs_per_chunk: i32,
@@ -84,8 +85,8 @@ impl Lucene90CompressingTermVectorsFormat {
     }
 
     Ok(Self {
-      format_name: format_name.to_string(),
-      segment_suffix: segment_suffix.to_string(),
+      format_name: format_name.into(),
+      segment_suffix: segment_suffix.into(),
       compression_mode,
       chunk_size,
       max_docs_per_chunk,

@@ -110,7 +110,14 @@ impl QueryBase for WildcardQuery {
       buffer.push(':');
     }
 
-    buffer.push_str(&self.base.term.text()?);
+    {
+      let text = self.base.term.text()?;
+      if buffer.is_empty() {
+        buffer = text;
+      } else {
+        buffer.push_str(&text);
+      }
+    }
     Ok(buffer)
   }
 
@@ -199,8 +206,8 @@ impl PartialEq for WildcardQuery {
 }
 
 pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Result<Automaton> {
-  let mut automata = Vec::new();
   let wildcard_text = wildcard_query.text()?;
+  let mut automata = Vec::with_capacity(wildcard_text.len());
   let mut chars = wildcard_text.chars();
 
   while let Some(c) = chars.next() {

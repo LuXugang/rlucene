@@ -185,8 +185,10 @@ where
         write!(f, ", ")?;
       }
       first = false;
-      let key_str: String = k.iter().collect();
-      write!(f, "{}={}", key_str, v)?;
+      for ch in k {
+        write!(f, "{ch}")?;
+      }
+      write!(f, "={v}")?;
     }
     write!(f, "}}")
   }

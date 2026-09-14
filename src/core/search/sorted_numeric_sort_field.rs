@@ -169,25 +169,25 @@ impl SortFiledBase for SortedNumericSortField {
     );
     match self.type_ {
       SortFieldType::Int => Ok(Some(IndexSorterNumeric::Int(IntSorter::new(
-        NumericProvider::NAME.to_string(),
+        NumericProvider::NAME,
         self.base.missing_value.clone(),
         self.base.reverse,
         get_value,
       )?))),
       SortFieldType::Long => Ok(Some(IndexSorterNumeric::Long(LongSorter::new(
-        NumericProvider::NAME.to_string(),
+        NumericProvider::NAME,
         self.base.missing_value.clone(),
         self.base.reverse,
         get_value,
       )?))),
       SortFieldType::Double => Ok(Some(IndexSorterNumeric::Double(DoubleSorter::new(
-        NumericProvider::NAME.to_string(),
+        NumericProvider::NAME,
         self.base.missing_value.clone(),
         self.base.reverse,
         get_value,
       )?))),
       SortFieldType::Float => Ok(Some(IndexSorterNumeric::Float(FloatSorter::new(
-        NumericProvider::NAME.to_string(),
+        NumericProvider::NAME,
         self.base.missing_value.clone(),
         self.base.reverse,
         get_value,
@@ -207,7 +207,7 @@ impl SortFiledBase for SortedNumericSortField {
         .get_field()
         .ok_or_else(|| LuceneError::illegal_state("field not available"))?,
     )?;
-    out.write_string(&self.type_.to_string())?;
+    out.write_string(self.type_.as_ref())?;
     out.write_int(if self.base.reverse { 1 } else { 0 })?;
     out.write_int(self.selector as i32)?;
     if let Some(missing_value) = &self.base.missing_value {

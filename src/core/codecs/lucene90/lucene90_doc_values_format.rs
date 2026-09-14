@@ -138,7 +138,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// - `.dvm`: DocValues metadata
 pub struct Lucene90DocValuesFormat {
   skip_index_interval_size: i32,
-  name: String,
+  name: &'static str,
   identity: Identity,
 }
 impl Lucene90DocValuesFormat {
@@ -200,7 +200,7 @@ impl Lucene90DocValuesFormat {
     }
     Ok(Self {
       skip_index_interval_size,
-      name: "Lucene90".to_string(),
+      name: "Lucene90",
       identity: Identity::new(),
     })
   }
@@ -219,7 +219,7 @@ impl HasIdentity for Lucene90DocValuesFormat {
 
 impl DocValuesFormat for Lucene90DocValuesFormat {
   fn get_name(&self) -> &str {
-    &self.name
+    self.name
   }
 
   type DocValuesConsumer<T: IndexOutput> = Lucene90DocValuesConsumer<T>;

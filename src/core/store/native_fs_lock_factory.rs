@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -217,13 +218,13 @@ impl NativeFSLock {
     let size = self.metadata.len();
     let permissions = self.metadata.permissions();
     let modified_time = self.metadata.modified().ok().map_or_else(
-      || "unknown".to_string(),
+      || Cow::Borrowed("unknown"),
       |time| match time.duration_since(SystemTime::UNIX_EPOCH) {
         Ok(duration) => {
           let datetime = DateTime::<Utc>::from(SystemTime::UNIX_EPOCH + duration);
-          datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+          Cow::Owned(datetime.format("%Y-%m-%d %H:%M:%S").to_string())
         },
-        Err(_) => "invalid time".to_string(),
+        Err(_) => Cow::Borrowed("invalid time"),
       },
     );
     format!("size: {size} bytes, permissions: {permissions:?}, modified: {modified_time}")

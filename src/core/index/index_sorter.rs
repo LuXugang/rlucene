@@ -27,6 +27,7 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::{CoreHelper, ToInt};
+use std::borrow::Cow;
 use std::rc::Rc;
 /// Handles how documents should be sorted in an index, both within a segment
 /// and between segments.
@@ -99,7 +100,7 @@ pub trait IndexSorter {
 // DoubleSorter
 /// Sorts documents based on `f64` values from a [`NumericDocValues`] instance.
 pub struct DoubleSorter<NP> {
-  provider_name: String,
+  provider_name: Cow<'static, str>,
   missing_value: Option<f64>,
   reverse_mul: i32,
   values_provider: NP,
@@ -112,7 +113,7 @@ impl<NP> DoubleSorter<NP> {
     values_provider: NP,
   ) -> Result<Self>
   where
-    FName: Into<String>,
+    FName: Into<Cow<'static, str>>,
   {
     let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
@@ -187,10 +188,7 @@ where
     LR: LeafReader,
   {
     let mut dvs = self.values_provider.get(leaf_reader)?;
-    let mut values = vec![0f64; max_doc as usize];
-    if let Some(missing_value) = self.missing_value.as_ref() {
-      values.fill(*missing_value);
-    }
+    let mut values = vec![self.missing_value.unwrap_or(0f64); max_doc as usize];
 
     loop {
       let doc_id = dvs.next_doc()?;
@@ -253,7 +251,7 @@ where
 // IntSorter
 /// Sorts documents based on integer values from a NumericDocValues instance  */
 pub struct IntSorter<NP> {
-  provider_name: String,
+  provider_name: Cow<'static, str>,
   missing_value: Option<i32>,
   reverse_mul: i32,
   values_provider: NP,
@@ -266,7 +264,7 @@ impl<NP> IntSorter<NP> {
     values_provider: NP,
   ) -> Result<Self>
   where
-    FName: Into<String>,
+    FName: Into<Cow<'static, str>>,
   {
     let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
@@ -336,10 +334,7 @@ where
     LR: LeafReader,
   {
     let mut dvs = self.values_provider.get(leaf_reader)?;
-    let mut values = vec![0i32; max_doc as usize];
-    if let Some(mv) = self.missing_value {
-      values.fill(mv);
-    }
+    let mut values = vec![self.missing_value.unwrap_or(0i32); max_doc as usize];
     loop {
       let doc_id = dvs.next_doc()?;
       if doc_id == NO_MORE_DOCS {
@@ -395,7 +390,7 @@ where
 // LongSorter
 /// Sorts documents based on `i64` values from a [`NumericDocValues`] instance.
 pub struct LongSorter<NP> {
-  provider_name: String,
+  provider_name: Cow<'static, str>,
   missing_value: Option<i64>,
   reverse_mul: i32,
   values_provider: NP,
@@ -408,7 +403,7 @@ impl<NP> LongSorter<NP> {
     values_provider: NP,
   ) -> Result<Self>
   where
-    FName: Into<String>,
+    FName: Into<Cow<'static, str>>,
   {
     let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
@@ -478,10 +473,7 @@ where
     LR: LeafReader,
   {
     let mut dvs = self.values_provider.get(leaf_reader)?;
-    let mut values = vec![0i64; max_doc as usize];
-    if let Some(mv) = self.missing_value {
-      values.fill(mv);
-    }
+    let mut values = vec![self.missing_value.unwrap_or(0i64); max_doc as usize];
     loop {
       let doc_id = dvs.next_doc()?;
       if doc_id == NO_MORE_DOCS {
@@ -542,7 +534,7 @@ where
 // FloatSorter
 /// Sorts documents based on `f32` values from a [`NumericDocValues`] instance.
 pub struct FloatSorter<NP> {
-  provider_name: String,
+  provider_name: Cow<'static, str>,
   missing_value: Option<f32>,
   reverse_mul: i32,
   values_provider: NP,
@@ -556,7 +548,7 @@ impl<NP> FloatSorter<NP> {
     values_provider: NP,
   ) -> Result<Self>
   where
-    FName: Into<String>,
+    FName: Into<Cow<'static, str>>,
   {
     let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
@@ -632,10 +624,7 @@ where
     LR: LeafReader,
   {
     let mut dvs = self.values_provider.get(leaf_reader)?;
-    let mut values = vec![0f32; max_doc as usize];
-    if let Some(mv) = self.missing_value {
-      values.fill(mv);
-    }
+    let mut values = vec![self.missing_value.unwrap_or(0f32); max_doc as usize];
     loop {
       let doc_id = dvs.next_doc()?;
       if doc_id == NO_MORE_DOCS {
@@ -701,7 +690,7 @@ where
 // StringSorter
 /// Sorts documents based on `i16` values from a [`NumericDocValues`] instance.
 pub struct StringSorter<SP> {
-  provider_name: String,
+  provider_name: Cow<'static, str>,
   missing_value: Option<MissingValueEnum>,
   reverse_mul: i32,
   values_provider: SP,
@@ -715,7 +704,7 @@ impl<SP> StringSorter<SP> {
     values_provider: SP,
   ) -> Self
   where
-    FName: Into<String>,
+    FName: Into<Cow<'static, str>>,
   {
     let provider_name = provider_name.into();
     Self {

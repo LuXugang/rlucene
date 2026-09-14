@@ -307,7 +307,7 @@ where
       if score >= self.query.base().result_similarity {
         Ok(Explanation::match_(
           self.boost * score,
-          "Score above threshold".to_string(),
+          "Score above threshold",
           vec![],
         ))
       } else {

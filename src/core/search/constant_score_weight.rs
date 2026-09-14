@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
+
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::scorer::Scorer;
@@ -55,18 +57,17 @@ impl ConstantScoreWeight {
 
     if exists {
       if self.score == 1.0 {
-        Ok(Explanation::match_no_details(self.score, query_str.into()))
+        let query_str: String = query_str.into();
+        Ok(Explanation::match_no_details(self.score, query_str))
       } else {
-        Ok(Explanation::match_no_details(
-          self.score,
-          format!("{}^{}", query_str.into(), self.score),
-        ))
+        let mut query_str = query_str.into();
+        write!(query_str, "^{}", self.score)?;
+        Ok(Explanation::match_no_details(self.score, query_str))
       }
     } else {
-      Ok(Explanation::no_match(
-        format!("{} doesn't match id {}", query_str.into(), doc),
-        vec![],
-      ))
+      let mut query_str = query_str.into();
+      write!(query_str, " doesn't match id {}", doc)?;
+      Ok(Explanation::no_match(query_str, vec![]))
     }
   }
 }

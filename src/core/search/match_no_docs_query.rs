@@ -26,6 +26,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -33,7 +34,7 @@ use std::sync::Arc;
 #[derive(Clone, Debug)]
 pub struct MatchNoDocsQuery {
   id: Identity,
-  reason: String,
+  reason: Cow<'static, str>,
 }
 
 impl Default for MatchNoDocsQuery {
@@ -47,13 +48,13 @@ impl MatchNoDocsQuery {
   pub fn new() -> Self {
     Self {
       id: Identity::new(),
-      reason: "".to_string(),
+      reason: Cow::Borrowed(""),
     }
   }
   /// Provides a reason explaining why this query was used
   pub fn with_reason<T>(reason: T) -> Self
   where
-    T: Into<String>,
+    T: Into<Cow<'static, str>>,
   {
     let reason = reason.into();
     Self {

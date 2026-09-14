@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::fmt::Write as _;
 
 use crate::core::index::index_reader::Identity;
@@ -90,6 +91,12 @@ impl DisjunctionMaxQuery {
     let disjuncts: Vec<Query> = disjuncts.into_iter().collect();
     let mut multiset = HashMap::new();
     for query in disjuncts.iter() {
+      if matches!(query, Query::Term(_))
+        && let Some(count) = multiset.get_mut(query)
+      {
+        *count += 1;
+        continue;
+      }
       *multiset.entry(query.clone()).or_insert(0usize) += 1;
     }
 
@@ -117,18 +124,23 @@ impl HasIdentity for DisjunctionMaxQuery {
 
 impl QueryBase for DisjunctionMaxQuery {
   fn to_string(&self, field: &str) -> Result<String> {
-    let mut parts = Vec::with_capacity(self.ordered_queries.len());
+    let mut result = String::from("(");
 
-    for subquery in &self.ordered_queries {
-      let s = if matches!(subquery, Query::Boolean(_)) {
-        format!("({})", subquery.to_string(field)?)
+    for (index, subquery) in self.ordered_queries.iter().enumerate() {
+      if index > 0 {
+        result.push_str(" | ");
+      }
+      if matches!(subquery, Query::Boolean(_)) {
+        let text = subquery.to_string(field)?;
+        result.push('(');
+        result.push_str(&text);
+        result.push(')');
       } else {
-        subquery.to_string(field)?
-      };
-      parts.push(s);
+        result.push_str(&subquery.to_string(field)?);
+      }
     }
 
-    let mut result = format!("({})", parts.join(" | "));
+    result.push(')');
 
     if self.tie_breaker_multiplier != 0.0 {
       result.push('~');
@@ -333,7 +345,7 @@ where
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
   ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
-    let mut matches = Vec::new();
+    let mut matches = Vec::with_capacity(self.weights.len());
     for weight in &self.weights {
       if let Some(weight_matches) = weight.matches(context, doc, searcher)? {
         matches.push(weight_matches);
@@ -351,7 +363,7 @@ where
     let mut matched = false;
     let mut max = 0.0f64;
     let mut other_sum = 0.0f64;
-    let mut subs_on_match = Vec::new();
+    let mut subs_on_match = Vec::with_capacity(self.weights.len());
     let mut subs_on_no_match = Vec::new();
 
     for wt in &self.weights {
@@ -379,9 +391,12 @@ where
     if matched {
       let score = (max + other_sum * self.tie_breaker_multiplier as f64) as f32;
       let desc = if self.tie_breaker_multiplier == 0.0 {
-        "max of:".to_string()
+        Cow::Borrowed("max of:")
       } else {
-        format!("max plus {} times others of:", self.tie_breaker_multiplier)
+        Cow::Owned(format!(
+          "max plus {} times others of:",
+          self.tie_breaker_multiplier
+        ))
       };
       Ok(Explanation::match_(score, desc, subs_on_match))
     } else {
@@ -403,7 +418,7 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    let mut scorer_suppliers = Vec::new();
+    let mut scorer_suppliers = Vec::with_capacity(self.weights.len());
     for w in &self.weights {
       let ss = w.scorer_supplier(context, searcher)?;
       if let Some(ss) = ss {

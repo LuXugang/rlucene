@@ -163,7 +163,7 @@ impl SortFiledBase for SortedSetSortField {
       .ok_or_else(|| LuceneError::illegal_state("sorted-set sort field has no field name"))?;
     let missing_value = self.base.missing_value.clone();
     Ok(Some(StringSorter::new(
-      SetProvider::NAME.to_string(),
+      SetProvider::NAME,
       missing_value,
       self.base.reverse,
       SProviderImpl1::new(self.selector, field.to_string()),

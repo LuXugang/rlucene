@@ -68,16 +68,12 @@ where
 
   Explanation::match_(
     idf,
-    "idf, computed as log((docCount+1)/(docFreq+1)) + 1 from:".to_string(),
+    "idf, computed as log((docCount+1)/(docFreq+1)) + 1 from:",
     vec![
-      Explanation::match_(
-        df,
-        "docFreq, number of documents containing term".to_string(),
-        vec![],
-      ),
+      Explanation::match_(df, "docFreq, number of documents containing term", vec![]),
       Explanation::match_(
         doc_count,
-        "docCount, total number of documents with field".to_string(),
+        "docCount, total number of documents with field",
         vec![],
       ),
     ],

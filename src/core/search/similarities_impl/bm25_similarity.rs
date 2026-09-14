@@ -115,13 +115,10 @@ impl BM25Similarity {
 
     Explanation::match_(
       idf,
-      "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:".to_string(),
+      "idf, computed as log(1 + (N - n + 0.5) / (n + 0.5)) from:",
       vec![
-        Explanation::match_no_details(df, "n, number of documents containing term".to_string()),
-        Explanation::match_no_details(
-          doc_count,
-          "N, total number of documents with field".to_string(),
-        ),
+        Explanation::match_no_details(df, "n, number of documents containing term"),
+        Explanation::match_no_details(doc_count, "N, total number of documents with field"),
       ],
     )
   }
@@ -142,7 +139,7 @@ impl BM25Similarity {
       details.push(idf_expl);
     }
 
-    Explanation::match_(idf_sum as f32, "idf, sum of:".to_string(), details)
+    Explanation::match_(idf_sum as f32, "idf, sum of:", details)
   }
   pub fn gen_k1(&self) -> f32 {
     self.k1
@@ -256,30 +253,27 @@ impl BM25Scorer {
     subs.push(freq);
     subs.push(Explanation::match_no_details(
       self.k1,
-      "k1, term saturation parameter".to_string(),
+      "k1, term saturation parameter",
     ));
 
     let doclen = LENGTH_TABLE[(norm as u8) as usize];
     subs.push(Explanation::match_no_details(
       self.b,
-      "b, length normalization parameter".to_string(),
+      "b, length normalization parameter",
     ));
 
     if (norm & 0xFF) > 39 {
       subs.push(Explanation::match_no_details(
         doclen,
-        "dl, length of field (approximate)".to_string(),
+        "dl, length of field (approximate)",
       ));
     } else {
-      subs.push(Explanation::match_no_details(
-        doclen,
-        "dl, length of field".to_string(),
-      ));
+      subs.push(Explanation::match_no_details(doclen, "dl, length of field"));
     }
 
     subs.push(Explanation::match_no_details(
       self.avgdl,
-      "avgdl, average length of field".to_string(),
+      "avgdl, average length of field",
     ));
 
     let norm_inverse = 1.0 / (self.k1 * ((1.0 - self.b) + self.b * doclen / self.avgdl));
@@ -287,7 +281,7 @@ impl BM25Scorer {
 
     Ok(Explanation::match_(
       tf_val,
-      "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:".to_string(),
+      "tf, computed as freq / (freq + k1 * (1 - b + b * dl / avgdl)) from:",
       subs,
     ))
   }
@@ -297,7 +291,7 @@ impl BM25Scorer {
     if self.boost != 1.0 {
       subs.push(Explanation::match_no_details(
         Number::F32(self.boost),
-        "boost".to_string(),
+        "boost",
       ));
     }
     subs.push(self.idf.clone());

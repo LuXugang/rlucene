@@ -267,7 +267,14 @@ impl QueryBase for FuzzyQuery {
       buffer.push_str(self.term.field());
       buffer.push(':');
     }
-    buffer.push_str(&self.term.text()?);
+    {
+      let text = self.term.text()?;
+      if buffer.is_empty() {
+        buffer = text;
+      } else {
+        buffer.push_str(&text);
+      }
+    }
     buffer.push('~');
     write!(buffer, "{}", self.max_edits)?;
     Ok(buffer)

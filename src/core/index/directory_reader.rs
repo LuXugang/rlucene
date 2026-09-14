@@ -465,9 +465,11 @@ where
   // resolve the situation manually:
   let files = directory.list_all()?; // returns Vec<String>
 
-  let prefix = format!("{}_", IndexFileNames::SEGMENTS);
   for file in files {
-    if file.starts_with(&prefix) {
+    if file
+      .strip_prefix(IndexFileNames::SEGMENTS)
+      .is_some_and(|suffix| suffix.starts_with('_'))
+    {
       return Ok(true);
     }
   }

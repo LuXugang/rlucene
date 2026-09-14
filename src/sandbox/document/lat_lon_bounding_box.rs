@@ -33,6 +33,7 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Write as _;
 /// An indexed 2-Dimension Bounding Box field for the Geospatial Lat/Lon Coordinate system.
 ///
 /// This field indexes 2-dimension Latitude, Longitude based Geospatial Bounding Boxes. The
@@ -352,9 +353,11 @@ impl fmt::Display for LatLonBoundingBox {
     write!(f, "LatLonBoundingBox <{}:", self.parent_field.name())?;
     match &self.parent_field.fields_data {
       FieldDataEnum::Binary(bytes) => {
-        let min = to_string(&bytes.bytes, 0).map_err(|_| fmt::Error)?;
-        let max = to_string(&bytes.bytes, 1).map_err(|_| fmt::Error)?;
-        write!(f, "[{},{}]", min, max)?;
+        let mut buffer = String::new();
+        to_string(&bytes.bytes, 0, &mut buffer).map_err(|_| fmt::Error)?;
+        let min_end = buffer.len();
+        to_string(&bytes.bytes, 1, &mut buffer).map_err(|_| fmt::Error)?;
+        write!(f, "[{},{}]", &buffer[..min_end], &buffer[min_end..])?;
       },
       _ => {
         write!(f, "Unsupported FieldDataEnum variant")?;
@@ -397,7 +400,7 @@ fn encode_point(lat: f64, lon: f64, result: &mut [u8], offset: usize) -> Result<
   Ok(())
 }
 
-fn to_string(ranges: &[u8], dimension: usize) -> Result<String> {
+fn to_string(ranges: &[u8], dimension: usize, buffer: &mut String) -> Result<()> {
   let (lat, lon) = match dimension {
     0 => (
       GeoEncodingUtils::decode_latitude_from_bytes(ranges, 0),
@@ -414,7 +417,8 @@ fn to_string(ranges: &[u8], dimension: usize) -> Result<String> {
       )));
     },
   };
-  Ok(format!("{:?},{:?}", lat, lon))
+  write!(buffer, "{:?},{:?}", lat, lon)?;
+  Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -422,7 +426,9 @@ pub struct LatLonBoundingBoxFieldQuery;
 
 impl RangeFieldQueryBase for LatLonBoundingBoxFieldQuery {
   fn to_string(&self, value: &[u8], dimension: usize) -> Result<String> {
-    to_string(value, dimension)
+    let mut buffer = String::new();
+    to_string(value, dimension, &mut buffer)?;
+    Ok(buffer)
   }
 }
 

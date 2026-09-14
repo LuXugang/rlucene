@@ -57,7 +57,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write as _};
 use std::sync::LazyLock;
 
 /// Type for an indexed [`LatLonPoint`](crate::core::document::lat_lon_point::LatLonPoint).
@@ -523,11 +523,17 @@ impl Display for LatLonPoint {
         return Err(std::fmt::Error);
       },
     };
-    result.push_str(&GeoEncodingUtils::decode_latitude_from_bytes(bytes, 0).to_string());
+    write!(
+      result,
+      "{}",
+      GeoEncodingUtils::decode_latitude_from_bytes(bytes, 0)
+    )?;
     result.push(',');
-    result.push_str(
-      &GeoEncodingUtils::decode_longitude_from_bytes(bytes, BitUtil::INT_BYTES).to_string(),
-    );
+    write!(
+      result,
+      "{}",
+      GeoEncodingUtils::decode_longitude_from_bytes(bytes, BitUtil::INT_BYTES)
+    )?;
 
     result.push('>');
     write!(f, "{result}")

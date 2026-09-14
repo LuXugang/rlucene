@@ -315,24 +315,22 @@ where
 impl<B> Display for ByteBuffersDataInput<B> {
   fn fmt(&self, f: &mut Formatter) -> fmt::Result {
     let blocks_len = self.blocks.len();
-    let offset_str = if self.offset == 0 {
-      String::new()
-    } else {
-      format!(" [offset: {}]", self.offset)
-    };
-    let v = match self.position() {
-      Ok(p) => p.to_string(),
-      Err(_) => "ERR".to_string(),
-    };
+    let position = self.position();
     write!(
       f,
-      "{} bytes, block size: {}, blocks: {}, position: {}{}",
+      "{} bytes, block size: {}, blocks: {}, position: ",
       self.length,
       1u64 << self.block_bits,
-      blocks_len,
-      v,
-      offset_str
-    )
+      blocks_len
+    )?;
+    match position {
+      Ok(position) => write!(f, "{position}")?,
+      Err(_) => f.write_str("ERR")?,
+    }
+    if self.offset != 0 {
+      write!(f, " [offset: {}]", self.offset)?;
+    }
+    Ok(())
   }
 }
 

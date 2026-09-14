@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::any::Any;
+use std::borrow::Cow;
 use std::fmt;
 use std::io::Error;
 use std::string::FromUtf8Error;
@@ -57,11 +58,10 @@ impl PanicWithSuppressed {
     suppressed_panics: Vec<Box<dyn Any + Send>>,
     suppressed_exceptions: Vec<LuceneError>,
   ) -> Self {
+    let capacity = suppressed_panics.len() + usize::from(!suppressed_exceptions.is_empty());
     let mut errors = suppressed_exceptions.into_iter();
-    let mut suppressed = suppressed_panics
-      .into_iter()
-      .map(SuppressedFailure::Panic)
-      .collect::<Vec<_>>();
+    let mut suppressed = Vec::with_capacity(capacity);
+    suppressed.extend(suppressed_panics.into_iter().map(SuppressedFailure::Panic));
     if let Some(primary) = errors.next() {
       suppressed.push(SuppressedFailure::ExceptionWithSuppressed(
         ExceptionWithSuppressed {
@@ -538,17 +538,17 @@ macro_rules! error_ctor {
   };
 }
 impl LuceneError {
-  pub fn panic_payload_message(payload: &(dyn Any + Send)) -> String {
+  pub fn panic_payload_message(payload: &(dyn Any + Send)) -> Cow<'_, str> {
     if let Some(message) = payload.downcast_ref::<&str>() {
-      (*message).to_string()
+      Cow::Borrowed(message)
     } else if let Some(message) = payload.downcast_ref::<String>() {
-      message.clone()
+      Cow::Borrowed(message)
     } else if let Some(panic) = payload.downcast_ref::<PanicWithSuppressed>() {
       LuceneError::panic_payload_message(panic.primary())
     } else if let Some(error) = payload.downcast_ref::<LuceneError>() {
-      error.to_string()
+      Cow::Owned(error.to_string())
     } else {
-      "unknown panic payload".to_string()
+      Cow::Borrowed("unknown panic payload")
     }
   }
 

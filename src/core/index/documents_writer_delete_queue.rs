@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write as _};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 
@@ -834,11 +834,12 @@ impl Display for DocValuesUpdatesNode {
     if !self.item.is_empty() {
       sb.push_str(&format!("term={}; updates: [", self.item[0].term));
       for update in &self.item {
-        sb.push_str(&format!(
+        write!(
+          sb,
           "{}:{},",
           update.field,
           update.sub_update.value_to_string()
-        ));
+        )?;
       }
       if let Some(last_char) = sb.pop()
         && last_char != ','

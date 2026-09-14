@@ -115,6 +115,15 @@ impl From<&Term> for Term {
 
 impl Display for Term {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    if let Some(text) = self
+      .bytes
+      .offset
+      .checked_add(self.bytes.length)
+      .and_then(|end| self.bytes.bytes.get(self.bytes.offset..end))
+      .and_then(|bytes| std::str::from_utf8(bytes).ok())
+    {
+      return write!(f, "{}:{}", self.field, text);
+    }
     match self.text() {
       Err(_) => {
         write!(f, "{}:{}", self.field, self.bytes)

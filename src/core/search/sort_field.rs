@@ -376,32 +376,32 @@ impl SortFiledBase for SortField {
           .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
         let v = SProviderImpl2::new(field.to_string());
         Ok(Some(IndexSorterEnumSorter::String(StringSorter::new(
-          Provider::NAME.to_string(),
+          Provider::NAME,
           self.missing_value.clone(),
           self.reverse,
           v,
         ))))
       },
       SortFieldType::Int => Ok(Some(IndexSorterEnumSorter::Int(IntSorter::new(
-        Provider::NAME.to_string(),
+        Provider::NAME,
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
       )?))),
       SortFieldType::Long => Ok(Some(IndexSorterEnumSorter::Long(LongSorter::new(
-        Provider::NAME.to_string(),
+        Provider::NAME,
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
       )?))),
       SortFieldType::Double => Ok(Some(IndexSorterEnumSorter::Double(DoubleSorter::new(
-        Provider::NAME.to_string(),
+        Provider::NAME,
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
       )?))),
       SortFieldType::Float => Ok(Some(IndexSorterEnumSorter::Float(FloatSorter::new(
-        Provider::NAME.to_string(),
+        Provider::NAME,
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
@@ -419,7 +419,7 @@ impl SortFiledBase for SortField {
       .as_deref()
       .ok_or_else(|| LuceneError::illegal_state("field is required when serializing SortField"))?;
     out.write_string(field)?;
-    out.write_string(&self.type_.to_string())?;
+    out.write_string(self.type_.as_ref())?;
     out.write_int(if self.reverse { 1 } else { 0 })?;
     if let Some(missing_value) = &self.missing_value {
       out.write_int(1)?;
@@ -805,20 +805,26 @@ impl SortFieldType {
     SortFieldType::value_of(&type_str)
   }
 }
+impl AsRef<str> for SortFieldType {
+  fn as_ref(&self) -> &str {
+    match self {
+      SortFieldType::Score => "SCORE",
+      SortFieldType::Doc => "DOC",
+      SortFieldType::String => "STRING",
+      SortFieldType::Int => "INT",
+      SortFieldType::Float => "FLOAT",
+      SortFieldType::Long => "LONG",
+      SortFieldType::Double => "DOUBLE",
+      SortFieldType::Custom => "CUSTOM",
+      SortFieldType::StringVal => "STRING_VAL",
+      SortFieldType::Rewritable => "REWRITEABLE",
+    }
+  }
+}
+
 impl Display for SortFieldType {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    match self {
-      SortFieldType::Score => write!(f, "SCORE"),
-      SortFieldType::Doc => write!(f, "DOC"),
-      SortFieldType::String => write!(f, "STRING"),
-      SortFieldType::Int => write!(f, "INT"),
-      SortFieldType::Float => write!(f, "FLOAT"),
-      SortFieldType::Long => write!(f, "LONG"),
-      SortFieldType::Double => write!(f, "DOUBLE"),
-      SortFieldType::Custom => write!(f, "CUSTOM"),
-      SortFieldType::StringVal => write!(f, "STRING_VAL"),
-      SortFieldType::Rewritable => write!(f, "REWRITEABLE"),
-    }
+    f.write_str(self.as_ref())
   }
 }
 

@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Write as _;
 use std::hash::Hash;
 
 use crate::core::util::number::Number;
@@ -23,7 +25,7 @@ use crate::core::util::number::Number;
 pub struct Explanation {
   matched: bool,
   pub(crate) value: Number,
-  description: String,
+  description: Cow<'static, str>,
   details: Vec<Explanation>,
 }
 
@@ -32,7 +34,7 @@ impl Explanation {
   fn new<N, S>(matched: bool, value: N, description: S, details: Vec<Explanation>) -> Self
   where
     N: Into<Number>,
-    S: Into<String>,
+    S: Into<Cow<'static, str>>,
   {
     Explanation {
       matched,
@@ -54,32 +56,31 @@ impl Explanation {
     &self.description
   }
 
-  fn get_summary(&self) -> String {
-    format!("{} = {}", self.get_value(), self.get_description())
+  fn get_summary(&self, buffer: &mut String) -> fmt::Result {
+    write!(buffer, "{} = {}", self.get_value(), self.get_description())
   }
   /// The sub-nodes of this explanation node.
   pub fn get_details(&self) -> &[Explanation] {
     &self.details
   }
   /// Render an explanation as text.
-  fn to_string_with_depth(&self, depth: usize) -> String {
-    let mut buffer = String::new();
+  fn to_string_with_depth(&self, depth: usize, buffer: &mut String) -> fmt::Result {
     for _ in 0..depth {
       buffer.push_str("  ");
     }
-    buffer.push_str(&self.get_summary());
+    self.get_summary(buffer)?;
     buffer.push('\n');
 
     for detail in &self.details {
-      buffer.push_str(&detail.to_string_with_depth(depth + 1));
+      detail.to_string_with_depth(depth + 1, buffer)?;
     }
 
-    buffer
+    Ok(())
   }
   pub fn match_no_details<N, S>(value: N, description: S) -> Explanation
   where
     N: Into<Number>,
-    S: Into<String>,
+    S: Into<Cow<'static, str>>,
   {
     Self::match_(value, description, vec![])
   }
@@ -93,7 +94,7 @@ impl Explanation {
   pub fn match_<N, S, I>(value: N, description: S, details: I) -> Explanation
   where
     N: Into<Number>,
-    S: Into<String>,
+    S: Into<Cow<'static, str>>,
     I: IntoIterator<Item = Explanation>,
   {
     let details = details.into_iter().collect::<Vec<Explanation>>();
@@ -101,14 +102,14 @@ impl Explanation {
   }
   pub fn no_match_no_details<S>(description: S) -> Explanation
   where
-    S: Into<String>,
+    S: Into<Cow<'static, str>>,
   {
     Self::no_match(description, vec![])
   }
   /// Create a new explanation for a document which does not match.
   pub fn no_match<S, I>(description: S, details: I) -> Explanation
   where
-    S: Into<String>,
+    S: Into<Cow<'static, str>>,
     I: IntoIterator<Item = Explanation>,
   {
     let details = details.into_iter().collect::<Vec<Explanation>>();
@@ -117,7 +118,7 @@ impl Explanation {
 
   pub fn error_explanation<S>(description: S) -> Explanation
   where
-    S: Into<String>,
+    S: Into<Cow<'static, str>>,
   {
     Explanation::match_no_details(0, description)
   }
@@ -145,6 +146,8 @@ impl Hash for Explanation {
 impl Eq for Explanation {}
 impl fmt::Display for Explanation {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", self.to_string_with_depth(0))
+    let mut buffer = String::new();
+    self.to_string_with_depth(0, &mut buffer)?;
+    write!(f, "{buffer}")
   }
 }
