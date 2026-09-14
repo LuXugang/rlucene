@@ -374,8 +374,9 @@ impl Similarity for TFIDFSimilarity {
     };
 
     let mut norm_table = vec![0f32; 256];
+    let length_table = &*LENGTH_TABLE;
     for i in 1..256 {
-      let norm = self.sub.length_norm(LENGTH_TABLE[i]);
+      let norm = self.sub.length_norm(length_table[i]);
       norm_table[i] = norm;
     }
     norm_table[0] = 1f32 / norm_table[255];

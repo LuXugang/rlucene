@@ -180,8 +180,9 @@ impl Similarity for BM25Similarity {
     let avgdl = self.avg_field_length(collection_stats);
 
     let mut cache = [0f32; 256];
+    let length_table = &*LENGTH_TABLE;
     for i in 0..256 {
-      cache[i] = 1.0 / (self.k1 * ((1.0 - self.b) + self.b * LENGTH_TABLE[i] / avgdl));
+      cache[i] = 1.0 / (self.k1 * ((1.0 - self.b) + self.b * length_table[i] / avgdl));
     }
 
     BM25Scorer::new(boost, self.k1, self.b, idf, avgdl, cache)

@@ -669,6 +669,9 @@ impl StandardTokenizerImpl {
   ///
   /// Returns an error if any I/O error occurs.
   pub fn get_next_token(&mut self) -> Result<i32> {
+    let zz_trans = ZZ_TRANS.as_slice();
+    let zz_row_map = ZZ_ROWMAP.as_slice();
+    let zz_attr = ZZ_ATTRIBUTE.as_slice();
     loop {
       let zz_marked_pos = self.zz_marked_pos;
       self.yychar += zz_marked_pos - self.zz_start_read;
@@ -680,7 +683,7 @@ impl StandardTokenizerImpl {
       self.zz_start_read = zz_marked_pos_l;
       let mut zz_state = ZZ_LEXSTATE[self.lexical_state as usize];
 
-      let mut zz_attributes = ZZ_ATTRIBUTE[zz_state];
+      let mut zz_attributes = zz_attr[zz_state];
       if (zz_attributes & 1) == 1 {
         zz_action = Some(zz_state);
       }
@@ -706,13 +709,13 @@ impl StandardTokenizerImpl {
           zz_input = self.zz_buffer[zz_current_pos_l] as i32;
           zz_current_pos_l += 1;
         }
-        let zz_next = ZZ_TRANS[ZZ_ROWMAP[zz_state] + Self::zz_cmap(zz_input)];
+        let zz_next = zz_trans[zz_row_map[zz_state] + Self::zz_cmap(zz_input)];
         if zz_next == -1 {
           break zz_input;
         }
         zz_state = zz_next as usize;
 
-        zz_attributes = ZZ_ATTRIBUTE[zz_state];
+        zz_attributes = zz_attr[zz_state];
         if (zz_attributes & 1) == 1 {
           zz_action = Some(zz_state);
           zz_marked_pos_l = zz_current_pos_l;

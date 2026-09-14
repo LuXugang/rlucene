@@ -139,20 +139,22 @@ impl SmallFloat {
         "Only supports positive values, got {i}"
       )));
     }
-    if i < *NUM_FREE_VALUES {
+    let num_free_values = *NUM_FREE_VALUES;
+    if i < num_free_values {
       Ok(i as u8)
     } else {
-      Ok((*NUM_FREE_VALUES + Self::long_to_int4((i - *NUM_FREE_VALUES) as i64)?) as u8)
+      Ok((num_free_values + Self::long_to_int4((i - num_free_values) as i64)?) as u8)
     }
   }
 
   /// Decode values that have been encoded with `int_to_byte4`.
   pub fn byte4_to_int(b: u8) -> Result<i32> {
     let i = b as i32;
-    if i < *NUM_FREE_VALUES {
+    let num_free_values = *NUM_FREE_VALUES;
+    if i < num_free_values {
       Ok(i)
     } else {
-      let v = (*NUM_FREE_VALUES as i64 + Self::int4_to_long(i - *NUM_FREE_VALUES)).try_convert()?;
+      let v = (num_free_values as i64 + Self::int4_to_long(i - num_free_values)).try_convert()?;
       Ok(v)
     }
   }
