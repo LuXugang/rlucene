@@ -17,7 +17,9 @@
 
 use crate::core::store::byte_buffers_index_input::ByteBuffersIndexInputOwned;
 use crate::core::store::data_input_ext::DataInputExt;
-use crate::core::store::memory_segment_index_input::MemorySegmentIndexInput;
+use crate::core::store::memory_segment_index_input::{
+  MemorySegmentIndexInput, MemorySegmentRandomAccessInput,
+};
 use crate::core::store::nio_fs_directory::NIOFSIndexInput;
 use crate::core::store::random_access_input::{
   BoxRandomAccessInput, RandomAccessInput, RandomAccessInputEnum2, RandomAccessInputEnum3,
@@ -1045,7 +1047,7 @@ either_index_input!(
     pub BuiltInFSIndexInput,
     index_input = BuiltInFSIndexInput,
     random_access = RandomAccessInputEnum2<
-        MemorySegmentIndexInput,
+        MemorySegmentRandomAccessInput,
         BufferedIndexInput<NIOFSIndexInput>,
     >,
     random_access_enum = RandomAccessInputEnum2
