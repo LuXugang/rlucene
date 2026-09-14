@@ -188,8 +188,9 @@ impl<T, C> PriorityQueue<T, C> {
 
   /// Removes all entries from the PriorityQueue.
   pub fn clear(&mut self) {
-    for i in 1..=self.size {
-      self.heap[i] = None;
+    let heap = &mut self.heap[..=self.size];
+    for entry in &mut heap[1..] {
+      *entry = None;
     }
     self.size = 0;
   }

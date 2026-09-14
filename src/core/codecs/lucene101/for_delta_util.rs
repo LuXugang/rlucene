@@ -393,6 +393,8 @@ impl ForDeltaUtil {
       0,
       ForUtil::MASK16_4,
     )?;
+    let tmp = &tmp[..24];
+    let ints = &mut ints[..64];
     let mut tmp_idx = 0;
     let mut ints_idx = 48;
     for _ in 0..8 {
@@ -530,6 +532,8 @@ impl ForDeltaUtil {
       0,
       ForUtil::MASK32_8,
     )?;
+    let tmp = &tmp[..48];
+    let ints = &mut ints[..128];
     let mut tmp_idx = 0;
     let mut ints_idx = 96;
     for _ in 0..16 {

@@ -782,6 +782,8 @@ where
         // patch offsets from positions
         if !f_start_offsets.is_empty() && !f_positions.is_empty() {
           let field_chars_per_term = chars_per_term[field_num_offs[i]];
+          let f_positions = &f_positions[..f_start_offsets.len()];
+          let f_start_offsets = f_start_offsets.as_mut_slice();
           for j in 0..f_start_offsets.len() {
             f_start_offsets[j] += (field_chars_per_term * f_positions[j] as f32) as i32;
           }

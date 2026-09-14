@@ -57,6 +57,7 @@ impl ForUtil {
     Self::expand_mask8((1i32 << bits_per_value) - 1)
   }
   pub(crate) fn expand8(arr: &mut [i32]) {
+    let arr = &mut arr[..Self::BLOCK_SIZE];
     for i in 0..32 {
       let l = arr[i] as u32;
       arr[i] = ((l >> 24) & 0xFF) as i32;

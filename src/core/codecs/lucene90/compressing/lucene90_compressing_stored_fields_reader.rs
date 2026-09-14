@@ -693,14 +693,16 @@ where
       // it into a list of monotonically increasing offsets
       StoredFieldsInts::read_ints(&mut self.fields_stream, chunk_docs, &mut self.offsets, 1)?;
 
+      let offsets = &mut self.offsets[..chunk_docs + 1];
       for i in 0..chunk_docs {
-        self.offsets[i + 1] += self.offsets[i];
+        offsets[i + 1] += offsets[i];
       }
       // Additional validation: only the empty document has a serialized
       // length of 0
+      let num_stored_fields = &self.num_stored_fields[..chunk_docs];
       for i in 0..chunk_docs {
-        let len = self.offsets[i + 1] - self.offsets[i];
-        let stored_fields = self.num_stored_fields[i];
+        let len = offsets[i + 1] - offsets[i];
+        let stored_fields = num_stored_fields[i];
         if (len == 0) != (stored_fields == 0) {
           return Err(LuceneError::corrupt_index(format!(
             "length={len}, numStoredFields={stored_fields} (resource={})",

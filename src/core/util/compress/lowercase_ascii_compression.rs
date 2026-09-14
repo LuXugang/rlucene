@@ -72,17 +72,20 @@ impl LowercaseAsciiCompression {
 
     // 3. Pack exception bits into tmp[0..compressed_len]
     let mut o = 0usize;
-    for i in compressed_len..len {
-      tmp[o] |= (tmp[i] & 0x30) << 2; // bits 4-5
-      o += 1;
-    }
-    for i in compressed_len..len {
-      tmp[o] |= (tmp[i] & 0x0C) << 4; // bits 2-3
-      o += 1;
-    }
-    for i in compressed_len..len {
-      tmp[o] |= (tmp[i] & 0x03) << 6; // bits 0-1
-      o += 1;
+    {
+      let tmp = &mut tmp[..len];
+      for i in compressed_len..len {
+        tmp[o] |= (tmp[i] & 0x30) << 2; // bits 4-5
+        o += 1;
+      }
+      for i in compressed_len..len {
+        tmp[o] |= (tmp[i] & 0x0C) << 4; // bits 2-3
+        o += 1;
+      }
+      for i in compressed_len..len {
+        tmp[o] |= (tmp[i] & 0x03) << 6; // bits 0-1
+        o += 1;
+      }
     }
 
     debug_assert!(o <= compressed_len);

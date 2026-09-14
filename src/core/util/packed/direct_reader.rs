@@ -143,14 +143,15 @@ where
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
     };
+    let buffer = &mut self.buffer[..DirectReader::MERGE_BUFFER_SIZE];
     let bits_per_value_usize = self.bits_per_value as usize;
     if index + DirectReader::MERGE_BUFFER_SIZE >= self.num_values {
       // 128 values left or less
       let mut slow_instance =
         DirectReader::get_instance_with_offset(None, self.bits_per_value, self.base_offset)?;
       let num_values_last_block = self.num_values - index;
-      for i in 0..num_values_last_block {
-        self.buffer[i] = slow_instance.read_from_slice(index + i, Some(slice))?;
+      for (i, value) in buffer[..num_values_last_block].iter_mut().enumerate() {
+        *value = slow_instance.read_from_slice(index + i, Some(slice))?;
       }
     } else if (self.bits_per_value & 0x07) == 0 {
       // bitsPerValue is a multiple of 8
@@ -161,15 +162,15 @@ where
         (1i64 << self.bits_per_value) - 1
       };
       let mut offset = self.base_offset + (index * bits_per_value_usize) / 8;
-      for i in 0..DirectReader::MERGE_BUFFER_SIZE {
+      for value in buffer.iter_mut() {
         if self.bits_per_value > i32::BITS as i32 {
-          self.buffer[i] = slice.read_long(offset)? & mask;
+          *value = slice.read_long(offset)? & mask;
         } else if self.bits_per_value > i16::BITS as i32 {
-          self.buffer[i] = (slice.read_int(offset)? as u32 as i64) & mask;
+          *value = (slice.read_int(offset)? as u32 as i64) & mask;
         } else if self.bits_per_value > i8::BITS as i32 {
-          self.buffer[i] = slice.read_short(offset)? as u16 as i64;
+          *value = slice.read_short(offset)? as u16 as i64;
         } else {
-          self.buffer[i] = slice.read_byte(offset)? as i64;
+          *value = slice.read_byte(offset)? as i64;
         }
         offset += bytes_per_value;
       }
@@ -182,7 +183,7 @@ where
       for _ in 0..(2 * bits_per_value_usize) {
         let bits = slice.read_long(offset)?;
         for j in 0..values_per_long {
-          self.buffer[i] = (bits as u64 >> (j * bits_per_value_usize)) as i64 & mask;
+          buffer[i] = (bits as u64 >> (j * bits_per_value_usize)) as i64 & mask;
           i += 1;
         }
         offset += BitUtil::LONG_BYTES;
@@ -198,8 +199,8 @@ where
         } else {
           slice.read_int(offset)? as i64
         };
-        self.buffer[i] = l & mask;
-        self.buffer[i + 1] = (l as u64 >> self.bits_per_value) as i64 & mask;
+        buffer[i] = l & mask;
+        buffer[i + 1] = (l as u64 >> self.bits_per_value) as i64 & mask;
         offset += num_bytes_for_2_values;
       }
     }

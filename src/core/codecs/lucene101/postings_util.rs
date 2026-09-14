@@ -36,6 +36,8 @@ impl PostingsUtil {
   {
     GroupVIntUtil::read_group_vints_i32(doc_in, doc_buffer, num)?;
     if index_has_freq && decode_freq {
+      let doc_buffer = &mut doc_buffer[..num];
+      let freq_buffer = &mut freq_buffer[..num];
       for i in 0..num {
         freq_buffer[i] = doc_buffer[i] & 0x01;
         doc_buffer[i] = ((doc_buffer[i] as u32) >> 1) as i32;

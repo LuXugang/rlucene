@@ -301,8 +301,9 @@ impl BlockPackedReaderIterator {
 
       decoder.decode_u8_to_i64(&self.blocks, 0, &mut self.values_ref.longs, 0, iterations);
       if min_value != 0 {
-        for i in 0..value_count {
-          self.values_ref.longs[i] = self.values_ref.longs[i].wrapping_add(min_value);
+        let values = &mut self.values_ref.longs[..value_count];
+        for value in values {
+          *value = value.wrapping_add(min_value);
         }
       }
     }

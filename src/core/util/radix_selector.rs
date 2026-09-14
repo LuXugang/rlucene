@@ -163,7 +163,7 @@ where
     k: usize,
     mut common_prefix_length: usize,
   ) -> Result<usize> {
-    let common_prefix = &mut self.common_prefix;
+    let common_prefix = &mut self.common_prefix[..common_prefix_length];
     let mut i = from + 1;
     'outer: for current in (from + 1)..=to {
       i = current;

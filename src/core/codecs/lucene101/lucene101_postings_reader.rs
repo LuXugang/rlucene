@@ -1691,6 +1691,7 @@ impl MutableImpactList {
 
 fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
   buffer[0] = buffer[0].wrapping_add(base);
+  let buffer = &mut buffer[..count];
   for i in 1..count {
     buffer[i] = buffer[i].wrapping_add(buffer[i - 1]);
   }
