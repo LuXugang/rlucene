@@ -157,12 +157,12 @@ where
     vectors: &[VectorValueEnum],
   ) -> Result<()> {
     let byte_size = BitUtil::FLOAT_BYTES;
-    let mut buffer = vec![0u8; dim * byte_size];
+    stack_or_heap_buffer!(buffer, u8, dim * byte_size, 128, 0);
 
     for vector in vectors.iter() {
       debug_assert_eq!(vector.len(), dim);
-      vector.write_float(&mut buffer)?;
-      vector_data.write_bytes_range(&buffer, 0, buffer.len())?;
+      vector.write_float(buffer)?;
+      vector_data.write_bytes_range(buffer, 0, buffer.len())?;
     }
 
     Ok(())
@@ -188,13 +188,13 @@ where
 
     let dim = field_data.dim;
     let byte_size = BitUtil::FLOAT_BYTES;
-    let mut buffer = vec![0u8; dim * byte_size];
+    stack_or_heap_buffer!(buffer, u8, dim * byte_size, 128, 0);
 
     for &ord in ord_map {
       let vector = &vectors[ord];
       debug_assert_eq!(vector.len(), dim);
-      vector.write_float(&mut buffer)?;
-      vector_data.write_bytes_range(&buffer, 0, buffer.len())?;
+      vector.write_float(buffer)?;
+      vector_data.write_bytes_range(buffer, 0, buffer.len())?;
     }
 
     Ok(vector_data_offset)
@@ -703,7 +703,7 @@ where
 
   let dim = float_vector_values.dimension();
   let byte_size = BitUtil::FLOAT_BYTES;
-  let mut buffer = vec![0u8; dim * byte_size];
+  stack_or_heap_buffer!(buffer, u8, dim * byte_size, 128, 0);
 
   let mut iter = float_vector_values.iterator()?;
   loop {
@@ -718,7 +718,7 @@ where
       let start = i * byte_size;
       buffer[start..start + byte_size].copy_from_slice(&bytes);
     }
-    output.write_bytes_range(&buffer, 0, buffer.len())?;
+    output.write_bytes_range(buffer, 0, buffer.len())?;
     docs_with_field.add(doc)?;
   }
   docs_with_field.finish();

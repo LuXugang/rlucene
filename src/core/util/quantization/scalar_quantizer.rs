@@ -81,6 +81,7 @@ pub const SCALAR_QUANTIZATION_SAMPLE_SIZE: usize = 25_000;
 // 20*dimension provides protection from extreme confidence intervals
 // and also prevents humongous allocations
 pub(crate) const SCRATCH_SIZE: usize = 20;
+const NEAREST_NEIGHBOR_COUNT: usize = 10;
 
 impl ScalarQuantizer {
   /// - `min_quantile`: the lower quantile of the distribution
@@ -612,13 +613,13 @@ fn candidate_grid_search(
 /// - `vectors`: The vectors to find the nearest neighbors for each other
 /// - `similarity_function`: The similarity function to use
 ///
-/// Returns the top 10 nearest neighbors for each vector from the vectors list.
+/// Returns up to [`NEAREST_NEIGHBOR_COUNT`] nearest neighbors for each vector.
 fn find_nearest_neighbors(
   vectors: &[Vec<f32>],
   similarity_function: VectorSimilarityFunction,
 ) -> Result<Vec<ScoreDocsAndScoreVariance>> {
   let mut queues = Vec::with_capacity(vectors.len());
-  queues.push(hit_queue::new(10, false)?);
+  queues.push(hit_queue::new(NEAREST_NEIGHBOR_COUNT, false)?);
   for i in 0..vectors.len() {
     let vector = &vectors[i];
     for j in i + 1..vectors.len() {
@@ -626,17 +627,18 @@ fn find_nearest_neighbors(
       let score = similarity_function.compare_f32(vector, other_vector)?;
       // initialize the rest of the queues
       if queues.len() <= j {
-        queues.push(hit_queue::new(10, false)?);
+        queues.push(hit_queue::new(NEAREST_NEIGHBOR_COUNT, false)?);
       }
       queues[i].insert_with_overflow(ScoreDoc::new(j as i32, score))?;
       queues[j].insert_with_overflow(ScoreDoc::new(i as i32, score))?;
     }
   }
-  // Extract the top 10 from each queue
+  // Extract the nearest neighbors from each queue.
   let mut result = Vec::with_capacity(vectors.len());
   let mut mean_and_var = OnlineMeanAndVar::default();
   for mut queue in queues {
-    let mut score_docs = vec![ScoreDoc::default(); queue.size()];
+    let score_docs_len = queue.size();
+    let mut score_docs = std::array::from_fn(|_| ScoreDoc::default());
     for j in (0..queue.size()).rev() {
       let score_doc = queue
         .pop()?
@@ -646,6 +648,7 @@ fn find_nearest_neighbors(
     }
     result.push(ScoreDocsAndScoreVariance::new(
       score_docs,
+      score_docs_len,
       mean_and_var.var(),
     ));
     mean_and_var.reset();
@@ -728,14 +731,20 @@ impl IntroSelectorBase for FloatSelector<'_> {}
 
 #[derive(Clone)]
 struct ScoreDocsAndScoreVariance {
-  score_docs: Vec<ScoreDoc>,
+  score_docs: [ScoreDoc; NEAREST_NEIGHBOR_COUNT],
+  score_docs_len: usize,
   score_variance: f32,
 }
 
 impl ScoreDocsAndScoreVariance {
-  fn new(score_docs: Vec<ScoreDoc>, score_variance: f32) -> Self {
+  fn new(
+    score_docs: [ScoreDoc; NEAREST_NEIGHBOR_COUNT],
+    score_docs_len: usize,
+    score_variance: f32,
+  ) -> Self {
     Self {
       score_docs,
+      score_docs_len,
       score_variance,
     }
   }
@@ -815,7 +824,9 @@ impl<'a> ScoreErrorCorrelator<'a> {
       // calculate the score for the vector against its nearest neighbors but with quantized
       // scores now
       self.errors.reset();
-      for score_doc in &score_docs_and_score_variance.score_docs {
+      for score_doc in
+        &score_docs_and_score_variance.score_docs[..score_docs_and_score_variance.score_docs_len]
+      {
         let vector_correction = quantizer.quantize(
           &self.vectors[score_doc.doc as usize],
           &mut self.vector,

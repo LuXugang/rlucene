@@ -1221,10 +1221,9 @@ where
   if cardinality > MAX_ARRAY_LENGTH {
     if cardinality != BLOCK_SIZE {
       if dense_rank_power != -1 {
-        let rank = create_rank(&buffer, dense_rank_power as u8);
-        let rank_len = rank.len();
+        let (rank, rank_len) = create_rank(&buffer, dense_rank_power as u8);
         debug_assert!(rank_len <= i32::MAX as usize);
-        out.write_bytes_with_len(&rank, rank_len)?;
+        out.write_bytes_with_len(&rank[..rank_len], rank_len)?;
       }
       for word in buffer.get_bits() {
         out.write_long(*word)?;
@@ -1249,13 +1248,13 @@ where
 // for the buffer. One rank entry for every `2^dense_rank_power`.
 // bits, with each rank entry using 2 bytes. Represented as bytes for
 // fast flushing and mirroring of the retrieval representation.
-fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {
+fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> ([u8; DENSE_BLOCK_LONGS], usize) {
   let longs_per_rank = 1 << (dense_rank_power - 6);
   let rank_mark = longs_per_rank - 1;
   // 6 for the long (2^6) + 1 for 2 bytes/entry
   let rank_index_shift = dense_rank_power - 7;
-  let rank = DENSE_BLOCK_LONGS >> rank_index_shift;
-  let mut rank = vec![0u8; rank];
+  let rank_len = DENSE_BLOCK_LONGS >> rank_index_shift;
+  let mut rank = [0u8; DENSE_BLOCK_LONGS];
   let bits = buffer.get_bits();
   let mut bit_count = 0;
   for (word, b) in bits.iter().take(DENSE_BLOCK_LONGS).enumerate() {
@@ -1268,7 +1267,7 @@ fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {
     bit_count += b.count_ones() as i32;
   }
 
-  rank
+  (rank, rank_len)
 }
 
 // Adds entries to the offset & index jump-table for blocks

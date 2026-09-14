@@ -22,7 +22,7 @@ use crate::core::util::{
 
 pub struct StableMSBRadixSorter<T> {
   delegate: T,
-  fixed_start_offsets: Vec<usize>,
+  fixed_start_offsets: [usize; HISTOGRAM_SIZE],
   max_length: usize,
 }
 
@@ -30,7 +30,7 @@ impl<T> StableMSBRadixSorter<T> {
   pub fn new(delegate: T, max_length: usize) -> StableMSBRadixSorter<T> {
     StableMSBRadixSorter {
       delegate,
-      fixed_start_offsets: vec![0; HISTOGRAM_SIZE],
+      fixed_start_offsets: [0; HISTOGRAM_SIZE],
       max_length,
     }
   }

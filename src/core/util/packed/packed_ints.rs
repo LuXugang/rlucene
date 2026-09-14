@@ -324,8 +324,8 @@ impl PackedInts {
     } else if len > 0 {
       // Use bulk operations
       let buf_size = capacity.min(len);
-      let mut buf = vec![0; buf_size];
-      PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf)?;
+      stack_or_heap_buffer!(buf, i64, buf_size, 128, 0);
+      PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, buf)?;
     }
     Ok(())
   }

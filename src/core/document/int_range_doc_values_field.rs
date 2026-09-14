@@ -40,8 +40,9 @@ pub struct IntRangeDocValuesField {
   pub(crate) base: BinaryDocValuesField,
   #[allow(dead_code)] // Mirrors Java's package-private field for source and test API fidelity.
   pub(crate) field: String,
-  pub(crate) min: Vec<i32>,
-  pub(crate) max: Vec<i32>,
+  pub(crate) min: [i32; 4],
+  pub(crate) max: [i32; 4],
+  num_dims: usize,
 }
 
 impl IntRangeDocValuesField {
@@ -62,20 +63,29 @@ impl IntRangeDocValuesField {
     Ok(Self {
       base,
       field,
-      min: min.to_vec(),
-      max: max.to_vec(),
+      min: {
+        let mut values = [0; 4];
+        values[..min.len()].copy_from_slice(min);
+        values
+      },
+      max: {
+        let mut values = [0; 4];
+        values[..max.len()].copy_from_slice(max);
+        values
+      },
+      num_dims: min.len(),
     })
   }
 
   /// Get the minimum value for the given dimension.
   pub fn get_min(&self, dimension: usize) -> Result<i32> {
-    CoreHelper::check_index(dimension, self.min.len())?;
+    CoreHelper::check_index(dimension, self.num_dims)?;
     Ok(self.min[dimension])
   }
 
   /// Get the maximum value for the given dimension.
   pub fn get_max(&self, dimension: usize) -> Result<i32> {
-    CoreHelper::check_index(dimension, self.max.len())?;
+    CoreHelper::check_index(dimension, self.num_dims)?;
     Ok(self.max[dimension])
   }
 
@@ -218,8 +228,9 @@ impl Clone for IntRangeDocValuesField {
     Self {
       base: self.base.clone(),
       field: self.field.clone(),
-      min: self.min.clone(),
-      max: self.max.clone(),
+      min: self.min,
+      max: self.max,
+      num_dims: self.num_dims,
     }
   }
 }

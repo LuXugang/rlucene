@@ -24,8 +24,8 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 
-static IDENTITY_PLUS_ONE: LazyLock<Vec<i32>> =
-  LazyLock::new(|| (1..=ForUtil::BLOCK_SIZE as i32).collect());
+static IDENTITY_PLUS_ONE: LazyLock<[i32; ForUtil::BLOCK_SIZE]> =
+  LazyLock::new(|| std::array::from_fn(|i| i as i32 + 1));
 
 /// Inspired from <https://fulmicoton.com/posts/bitpacking/>
 /// Encodes multiple integers in a long to get SIMD-like speedups.
@@ -52,7 +52,7 @@ impl ForDeltaUtil {
   const THREE_BLOCK_SIZE_FOURTHS: usize = 3 * Self::BLOCK_SIZE / 4;
 
   fn prefix_sum_of_ones(arr: &mut [i32], base: i32) {
-    arr.copy_from(&IDENTITY_PLUS_ONE, 0);
+    arr.copy_from(&IDENTITY_PLUS_ONE[..], 0);
     for v in arr.iter_mut() {
       *v = v.wrapping_add(base);
     }

@@ -28,7 +28,6 @@ use crate::core::util::CoreHelper;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::math_util::MathUtil;
 
 pub(crate) const INNER_WINDOW_SIZE: i32 = 1 << 12;
@@ -51,7 +50,7 @@ pub struct MaxScoreBulkScorer<S1, S2> {
   pub(crate) scorable: Score,
   pub(crate) max_score_sums: Vec<f64>,
   filter: Option<DisiWrapper<S2>>,
-  window_matches: Vec<u64>,
+  window_matches: [u64; (INNER_WINDOW_SIZE as usize) >> 6],
   window_scores: Vec<f64>,
   // Number of outer windows that have been evaluated
   num_outer_windows: usize,
@@ -94,7 +93,7 @@ where
     let scratch = vec![0usize; all_scorers_idx.len()];
     let essential_queue = DisiPriorityQueue::new(all_scorers_idx.len());
     let max_score_sums = vec![0f64; all_scorers_idx.len()];
-    let window_matches = vec![0u64; FixedBitSet::bits2words(INNER_WINDOW_SIZE as usize)];
+    let window_matches = [0u64; (INNER_WINDOW_SIZE as usize) >> 6];
     let window_scores = vec![0f64; INNER_WINDOW_SIZE as usize];
 
     Ok(Self {

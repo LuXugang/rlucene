@@ -31,7 +31,7 @@ pub struct MSBRadixSorter<T> {
   /// One histogram per recursion level.
   histograms: [Vec<usize>; LEVEL_THRESHOLD],
   /// End offsets for histograms.
-  end_offsets: Vec<usize>,
+  end_offsets: [usize; HISTOGRAM_SIZE],
   /// Array to store common prefixes.
   common_prefix: [i32; 24],
   /// Maximum length of strings to sort.
@@ -47,7 +47,7 @@ impl<T> MSBRadixSorter<T> {
     let histograms = std::array::from_fn(|_| Vec::new());
     Self {
       histograms,
-      end_offsets: vec![0; HISTOGRAM_SIZE],
+      end_offsets: [0; HISTOGRAM_SIZE],
       max_length,
       common_prefix: [0; 24],
       delegate,

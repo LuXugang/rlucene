@@ -44,7 +44,7 @@ pub struct BooleanScorer<S> {
   // counted
   pub(crate) buckets: Option<Vec<Bucket>>,
   // This is basically an inlined FixedBitSet... seems to help with bound checks
-  pub(crate) matching: Vec<u64>,
+  pub(crate) matching: [u64; SET_SIZE],
   pub(crate) head: PriorityQueue<DisiWrapper<S>, HeadPriorityQueueCmp>,
   pub(crate) tail: PriorityQueue<DisiWrapper<S>, TailPriorityQueueCmp>,
   leads: Vec<DisiWrapper<S>>,
@@ -81,7 +81,7 @@ where
       None
     };
 
-    let matching = vec![0u64; SET_SIZE];
+    let matching = [0u64; SET_SIZE];
 
     let head_size = scorers.len() - min_should_match + 1;
     let tail_size = min_should_match - 1;
@@ -107,7 +107,7 @@ where
       matching,
       head,
       tail,
-      leads: Vec::new(),
+      leads: Vec::with_capacity(head_size + tail_size),
       score: Score::new(0.0),
       min_should_match,
       cost,

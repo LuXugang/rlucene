@@ -136,7 +136,13 @@ where
     let mut copy = AbstractPagedMutable::new(new_size, self.page_size() as i32, sub)?;
     let num_pages = PackedInts::num_blocks(new_size, self.page_size())?;
     let num_common_pages = std::cmp::min(num_pages, self.sub_mutables.len());
-    let mut copy_buffer = vec![0i64; 1024.min(self.page_size()).min(self.size).min(new_size)];
+    stack_or_heap_buffer!(
+      copy_buffer,
+      i64,
+      1024.min(self.page_size()).min(self.size).min(new_size),
+      128,
+      0
+    );
     for i in 0..num_pages {
       // Determine the number of values in the current page
       let value_count = if i == num_pages - 1 {
@@ -159,7 +165,7 @@ where
           &mut sub_mutable,
           0,
           copy_length,
-          &mut copy_buffer,
+          copy_buffer,
         )?;
       }
       copy.sub_mutables.push(sub_mutable);
