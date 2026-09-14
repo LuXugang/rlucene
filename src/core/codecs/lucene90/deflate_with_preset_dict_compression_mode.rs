@@ -204,7 +204,7 @@ impl DeflateWithPresetDictCompressor {
   fn new(level: u32) -> Self {
     Self {
       compressor: Some(Compress::new(Compression::new(level), false)),
-      compressed: vec![0; 64],
+      compressed: Vec::new(),
       closed: false,
       buffer: Vec::new(),
     }
@@ -224,6 +224,9 @@ impl DeflateWithPresetDictCompressor {
       .ok_or_else(|| LuceneError::illegal_state("compressor is closed"))?;
     let initial_total_in = compressor.total_in();
     let initial_total_out = compressor.total_out();
+    if self.compressed.is_empty() {
+      self.compressed.resize(64, 0);
+    }
 
     let total_count = loop {
       let consumed = (compressor.total_in() - initial_total_in) as usize;

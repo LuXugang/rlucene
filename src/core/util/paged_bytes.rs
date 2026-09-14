@@ -355,7 +355,9 @@ impl Reader {
     let index = start >> self.block_bits;
     let offset = start & self.block_mask;
     let block = &self.blocks[index];
-    b.bytes = Arc::clone(block);
+    if !Arc::ptr_eq(&b.bytes, block) {
+      b.bytes = Arc::clone(block);
+    }
     if block[offset] & 128 == 0 {
       b.length = block[offset] as usize;
       b.offset = offset + 1;

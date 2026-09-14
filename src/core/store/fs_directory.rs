@@ -205,7 +205,10 @@ where
         // open file handle against it.  We record this
         // in pendingDeletes and try again later.
 
-        pending_deletes.insert(name.to_string());
+        pending_deletes.reserve(1);
+        if !pending_deletes.contains(name) {
+          pending_deletes.insert(name.to_string());
+        }
         Ok(())
       },
     }

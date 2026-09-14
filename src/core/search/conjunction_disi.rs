@@ -92,10 +92,7 @@ where
   S: Scorer,
 {
   pub(crate) fn from_scorer(scorers: Vec<S>) -> Result<ConjunctionDISIEnum<ScorerDisi<S>>> {
-    let mut iters = Vec::with_capacity(scorers.len());
-    for x in scorers.into_iter() {
-      iters.push(ScorerDisi::new(x));
-    }
+    let iters = scorers.into_iter().map(ScorerDisi::new).collect();
     Self::create_conjunction(iters)
   }
 }
@@ -466,7 +463,7 @@ where
     );
     let (two_phase_iterator_idx, total_match_cost) = {
       let mut tpis = Vec::with_capacity(approximation.len());
-      let mut two_phase_iterator_idx = Vec::with_capacity(tpis.len());
+      let mut two_phase_iterator_idx = Vec::with_capacity(approximation.len());
       for idx in 0..approximation.len() {
         if let Some(tpi) = approximation.iterator_at(idx).two_phase_iterator() {
           two_phase_iterator_idx.push(idx);

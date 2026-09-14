@@ -559,7 +559,7 @@ where
 
   /// find repeating pps, and for each, if has multi-terms, update this.has_multi_term_rpts
   fn repeating_pps(&mut self, rpt_terms: &LinkedHashMap<Term, usize>) -> Vec<usize> {
-    let mut rp = Vec::new();
+    let mut rp = Vec::with_capacity(self.pq.compare.phrase_positions.len());
     for (pp_idx, pp) in self.pq.compare.phrase_positions.iter().enumerate() {
       for t in &pp.terms {
         if rpt_terms.contains_key(t) {

@@ -165,7 +165,7 @@ where
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
   ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
-    let mut matches = Vec::new();
+    let mut matches = Vec::with_capacity(self.weighted_clauses.len());
     let mut should_match_count = 0;
     for weighted_clause in &self.weighted_clauses {
       let clause = &weighted_clause.clause;
@@ -198,7 +198,7 @@ where
   ) -> Result<Explanation> {
     let min_should_match = self.query.get_minimum_number_should_match();
 
-    let mut subs: Vec<Explanation> = Vec::new();
+    let mut subs: Vec<Explanation> = Vec::with_capacity(self.weighted_clauses.len());
     let mut fail = false;
     let mut match_count = 0;
     let mut should_match_count = 0;
@@ -322,7 +322,11 @@ where
     }
     // scorer simplifications:
     if (should.len() as i32) == min_should_match {
-      must.append(&mut should);
+      if must.is_empty() {
+        must = std::mem::take(&mut should);
+      } else {
+        must.append(&mut should);
+      }
       min_should_match = 0;
     }
 

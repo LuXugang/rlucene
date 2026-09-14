@@ -178,7 +178,7 @@ impl BytesRefArray {
     Ok(SortState::new(Some(ordered_entries)))
   }
   pub fn iterator(&'_ self) -> IndexedBytesRefIteratorImpl<'_> {
-    self.iterator_with_state(Arc::from(SortState::new(None)))
+    IndexedBytesRefIteratorImpl::new(None, self)
   }
   /// Returns an [`IndexedBytesRefIteratorImpl`] with point-in-time semantics.
   /// The iterator provides access to all [`BytesRef`] instances appended so
@@ -198,7 +198,7 @@ impl BytesRefArray {
     &'_ self,
     sort_state: Arc<SortState>,
   ) -> IndexedBytesRefIteratorImpl<'_> {
-    IndexedBytesRefIteratorImpl::new(sort_state, self)
+    IndexedBytesRefIteratorImpl::new(Some(sort_state), self)
   }
 }
 /// Appends a copy of the given [`BytesRef`] to this [`BytesRefArray`].
@@ -281,17 +281,17 @@ impl Accountable for SortState {
 pub struct IndexedBytesRefIteratorImpl<'a> {
   pos: usize,
   pub(crate) ord: usize,
-  sort_state: Arc<SortState>,
+  sort_state: Option<Arc<SortState>>,
   size: usize,
   bytes_ref_array: &'a BytesRefArray,
   result: BytesRef<Vec<u8>>,
 }
 impl<'a> IndexedBytesRefIteratorImpl<'a> {
   fn new(
-    sort_state: Arc<SortState>,
+    sort_state: Option<Arc<SortState>>,
     bytes_ref_array: &'a BytesRefArray,
   ) -> IndexedBytesRefIteratorImpl<'a> {
-    if let Some(indices) = &sort_state.indices {
+    if let Some(indices) = sort_state.as_ref().and_then(|state| state.indices.as_ref()) {
       debug_assert_eq!(indices.len(), bytes_ref_array.size());
     }
     Self {
@@ -307,7 +307,11 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
 impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
   fn next(&mut self) -> Result<Option<(usize, BytesRefValueEnum<'_>)>> {
     if self.pos < self.size {
-      self.ord = match self.sort_state.indices.as_ref() {
+      self.ord = match self
+        .sort_state
+        .as_ref()
+        .and_then(|state| state.indices.as_ref())
+      {
         None => self.pos,
         Some(indices) => indices[self.pos],
       };

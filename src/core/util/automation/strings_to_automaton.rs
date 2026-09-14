@@ -108,10 +108,16 @@ impl StringsToAutomaton {
       self.replace_or_register(self.root)?;
     }
 
+    let num_states = self.state_registry.len() + 1;
     self.state_registry.clear();
 
     let mut a = Builder::new();
-    Self::convert(&mut a, self.root, &self.all_states, &mut HashMap::new())?;
+    Self::convert(
+      &mut a,
+      self.root,
+      &self.all_states,
+      &mut HashMap::with_capacity(num_states),
+    )?;
     a.finish()
   }
   /// Builds a minimal, deterministic automaton from a sorted list of

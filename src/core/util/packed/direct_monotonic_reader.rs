@@ -242,7 +242,13 @@ where
     all_values_zero = all_values_zero && (min == 0) && (avg_int == 0) && (bpv == 0);
   }
   if all_values_zero {
-    Ok(Meta::single_zero_block())
+    if meta.num_blocks == 1 {
+      meta.block_shift = 63;
+      meta.offsets[0] = 0;
+      Ok(meta)
+    } else {
+      Ok(Meta::single_zero_block())
+    }
   } else {
     Ok(meta)
   }

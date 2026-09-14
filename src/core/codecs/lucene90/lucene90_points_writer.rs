@@ -320,8 +320,8 @@ where
         total_max_size.try_convert()?,
       )?;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-        let mut point_values = Vec::new();
-        let mut doc_maps = Vec::new();
+        let mut point_values = Vec::with_capacity(merge_state.points_readers.len());
+        let mut doc_maps = Vec::with_capacity(merge_state.points_readers.len());
         for (i, reader) in merge_state.points_readers.iter().enumerate() {
           let Some(reader) = reader.as_ref() else {
             continue;

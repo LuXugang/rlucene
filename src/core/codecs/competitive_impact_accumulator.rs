@@ -101,7 +101,9 @@ impl CompetitiveImpactAccumulator {
     for imp in &impacts {
       Self::add_entry(imp.clone(), &mut freq_norm_pairs);
     }
-    freq_norm_pairs.into_iter().collect()
+    impacts.clear();
+    impacts.extend(freq_norm_pairs);
+    impacts
   }
 
   fn add_entry(new_entry: Impact, freq_norm_pairs: &mut BTreeSet<Impact>) {

@@ -358,7 +358,7 @@ where
   fn get_impacts(&'_ self, level: usize) -> Result<Vec<Impact>> {
     let doc_id_up_to = self.get_doc_id_upto(level);
     let impact_len = self.impacts.len();
-    let mut sub_iterators = Vec::new();
+    let mut sub_iterators = Vec::with_capacity(impact_len);
     let mut has_impacts = false;
     let mut only_impact_list = false;
     let mut pq = PriorityQueue::new(impact_len, SubIteratorCmp)?;

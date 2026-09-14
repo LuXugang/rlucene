@@ -87,12 +87,13 @@ pub trait FieldsConsumer: Closeable {
     N: NormsProducer,
     MS: MergeStateAccess,
   {
-    let mut fields = Vec::new();
-    let mut slices = Vec::new();
+    let reader_count = merge_state.fields_producers().len();
+    let mut fields = Vec::with_capacity(reader_count);
+    let mut slices = Vec::with_capacity(reader_count);
 
     let mut doc_base = 0;
 
-    for reader_index in 0..merge_state.fields_producers().len() {
+    for reader_index in 0..reader_count {
       let f = &merge_state.fields_producers()[reader_index];
       let max_doc = merge_state.max_docs()[reader_index];
 

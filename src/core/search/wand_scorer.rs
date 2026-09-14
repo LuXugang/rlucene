@@ -129,7 +129,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.iterator().cost()
+    self.disi.cost()
   }
 }
 
@@ -702,7 +702,7 @@ where
         self.tail_max_score
       );
 
-      let mut lead_scores: Vec<f32> = Vec::new();
+      let mut lead_scores: Vec<f32> = Vec::with_capacity(self.freq);
 
       let mut cur = self.lead;
       while let Some(idx) = cur {

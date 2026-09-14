@@ -548,11 +548,13 @@ where
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
 
-    let mut subs = vec![];
+    let mut subs = Vec::new();
     debug_assert!(
       self.merge_state.doc_maps().len() == self.merge_state.doc_values_producers().len()
     );
-    for i in 0..self.merge_state.doc_values_producers().len() {
+    let reader_count = self.merge_state.doc_values_producers().len();
+    subs.reserve(reader_count);
+    for i in 0..reader_count {
       let mut values = None;
       let doc_values_producer_opt = &self.merge_state.doc_values_producers()[i];
       if let Some(doc_values_producer) = doc_values_producer_opt {
@@ -713,13 +715,15 @@ where
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
 
-    let mut subs = vec![];
+    let mut subs = Vec::new();
     let mut cost = 0;
     debug_assert!(
       self.merge_state.doc_maps().len() == self.merge_state.doc_values_producers().len()
     );
 
-    for i in 0..self.merge_state.doc_values_producers().len() {
+    let reader_count = self.merge_state.doc_values_producers().len();
+    subs.reserve(reader_count);
+    for i in 0..reader_count {
       let mut values = None;
       let doc_values_producer_opt = &self.merge_state.doc_values_producers()[i];
 
@@ -917,7 +921,7 @@ where
       return Err(LuceneError::illegal_argument("wrong FieldInfo"));
     }
     // We must make new iterators + DocIDMerger for each iterator:
-    let mut subs = vec![];
+    let mut subs = Vec::with_capacity(self.merge_state.doc_values_producers().len());
     let mut cost = 0;
     let mut all_singletons = true;
 
@@ -952,7 +956,7 @@ where
       // All subs are single-valued.
       // We specialize for that case since it makes it easier for codecs
       // to optimize for single-valued fields.
-      let mut single_valued_subs = vec![];
+      let mut single_valued_subs = Vec::with_capacity(subs.len());
       for mut sub in subs {
         let single_valued_values = sub.sub.values.get_numeric_doc_values()?;
         single_valued_subs.push(Sub::new(NumericDocValuesSub::new(

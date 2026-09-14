@@ -681,7 +681,7 @@ where
   }
   fn set_field(&mut self, field: &str) -> Result<()> {
     if self.field.as_deref() != Some(field) {
-      self.field = Some(field.to_string());
+      field.clone_into(self.field.get_or_insert_default());
 
       match self.provider.terms(field)? {
         Some(terms) => {

@@ -65,7 +65,7 @@ where
   {
     let iterators = iterators.into_iter().collect::<Vec<_>>();
     let len = iterators.len();
-    let mut sub_iterators = Vec::new();
+    let mut sub_iterators = Vec::with_capacity(len);
     for (index, mut it) in iterators.into_iter().enumerate() {
       if it.has_next()? {
         let current = it

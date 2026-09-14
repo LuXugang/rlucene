@@ -80,8 +80,8 @@ where
     }
 
     // Lazy init: first time this field is requested
-    let mut subs2 = Vec::new();
-    let mut slices2 = Vec::new();
+    let mut subs2 = Vec::with_capacity(self.subs.len());
+    let mut slices2 = Vec::with_capacity(self.subs.len());
     // Gather all sub-readers that share this field
     for i in 0..self.subs.len() {
       if let Some(terms) = self.subs[i].terms(field)? {

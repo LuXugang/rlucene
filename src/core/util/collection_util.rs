@@ -78,6 +78,7 @@ impl CollectionUtil {
 struct ListTimSorter<'a, T, C> {
   arr: &'a mut [T],
   tmp: Vec<T>,
+  max_temp_slots: usize,
   comp: C,
   pivot: usize,
 }
@@ -90,14 +91,10 @@ where
     comp: C,
     max_temp_slots: usize,
   ) -> TimSorter<ListTimSorter<'a, T, C>> {
-    let tmp = if max_temp_slots > 0 {
-      Vec::with_capacity(max_temp_slots)
-    } else {
-      vec![]
-    };
     let sub = ListTimSorter {
       arr,
-      tmp,
+      tmp: Vec::new(),
+      max_temp_slots,
       comp,
       pivot: 0,
     };
@@ -137,6 +134,9 @@ where
 
   fn save(&mut self, start: usize, len: usize) -> Result<()> {
     self.tmp.clear();
+    if self.tmp.capacity() == 0 {
+      self.tmp.reserve_exact(self.max_temp_slots);
+    }
     self.tmp.extend_from_slice(&self.arr[start..start + len]);
     Ok(())
   }

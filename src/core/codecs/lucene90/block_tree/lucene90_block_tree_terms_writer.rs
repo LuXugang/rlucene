@@ -379,7 +379,7 @@ where
     N: NormsProducer,
   {
     #[cfg(debug_assertions)]
-    let mut last_field: Option<String> = None;
+    let mut last_field: Option<&String> = None;
     let mut field_names = fields.iterator()?;
     while field_names.has_next()? {
       match field_names.next()? {
@@ -389,8 +389,8 @@ where
             debug_assert!({
               let v = last_field
                 .as_ref()
-                .is_none_or(|last| last.cmp(field).to_int() < 0);
-              last_field = Some(field.clone());
+                .is_none_or(|last| (*last).cmp(field).to_int() < 0);
+              last_field = Some(field);
               v
             });
           }
@@ -745,7 +745,7 @@ where
   scratch_ints_ref: IntsRefBuilder<Vec<i32>>,
   version: i32,
   first_pending_term_bytes: Option<Arc<Vec<u8>>>,
-  last_pending_term_bytes: Arc<Vec<u8>>,
+  last_pending_term_bytes: Option<Arc<Vec<u8>>>,
   terms_out: &'a mut O,
   postings_writer: &'a mut PW,
 }
@@ -775,7 +775,7 @@ where
       sum_doc_freq: 0,
       last_term: BytesRefBuilder::new(),
       prefix_starts: vec![0; 8],
-      pending: Vec::new(),
+      pending: Vec::with_capacity(max_items_in_block.min(DEFAULT_MAX_BLOCK_SIZE) as usize),
       new_blocks: Vec::new(),
       suffix_lengths_writer: ByteBuffersDataOutput::new_resettable_instance(),
       suffix_writer: BytesRefBuilder::new(),
@@ -790,7 +790,7 @@ where
       scratch_ints_ref: IntsRefBuilder::new(),
       version,
       first_pending_term_bytes: None,
-      last_pending_term_bytes: Arc::new(vec![]),
+      last_pending_term_bytes: None,
       terms_out,
       postings_writer,
     };
@@ -955,7 +955,7 @@ where
     self.terms_out.write_vint(code)?;
 
     let is_leaf_block = !has_sub_blocks;
-    let mut sub_indices = Vec::new();
+    let mut sub_indices = Vec::with_capacity(if has_sub_blocks { num_entries } else { 0 });
     let mut absolute = true;
 
     if is_leaf_block {
@@ -1247,7 +1247,7 @@ where
       if self.first_pending_term_bytes.is_none() {
         self.first_pending_term_bytes = Some(term.term_bytes.clone());
       }
-      self.last_pending_term_bytes = term.term_bytes.clone();
+      self.last_pending_term_bytes = Some(term.term_bytes.clone());
       self.pending.push(PendingEntryEnum::Term(term));
     }
 
@@ -1342,7 +1342,10 @@ where
         .take()
         .ok_or_else(|| LuceneError::illegal_state("first pending term is missing"))?;
       self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(first_term_bytes))?;
-      let last_term_bytes = std::mem::take(&mut self.last_pending_term_bytes);
+      let last_term_bytes = self
+        .last_pending_term_bytes
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("last pending term is missing"))?;
       self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(last_term_bytes))?;
       meta_out.write_vlong(index_out.get_file_pointer()? as i64)?;
       root

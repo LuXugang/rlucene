@@ -383,7 +383,10 @@ impl TieredMergePolicy {
       let mut best_merge_bytes = 0;
 
       for start_idx in 0..sorted_eligible.len() {
-        let mut candidate = Vec::new();
+        let mut candidate = Vec::with_capacity(std::cmp::min(
+          self.max_merge_at_once as usize,
+          sorted_eligible.len() - start_idx,
+        ));
         let mut hit_too_large = false;
         let mut bytes_this_merge = 0;
         let mut doc_count_this_merge: i64 = 0;
@@ -1005,9 +1008,10 @@ where
 
     let mut index = starting_segment_count.checked_sub(1);
     let mut resulting_segments = starting_segment_count;
+    let mut candidate = Vec::new();
 
     loop {
-      let mut candidate = Vec::new();
+      candidate.clear();
       let mut current_candidate_bytes: i64 = 0;
 
       while let Some(current_index) = index {

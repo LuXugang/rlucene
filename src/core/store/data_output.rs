@@ -209,7 +209,8 @@ pub trait DataOutput {
     Self: Sized,
     I: DataInput + ?Sized,
   {
-    let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
+    let buffer_size = if num_bytes == 0 { 0 } else { COPY_BUFFER_SIZE };
+    let mut buffer = vec![0u8; buffer_size];
     copy_bytes_impl(self, input, num_bytes, &mut buffer)
   }
 

@@ -458,19 +458,23 @@ impl Automata {
     }
 
     let d = if digits > 0 { digits as usize } else { y.len() };
-    let mut bx = String::new();
-    for _ in x.len()..d {
-      bx.push('0');
+    if x.len() < d {
+      let mut bx = String::with_capacity(d);
+      for _ in x.len()..d {
+        bx.push('0');
+      }
+      bx.push_str(&x);
+      x = bx;
     }
-    bx.push_str(&x);
-    x = bx;
 
-    let mut by = String::new();
-    for _ in y.len()..d {
-      by.push('0');
+    if y.len() < d {
+      let mut by = String::with_capacity(d);
+      for _ in y.len()..d {
+        by.push('0');
+      }
+      by.push_str(&y);
+      y = by;
     }
-    by.push_str(&y);
-    y = by;
 
     let mut builder = Builder::new();
 
@@ -478,7 +482,7 @@ impl Automata {
       builder.create_state();
     }
 
-    let mut initials = Vec::new();
+    let mut initials = Vec::with_capacity(if digits <= 0 { y.len() } else { 0 });
     Self::between(&mut builder, &x, &y, 0, &mut initials, digits <= 0)?;
 
     let mut a1 = builder.finish()?;

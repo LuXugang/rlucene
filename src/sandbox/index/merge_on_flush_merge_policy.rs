@@ -162,7 +162,7 @@ where
     MC: MergeContext<D>,
   {
     let merging_segments = merge_context.get_merging_segments(inner);
-    let mut small_segments = Vec::new();
+    let mut small_segments = Vec::with_capacity(segment_infos.size());
     for sci in segment_infos.iter() {
       if sci.size_in_bytes()? < self.small_segment_threshold_bytes
         && !merging_segments.contains(sci.info.get_id_key())

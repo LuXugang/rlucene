@@ -97,11 +97,12 @@ where
     }
     let subs_on_doc = (0..subs.len()).collect();
     let positions = (0..4).map(|_| PosState::new()).collect();
+    let num_subs = subs.len();
     Ok(Self {
       subs,
       subs_on_doc,
-      doc_id_queue: DocIdQueue::new(),
-      pos_queue: PositionQueue::new(),
+      doc_id_queue: DocIdQueue::new(num_subs),
+      pos_queue: PositionQueue::new(num_subs),
       run_automaton,
       positions,
       pos_shift: 0,
@@ -442,8 +443,10 @@ struct DocIdQueue {
 }
 
 impl DocIdQueue {
-  fn new() -> Self {
-    Self { heap: Vec::new() }
+  fn new(capacity: usize) -> Self {
+    Self {
+      heap: Vec::with_capacity(capacity),
+    }
   }
 
   fn is_empty(&self) -> bool {
@@ -512,8 +515,10 @@ struct PositionQueue {
 }
 
 impl PositionQueue {
-  fn new() -> Self {
-    Self { heap: Vec::new() }
+  fn new(capacity: usize) -> Self {
+    Self {
+      heap: Vec::with_capacity(capacity),
+    }
   }
 
   fn is_empty(&self) -> bool {

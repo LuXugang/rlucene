@@ -182,7 +182,11 @@ impl QueryBase for BlendedTermQuery {
 
     for ctx in &mut contexts {
       let adjusted = adjust_frequencies(top_reader_context, ctx, df, ttf)?;
-      *ctx = Arc::new(adjusted);
+      if let Some(unique) = Arc::get_mut(ctx) {
+        *unique = adjusted;
+      } else {
+        *ctx = Arc::new(adjusted);
+      }
     }
 
     let mut term_queries = Vec::with_capacity(term_len);

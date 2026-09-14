@@ -1702,7 +1702,7 @@ where
   {
     debug_assert!(field_info.has_vector_values());
 
-    let mut subs = Vec::new();
+    let mut subs = Vec::with_capacity(merge_state.knn_vectors_readers.len());
     for i in 0..merge_state.knn_vectors_readers.len() {
       if has_vector_values(&merge_state.field_infos[i], &field_info.name)?
         && let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref()

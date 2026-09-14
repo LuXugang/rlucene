@@ -166,7 +166,7 @@ where
       return Ok(());
     }
     // Gather all fields that saw any postings:
-    let mut all_fields = Vec::new();
+    let mut all_fields = Vec::with_capacity(fields_to_flush.len());
     for mut per_field in fields_to_flush.into_values() {
       if per_field.base.get_num_terms() > 0 {
         per_field.base.sort_terms(&byte_pool)?;

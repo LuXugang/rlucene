@@ -774,7 +774,7 @@ impl QueryBase for BooleanQuery {
 
       // Flatten nested disjunctions, this is important for block-max WAND to perform well
       if self.minimum_number_should_match <= 1 {
-        let mut clauses: Vec<(&Query, Occur)> = Vec::new();
+        let mut clauses: Vec<(&Query, Occur)> = Vec::with_capacity(self.clauses.len());
         let mut add_clause = |query, occur| {
           if clauses.len() >= get_max_clause_count() {
             return Err(LuceneError::too_many_clauses(""));
@@ -817,7 +817,7 @@ impl QueryBase for BooleanQuery {
       // Inline required / prohibited clauses. This helps run filtered conjunctive queries more
       // efficiently by providing all clauses to the block-max AND scorer.
       {
-        let mut clauses: Vec<(&Query, Occur)> = Vec::new();
+        let mut clauses: Vec<(&Query, Occur)> = Vec::with_capacity(self.clauses.len());
         let mut add_clause = |query, occur| {
           if clauses.len() >= get_max_clause_count() {
             return Err(LuceneError::too_many_clauses(""));

@@ -60,7 +60,7 @@ impl<'a> CombinedMatch<'a> {
 
 impl Matches for CombinedMatch<'_> {
   fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
-    let mut sub_iterators = Vec::new();
+    let mut sub_iterators = Vec::with_capacity(self.sub.len());
     for matches in &self.sub {
       if let Some(iterator) = matches.get_matches(field)? {
         sub_iterators.push(iterator);

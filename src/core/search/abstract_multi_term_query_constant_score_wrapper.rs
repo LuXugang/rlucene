@@ -93,6 +93,7 @@ where
     TE: TermsEnum,
   {
     let threshold = std::cmp::min(BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD, get_max_clause_count());
+    terms.reserve(threshold);
 
     for _ in 0..threshold {
       let term = match terms_enum.next()? {

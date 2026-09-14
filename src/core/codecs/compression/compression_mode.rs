@@ -491,7 +491,7 @@ impl DeflateCompressor {
     DeflateCompressor {
       level,
       compressor: None,
-      compressed: vec![0; 64],
+      compressed: Vec::new(),
       bytes: Vec::new(),
     }
   }
@@ -517,6 +517,9 @@ impl Compressor for DeflateCompressor {
       .compressor
       .get_or_insert_with(|| Compress::new(Compression::new(self.level), false));
     compressor.reset();
+    if self.compressed.is_empty() {
+      self.compressed.resize(64, 0);
+    }
     let total_count = loop {
       let consumed = compressor.total_in() as usize;
       let total_count = compressor.total_out() as usize;

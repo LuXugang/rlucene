@@ -202,6 +202,7 @@ where
     let mut exc = None;
     match self.primary_dir.list_all() {
       Ok(primary_files) => {
+        files.reserve(primary_files.len());
         for file in primary_files {
           let ext = get_extension(&file);
           // we should respect the extension here as well to ensure that we
@@ -222,6 +223,7 @@ where
     }
     match self.secondary_dir.list_all() {
       Ok(secondary_files) => {
+        files.reserve(secondary_files.len());
         for file in secondary_files {
           let ext = get_extension(&file);
           if !self.primary_extensions.contains(ext) {
@@ -331,15 +333,13 @@ where
   }
 
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
-    let primary_deletions = self.primary_dir.get_pending_deletions()?;
+    let mut primary_deletions = self.primary_dir.get_pending_deletions()?;
     let secondary_deletions = self.secondary_dir.get_pending_deletions()?;
     if primary_deletions.is_empty() && secondary_deletions.is_empty() {
       Ok(HashSet::new())
     } else {
-      let mut combined = HashSet::new();
-      combined.extend(primary_deletions);
-      combined.extend(secondary_deletions);
-      Ok(combined)
+      primary_deletions.extend(secondary_deletions);
+      Ok(primary_deletions)
     }
   }
 }

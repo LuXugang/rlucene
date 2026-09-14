@@ -977,7 +977,7 @@ where
   VSupplier: FnMut(&CRKnnVectorReader<CR>, &str) -> Result<V>,
   NewSub: FnMut(Rc<MergeStateDocMap<CR>>, V) -> Result<S>,
 {
-  let mut subs = Vec::new();
+  let mut subs = Vec::with_capacity(merge_state.knn_vectors_readers.len());
   for i in 0..merge_state.knn_vectors_readers.len() {
     let source_field_info = &merge_state.field_infos[i];
     if !has_vector_values(source_field_info, &merging_field.name)? {
