@@ -18,6 +18,7 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::intersect_terms_enum::IntersectTermsEnum;
+use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::NO_OUTPUT;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::OUTPUT_FLAG_IS_FLOOR;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
@@ -109,7 +110,7 @@ impl IntersectTermsEnumFrame {
 
       stats_singleton_run_length: 0,
       stats_reader: ByteArrayDataInput::with_bytes(stat_bytes),
-      floor_data_reader: ByteArrayDataInput::new(),
+      floor_data_reader: ByteArrayDataInput::with_bytes(NO_OUTPUT.bytes.clone()),
 
       prefix: 0,
       ent_count: 0,

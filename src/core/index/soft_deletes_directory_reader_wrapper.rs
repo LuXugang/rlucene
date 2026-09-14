@@ -55,7 +55,7 @@ where
   DR::ReaderCacheHelper: Clone,
 {
   in_: DR,
-  field: String,
+  field: Arc<str>,
   base: BaseCompositeReaderBase<SoftDeletesCodecReader<DR::LeafReader>>,
   index_base: IndexReaderBase,
   reader_cache_helper: Option<DelegatingCacheHelper<DR::ReaderCacheHelper>>,
@@ -72,7 +72,7 @@ where
   pub fn new(in_: DR, field: &str) -> Result<Self> {
     Self::new_with_wrapper(
       in_,
-      SoftDeletesSubReaderWrapper::new(HashMap::new(), field.to_string())?,
+      SoftDeletesSubReaderWrapper::new(HashMap::new(), Arc::from(field))?,
     )
   }
 
@@ -330,7 +330,7 @@ where
   LR::ReaderCacheHelper: Clone,
 {
   mapping: HashMap<CacheKey, SoftDeletesCodecReader<LR>>,
-  field: String,
+  field: Arc<str>,
 }
 
 impl<LR> SoftDeletesSubReaderWrapper<LR>
@@ -338,7 +338,7 @@ where
   LR: CodecReader + Clone,
   LR::ReaderCacheHelper: Clone,
 {
-  fn new(mapping: HashMap<CacheKey, SoftDeletesCodecReader<LR>>, field: String) -> Result<Self> {
+  fn new(mapping: HashMap<CacheKey, SoftDeletesCodecReader<LR>>, field: Arc<str>) -> Result<Self> {
     Ok(Self { mapping, field })
   }
 }

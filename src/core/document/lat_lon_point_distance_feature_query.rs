@@ -162,7 +162,7 @@ pub struct LatLonPointDistanceFeatureWeight {
 impl LatLonPointDistanceFeatureWeight {
   fn new(query: LatLonPointDistanceFeatureQuery, boost: f32) -> Self {
     let query_meta = QueryMeta {
-      field: query.field.clone(),
+      field: Arc::from(query.field.as_str()),
       origin_lat: query.origin_lat,
       origin_lon: query.origin_lon,
       pivot_distance: query.pivot_distance,
@@ -297,7 +297,7 @@ where
 }
 #[derive(Clone)]
 pub struct QueryMeta {
-  field: String,
+  field: Arc<str>,
   origin_lat: f64,
   origin_lon: f64,
   pivot_distance: f64,

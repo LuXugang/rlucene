@@ -396,7 +396,7 @@ where
       -1,
       self.term_states.clone(),
       prepare_states,
-      parent_query.clone(),
+      self.parent_query.clone(),
       self.sim_weight.clone(),
       self.score_mode,
     );
@@ -429,9 +429,7 @@ where
       score_explanation.value.clone(),
       format!(
         "weight({:?} in {}) [{}], result of:",
-        <Self as Weight<IRC>>::get_query(self),
-        doc,
-        self.similarity,
+        self.parent_query, doc, self.similarity,
       ),
       vec![score_explanation],
     ))
@@ -474,7 +472,7 @@ where
       -1,
       self.term_states.clone(),
       prepare_states,
-      parent_query.clone(),
+      self.parent_query.clone(),
       self.sim_weight.clone(),
       self.score_mode,
     ))))
@@ -848,7 +846,7 @@ impl Impacts for SynonymImpacts<'_> {
 
   fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
     let doc_id_up_to = self.get_doc_id_upto(level);
-    let mut to_merge = Vec::new();
+    let mut to_merge = Vec::with_capacity(self.impacts.len());
 
     for i in 0..self.impacts.len() {
       if self.doc_ids[i] <= doc_id_up_to {
@@ -1320,7 +1318,7 @@ where
   cost: i64,
   term_states: Arc<Vec<TermStates>>,
   prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
-  query: SynonymQuery,
+  query: Arc<Query>,
   sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
   score_mode: ScoreMode,
   iterators: Option<Vec<SynonymPostingsEnum<LR>>>,
@@ -1337,7 +1335,7 @@ where
     cost: i64,
     term_states: Arc<Vec<TermStates>>,
     prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
-    query: SynonymQuery,
+    query: Arc<Query>,
     sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
     score_mode: ScoreMode,
   ) -> Self {
@@ -1360,12 +1358,17 @@ where
       return Ok(());
     }
 
-    let mut iterators = Vec::new();
-    let mut impacts = Vec::new();
-    let mut term_boosts = Vec::new();
+    let Query::Synonym(query) = self.query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected SynonymQuery in synonym scorer supplier",
+      ));
+    };
+    let mut iterators = Vec::with_capacity(query.terms.len());
+    let mut impacts = Vec::with_capacity(query.terms.len());
+    let mut term_boosts = Vec::with_capacity(query.terms.len());
     let mut cost = 0;
 
-    for i in 0..self.query.terms.len() {
+    for i in 0..query.terms.len() {
       let Some(mut prepare_state) = self.prepare_states[i].take() else {
         continue;
       };
@@ -1373,10 +1376,10 @@ where
       if let Some(state) = state {
         let mut terms_enum = context
           .reader()
-          .terms(&self.query.field)?
+          .terms(&query.field)?
           .ok_or_else(|| LuceneError::illegal_state("term should exist here"))?
           .iterator()?;
-        terms_enum.seek_exact_with_state(&self.query.terms[i].term, state.as_ref())?;
+        terms_enum.seek_exact_with_state(&query.terms[i].term, state.as_ref())?;
         if self.score_mode == ScoreMode::TopScores {
           let impacts_enum = SharedImpactsEnum::new(terms_enum.impacts(FREQS as i32)?);
           iterators.push(PostingsEnumEnum2::A(impacts_enum.clone()));
@@ -1387,7 +1390,7 @@ where
           iterators.push(PostingsEnumEnum2::B(postings_enum.clone()));
           impacts.push(ImpactsEnumEnum2::B(SlowImpactsEnum::new(postings_enum)));
         }
-        term_boosts.push(self.query.terms[i].boost);
+        term_boosts.push(query.terms[i].boost);
       }
     }
 
@@ -1432,7 +1435,12 @@ where
     let sim_weight = self.sim_weight.as_ref().cloned().ok_or_else(|| {
       LuceneError::illegal_state("simWeight is missing for matching synonym terms")
     })?;
-    let norms = context.reader().get_norm_values(&self.query.field)?;
+    let Query::Synonym(query) = self.query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected SynonymQuery in synonym scorer supplier",
+      ));
+    };
+    let norms = context.reader().get_norm_values(&query.field)?;
 
     if iterators.len() == 1 {
       let iterator = iterators.remove(0);

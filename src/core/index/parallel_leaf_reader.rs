@@ -70,7 +70,7 @@ where
   num_docs: i32,
   has_deletions: bool,
   meta_data: LeafMetaData,
-  tv_field_to_reader: BTreeMap<String, usize>,
+  tv_field_to_reader: Arc<BTreeMap<String, usize>>,
   field_to_reader: BTreeMap<String, usize>,
   terms_field_to_reader: HashMap<String, usize>,
   index_base: IndexReaderBase,
@@ -331,7 +331,7 @@ where
       num_docs,
       has_deletions,
       meta_data,
-      tv_field_to_reader,
+      tv_field_to_reader: Arc::new(tv_field_to_reader),
       field_to_reader,
       terms_field_to_reader,
       index_base,
@@ -454,7 +454,7 @@ where
 
 pub struct ParallelTermVectors<TV> {
   reader_to_term_vectors: Vec<Option<TV>>,
-  tv_field_to_reader: BTreeMap<String, usize>,
+  tv_field_to_reader: Arc<BTreeMap<String, usize>>,
 }
 
 impl<TV> TermVectors for ParallelTermVectors<TV>
@@ -472,7 +472,7 @@ where
 
   fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
     let mut parallel_fields = ParallelFields::new();
-    for (field_name, reader_index) in &self.tv_field_to_reader {
+    for (field_name, reader_index) in self.tv_field_to_reader.iter() {
       if let Some(term_vectors) = self.reader_to_term_vectors[*reader_index].as_mut()
         && let Some(vector) = term_vectors.get_field_terms(doc, field_name)?
       {

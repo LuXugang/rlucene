@@ -70,16 +70,29 @@ use std::sync::Arc;
 /// multi-dimensional fields, it represents a box-shaped query.
 ///
 /// See also: [`PointValues`]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PointRangeQuery {
   id: Identity,
   field: String,
   num_dims: usize,
   bytes_per_dim: usize,
-  lower_point: Vec<u8>,
-  upper_point: Vec<u8>,
+  points: Arc<(Vec<u8>, Vec<u8>)>,
   sub: PointRangeBaseEnum,
 }
+impl Debug for PointRangeQuery {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("PointRangeQuery")
+      .field("id", &self.id)
+      .field("field", &self.field)
+      .field("num_dims", &self.num_dims)
+      .field("bytes_per_dim", &self.bytes_per_dim)
+      .field("lower_point", &self.points.0)
+      .field("upper_point", &self.points.1)
+      .field("sub", &self.sub)
+      .finish()
+  }
+}
+
 impl PointRangeQuery {
   /// Expert: create a multi-dimensional range query over point values.
   ///
@@ -135,8 +148,7 @@ impl PointRangeQuery {
       field,
       num_dims,
       bytes_per_dim,
-      lower_point,
-      upper_point,
+      points: Arc::new((lower_point, upper_point)),
       sub: sub.into(),
     })
   }
@@ -145,8 +157,8 @@ impl PointRangeQuery {
     self.field == other.field
       && self.num_dims == other.num_dims
       && self.bytes_per_dim == other.bytes_per_dim
-      && self.lower_point == other.lower_point
-      && self.upper_point == other.upper_point
+      && self.points.0 == other.points.0
+      && self.points.1 == other.points.1
   }
   pub fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
@@ -163,8 +175,8 @@ impl PointRangeQuery {
       let start = self.bytes_per_dim * i;
       let end = start + self.bytes_per_dim;
 
-      let lower = &self.lower_point[start..end];
-      let upper = &self.upper_point[start..end];
+      let lower = &self.points.0[start..end];
+      let upper = &self.points.1[start..end];
 
       sb.push('[');
       sb.push_str(&self.sub.to_string(i, lower)?);
@@ -177,11 +189,11 @@ impl PointRangeQuery {
   }
   #[cfg(test)]
   pub fn get_lower_point(&self) -> &[u8] {
-    &self.lower_point
+    &self.points.0
   }
   #[cfg(test)]
   pub fn get_upper_point(&self) -> &[u8] {
-    &self.upper_point
+    &self.points.1
   }
 }
 
@@ -207,8 +219,8 @@ impl Hash for PointRangeQuery {
     self.field.hash(state);
     self.num_dims.hash(state);
     self.bytes_per_dim.hash(state);
-    self.lower_point.hash(state);
-    self.upper_point.hash(state);
+    self.points.0.hash(state);
+    self.points.1.hash(state);
   }
 }
 
@@ -323,14 +335,14 @@ impl PointRangeWeight {
   where
     T: PointTree,
   {
-    let mut visitor = IntersectVisitorImpl2::new(self.query.clone(), self.comparator.clone());
+    let mut visitor = IntersectVisitorImpl2::new(&self.query, &self.comparator);
     self.point_count_with_visitor(&mut visitor, point_tree)?;
     Ok(visitor.matching_node_count)
   }
 
   fn point_count_with_visitor<T>(
     &self,
-    visitor: &mut IntersectVisitorImpl2,
+    visitor: &mut IntersectVisitorImpl2<'_>,
     point_tree: &mut T,
   ) -> Result<()>
   where
@@ -451,11 +463,11 @@ where
 
         if self
           .comparator
-          .compare(&q.lower_point, offset, field_packed_upper.as_ref(), offset)
+          .compare(&q.points.0, offset, field_packed_upper.as_ref(), offset)
           > 0
           || self
             .comparator
-            .compare(&q.upper_point, offset, field_packed_lower.as_ref(), offset)
+            .compare(&q.points.1, offset, field_packed_lower.as_ref(), offset)
             < 0
         {
           // If this query is a required clause of a boolean query, then returning None here
@@ -487,11 +499,11 @@ where
 
         if self
           .comparator
-          .compare(&q.lower_point, offset, field_packed_lower.as_ref(), offset)
+          .compare(&q.points.0, offset, field_packed_lower.as_ref(), offset)
           > 0
           || self
             .comparator
-            .compare(&q.upper_point, offset, field_packed_upper.as_ref(), offset)
+            .compare(&q.points.1, offset, field_packed_upper.as_ref(), offset)
             < 0
         {
           all_docs_match = false;
@@ -575,11 +587,11 @@ pub(crate) fn matches(
   let bytes_per_dim = query.bytes_per_dim;
   let mut offset = 0usize;
   for _ in 0..num_dims {
-    if comparator.compare(packed_value, offset, query.lower_point.as_ref(), offset) < 0 {
+    if comparator.compare(packed_value, offset, query.points.0.as_ref(), offset) < 0 {
       // Doc's value is too low, in this dimension
       return Ok(false);
     }
-    if comparator.compare(packed_value, offset, query.upper_point.as_ref(), offset) > 0 {
+    if comparator.compare(packed_value, offset, query.points.1.as_ref(), offset) > 0 {
       // Doc's value is too high, in this dimension
       return Ok(false);
     }
@@ -608,14 +620,14 @@ pub(crate) fn relate(
   let mut offset = 0usize;
 
   for _ in 0..num_dims {
-    if comparator.compare(min_packed_value, offset, &query.upper_point, offset) > 0
-      || comparator.compare(max_packed_value, offset, &query.lower_point, offset) < 0
+    if comparator.compare(min_packed_value, offset, &query.points.1, offset) > 0
+      || comparator.compare(max_packed_value, offset, &query.points.0, offset) < 0
     {
       return Ok(Relation::CellOutsideQuery);
     }
 
-    if comparator.compare(min_packed_value, offset, &query.lower_point, offset) < 0
-      || comparator.compare(max_packed_value, offset, &query.upper_point, offset) > 0
+    if comparator.compare(min_packed_value, offset, &query.points.0, offset) < 0
+      || comparator.compare(max_packed_value, offset, &query.points.1, offset) > 0
     {
       crosses = true;
     }
@@ -939,13 +951,13 @@ impl IntersectVisitor for IntersectVisitorImpl1 {
   }
 }
 
-struct IntersectVisitorImpl2 {
-  query: Arc<PointRangeQuery>,
-  comparator: ByteArrayComparatorEnum,
+struct IntersectVisitorImpl2<'a> {
+  query: &'a PointRangeQuery,
+  comparator: &'a ByteArrayComparatorEnum,
   matching_node_count: i64,
 }
-impl IntersectVisitorImpl2 {
-  pub fn new(query: Arc<PointRangeQuery>, comparator: ByteArrayComparatorEnum) -> Self {
+impl<'a> IntersectVisitorImpl2<'a> {
+  pub fn new(query: &'a PointRangeQuery, comparator: &'a ByteArrayComparatorEnum) -> Self {
     Self {
       query,
       comparator,
@@ -953,7 +965,7 @@ impl IntersectVisitorImpl2 {
     }
   }
 }
-impl IntersectVisitor for IntersectVisitorImpl2 {
+impl IntersectVisitor for IntersectVisitorImpl2<'_> {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
     Err(LuceneError::unsupported_operation(format!(
       "This IntersectVisitor does not perform any actions on a docID={} node being visited",
@@ -962,7 +974,7 @@ impl IntersectVisitor for IntersectVisitorImpl2 {
   }
 
   fn visit_with_packed_value(&mut self, _doc_id: i32, packed_value: &[u8]) -> Result<()> {
-    if matches(&self.query, &self.comparator, packed_value)? {
+    if matches(self.query, self.comparator, packed_value)? {
       self.matching_node_count += 1;
     }
     Ok(())
@@ -970,8 +982,8 @@ impl IntersectVisitor for IntersectVisitorImpl2 {
 
   fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
     relate(
-      &self.query,
-      &self.comparator,
+      self.query,
+      self.comparator,
       min_packed_value,
       max_packed_value,
     )

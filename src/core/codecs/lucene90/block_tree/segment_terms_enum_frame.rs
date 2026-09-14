@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
+use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::NO_OUTPUT;
 use crate::core::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::core::codecs::lucene90::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum::OutputAccumulator;
@@ -136,7 +137,7 @@ impl SegmentTermsEnumFrame {
       stats_reader,
 
       rewind_pos: 0,
-      floor_data_reader: ByteArrayDataInput::new(),
+      floor_data_reader: ByteArrayDataInput::with_bytes(NO_OUTPUT.bytes.clone()),
 
       prefix_length: 0,
       ent_count: 0,

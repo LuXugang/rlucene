@@ -44,9 +44,9 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::term_query::TermQuery;
+use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use crate::core::util::{HasIdentity, SliceCopyOps};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -57,7 +57,7 @@ use std::sync::Arc;
 pub struct MultiPhraseQuery {
   id: Identity,
   slop: i32,
-  field: Option<String>,
+  field: Option<Arc<str>>,
   term_arrays: Arc<Vec<Vec<Term>>>,
   positions: Arc<Vec<i32>>,
 }
@@ -121,7 +121,7 @@ impl HasIdentity for MultiPhraseQuery {
 /// A builder for multi-phrase queries.
 #[derive(Debug, Clone)]
 pub struct Builder {
-  field: Option<String>,
+  field: Option<Arc<str>>,
   term_arrays: Vec<Vec<Term>>,
   positions: Vec<i32>,
   slop: i32,
@@ -199,14 +199,14 @@ impl Builder {
       let first_term = terms
         .first()
         .ok_or_else(|| LuceneError::array_index_out_of_bounds("Term array must not be empty"))?;
-      self.field = Some(first_term.field().to_string());
+      self.field = Some(Arc::from(first_term.field()));
     }
     let field = self
       .field
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("field is not set"))?;
     for term in &terms {
-      if term.field() != field {
+      if term.field() != field.as_ref() {
         return Err(LuceneError::illegal_argument(format!(
           "All phrase terms must be in the same field ({}): {}",
           field, term
@@ -286,7 +286,8 @@ impl QueryBase for MultiPhraseQuery {
     let similarity = searcher.get_similarity();
     let field = self
       .field
-      .clone()
+      .as_deref()
+      .map(str::to_owned)
       .ok_or_else(|| LuceneError::illegal_state("MultiPhraseQuery field is not set"))?;
     let base = PhraseWeightMeta::new(field, *score_mode, similarity, self.clone().into());
     let sub = MultiPhraseQueryWeightBase::new(self, boost, base);
@@ -360,7 +361,11 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
   where
     IRC: IndexReaderContext,
   {
-    let mut all_term_stats = Vec::new();
+    let mut all_term_stats = Vec::with_capacity(if self.base.score_mode.needs_scores() {
+      self.query.term_arrays.len()
+    } else {
+      0
+    });
 
     for terms in &*self.query.term_arrays {
       for term in terms {
@@ -436,7 +441,7 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
 
     for pos in 0..self.query.term_arrays.len() {
       let terms = &self.query.term_arrays[pos];
-      let mut posting_enums: Vec<LRPosting<LR>> = Vec::new();
+      let mut posting_enums: Vec<LRPosting<LR>> = Vec::with_capacity(terms.len());
 
       for term in terms {
         let ts = match self.term_states.get(term) {
@@ -749,9 +754,7 @@ impl PositionsQueue {
   }
 
   fn grow_array(&mut self) {
-    let mut new_array = vec![0; self.array_size * 2];
-    new_array.copy_from(&self.array[..self.array_size], 0);
-    self.array = new_array;
+    self.array.resize(self.array_size * 2, 0);
     self.array_size *= 2;
   }
 }

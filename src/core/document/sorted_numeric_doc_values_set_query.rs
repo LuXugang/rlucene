@@ -215,9 +215,12 @@ where
     let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
     let iterator = if values.is_single_valued() {
       let singleton = DocValues::unwrap_singleton_numeric(&mut values)?;
-      TwoPhaseIteratorEnum2::A(TwoPhaseIterator1::new(singleton, self.query.clone()))
+      TwoPhaseIteratorEnum2::A(TwoPhaseIterator1::new(
+        singleton,
+        self.query.numbers.clone(),
+      ))
     } else {
-      TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.clone()))
+      TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.numbers.clone()))
     };
     let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
     Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
@@ -226,11 +229,11 @@ where
 
 pub struct TwoPhaseIterator1<N> {
   singleton: N,
-  query: SortedNumericDocValuesSetQuery,
+  numbers: Arc<DocValuesLongHashSet>,
 }
 impl<N> TwoPhaseIterator1<N> {
-  pub fn new(singleton: N, query: SortedNumericDocValuesSetQuery) -> Self {
-    TwoPhaseIterator1 { singleton, query }
+  pub fn new(singleton: N, numbers: Arc<DocValuesLongHashSet>) -> Self {
+    TwoPhaseIterator1 { singleton, numbers }
   }
 }
 impl<N> TwoPhaseIterator for TwoPhaseIterator1<N>
@@ -247,7 +250,7 @@ where
 
   fn matches(&mut self) -> Result<bool> {
     let value = self.singleton.long_value()?;
-    let numbers = &self.query.numbers;
+    let numbers = &self.numbers;
     Ok(value >= numbers.min_value && value <= numbers.max_value && numbers.contains(value))
   }
 
@@ -257,12 +260,12 @@ where
 }
 pub struct TwoPhaseIterator2<S> {
   value: S,
-  query: SortedNumericDocValuesSetQuery,
+  numbers: Arc<DocValuesLongHashSet>,
 }
 
 impl<S> TwoPhaseIterator2<S> {
-  pub fn new(value: S, query: SortedNumericDocValuesSetQuery) -> Self {
-    TwoPhaseIterator2 { value, query }
+  pub fn new(value: S, numbers: Arc<DocValuesLongHashSet>) -> Self {
+    TwoPhaseIterator2 { value, numbers }
   }
 }
 
@@ -279,7 +282,7 @@ where
   }
 
   fn matches(&mut self) -> Result<bool> {
-    let numbers = &self.query.numbers;
+    let numbers = &self.numbers;
     let count = self.value.doc_value_count()?;
 
     for _ in 0..count {

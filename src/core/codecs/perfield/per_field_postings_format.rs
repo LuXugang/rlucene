@@ -116,7 +116,7 @@ struct FieldsGroup<'a, D> {
   state: SegmentWriteState<'a, D>,
 }
 
-type FieldsGroupMapping<'a, 'b, F, D> = HashMap<Identity, (&'b F, FieldsGroup<'a, D>)>;
+type FieldsGroupMapping<'a, 'b, F, D> = HashMap<&'b Identity, (&'b F, FieldsGroup<'a, D>)>;
 
 struct FieldsGroupBuilder<'a, D> {
   fields: HashSet<String>,
@@ -202,7 +202,7 @@ where
   {
     // Maps a PostingsFormat instance to the suffix it should use.
     let mut format_to_group_builders: HashMap<
-      Identity,
+      &'b Identity,
       (&'b B::Format, FieldsGroupBuilder<'a, D1>),
     > = HashMap::new();
 
@@ -222,7 +222,7 @@ where
         })?;
       let format = base.get_postings_format_for_field(field)?;
       let format_name = format.get_name();
-      let identity = format.identity().clone();
+      let identity = format.identity();
 
       let group_builder = match format_to_group_builders.entry(identity) {
         Entry::Occupied(entry) => {
@@ -343,8 +343,9 @@ where
     N: NormsProducer,
     MS: MergeStateAccess,
   {
-    let mut iterators = Vec::new();
-    for fields_producer in merge_state.fields_producers().iter().flatten() {
+    let fields_producers = merge_state.fields_producers();
+    let mut iterators = Vec::with_capacity(fields_producers.len());
+    for fields_producer in fields_producers.iter().flatten() {
       iterators.push(fields_producer.iterator()?);
     }
     let mut indexed_field_names = MergedIterator::new(iterators)?;
@@ -392,7 +393,7 @@ where
 
 pub struct FieldsReader<FP> {
   fields: HashMap<String, Arc<FP>>,
-  field_names: Vec<String>,
+  field_names: Arc<Vec<String>>,
   formats: HashMap<String, Arc<FP>>,
   segment: String,
 }
@@ -524,7 +525,7 @@ where
     field_names.sort();
     Ok(Self {
       fields,
-      field_names,
+      field_names: Arc::new(field_names),
       formats,
       segment: segment_info.name.clone(),
     })

@@ -72,7 +72,7 @@ where
   D: Directory,
 {
   base: OneMergeWrappingMergePolicy<D>,
-  field: String,
+  field: Arc<str>,
   retention_query_supplier: RetentionQuerySupplier,
   matching_docs: MatchingDocs<D>,
 }
@@ -107,7 +107,7 @@ where
     S: Fn() -> Result<Query> + Send + Sync + 'static,
     T2: Into<String>,
   {
-    let field = field.into();
+    let field: Arc<str> = Arc::from(field.into());
     let retention_query_supplier: RetentionQuerySupplier = Arc::new(retention_query_supplier);
     let operator = SoftDeletesRetentionOneMergeUnaryOperator::new(
       field.clone(),
@@ -342,7 +342,7 @@ pub struct SoftDeletesRetentionOneMergeUnaryOperator<D>
 where
   D: Directory,
 {
-  field: String,
+  field: Arc<str>,
   retention_query_supplier: RetentionQuerySupplier,
   apply_retention_query: fn(&str, Query, DefaultLeafReader<D>) -> Result<DefaultLeafReader<D>>,
 }
@@ -365,7 +365,7 @@ where
   D: Directory,
 {
   fn new(
-    field: String,
+    field: Arc<str>,
     retention_query_supplier: RetentionQuerySupplier,
     apply_retention_query: fn(&str, Query, DefaultLeafReader<D>) -> Result<DefaultLeafReader<D>>,
   ) -> Self {
@@ -410,7 +410,7 @@ where
   CR: CodecReader,
 {
   wrapped: Box<OneMergeHook<D, CR>>,
-  field: String,
+  field: Arc<str>,
   retention_query_supplier: RetentionQuerySupplier,
   apply_retention_query: fn(&str, Query, CR) -> Result<CR>,
 }
@@ -422,7 +422,7 @@ where
 {
   fn new(
     wrapped: OneMergeHook<D, CR>,
-    field: String,
+    field: Arc<str>,
     retention_query_supplier: RetentionQuerySupplier,
     apply_retention_query: fn(&str, Query, CR) -> Result<CR>,
   ) -> Self {

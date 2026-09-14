@@ -34,13 +34,15 @@ use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 /// Search for all approximate byte vectors above a similarity threshold.
 #[derive(Clone, Debug)]
 pub struct ByteVectorSimilarityQuery {
   base: AbstractVectorSimilarityQueryBase,
-  target: Vec<u8>,
+  target: Arc<Vec<u8>>,
   id: Identity,
   #[cfg(test)]
   pub(crate) has_vector_scorer: bool,
@@ -85,7 +87,7 @@ impl ByteVectorSimilarityQuery {
         result_similarity,
         filter,
       )?,
-      target,
+      target: Arc::new(target),
       id: Identity::new(),
       #[cfg(test)]
       has_vector_scorer: true,
@@ -167,7 +169,7 @@ impl ByteVectorSimilarityQuery {
 
   /// Returns a copy of the target query vector.
   pub fn get_target_copy(&self) -> Vec<u8> {
-    self.target.clone()
+    self.target.as_ref().clone()
   }
 }
 
@@ -213,8 +215,8 @@ impl QueryBase for ByteVectorSimilarityQuery {
       self.base.traversal_similarity,
       self.base.result_similarity,
       match &self.base.filter {
-        Some(filter) => filter.to_string("")?,
-        None => "None".to_string(),
+        Some(filter) => Cow::Owned(filter.to_string("")?),
+        None => Cow::Borrowed("None"),
       }
     ))
   }
@@ -276,7 +278,7 @@ impl AbstractVectorSimilarityQuery for ByteVectorSimilarityQuery {
         return Ok(None);
       },
     };
-    vector_values.scorer(self.target.clone())
+    vector_values.scorer(self.target.as_ref().clone())
   }
 
   fn approximate_search<LR, B, K>(
@@ -294,7 +296,7 @@ impl AbstractVectorSimilarityQuery for ByteVectorSimilarityQuery {
     let mut collector = knn_collector_manager.new_collector(visit_limit, context)?;
     context.reader().search_nearest_vectors_u8(
       &self.base.field,
-      self.target.clone(),
+      self.target.as_ref().clone(),
       &mut collector,
       accept_docs,
     )?;

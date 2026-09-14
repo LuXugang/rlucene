@@ -625,7 +625,7 @@ pub struct FieldEntry {
   num_levels: usize,
   dimension: i32,
   size: usize,
-  nodes_by_level: Arc<Vec<Arc<Vec<usize>>>>,
+  nodes_by_level: Arc<Vec<Option<Arc<Vec<usize>>>>>,
   // for each level the start offsets in vectorIndex file from where to read neighbours
   offsets_meta: Option<Meta>,
   offsets_offset: usize,
@@ -667,10 +667,10 @@ impl FieldEntry {
             level_nodes[i] = level_nodes[i - 1] + input.read_vint()?.try_convert()?;
           }
         }
-        nodes_by_level.push(Arc::new(level_nodes));
+        nodes_by_level.push(Some(Arc::new(level_nodes)));
       } else {
         number_of_offsets += size as i64;
-        nodes_by_level.push(Arc::new(Vec::new()));
+        nodes_by_level.push(None);
       }
     }
 
@@ -716,7 +716,7 @@ impl Accountable for FieldEntry {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut size = (mem::size_of_val(self.nodes_by_level.as_ref()) as i64)
       .saturating_add(size_of_vec(self.nodes_by_level.as_ref()));
-    for nodes in self.nodes_by_level.iter() {
+    for nodes in self.nodes_by_level.iter().flatten() {
       size = size
         .saturating_add(mem::size_of_val(nodes.as_ref()) as i64)
         .saturating_add(size_of_vec(nodes.as_ref()));
@@ -733,7 +733,7 @@ where
   I: IndexInput,
 {
   data_in: I::IndexInput,
-  nodes_by_level: Arc<Vec<Arc<Vec<usize>>>>,
+  nodes_by_level: Arc<Vec<Option<Arc<Vec<usize>>>>>,
   num_levels: usize,
   entry_node: usize,
   size: usize,
@@ -759,7 +759,9 @@ where
     let nodes_by_level = entry.nodes_by_level.clone();
     let num_levels = entry.num_levels;
     let entry_node = if num_levels > 1 {
-      nodes_by_level[num_levels - 1][0]
+      nodes_by_level[num_levels - 1]
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("nonzero graph level has no nodes"))?[0]
     } else {
       0
     };
@@ -783,10 +785,9 @@ where
     graph_level_node_index_offsets[0] = 0;
 
     for i in 1..num_levels {
-      let node_count = if nodes_by_level[i - 1].is_empty() {
-        size
-      } else {
-        nodes_by_level[i - 1].len()
+      let node_count = match &nodes_by_level[i - 1] {
+        Some(nodes) if !nodes.is_empty() => nodes.len(),
+        _ => size,
       };
       graph_level_node_index_offsets[i] = graph_level_node_index_offsets[i - 1] + node_count;
     }
@@ -814,7 +815,9 @@ where
     let target_index = if level == 0 {
       target_ord
     } else {
-      let nodes = &self.nodes_by_level[level];
+      let nodes = self.nodes_by_level[level]
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("nonzero graph level has no nodes"))?;
       match nodes.binary_search(&target_ord) {
         Ok(idx) => idx,
         Err(_) => {
@@ -877,7 +880,10 @@ where
     if level == 0 {
       Ok(ArrayNodesIterator::from_size(self.size()))
     } else {
-      let nodes = self.nodes_by_level[level].clone();
+      let nodes = self.nodes_by_level[level]
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("nonzero graph level has no nodes"))?
+        .clone();
       let len = nodes.len();
       Ok(ArrayNodesIterator::from_nodes(Some(nodes), len))
     }

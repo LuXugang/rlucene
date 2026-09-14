@@ -964,7 +964,7 @@ impl OutputAccumulator {
   pub(crate) fn new() -> Self {
     Self {
       outputs: Vec::with_capacity(16),
-      current: BytesRef::new(),
+      current: NO_OUTPUT.clone(),
       num: 0,
       output_index: 0,
       index: 0,
@@ -974,9 +974,10 @@ impl OutputAccumulator {
     if !BytesRef::equals(&output, &NO_OUTPUT) {
       debug_assert!(output.length > 0);
       if self.outputs.len() == self.num {
-        self.outputs.resize(self.num + 1, BytesRef::new());
+        self.outputs.push(output);
+      } else {
+        self.outputs[self.num] = output;
       }
-      self.outputs[self.num] = output;
       self.num += 1;
     }
   }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::Write as _;
+use std::sync::Arc;
 
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::{FloatVectorValues, check_field};
@@ -57,7 +58,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone, Debug)]
 pub struct KnnFloatVectorQuery {
   base: AbstractKnnVectorQueryBase,
-  target: Vec<f32>,
+  target: Arc<Vec<f32>>,
   hook: KnnFloatVectorQueryHook,
   id: Identity,
 }
@@ -113,7 +114,7 @@ impl KnnFloatVectorQuery {
     VectorUtil::check_finite(target.as_ref())?;
     Ok(Self {
       base: AbstractKnnVectorQueryBase::new(field, k, filter)?,
-      target,
+      target: Arc::new(target),
       hook: KnnFloatVectorQueryHook::Default,
       id: Identity::new(),
     })
@@ -136,7 +137,7 @@ impl KnnFloatVectorQuery {
 
   /// Returns the target query vector of the search. Each vector element is a float.
   pub fn get_target_copy(&self) -> Vec<f32> {
-    self.target.clone()
+    self.target.as_ref().clone()
   }
 }
 
@@ -157,7 +158,7 @@ impl Hash for KnnFloatVectorQuery {
   {
     self.base.hash(state);
     self.hook.hash(state);
-    for &v in &self.target {
+    for &v in self.target.iter() {
       (BitUtil::float_to_int_bits(v) as u32).hash(state);
     }
   }
@@ -276,7 +277,7 @@ impl AbstractKnnVectorQuery for KnnFloatVectorQuery {
 
     reader.search_nearest_vectors_f32(
       &self.base.field,
-      self.target.clone(),
+      self.target.as_ref().clone(),
       &mut knn_collector,
       accept_docs,
     )?;
@@ -304,7 +305,7 @@ impl AbstractKnnVectorQuery for KnnFloatVectorQuery {
         return Ok(None);
       },
     };
-    vector_values.scorer(self.target.clone())
+    vector_values.scorer(self.target.as_ref().clone())
   }
 
   fn exact_search<LR, T, Q>(

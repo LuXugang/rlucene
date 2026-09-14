@@ -44,6 +44,8 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
+#[cfg(any(test, debug_assertions))]
+use std::sync::Arc;
 
 pub type PackedTokenAttribute = CharTermAttributeImpl<PackedTokenAttributeImpl>;
 /// Default implementation of the common attributes used by Lucene:
@@ -57,14 +59,14 @@ pub type PackedTokenAttribute = CharTermAttributeImpl<PackedTokenAttributeImpl>;
 pub struct PackedTokenAttributeImpl {
   start_offset: i32,
   end_offset: i32,
-  type_: String,
+  type_: Cow<'static, str>,
   position_increment: i32,
   position_length: i32,
   term_frequency: i32,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
   #[cfg(any(test, debug_assertions))]
-  attribute: HashSet<String>,
+  attribute: Arc<HashSet<String>>,
   #[cfg(test)]
   pub token: TokenBase,
 }
@@ -92,14 +94,14 @@ impl PackedTokenAttributeImpl {
     let sub = Self {
       start_offset: 0,
       end_offset: 0,
-      type_: DEFAULT_TYPE.to_string(),
+      type_: Cow::Borrowed(DEFAULT_TYPE),
       position_increment: 1,
       position_length: 1,
       term_frequency: 1,
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
       #[cfg(any(test, debug_assertions))]
-      attribute,
+      attribute: Arc::new(attribute),
       #[cfg(test)]
       token,
     };
@@ -117,11 +119,15 @@ impl Attribute for PackedTokenAttributeImpl {
 impl TypeAttribute for PackedTokenAttributeImpl {
   /// Returns this Token's lexical type. Defaults to "word".
   fn type_(&self) -> &str {
-    self.type_.as_str()
+    self.type_.as_ref()
   }
   /// Set the lexical type.
   fn set_type(&mut self, type_: &str) {
-    type_.clone_into(&mut self.type_);
+    match &mut self.type_ {
+      Cow::Borrowed(_) if type_ == DEFAULT_TYPE => {},
+      Cow::Borrowed(_) => self.type_ = Cow::Owned(type_.to_owned()),
+      Cow::Owned(value) => type_.clone_into(value),
+    }
   }
 }
 impl PositionIncrementAttribute for PackedTokenAttributeImpl {
@@ -224,7 +230,7 @@ impl AttributeImpl for PackedTokenAttributeImpl {
     self.term_frequency = 1;
     self.start_offset = 0;
     self.end_offset = 0;
-    DEFAULT_TYPE.clone_into(&mut self.type_);
+    TypeAttribute::set_type(self, DEFAULT_TYPE);
     #[cfg(test)]
     self.check_clear_attributes.clear();
     #[cfg(test)]
@@ -243,7 +249,7 @@ impl AttributeImpl for PackedTokenAttributeImpl {
     to.position_length = self.position_length;
     to.start_offset = self.start_offset;
     to.end_offset = self.end_offset;
-    to.type_.clone_from(&self.type_);
+    TypeAttribute::set_type(to, self.type_.as_ref());
     to.term_frequency = self.term_frequency;
     #[cfg(test)]
     self.token.copy_to(&mut to.token)?;

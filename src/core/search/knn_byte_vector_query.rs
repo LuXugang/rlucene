@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt::Write as _;
+use std::sync::Arc;
 
 use crate::core::index::byte_vector_values::{ByteVectorValues, check_field};
 use crate::core::index::field_info::FieldInfo;
@@ -54,7 +55,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone, Debug)]
 pub struct KnnByteVectorQuery {
   base: AbstractKnnVectorQueryBase,
-  target: Vec<u8>,
+  target: Arc<Vec<u8>>,
   hook: KnnByteVectorQueryHook,
   id: Identity,
 }
@@ -109,7 +110,7 @@ impl KnnByteVectorQuery {
     let field = field.into();
     Ok(Self {
       base: AbstractKnnVectorQueryBase::new(field, k, filter)?,
-      target,
+      target: Arc::new(target),
       hook: KnnByteVectorQueryHook::Default,
       id: Identity::new(),
     })
@@ -130,7 +131,7 @@ impl KnnByteVectorQuery {
   }
   /// Returns the target query vector of the search. Each vector element is a float.
   pub fn get_target_copy(&self) -> Vec<u8> {
-    self.target.clone()
+    self.target.as_ref().clone()
   }
 }
 impl PartialEq for KnnByteVectorQuery {
@@ -262,7 +263,7 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
 
     reader.search_nearest_vectors_u8(
       &self.base.field,
-      self.target.clone(),
+      self.target.as_ref().clone(),
       &mut knn_collector,
       accept_docs,
     )?;
@@ -290,7 +291,7 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
         return Ok(None);
       },
     };
-    vector_values.scorer(self.target.clone())
+    vector_values.scorer(self.target.as_ref().clone())
   }
 
   fn exact_search<LR, T, Q>(

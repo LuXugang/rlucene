@@ -33,10 +33,14 @@ pub struct RunAutomaton {
   pub(crate) automaton: Arc<Automaton>,
   alphabet_size: usize,
   size: usize,
-  accept: Arc<FixedBitSet>,
-  transitions: Arc<Vec<i32>>, // transitions[state * points.len() + get_char_class(c)]
-  points: Arc<Vec<i32>>,
-  classmap: Arc<Vec<usize>>,
+  tables: Arc<RunAutomatonTables>,
+}
+
+struct RunAutomatonTables {
+  accept: FixedBitSet,
+  transitions: Vec<i32>, // transitions[state * points.len() + get_char_class(c)]
+  points: Vec<i32>,
+  classmap: Vec<usize>,
 }
 
 impl RunAutomaton {
@@ -89,10 +93,12 @@ impl RunAutomaton {
       automaton: Arc::new(automaton),
       alphabet_size,
       size,
-      accept: Arc::new(accept),
-      transitions: Arc::new(transitions),
-      points: Arc::new(points),
-      classmap: Arc::new(classmap),
+      tables: Arc::new(RunAutomatonTables {
+        accept,
+        transitions,
+        points,
+        classmap,
+      }),
     })
   }
   /// Returns number of states in automaton.
@@ -108,23 +114,23 @@ impl RunAutomaton {
   /// Returns:
   /// - `true` if the state is an accept state, otherwise `false`.
   pub fn is_accept(&self, state: i32) -> Result<bool> {
-    self.accept.get(state as usize)
+    self.tables.accept.get(state as usize)
   }
 
   /// Returns array of codepoint class interval start points. The array should
   /// not be modified by the caller.
   pub fn char_intervals(&self) -> &[i32] {
-    self.points.as_slice()
+    self.tables.points.as_slice()
   }
   /// Gets character class of given codepoint
   fn get_char_class(&self, c: i32) -> usize {
     let mut a = 0;
-    let mut b = self.points.len();
+    let mut b = self.tables.points.len();
     while b - a > 1 {
       let d = (a + b) / 2;
-      if self.points[d] > c {
+      if self.tables.points[d] > c {
         b = d;
-      } else if self.points[d] < c {
+      } else if self.tables.points[d] < c {
         a = d;
       } else {
         return d;
@@ -141,12 +147,12 @@ impl RunAutomaton {
   pub fn step(&self, state: i32, c: i32) -> i32 {
     let char_index = c as usize;
     debug_assert!(char_index < self.alphabet_size);
-    let class = if char_index >= self.classmap.len() {
+    let class = if char_index >= self.tables.classmap.len() {
       self.get_char_class(c)
     } else {
-      self.classmap[char_index]
+      self.tables.classmap[char_index]
     };
-    self.transitions[state as usize * self.points.len() + class]
+    self.tables.transitions[state as usize * self.tables.points.len() + class]
   }
 }
 impl fmt::Display for RunAutomaton {
@@ -154,18 +160,18 @@ impl fmt::Display for RunAutomaton {
     writeln!(f, "initial state: 0")?;
     for i in 0..self.size {
       write!(f, "state {i}")?;
-      match self.accept.get(i) {
+      match self.tables.accept.get(i) {
         Ok(true) => write!(f, " [accept]:")?,
         Ok(false) => write!(f, " [reject]:")?,
         Err(_) => return Err(fmt::Error),
       }
 
-      for j in 0..self.points.len() {
-        let k = self.transitions[i * self.points.len() + j];
+      for j in 0..self.tables.points.len() {
+        let k = self.tables.transitions[i * self.tables.points.len() + j];
         if k != -1 {
-          let min = self.points[j];
-          let max = if j + 1 < self.points.len() {
-            self.points[j + 1] - 1
+          let min = self.tables.points[j];
+          let max = if j + 1 < self.tables.points.len() {
+            self.tables.points[j + 1] - 1
           } else {
             self.alphabet_size as i32
           };
@@ -189,14 +195,11 @@ impl Accountable for RunAutomaton {
     Ok(
       (std::mem::size_of_val(self.automaton.as_ref()) as i64)
         .saturating_add(self.automaton.ram_bytes_used()?)
-        .saturating_add(std::mem::size_of_val(self.accept.as_ref()) as i64)
-        .saturating_add(self.accept.ram_bytes_used()?)
-        .saturating_add(std::mem::size_of_val(self.transitions.as_ref()) as i64)
-        .saturating_add(size_of_vec(self.transitions.as_ref()))
-        .saturating_add(std::mem::size_of_val(self.points.as_ref()) as i64)
-        .saturating_add(size_of_vec(self.points.as_ref()))
-        .saturating_add(std::mem::size_of_val(self.classmap.as_ref()) as i64)
-        .saturating_add(size_of_vec(self.classmap.as_ref())),
+        .saturating_add(std::mem::size_of_val(self.tables.as_ref()) as i64)
+        .saturating_add(self.tables.accept.ram_bytes_used()?)
+        .saturating_add(size_of_vec(&self.tables.transitions))
+        .saturating_add(size_of_vec(&self.tables.points))
+        .saturating_add(size_of_vec(&self.tables.classmap)),
     )
   }
 }
@@ -207,7 +210,7 @@ impl Hash for RunAutomaton {
   {
     self.alphabet_size.hash(state);
     self.size.hash(state);
-    self.points.hash(state);
+    self.tables.points.hash(state);
   }
 }
 use std::cmp::PartialEq;
@@ -220,9 +223,10 @@ impl PartialEq for RunAutomaton {
     }
     self.alphabet_size == other.alphabet_size
       && self.size == other.size
-      && self.points == other.points
-      && self.accept == other.accept
-      && self.transitions == other.transitions
+      && (Arc::ptr_eq(&self.tables, &other.tables)
+        || (self.tables.points == other.tables.points
+          && self.tables.accept == other.tables.accept
+          && self.tables.transitions == other.tables.transitions))
   }
 }
 

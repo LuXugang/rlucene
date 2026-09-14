@@ -27,6 +27,8 @@ use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
+#[cfg(any(test, debug_assertions))]
+use std::sync::Arc;
 
 /// Default implementation of [`CharTermAttribute`].
 pub struct CharTermAttributeImpl<T> {
@@ -36,7 +38,7 @@ pub struct CharTermAttributeImpl<T> {
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
   pub sub: T,
   #[cfg(any(test, debug_assertions))]
-  attribute: HashSet<String>,
+  attribute: Arc<HashSet<String>>,
 }
 impl CharTermAttributeImpl<EmptyAttributeImpl> {
   pub fn new() -> Result<Self> {
@@ -67,7 +69,7 @@ where
       builder: BytesRefBuilder::new(),
       sub,
       #[cfg(any(test, debug_assertions))]
-      attribute,
+      attribute: Arc::new(attribute),
     })
   }
   fn grow_term_buffer(&mut self, new_size: usize) -> Result<()> {

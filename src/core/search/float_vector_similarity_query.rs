@@ -38,13 +38,15 @@ use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::VectorUtil;
+use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 /// Search for all approximate float vectors above a similarity threshold.
 #[derive(Clone, Debug)]
 pub struct FloatVectorSimilarityQuery {
   base: AbstractVectorSimilarityQueryBase,
-  target: Vec<f32>,
+  target: Arc<Vec<f32>>,
   id: Identity,
   #[cfg(test)]
   pub has_vector_scorer: bool,
@@ -90,7 +92,7 @@ impl FloatVectorSimilarityQuery {
         result_similarity,
         filter,
       )?,
-      target,
+      target: Arc::new(target),
       id: Identity::new(),
       #[cfg(test)]
       has_vector_scorer: true,
@@ -172,7 +174,7 @@ impl FloatVectorSimilarityQuery {
 
   /// Returns a copy of the target query vector.
   pub fn get_target_copy(&self) -> Vec<f32> {
-    self.target.clone()
+    self.target.as_ref().clone()
   }
 }
 
@@ -190,7 +192,7 @@ impl Hash for FloatVectorSimilarityQuery {
     H: Hasher,
   {
     self.base.hash(state);
-    for &value in &self.target {
+    for &value in self.target.iter() {
       (BitUtil::float_to_int_bits(value) as u32).hash(state);
     }
   }
@@ -220,8 +222,8 @@ impl QueryBase for FloatVectorSimilarityQuery {
       self.base.traversal_similarity,
       self.base.result_similarity,
       match &self.base.filter {
-        Some(filter) => filter.to_string("")?,
-        None => "None".to_string(),
+        Some(filter) => Cow::Owned(filter.to_string("")?),
+        None => Cow::Borrowed("None"),
       }
     ))
   }
@@ -283,7 +285,7 @@ impl AbstractVectorSimilarityQuery for FloatVectorSimilarityQuery {
         return Ok(None);
       },
     };
-    vector_values.scorer(self.target.clone())
+    vector_values.scorer(self.target.as_ref().clone())
   }
 
   fn approximate_search<LR, B, K>(
@@ -301,7 +303,7 @@ impl AbstractVectorSimilarityQuery for FloatVectorSimilarityQuery {
     let mut collector = knn_collector_manager.new_collector(visit_limit, context)?;
     context.reader().search_nearest_vectors_f32(
       &self.base.field,
-      self.target.clone(),
+      self.target.as_ref().clone(),
       &mut collector,
       accept_docs,
     )?;

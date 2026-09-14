@@ -41,8 +41,12 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
   lengths: AbstractPagedMutable<PagedGrowableWriter>,
   values: BytesRefBuilder<Vec<u8>>,
 
-  offsets_iter: Option<Arc<AbstractPagedMutable<PagedGrowableWriter>>>,
-  lengths_iter: Option<Arc<AbstractPagedMutable<PagedGrowableWriter>>>,
+  ranges_iter: Option<
+    Arc<(
+      AbstractPagedMutable<PagedGrowableWriter>,
+      AbstractPagedMutable<PagedGrowableWriter>,
+    )>,
+  >,
 }
 impl BinaryDocValuesFieldUpdates {
   pub(crate) fn new() -> Result<BinaryDocValuesFieldUpdates> {
@@ -54,21 +58,20 @@ impl BinaryDocValuesFieldUpdates {
       offsets,
       lengths,
       values: BytesRefBuilder::new(),
-      offsets_iter: None,
-      lengths_iter: None,
+      ranges_iter: None,
     })
   }
 }
 
 impl Accountable for BinaryDocValuesFieldUpdates {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let offsets_size = if let Some(offsets) = &self.offsets_iter {
-      (size_of_val(offsets.as_ref()) as i64).saturating_add(offsets.ram_bytes_used()?)
+    let offsets_size = if let Some(ranges) = &self.ranges_iter {
+      (size_of_val(&ranges.0) as i64).saturating_add(ranges.0.ram_bytes_used()?)
     } else {
       self.offsets.ram_bytes_used()?
     };
-    let lengths_size = if let Some(lengths) = &self.lengths_iter {
-      (size_of_val(lengths.as_ref()) as i64).saturating_add(lengths.ram_bytes_used()?)
+    let lengths_size = if let Some(ranges) = &self.ranges_iter {
+      (size_of_val(&ranges.1) as i64).saturating_add(ranges.1.ram_bytes_used()?)
     } else {
       self.lengths.ram_bytes_used()?
     };
@@ -82,8 +85,7 @@ impl Accountable for BinaryDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
   fn finish(&mut self) {
-    self.offsets_iter = Some(Arc::new(self.offsets.take()));
-    self.lengths_iter = Some(Arc::new(self.lengths.take()));
+    self.ranges_iter = Some(Arc::new((self.offsets.take(), self.lengths.take())));
   }
 
   fn add_value(&mut self, _doc: i32, _value: i64, _index: usize) -> Result<()> {
@@ -112,15 +114,11 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     inner: DocValuesFieldInnerIter,
     del_gen: i64,
   ) -> Result<DocValuesFieldIteratorEnum> {
-    let offsets_iter = self.offsets_iter.as_ref().ok_or_else(|| {
+    let ranges_iter = self.ranges_iter.as_ref().ok_or_else(|| {
       LuceneError::illegal_state("finished binary updates have no offsets iterator")
     })?;
-    let lengths_iter = self.lengths_iter.as_ref().ok_or_else(|| {
-      LuceneError::illegal_state("finished binary updates have no lengths iterator")
-    })?;
     let base = AbstractIteratorBinary::new(
-      offsets_iter.clone(),
-      lengths_iter.clone(),
+      ranges_iter.clone(),
       // TODO: avoid copy here if iterator is called busy
       self.values.get_bytes_ref_copy()?,
     );
@@ -168,23 +166,26 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 /// # Note
 /// To implement Default, we wrap the mutable reference fields here with Option.
 pub struct AbstractIteratorBinary {
-  offsets: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
+  ranges: Arc<(
+    AbstractPagedMutable<PagedGrowableWriter>,
+    AbstractPagedMutable<PagedGrowableWriter>,
+  )>,
   offset: usize,
-  lengths: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
   length: usize,
   values: BytesRef<Vec<u8>>,
 }
 
 impl AbstractIteratorBinary {
   pub fn new(
-    offsets: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
-    lengths: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
+    ranges: Arc<(
+      AbstractPagedMutable<PagedGrowableWriter>,
+      AbstractPagedMutable<PagedGrowableWriter>,
+    )>,
     values: BytesRef<Vec<u8>>,
   ) -> AbstractIteratorBinary {
     AbstractIteratorBinary {
-      offsets,
+      ranges,
       offset: 0,
-      lengths,
       length: 0,
       values,
     }
@@ -192,10 +193,10 @@ impl AbstractIteratorBinary {
 }
 impl AbstractIteratorBase for AbstractIteratorBinary {
   fn set(&mut self, idx: usize) -> Result<()> {
-    debug_assert!(self.offsets.get(idx)? <= i32::MAX as i64);
-    self.offset = self.offsets.get(idx)? as usize;
-    debug_assert!(self.lengths.get(idx)? <= i32::MAX as i64);
-    self.length = self.lengths.get(idx)? as usize;
+    debug_assert!(self.ranges.0.get(idx)? <= i32::MAX as i64);
+    self.offset = self.ranges.0.get(idx)? as usize;
+    debug_assert!(self.ranges.1.get(idx)? <= i32::MAX as i64);
+    self.length = self.ranges.1.get(idx)? as usize;
     Ok(())
   }
 

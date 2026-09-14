@@ -40,6 +40,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -49,7 +50,7 @@ where
   I: IndexInput,
 {
   // metadata maps (just file pointers and minimal stuff)
-  norms: HashMap<i32, NormsEntry>,
+  norms: Arc<HashMap<i32, NormsEntry>>,
   max_doc: i32,
   data: I,
   merging: bool,
@@ -150,7 +151,7 @@ where
         .ok_or_else(|| LuceneError::illegal_state("norms data input is missing"))?;
       success = true;
       Ok(Self {
-        norms,
+        norms: Arc::new(norms),
         max_doc,
         data,
         merging: false,
@@ -337,10 +338,10 @@ where
 
       let input = {
         let mut map = self.disi_inputs.lock();
-        map
-          .entry(field.number)
-          .or_insert_with(|| new_input.clone())
-          .clone()
+        match map.entry(field.number) {
+          Entry::Occupied(entry) => entry.get().clone(),
+          Entry::Vacant(entry) => entry.insert(new_input).clone(),
+        }
       };
       Ok(SliceEnum::Shared(IndexInputImpl::new(input)))
     } else {

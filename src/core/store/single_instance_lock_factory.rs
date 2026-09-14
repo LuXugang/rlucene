@@ -34,7 +34,7 @@ pub struct SingleInstanceLockFactory {
   inner: Arc<Mutex<Inner>>,
 }
 pub struct Inner {
-  locks: HashSet<String>,
+  locks: HashSet<Arc<str>>,
 }
 impl Default for SingleInstanceLockFactory {
   fn default() -> Self {
@@ -64,8 +64,9 @@ impl LockFactory for SingleInstanceLockFactory {
   fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
     let mut inner = self.inner.lock();
 
-    if inner.locks.insert(lock_name.to_string()) {
-      return Ok(SingleInstanceLock::new(lock_name, self.inner.clone()));
+    let name: Arc<str> = Arc::from(lock_name);
+    if inner.locks.insert(name.clone()) {
+      return Ok(SingleInstanceLock::new(name, self.inner.clone()));
     }
     Err(LuceneError::lock_obtain_failed(format!(
       "lock instance already obtained: (dir={:?}, lockName={})",
@@ -75,15 +76,18 @@ impl LockFactory for SingleInstanceLockFactory {
 }
 
 pub struct SingleInstanceLock {
-  lock_name: String,
+  lock_name: Arc<str>,
   closed: AtomicBool,
   inner: Arc<Mutex<Inner>>,
   close_lock: Mutex<()>,
 }
 impl SingleInstanceLock {
-  pub fn new(lock_name: &str, inner: Arc<Mutex<Inner>>) -> SingleInstanceLock {
+  pub fn new<N>(lock_name: N, inner: Arc<Mutex<Inner>>) -> SingleInstanceLock
+  where
+    N: Into<Arc<str>>,
+  {
     SingleInstanceLock {
-      lock_name: lock_name.to_string(),
+      lock_name: lock_name.into(),
       closed: AtomicBool::new(false),
       inner,
       close_lock: Mutex::new(()),

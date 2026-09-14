@@ -303,7 +303,7 @@ where
     };
     let num_levels = graph.num_levels()?;
     let mut nodes_by_level = Vec::with_capacity(num_levels);
-    nodes_by_level.push(Arc::new(Vec::new()));
+    nodes_by_level.push(None);
 
     let max_ord = graph.size();
     let mut nodes_on_level0 = graph.get_nodes_on_level(0)?;
@@ -356,7 +356,7 @@ where
 
         level_offsets[node_offset_index] = delta;
       }
-      nodes_by_level.push(Arc::new(new_nodes));
+      nodes_by_level.push(Some(Arc::new(new_nodes)));
     }
 
     Ok(Some(HnswGraphImpl::new(graph, nodes_by_level)))
@@ -485,13 +485,15 @@ where
 
     meta.write_vint(graph.num_levels()? as i32)?;
     let mut value_count: i64 = 0;
+    let mut nol = Vec::new();
 
     for level in 0..graph.num_levels()? {
       let mut nodes_on_level = graph.get_nodes_on_level(level)?;
       value_count += nodes_on_level.size() as i64;
 
       if level > 0 {
-        let mut nol = vec![0usize; nodes_on_level.size()];
+        nol.clear();
+        nol.resize(nodes_on_level.size(), 0usize);
         let number_consumed = nodes_on_level.consume(nol.as_mut())?;
         nol.sort_unstable();
 
@@ -515,6 +517,7 @@ where
       }
     }
 
+    drop(nol);
     let start = vector_index.get_file_pointer()?;
     meta.write_long(start as i64)?;
 
@@ -550,9 +553,9 @@ where
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
-    merge_exec: Option<Arc<TaskExecutor>>,
+    merge_exec: Option<&Arc<TaskExecutor>>,
     num_merge_workers: usize,
-    parallel_merge_task_executor: Option<Arc<TaskExecutor>>,
+    parallel_merge_task_executor: Option<&Arc<TaskExecutor>>,
     num_parallel_merge_workers: usize,
   ) -> IncrementalHnswGraphMerger<S>
   where
@@ -564,7 +567,10 @@ where
         scorer_supplier,
         m,
         beam_width,
-        HnswGraphMergerHook::Concurrent(ConcurrentHnswMerger::new(merge_exec, num_merge_workers)),
+        HnswGraphMergerHook::Concurrent(ConcurrentHnswMerger::new(
+          Arc::clone(merge_exec),
+          num_merge_workers,
+        )),
       )
     } else if let Some(parallel_merge_task_executor) = parallel_merge_task_executor {
       IncrementalHnswGraphMerger::new_with_hook(
@@ -573,7 +579,7 @@ where
         m,
         beam_width,
         HnswGraphMergerHook::Concurrent(ConcurrentHnswMerger::new(
-          parallel_merge_task_executor,
+          Arc::clone(parallel_merge_task_executor),
           num_parallel_merge_workers,
         )),
       )
@@ -669,7 +675,7 @@ where
     D2: Directory<IndexOutput = F::IndexOutput>,
     CR: CodecReader,
   {
-    let merge_exec = self.merge_exec.clone();
+    let merge_exec = self.merge_exec.as_ref();
     let num_merge_workers = self.num_merge_workers;
     let mut scorer_supplier = self.flat_vector_writer.merge_one_field_to_index(
       field_info.as_ref(),
@@ -691,7 +697,7 @@ where
           self.beam_width,
           merge_exec,
           num_merge_workers,
-          Some(Arc::clone(&merge_state.intra_merge_task_executor)),
+          Some(&merge_state.intra_merge_task_executor),
           num_merge_workers,
         );
 
@@ -957,10 +963,10 @@ where
 
 struct HnswGraphImpl<'a> {
   graph: &'a mut OnHeapHnswGraph,
-  nodes_by_level: Vec<Arc<Vec<usize>>>,
+  nodes_by_level: Vec<Option<Arc<Vec<usize>>>>,
 }
 impl<'a> HnswGraphImpl<'a> {
-  fn new(graph: &'a mut OnHeapHnswGraph, nodes_by_level: Vec<Arc<Vec<usize>>>) -> Self {
+  fn new(graph: &'a mut OnHeapHnswGraph, nodes_by_level: Vec<Option<Arc<Vec<usize>>>>) -> Self {
     Self {
       graph,
       nodes_by_level,
@@ -1003,6 +1009,7 @@ impl<'a> HnswGraph for HnswGraphImpl<'a> {
       let nodes = self
         .nodes_by_level
         .get(level)
+        .and_then(Option::as_ref)
         .ok_or_else(|| LuceneError::illegal_argument(format!("Invalid level: {}", level)))?;
       Ok(NodesIteratorEnum2::A(ArrayNodesIterator::from_nodes(
         Option::from(nodes.clone()),

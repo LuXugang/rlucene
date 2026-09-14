@@ -43,6 +43,7 @@ use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIterator
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Write as _;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -119,12 +120,12 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     b.push(if self.lower_inclusive { '[' } else { '{' });
     match &self.lower_value {
       None => b.push('*'),
-      Some(v) => b.push_str(&format!("{}", v)),
+      Some(v) => write!(b, "{}", v)?,
     }
     b.push_str(" TO ");
     match &self.upper_value {
       None => b.push('*'),
-      Some(v) => b.push_str(&format!("{}", v)),
+      Some(v) => write!(b, "{}", v)?,
     }
     b.push(if self.upper_inclusive { ']' } else { '}' });
     Ok(b)
@@ -171,7 +172,7 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
 }
 
 pub struct SortedSetDocValuesRangeQueryWeight {
-  query: SortedSetDocValuesRangeQuery,
+  query: Arc<SortedSetDocValuesRangeQuery>,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -182,7 +183,7 @@ impl SortedSetDocValuesRangeQueryWeight {
     score: f32,
     score_mode: ScoreMode,
   ) -> Self {
-    let query_clone = query.clone();
+    let query_clone = Arc::new(query.clone());
     let parent_query = Arc::new(query.into());
     SortedSetDocValuesRangeQueryWeight {
       query: query_clone,
@@ -347,7 +348,7 @@ where
   Ok(doc)
 }
 pub struct ScorerSupplierImpl3<S> {
-  query: SortedSetDocValuesRangeQuery,
+  query: Arc<SortedSetDocValuesRangeQuery>,
   values: Option<S>,
   cost: i64,
   score: f32,
@@ -358,7 +359,7 @@ where
   S: SortedSetDocValues,
 {
   pub fn new(
-    query: SortedSetDocValuesRangeQuery,
+    query: Arc<SortedSetDocValuesRangeQuery>,
     values: S,
     score: f32,
     score_mode: ScoreMode,

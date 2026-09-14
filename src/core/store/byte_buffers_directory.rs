@@ -196,7 +196,7 @@ where
   LF: LockFactory,
 {
   temp_file_name: ByteBuffersDirectoryTempFileName,
-  files: Mutex<HashMap<String, Arc<Mutex<FileEntry>>>>,
+  files: Mutex<HashMap<Arc<str>, Arc<Mutex<FileEntry>>>>,
 
   /// Conversion between a buffered index output and the corresponding index
   /// input for a given file.
@@ -279,7 +279,12 @@ where
 {
   fn list_all(&self) -> Result<Vec<String>> {
     self.ensure_open()?;
-    let mut files: Vec<String> = self.files.lock().keys().cloned().collect();
+    let mut files: Vec<String> = self
+      .files
+      .lock()
+      .keys()
+      .map(|name| name.to_string())
+      .collect();
     files.sort();
     Ok(files)
   }
@@ -311,7 +316,8 @@ where
 
   fn create_output(&self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
     self.ensure_open()?;
-    let entry = Arc::new(Mutex::new(FileEntry::new(name)));
+    let file_name: Arc<str> = Arc::from(name);
+    let entry = Arc::new(Mutex::new(FileEntry::new(file_name.clone())));
     {
       let mut files = self.files.lock();
       if files.contains_key(name) {
@@ -323,7 +329,7 @@ where
           ),
         ));
       }
-      files.insert(name.to_string(), entry.clone());
+      files.insert(file_name, entry.clone());
     }
     create_output(
       entry,
@@ -344,10 +350,11 @@ where
     loop {
       let segment_suffix = self.temp_file_name.apply(suffix);
       let name = IndexFileNames::segment_file_name(prefix, &segment_suffix, "tmp");
-      let entry = Arc::new(Mutex::new(FileEntry::new(&name)));
+      let name: Arc<str> = Arc::from(name);
+      let entry = Arc::new(Mutex::new(FileEntry::new(name.clone())));
       {
         let mut files = self.files.lock();
-        if files.contains_key(&name) {
+        if files.contains_key(name.as_ref()) {
           continue;
         }
         files.insert(name, entry.clone());
@@ -374,7 +381,7 @@ where
     let file = files.get(source).cloned().ok_or_else(|| {
       LuceneError::io_with_path(source, Error::new(ErrorKind::NotFound, source.to_string()))
     })?;
-    match files.entry(dest.to_string()) {
+    match files.entry(Arc::from(dest)) {
       Entry::Occupied(_) => {
         return Err(LuceneError::io_with_path(
           dest,
@@ -466,16 +473,16 @@ where
 }
 
 struct FileEntry {
-  file_name: String,
+  file_name: Arc<str>,
   content: Option<ByteBuffersIndexInputOwned>,
   cached_length: usize,
   deleted: bool,
 }
 
 impl FileEntry {
-  fn new(name: &str) -> Self {
+  fn new(name: Arc<str>) -> Self {
     Self {
-      file_name: name.to_string(),
+      file_name: name,
       content: None,
       cached_length: 0,
       deleted: false,
@@ -490,7 +497,7 @@ impl FileEntry {
   fn open_input(&self) -> Result<ByteBuffersIndexInputOwned> {
     let Some(content) = &self.content else {
       return Err(LuceneError::io_with_path(
-        self.file_name.clone(),
+        self.file_name.as_ref(),
         Error::new(
           ErrorKind::PermissionDenied,
           format!(
@@ -550,14 +557,14 @@ fn create_output(
     let entry = entry.lock();
     if entry.content.is_some() {
       return Err(LuceneError::io_with_path(
-        entry.file_name.clone(),
+        entry.file_name.as_ref(),
         Error::new(
           ErrorKind::AlreadyExists,
           format!("Can only write to a file once: {}", entry.file_name),
         ),
       ));
     }
-    entry.file_name.clone()
+    entry.file_name.to_string()
   };
   let output_name = format!("ByteBuffersDirectory output (file={file_name})");
   let output = bb_output_supplier.new_output();

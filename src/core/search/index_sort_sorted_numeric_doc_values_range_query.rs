@@ -61,7 +61,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct IndexSortSortedNumericDocValuesRangeQuery {
   id: Identity,
-  field: String,
+  field: Arc<String>,
   lower_value: i64,
   upper_value: i64,
   pub(crate) fallback_query: Box<Query>,
@@ -75,7 +75,7 @@ impl IndexSortSortedNumericDocValuesRangeQuery {
     let fallback_query = fallback_query.into_box_query();
     Self {
       id: Identity::new(),
-      field: field.into(),
+      field: Arc::new(field.into()),
       lower_value,
       upper_value,
       fallback_query,
@@ -115,7 +115,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
   fn to_string(&self, field: &str) -> Result<String> {
     let mut s = String::new();
 
-    if self.field != field {
+    if self.field.as_str() != field {
       s.push_str(&self.field);
       s.push(':');
     }
@@ -159,7 +159,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     Self: Sized,
   {
     if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
-      return Ok(Some(FieldExistsQuery::new(&self.field).into()));
+      return Ok(Some(FieldExistsQuery::new(self.field.as_str()).into()));
     }
     let rewritten = self.fallback_query.rewrite(searcher)?;
     let query = rewritten.as_ref().unwrap_or(&self.fallback_query);
@@ -169,7 +169,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     match rewritten {
       Some(query) => Ok(Some(
         IndexSortSortedNumericDocValuesRangeQuery::new(
-          self.field.clone(),
+          self.field.as_ref().clone(),
           self.lower_value,
           self.upper_value,
           Box::new(query),
@@ -272,7 +272,7 @@ where
           self.score_mode,
           self.query.lower_value,
           self.query.upper_value,
-          self.query.field.clone(),
+          self.query.field.as_ref().clone(),
           self.base.score(),
         )?;
         Ok(Some(Box::new(scorer_supplier)))
@@ -336,7 +336,8 @@ where {
       if let Some(index_sort) = meta.get_sort() {
         let sort_fields = index_sort.get_sort();
 
-        if !sort_fields.is_empty() && sort_fields[0].get_field() == Some(&self.query.field) {
+        if !sort_fields.is_empty() && sort_fields[0].get_field() == Some(self.query.field.as_str())
+        {
           let sort_field = &sort_fields[0];
           let sort_field_type = get_sort_field_type(sort_field);
           // The index sort optimization is only supported for Type.INT and Type.LONG

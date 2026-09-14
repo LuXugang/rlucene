@@ -48,12 +48,12 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct BinaryRangeFieldRangeQuery {
   id: Identity,
-  query_packed_value: Vec<u8>,
+  query_packed_value: Arc<[u8]>,
   num_dims: usize,
   num_bytes_per_dimension: usize,
   query_type: QueryType,
   comparator: ByteArrayComparatorEnum,
-  sub: BinaryRangeFieldRangeQueryEnum,
+  sub: Arc<BinaryRangeFieldRangeQueryEnum>,
 }
 
 impl BinaryRangeFieldRangeQuery {
@@ -77,12 +77,15 @@ impl BinaryRangeFieldRangeQuery {
     let sub = sub.into();
     Ok(Self {
       id: Identity::new(),
-      query_packed_value: query_packed_value.into(),
+      query_packed_value: {
+        let value: Vec<u8> = query_packed_value.into();
+        value.into()
+      },
       num_dims,
       num_bytes_per_dimension,
       query_type,
       comparator,
-      sub,
+      sub: Arc::new(sub),
     })
   }
 }
@@ -250,7 +253,7 @@ where
 /// value matches the query's packed value.
 pub struct BinaryRangeFieldRangeTPI<T> {
   values: BinaryRangeDocValues<T>,
-  query_packed_value: Vec<u8>,
+  query_packed_value: Arc<[u8]>,
   num_dims: usize,
   num_bytes_per_dimension: usize,
   query_type: QueryType,
@@ -260,7 +263,7 @@ pub struct BinaryRangeFieldRangeTPI<T> {
 impl<T> BinaryRangeFieldRangeTPI<T> {
   fn new(
     values: BinaryRangeDocValues<T>,
-    query_packed_value: Vec<u8>,
+    query_packed_value: Arc<[u8]>,
     num_dims: usize,
     num_bytes_per_dimension: usize,
     query_type: QueryType,

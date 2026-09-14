@@ -256,7 +256,7 @@ where
       return Ok(None);
     }
     Ok(Some(Box::new(DocValuesScorerSupplier::new(
-      self.query.clone(),
+      self.parent_query.clone(),
       values.cost()?,
       self.base.score(),
       self.score_mode,
@@ -265,14 +265,14 @@ where
 }
 
 pub struct DocValuesScorerSupplier {
-  query: MultiTermQuerySet,
+  query: Arc<Query>,
   cost: i64,
   score: f32,
   score_mode: ScoreMode,
 }
 
 impl DocValuesScorerSupplier {
-  fn new(query: MultiTermQuerySet, cost: i64, score: f32, score_mode: ScoreMode) -> Self {
+  fn new(query: Arc<Query>, cost: i64, score: f32, score_mode: ScoreMode) -> Self {
     Self {
       query,
       cost,
@@ -295,9 +295,15 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
-    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field());
+    let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected MultiTermQueryDocValuesWrapper in doc values scorer supplier",
+      ));
+    };
+    let query = &wrapper.query;
+    let field = dispatch_multi_term_query!(query, |q| q.get_field());
     let values = DocValues::get_sorted_set(context.reader(), field)?;
-    let mut terms_enum = get_terms_enum(&self.query, values)?;
+    let mut terms_enum = get_terms_enum(query, values)?;
 
     if terms_enum.next()?.is_none() {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());

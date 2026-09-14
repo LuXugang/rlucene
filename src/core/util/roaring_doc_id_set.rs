@@ -46,7 +46,7 @@ const MAX_ARRAY_LENGTH: usize = 1 << 12;
 /// # Note
 /// This is an internal API.
 pub struct RoaringDocIdSet {
-  doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
+  doc_id_sets: Arc<Vec<Option<Arc<DocIdSetEnum>>>>,
   cardinality: usize,
 }
 impl RoaringDocIdSet {
@@ -56,7 +56,7 @@ impl RoaringDocIdSet {
       .map(|opt| opt.map(Arc::new))
       .collect();
     RoaringDocIdSet {
-      doc_id_sets,
+      doc_id_sets: Arc::new(doc_id_sets),
       cardinality,
     }
   }
@@ -84,7 +84,8 @@ impl DocIdSet for RoaringDocIdSet {
 
 impl Accountable for RoaringDocIdSet {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.doc_id_sets);
+    let mut size = (mem::size_of_val(self.doc_id_sets.as_ref()) as i64)
+      .saturating_add(size_of_vec(self.doc_id_sets.as_ref()));
     for doc_id_set in self.doc_id_sets.iter().flatten() {
       size = size
         .saturating_add(mem::size_of_val(doc_id_set.as_ref()) as i64)
@@ -350,11 +351,11 @@ pub struct Iterator {
   doc: i32,
   set_length: usize,
   sub: Disi,
-  doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>,
+  doc_id_sets: Arc<Vec<Option<Arc<DocIdSetEnum>>>>,
   cardinality: i64,
 }
 impl Iterator {
-  fn new(doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>, cardinality: i64) -> Self {
+  fn new(doc_id_sets: Arc<Vec<Option<Arc<DocIdSetEnum>>>>, cardinality: i64) -> Self {
     let set_length = doc_id_sets.len();
     Iterator {
       block: None,

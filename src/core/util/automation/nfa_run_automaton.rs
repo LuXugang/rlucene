@@ -41,13 +41,17 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct NFARunAutomaton {
   pub(crate) automaton: Arc<Automaton>,
-  points: Arc<Vec<i32>>,
+  tables: Arc<NFARunAutomatonTables>,
   alphabet_size: i32,
-  classmap: Arc<Vec<usize>>, // map from char number to class
   dstates: Vec<DState>,
   state: State,
   states_set: StateSet,
 }
+struct NFARunAutomatonTables {
+  points: Vec<i32>,
+  classmap: Vec<usize>, // map from char number to class
+}
+
 #[derive(Clone)]
 struct State {
   dstate_to_ord: HashMap<DStateKey, i32>,
@@ -78,9 +82,8 @@ impl NFARunAutomaton {
 
     let mut automaton_instance = NFARunAutomaton {
       automaton: Arc::new(automaton),
-      points: Arc::new(points),
+      tables: Arc::new(NFARunAutomatonTables { points, classmap }),
       alphabet_size,
-      classmap: Arc::new(classmap),
       dstates: Vec::with_capacity(10),
       state,
       states_set: StateSet::new(5),
@@ -151,19 +154,19 @@ impl NFARunAutomaton {
   pub(crate) fn get_char_class(&self, c: i32) -> usize {
     debug_assert!(c < self.alphabet_size);
 
-    if let Some(&class) = self.classmap.get(c as usize) {
+    if let Some(&class) = self.tables.classmap.get(c as usize) {
       return class;
     }
 
     // binary search
     let mut a = 0;
-    let mut b = self.points.len();
+    let mut b = self.tables.points.len();
 
     while b - a > 1 {
       let d = (a + b) / 2;
-      if self.points[d] > c {
+      if self.tables.points[d] > c {
         b = d;
-      } else if self.points[d] < c {
+      } else if self.tables.points[d] < c {
         a = d;
       } else {
         return d;
@@ -177,32 +180,32 @@ impl NFARunAutomaton {
       .ok_or_else(|| LuceneError::illegal_state("transition cursor is not initialized"))?;
     let state = &self.dstates[t.source as usize];
     t.dest = state.transitions[transition_upto];
-    t.min = self.points[transition_upto];
+    t.min = self.tables.points[transition_upto];
 
-    if transition_upto == self.points.len() - 1 {
+    if transition_upto == self.tables.points.len() - 1 {
       t.max = self.alphabet_size - 1;
     } else {
-      t.max = self.points[transition_upto + 1] - 1;
+      t.max = self.tables.points[transition_upto + 1] - 1;
     }
     Ok(())
   }
   fn next_state(&mut self, char_class: usize, index: usize) -> Result<i32> {
     let v = {
-      let len = self.points.len();
+      let len = self.tables.points.len();
       let dstate = &mut self.dstates[index];
       dstate.init_transitions(len);
       debug_assert!(char_class < dstate.transitions.len());
       dstate.transitions[char_class]
     };
     if v == NFARunAutomaton::NOT_COMPUTED {
-      let next_dstate = self.step_with_index(self.points[char_class], index)?;
+      let next_dstate = self.step_with_index(self.tables.points[char_class], index)?;
       let ord = self.find_dstate(next_dstate)?;
       let dstate = &mut self.dstates[index];
       dstate.assign_transition(char_class, ord);
       // we could potentially update more than one char classes
       if let Some(minimal_transition) = dstate.minimal_transition.take() {
         let mut cls = char_class;
-        while cls > 0 && self.points[cls - 1] >= minimal_transition.min {
+        while cls > 0 && self.tables.points[cls - 1] >= minimal_transition.min {
           cls -= 1;
           debug_assert!(
             dstate.transitions[cls] == NFARunAutomaton::NOT_COMPUTED
@@ -213,7 +216,9 @@ impl NFARunAutomaton {
 
         let mut cls = char_class;
         {
-          while cls + 1 < self.points.len() && self.points[cls + 1] <= minimal_transition.max {
+          while cls + 1 < self.tables.points.len()
+            && self.tables.points[cls + 1] <= minimal_transition.max
+          {
             cls += 1;
             debug_assert!(
               dstate.transitions[cls] == NFARunAutomaton::NOT_COMPUTED
@@ -231,10 +236,11 @@ impl NFARunAutomaton {
   fn step_with_index(&mut self, c: i32, index: usize) -> Result<Option<DState>> {
     self.states_set.reset();
 
-    let nfa_states = self.dstates[index].nfa_states.clone();
+    let dstate = &mut self.dstates[index];
+    let nfa_states = &dstate.nfa_states;
     let mut left = -1;
     let mut right = self.alphabet_size;
-    let step_transition = &mut self.dstates[index].step_transition;
+    let step_transition = &mut dstate.step_transition;
 
     for &nfa_state in nfa_states.iter() {
       let num_transitions = self.automaton.init_transition(nfa_state, step_transition);
@@ -272,7 +278,7 @@ impl NFARunAutomaton {
     Ok(next_states.map(|states| DState::new(states, self)))
   }
   fn determinize(&mut self, index: usize) -> Result<()> {
-    let len = self.points.len();
+    let len = self.tables.points.len();
     let dstate = &mut self.dstates[index];
     if dstate.computed_transitions == dstate.transitions.len() {
       return Ok(());
@@ -316,14 +322,14 @@ impl NFARunAutomaton {
         let ord = self.find_dstate(Some(new_dstate))?;
         let dstate = &mut self.dstates[index];
 
-        while self.points[char_class] < last_point {
+        while self.tables.points[char_class] < last_point {
           dstate.assign_transition(char_class, Self::MISSING);
           char_class += 1;
         }
 
-        debug_assert_eq!(self.points[char_class], last_point);
+        debug_assert_eq!(self.tables.points[char_class], last_point);
 
-        while char_class < self.points.len() && self.points[char_class] < point {
+        while char_class < self.tables.points.len() && self.tables.points[char_class] < point {
           debug_assert!(
             dstate.transitions[char_class] == NFARunAutomaton::NOT_COMPUTED
               || dstate.transitions[char_class] == ord
@@ -333,8 +339,8 @@ impl NFARunAutomaton {
         }
 
         debug_assert!(
-          (char_class == self.points.len() && point == self.alphabet_size)
-            || self.points[char_class] == point
+          (char_class == self.tables.points.len() && point == self.alphabet_size)
+            || self.tables.points[char_class] == point
         );
       }
 
@@ -387,7 +393,7 @@ impl NFARunAutomaton {
   }
 
   pub fn get_next_transition(&self, t: &mut Transition) -> Result<()> {
-    debug_assert!(t.transition_upto.map_or(0, |upto| upto + 1) < self.points.len());
+    debug_assert!(t.transition_upto.map_or(0, |upto| upto + 1) < self.tables.points.len());
     {
       let transitions = &self.dstates[t.source as usize].transitions;
       let transition_upto = loop {
@@ -422,7 +428,7 @@ impl NFARunAutomaton {
       t.source = state;
 
       while outgoing_transitions < index
-        && t.transition_upto.map_or(0, |upto| upto + 1) < self.points.len()
+        && t.transition_upto.map_or(0, |upto| upto + 1) < self.tables.points.len()
       {
         let idx = t.transition_upto.map_or(0, |upto| upto + 1);
         t.transition_upto = Some(idx);
@@ -470,10 +476,9 @@ impl Accountable for NFARunAutomaton {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut size = (mem::size_of_val(self.automaton.as_ref()) as i64)
       .saturating_add(self.automaton.ram_bytes_used()?)
-      .saturating_add(mem::size_of_val(self.points.as_ref()) as i64)
-      .saturating_add(size_of_vec(self.points.as_ref()))
-      .saturating_add(mem::size_of_val(self.classmap.as_ref()) as i64)
-      .saturating_add(size_of_vec(self.classmap.as_ref()))
+      .saturating_add(mem::size_of_val(self.tables.as_ref()) as i64)
+      .saturating_add(size_of_vec(&self.tables.points))
+      .saturating_add(size_of_vec(&self.tables.classmap))
       .saturating_add(size_of_vec(&self.dstates))
       .saturating_add(size_of_hash_map(&self.state.dstate_to_ord));
 
@@ -526,7 +531,7 @@ impl DState {
         is_accept = true;
       }
     }
-    let transitions = vec![NFARunAutomaton::NOT_COMPUTED; nfa.points.len()];
+    let transitions = vec![NFARunAutomaton::NOT_COMPUTED; nfa.tables.points.len()];
     DState {
       nfa_states,
       transitions,

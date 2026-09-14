@@ -206,12 +206,16 @@ where
 
             let doc_count = meta_in.read_vint()?;
             let min_term = Arc::new(read_bytes_ref(&mut meta_in)?);
-            let mut max_term = Arc::new(read_bytes_ref(&mut meta_in)?);
+            let max_term = read_bytes_ref(&mut meta_in)?;
 
-            if num_terms == 1 {
-              debug_assert_eq!(max_term, min_term);
-              max_term = min_term.clone();
-            }
+            let max_term = if num_terms == 1 {
+              debug_assert_eq!(&max_term, min_term.as_ref());
+              let shared_min = min_term.clone();
+              drop(max_term);
+              shared_min
+            } else {
+              Arc::new(max_term)
+            };
 
             let max_doc = segment_info.max_doc()?;
             if doc_count < 0 || doc_count > max_doc {
@@ -312,13 +316,11 @@ where
       let field_list = sort_field_names(&field_map, &state.field_infos)?;
       reader = Some(Lucene90BlockTreeTermsReader {
         terms_reader: terms_reader
-          .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
-          .clone(),
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?,
         index_in: shared_index_in
-          .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("terms index input is missing"))?
-          .clone(),
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("terms index input is missing"))?,
         field_map: RwLock::new(field_map),
         field_list,
         field_infos: Arc::clone(&state.field_infos),

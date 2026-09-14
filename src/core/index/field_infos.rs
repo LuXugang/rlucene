@@ -49,9 +49,9 @@ pub struct FieldInfos {
   has_doc_values: bool,
   has_point_values: bool,
   has_vector_values: bool,
-  soft_deletes_field: Option<String>,
+  soft_deletes_field: Option<Arc<FieldInfo>>,
 
-  parent_field: Option<String>,
+  parent_field: Option<Arc<FieldInfo>>,
   by_number: Vec<Option<Arc<FieldInfo>>>,
   by_name: HashMap<String, Arc<FieldInfo>>,
   values: Vec<Arc<FieldInfo>>,
@@ -294,8 +294,8 @@ impl FieldInfos {
     let mut has_doc_values = false;
     let mut has_point_values = false;
     let mut has_vector_values = false;
-    let mut soft_deletes_field: Option<String> = None;
-    let mut parent_field: Option<String> = None;
+    let mut soft_deletes_field: Option<Arc<FieldInfo>> = None;
+    let mut parent_field: Option<Arc<FieldInfo>> = None;
 
     let mut by_name = CollectionUtil::new_hashmap(infos.len());
     let mut max_field_number = -1;
@@ -333,26 +333,26 @@ impl FieldInfos {
       has_vector_values |= info.get_vector_dimension() != 0;
       if info.is_soft_deletes_field() {
         if let Some(ref s) = soft_deletes_field {
-          if s != &info.name {
+          if s.name != info.name {
             return Err(LuceneError::illegal_argument(format!(
               "multiple soft-deletes fields [{} , {}]",
-              info.name, s
+              info.name, s.name
             )));
           }
         } else {
-          soft_deletes_field = Some(info.name.clone());
+          soft_deletes_field = Some(info.clone());
         }
       }
       if info.is_parent_field() {
         if let Some(ref p) = parent_field {
-          if p != &info.name {
+          if p.name != info.name {
             return Err(LuceneError::illegal_argument(format!(
               "multiple parent fields [{} , {}]",
-              info.name, p
+              info.name, p.name
             )));
           }
         } else {
-          parent_field = Some(info.name.clone());
+          parent_field = Some(info.clone());
         }
       }
     }
@@ -389,7 +389,8 @@ impl FieldInfos {
         by_number[field_number] = Some(field_info.clone());
       }
       if by_number_len == infos.len() {
-        values = Vec::with_capacity(infos.len());
+        infos.clear();
+        values = infos;
         for fi in by_number.iter().flatten() {
           values.push(fi.clone())
         }
@@ -475,13 +476,13 @@ impl FieldInfos {
   /// Returns the soft-deletes field name if it exists; otherwise returns
   /// None.
   pub fn get_soft_deletes_field(&self) -> Option<&String> {
-    self.soft_deletes_field.as_ref()
+    self.soft_deletes_field.as_ref().map(|info| &info.name)
   }
 
   /// Returns the parent document field name if it exists; otherwise returns
   /// None.
   pub fn get_parent_field(&self) -> Option<&String> {
-    self.parent_field.as_ref()
+    self.parent_field.as_ref().map(|info| &info.name)
   }
 
   /// Returns the number of fields.
@@ -528,7 +529,7 @@ where
   }
 
   if leaves.len() == 1 {
-    return Ok(leaves[0].reader().get_field_infos()?.clone());
+    return leaves[0].reader().get_field_infos();
   }
 
   let mut soft_deletes_field: Option<String> = None;

@@ -144,21 +144,21 @@ where
     reader.root_block_fp =
       ((reader.read_vlong_output(&mut input)? as u64) >> OUTPUT_FLAG_HAS_TERMS).try_convert()?;
     // ownership from ByteArrayDataInput
-    let root_code = BytesRef {
-      bytes: Arc::new(tmp_data.root_code.bytes),
-      offset: tmp_data.root_code.offset,
-      length: tmp_data.root_code.length,
-    };
+    let root_code = tmp_data.root_code;
     // Get empty output and adjust rootCode
     let root_code_final = match empty_output {
-      Some(empty_output) => {
-        if root_code.bytes_equals(&empty_output) {
-          empty_output
-        } else {
-          root_code
-        }
+      Some(empty_output)
+        if root_code.bytes[root_code.offset..root_code.offset + root_code.length]
+          == empty_output.bytes[empty_output.offset..empty_output.offset + empty_output.length] =>
+      {
+        drop(root_code);
+        empty_output
       },
-      None => root_code,
+      _ => BytesRef {
+        bytes: Arc::new(root_code.bytes),
+        offset: root_code.offset,
+        length: root_code.length,
+      },
     };
     reader.root_code = root_code_final;
     Ok(())

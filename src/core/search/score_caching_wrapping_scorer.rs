@@ -36,21 +36,20 @@ use std::rc::Rc;
 /// the score of the same
 /// document more than once.
 pub struct ScoreCachingWrappingScorer<S> {
-  cache: ScoreCachingWrappingScorerCache,
+  cache: Rc<ScoreCachingWrappingScorerCache>,
   in_: S,
 }
 
-#[derive(Clone)]
 struct ScoreCachingWrappingScorerCache {
-  score_is_cached: Rc<Cell<bool>>,
-  cur_score: Rc<Cell<f32>>,
+  score_is_cached: Cell<bool>,
+  cur_score: Cell<f32>,
 }
 
 impl ScoreCachingWrappingScorerCache {
   fn new() -> Self {
     Self {
-      score_is_cached: Rc::new(Cell::new(false)),
-      cur_score: Rc::new(Cell::new(0.0)),
+      score_is_cached: Cell::new(false),
+      cur_score: Cell::new(0.0),
     }
   }
 
@@ -61,7 +60,7 @@ impl ScoreCachingWrappingScorerCache {
 
 /// Creates a new instance by wrapping the given scorer.
 impl<S> ScoreCachingWrappingScorer<S> {
-  fn new_with_cache(in_: S, cache: ScoreCachingWrappingScorerCache) -> Self {
+  fn new_with_cache(in_: S, cache: Rc<ScoreCachingWrappingScorerCache>) -> Self {
     Self { cache, in_ }
   }
 }
@@ -99,13 +98,13 @@ where
 impl<S> crate::core::search::scorable::FixedScore for ScoreCachingWrappingScorer<S> {}
 pub struct ScoreCachingWrappingLeafCollector<LC> {
   inner: LC,
-  cache: ScoreCachingWrappingScorerCache,
+  cache: Rc<ScoreCachingWrappingScorerCache>,
 }
 impl<LC> ScoreCachingWrappingLeafCollector<LC> {
   pub(crate) fn new(base: LC) -> Self {
     Self {
       inner: base,
-      cache: ScoreCachingWrappingScorerCache::new(),
+      cache: Rc::new(ScoreCachingWrappingScorerCache::new()),
     }
   }
 }

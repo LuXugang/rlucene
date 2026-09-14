@@ -74,7 +74,7 @@ pub struct PointInSetQuery {
   id: Identity,
   sorted_packed_points: PrefixCodedTermsArc,
   sorted_packed_points_hash_code: u64,
-  field: String,
+  field: Arc<str>,
   num_dims: usize,
   bytes_per_dim: usize,
   ram_bytes_used: i64,
@@ -152,7 +152,7 @@ impl PointInSetQuery {
       id: Identity::new(),
       sorted_packed_points,
       sorted_packed_points_hash_code,
-      field,
+      field: Arc::from(field),
       num_dims,
       bytes_per_dim,
       ram_bytes_used,
@@ -187,7 +187,7 @@ impl PointInSetQuery {
 
   pub fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
-    if self.field != field {
+    if self.field.as_ref() != field {
       sb.push_str(&self.field);
       sb.push(':');
     }
@@ -277,13 +277,13 @@ impl QueryBase for PointInSetQuery {
 pub struct PointInSetWeight {
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
-  query: Arc<PointInSetQuery>,
+  query: PointInSetQuery,
   score_mode: ScoreMode,
 }
 
 impl PointInSetWeight {
   pub fn new(score: f32, query: PointInSetQuery, score_mode: ScoreMode) -> Self {
-    let point_in_set_query = Arc::new(query.clone());
+    let point_in_set_query = query.clone();
     let parent_query = Arc::new(query.into());
     Self {
       base: ConstantScoreWeight::new(score),
@@ -384,7 +384,7 @@ pub struct MergePointScorerSupplier<PV> {
   score_mode: ScoreMode,
   values: PV,
   max_doc: i32,
-  field: String,
+  field: Arc<str>,
   sorted_packed_points: PrefixCodedTermsArc,
   bytes_per_dim: usize,
   cost: i64,
@@ -401,7 +401,7 @@ impl<PV> MergePointScorerSupplier<PV> {
     bytes_per_dim: usize,
   ) -> Self
   where
-    FName: Into<String>,
+    FName: Into<Arc<str>>,
   {
     let field = field.into();
     Self {
@@ -433,7 +433,7 @@ where
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
     let mut visitor = MergePointVisitor::new(
-      self.sorted_packed_points.clone(),
+      &self.sorted_packed_points,
       DocIdSetBuilder::from_point_values(self.max_doc, &self.values, &self.field)?,
       self.bytes_per_dim,
     )?;
@@ -461,7 +461,7 @@ where
   ) -> Result<i64> {
     if self.cost == -1 {
       let visitor = MergePointVisitor::new(
-        self.sorted_packed_points.clone(),
+        &self.sorted_packed_points,
         DocIdSetBuilder::from_point_values(self.max_doc, &self.values, &self.field)?,
         self.bytes_per_dim,
       )?;
@@ -477,7 +477,7 @@ pub struct SinglePointScorerSupplier<PV> {
   score_mode: ScoreMode,
   values: PV,
   max_doc: i32,
-  field: String,
+  field: Arc<str>,
   sorted_packed_points: PrefixCodedTermsArc,
   num_dims: usize,
   bytes_per_dim: usize,
@@ -497,7 +497,7 @@ impl<PV> SinglePointScorerSupplier<PV> {
     bytes_per_dim: usize,
   ) -> Self
   where
-    FName: Into<String>,
+    FName: Into<Arc<str>>,
   {
     let field = field.into();
     Self {
@@ -586,7 +586,7 @@ pub struct MergePointVisitor {
 
 impl MergePointVisitor {
   pub fn new(
-    sorted_packed_points: PrefixCodedTermsArc,
+    sorted_packed_points: &PrefixCodedTermsArc,
     result: DocIdSetBuilder,
     bytes_per_dim: usize,
   ) -> Result<Self> {

@@ -209,7 +209,7 @@ impl QueryBase for RangeFieldQuery {
 }
 
 pub struct RangeFieldWeight {
-  query: RangeFieldQuery,
+  query: Arc<RangeFieldQuery>,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -217,7 +217,7 @@ pub struct RangeFieldWeight {
 
 impl RangeFieldWeight {
   fn new(query: RangeFieldQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let query_clone = query.clone();
+    let query_clone = Arc::new(query.clone());
     let parent_query = Arc::new(query.into());
     Self {
       query: query_clone,
@@ -440,11 +440,11 @@ where
 
 pub struct RangeFieldIntersectVisitor {
   result: DocIdSetBuilder,
-  query: RangeFieldQuery,
+  query: Arc<RangeFieldQuery>,
 }
 
 impl RangeFieldIntersectVisitor {
-  fn new(result: DocIdSetBuilder, query: RangeFieldQuery) -> Self {
+  fn new(result: DocIdSetBuilder, query: Arc<RangeFieldQuery>) -> Self {
     Self { result, query }
   }
 }
