@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
+use std::fmt::{Display, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -318,7 +318,7 @@ impl<D> SegmentInfo<D> {
   /// - `[sorter=<long: "timestamp">!]`: Indicates the segment is sorted by
   ///   the `timestamp` field in descending order (optional, omitted for
   ///   unsorted segments).
-  pub fn to_string(&self, del_count: i32) -> String {
+  pub fn to_string(&self, del_count: i32) -> std::result::Result<String, std::fmt::Error> {
     let mut s = String::new();
     s.push_str(&self.name);
 
@@ -337,11 +337,11 @@ impl<D> SegmentInfo<D> {
     s.push(':');
     s.push(cfs);
 
-    s.push_str(&self.max_doc.to_string());
+    write!(s, "{}", self.max_doc)?;
 
     if del_count != 0 {
       s.push('/');
-      s.push_str(&del_count.to_string());
+      write!(s, "{del_count}")?;
     }
 
     if let Some(index_sort) = &self.index_sort {
@@ -352,16 +352,16 @@ impl<D> SegmentInfo<D> {
 
     if !self.diagnostics.is_empty() {
       s.push_str(":[diagnostics=");
-      s.push_str(&format!("{:?}", self.diagnostics));
+      write!(s, "{:?}", self.diagnostics)?;
       s.push(']');
     }
 
     if !self.attributes.is_empty() {
       s.push_str(":[attributes=");
-      s.push_str(&format!("{:?}", self.attributes));
+      write!(s, "{:?}", self.attributes)?;
       s.push(']');
     }
-    s
+    Ok(s)
   }
   /// Returns the version of the code which wrote the segment.
   pub fn get_version_ref(&self) -> Option<&Version> {
@@ -526,7 +526,7 @@ impl<D> Hash for SegmentInfo<D> {
 }
 impl<D> Display for SegmentInfo<D> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.to_string(0))
+    write!(f, "{}", self.to_string(0)?)
   }
 }
 #[cfg(test)]

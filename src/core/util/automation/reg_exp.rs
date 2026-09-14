@@ -670,12 +670,12 @@ impl RegExp {
     Ok(())
   }
   /// Like to string, but more verbose (shows the higherchy more clearly).
-  pub fn to_string_tree(&self) -> String {
+  pub fn to_string_tree(&self) -> Result<String> {
     let mut b = String::new();
-    self.to_string_tree_from_string(&mut b, "");
-    b
+    self.to_string_tree_from_string(&mut b, "")?;
+    Ok(b)
   }
-  pub(crate) fn to_string_tree_from_string(&self, b: &mut String, indent: &str) {
+  pub(crate) fn to_string_tree_from_string(&self, b: &mut String, indent: &str) -> Result<()> {
     use RegExpKind::*;
 
     let newline = "\n";
@@ -685,58 +685,59 @@ impl RegExp {
       // binary
       Union | Concatenation | Intersection => {
         b.push_str(indent);
-        b.push_str(&format!("{:?}{}", self.kind, newline));
+        write!(b, "{:?}{}", self.kind, newline)?;
         if let Some(e1) = &self.exp1 {
-          e1.to_string_tree_from_string(b, &indent_more);
+          e1.to_string_tree_from_string(b, &indent_more)?;
         }
         if let Some(e2) = &self.exp2 {
-          e2.to_string_tree_from_string(b, &indent_more);
+          e2.to_string_tree_from_string(b, &indent_more)?;
         }
       },
 
       // unary
       Optional | Repeat | Complement | DeprecatedComplement => {
         b.push_str(indent);
-        b.push_str(&format!("{:?}{}", self.kind, newline));
+        write!(b, "{:?}{}", self.kind, newline)?;
         if let Some(e1) = &self.exp1 {
-          e1.to_string_tree_from_string(b, &indent_more);
+          e1.to_string_tree_from_string(b, &indent_more)?;
         }
       },
 
       RepeatMin => {
         b.push_str(indent);
-        b.push_str(&format!("{:?} min={}{}", self.kind, self.min, newline));
+        write!(b, "{:?} min={}{}", self.kind, self.min, newline)?;
         if let Some(e1) = &self.exp1 {
-          e1.to_string_tree_from_string(b, &indent_more);
+          e1.to_string_tree_from_string(b, &indent_more)?;
         }
       },
 
       RepeatMinMax => {
         b.push_str(indent);
-        b.push_str(&format!(
+        write!(
+          b,
           "{:?} min={} max={}{}",
           self.kind, self.min, self.max, newline
-        ));
+        )?;
         if let Some(e1) = &self.exp1 {
-          e1.to_string_tree_from_string(b, &indent_more);
+          e1.to_string_tree_from_string(b, &indent_more)?;
         }
       },
 
       Char => {
         b.push_str(indent);
         if let Some(ch) = std::char::from_u32(self.c as u32) {
-          b.push_str(&format!("{:?} char={}{}", self.kind, ch, newline));
+          write!(b, "{:?} char={}{}", self.kind, ch, newline)?;
         } else {
-          b.push_str(&format!("{:?} char=?{}", self.kind, newline));
+          write!(b, "{:?} char=?{}", self.kind, newline)?;
         }
       },
 
       PreClass => {
         b.push_str(indent);
         if let Some(ch) = std::char::from_u32(self.from as u32) {
-          b.push_str(&format!("{:?} class=\\{}{}", self.kind, ch, newline));
+          write!(b, "{:?} class=\\{}{}", self.kind, ch, newline)?;
         } else {
-          b.push_str(&format!("{:?} class=\\?{}", self.kind, newline));
+          write!(b, "{:?} class=\\?{}", self.kind, newline)?;
         }
       },
 
@@ -744,20 +745,21 @@ impl RegExp {
         b.push_str(indent);
         let from_ch = std::char::from_u32(self.from as u32).unwrap_or('?');
         let to_ch = std::char::from_u32(self.to as u32).unwrap_or('?');
-        b.push_str(&format!(
+        write!(
+          b,
           "{:?} from={} to={}{}",
           self.kind, from_ch, to_ch, newline
-        ));
+        )?;
       },
 
       String => {
         b.push_str(indent);
-        b.push_str(&format!("{:?} string={}{}", self.kind, self.s, newline));
+        write!(b, "{:?} string={}{}", self.kind, self.s, newline)?;
       },
 
       Interval => {
         b.push_str(indent);
-        b.push_str(&format!("{:?}<", self.kind));
+        write!(b, "{:?}<", self.kind)?;
         let s1 = self.min.to_string();
         let s2 = self.max.to_string();
         if self.digits > 0 {
@@ -773,14 +775,15 @@ impl RegExp {
           }
         }
         b.push_str(&s2);
-        b.push_str(&format!(">{newline}"));
+        write!(b, ">{newline}")?;
       },
 
       AnyChar | AnyString | Empty | Automaton => {
         b.push_str(indent);
-        b.push_str(&format!("{:?}{}", self.kind, newline));
+        write!(b, "{:?}{}", self.kind, newline)?;
       },
     }
+    Ok(())
   }
   /// Returns set of automaton identifiers that occur in this regular
   /// expression.

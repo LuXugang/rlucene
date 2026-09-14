@@ -5848,7 +5848,7 @@ where
   fn seg_string_from_info(&self, info: &SegmentCommitInfo<D>) -> Result<String> {
     let num_deleted = self.num_deleted_docs(info)?
       - info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
-    Ok(info.to_string_with_pending_del_count(num_deleted))
+    Ok(info.to_string_with_pending_del_count(num_deleted)?)
   }
 
   fn do_wait(&self, guard: &mut MutexGuard<Inner<D>>) {

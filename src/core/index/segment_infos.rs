@@ -1245,7 +1245,7 @@ impl<D> fmt::Display for SegmentInfos<D> {
       write!(
         f,
         "{}",
-        segment_commit_info.to_string_with_pending_del_count(0)
+        segment_commit_info.to_string_with_pending_del_count(0)?
       )?
     }
     Ok(())

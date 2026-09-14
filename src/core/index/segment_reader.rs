@@ -448,7 +448,9 @@ where
         write!(
           f,
           "{}",
-          self.si.to_string_with_pending_del_count(pending_del_count)
+          self
+            .si
+            .to_string_with_pending_del_count(pending_del_count)?
         )
       },
       Err(e) => write!(f, "{}", e),

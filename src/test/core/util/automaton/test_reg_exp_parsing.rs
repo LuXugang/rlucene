@@ -354,7 +354,7 @@ fn test_any_char() -> Result<()> {
   let re = RegExp::from_string(".")?;
 
   assert_eq!(".", re.to_string());
-  assert_eq!("AnyChar\n", re.to_string_tree());
+  assert_eq!("AnyChar\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -369,7 +369,7 @@ fn test_any_string() -> Result<()> {
   let re = RegExp::parse("@", RegExp::ALL, 0)?;
 
   assert_eq!("@", re.to_string());
-  assert_eq!("AnyString\n", re.to_string_tree());
+  assert_eq!("AnyString\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -384,7 +384,7 @@ fn test_char() -> Result<()> {
   let re = RegExp::from_string("c")?;
 
   assert_eq!("\\c", re.to_string());
-  assert_eq!("Char char=c\n", re.to_string_tree());
+  assert_eq!("Char char=c\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -400,7 +400,7 @@ fn test_case_insensitive_char() -> Result<()> {
   let re = RegExp::parse("c", RegExp::NONE, RegExp::ASCII_CASE_INSENSITIVE)?;
 
   assert_eq!("\\c", re.to_string());
-  assert_eq!("Char char=c\n", re.to_string_tree());
+  assert_eq!("Char char=c\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -418,7 +418,7 @@ fn test_case_insensitive_char_upper() -> Result<()> {
   let re = RegExp::parse("C", RegExp::NONE, RegExp::ASCII_CASE_INSENSITIVE)?;
 
   assert_eq!("\\C", re.to_string());
-  assert_eq!("Char char=C\n", re.to_string_tree());
+  assert_eq!("Char char=C\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -435,7 +435,7 @@ fn test_case_insensitive_char_not_sensitive() -> Result<()> {
   let re = RegExp::parse("4", RegExp::NONE, RegExp::ASCII_CASE_INSENSITIVE)?;
 
   assert_eq!("\\4", re.to_string());
-  assert_eq!("Char char=4\n", re.to_string_tree());
+  assert_eq!("Char char=4\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -451,7 +451,7 @@ fn test_case_insensitive_char_non_ascii() -> Result<()> {
   let re = RegExp::parse("Ж", RegExp::NONE, RegExp::ASCII_CASE_INSENSITIVE)?;
 
   assert_eq!("\\Ж", re.to_string());
-  assert_eq!("Char char=Ж\n", re.to_string_tree());
+  assert_eq!("Char char=Ж\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -469,7 +469,7 @@ fn test_negated_char() -> Result<()> {
   assert_eq!("(.&~(\\c))", re.to_string());
   assert_eq!(
     "Intersection\n  AnyChar\n  Complement\n    Char char=c\n",
-    re.to_string_tree()
+    re.to_string_tree()?
   );
 
   let actual = re.to_automaton()?;
@@ -488,7 +488,7 @@ fn test_char_range() -> Result<()> {
   let re = RegExp::from_string("[b-d]")?;
 
   assert_eq!("[\\b-\\d]", re.to_string());
-  assert_eq!("CharRange from=b to=d\n", re.to_string_tree());
+  assert_eq!("CharRange from=b to=d\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -505,7 +505,7 @@ fn test_negated_char_range() -> Result<()> {
   assert_eq!("(.&~([\\b-\\d]))", re.to_string());
   assert_eq!(
     "Intersection\n  AnyChar\n  Complement\n    CharRange from=b to=d\n",
-    re.to_string_tree()
+    re.to_string_tree()?
   );
 
   let actual = re.to_automaton()?;
@@ -535,7 +535,7 @@ fn test_char_class_digit() -> Result<()> {
   let re = RegExp::from_string("[\\d]")?;
 
   assert_eq!("\\d", re.to_string());
-  assert_eq!("PreClass class=\\d\n", re.to_string_tree());
+  assert_eq!("PreClass class=\\d\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -551,7 +551,7 @@ fn test_char_class_non_digit() -> Result<()> {
   let re = RegExp::from_string("[\\D]")?;
 
   assert_eq!("\\D", re.to_string());
-  assert_eq!("PreClass class=\\D\n", re.to_string_tree());
+  assert_eq!("PreClass class=\\D\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -569,7 +569,7 @@ fn test_char_class_whitespace() -> Result<()> {
   let re = RegExp::from_string("[\\s]")?;
 
   assert_eq!("\\s", re.to_string());
-  assert_eq!("PreClass class=\\s\n", re.to_string_tree());
+  assert_eq!("PreClass class=\\s\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -588,7 +588,7 @@ fn test_char_class_non_whitespace() -> Result<()> {
   let re = RegExp::from_string("[\\S]")?;
 
   assert_eq!("\\S", re.to_string());
-  assert_eq!("PreClass class=\\S\n", re.to_string_tree());
+  assert_eq!("PreClass class=\\S\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -611,7 +611,7 @@ fn test_char_class_word() -> Result<()> {
   let re = RegExp::from_string("[\\w]")?;
 
   assert_eq!("\\w", re.to_string());
-  assert_eq!("PreClass class=\\w\n", re.to_string_tree());
+  assert_eq!("PreClass class=\\w\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -635,7 +635,7 @@ fn test_char_class_non_word() -> Result<()> {
   let re = RegExp::from_string("[\\W]")?;
 
   assert_eq!("\\W", re.to_string());
-  assert_eq!("PreClass class=\\W\n", re.to_string_tree());
+  assert_eq!("PreClass class=\\W\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -670,7 +670,7 @@ fn test_escaped_not_char_class() -> Result<()> {
   let re = RegExp::from_string("[\\?]")?;
 
   assert_eq!("\\?", re.to_string());
-  assert_eq!("Char char=?\n", re.to_string_tree());
+  assert_eq!("Char char=?\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -686,7 +686,7 @@ fn test_escaped_slash_not_char_class() -> Result<()> {
   let re = RegExp::from_string("[\\\\]")?;
 
   assert_eq!("\\\\", re.to_string());
-  assert_eq!("Char char=\\\n", re.to_string_tree());
+  assert_eq!("Char char=\\\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -701,7 +701,7 @@ fn test_empty() -> Result<()> {
   let re = RegExp::parse("#", RegExp::EMPTY, 0)?;
 
   assert_eq!("#", re.to_string());
-  assert_eq!("Empty\n", re.to_string_tree());
+  assert_eq!("Empty\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -717,7 +717,7 @@ fn test_interval() -> Result<()> {
   let re = RegExp::from_string("<5-40>")?;
 
   assert_eq!("<5-40>", re.to_string());
-  assert_eq!("Interval<5-40>\n", re.to_string_tree());
+  assert_eq!("Interval<5-40>\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   let expected = Automata::make_decimal_interval(5, 40, 0)?;
@@ -731,7 +731,7 @@ fn test_backwards_interval() -> Result<()> {
   let re = RegExp::from_string("<40-5>")?;
 
   assert_eq!("<5-40>", re.to_string());
-  assert_eq!("Interval<5-40>\n", re.to_string_tree());
+  assert_eq!("Interval<5-40>\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   let expected = Automata::make_decimal_interval(5, 40, 0)?;
@@ -762,7 +762,7 @@ fn test_optional() -> Result<()> {
   let re = RegExp::from_string("a?")?;
 
   assert_eq!("(\\a)?", re.to_string());
-  assert_eq!("Optional\n  Char char=a\n", re.to_string_tree());
+  assert_eq!("Optional\n  Char char=a\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -778,7 +778,7 @@ fn test_repeat_0() -> Result<()> {
   let re = RegExp::from_string("a*")?;
 
   assert_eq!("(\\a)*", re.to_string());
-  assert_eq!("Repeat\n  Char char=a\n", re.to_string_tree());
+  assert_eq!("Repeat\n  Char char=a\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -795,7 +795,7 @@ fn test_repeat_1() -> Result<()> {
   let re = RegExp::from_string("a+")?;
 
   assert_eq!("(\\a){1,}", re.to_string());
-  assert_eq!("RepeatMin min=1\n  Char char=a\n", re.to_string_tree());
+  assert_eq!("RepeatMin min=1\n  Char char=a\n", re.to_string_tree()?);
 
   let a = Automata::make_char('a' as i32)?;
   let expected = Operations::repeat_count(&a, 1)?;
@@ -813,7 +813,7 @@ fn test_repeat_n() -> Result<()> {
   assert_eq!("(\\a){5,5}", re.to_string());
   assert_eq!(
     "RepeatMinMax min=5 max=5\n  Char char=a\n",
-    re.to_string_tree()
+    re.to_string_tree()?
   );
 
   let a = Automata::make_char('a' as i32)?;
@@ -829,7 +829,7 @@ fn test_repeat_n_plus() -> Result<()> {
   let re = RegExp::from_string("a{5,}")?;
 
   assert_eq!("(\\a){5,}", re.to_string());
-  assert_eq!("RepeatMin min=5\n  Char char=a\n", re.to_string_tree());
+  assert_eq!("RepeatMin min=5\n  Char char=a\n", re.to_string_tree()?);
 
   let a = Automata::make_char('a' as i32)?;
   let expected = Operations::repeat_count(&a, 5)?;
@@ -847,7 +847,7 @@ fn test_repeat_mn() -> Result<()> {
   assert_eq!("(\\a){5,8}", re.to_string());
   assert_eq!(
     "RepeatMinMax min=5 max=8\n  Char char=a\n",
-    re.to_string_tree()
+    re.to_string_tree()?
   );
 
   let a = Automata::make_char('a' as i32)?;
@@ -876,7 +876,7 @@ fn test_string() -> Result<()> {
   let re = RegExp::from_string("boo")?;
 
   assert_eq!("\"boo\"", re.to_string());
-  assert_eq!("String string=boo\n", re.to_string_tree());
+  assert_eq!("String string=boo\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -891,7 +891,7 @@ fn test_case_insensitive_string() -> Result<()> {
   let re = RegExp::parse("boo", RegExp::NONE, RegExp::ASCII_CASE_INSENSITIVE)?;
 
   assert_eq!("\"boo\"", re.to_string());
-  assert_eq!("String string=boo\n", re.to_string_tree());
+  assert_eq!("String string=boo\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -916,7 +916,7 @@ fn test_explicit_string() -> Result<()> {
   let re = RegExp::from_string("\"boo\"")?;
 
   assert_eq!("\"boo\"", re.to_string());
-  assert_eq!("String string=boo\n", re.to_string_tree());
+  assert_eq!("String string=boo\n", re.to_string_tree()?);
 
   let actual = re.to_automaton()?;
   assert!(actual.is_deterministic());
@@ -939,7 +939,7 @@ fn test_concatenation() -> Result<()> {
   assert_eq!("[\\b-\\c][\\e-\\f]", re.to_string());
   assert_eq!(
     "Concatenation\n  CharRange from=b to=c\n  CharRange from=e to=f\n",
-    re.to_string_tree()
+    re.to_string_tree()?
   );
 
   let r1 = Automata::make_char_range('b' as i32, 'c' as i32)?;
@@ -959,7 +959,7 @@ fn test_intersection() -> Result<()> {
   assert_eq!("([\\b-\\f]&[\\e-\\f])", re.to_string());
   assert_eq!(
     "Intersection\n  CharRange from=b to=f\n  CharRange from=e to=f\n",
-    re.to_string_tree()
+    re.to_string_tree()?
   );
 
   let r1 = Automata::make_char_range('b' as i32, 'f' as i32)?;
@@ -992,7 +992,7 @@ fn test_union() -> Result<()> {
   assert_eq!("([\\b-\\c]|[\\e-\\f])", re.to_string());
   assert_eq!(
     "Union\n  CharRange from=b to=c\n  CharRange from=e to=f\n",
-    re.to_string_tree()
+    re.to_string_tree()?
   );
 
   let r1 = Automata::make_char_range('b' as i32, 'c' as i32)?;
@@ -1030,7 +1030,7 @@ fn test_automaton() -> Result<()> {
 
   let re = RegExp::parse("<myletter>", RegExp::ALL, 0)?;
   assert_eq!("<myletter>", re.to_string());
-  assert_eq!("Automaton\n", re.to_string_tree());
+  assert_eq!("Automaton\n", re.to_string_tree()?);
   assert_eq!(
     re.get_identifiers_set(),
     HashSet::from(["myletter".to_string()])
@@ -1047,7 +1047,7 @@ fn test_automaton() -> Result<()> {
 fn test_automaton_map() -> Result<()> {
   let re = RegExp::parse("<myletter>", RegExp::ALL, 0)?;
   assert_eq!("<myletter>", re.to_string());
-  assert_eq!("Automaton\n", re.to_string_tree());
+  assert_eq!("Automaton\n", re.to_string_tree()?);
   assert_eq!(
     re.get_identifiers_set(),
     HashSet::from(["myletter".to_string()])
@@ -1066,7 +1066,7 @@ fn test_automaton_map() -> Result<()> {
 }
 
 #[test]
-fn test_automaton_io_exception() {
+fn test_automaton_io_exception() -> Result<()> {
   struct MyProvider;
   impl AutomatonProvider for MyProvider {
     fn get_automaton(&self, _name: &str) -> Result<Option<Automaton>> {
@@ -1076,7 +1076,7 @@ fn test_automaton_io_exception() {
 
   let re = RegExp::parse("<myletter>", RegExp::ALL, 0).unwrap();
   assert_eq!("<myletter>", re.to_string());
-  assert_eq!("Automaton\n", re.to_string_tree());
+  assert_eq!("Automaton\n", re.to_string_tree()?);
   assert_eq!(
     re.get_identifiers_set(),
     HashSet::from(["myletter".to_string()])
@@ -1084,19 +1084,21 @@ fn test_automaton_io_exception() {
 
   let err = re.to_automaton_from_provider(&MyProvider);
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  Ok(())
 }
 
 #[test]
-fn test_automaton_not_found() {
+fn test_automaton_not_found() -> Result<()> {
   let re = RegExp::parse("<bogus>", RegExp::ALL, 0).unwrap();
   assert_eq!("<bogus>", re.to_string());
-  assert_eq!("Automaton\n", re.to_string_tree());
+  assert_eq!("Automaton\n", re.to_string_tree()?);
 
   let err = re.to_automaton_from_map(&HashMap::from([(
     "myletter".to_string(),
     Automata::make_char('z' as i32).unwrap(),
   )]));
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  Ok(())
 }
 
 #[test]

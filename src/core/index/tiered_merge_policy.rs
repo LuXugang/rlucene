@@ -480,7 +480,7 @@ impl TieredMergePolicy {
           for meta in &candidate {
             let info = meta.seg_info;
             let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
-            candidate_segments.push(info.to_string_with_pending_del_count(del));
+            candidate_segments.push(info.to_string_with_pending_del_count(del)?);
           }
           let candidate_string = candidate_segments.join(" ");
           self.message(
@@ -529,7 +529,7 @@ impl TieredMergePolicy {
           for meta in &best {
             let info = meta.seg_info;
             let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
-            best_segments.push(info.to_string_with_pending_del_count(del));
+            best_segments.push(info.to_string_with_pending_del_count(del)?);
           }
           let best_string = best_segments.join(" ");
           let best_score = best_score
@@ -1055,7 +1055,7 @@ where
           for meta in &candidate {
             let info = meta.seg_info;
             let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
-            candidate_segments.push(info.to_string_with_pending_del_count(del));
+            candidate_segments.push(info.to_string_with_pending_del_count(del)?);
           }
           self.message(
             &format!("add merge={}", candidate_segments.join(" ")),

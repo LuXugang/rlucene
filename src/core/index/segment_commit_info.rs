@@ -22,6 +22,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, TryIntoInt};
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -371,28 +372,28 @@ impl<D> SegmentCommitInfo<D> {
   }
 
   /// Returns a description of this segment.
-  pub fn to_string_with_pending_del_count(&self, pending_del_count: i32) -> String {
-    let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count);
+  pub fn to_string_with_pending_del_count(
+    &self,
+    pending_del_count: i32,
+  ) -> std::result::Result<String, std::fmt::Error> {
+    let mut s = SegmentInfo::to_string(&self.info, self.del_count + pending_del_count)?;
 
     if self.del_gen != -1 {
-      s.push_str(&format!(":delGen={}", self.del_gen));
+      write!(s, ":delGen={}", self.del_gen)?;
     }
     if self.field_infos_gen != -1 {
-      s.push_str(&format!(":fieldInfosGen={}", self.field_infos_gen));
+      write!(s, ":fieldInfosGen={}", self.field_infos_gen)?;
     }
     if self.doc_values_gen != -1 {
-      s.push_str(&format!(":dvGen={}", self.doc_values_gen));
+      write!(s, ":dvGen={}", self.doc_values_gen)?;
     }
     if self.soft_del_count > 0 {
-      s.push_str(&format!(" :softDel={}", self.soft_del_count));
+      write!(s, " :softDel={}", self.soft_del_count)?;
     }
     if self.id.is_some() {
-      s.push_str(&format!(
-        " :id={}",
-        StringHelper::id_to_string(self.id.as_ref())
-      ));
+      write!(s, " :id={}", StringHelper::id_to_string(self.id.as_ref()))?;
     }
-    s
+    Ok(s)
   }
   /// Returns the number of deleted documents in the segment.
   /// If `include_soft_deletes` is `true`, it includes soft-deleted documents.
@@ -440,7 +441,7 @@ pub fn validate_soft_del_count(del_count: i32, max_doc: i32, soft_del_count: i32
 /// Implement `Display` for [`SegmentCommitInfo`].
 impl<D> std::fmt::Display for SegmentCommitInfo<D> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", self.to_string_with_pending_del_count(0))
+    write!(f, "{}", self.to_string_with_pending_del_count(0)?)
   }
 }
 impl<D> Clone for SegmentCommitInfo<D> {
