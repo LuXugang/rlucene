@@ -25,6 +25,7 @@ use crate::core::util::io_utils::IOUtils;
 use parking_lot::{Mutex, ReentrantMutex, RwLock};
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
@@ -141,11 +142,12 @@ where
       let tracker = Arc::new(SearcherTracker::new(searcher.clone())?);
       let existing = {
         let mut searchers = self.searchers.write();
-        if let Some(existing) = searchers.get(&version) {
-          Some(existing.clone())
-        } else {
-          searchers.insert(version, tracker.clone());
-          None
+        match searchers.entry(version) {
+          Entry::Occupied(entry) => Some(Arc::clone(entry.get())),
+          Entry::Vacant(entry) => {
+            entry.insert(Arc::clone(&tracker));
+            None
+          },
         }
       };
       if existing.is_some() {
@@ -187,13 +189,10 @@ where
     P: Pruner<DR>,
   {
     let _operation_lock = self.operation_lock.lock();
-    // Copy one entry at a time because the map can change while the snapshot is being built.
-    let mut trackers = Vec::new();
-    for tracker in self.searchers.read().values() {
-      trackers.push(tracker.clone());
-    }
+    // Take a stable snapshot while holding the map's read lock.
+    let mut trackers: Vec<_> = self.searchers.read().values().cloned().collect();
     // Newer searchers sort before older searchers.
-    trackers.sort_by_key(|tracker| Reverse(tracker.record_time));
+    trackers.sort_unstable_by_key(|tracker| Reverse(tracker.record_time));
     let mut last_record_time = None;
     let now = Instant::now();
     for tracker in trackers {
