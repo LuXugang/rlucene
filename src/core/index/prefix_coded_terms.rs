@@ -255,29 +255,34 @@ impl PrefixCodedTermsBuilder {
   }
   /// add a term.
   pub fn add_term(&mut self, term: &Term) -> Result<()> {
-    self.add(term.field.to_string(), &term.bytes)
+    self.add(term.field.as_str(), &term.bytes)
   }
   /// Add a term. This fully consumes the incoming [`BytesRef`].
-  pub fn add<FName>(&mut self, field: FName, bytes: &BytesRef<Vec<u8>>) -> Result<()>
+  pub fn add<'a, FName>(&mut self, field: FName, bytes: &BytesRef<Vec<u8>>) -> Result<()>
   where
-    FName: Into<String>,
+    FName: Into<Cow<'a, str>>,
   {
     let field = field.into();
+    let field_name = field.as_ref();
     debug_assert!(
       self.last_term == Term::from_empty("".to_string())
-        || Term::new(field.clone(), bytes.clone()).cmp(&self.last_term) == Ordering::Greater,
+        || Term::new(field_name.to_string(), bytes.clone()).cmp(&self.last_term)
+          == Ordering::Greater,
     );
 
     let prefix;
-    if self.size > 0 && field == self.last_term.field {
+    let mut new_field = None;
+    if self.size > 0 && field_name == self.last_term.field {
       // Same field as the last term
       prefix = StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
       self.output.write_vint((prefix << 1) as i32)?;
     } else {
       // Field change
+      let field = field.into_owned();
       prefix = 0;
       self.output.write_vint(1)?;
       self.output.write_string(&field)?;
+      new_field = Some(field);
     }
 
     let suffix = bytes.length - prefix;
@@ -292,7 +297,9 @@ impl PrefixCodedTermsBuilder {
       &mut self.last_term.bytes,
       self.last_term_bytes.get_bytes_mut_ref(),
     );
-    self.last_term.field = field;
+    if let Some(field) = new_field {
+      self.last_term.field = field;
+    }
     self.size += 1;
 
     Ok(())

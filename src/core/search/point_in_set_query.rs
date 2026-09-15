@@ -136,7 +136,7 @@ impl PointInSetQuery {
         }
       }
 
-      builder.add(field.clone(), current)?;
+      builder.add(field.as_str(), current)?;
       let previous_buffer = previous.get_or_insert_with(BytesRefBuilder::new);
       previous_buffer.copy_bytes_from_ref(current)?;
       previous_buffer.bytes_mut().bytes.truncate(packed_length);
