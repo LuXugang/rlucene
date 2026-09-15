@@ -322,7 +322,7 @@ fn test_all_docs() -> Result<()> {
   let mut random = random();
   let max_doc = TestUtil::next_usize(&mut random, 1, 100_000);
   let mut set = FixedBitSet::new(max_doc);
-  set.set_with_range(1, max_doc);
+  set.set_with_range(0, max_doc);
   let dir = new_directory(&mut random)?;
   let _ = do_test(set, &dir, &mut random)?;
   Ok(())
