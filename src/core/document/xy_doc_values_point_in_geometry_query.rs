@@ -49,7 +49,7 @@ use std::sync::Arc;
 pub struct XYDocValuesPointInGeometryQuery {
   id: Identity,
   field: String,
-  geometries: Arc<Vec<XYGeometryEnum>>,
+  geometries: Arc<[XYGeometryEnum]>,
   component2d: Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>,
 }
 
@@ -61,7 +61,7 @@ impl XYDocValuesPointInGeometryQuery {
       ));
     }
     let component2d = Arc::new(xy_geometry::create(geometries.as_slice())?);
-    let geometries = Arc::new(geometries);
+    let geometries = Arc::from(geometries);
     Ok(Self {
       id: Identity::new(),
       field,

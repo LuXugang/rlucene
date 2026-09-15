@@ -61,7 +61,7 @@ pub struct SpatialQuery<G, C> {
   pub(crate) field: String,
   /// query relation
   pub(crate) query_relation: QueryRelation,
-  pub(crate) geometries: Vec<G>,
+  pub(crate) geometries: Arc<[G]>,
   pub(crate) sub: C,
   id: Identity,
 }
@@ -117,7 +117,7 @@ where
       sb.push(':');
     }
     sb.push('[');
-    for geometry in &self.geometries {
+    for geometry in self.geometries.iter() {
       sb.push_str(&geometry.to_string());
       sb.push(',');
     }

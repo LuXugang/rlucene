@@ -54,7 +54,7 @@ use std::sync::Arc;
 pub struct XYPointInGeometryQuery {
   id: Identity,
   field: String,
-  xy_geometries: Arc<Vec<XYGeometryEnum>>,
+  xy_geometries: Arc<[XYGeometryEnum]>,
   component2d: Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>,
 }
 
@@ -69,7 +69,7 @@ impl XYPointInGeometryQuery {
     Ok(Self {
       id: Identity::new(),
       field,
-      xy_geometries: Arc::new(xy_geometries),
+      xy_geometries: Arc::from(xy_geometries),
       component2d,
     })
   }
@@ -81,7 +81,7 @@ impl XYPointInGeometryQuery {
 
   /// Returns a copy of the internal geometries.
   pub fn get_geometries(&self) -> &[XYGeometryEnum] {
-    self.xy_geometries.as_slice()
+    self.xy_geometries.as_ref()
   }
 }
 
