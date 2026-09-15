@@ -3661,7 +3661,7 @@ where
       }
 
       if merge_success {
-        let mut infos = Vec::new();
+        let mut infos = Vec::with_capacity(merges.len());
         let mut total_docs = 0_i64;
         for merge in &mut merges {
           total_docs += i64::from(merge.total_max_doc);
@@ -9116,7 +9116,7 @@ where
       }
 
       let merged_segment_ids: HashSet<&str> = stat.segments.iter().map(String::as_str).collect();
-      let mut to_commit_merged_away_segments = Vec::new();
+      let mut to_commit_merged_away_segments = Vec::with_capacity(stat.segments.len());
       {
         let mut merging_segment_infos = self.merging_segment_infos.lock();
         for sci in merging_segment_infos.iter() {

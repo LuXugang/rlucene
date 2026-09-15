@@ -93,7 +93,7 @@ where
     reader: Option<&StandardDirectoryReader<D>>,
     index_created_version_major: i32,
   ) -> Result<Self> {
-    let mut reader_map = HashMap::new();
+    let mut reader_map = HashMap::with_capacity(reader.map_or(0, |_| segment_infos.size()));
 
     if let Some(reader) = reader {
       // Pre-enroll all segment readers into the reader pool; this is necessary so

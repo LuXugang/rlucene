@@ -232,7 +232,7 @@ where
 
   fn validate(readers: &[R], max_doc: i32, leaf_max_doc: &[i32]) -> Result<()> {
     for reader in readers {
-      let mut leaves = Vec::new();
+      let mut leaves = Vec::with_capacity(leaf_max_doc.len());
       reader.visit_leaves(&mut |leaf| {
         leaves.push(leaf.clone());
         Ok(())

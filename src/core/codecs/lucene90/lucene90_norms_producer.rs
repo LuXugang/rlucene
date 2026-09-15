@@ -172,7 +172,8 @@ where
   where
     II: IndexInput,
   {
-    let mut norms = HashMap::new();
+    let mut norms =
+      HashMap::with_capacity(field_infos.iter().filter(|info| info.has_norms()).count());
     loop {
       let field_number = meta.read_int()?;
       if field_number == -1 {

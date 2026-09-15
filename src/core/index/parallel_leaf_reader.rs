@@ -173,7 +173,11 @@ where
       None => (0, 0, false),
     };
 
-    let mut complete_reader_set = Vec::new();
+    let complete_reader_capacity = readers.len()
+      + stored_fields_readers
+        .as_ref()
+        .map_or(0, |readers| readers.len());
+    let mut complete_reader_set = Vec::with_capacity(complete_reader_capacity);
     let mut parallel_reader_indices = Vec::with_capacity(readers.len());
     for reader in readers {
       let reader_index = complete_reader_set
