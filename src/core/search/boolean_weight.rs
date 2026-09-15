@@ -18,8 +18,8 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD;
+use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_clause::Occur::{Filter, Must};
-use crate::core::search::boolean_clause::{BooleanClause, Occur};
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -60,7 +60,7 @@ where
     let mut req_count = num_docs;
 
     for weighted_clause in &self.weighted_clauses {
-      if !weighted_clause.clause.is_required() {
+      if !self.query.clauses()[weighted_clause.clause_index].is_required() {
         continue;
       }
 
@@ -100,7 +100,7 @@ where
     let mut unknown_count = false;
 
     for weighted_clause in &self.weighted_clauses {
-      if *weighted_clause.clause.occur() != occur {
+      if *self.query.clauses()[weighted_clause.clause_index].occur() != occur {
         continue;
       }
 
@@ -168,7 +168,7 @@ where
     let mut matches = Vec::with_capacity(self.weighted_clauses.len());
     let mut should_match_count = 0;
     for weighted_clause in &self.weighted_clauses {
-      let clause = &weighted_clause.clause;
+      let clause = &self.query.clauses()[weighted_clause.clause_index];
       let clause_matches = weighted_clause.weight.matches(context, doc, searcher)?;
       if clause.is_prohibited() {
         if clause_matches.is_some() {
@@ -204,7 +204,7 @@ where
     let mut should_match_count = 0;
 
     for wc in &self.weighted_clauses {
-      let clause = &wc.clause;
+      let clause = &self.query.clauses()[wc.clause_index];
       let weight = &wc.weight;
 
       let e = weight.explain(context, doc, searcher)?;
@@ -308,11 +308,11 @@ where
       let sub_supplier = wc.weight.scorer_supplier(context, searcher)?;
       match sub_supplier {
         None => {
-          if wc.clause.is_required() {
+          if self.query.clauses()[wc.clause_index].is_required() {
             return Ok(None);
           }
         },
-        Some(sub_scorer) => match wc.clause.occur() {
+        Some(sub_scorer) => match self.query.clauses()[wc.clause_index].occur() {
           Occur::Must => must.push(sub_scorer),
           Occur::Should => should.push(sub_scorer),
           Occur::Filter => filter.push(sub_scorer),
@@ -397,7 +397,8 @@ where
   }
 }
 pub(crate) struct WeightedBooleanClause<IRC> {
-  pub(crate) clause: BooleanClause,
+  // The immutable parent query owns the clause for the lifetime of this weight.
+  pub(crate) clause_index: usize,
   pub(crate) weight: QueryWeight<IRC>,
 }
 
@@ -405,7 +406,10 @@ impl<IRC> WeightedBooleanClause<IRC>
 where
   IRC: IndexReaderContext,
 {
-  pub(crate) fn new(clause: BooleanClause, weight: QueryWeight<IRC>) -> Self {
-    Self { clause, weight }
+  pub(crate) fn new(clause_index: usize, weight: QueryWeight<IRC>) -> Self {
+    Self {
+      clause_index,
+      weight,
+    }
   }
 }

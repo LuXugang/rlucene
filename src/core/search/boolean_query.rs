@@ -198,7 +198,7 @@ impl BooleanQuery {
     let similarity = searcher.get_similarity();
 
     let mut weighted_clauses = Vec::with_capacity(self.clauses().len());
-    for c in self.clauses.iter().cloned() {
+    for (clause_index, c) in self.clauses.iter().enumerate() {
       let clause_score_mode = if c.is_scoring() {
         score_mode
       } else {
@@ -206,7 +206,7 @@ impl BooleanQuery {
       };
       let weight = searcher.create_weight(c.query.clone(), *clause_score_mode, boost)?;
 
-      weighted_clauses.push(WeightedBooleanClause::new(c, weight));
+      weighted_clauses.push(WeightedBooleanClause::new(clause_index, weight));
     }
     Ok(BooleanWeight {
       similarity,
