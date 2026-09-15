@@ -29,7 +29,7 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::field_comparator::FieldComparator;
+use crate::core::search::field_comparator::{FieldComparator, TermTopValue};
 use crate::core::search::index_searcher::get_max_clause_count;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
@@ -74,7 +74,7 @@ pub struct TermOrdValComparator {
   /// Bottom slot, or None if the queue isn't full yet.
   pub(crate) bottom_slot: Option<usize>,
   /// Set by `set_top_value`.
-  pub(crate) top_value: Option<BytesRef<Vec<u8>>>,
+  pub(crate) top_value: Option<TermTopValue>,
   /// -1 if missing values are sorted first, 1 if they are sorted last
   pub(crate) missing_sort_cmp: i32,
   /// Whether this is the only comparator.
@@ -137,7 +137,7 @@ impl FieldComparator for TermOrdValComparator {
   fn set_top_value(&mut self, value: Self::V) -> Result<()> {
     // None is fine: it means the last doc of the prior
     // search was missing this value
-    self.top_value = Some(value);
+    self.top_value = Some(TermTopValue::Owned(value));
     Ok(())
   }
 
@@ -228,7 +228,7 @@ where
     };
     let (top_ord, top_same_reader) = if let Some(ref top_value) = comparator.top_value {
       // Recompute topOrd/SameReader
-      let ord = terms_index.lookup_term(top_value)?;
+      let ord = terms_index.lookup_term(top_value.as_ref()?)?;
       if ord >= 0 {
         (ord, true)
       } else {

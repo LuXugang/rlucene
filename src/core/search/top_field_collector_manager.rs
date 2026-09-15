@@ -41,7 +41,7 @@ use std::sync::Arc;
 pub struct TopFieldCollectorManager {
   sort: Arc<Sort>,
   num_hits: usize,
-  after: Option<FieldDoc>,
+  after: Option<Arc<FieldDoc>>,
   total_hits_threshold: usize,
   min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
@@ -149,7 +149,7 @@ impl TopFieldCollectorManager {
     Ok(Self {
       sort,
       num_hits,
-      after,
+      after: after.map(Arc::new),
       total_hits_threshold,
       min_score_acc,
     })
@@ -180,7 +180,6 @@ impl CollectorManager for TopFieldCollectorManager {
         self.min_score_acc.clone(),
       )?)
     } else {
-      // TODO: clone here
       let after = self.after.clone().ok_or_else(|| {
         LuceneError::illegal_argument("`after` must be set before creating a PagingFieldCollector")
       })?;

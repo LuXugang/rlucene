@@ -833,14 +833,18 @@ pub struct PagingFieldCollector {
 }
 
 impl PagingFieldCollector {
-  pub fn new(
+  pub fn new<A>(
     sort: Arc<Sort>,
     queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
-    mut after: FieldDoc,
+    after: A,
     num_hits: usize,
     total_hits_threshold: usize,
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    A: Into<Arc<FieldDoc>>,
+  {
+    let after = after.into();
     let mut base = TopFieldCollector::new(
       queue,
       num_hits,
@@ -851,18 +855,15 @@ impl PagingFieldCollector {
 
     // set top values for comparators
     let comparators = base.comparators_mut();
-    let fields = std::mem::take(&mut after.fields);
-    let score_doc = std::mem::take(&mut after.base);
-
-    for (comp, top_value) in comparators.iter_mut().zip(fields) {
-      comp.set_top_value(top_value)?;
+    for (comp, field_index) in comparators.iter_mut().zip(0..after.fields.len()) {
+      comp.set_top_value_from_after(&after, field_index)?;
     }
 
     Ok(Self {
       base,
       sort,
       collected_hits: 0,
-      after: score_doc,
+      after: after.base.clone(),
     })
   }
 }

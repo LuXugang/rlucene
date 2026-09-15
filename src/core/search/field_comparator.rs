@@ -30,6 +30,7 @@ use crate::core::search::comparators::long_comparator::LongComparator;
 use crate::core::search::comparators::term_ord_val_comparator::TermOrdValComparator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_field_comparator::DummyFieldComparator;
+use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_sort_field::{
@@ -42,6 +43,29 @@ use crate::core::util::{CoreHelper, ToInt};
 use crate::impl_from_for_enum;
 use std::borrow::Cow;
 use std::cmp::Ordering;
+use std::sync::Arc;
+
+/// Immutable paging term, either owned or retained by a shared `search_after` document.
+pub(crate) enum TermTopValue {
+  Owned(BytesRef<Vec<u8>>),
+  After {
+    doc: Arc<FieldDoc>,
+    field_index: usize,
+  },
+}
+
+impl TermTopValue {
+  pub(crate) fn as_ref(&self) -> Result<&BytesRef<Vec<u8>>> {
+    match self {
+      Self::Owned(value) => Ok(value),
+      Self::After { doc, field_index } => doc
+        .fields
+        .get(*field_index)
+        .and_then(FieldComparatorValue::as_term_val)
+        .ok_or_else(|| LuceneError::illegal_state("expected term value comparator value")),
+    }
+  }
+}
 
 /// Expert: a [`FieldComparator`] compares hits so as to determine their sort order when collecting the
 /// top results with [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector).
@@ -479,6 +503,52 @@ impl_from_for_enum!(
     DummyFieldComparator => Dummy,
 );
 
+impl FieldComparatorEnum {
+  pub(crate) fn set_top_value_from_after(
+    &mut self,
+    after: &Arc<FieldDoc>,
+    field_index: usize,
+  ) -> Result<()> {
+    let value = after
+      .fields
+      .get(field_index)
+      .ok_or_else(|| LuceneError::illegal_state("missing search_after comparator value"))?;
+    match self {
+      Self::TermVal(comparator) => {
+        value
+          .as_term_val()
+          .ok_or_else(|| LuceneError::illegal_state("expected term value comparator value"))?;
+        comparator.top_value = Some(TermTopValue::After {
+          doc: Arc::clone(after),
+          field_index,
+        });
+        Ok(())
+      },
+      Self::TermOrdValue(comparator) => {
+        value
+          .as_term_val()
+          .ok_or_else(|| LuceneError::illegal_state("expected term ord value comparator value"))?;
+        comparator.top_value = Some(TermTopValue::After {
+          doc: Arc::clone(after),
+          field_index,
+        });
+        Ok(())
+      },
+      Self::SortedDocValuesTermOrdVal(comparator) => {
+        value.as_term_val().ok_or_else(|| {
+          LuceneError::illegal_state("expected sorted doc values term ord val comparator value")
+        })?;
+        comparator.base.top_value = Some(TermTopValue::After {
+          doc: Arc::clone(after),
+          field_index,
+        });
+        Ok(())
+      },
+      _ => self.set_top_value(value.clone()),
+    }
+  }
+}
+
 impl FieldComparator for FieldComparatorEnum {
   type V = FieldComparatorValue;
 
@@ -878,7 +948,7 @@ pub struct TermValComparator {
   pub(crate) values: Vec<Option<BytesRef<Vec<u8>>>>,
   pub(crate) field: String,
   pub(crate) bottom: usize,
-  pub(crate) top_value: Option<BytesRef<Vec<u8>>>,
+  pub(crate) top_value: Option<TermTopValue>,
   pub(crate) missing_sort_cmp: i32,
 }
 
@@ -921,7 +991,7 @@ impl FieldComparator for TermValComparator {
   }
 
   fn set_top_value(&mut self, value: Self::V) -> Result<()> {
-    self.top_value = Some(value);
+    self.top_value = Some(TermTopValue::Owned(value));
     Ok(())
   }
 
@@ -1018,9 +1088,15 @@ where
     S: Scorable + ?Sized,
   {
     let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
-    match Self::get_value_for_doc(doc_terms, doc)? {
-      None => Ok(comparator.compare_values(comparator.top_value.as_ref(), None)),
-      Some(val) => Ok(comparator.compare_values(comparator.top_value.as_ref(), Some(val.as_ref()))),
+    let doc_value = Self::get_value_for_doc(doc_terms, doc)?;
+    let top_value = comparator
+      .top_value
+      .as_ref()
+      .map(TermTopValue::as_ref)
+      .transpose()?;
+    match doc_value {
+      None => Ok(comparator.compare_values(top_value, None)),
+      Some(val) => Ok(comparator.compare_values(top_value, Some(val.as_ref()))),
     }
   }
 
