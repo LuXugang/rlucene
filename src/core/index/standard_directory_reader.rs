@@ -117,7 +117,7 @@ where
     IC: IndexCommit<Directory = Arc<D>>,
   {
     let mut finder =
-      FindSegmentsFileImpl1::new(min_supported_major_version, directory.clone(), leaf_sorter);
+      FindSegmentsFileImpl1::new(min_supported_major_version, directory, leaf_sorter);
     match commit {
       Some(c) => finder.run_with_commit(c),
       None => finder.run(),

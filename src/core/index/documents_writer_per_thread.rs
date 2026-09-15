@@ -285,7 +285,7 @@ where
     let random_id = StringHelper::random_id();
     let id = StringHelper::id_to_string(Some(&random_id));
     let segment_info = SegmentInfo::new(
-      directory_orig.clone(),
+      directory_orig,
       Some((*LATEST).clone()),
       Some((*LATEST).clone()),
       segment_name,
