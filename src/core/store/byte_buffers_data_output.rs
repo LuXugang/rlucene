@@ -308,13 +308,10 @@ impl ByteBuffersDataOutput {
       }
     };
 
-    let data = old_blocks
-      .into_iter()
-      .map(|mut cursor| {
-        cursor.set_position(0);
-        cursor
-      })
-      .collect();
+    let mut data: Vec<_> = old_blocks.into();
+    for cursor in &mut data {
+      cursor.set_position(0);
+    }
 
     (size, data)
   }

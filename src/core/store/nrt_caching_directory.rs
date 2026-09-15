@@ -31,7 +31,7 @@ use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
 use crate::test_framework::core::store::test_nrt_caching_directory::AssertCacheWriteNRTCachingDirectory;
 use parking_lot::Mutex;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::io::ErrorKind;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -228,10 +228,11 @@ where
 {
   fn list_all(&self) -> Result<Vec<String>> {
     let _guard = self.lock.lock();
-    let mut files = BTreeSet::new();
-    files.extend(self.cache_directory.list_all()?);
+    let mut files = self.cache_directory.list_all()?;
     files.extend(self.delegate.list_all()?);
-    Ok(files.into_iter().collect())
+    files.sort_unstable();
+    files.dedup();
+    Ok(files)
   }
 
   fn delete_file(&self, name: &str) -> Result<()> {
