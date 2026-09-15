@@ -505,9 +505,10 @@ where
       TOTAL_HITS_THRESHOLD,
     )?;
     let query = query.into_query();
-    let mut top_field_docs = self.search_with_collector_manager(query.clone(), &manager)?;
+    let score_query = do_doc_scores.then(|| query.clone());
+    let mut top_field_docs = self.search_with_collector_manager(query, &manager)?;
 
-    if do_doc_scores {
+    if let Some(query) = score_query {
       populate_scores(top_field_docs.score_docs_mut(), self, query)?;
     }
 

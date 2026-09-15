@@ -89,18 +89,18 @@ where
     let mut head = PriorityQueue::new(head_size, HeadPriorityQueueCmp)?;
     let mut tail = PriorityQueue::new(tail_size, TailPriorityQueueCmp)?;
 
-    let mut cost_values: Vec<i64> = Vec::with_capacity(scorers.len());
-
     for s in scorers {
       let w = DisiWrapper::new(s)?;
-      cost_values.push(w.cost);
 
       if let Some(evicted) = tail.insert_with_overflow(w)? {
         head.add(evicted)?;
       }
     }
-    let cost =
-      ScorerUtil::cost_with_min_should_match(cost_values, head_size + tail_size, min_should_match)?;
+    let cost = ScorerUtil::cost_with_min_should_match(
+      head.iter_ref().chain(tail.iter_ref()).map(|w| w.cost),
+      head_size + tail_size,
+      min_should_match,
+    )?;
 
     Ok(Self {
       buckets,
