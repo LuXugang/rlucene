@@ -27,6 +27,7 @@ use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_vec};
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::hash::{Hash, Hasher};
 use std::mem;
 use std::sync::Arc;
@@ -132,12 +133,14 @@ impl NFARunAutomaton {
           nfa_states: dstate.nfa_states.clone(),
           hash_code: dstate.hash_code as i32,
         };
-        if let Some(&ord) = self.state.dstate_to_ord.get(&dstate_key) {
-          return Ok(ord);
-        }
-        debug_assert!(self.state.dstate_to_ord.len() <= i32::MAX as usize);
         let ord = self.state.dstate_to_ord.len();
-        self.state.dstate_to_ord.insert(dstate_key, ord as i32);
+        match self.state.dstate_to_ord.entry(dstate_key) {
+          Entry::Occupied(entry) => return Ok(*entry.get()),
+          Entry::Vacant(entry) => {
+            debug_assert!(ord <= i32::MAX as usize);
+            entry.insert(ord as i32);
+          },
+        }
 
         if ord >= self.dstates.len() {
           ArrayUtil::grow_with_len(&mut self.dstates, ord + 1)?;

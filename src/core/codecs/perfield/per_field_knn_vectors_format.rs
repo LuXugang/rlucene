@@ -39,6 +39,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::core::util::{HasIdentity, IOUtils};
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -184,51 +185,42 @@ where
     let identity = format.identity().clone();
 
     field.put_attribute(PER_FIELD_FORMAT_KEY.to_string(), format_name.to_string());
-    let suffix;
+    let writer_and_suffix = match self.formats.entry(identity.clone()) {
+      Entry::Occupied(entry) => {
+        // We've already seen this format, so just grab its suffix.
+        if !self.suffixes.contains_key(format_name) {
+          return Err(LuceneError::illegal_state(format!(
+            "no suffix for format name: {format_name}"
+          )));
+        }
+        entry.into_mut()
+      },
+      Entry::Vacant(entry) => {
+        // First time we are seeing this format; create a new instance.
+        let suffix = match self.suffixes.get_mut(format_name) {
+          Some(suffix) => {
+            *suffix += 1;
+            *suffix
+          },
+          None => {
+            self.suffixes.insert(format_name.to_string(), 0);
+            0
+          },
+        };
 
-    if !self.formats.contains_key(&identity) {
-      // First time we are seeing this format; create a new instance.
-      suffix = match self.suffixes.get_mut(format_name) {
-        Some(suffix) => {
-          *suffix += 1;
-          *suffix
-        },
-        None => {
-          self.suffixes.insert(format_name.to_string(), 0);
-          0
-        },
-      };
-
-      let segment_suffix =
-        get_full_segment_suffix(&write_state.segment_suffix, get_suffix(format_name, suffix));
-      let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
-      let writer = format.fields_writer(&state, segment_info)?;
-      self
-        .formats
-        .insert(identity.clone(), WriterAndSuffix { writer, suffix });
-    } else {
-      // We've already seen this format, so just grab its suffix.
-      if !self.suffixes.contains_key(format_name) {
-        return Err(LuceneError::illegal_state(format!(
-          "no suffix for format name: {format_name}"
-        )));
-      }
-      suffix = self
-        .formats
-        .get(&identity)
-        .ok_or_else(|| {
-          LuceneError::illegal_state(format!("missing vectors writer for field: {}", field.name))
-        })?
-        .suffix;
-    }
+        let segment_suffix =
+          get_full_segment_suffix(&write_state.segment_suffix, get_suffix(format_name, suffix));
+        let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+        let writer = format.fields_writer(&state, segment_info)?;
+        entry.insert(WriterAndSuffix { writer, suffix })
+      },
+    };
+    let suffix = writer_and_suffix.suffix;
 
     field.put_attribute(PER_FIELD_SUFFIX_KEY.to_string(), suffix.to_string());
     let segment_suffix =
       get_full_segment_suffix(&write_state.segment_suffix, get_suffix(format_name, suffix));
-    let writer = self.formats.get_mut(&identity).ok_or_else(|| {
-      LuceneError::illegal_state(format!("missing vectors writer for field: {}", field.name))
-    })?;
-    Ok((identity, segment_suffix, &mut writer.writer))
+    Ok((identity, segment_suffix, &mut writer_and_suffix.writer))
   }
 }
 
@@ -378,16 +370,15 @@ where
             })?;
           let segment_suffix =
             get_full_segment_suffix(&read_state.segment_suffix, get_suffix(&format_name, suffix));
-          if !formats.contains_key(&segment_suffix) {
-            let format = PF::for_name(&format_name)?;
-            let state = SegmentReadState::copy_with_suffix(read_state, &segment_suffix);
-            let reader = Arc::new(format.fields_reader(&state, segment_info)?);
-            formats.insert(segment_suffix.clone(), reader);
-          }
-          let reader = formats.get(&segment_suffix).ok_or_else(|| {
-            LuceneError::illegal_state(format!("missing vectors reader for field: {field_name}"))
-          })?;
-          fields.insert(field_info.number, Arc::clone(reader));
+          let reader = match formats.entry(segment_suffix) {
+            Entry::Occupied(entry) => Arc::clone(entry.get()),
+            Entry::Vacant(entry) => {
+              let format = PF::for_name(&format_name)?;
+              let state = SegmentReadState::copy_with_suffix(read_state, entry.key());
+              Arc::clone(entry.insert(Arc::new(format.fields_reader(&state, segment_info)?)))
+            },
+          };
+          fields.insert(field_info.number, reader);
         }
       }
       success = true;

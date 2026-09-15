@@ -501,16 +501,15 @@ where
             ))
           })?;
         let segment_suffix = get_suffix(&format_name, suffix);
-        if !formats.contains_key(&segment_suffix) {
-          let format = PF::for_name(&format_name)?;
-          let state = SegmentReadState::copy_with_suffix(read_state, &segment_suffix);
-          let producer = Arc::new(format.fields_producer(&state, segment_info)?);
-          formats.insert(segment_suffix.clone(), producer);
-        }
-        let producer = formats.get(&segment_suffix).ok_or_else(|| {
-          LuceneError::illegal_state(format!("missing postings producer for field: {field_name}"))
-        })?;
-        fields.insert(field_name.clone(), Arc::clone(producer));
+        let producer = match formats.entry(segment_suffix) {
+          Entry::Occupied(entry) => Arc::clone(entry.get()),
+          Entry::Vacant(entry) => {
+            let format = PF::for_name(&format_name)?;
+            let state = SegmentReadState::copy_with_suffix(read_state, entry.key());
+            Arc::clone(entry.insert(Arc::new(format.fields_producer(&state, segment_info)?)))
+          },
+        };
+        fields.insert(field_name.clone(), producer);
       }
       success = true;
       Ok(())

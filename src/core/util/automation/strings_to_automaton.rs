@@ -16,6 +16,7 @@
  */
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::hash::{Hash, Hasher};
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
@@ -84,16 +85,18 @@ impl StringsToAutomaton {
     all_states: &[State],
     visited: &mut HashMap<usize, i32>,
   ) -> Result<i32> {
-    if let Some(&converted) = visited.get(&state) {
-      return Ok(converted);
-    }
+    let converted = match visited.entry(state) {
+      Entry::Occupied(entry) => return Ok(*entry.get()),
+      Entry::Vacant(entry) => {
+        let converted = a.create_state();
+        let s = &all_states[state];
+        a.set_accept(converted, s.is_final);
+        entry.insert(converted);
+        converted
+      },
+    };
 
-    let converted = a.create_state();
     let s = &all_states[state];
-    a.set_accept(converted, s.is_final);
-
-    visited.insert(state, converted);
-
     for (i, &target) in s.states.iter().enumerate() {
       let v = Self::convert(a, target, all_states, visited)?;
       a.add_transition_label(converted, v, s.labels[i])?;

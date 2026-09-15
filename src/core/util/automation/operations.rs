@@ -698,9 +698,8 @@ impl Operations {
       let count = a.init_transition(state, &mut t);
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
-        if !seen.contains(t.dest as usize) {
+        if seen.insert(t.dest as usize) {
           work_list.push_back(t.dest);
-          seen.insert(t.dest as usize);
         }
       }
     }
@@ -828,8 +827,7 @@ impl Operations {
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
         let dest = t.dest as usize;
-        if !live.contains(dest) {
-          live.insert(dest);
+        if live.insert(dest) {
           work_list.push_back(t.dest);
         }
       }
@@ -874,8 +872,7 @@ impl Operations {
       for _ in 0..count {
         a2.get_next_transition(&mut t)?;
         let dest = t.dest as usize;
-        if !live.contains(dest) {
-          live.insert(dest);
+        if live.insert(dest) {
           work_list.push_back(t.dest);
         }
       }
@@ -1245,8 +1242,7 @@ impl Operations {
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
         let dest_index = t.dest as usize;
-        if !visited.contains(dest_index) {
-          visited.insert(dest_index);
+        if visited.insert(dest_index) {
           stack.push(t.dest);
           on_stack.insert(state_index);
           pushed = true;

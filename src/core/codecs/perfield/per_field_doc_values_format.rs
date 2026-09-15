@@ -32,6 +32,7 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, IOUtils};
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -529,18 +530,15 @@ where
           })?;
         let segment_suffix =
           get_full_segment_suffix(&read_state.segment_suffix, get_suffix(&format_name, suffix));
-        if !formats.contains_key(&segment_suffix) {
-          let format = PF::for_name(&format_name)?;
-          let state = SegmentReadState::copy_with_suffix(read_state, &segment_suffix);
-          let producer = Arc::new(format.fields_producer(&state, segment_info)?);
-          formats.insert(segment_suffix.clone(), producer);
-        }
-        let producer = formats.get(&segment_suffix).ok_or_else(|| {
-          LuceneError::illegal_state(format!(
-            "missing doc values producer for field: {field_name}"
-          ))
-        })?;
-        fields.insert(field_info.number, Arc::clone(producer));
+        let producer = match formats.entry(segment_suffix) {
+          Entry::Occupied(entry) => Arc::clone(entry.get()),
+          Entry::Vacant(entry) => {
+            let format = PF::for_name(&format_name)?;
+            let state = SegmentReadState::copy_with_suffix(read_state, entry.key());
+            Arc::clone(entry.insert(Arc::new(format.fields_producer(&state, segment_info)?)))
+          },
+        };
+        fields.insert(field_info.number, producer);
       }
       success = true;
       Ok(())

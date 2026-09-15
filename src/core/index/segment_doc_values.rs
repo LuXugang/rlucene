@@ -32,6 +32,7 @@ use crate::core::util::ref_count::RefCount;
 use num_bigint::BigInt;
 use parking_lot::Mutex;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::sync::Arc;
 
 /// Manages the [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) held by [`SegmentReader`](crate::core::index::segment_reader::SegmentReader) and keeps track of their reference counting.
@@ -107,14 +108,17 @@ where
   {
     let mut inner = self.inner.lock();
 
-    if let Some(dvp) = inner.gen_dv_producers.get_mut(&gen_) {
-      dvp.inc_ref();
-      Ok(dvp.get().clone())
-    } else {
-      let dvp = self.new_doc_values_producer(si, dir, gen_, infos)?;
-      let v = dvp.get().clone();
-      inner.gen_dv_producers.insert(gen_, dvp);
-      Ok(v)
+    match inner.gen_dv_producers.entry(gen_) {
+      Entry::Occupied(mut entry) => {
+        entry.get_mut().inc_ref();
+        Ok(entry.get().get().clone())
+      },
+      Entry::Vacant(entry) => {
+        let dvp = self.new_doc_values_producer(si, dir, gen_, infos)?;
+        let v = dvp.get().clone();
+        entry.insert(dvp);
+        Ok(v)
+      },
     }
   }
   ///  Decrement the reference count of the given [`DocValuesProducer`](crate::core::codecs::doc_values_producer::DocValuesProducer) generations.

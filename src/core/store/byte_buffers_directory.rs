@@ -320,16 +320,20 @@ where
     let entry = Arc::new(Mutex::new(FileEntry::new(file_name.clone())));
     {
       let mut files = self.files.lock();
-      if files.contains_key(name) {
-        return Err(LuceneError::io_with_path(
-          name,
-          Error::new(
-            ErrorKind::AlreadyExists,
-            format!("File already exists: {name}"),
-          ),
-        ));
+      match files.entry(file_name) {
+        Entry::Occupied(_) => {
+          return Err(LuceneError::io_with_path(
+            name,
+            Error::new(
+              ErrorKind::AlreadyExists,
+              format!("File already exists: {name}"),
+            ),
+          ));
+        },
+        Entry::Vacant(vacant) => {
+          vacant.insert(entry.clone());
+        },
       }
-      files.insert(file_name, entry.clone());
     }
     create_output(
       entry,
@@ -354,10 +358,12 @@ where
       let entry = Arc::new(Mutex::new(FileEntry::new(name.clone())));
       {
         let mut files = self.files.lock();
-        if files.contains_key(name.as_ref()) {
-          continue;
+        match files.entry(name) {
+          Entry::Occupied(_) => continue,
+          Entry::Vacant(vacant) => {
+            vacant.insert(entry.clone());
+          },
         }
-        files.insert(name, entry.clone());
       }
       return create_output(
         entry,
