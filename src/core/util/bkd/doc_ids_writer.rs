@@ -27,11 +27,9 @@ use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::longs_ref::LongsRef;
 
 pub struct DocIdsWriter {
-  scratch: Vec<i32>,
   scratch_longs: LongsRef,
   /// IntsRef to be used to iterate over the scratch buffer. A single
-  /// instance is reused to avoid re-allocating the object. The ints and
-  /// length fields need to be reset each use.
+  /// instance owns the scratch buffer; only its length is reset for each visit.
   ///
   /// The main reason for existing is to be able to call the
   /// [`IntersectVisitor::visit_with_ints_ref`]
@@ -41,12 +39,10 @@ pub struct DocIdsWriter {
   /// fewer virtual calls then happening (once per read call rather than
   /// once per doc).
   scratch_ints_ref: IntsRef<Vec<i32>>,
-  /// used to init a new scratch
-  max_points_in_leaf: usize,
 }
 impl Clone for DocIdsWriter {
   fn clone(&self) -> Self {
-    let max_points_in_leaf = self.scratch.len();
+    let max_points_in_leaf = self.scratch_ints_ref.ints.len();
     DocIdsWriter::new(max_points_in_leaf)
   }
 }
@@ -61,17 +57,9 @@ impl DocIdsWriter {
   pub const LEGACY_DELTA_VINT: i8 = 0;
 
   pub fn new(max_points_in_leaf: usize) -> Self {
-    let mut scratch_ints_ref = IntsRef::default();
-    {
-      // This avoids relying on `IntsRef::default` to
-      // set1 offset to 0
-      scratch_ints_ref.offset = 0;
-    }
     Self {
-      scratch: vec![0; max_points_in_leaf],
       scratch_longs: LongsRef::new(),
-      scratch_ints_ref,
-      max_points_in_leaf,
+      scratch_ints_ref: IntsRef::from_slice(vec![0; max_points_in_leaf], 0, 0),
     }
   }
   pub(crate) fn write_doc_ids<DO>(
@@ -120,8 +108,8 @@ impl DocIdsWriter {
     if min2max <= 0xffff {
       out.write_byte(DocIdsWriter::DELTA_BPV_16 as u8)?;
       let mut temporary = Vec::new();
-      let scratch = if count <= self.scratch.len() {
-        &mut self.scratch[..count]
+      let scratch = if count <= self.scratch_ints_ref.ints.len() {
+        &mut self.scratch_ints_ref.ints[..count]
       } else {
         temporary.resize(count, 0);
         &mut temporary[..]
@@ -455,13 +443,7 @@ impl DocIdsWriter {
     II: IndexInput,
     V: IntersectVisitor,
   {
-    Self::read_delta16(input, count, &mut self.scratch)?;
-    self
-      .scratch_ints_ref
-      .ints
-      .resize(self.max_points_in_leaf, 0);
-    std::mem::swap(&mut self.scratch, &mut self.scratch_ints_ref.ints);
-
+    Self::read_delta16(input, count, &mut self.scratch_ints_ref.ints)?;
     self.scratch_ints_ref.length = count;
     visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
     Ok(())
@@ -505,10 +487,7 @@ impl DocIdsWriter {
     II: IndexInput,
     V: IntersectVisitor,
   {
-    input.read_ints(&mut self.scratch, 0, count)?;
-    self.scratch_ints_ref.ints.resize(self.scratch.len(), 0);
-    std::mem::swap(&mut self.scratch, &mut self.scratch_ints_ref.ints);
-
+    input.read_ints(&mut self.scratch_ints_ref.ints, 0, count)?;
     self.scratch_ints_ref.length = count;
     visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
     Ok(())
