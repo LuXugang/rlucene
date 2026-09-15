@@ -120,7 +120,7 @@ where
       entries.push(name);
     }
 
-    entries.sort();
+    entries.sort_unstable();
     Ok(entries)
   }
   pub fn maybe_delete_pending_files(

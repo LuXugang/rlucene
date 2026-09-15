@@ -449,7 +449,7 @@ where
 
   let max_score = top_k.score_docs[0].score();
 
-  top_k.score_docs.sort_by_key(|a| a.doc());
+  top_k.score_docs.sort_unstable_by_key(|a| a.doc());
 
   let mut docs = Vec::with_capacity(len);
   let mut scores = Vec::with_capacity(len);

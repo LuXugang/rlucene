@@ -522,7 +522,7 @@ where
     unwrap_caught_result!(result)?;
 
     let mut field_names: Vec<String> = fields.keys().cloned().collect();
-    field_names.sort();
+    field_names.sort_unstable();
     Ok(Self {
       fields,
       field_names: Arc::new(field_names),

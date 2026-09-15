@@ -217,7 +217,7 @@ impl FloatPoint {
     V: Into<Vec<f32>>,
   {
     let mut sorted_values = values.into();
-    sorted_values.sort_by(|a, b| CoreHelper::compare_f32(*a, *b));
+    sorted_values.sort_unstable_by(|a, b| CoreHelper::compare_f32(*a, *b));
 
     PointInSetQuery::new(
       field.into(),

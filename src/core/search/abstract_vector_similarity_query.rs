@@ -445,7 +445,7 @@ impl VectorSimilarityScorerSupplier<DocsIteratorImpl> {
     if score_docs.is_empty() {
       return None;
     }
-    score_docs.sort_by_key(|score_doc| score_doc.doc);
+    score_docs.sort_unstable_by_key(|score_doc| score_doc.doc);
     Some(Self {
       iterator: Some(DocsIteratorImpl::new(score_docs, boost)),
     })

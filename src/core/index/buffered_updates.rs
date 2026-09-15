@@ -369,7 +369,7 @@ impl DeletedTerms {
   {
     let mut delete_fields: Vec<(&String, &mut BytesRefIntMap)> =
       self.delete_terms.iter_mut().collect();
-    delete_fields.sort_by(|a, b| a.0.cmp(b.0));
+    delete_fields.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
     let mut scratch = Term::new("", BytesRef::new());
     for (field, terms) in delete_fields {

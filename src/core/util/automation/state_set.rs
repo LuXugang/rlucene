@@ -93,10 +93,10 @@ impl IntSet for StateSet {
     {
       array.clear();
       array.extend(self.inner.keys().copied());
-      array.sort();
+      array.sort_unstable();
     } else {
       let mut array: Vec<i32> = self.inner.keys().copied().collect();
-      array.sort();
+      array.sort_unstable();
       self.array_cache = Arc::new(array);
     }
     self.array_updated = true;

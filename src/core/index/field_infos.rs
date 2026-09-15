@@ -396,7 +396,7 @@ impl FieldInfos {
         }
       } else {
         if !field_number_strictly_ascending {
-          infos.sort_by_key(|fi| fi.number);
+          infos.sort_unstable_by_key(|fi| fi.number);
         }
         infos.shrink_to_fit();
         values = infos;

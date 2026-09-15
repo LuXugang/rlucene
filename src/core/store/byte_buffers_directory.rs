@@ -285,7 +285,7 @@ where
       .keys()
       .map(|name| name.to_string())
       .collect();
-    files.sort();
+    files.sort_unstable();
     Ok(files)
   }
 

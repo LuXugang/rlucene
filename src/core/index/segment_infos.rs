@@ -1291,8 +1291,8 @@ pub trait FindSegmentsFile {
       last_gen = gen_;
       let mut files = directory.list_all()?;
       let mut files2 = directory.list_all()?;
-      files.sort();
-      files2.sort();
+      files.sort_unstable();
+      files2.sort_unstable();
       if files != files2 {
         continue;
       }

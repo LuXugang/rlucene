@@ -55,7 +55,7 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
       &mut collector,
     )?;
     let mut keys = collector.st_queue.take_heap_array();
-    keys.sort_by(|a, b| a.0.cmp(&b.0));
+    keys.sort_unstable_by(|a, b| a.0.cmp(&b.0));
 
     let mut visited_terms = collector.st_queue.compare.visited_terms;
 

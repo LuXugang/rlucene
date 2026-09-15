@@ -871,7 +871,7 @@ impl<D> ReaderCommit<D> {
       .get_segments_file_name()
       .ok_or_else(|| LuceneError::illegal_state("segments file name is None"))?;
     let mut files: Vec<String> = infos.files(true)?.into_iter().collect();
-    files.sort();
+    files.sort_unstable();
     let user_data = infos.get_user_data().clone();
     let generation = infos.get_generation();
     let segment_count = infos.size();

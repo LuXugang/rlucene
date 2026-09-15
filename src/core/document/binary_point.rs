@@ -323,7 +323,7 @@ impl BinaryPoint {
     };
 
     let mut sorted_values: Vec<&[u8]> = values.iter().map(|value| value.as_ref()).collect();
-    sorted_values.sort();
+    sorted_values.sort_unstable();
 
     Ok(
       PointInSetQuery::new(

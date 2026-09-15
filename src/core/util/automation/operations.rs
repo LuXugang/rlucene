@@ -1396,7 +1396,7 @@ impl PointTransitionSet {
 
   pub fn sort(&mut self) -> Result<()> {
     if self.count > 1 {
-      self.points[0..self.count].sort_by_key(|p| p.point);
+      self.points[0..self.count].sort_unstable_by_key(|p| p.point);
     }
     Ok(())
   }

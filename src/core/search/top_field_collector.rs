@@ -260,7 +260,7 @@ where
   S: ScoreDocLike,
 {
   let mut top_docs_idxs: Vec<usize> = (0..top_docs.len()).collect();
-  top_docs_idxs.sort_by_key(|idx| top_docs[*idx].doc());
+  top_docs_idxs.sort_unstable_by_key(|idx| top_docs[*idx].doc());
 
   let rewritten = searcher.rewrite(query)?;
   let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;

@@ -707,7 +707,7 @@ impl<IE> PostingsAndFreq<IE> {
       Some(vec![terms[0].clone()])
     } else {
       let mut v = terms.to_vec();
-      v.sort();
+      v.sort_unstable();
       Some(v)
     };
 

@@ -491,6 +491,6 @@ where
     field_names.push(field_info.name.clone());
   }
 
-  field_names.sort();
+  field_names.sort_unstable();
   Ok(field_names)
 }

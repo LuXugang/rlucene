@@ -213,7 +213,7 @@ impl DoublePoint {
     V: Into<Vec<f64>>,
   {
     let mut sorted_values = values.into();
-    sorted_values.sort_by(|a, b| CoreHelper::compare_f64(*a, *b));
+    sorted_values.sort_unstable_by(|a, b| CoreHelper::compare_f64(*a, *b));
 
     PointInSetQuery::new(
       field.into(),

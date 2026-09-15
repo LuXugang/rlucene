@@ -188,7 +188,7 @@ impl IntPoint {
     V: Into<Vec<i32>>,
   {
     let mut sorted_values = values.into();
-    sorted_values.sort();
+    sorted_values.sort_unstable();
 
     PointInSetQuery::new(
       field.into(),

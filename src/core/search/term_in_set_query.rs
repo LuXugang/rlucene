@@ -114,7 +114,7 @@ impl TermInSetQuery {
 
   fn pack_terms(field: &str, mut terms: Vec<BytesRef<Vec<u8>>>) -> Result<PrefixCodedTermsArc> {
     if !terms.is_sorted() {
-      terms.sort();
+      terms.sort_unstable();
     }
     let mut builder = PrefixCodedTermsBuilder::new();
     let mut previous: Option<BytesRef<Vec<u8>>> = None;

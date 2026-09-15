@@ -672,7 +672,7 @@ where
     }
   }
 
-  indexed_fields.sort();
+  indexed_fields.sort_unstable();
 
   Ok(FieldsProducerImpl::new(reader, indexed_fields))
 }

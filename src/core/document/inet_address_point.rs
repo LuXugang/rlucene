@@ -326,7 +326,7 @@ impl InetAddressPoint {
     for value in values.as_ref() {
       sorted_values.push(Self::encode(*value));
     }
-    sorted_values.sort();
+    sorted_values.sort_unstable();
 
     PointInSetQuery::new(
       field.into(),
