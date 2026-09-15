@@ -43,7 +43,7 @@ pub struct MappedMultiFields<'a, F, DM>
 where
   F: Fields,
 {
-  merge_state_meta: MergeStateMeta<Rc<DM>>,
+  merge_state_meta: Rc<MergeStateMeta<Rc<DM>>>,
   inner: &'a MultiFields<F>,
 }
 
@@ -53,7 +53,7 @@ where
 {
   pub fn new(merge_state_meta: MergeStateMeta<Rc<DM>>, multi_fields: &'a MultiFields<F>) -> Self {
     MappedMultiFields {
-      merge_state_meta,
+      merge_state_meta: Rc::new(merge_state_meta),
       inner: multi_fields,
     }
   }
@@ -92,14 +92,14 @@ where
 }
 
 pub struct MappedMultiTerms<T, DM> {
-  merge_state: MergeStateMeta<Rc<DM>>,
+  merge_state: Rc<MergeStateMeta<Rc<DM>>>,
   field: Arc<str>,
   inner: MultiFieldsTerms<T>,
 }
 impl<T, DM> MappedMultiTerms<T, DM> {
   pub fn new<FName>(
     field: FName,
-    merge_state: MergeStateMeta<Rc<DM>>,
+    merge_state: Rc<MergeStateMeta<Rc<DM>>>,
     multi_terms: MultiFieldsTerms<T>,
   ) -> Self
   where
@@ -356,13 +356,13 @@ where
 
 pub struct MappedMultiTermsEnum<TE, DM> {
   field: Arc<str>,
-  merge_state_meta: MergeStateMeta<Rc<DM>>,
+  merge_state_meta: Rc<MergeStateMeta<Rc<DM>>>,
   in_: MultiTermsEnum<TE>,
 }
 impl<TE, DM> MappedMultiTermsEnum<TE, DM> {
   pub fn new<FName>(
     field: FName,
-    merge_state: MergeStateMeta<Rc<DM>>,
+    merge_state: Rc<MergeStateMeta<Rc<DM>>>,
     multi_terms_enum: MultiTermsEnum<TE>,
   ) -> Self
   where

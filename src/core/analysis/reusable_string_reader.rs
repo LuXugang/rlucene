@@ -22,8 +22,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[derive(Debug, Clone)]
 pub struct ReusableStringReader {
   pos: usize,
-  pub(crate) size: usize,
-  s: Option<Arc<Vec<char>>>,
+  s: Option<Arc<str>>,
 }
 
 impl Default for ReusableStringReader {
@@ -34,28 +33,25 @@ impl Default for ReusableStringReader {
 
 impl ReusableStringReader {
   pub fn new() -> Self {
-    Self {
-      pos: 0,
-      size: 0,
-      s: None,
-    }
+    Self { pos: 0, s: None }
   }
 
   pub fn set_value(&mut self, s: &str) {
-    let vec: Vec<char> = s.chars().collect();
-    self.size = vec.len();
     self.pos = 0;
-    self.s = Some(Arc::new(vec));
+    self.s = Some(Arc::from(s));
   }
 }
 
 impl Reader for ReusableStringReader {
   fn read(&mut self) -> Result<i32> {
-    if let Some(ref chars) = self.s
-      && self.pos < self.size
+    if let Some(ref s) = self.s
+      && self.pos < s.len()
     {
-      let ch = chars[self.pos];
-      self.pos += 1;
+      let ch = expect_invariant!(
+        s[self.pos..].chars().next(),
+        "reader position stays on a character boundary"
+      );
+      self.pos += ch.len_utf8();
       return Ok(ch as i32);
     }
     self.s = None;
@@ -63,28 +59,30 @@ impl Reader for ReusableStringReader {
   }
 
   fn read_range(&mut self, buf: &mut [char], off: usize, len: usize) -> Result<i32> {
-    if let Some(ref chars) = self.s
-      && self.pos < self.size
+    if let Some(ref s) = self.s
+      && self.pos < s.len()
     {
       if off > buf.len() || off + len > buf.len() {
         return Err(LuceneError::illegal_argument(
           "IndexOutOfBounds: off+len exceeds buffer length",
         ));
       }
-      let available = self.size - self.pos;
-      let to_read = len.min(available);
-      for i in 0..to_read {
-        buf[off + i] = chars[self.pos + i];
+      let mut read = 0;
+      let mut consumed = 0;
+      for ch in s[self.pos..].chars().take(len) {
+        buf[off + read] = ch;
+        read += 1;
+        consumed += ch.len_utf8();
       }
-      self.pos += to_read;
-      return Ok(to_read as i32);
+      self.pos += consumed;
+      return Ok(read as i32);
     }
     self.s = None;
     Ok(-1)
   }
 
   fn close(&mut self) -> Result<()> {
-    self.pos = self.size;
+    self.pos = 0;
     self.s = None;
     Ok(())
   }

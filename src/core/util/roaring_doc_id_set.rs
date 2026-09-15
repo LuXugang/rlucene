@@ -476,7 +476,7 @@ impl DocIdSet for DocIdSetEnum {
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum{ Sparse: A, Medium: B,Dense:C,Empty:D});
 pub type Disi = DocIdSetIteratorEnum<
   ShortArrayDISI,
-  BitSetIterator<FixedBitSet>,
+  BitSetIterator<Arc<FixedBitSet>>,
   NotDocDocIdSetIterator<ShortArrayDISI>,
   EmptyDISI,
 >;

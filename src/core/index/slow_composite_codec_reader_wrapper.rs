@@ -700,7 +700,7 @@ where
   CR: CodecReader + Clone,
 {
   meta: LeafMetaData,
-  codec_readers: Vec<CR>,
+  codec_readers: Arc<[CR]>,
   doc_stats: Arc<Vec<usize>>,
   field_infos: Arc<FieldInfos>,
   live_docs: Option<Arc<BitsType<MultiReader<CR>>>>,
@@ -715,11 +715,12 @@ where
   CR: CodecReader + Clone,
 {
   pub(crate) fn new(codec_readers: Vec<CR>) -> Result<Self> {
+    let codec_readers: Arc<[CR]> = Arc::from(codec_readers);
     let mut doc_stats = Vec::with_capacity(codec_readers.len() + 1);
 
     doc_stats.push(0);
     let mut doc_start = 0;
-    for reader in &codec_readers {
+    for reader in codec_readers.iter() {
       doc_start += reader.max_doc()?;
       doc_stats.push(doc_start as usize);
     }
@@ -728,7 +729,7 @@ where
     let mut min_version = None;
     let mut has_blocks = false;
 
-    for reader in &codec_readers {
+    for reader in codec_readers.iter() {
       let reader_meta = reader.get_metadata()?;
       if major_version == -1 {
         major_version = reader_meta.get_created_version_major();
@@ -756,7 +757,7 @@ where
 
     let meta = LeafMetaData::new(major_version, min_version, None, has_blocks)?;
 
-    let multi_reader: MultiReader<CR> = MultiReader::new(codec_readers.clone())?;
+    let multi_reader: MultiReader<CR> = MultiReader::new_shared(codec_readers.clone())?;
     let field_infos = get_merged_field_infos(&multi_reader)?;
     let live_docs = get_live_docs(multi_reader)?.map(Arc::new);
     let inner = Mutex::new(Inner { num_docs: -1 });
@@ -1471,7 +1472,7 @@ pub struct SlowCompositeNormsProducer<CR>
 where
   CR: CodecReader,
 {
-  codec_readers: Vec<CR>,
+  codec_readers: Arc<[CR]>,
   producers: Vec<Option<CRNormsProducer<CR>>>,
 }
 
@@ -1479,9 +1480,9 @@ impl<CR> SlowCompositeNormsProducer<CR>
 where
   CR: CodecReader + Clone,
 {
-  pub fn new(codec_readers: Vec<CR>) -> Result<Self> {
+  pub fn new(codec_readers: Arc<[CR]>) -> Result<Self> {
     let mut producers = Vec::with_capacity(codec_readers.len());
-    for reader in &codec_readers {
+    for reader in codec_readers.iter() {
       producers.push(reader.get_norms_reader()?);
     }
     Ok(Self {
@@ -1507,7 +1508,7 @@ where
   type NumericDocValues = MultiNormNumericDocValues<MultiReader<CR>>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    let multi_reader = MultiReader::new(self.codec_readers.clone())?;
+    let multi_reader = MultiReader::new_shared(self.codec_readers.clone())?;
     match MultiDocValues::get_norm_values(multi_reader, &field.name)? {
       Some(norms) => Ok(norms),
       None => Err(LuceneError::illegal_state(format!(
@@ -1529,7 +1530,7 @@ pub struct SlowCompositeDocValuesProducerWrapper<CR>
 where
   CR: CodecReader,
 {
-  codec_readers: Vec<CR>,
+  codec_readers: Arc<[CR]>,
   producers: Vec<Option<CRDocValuesProducer<CR>>>,
   doc_starts: Arc<Vec<usize>>,
   cached_ord_maps: Mutex<HashMap<String, Arc<OrdinalMap>>>,
@@ -1539,9 +1540,9 @@ impl<CR> SlowCompositeDocValuesProducerWrapper<CR>
 where
   CR: CodecReader + Clone,
 {
-  pub fn new(codec_readers: Vec<CR>, doc_starts: Arc<Vec<usize>>) -> Result<Self> {
+  pub fn new(codec_readers: Arc<[CR]>, doc_starts: Arc<Vec<usize>>) -> Result<Self> {
     let mut producers = Vec::with_capacity(codec_readers.len());
-    for reader in &codec_readers {
+    for reader in codec_readers.iter() {
       producers.push(reader.get_doc_values_reader()?);
     }
     Ok(Self {
@@ -1569,7 +1570,7 @@ where
   type NumericDocValues = MultiNumericDocValues<MultiReader<CR>>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    let mr = MultiReader::new(self.codec_readers.clone())?;
+    let mr = MultiReader::new_shared(self.codec_readers.clone())?;
     match MultiDocValues::get_numeric_values(mr, &field.name)? {
       Some(numeric) => Ok(numeric),
       None => Err(LuceneError::illegal_state(format!(
@@ -1582,7 +1583,7 @@ where
   type BinaryDocValues = MultiBinaryDocValues<MultiReader<CR>>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    let mr = MultiReader::new(self.codec_readers.clone())?;
+    let mr = MultiReader::new_shared(self.codec_readers.clone())?;
     match MultiDocValues::get_binary_values(mr, &field.name)? {
       Some(binary) => Ok(binary),
       None => Err(LuceneError::illegal_state(format!(
@@ -1599,7 +1600,7 @@ where
       let mut values = Vec::with_capacity(self.codec_readers.len());
       let mut total_cost = 0;
 
-      for reader in &self.codec_readers {
+      for reader in self.codec_readers.iter() {
         match LeafReader::get_sorted_doc_values(reader, &field.name)? {
           Some(v) => {
             total_cost += v.cost()?;
@@ -1620,7 +1621,7 @@ where
       );
     }
 
-    let mr: MultiReader<CR> = MultiReader::new(self.codec_readers.clone())?;
+    let mr: MultiReader<CR> = MultiReader::new_shared(self.codec_readers.clone())?;
 
     let dv = MultiDocValues::get_sorted_values(mr, &field.name)?.ok_or_else(|| {
       LuceneError::illegal_state(format!(
@@ -1642,7 +1643,7 @@ where
   type SortedNumericDocValues = MultiSortedNumericDocValues<MultiReader<CR>>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-    let mr = MultiReader::new(self.codec_readers.clone())?;
+    let mr = MultiReader::new_shared(self.codec_readers.clone())?;
     match MultiDocValues::get_sorted_numeric_values(mr, &field.name)? {
       Some(sorted_numeric) => Ok(sorted_numeric),
       None => Err(LuceneError::illegal_state(format!(
@@ -1659,7 +1660,7 @@ where
       let mut values = Vec::with_capacity(self.codec_readers.len());
       let mut total_cost = 0;
 
-      for reader in &self.codec_readers {
+      for reader in self.codec_readers.iter() {
         match LeafReader::get_sorted_set_doc_values(reader, &field.name)? {
           Some(v) => {
             total_cost += v.cost()?;
@@ -1678,7 +1679,7 @@ where
       ));
     }
 
-    let mr: MultiReader<CR> = MultiReader::new(self.codec_readers.clone())?;
+    let mr: MultiReader<CR> = MultiReader::new_shared(self.codec_readers.clone())?;
 
     let dv = MultiDocValues::get_sorted_set_values(mr, &field.name)?.ok_or_else(|| {
       LuceneError::illegal_state(format!(
@@ -1805,7 +1806,7 @@ pub struct SlowCompositeKnnVectorsReaderWrapper<CR>
 where
   CR: CodecReader,
 {
-  codec_readers: Vec<CR>,
+  codec_readers: Arc<[CR]>,
   readers: Vec<Option<CRKnnVectorReader<CR>>>,
   doc_starts: Arc<Vec<usize>>,
 }
@@ -1813,9 +1814,9 @@ impl<CR> SlowCompositeKnnVectorsReaderWrapper<CR>
 where
   CR: CodecReader + Clone,
 {
-  fn new(codec_readers: Vec<CR>, doc_starts: Arc<Vec<usize>>) -> Result<Self> {
+  fn new(codec_readers: Arc<[CR]>, doc_starts: Arc<Vec<usize>>) -> Result<Self> {
     let mut readers = Vec::with_capacity(codec_readers.len());
-    for reader in &codec_readers {
+    for reader in codec_readers.iter() {
       readers.push(reader.get_vector_reader()?);
     }
     Ok(Self {
@@ -2364,7 +2365,7 @@ pub struct SlowCompositePointsReaderWrapper<CR>
 where
   CR: CodecReader,
 {
-  codec_readers: Vec<CR>,
+  codec_readers: Arc<[CR]>,
   readers: Vec<Option<CRPointsReader<CR>>>,
   doc_starts: Arc<Vec<usize>>,
 }
@@ -2373,9 +2374,9 @@ impl<CR> SlowCompositePointsReaderWrapper<CR>
 where
   CR: CodecReader + Clone,
 {
-  pub fn new(codec_readers: Vec<CR>, doc_starts: Arc<Vec<usize>>) -> Result<Self> {
+  pub fn new(codec_readers: Arc<[CR]>, doc_starts: Arc<Vec<usize>>) -> Result<Self> {
     let mut readers = Vec::with_capacity(codec_readers.len());
-    for reader in &codec_readers {
+    for reader in codec_readers.iter() {
       readers.push(reader.get_points_reader()?);
     }
 

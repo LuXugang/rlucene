@@ -51,7 +51,7 @@ where
   /// [SegmentInfo] of the newly merged segment.
   pub(crate) segment_info: &'a mut SegmentInfo<D>,
   /// Maps document IDs from old segments to document IDs in the new segment
-  pub(crate) doc_maps: Vec<Rc<MergeStateDocMap<CR>>>,
+  pub(crate) doc_maps: Rc<Vec<Rc<MergeStateDocMap<CR>>>>,
   /// [FieldInfos] of the newly merged segment.
   pub(crate) merge_field_infos: Arc<FieldInfos>,
   /// Stored field producers being merged
@@ -133,7 +133,7 @@ where
   }
 
   fn doc_maps(&self) -> &[Rc<Self::DocMap>] {
-    &self.doc_maps
+    self.doc_maps.as_slice()
   }
 
   fn merge_field_infos(&self) -> &Arc<FieldInfos> {
@@ -284,7 +284,7 @@ where
 
     segment_info.set_max_doc(num_docs)?;
 
-    let doc_maps = Vec::new();
+    let doc_maps = Rc::new(Vec::new());
     // let doc_maps = build_doc_maps(readers, segment_info.index_sort());
 
     let mut merge_state = Self {
@@ -311,7 +311,7 @@ where
   pub(crate) fn get_meta(&self) -> MergeStateMeta<Rc<MergeStateDocMap<CR>>> {
     MergeStateMeta {
       fields_producers_len: self.fields_producers.len(),
-      doc_maps: Rc::new(self.doc_maps.clone()),
+      doc_maps: self.doc_maps.clone(),
       needs_index_sort: self.needs_index_sort,
       merge_field_infos: self.merge_field_infos.clone(),
       field_infos: self.field_infos.clone(),
@@ -348,7 +348,7 @@ where
       // docID space
       build_deletion_doc_maps(readers)?
     };
-    self.doc_maps = v.into_iter().map(Rc::new).collect();
+    self.doc_maps = Rc::new(v);
     Ok(())
   }
 }
@@ -429,7 +429,7 @@ where
 }
 
 // Remap docIDs around deletions
-fn build_deletion_doc_maps<CR>(readers: &[CR]) -> Result<Vec<MergeStateDocMap<CR>>>
+fn build_deletion_doc_maps<CR>(readers: &[CR]) -> Result<Vec<Rc<MergeStateDocMap<CR>>>>
 where
   CR: CodecReader,
 {
@@ -448,11 +448,11 @@ where
 
     let doc_base = total_docs;
 
-    doc_maps.push(MergeStateDocMapImpl::new_deletions(
+    doc_maps.push(Rc::new(MergeStateDocMapImpl::new_deletions(
       live_docs,
       del_doc_map,
       doc_base,
-    ));
+    )));
 
     total_docs += reader.num_docs()?;
   }

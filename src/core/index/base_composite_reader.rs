@@ -105,6 +105,13 @@ where
       }
     }
 
+    Self::new_shared(Arc::from(sub_readers), index_reader_base)
+  }
+
+  pub(crate) fn new_shared(
+    sub_readers: Arc<[R]>,
+    index_reader_base: &IndexReaderBase,
+  ) -> Result<Self> {
     let mut starts = vec![0usize; sub_readers.len() + 1];
     let mut max_doc: i64 = 0;
 
@@ -125,7 +132,7 @@ where
     starts[sub_readers.len()] = max_doc_i32;
 
     Ok(Self {
-      sub_reader: Arc::from(sub_readers),
+      sub_reader: sub_readers,
       starts: Arc::from(starts),
       max_doc: max_doc_i32 as i32,
       num_docs: AtomicI32::new(-1),

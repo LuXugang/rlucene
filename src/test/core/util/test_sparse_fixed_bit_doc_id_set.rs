@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::Arc;
-
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::prelude::StdRng;
@@ -35,7 +33,7 @@ use crate::test::core::util::base_doc_id_set_test_case::{
 struct TestSparseFixedBitDocIdSet;
 
 impl BaseDocIdSetTestCase for TestSparseFixedBitDocIdSet {
-  type DocIdSet = BitDocIdSet<Arc<SparseFixedBitSet>>;
+  type DocIdSet = BitDocIdSet<SparseFixedBitSet>;
 
   fn copy_of<R>(
     &self,
@@ -65,7 +63,7 @@ impl BaseDocIdSetTestCase for TestSparseFixedBitDocIdSet {
       set.set(i)?;
     }
     let cost = set.approximate_cardinality() as i64;
-    BitDocIdSet::with_cost(Some(Arc::new(set)), cost)
+    BitDocIdSet::with_cost(Some(set), cost)
   }
 
   fn assert_equals<R>(

@@ -204,14 +204,7 @@ impl MemorySegmentRandomAccessInput {
       return Ok(read(bytes));
     }
 
-    let mut small = [0u8; BitUtil::LONG_BYTES];
-    let mut large;
-    let bytes = if len <= small.len() {
-      &mut small[..len]
-    } else {
-      large = vec![0u8; len];
-      &mut large[..]
-    };
+    stack_or_heap_buffer!(bytes, u8, len, 128, 0);
     self.read_bytes_boundary(pos, bytes, 0, len);
     Ok(read(bytes))
   }
@@ -559,14 +552,7 @@ impl MemorySegmentIndexInput {
       return Ok(value);
     }
 
-    let mut small = [0u8; BitUtil::LONG_BYTES];
-    let mut large;
-    let bytes = if len <= small.len() {
-      &mut small[..len]
-    } else {
-      large = vec![0u8; len];
-      &mut large[..]
-    };
+    stack_or_heap_buffer!(bytes, u8, len, 128, 0);
     self.read_bytes_boundary_current(bytes, 0, len)?;
     Ok(read(bytes))
   }
@@ -668,14 +654,7 @@ impl MemorySegmentIndexInput {
       return Ok(read(bytes));
     }
 
-    let mut small = [0u8; BitUtil::LONG_BYTES];
-    let mut large;
-    let bytes = if len <= small.len() {
-      &mut small[..len]
-    } else {
-      large = vec![0u8; len];
-      &mut large[..]
-    };
+    stack_or_heap_buffer!(bytes, u8, len, 128, 0);
     self.read_bytes_boundary(pos, bytes, 0, len)?;
     Ok(read(bytes))
   }

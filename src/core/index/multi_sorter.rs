@@ -26,6 +26,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{LUCENE_10_0_0, ToInt};
+use std::rc::Rc;
 /// Does a merge sort of the leaves of the incoming readers, returning
 /// [`DocMap`](crate::core::index::sorter::DocMap) implementations
 /// to map each leaf's documents into the merged segment.
@@ -35,7 +36,10 @@ use crate::core::util::{LUCENE_10_0_0, ToInt};
 /// index sort order).
 pub struct MultiSorter;
 impl MultiSorter {
-  pub(crate) fn sort<CR>(sort: &Sort, readers: &[CR]) -> Result<Option<Vec<MergeStateDocMap<CR>>>>
+  pub(crate) fn sort<CR>(
+    sort: &Sort,
+    readers: &[CR],
+  ) -> Result<Option<Vec<Rc<MergeStateDocMap<CR>>>>>
   where
     CR: CodecReader,
   {
@@ -164,7 +168,9 @@ impl MultiSorter {
       let remapped = builders[i].build()?;
       let live_docs = readers[i].get_live_docs()?;
 
-      doc_maps.push(MergeStateDocMapImpl::new_sorted(live_docs, remapped));
+      doc_maps.push(Rc::new(MergeStateDocMapImpl::new_sorted(
+        live_docs, remapped,
+      )));
     }
     Ok(Some(doc_maps))
   }

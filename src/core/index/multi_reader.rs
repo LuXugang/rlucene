@@ -28,6 +28,7 @@ use crate::core::index::term::Term;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// A [`CompositeReader`] which reads multiple indexes, appending their content.
 /// It can be used to create a view on several sub-readers (like [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader))
@@ -110,6 +111,17 @@ where
   {
     let sub_readers = sub_readers.into();
     Self::new_with_close_sub_readers(true, sub_readers)
+  }
+
+  pub(crate) fn new_shared(sub_readers: Arc<[R]>) -> Result<Self> {
+    let index_reader_base = IndexReaderBase::new();
+    let base_composite_reader_base =
+      BaseCompositeReaderBase::new_shared(sub_readers, &index_reader_base)?;
+    Ok(Self {
+      base_composite_reader_base,
+      index_reader_base,
+      close_sub_readers: true,
+    })
   }
 
   pub fn new_with_close_sub_readers<Readers>(

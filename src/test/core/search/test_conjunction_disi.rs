@@ -519,7 +519,7 @@ fn test_bit_set_conjunction_disi_doc_id_on_exhaust() -> Result<()> {
     let mut bitset = FixedBitSet::new(bitset_length);
     bitset.set_with_range(0, bitset_length - 1);
 
-    let it = BitDocIdSet::new(Some(Arc::new(bitset)))?.iterator()?;
+    let it = BitDocIdSet::new(Some(bitset))?.iterator()?;
     iterators.push(DocIdSetIteratorEnum2::B(it));
   }
 

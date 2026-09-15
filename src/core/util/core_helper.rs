@@ -471,12 +471,25 @@ pub trait BitSetExt {
   fn next_set_bit(&self, from: usize) -> i32;
 }
 impl BitSetExt for BitSet {
-  // TODO: this method Need optimization
   fn next_set_bit(&self, from: usize) -> i32 {
-    match self.iter().find(|&bit| bit >= from) {
-      Some(bit) => bit as i32,
-      None => -1,
+    const BITS_PER_BLOCK: usize = u32::BITS as usize;
+    let blocks = self.get_ref().storage();
+    let mut block_index = from / BITS_PER_BLOCK;
+    if block_index >= blocks.len() {
+      return -1;
     }
+
+    // Ignore the bits before `from` in the first block.
+    let mut block = blocks[block_index] & (u32::MAX << (from % BITS_PER_BLOCK));
+    while block == 0 {
+      block_index += 1;
+      if block_index == blocks.len() {
+        return -1;
+      }
+      block = blocks[block_index];
+    }
+
+    (block_index * BITS_PER_BLOCK + block.trailing_zeros() as usize) as i32
   }
 }
 pub trait OutputIdentity {

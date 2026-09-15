@@ -1457,7 +1457,6 @@ where
     Updates: IntoIterator<Item = Fields>,
   {
     self.do_ensure_open(true)?;
-    let updates = updates.into_iter().collect::<Vec<Fields>>();
     let dv_updates = self.build_doc_values_update(Some(term), updates)?;
 
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -1473,19 +1472,21 @@ where
     unwrap_caught_result!(res)
   }
 
-  fn build_doc_values_update<T>(
+  fn build_doc_values_update<T, Updates>(
     &self,
     term: Option<T>,
-    updates: Vec<Fields>,
+    updates: Updates,
   ) -> Result<Vec<DocValuesUpdate>>
   where
     T: Into<Arc<Term>>,
+    Updates: IntoIterator<Item = Fields>,
   {
     let term: Arc<Term> = match term {
       Some(t) => t.into(),
       None => Arc::new(Term::new("", BytesRef::new())),
     };
-    let mut dv_updates = Vec::with_capacity(updates.len());
+    let updates = updates.into_iter();
+    let mut dv_updates = Vec::with_capacity(updates.size_hint().0);
 
     for mut f in updates {
       let name = f.name().to_string();

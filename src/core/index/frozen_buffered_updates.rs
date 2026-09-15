@@ -113,15 +113,8 @@ impl FrozenBufferedUpdates {
       .for_each_ordered(|term, _| builder.add_term(term))?;
     let delete_terms = builder.finish();
 
-    let (delete_queries, delete_query_limits) = {
-      let mut queries = Vec::with_capacity(updates.delete_queries.len());
-      let mut limits = Vec::with_capacity(updates.delete_queries.len());
-      for (query, limit) in &updates.delete_queries {
-        queries.push(query.clone());
-        limits.push(*limit);
-      }
-      (queries, limits)
-    };
+    let mut delete_queries = Vec::with_capacity(updates.delete_queries.len());
+    let mut delete_query_limits = Vec::with_capacity(updates.delete_queries.len());
     for value in updates.field_updates.values_mut() {
       value.finish()?
     }
@@ -150,7 +143,11 @@ impl FrozenBufferedUpdates {
         ),
       )?;
     }
-    // Retain the source map if a fallible freeze operation fails, as Map.copyOf does in Java.
+    // Retain the source maps if a fallible freeze operation fails, as Map.copyOf does in Java.
+    for (query, limit) in std::mem::take(&mut updates.delete_queries) {
+      delete_queries.push(query);
+      delete_query_limits.push(limit);
+    }
     let field_updates = std::mem::take(&mut updates.field_updates);
     Ok(Self {
       info_stream,

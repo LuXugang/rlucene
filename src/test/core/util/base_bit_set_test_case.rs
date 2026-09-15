@@ -277,13 +277,13 @@ pub trait BaseBitSetTestCase {
   {
     match random.random_range(0..5) {
       0 => Ok(RandomCopyDocIdSet::RustUtil(BitDocIdSet::with_cost(
-        Some(Arc::new(set.clone())),
+        Some(set.clone()),
         set.cardinality() as i64,
       )?)),
       1 => {
         let (copy, _) = self.copy_of(set, num_bits)?;
         Ok(RandomCopyDocIdSet::Test(BitDocIdSet::with_cost(
-          Some(Arc::new(copy)),
+          Some(copy),
           set.cardinality() as i64,
         )?))
       },
@@ -304,17 +304,13 @@ pub trait BaseBitSetTestCase {
         let mut bit_set = FixedBitSet::new(num_bits);
         let mut iterator = BitSetIterator::new(set.clone(), 0)?;
         BitSet::or(&mut bit_set, &mut iterator)?;
-        Ok(RandomCopyDocIdSet::Fixed(BitDocIdSet::new(Some(
-          Arc::new(bit_set),
-        ))?))
+        Ok(RandomCopyDocIdSet::Fixed(BitDocIdSet::new(Some(bit_set))?))
       },
       4 => {
         let mut bit_set = SparseFixedBitSet::new(num_bits)?;
         let mut iterator = BitSetIterator::new(set.clone(), 0)?;
         bit_set.or(&mut iterator)?;
-        Ok(RandomCopyDocIdSet::Sparse(BitDocIdSet::new(Some(
-          Arc::new(bit_set),
-        ))?))
+        Ok(RandomCopyDocIdSet::Sparse(BitDocIdSet::new(Some(bit_set))?))
       },
       _ => unreachable!(),
     }
@@ -345,11 +341,11 @@ pub enum RandomCopyDocIdSet<T>
 where
   T: BitSet,
 {
-  RustUtil(BitDocIdSet<Arc<RustUtilBitSet>>),
-  Test(BitDocIdSet<Arc<T>>),
+  RustUtil(BitDocIdSet<RustUtilBitSet>),
+  Test(BitDocIdSet<T>),
   Roaring(RoaringDocIdSet),
-  Fixed(BitDocIdSet<Arc<FixedBitSet>>),
-  Sparse(BitDocIdSet<Arc<SparseFixedBitSet>>),
+  Fixed(BitDocIdSet<FixedBitSet>),
+  Sparse(BitDocIdSet<SparseFixedBitSet>),
 }
 
 impl<T> Accountable for RandomCopyDocIdSet<T>

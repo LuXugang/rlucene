@@ -177,6 +177,7 @@ impl Eq for MultiTermQueryDocValuesWrapper {}
 pub struct MultiTermQueryDocValuesWeight {
   parent_query: Arc<Query>,
   query: MultiTermQuerySet,
+  matches_query: Arc<Query>,
   base: ConstantScoreWeight,
   score_mode: ScoreMode,
 }
@@ -184,9 +185,11 @@ pub struct MultiTermQueryDocValuesWeight {
 impl MultiTermQueryDocValuesWeight {
   fn new(query: MultiTermQueryDocValuesWrapper, boost: f32, score_mode: ScoreMode) -> Self {
     let query_enum = query.query.clone();
+    let matches_query: Arc<Query> = Arc::new(query_enum.clone().into());
     Self {
       parent_query: Arc::new(query.into()),
       query: query_enum,
+      matches_query,
       base: ConstantScoreWeight::new(boost),
       score_mode,
     }
@@ -217,13 +220,7 @@ where
     for_field(field, move || {
       let values = DocValues::get_sorted_set(context.reader(), field)?;
       let terms_enum = get_terms_enum(&self.query, values)?;
-      from_terms_enum(
-        context,
-        doc,
-        Arc::new(self.query.clone().into()),
-        field,
-        terms_enum,
-      )
+      from_terms_enum(context, doc, self.matches_query.clone(), field, terms_enum)
     })
   }
 
