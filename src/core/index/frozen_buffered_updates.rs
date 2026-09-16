@@ -654,8 +654,6 @@ where
   terms_enum: Option<<<P as TermsProvider>::Terms as Terms>::TermsEnum>,
   postings_enum: Option<Disi<P>>,
   sorted_terms: bool,
-  // TODO: we should avoid copy here
-  reader_term: Option<BytesRef<Vec<u8>>>,
   #[cfg(debug_assertions)]
   last_term: Option<BytesRef<Vec<u8>>>, // only set with debug_assert
 }
@@ -671,7 +669,6 @@ where
       terms_enum: None,
       postings_enum: None,
       sorted_terms,
-      reader_term: None,
       #[cfg(debug_assertions)]
       last_term: None,
     }
@@ -689,13 +686,7 @@ where
             {
               self.last_term = None;
             }
-            match terms_enum.next()? {
-              Some(term) => term
-                .into_value()
-                .copy_or_move_into(self.reader_term.get_or_insert_with(BytesRef::default)),
-              None => self.reader_term = None,
-            }
-            if self.reader_term.is_none() {
+            if terms_enum.next()?.is_none() {
               self.terms_enum = None;
               return Ok(());
             }
@@ -723,14 +714,10 @@ where
         // in the sorted case we can take advantage of the "seeking forward" property
         // this allows us depending on the term dict impl to reuse data-structures internally
         // which speed up iteration over terms and docs significantly.
-        let cmp = term
-          .compare_to(
-            self
-              .reader_term
-              .as_ref()
-              .ok_or_else(|| LuceneError::illegal_state("reader_term must be set"))?,
-          )
-          .to_int();
+        let cmp = {
+          let reader_term = terms_enum.term()?;
+          term.as_byte_slice().cmp(reader_term.as_bytes()).to_int()
+        };
 
         return if cmp < 0 {
           Ok(None) // requested term does not exist in this segment
@@ -739,13 +726,7 @@ where
         } else {
           match terms_enum.seek_ceil(term)? {
             SeekStatus::Found => self.get_docs().map(Some),
-            SeekStatus::NotFound => {
-              terms_enum
-                .term()?
-                .into_value()
-                .copy_or_move_into(self.reader_term.get_or_insert_with(BytesRef::default));
-              Ok(None)
-            },
+            SeekStatus::NotFound => Ok(None),
             SeekStatus::End => {
               self.terms_enum = None;
               Ok(None)

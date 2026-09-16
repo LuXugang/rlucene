@@ -863,8 +863,8 @@ where
     flush_notifications.on_tragic_event(&event, location, writer)?;
     unwrap_caught_result!(abort_result)
   }
-  pub(crate) fn pending_files_to_delete(&self) -> &HashSet<String> {
-    &self.files_to_delete
+  pub(crate) fn take_pending_files_to_delete(&mut self) -> HashSet<String> {
+    std::mem::take(&mut self.files_to_delete)
   }
   fn sort_live_docs<T, T2>(live_docs: &T, sort_map: &T2) -> Result<FixedBitSet>
   where

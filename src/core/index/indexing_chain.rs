@@ -396,21 +396,20 @@ where
       )?;
     }
 
-    let mut fields_to_flush = HashMap::new();
+    let mut fields_to_flush = Vec::with_capacity(self.field_hash.len());
     for &idx in &self.field_hash {
       let mut fp_idx = idx;
       while let Some(index) = fp_idx {
         let pf = &mut self.per_fields[index];
         if pf.invert_state.is_some() {
-          let field_info = pf
-            .field_info
+          pf.field_info
             .as_ref()
             .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
           let terms_hash = pf
             .terms_hash_per_field
             .take()
             .ok_or_else(|| LuceneError::illegal_state("terms hash is missing"))?;
-          fields_to_flush.insert(field_info.name.clone(), terms_hash);
+          fields_to_flush.push(terms_hash);
         }
         fp_idx = pf.next;
       }

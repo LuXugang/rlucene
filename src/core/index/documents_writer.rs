@@ -639,8 +639,8 @@ where
                 }
               }));
             self.subtract_flushed_num_docs(flushing_docs_in_ram);
-            if !dwpt.pending_files_to_delete().is_empty() {
-              let files = dwpt.pending_files_to_delete().clone();
+            let files = dwpt.take_pending_files_to_delete();
+            if !files.is_empty() {
               self.flush_notifications.delete_unused_files(files)?;
             }
             if !dwpt_success {

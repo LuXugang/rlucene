@@ -30,7 +30,7 @@ use crate::core::util::bits::{Bits, BitsEnum2, MatchAllBits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ram_usage_estimator::{
-  size_of_string as ram_size_of_string, size_of_string_vec, size_of_vec,
+  size_of_str as ram_size_of_str, size_of_string as ram_size_of_string, size_of_vec,
 };
 use crate::core::util::{
   BytesRefArray, Counter, IndexedBytesRefIterator, IndexedBytesRefIteratorImpl, NaturalOrder,
@@ -71,7 +71,8 @@ pub(crate) struct FieldUpdatesBuffer {
   has_values: Option<FixedBitSet>,
   max_numeric: i64,
   min_numeric: i64,
-  fields: Vec<String>,
+  fields: Vec<usize>,
+  field_names: Vec<String>,
   is_numeric: bool,
   finished: bool,
 }
@@ -107,7 +108,8 @@ impl FieldUpdatesBuffer {
       max_numeric: i64::MIN,
       min_numeric: i64::MAX,
       // TODO: we should estimate the size of the fields array
-      fields: vec![initial_value.term.field.clone()],
+      fields: vec![0],
+      field_names: vec![initial_value.term.field.clone()],
       is_numeric,
       finished: false,
     };
@@ -170,6 +172,16 @@ impl FieldUpdatesBuffer {
     ram_size_of_string(s)
   }
 
+  // Keep the old Vec<String> accounting so RAM-based flush thresholds do not change.
+  #[allow(clippy::ptr_arg)]
+  fn size_of_fields(fields: &Vec<usize>, field_names: &[String]) -> i64 {
+    let vec_size = (std::mem::size_of::<String>() as i64)
+      .saturating_mul(i64::try_from(fields.capacity()).unwrap_or(i64::MAX));
+    fields.iter().fold(vec_size, |size, field| {
+      size.saturating_add(ram_size_of_string(&field_names[*field]))
+    })
+  }
+
   pub(crate) fn get_max_numeric(&self) -> i64 {
     debug_assert!(self.is_numeric);
     if self.min_numeric == i64::MAX && self.max_numeric == i64::MIN {
@@ -194,22 +206,34 @@ impl FieldUpdatesBuffer {
   ) -> Result<()> {
     debug_assert!(!self.finished, "buffer was finished already");
     let fields_len = self.fields.len();
-    if self.fields[0] != field || fields_len != 1 {
-      if fields_len <= ord {
-        let old_size = size_of_string_vec(&self.fields);
+    let first_field_index = self.fields[0];
+    if self.field_names[first_field_index] != field || fields_len != 1 {
+      let old_size =
+        (fields_len <= ord).then(|| Self::size_of_fields(&self.fields, &self.field_names));
+      let field_index = if self.field_names[first_field_index] == field {
+        first_field_index
+      } else if let Some(index) = self.field_names.iter().position(|name| name == field) {
+        index
+      } else {
+        self.field_names.push(field.to_owned());
+        self.field_names.len() - 1
+      };
+
+      if let Some(old_size) = old_size {
         ArrayUtil::grow_with_len(&mut self.fields, ord + 1)?;
         if fields_len == 1 {
           for i in 1..ord {
-            self.fields[i] = self.fields[0].clone();
+            self.fields[i] = self.fields[0];
           }
         }
-        self
-          .bytes_used
-          .add_and_get(size_of_string_vec(&self.fields).saturating_sub(old_size));
+        self.fields[ord] = field_index;
+        self.bytes_used.add_and_get(
+          Self::size_of_fields(&self.fields, &self.field_names).saturating_sub(old_size),
+        );
+      } else {
+        self.bytes_used.add_and_get(ram_size_of_str(field));
+        self.fields[ord] = field_index;
       }
-      let field = field.to_owned();
-      self.bytes_used.add_and_get(Self::size_of_string(&field));
-      self.fields[ord] = field;
     }
 
     let docs_upto_len = self.docs_upto.len();
@@ -490,8 +514,9 @@ impl<'a> BufferedUpdateIterator<'a> {
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("updates_with_value is missing"))?
         .get(idx)?;
-      buffered_update.term_field = &self.field_updates_buffer.fields
+      let field_index = self.field_updates_buffer.fields
         [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)];
+      buffered_update.term_field = &self.field_updates_buffer.field_names[field_index];
       buffered_update.doc_upto = self.field_updates_buffer.docs_upto
         [FieldUpdatesBuffer::get_array_index(self.docs_upto_length, idx)];
 

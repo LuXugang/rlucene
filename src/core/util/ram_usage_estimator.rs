@@ -309,3 +309,6 @@ where
     Ok(size)
   }
 }
+pub(crate) fn size_of_str(s: &str) -> i64 {
+  size_of_str_capacity(s.len())
+}

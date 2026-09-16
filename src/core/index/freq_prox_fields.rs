@@ -42,19 +42,17 @@ use crate::core::util::bytes_ref_block_pool::{BytesRefBlockPool, BytesRefBlockPo
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
-use crate::core::util::iterator::{VecIter, VecIteratorExt};
+use crate::core::util::iterator::IteratorExt;
 use crate::core::util::{ByteBlockPool, ToInt};
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 /// Provides a limited [`Fields`] implementation (iterators only, no statistics) over the in-memory buffered
 /// fields/terms/postings, to flush postings through the PostingsFormat.
 pub(crate) struct FreqProxFields {
-  fields: HashMap<String, Rc<FreqProxTermsWriterPerField>>,
+  fields: Vec<Rc<FreqProxTermsWriterPerField>>,
   int_pool: Rc<IntBlockPool>,
   byte_pool: Rc<ByteBlockPool>,
-  keys: Vec<String>,
 }
 impl FreqProxFields {
   pub fn new(
@@ -63,43 +61,39 @@ impl FreqProxFields {
     byte_pool: ByteBlockPool,
   ) -> Self {
     // NOTE: fields are already sorted by field name
-    let len = field_list.len();
-    let mut fields = HashMap::with_capacity(len);
-    let mut keys = Vec::with_capacity(len);
-    for field in field_list {
-      let field_name = field.field_info.name.to_string();
-      keys.push(field_name.clone());
-      fields.insert(field_name, field);
-    }
     Self {
-      fields,
+      fields: field_list,
       int_pool: Rc::new(int_pool),
       byte_pool: Rc::new(byte_pool),
-      keys,
     }
   }
 }
 impl Fields for FreqProxFields {
   type FieldIter<'a>
-    = VecIter<'a, String>
+    = FreqProxFieldIter<'a>
   where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(self.keys.iter_ext())
+    Ok(FreqProxFieldIter {
+      fields: self.fields.as_slice(),
+      pos: 0,
+    })
   }
 
   type Terms = FreqProxTerms;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-    let per_filed = self.fields.get(field);
-    match per_filed {
-      Some(terms) => Ok(Some(FreqProxTerms::new(
-        Rc::clone(terms),
+    let field_index = self
+      .fields
+      .binary_search_by(|per_field| per_field.field_info.name.as_str().cmp(field));
+    match field_index {
+      Ok(index) => Ok(Some(FreqProxTerms::new(
+        Rc::clone(&self.fields[index]),
         Rc::clone(&self.int_pool),
         Rc::clone(&self.byte_pool),
       ))),
-      None => Ok(None),
+      Err(_) => Ok(None),
     }
   }
 
@@ -114,7 +108,6 @@ impl Clone for FreqProxFields {
       fields: self.fields.clone(),
       int_pool: self.int_pool.clone(),
       byte_pool: self.byte_pool.clone(),
-      keys: self.keys.clone(),
     }
   }
 }
@@ -862,5 +855,25 @@ impl PostingsEnum for FreqProxPostingsEnum {
     } else {
       Ok(None)
     }
+  }
+}
+pub(crate) struct FreqProxFieldIter<'a> {
+  fields: &'a [Rc<FreqProxTermsWriterPerField>],
+  pos: usize,
+}
+
+impl<'a> IteratorExt for FreqProxFieldIter<'a> {
+  type Item = &'a String;
+
+  fn next(&mut self) -> Result<Option<Self::Item>> {
+    let Some(field) = self.fields.get(self.pos) else {
+      return Ok(None);
+    };
+    self.pos += 1;
+    Ok(Some(&field.field_info.name))
+  }
+
+  fn has_next(&self) -> Result<bool> {
+    Ok(self.pos < self.fields.len())
   }
 }
