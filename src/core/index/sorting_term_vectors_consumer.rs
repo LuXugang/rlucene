@@ -238,11 +238,10 @@ where
     // Don't pull a merge instance, since merge instances optimize for
     // sequential access while term vectors will likely be accessed in random
     // order here.
-    let mut writer = codec.term_vectors_format().vectors_writer(
-      state.directory,
-      segment_info,
-      &state.context.clone(),
-    )?;
+    let mut writer =
+      codec
+        .term_vectors_format()
+        .vectors_writer(state.directory, segment_info, state.context)?;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       reader.check_integrity()?;
       let max_doc = segment_info.max_doc()?;
@@ -265,15 +264,14 @@ where
           _ => writer.close(),
         })?;
 
-        let file_names: Vec<String> = self
-          .tmp_directory
-          .get_temporary_files()
-          .lock()
-          .file_names
-          .values()
-          .cloned()
-          .collect();
-        IOUtils::delete_files(&self.tmp_directory, file_names.iter().map(Some))?;
+        let temporary_files = self.tmp_directory.get_temporary_files().lock();
+        IOUtils::delete_files(
+          &self.tmp_directory,
+          temporary_files
+            .file_names
+            .values()
+            .map(|name| Some(name.as_str())),
+        )?;
         Ok(())
       }));
     IOUtils::finally_caught_result(result, finally_result)
@@ -303,15 +301,11 @@ where
     let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       TermVectorsConsumerDefaults::abort(&mut self.writer)
     }));
-    let file_names: Vec<String> = self
-      .tmp_directory
-      .get_temporary_files()
-      .lock()
-      .file_names
-      .values()
-      .cloned()
-      .collect();
-    IOUtils::delete_files_ignoring_exceptions(&self.tmp_directory, &file_names);
+    let temporary_files = self.tmp_directory.get_temporary_files().lock();
+    IOUtils::delete_files_ignoring_exceptions(
+      &self.tmp_directory,
+      temporary_files.file_names.values(),
+    );
     unwrap_caught_result!(abort_result)
   }
 }
