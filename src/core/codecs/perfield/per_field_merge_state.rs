@@ -26,6 +26,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
 use std::collections::HashSet;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// Utility creating a merge-state view restricted to a set of fields.
@@ -35,7 +36,7 @@ where
 {
   in_: &'a MS,
   merge_field_infos: Arc<FieldInfos>,
-  field_infos: Vec<Arc<FieldInfos>>,
+  field_infos: Rc<Vec<Arc<FieldInfos>>>,
   fields_producers: Vec<Option<FilterFieldsProducer<'a, MS::FieldsProducer>>>,
 }
 
@@ -62,7 +63,7 @@ where
     Ok(Self {
       in_,
       merge_field_infos: Self::new_filter(in_.merge_field_infos(), &filtered_names)?,
-      field_infos,
+      field_infos: Rc::new(field_infos),
       fields_producers,
     })
   }

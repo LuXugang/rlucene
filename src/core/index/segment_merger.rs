@@ -263,7 +263,7 @@ where
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }
   fn merge_field_infos(&mut self) -> Result<()> {
-    for reader_field_infos in &self.merge_state.field_infos {
+    for reader_field_infos in self.merge_state.field_infos.iter() {
       for fi in reader_field_infos.iter() {
         self.field_infos_builder.add(fi.as_ref())?;
       }

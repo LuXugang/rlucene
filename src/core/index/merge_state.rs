@@ -69,7 +69,7 @@ where
   /// Vector readers to merge
   pub(crate) knn_vectors_readers: Vec<Option<CRKnnVectorReader<CR>>>,
   /// FieldInfos being merged
-  pub(crate) field_infos: Vec<Arc<FieldInfos>>,
+  pub(crate) field_infos: Rc<Vec<Arc<FieldInfos>>>,
   /// Live docs for each reader
   pub(crate) live_docs: Vec<Option<CRBits<CR>>>,
   /// Indicates if the index needs to be sorted
@@ -298,7 +298,7 @@ where
       fields_producers,
       points_readers,
       knn_vectors_readers,
-      field_infos,
+      field_infos: Rc::new(field_infos),
       live_docs,
       needs_index_sort: false,
       max_docs,
@@ -545,7 +545,7 @@ pub struct MergeStateMeta<DM> {
   pub(crate) doc_maps: Rc<Vec<DM>>,
   pub needs_index_sort: bool,
   pub merge_field_infos: Arc<FieldInfos>,
-  pub field_infos: Vec<Arc<FieldInfos>>,
+  pub field_infos: Rc<Vec<Arc<FieldInfos>>>,
 }
 impl<DM> Clone for MergeStateMeta<DM> {
   fn clone(&self) -> Self {
