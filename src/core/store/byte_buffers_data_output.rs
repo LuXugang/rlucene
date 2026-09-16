@@ -16,6 +16,7 @@
  */
 use std::collections::VecDeque;
 use std::io::Cursor;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 use byteorder::WriteBytesExt;
 
@@ -40,6 +41,7 @@ pub struct ByteBuffersDataOutput {
   // it is necessary when we want to reuse the data output
   current_block_index: usize,
   reuse: bool,
+  cached_ram_bytes: AtomicI64,
 }
 
 impl Default for ByteBuffersDataOutput {
@@ -119,6 +121,7 @@ impl ByteBuffersDataOutput {
       blocks,
       current_block_index: 0,
       reuse,
+      cached_ram_bytes: AtomicI64::new(-1),
     }
   }
   /// Creates a new output, suitable for writing a file of approximately
@@ -135,6 +138,7 @@ impl ByteBuffersDataOutput {
   }
 
   fn append_block(&mut self) -> Result<()> {
+    self.cached_ram_bytes.store(-1, Ordering::Relaxed);
     if self.blocks.len() > Self::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION
       && self.block_bits < self.max_bits_per_block
     {
@@ -170,6 +174,7 @@ impl ByteBuffersDataOutput {
   // `push_back` and then move to tail and continue copy the second
   // old_block's data to it
   pub fn rewrite_blocks(&mut self, target_block_bits: i32) -> Result<()> {
+    self.cached_ram_bytes.store(-1, Ordering::Relaxed);
     debug_assert!(target_block_bits > self.block_bits);
     self.block_bits = target_block_bits;
     let block_size = 1 << self.block_bits;
@@ -258,6 +263,7 @@ impl ByteBuffersDataOutput {
   /// Sharing byte buffers for reads and writes is dangerous and may lead to
   /// hard-to-debug issues. Use with great caution.
   pub fn reset(&mut self) {
+    self.cached_ram_bytes.store(-1, Ordering::Relaxed);
     if self.reuse {
       for block in self.blocks.iter_mut().take(self.current_block_index + 1) {
         block.set_position(0);
@@ -291,6 +297,7 @@ impl ByteBuffersDataOutput {
   /// # Parameters
   /// - `init_blocks`: If init_blocks is true, then after taking ownership of blocks, we pre-allocate the space so it can be reused.
   pub fn to_buffer_list_owner(&mut self, init_blocks: bool) -> (usize, Vec<Cursor<Vec<u8>>>) {
+    self.cached_ram_bytes.store(-1, Ordering::Relaxed);
     let size = self.size();
 
     let old_blocks = {
@@ -337,6 +344,7 @@ impl ByteBuffersDataOutput {
   }
   /// See [`get_array_copy`](Self::get_array_copy) Before use this method.
   pub fn try_get_array_ownership(&mut self) -> Vec<u8> {
+    self.cached_ram_bytes.store(-1, Ordering::Relaxed);
     match self.blocks.len() {
       0 => Vec::new(),
       // If the number of blocks is 1, take ownership to avoid copying.
@@ -390,6 +398,7 @@ impl ByteBuffersDataOutput {
 
   fn append_block_if_needed(&mut self) -> Result<usize> {
     if self.blocks.is_empty() {
+      self.cached_ram_bytes.store(-1, Ordering::Relaxed);
       self
         .blocks
         .push_back(Cursor::new(vec![0u8; 1 << self.block_bits]));
@@ -512,10 +521,15 @@ impl DataOutput for ByteBuffersDataOutput {
 
 impl Accountable for ByteBuffersDataOutput {
   fn ram_bytes_used(&self) -> Result<i64> {
+    let cached = self.cached_ram_bytes.load(Ordering::Relaxed);
+    if cached >= 0 {
+      return Ok(cached);
+    }
     let mut size = size_of_vec_deque(&self.blocks);
     for block in &self.blocks {
       size = size.saturating_add(size_of_vec(block.get_ref()));
     }
+    self.cached_ram_bytes.store(size, Ordering::Relaxed);
     Ok(size)
   }
 }
