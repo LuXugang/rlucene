@@ -2186,7 +2186,7 @@ where
   data_out: &'a mut O,
   data_start_fp: usize,
   leaf_block_fps: Vec<usize>,
-  leaf_block_start_values: Vec<Vec<u8>>,
+  leaf_block_start_values: Vec<u8>,
   leaf_values: Vec<u8>,
   leaf_docs: Vec<i32>,
   value_count: i64,
@@ -2317,7 +2317,10 @@ where
     }
     self.bkd_writer.point_count = self.value_count;
 
-    debug_assert!(self.leaf_block_start_values.len() + 1 == self.leaf_block_fps.len());
+    debug_assert!(
+      self.leaf_block_start_values.len() / self.bkd_writer.config.packed_index_bytes_length() + 1
+        == self.leaf_block_fps.len()
+    );
 
     let leaf_nodes = BKDTreeLeafNodesEnum::OneDimension(BKDTreeLeafNodesOneDimension {
       leaf_block_fps: std::mem::take(&mut self.leaf_block_fps),
@@ -2352,7 +2355,7 @@ where
       // first, to build the split value index in the end:
       self
         .leaf_block_start_values
-        .push(self.leaf_values[0..packed_index_bytes_length].to_vec());
+        .extend_from_slice(&self.leaf_values[0..packed_index_bytes_length]);
     }
     self.leaf_block_fps.push(self.data_out.get_file_pointer()?);
     self
@@ -2771,7 +2774,7 @@ trait BKDTreeLeafNodes {
   fn get_split_dimension(&self, index: usize) -> usize;
 }
 struct BKDTreeLeafNodesOneDimension {
-  leaf_block_start_values: Vec<Vec<u8>>,
+  leaf_block_start_values: Vec<u8>,
   offset: usize,
   length: usize,
   leaf_block_fps: Vec<usize>,
@@ -2787,7 +2790,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesOneDimension {
 
   fn get_split_value(&self, index: usize) -> (&[u8], usize, usize) {
     (
-      self.leaf_block_start_values[index].as_slice(),
+      &self.leaf_block_start_values[index * self.length..(index + 1) * self.length],
       self.offset,
       self.length,
     )
