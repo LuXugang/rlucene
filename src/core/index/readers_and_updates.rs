@@ -697,24 +697,21 @@ where
     unwrap_caught_result!(result)?;
     // Prune the now-written DV updates:
     let mut bytes_freed: i64 = 0;
-    let mut empty_fields = Vec::new();
-    for (field, updates) in inner.pending_dv_updates.iter_mut() {
-      let mut keep = Vec::with_capacity(updates.len());
-      for u in updates.drain(..) {
-        if u.del_gen > max_del_gen {
-          keep.push(u);
+    for updates in inner.pending_dv_updates.values_mut() {
+      let mut upto = 0;
+      for read in 0..updates.len() {
+        if updates[read].del_gen > max_del_gen {
+          updates.swap(upto, read);
+          upto += 1;
         } else {
-          bytes_freed += u.ram_bytes_used()?;
+          bytes_freed += updates[read].ram_bytes_used()?;
         }
       }
-      *updates = keep;
-      if updates.is_empty() {
-        empty_fields.push(field.clone());
-      }
+      updates.truncate(upto);
     }
-    for field in empty_fields {
-      inner.pending_dv_updates.remove(&field);
-    }
+    inner
+      .pending_dv_updates
+      .retain(|_, updates| !updates.is_empty());
 
     let prev = self.ram_bytes_used.fetch_sub(bytes_freed, Ordering::SeqCst);
     let bytes_now = prev - bytes_freed;
