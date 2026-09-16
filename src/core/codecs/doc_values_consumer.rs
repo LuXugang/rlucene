@@ -402,7 +402,7 @@ impl BitsFilteredTermsEnum {
   }
 }
 impl FilteredTermsEnumBase for BitsFilteredTermsEnum {
-  fn accept(&mut self, _term: &BytesRef<Vec<u8>>, ord: i64) -> Result<AcceptStatus> {
+  fn accept(&mut self, _term: &BytesRef<&[u8]>, ord: i64) -> Result<AcceptStatus> {
     if self.live_terms.get(ord as usize) {
       Ok(AcceptStatus::Yes)
     } else {

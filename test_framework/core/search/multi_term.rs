@@ -29,11 +29,11 @@ use crate::core::search::multi_term_query::{
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::util::HasIdentity;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{HasIdentity, StringHelper};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -152,7 +152,7 @@ impl Hash for BoostCheckingQuery {
 pub struct BoostCheckingTermsEnum;
 
 impl FilteredTermsEnumBase for BoostCheckingTermsEnum {
-  fn accept(&mut self, term: &BytesRef<Vec<u8>>, _ord: i64) -> Result<AcceptStatus> {
+  fn accept(&mut self, term: &BytesRef<&[u8]>, _ord: i64) -> Result<AcceptStatus> {
     if term.length == 0 {
       return Ok(AcceptStatus::No);
     }
@@ -304,8 +304,11 @@ pub struct SimplePrefixTermsEnum {
 }
 
 impl FilteredTermsEnumBase for SimplePrefixTermsEnum {
-  fn accept(&mut self, term: &BytesRef<Vec<u8>>, _ord: i64) -> Result<AcceptStatus> {
-    if StringHelper::starts_with_byte_ref(term, &self.prefix) {
+  fn accept(&mut self, term: &BytesRef<&[u8]>, _ord: i64) -> Result<AcceptStatus> {
+    if term
+      .as_byte_slice()
+      .starts_with(self.prefix.as_byte_slice())
+    {
       Ok(AcceptStatus::Yes)
     } else {
       Ok(AcceptStatus::No)
@@ -455,8 +458,9 @@ pub struct SimpleAutomatonTermsEnum {
 }
 
 impl FilteredTermsEnumBase for SimpleAutomatonTermsEnum {
-  fn accept(&mut self, term: &BytesRef<Vec<u8>>, _ord: i64) -> Result<AcceptStatus> {
-    if self.run_automaton.run_str(&term.utf8_to_string()?)? {
+  fn accept(&mut self, term: &BytesRef<&[u8]>, _ord: i64) -> Result<AcceptStatus> {
+    let term = std::str::from_utf8(term.as_byte_slice()).map_err(LuceneError::from)?;
+    if self.run_automaton.run_str(term)? {
       Ok(AcceptStatus::Yes)
     } else {
       Ok(AcceptStatus::No)

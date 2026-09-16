@@ -305,11 +305,11 @@ impl SetEnum {
 }
 
 impl FilteredTermsEnumBase for SetEnum {
-  fn accept(&mut self, term: &BytesRef<Vec<u8>>, _ord: i64) -> Result<AcceptStatus> {
+  fn accept(&mut self, term: &BytesRef<&[u8]>, _ord: i64) -> Result<AcceptStatus> {
     let mut cmp = std::cmp::Ordering::Equal;
     while let Some(seek_term) = self.seek_term.as_ref()
       && {
-        cmp = seek_term.cmp(term);
+        cmp = seek_term.compare_to(term);
         cmp.is_lt()
       }
     {
@@ -330,7 +330,7 @@ impl FilteredTermsEnumBase for SetEnum {
 
   fn next_seek_term(
     &mut self,
-    current: Option<&BytesRef<Vec<u8>>>,
+    current: Option<&BytesRef<&[u8]>>,
   ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let Some(current) = current else {
       return Ok(self.seek_term.as_ref().map(Cow::Borrowed));
@@ -338,7 +338,7 @@ impl FilteredTermsEnumBase for SetEnum {
     while self
       .seek_term
       .as_ref()
-      .is_some_and(|seek_term| seek_term <= current)
+      .is_some_and(|seek_term| !seek_term.compare_to(current).is_gt())
     {
       match (self.iterator.next()?, self.seek_term.as_mut()) {
         (Some(Cow::Borrowed(term)), Some(buffer)) => {

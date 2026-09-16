@@ -2340,7 +2340,10 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let binary_value = stored_doc.get_binary_value("stored")?;
         if let Some(binary_value) = binary_value {
           assert_eq!(i, doc_values.doc_id());
-          assert_eq!(binary_value.as_ref(), doc_values.binary_value()?);
+          assert_eq!(
+            binary_value.as_bytes_ref().as_byte_slice(),
+            doc_values.binary_value()?.as_byte_slice()
+          );
           doc_values.next_doc()?;
         } else {
           assert!(doc_values.doc_id() > i);
@@ -2366,7 +2369,10 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let binary_value = stored_doc.get_binary_value("stored")?;
         if let Some(binary_value) = binary_value {
           assert_eq!(i, doc_values.doc_id());
-          assert_eq!(binary_value.as_ref(), doc_values.binary_value()?);
+          assert_eq!(
+            binary_value.as_bytes_ref().as_byte_slice(),
+            doc_values.binary_value()?.as_byte_slice()
+          );
           doc_values.next_doc()?;
         } else {
           assert!(doc_values.doc_id() > i);
@@ -4211,7 +4217,10 @@ pub trait LegacyBaseDocValuesFormatTestCase:
                 && let Some(ref mut binaries) = binaries
               {
                 assert_eq!(j, binaries.next_doc()?);
-                assert_eq!(binary_value.as_ref(), binaries.binary_value()?);
+                assert_eq!(
+                  binary_value.as_bytes_ref().as_byte_slice(),
+                  binaries.binary_value()?.as_byte_slice()
+                );
                 let sorted = sorted.as_mut().expect("dvSorted should exist");
                 assert_eq!(j, sorted.next_doc()?);
                 let ord = sorted.ord_value()?;

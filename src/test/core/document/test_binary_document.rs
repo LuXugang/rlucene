@@ -19,6 +19,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
+use crate::core::index::BytesRefValue;
 use crate::core::index::index_reader::IndexReader;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 
@@ -65,7 +66,7 @@ fn test_binary_field_in_index() -> Result<()> {
   // fetch the binary stored field and compare with the original
   let bytes = doc_from_reader.get_binary_value("binaryStored")?;
   assert!(bytes.is_some());
-  let binary_fld_stored_test = bytes.unwrap().as_ref().utf8_to_string()?;
+  let binary_fld_stored_test = bytes.unwrap().as_bytes_ref().utf8_to_string()?;
   assert_eq!(binary_fld_stored_test, binary_val_stored);
 
   // fetch the string field and compare with the original

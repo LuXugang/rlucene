@@ -19,6 +19,7 @@ use crate::core::index::filtered_terms_enum::{
 };
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::{
   AutomatonEnum, AutomatonType, CompiledAutomaton,
@@ -26,7 +27,6 @@ use crate::core::util::automation::compiled_automaton::{
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
-use crate::core::util::{SliceCopyOps, StringHelper, ToInt};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -358,25 +358,25 @@ impl AutomatonTermsEnum {
   }
 }
 impl FilteredTermsEnumBase for AutomatonTermsEnum {
-  fn accept(&mut self, term: &BytesRef<Vec<u8>>, _ord: i64) -> Result<AcceptStatus> {
+  fn accept(&mut self, term: &BytesRef<&[u8]>, _ord: i64) -> Result<AcceptStatus> {
     let suffix_ok = match &self.common_suffix_ref {
       None => true,
-      Some(suffix) => StringHelper::ends_with(term, suffix),
+      Some(suffix) => term.as_byte_slice().ends_with(suffix.as_byte_slice()),
     };
 
     let v = if suffix_ok {
-      if self.automaton.run(&term.bytes, term.offset, term.length)? {
+      if self.automaton.run(term.bytes, term.offset, term.length)? {
         if self.linear {
           AcceptStatus::Yes
         } else {
           AcceptStatus::YesAndSeek
         }
-      } else if self.linear && term.cmp(&self.linear_upper_bound).to_int() < 0 {
+      } else if self.linear && term.compare_to(&self.linear_upper_bound).is_lt() {
         AcceptStatus::No
       } else {
         AcceptStatus::NoAndSeek
       }
-    } else if self.linear && term.cmp(&self.linear_upper_bound).to_int() < 0 {
+    } else if self.linear && term.compare_to(&self.linear_upper_bound).is_lt() {
       AcceptStatus::No
     } else {
       AcceptStatus::NoAndSeek
@@ -386,7 +386,7 @@ impl FilteredTermsEnumBase for AutomatonTermsEnum {
 
   fn next_seek_term(
     &mut self,
-    term: Option<&BytesRef<Vec<u8>>>,
+    term: Option<&BytesRef<&[u8]>>,
   ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if let Some(t) = term {
       self.seek_bytes_ref.copy_bytes_from_ref(t)?;

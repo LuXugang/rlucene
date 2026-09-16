@@ -42,10 +42,10 @@ impl SingleTermsEnum {
 impl FilteredTermsEnumBase for SingleTermsEnum {
   fn accept(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<&[u8]>,
     _ord: i64,
   ) -> crate::core::util::error::lucene_error::Result<AcceptStatus> {
-    if term == &self.single_ref {
+    if term.compare_to(&self.single_ref).is_eq() {
       Ok(AcceptStatus::Yes)
     } else {
       Ok(AcceptStatus::No)

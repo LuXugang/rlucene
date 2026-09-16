@@ -186,8 +186,8 @@ fn test_index_bytes_value() -> Result<()> {
   let stored_doc = leaf.stored_fields()?.document(0)?;
   let bin = stored_doc.get_binary_value("field").unwrap();
   assert_eq!(
-    &new_bytes_ref_from_string(&mut random, "value")?,
-    bin.unwrap().as_ref()
+    new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value")?.as_byte_slice(),
+    bin.unwrap().as_bytes_ref().as_byte_slice()
   );
 
   Ok(())

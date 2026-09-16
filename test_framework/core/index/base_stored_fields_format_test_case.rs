@@ -711,11 +711,8 @@ pub trait BaseStoredFieldsFormatTestCase:
       assert_eq!(expected_fields.len() + 1, doc.get_fields().len());
       for (j, bytes) in expected_fields.iter().enumerate() {
         let actual = doc.get_binary_value(&format!("bytes{j}"))?.unwrap();
-        let actual = actual.as_ref();
-        assert_eq!(
-          bytes,
-          &actual.bytes[actual.offset..actual.offset + actual.length]
-        );
+        let actual = actual.as_bytes_ref();
+        assert_eq!(bytes, actual.as_byte_slice());
       }
     }
     assert!(reader.num_docs()? <= num_docs);

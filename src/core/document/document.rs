@@ -19,7 +19,7 @@ use std::fmt;
 use std::vec::IntoIter;
 
 use crate::core::document::fields::Fields;
-use crate::core::index::BytesRef;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::util::error::lucene_error::Result;
 
@@ -99,14 +99,14 @@ impl Document {
   /// - `name`: the name of the field
   ///
   /// # Returns
-  /// A `Vec<Cow<BytesRef>>` of binary field values.
-  pub fn get_binary_values(&self, name: &str) -> Result<Vec<Cow<'_, BytesRef<Vec<u8>>>>> {
+  /// A vector of binary field values.
+  pub fn get_binary_values(&self, name: &str) -> Result<Vec<BinaryValueEnum<'_>>> {
     let mut result = Vec::new();
 
     for field in &self.fields {
       if field.name() == name {
         match field.binary_value() {
-          Ok(Some(bytes)) => result.push(bytes.into_cow()),
+          Ok(Some(bytes)) => result.push(bytes),
           Ok(None) => continue,
           Err(e) => return Err(e),
         }
@@ -123,13 +123,12 @@ impl Document {
   /// - `name`: the name of the field.
   ///
   /// # Returns
-  /// A `Option<Cow<BytesRef>>` containing the binary field value, or `None`
-  /// if no matching field is found.
-  pub fn get_binary_value(&self, name: &str) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  /// The binary field value, or `None` if no matching field is found.
+  pub fn get_binary_value(&self, name: &str) -> Result<Option<BinaryValueEnum<'_>>> {
     for field in &self.fields {
       if field.name() == name {
         return match field.binary_value() {
-          Ok(Some(bytes)) => Ok(Some(bytes.into_cow())),
+          Ok(Some(bytes)) => Ok(Some(bytes)),
           Ok(None) => Ok(None),
           Err(e) => Err(e),
         };

@@ -919,8 +919,8 @@ pub struct ValueFilteredTermsEnumBase {
 }
 
 impl FilteredTermsEnumBase for ValueFilteredTermsEnumBase {
-  fn accept(&mut self, term: &BytesRef<Vec<u8>>, _ord: i64) -> Result<AcceptStatus> {
-    let comparison = term.cmp(&self.value).to_int();
+  fn accept(&mut self, term: &BytesRef<&[u8]>, _ord: i64) -> Result<AcceptStatus> {
+    let comparison = term.compare_to(&self.value).to_int();
     if comparison < 0 {
       Ok(AcceptStatus::NoAndSeek)
     } else if comparison > 0 {
@@ -932,9 +932,9 @@ impl FilteredTermsEnumBase for ValueFilteredTermsEnumBase {
 
   fn next_seek_term(
     &mut self,
-    current_term: Option<&BytesRef<Vec<u8>>>,
+    current_term: Option<&BytesRef<&[u8]>>,
   ) -> Result<Option<std::borrow::Cow<'_, BytesRef<Vec<u8>>>>> {
-    if current_term.is_none() || current_term.unwrap().cmp(&self.value).to_int() < 0 {
+    if current_term.is_none() || current_term.unwrap().compare_to(&self.value).to_int() < 0 {
       Ok(Some(std::borrow::Cow::Borrowed(&self.value)))
     } else {
       Ok(None)

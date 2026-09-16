@@ -17,7 +17,6 @@
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
-use crate::core::util::ToInt;
 use crate::core::util::access::ByteSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -37,7 +36,7 @@ use std::fmt::Debug;
 pub struct FilteredTermsEnum<T, F> {
   initial_seek_term: Option<BytesRef<Vec<u8>>>,
   do_seek: bool,
-  pub actual_term: Option<BytesRef<Vec<u8>>>,
+  has_actual_term: bool,
   pub tenum: T,
   hook: FilteredTermsEnumHook<F>,
 }
@@ -45,6 +44,35 @@ pub struct FilteredTermsEnum<T, F> {
 enum FilteredTermsEnumHook<F> {
   Default,
   Filtered(F),
+}
+
+impl<F> FilteredTermsEnumHook<F>
+where
+  F: FilteredTermsEnumBase,
+{
+  fn next_seek_term<'a>(
+    &'a mut self,
+    current: Option<&BytesRef<&[u8]>>,
+    initial_seek_term: &'a mut Option<BytesRef<Vec<u8>>>,
+  ) -> Result<Option<Cow<'a, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Default => Err(LuceneError::unsupported_operation(
+        "unfiltered terms enum has no next seek term",
+      )),
+      Self::Filtered(sub) => match sub.next_seek_term(current) {
+        Ok(value) => Ok(value),
+        Err(LuceneError::NotImplemented(_)) => match initial_seek_term.take() {
+          Some(mut value) => Ok(Some(Cow::Owned(BytesRef::from_slice(
+            std::mem::take(&mut value.bytes),
+            value.offset,
+            value.length,
+          )))),
+          None => Ok(None),
+        },
+        Err(error) => Err(error),
+      },
+    }
+  }
 }
 impl<T, F> FilteredTermsEnum<T, F> {
   pub(crate) fn new(tenum: T, sub: F) -> Self {
@@ -56,7 +84,7 @@ impl<T, F> FilteredTermsEnum<T, F> {
     FilteredTermsEnum {
       initial_seek_term: None,
       do_seek: start_with_seek,
-      actual_term: None,
+      has_actual_term: false,
       tenum,
       hook: FilteredTermsEnumHook::Filtered(sub),
     }
@@ -65,44 +93,13 @@ impl<T, F> FilteredTermsEnum<T, F> {
     FilteredTermsEnum {
       initial_seek_term: None,
       do_seek: false,
-      actual_term: None,
+      has_actual_term: false,
       tenum,
       hook: FilteredTermsEnumHook::Default,
     }
   }
   pub(crate) fn set_initial_seek_term(&mut self, term: BytesRef<Vec<u8>>) {
     self.initial_seek_term = Some(term);
-  }
-}
-
-impl<T, F> FilteredTermsEnum<T, F>
-where
-  T: TermsEnum,
-  F: FilteredTermsEnumBase,
-{
-  pub fn next_seek_term(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    let sub = match &mut self.hook {
-      FilteredTermsEnumHook::Default => {
-        return Err(LuceneError::unsupported_operation(
-          "unfiltered terms enum has no next seek term",
-        ));
-      },
-      FilteredTermsEnumHook::Filtered(sub) => sub,
-    };
-    match sub.next_seek_term(Option::from(&self.actual_term)) {
-      Ok(v) => Ok(v),
-      Err(e) => match e {
-        LuceneError::NotImplemented(_) => match self.initial_seek_term.take() {
-          Some(mut a) => Ok(Some(Cow::Owned(BytesRef::from_slice(
-            std::mem::take(&mut a.bytes),
-            a.offset,
-            a.length,
-          )))),
-          None => Ok(None),
-        },
-        _ => Err(e),
-      },
-    }
   }
 }
 
@@ -123,72 +120,72 @@ where
         .next()
         .map(|value| value.map(BytesRefValue::into_value));
     }
+    let Self {
+      initial_seek_term,
+      do_seek,
+      has_actual_term,
+      tenum,
+      hook,
+    } = self;
     loop {
-      if self.do_seek {
-        self.do_seek = false;
-        let t = self.next_seek_term()?.map(Cow::into_owned);
-        debug_assert!(
-          self
-            .actual_term
-            .as_ref()
-            .is_none_or(|actual| t.as_ref().is_none_or(|term| term.cmp(actual).to_int() > 0))
-        );
+      if *do_seek {
+        *do_seek = false;
+        let t = {
+          let current_term = if *has_actual_term {
+            Some(tenum.term()?)
+          } else {
+            None
+          };
+          let current = current_term.as_ref().map(BytesRefValue::as_bytes_ref);
+          let t = hook.next_seek_term(current.as_ref(), initial_seek_term)?;
+          if let (Some(actual), Some(term)) = (current.as_ref(), t.as_ref()) {
+            debug_assert!(term.compare_to(actual).is_gt());
+          }
+          t
+        };
         let Some(t) = t else {
+          *has_actual_term = false;
           return Ok(None);
         };
-        if self.tenum.seek_ceil(&t)? == SeekStatus::End {
+        if tenum.seek_ceil(t.as_ref())? == SeekStatus::End {
+          *has_actual_term = false;
           return Ok(None);
         }
-        self.actual_term = Some(self.tenum.term()?.into_owned());
+        *has_actual_term = true;
+      } else if tenum.next()?.is_none() {
+        *has_actual_term = false;
+        return Ok(None);
       } else {
-        match self.tenum.next()? {
-          Some(term) => self.actual_term = Some(term.into_owned()),
-          None => {
-            self.actual_term = None;
-            return Ok(None);
-          },
-        };
+        *has_actual_term = true;
       }
-      // check if term is accepted
-      let need_ord = match &self.hook {
+
+      let need_ord = match hook {
         FilteredTermsEnumHook::Default => false,
         FilteredTermsEnumHook::Filtered(sub) => sub.need_ord(),
       };
-      let ord = match need_ord {
-        true => self.ord()?,
-        // padding value
-        false => 0,
-      };
-      let accept_status = match &mut self.hook {
+      let ord = if need_ord { tenum.ord()? } else { 0 };
+      let term = tenum.term()?;
+      let term_ref = term.as_bytes_ref();
+      let accept_status = match hook {
         FilteredTermsEnumHook::Default => AcceptStatus::Yes,
-        FilteredTermsEnumHook::Filtered(sub) => sub.accept(
-          self
-            .actual_term
-            .as_ref()
-            .ok_or_else(|| LuceneError::illegal_state("filtered terms enum has no current term"))?,
-          ord,
-        )?,
+        FilteredTermsEnumHook::Filtered(sub) => sub.accept(&term_ref, ord)?,
       };
       match accept_status {
         AcceptStatus::YesAndSeek => {
-          self.do_seek = true;
-          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Borrowed(
-            self.actual_term.as_ref().ok_or_else(|| {
-              LuceneError::illegal_state("filtered terms enum has no current term")
-            })?,
+          *do_seek = true;
+          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Owned(
+            term.into_owned(),
           ))));
         },
         // term accepted, but we need to seek so fall-through
         AcceptStatus::Yes => {
-          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Borrowed(
-            self.actual_term.as_ref().ok_or_else(|| {
-              LuceneError::illegal_state("filtered terms enum has no current term")
-            })?,
+          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Owned(
+            term.into_owned(),
           ))));
         },
         AcceptStatus::NoAndSeek => {
           // invalid term, seek next time
-          self.do_seek = true;
+          *do_seek = true;
         },
         AcceptStatus::End => {
           // we are supposed to end the enum
@@ -323,7 +320,7 @@ where
 
 /// Return value indicating whether the term should be accepted or the iteration
 /// should end. The `*_SEEK` values denote that after handling the current term,
-/// the enum should call [`next_seek_term`](FilteredTermsEnum::next_seek_term)
+/// the enum should call [`next_seek_term`](FilteredTermsEnumBase::next_seek_term)
 /// and step forward.
 ///
 /// See also:
@@ -346,10 +343,10 @@ pub enum AcceptStatus {
 pub trait FilteredTermsEnumBase {
   /// Return if term is accepted, not accepted or the iteration should ended
   /// (and possibly seek).
-  fn accept(&mut self, term: &BytesRef<Vec<u8>>, ord: i64) -> Result<AcceptStatus>;
+  fn accept(&mut self, term: &BytesRef<&[u8]>, ord: i64) -> Result<AcceptStatus>;
   fn next_seek_term(
     &mut self,
-    _current: Option<&BytesRef<Vec<u8>>>,
+    _current: Option<&BytesRef<&[u8]>>,
   ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     Err(LuceneError::not_implemented(""))
   }

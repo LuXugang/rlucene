@@ -25,6 +25,7 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::string_field::TYPE_STORED as STRING_TYPE_STORED;
 use crate::core::document::text_field::TextField;
+use crate::core::index::BytesRefValue;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
@@ -77,7 +78,7 @@ fn test_binary_field() -> Result<()> {
 
   match doc.get_binary_value("binary")? {
     Some(bf) => {
-      let bf_value = bf.as_ref().utf8_to_string()?;
+      let bf_value = bf.as_bytes_ref().utf8_to_string()?;
       assert_eq!(bf_value, binary_val);
     },
     None => {
@@ -99,8 +100,8 @@ fn test_binary_field() -> Result<()> {
   let binary_tests = doc.get_binary_values("binary")?;
   assert_eq!(binary_tests.len(), 2);
 
-  let binary_test = binary_tests[0].as_ref().utf8_to_string()?;
-  let binary_test2 = binary_tests[1].as_ref().utf8_to_string()?;
+  let binary_test = binary_tests[0].as_bytes_ref().utf8_to_string()?;
+  let binary_test2 = binary_tests[1].as_bytes_ref().utf8_to_string()?;
 
   assert_ne!(binary_test, binary_test2);
   assert_eq!(binary_test, binary_val);

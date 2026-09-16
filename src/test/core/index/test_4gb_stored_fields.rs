@@ -115,7 +115,10 @@ fn test() -> Result<()> {
   let value_ref = stored_doc
     .get_binary_value("fld")?
     .expect("fld must have a stored binary value");
-  assert_eq!(&BytesRef::from_bytes(value), value_ref.as_ref());
+  assert_eq!(
+    BytesRef::from_bytes(value).as_byte_slice(),
+    value_ref.as_bytes_ref().as_byte_slice()
+  );
   reader.close()?;
 
   dir.as_ref().close()?;
