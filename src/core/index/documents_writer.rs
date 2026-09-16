@@ -513,8 +513,12 @@ where
       // This must happen after we've pulled the DWPT because IW.close
       // waits for all DWPT to be released:
       self.ensure_open()?;
+      let mut dw = Some(dwpt_wrapper.dwpt.lock());
       let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        dwpt_wrapper.dwpt.lock().update_documents(
+        let dw = dw
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("DWPT lock is missing"))?;
+        dw.update_documents(
           docs,
           del_node,
           &self.flush_notifications,
@@ -522,13 +526,21 @@ where
           writer,
         )
       }));
-      if dwpt_wrapper.state.is_aborted() {
+      let aborted = dwpt_wrapper.state.is_aborted();
+      if aborted || !matches!(&res, Ok(Ok(_))) {
+        dw.take();
+      }
+      if aborted {
         self.flush_control.do_on_abort(&dwpt_wrapper, config)?;
       }
       seq_no = unwrap_caught_result!(res)?;
       flushing_dwpt_opt = {
-        let dw = &dwpt_wrapper.dwpt.lock();
-        self.flush_control.do_after_document(dw, config)?
+        match dw.as_ref() {
+          Some(dw) => self.flush_control.do_after_document(dw, config)?,
+          None => self
+            .flush_control
+            .do_after_document(&dwpt_wrapper.dwpt.lock(), config)?,
+        }
       };
       Ok(())
     }));
