@@ -517,7 +517,7 @@ where
 
       info.advance_doc_values_gen();
       debug_assert!(!field_files.contains_key(&field_info.number));
-      field_files.insert(field_info.number, state.directory.get_created_files());
+      field_files.insert(field_info.number, state.directory.take_created_files());
     }
     Ok(())
   }
@@ -543,7 +543,7 @@ where
     let flush_info = FlushInfo::new(info.info.max_doc()?, est_infos_size);
     let infos_context = IOContext::with_flush(flush_info)?;
     // separately also track which files were created for this gen
-    let mut tracking_dir = TrackingDirectoryWrapper::new(dir);
+    let tracking_dir = TrackingDirectoryWrapper::new(dir);
     infos_format.write(
       &tracking_dir,
       &info.info,
@@ -728,27 +728,23 @@ where
     // were updated now.
     debug_assert!(!new_dv_files.is_empty());
 
-    for (field_num, files_set) in info.get_doc_values_updates_files().iter() {
-      new_dv_files
-        .entry(*field_num)
-        .or_insert_with(|| files_set.clone());
+    let existing_dv_files = info.take_doc_values_updates_files();
+    for (field_num, files_set) in existing_dv_files {
+      new_dv_files.entry(field_num).or_insert(files_set);
     }
-    info.set_doc_values_updates_files(&new_dv_files);
+    info.set_doc_values_updates_files(std::borrow::Cow::Owned(new_dv_files));
     // if there is a reader open, reopen it to reflect the updates
     if inner.reader.is_some() {
       swap_new_reader_with_latest_live_docs(&mut inner, info)?;
     }
-
     if info_stream.is_enabled("BD") {
-      info_stream.message(
-        "BD",
-        &format!(
-          "done write field updates for seg={}; took {:.3}s; new files: {:?}",
-          info,
-          start_time_ns.elapsed().as_secs_f64(),
-          new_dv_files,
-        ),
-      )?;
+      let message = format!(
+        "done write field updates for seg={}; took {:.3}s; new files: {:?}",
+        info,
+        start_time_ns.elapsed().as_secs_f64(),
+        info.get_doc_values_updates_files(),
+      );
+      info_stream.message("BD", &message)?;
     }
     Ok(true)
   }

@@ -1890,7 +1890,7 @@ where
         merger
           .merge_state
           .segment_info
-          .set_files(dir_wrapper.get_created_files())?;
+          .set_files(dir_wrapper.take_created_files())?;
         if !merger.should_merge()? {
           debug_assert!(merger.merge_state.segment_info.max_doc()? == 0);
           success = self.commit_merge(merge, &doc_maps)?;
@@ -1918,16 +1918,12 @@ where
       }
       if use_compound_file {
         success = false;
-        let files_to_remove = merge
-          .info
-          .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
-          .files()?;
+        let mut files_to_remove = None;
 
         // NOTE: Creation of the CFS file must be performed with the original
         // directory rather than with the merging directory, so that it is not
         // subject to merge throttling.
-        let tracking_cfs_dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
+        let mut tracking_cfs_dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
 
         // We'll need a mutable view of SegmentInfo to pass into create_compound_file.
         // Keep this in a tight scope.
@@ -1940,14 +1936,13 @@ where
             .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
 
           let delete_new_files = IOConsumerImpl1::new(self);
-
-          create_compound_file(
+          files_to_remove = Some(create_compound_file(
             &self.info_stream,
-            &tracking_cfs_dir,
+            &mut tracking_cfs_dir,
             segment_info,
             &context,
             delete_new_files,
-          )?;
+          )?);
 
           success = true;
           Ok(())
@@ -2006,6 +2001,9 @@ where
           let inner = self.inner.lock();
           // delete new non cfs files directly: they were never
           // registered with IFD
+          let files_to_remove = files_to_remove.ok_or_else(|| {
+            LuceneError::illegal_state("old merge files were not returned by CFS creation")
+          })?;
           self.delete_new_files(files_to_remove.iter(), Some(&inner))?;
           if merge.is_aborted() {
             if self.info_stream.is_enabled("IW") {
@@ -3791,7 +3789,7 @@ where
       UNBOUNDED_MAX_MERGE_SEGMENTS,
     ))?;
 
-    let mut tracking_dir = TrackingDirectoryWrapper::new(&merge_directory);
+    let tracking_dir = TrackingDirectoryWrapper::new(&merge_directory);
     let mut seg_info = SegmentInfo::new(
       self.directory_orig.clone(),
       Some((*LATEST).clone()),
@@ -3932,13 +3930,12 @@ where
       let sci = merge
         .get_merge_info_mut()
         .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
-      let files_to_delete = sci.files()?;
       let info =
         Arc::get_mut(&mut sci.info).ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
-      let tracking_cfs_dir = TrackingDirectoryWrapper::new(&merge_directory);
-      create_compound_file(
+      let mut tracking_cfs_dir = TrackingDirectoryWrapper::new(&merge_directory);
+      let files_to_delete = create_compound_file(
         &self.info_stream,
-        &tracking_cfs_dir,
+        &mut tracking_cfs_dir,
         info,
         &context,
         IOConsumerImpl1::new(self),
@@ -4003,7 +4000,9 @@ where
       info.get_id().copied(),
     );
     new_info_per_commit.set_field_infos_files(info.get_field_infos_files());
-    new_info_per_commit.set_doc_values_updates_files(info.get_doc_values_updates_files());
+    new_info_per_commit.set_doc_values_updates_files(std::borrow::Cow::Borrowed(
+      info.get_doc_values_updates_files(),
+    ));
     let mut copied_files = HashSet::new();
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -6536,13 +6535,13 @@ where
       let iter_start = Instant::now();
       let merge_gen_start = self.merge_finished_gen.load(Ordering::SeqCst);
 
-      let mut del_files: HashSet<String> = HashSet::new();
+      let del_files;
       let mut seg_states;
 
       {
         let mut inner = self.inner.lock();
         let v = self.get_infos_to_apply(updates, &inner)?;
-        match &v {
+        del_files = match &v {
           InfoFrom::None => break,
           InfoFrom::Updates => {
             let info_id = updates
@@ -6552,14 +6551,10 @@ where
             let info = inner.segment_infos.index_of_live(info_id).ok_or_else(|| {
               LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", info_id))
             })?;
-            del_files.extend(info.files()?);
+            info.files()?
           },
-          InfoFrom::All => {
-            for info in inner.segment_infos.iter() {
-              del_files.extend(info.files()?);
-            }
-          },
-        }
+          InfoFrom::All => inner.segment_infos.files(false)?,
+        };
         let v = match v {
           InfoFrom::None => return Err(LuceneError::unreachable("")),
           InfoFrom::Updates => Some(
@@ -8310,17 +8305,17 @@ where
 /// file.
 pub(crate) fn create_compound_file<D, T, D2>(
   info_stream: &InfoStreamMT,
-  directory: &TrackingDirectoryWrapper<D>,
+  directory: &mut TrackingDirectoryWrapper<D>,
   info: &mut SegmentInfo<D2>,
   context: &IOContext,
   mut delete_files: T,
-) -> Result<()>
+) -> Result<HashSet<String>>
 where
   D: Directory,
   T: IOConsumer<HashSet<String>>,
 {
   // maybe this check is not needed, but why take the risk?
-  if !directory.get_created_files().is_empty() {
+  if directory.has_created_files() {
     return Err(LuceneError::illegal_state(
       "pass a clean trackingdir for CFS creation",
     ));
@@ -8339,16 +8334,18 @@ where
     success = true;
     Ok(())
   }));
-  let filename = directory.get_created_files();
+  let filename = directory.take_created_files();
   if !success {
     delete_files.accept(filename)?;
-    return unwrap_caught_result!(write_result);
+    return unwrap_caught_result!(write_result).and_then(|()| {
+      Err(LuceneError::illegal_state(
+        "compound file creation did not report success",
+      ))
+    });
   }
   unwrap_caught_result!(write_result)?;
   // Replace all previous files with the CFS/CFE files:
-  info.set_files(filename)?;
-
-  Ok(())
+  info.replace_files(filename)
 }
 struct Permits {
   avail: Mutex<usize>,

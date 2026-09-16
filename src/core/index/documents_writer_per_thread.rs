@@ -693,7 +693,7 @@ where
         // We clear this here because we already resolved them (private to this segment) when writing
         // postings:
         self.pending_updates.clear_delete_terms();
-        let files = self.directory.get_created_files();
+        let files = self.directory.take_created_files();
         self.segment_info.set_files(files)?;
 
         let dir = self.segment_info.dir.clone();
@@ -910,14 +910,13 @@ where
       let mut success = false;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         if index_writer_config.get_use_compound_file() {
-          let original_files = new_segment.info.files()?.clone();
           let segment_info = Arc::get_mut(&mut new_segment.info).ok_or_else(|| {
             LuceneError::illegal_state("flushed segment info must be uniquely owned while sealing")
           })?;
-          let dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
-          create_compound_file(
+          let mut dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
+          let original_files = create_compound_file(
             &self.info_stream,
-            &dir,
+            &mut dir,
             segment_info,
             &context,
             IOConsumerImpl::new(flush_notifications),
@@ -983,13 +982,16 @@ where
         success = true;
         Ok(())
       }));
-      // Keep the replacement SegmentInfo synchronized with files created while
-      // sealing (.cfs/.si). Preserve the original error or panic if both
-      // sealing and this Rust-only ownership adaptation fail.
-      let mirror_result = new_segment
-        .info
-        .files()
-        .and_then(|files| self.segment_info.set_files(files));
+      // The replacement SegmentInfo is only needed for failed-flush cleanup;
+      // successful flushes return before the mirror can be observed again.
+      let mirror_result = if matches!(&result, Ok(Err(_)) | Err(_)) {
+        new_segment
+          .info
+          .files()
+          .and_then(|files| self.segment_info.set_files(files))
+      } else {
+        Ok(())
+      };
       if !success && self.info_stream.is_enabled("DWPT") {
         self.info_stream.message(
           "DWPT",

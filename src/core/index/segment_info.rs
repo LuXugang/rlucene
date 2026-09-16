@@ -294,10 +294,20 @@ impl<D> SegmentInfo<D> {
   pub fn set_files<I, S>(&mut self, files: I) -> Result<()>
   where
     I: IntoIterator<Item = S>,
-    S: AsRef<str>,
+    S: AsRef<str> + Into<String>,
   {
     self.set_files = Some(HashSet::new());
     self.add_files(files)
+  }
+  /// Replaces the files written for this segment and returns the previous set.
+  pub(crate) fn replace_files<I, S>(&mut self, files: I) -> Result<HashSet<String>>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str> + Into<String>,
+  {
+    let previous = self.take_files()?;
+    self.set_files(files)?;
+    Ok(previous)
   }
   /// Converts this segment information into a formatted string with deletions
   /// count.
@@ -389,13 +399,13 @@ impl<D> SegmentInfo<D> {
   pub fn add_files<I, S>(&mut self, files: I) -> Result<()>
   where
     I: IntoIterator<Item = S>,
-    S: AsRef<str>,
+    S: AsRef<str> + Into<String>,
   {
     let files: Vec<S> = files.into_iter().collect();
     self.check_file_names(&files)?;
-    let files: Vec<S> = files.into_iter().collect();
     match self.set_files {
       Some(ref mut set_files) => {
+        set_files.reserve(files.len());
         for f in files {
           set_files.insert(named_for_this_segment(&self.name, f));
         }
@@ -556,10 +566,12 @@ use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 
 /// Strips any segment name from the file and renames it with this segment.
 /// This is because "segment names" can change, e.g., by addIndexes(Dir).
-pub fn named_for_this_segment<T: AsRef<str>>(name: &str, file: T) -> String {
-  format!(
-    "{}{}",
-    name,
-    IndexFileNames::strip_segment_name(file.as_ref())
-  )
+pub fn named_for_this_segment<T: AsRef<str> + Into<String>>(name: &str, file: T) -> String {
+  let file = file.into();
+  let stripped = IndexFileNames::strip_segment_name(&file);
+  if file.len() == name.len() + stripped.len() && file.starts_with(name) {
+    file
+  } else {
+    format!("{}{}", name, stripped)
+  }
 }

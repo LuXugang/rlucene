@@ -44,7 +44,11 @@ impl<D> TrackingDirectoryWrapper<D> {
     self.created_filenames.lock().clone()
   }
 
-  pub fn take_created_files(&mut self) -> HashSet<String> {
+  pub fn has_created_files(&self) -> bool {
+    !self.created_filenames.lock().is_empty()
+  }
+
+  pub fn take_created_files(&self) -> HashSet<String> {
     std::mem::take(&mut self.created_filenames.lock())
   }
 

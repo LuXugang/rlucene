@@ -535,7 +535,7 @@ impl<D> SegmentInfos<D> {
         }
         map
       };
-      si_per_commit.set_doc_values_updates_files(dv_update_files);
+      si_per_commit.set_doc_values_updates_files(std::borrow::Cow::Owned(dv_update_files));
       infos.add(si_per_commit)?;
 
       let segment_version = info.get_version_ref().ok_or_else(|| {
@@ -920,7 +920,9 @@ impl<D> SegmentInfos<D> {
       let segment_commit_info = self
         .info(i)
         .ok_or_else(|| LuceneError::illegal_state("segment was None"))?;
-      files.extend(segment_commit_info.files()?);
+      let segment_files = segment_commit_info.files()?;
+      files.reserve(segment_files.len());
+      files.extend(segment_files);
     }
     Ok(files)
   }

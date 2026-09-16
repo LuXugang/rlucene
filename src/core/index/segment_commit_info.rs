@@ -20,7 +20,7 @@ use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, TryIntoInt};
-use std::borrow::Borrow;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Write;
 use std::sync::Arc;
@@ -125,19 +125,37 @@ impl<D> SegmentCommitInfo<D> {
     &self.dv_updates_files
   }
 
-  /// Sets the DocValues updates file names, per field number. Does not deeply
-  /// clone the map.
-  pub fn set_doc_values_updates_files<T>(&mut self, dv_updates_files: T)
-  where
-    T: Borrow<HashMap<i32, HashSet<String>>>,
-  {
+  /// Removes and returns the per-field DocValues updates files.
+  pub(crate) fn take_doc_values_updates_files(&mut self) -> HashMap<i32, HashSet<String>> {
+    std::mem::take(&mut self.dv_updates_files)
+  }
+
+  /// Sets the DocValues updates file names, per field number. Borrowed maps
+  /// are copied into renamed sets; owned maps are renamed in place.
+  pub fn set_doc_values_updates_files<'a>(
+    &mut self,
+    dv_updates_files: Cow<'a, HashMap<i32, HashSet<String>>>,
+  ) {
     self.dv_updates_files.clear();
-    for (key, file_set) in dv_updates_files.borrow() {
-      let mut renamed_set = HashSet::with_capacity(file_set.len());
-      for file in file_set {
-        renamed_set.insert(named_for_this_segment(&self.info.name, file));
-      }
-      self.dv_updates_files.insert(*key, renamed_set);
+    match dv_updates_files {
+      Cow::Borrowed(files) => {
+        for (key, file_set) in files {
+          let mut renamed_set = HashSet::with_capacity(file_set.len());
+          for file in file_set {
+            renamed_set.insert(named_for_this_segment(&self.info.name, file));
+          }
+          self.dv_updates_files.insert(*key, renamed_set);
+        }
+      },
+      Cow::Owned(mut files) => {
+        for file_set in files.values_mut() {
+          let previous_files = std::mem::take(file_set);
+          for file in previous_files {
+            file_set.insert(named_for_this_segment(&self.info.name, file));
+          }
+        }
+        self.dv_updates_files = files;
+      },
     }
   }
   /// Returns a reference to the FieldInfos file names.
@@ -151,7 +169,7 @@ impl<D> SegmentCommitInfo<D> {
   pub fn set_field_infos_files<I, S>(&mut self, field_infos_files: I)
   where
     I: IntoIterator<Item = S>,
-    S: AsRef<str>,
+    S: AsRef<str> + Into<String>,
   {
     self.field_infos_files.clear();
     for file in field_infos_files {
