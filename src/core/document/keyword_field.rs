@@ -22,7 +22,9 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
@@ -78,7 +80,6 @@ pub mod keyword {
 
 pub struct KeywordField {
   parent_field: Field,
-  binary_value: Option<BytesRef<Vec<u8>>>,
   has_stored_value: bool,
 }
 
@@ -101,7 +102,6 @@ impl KeywordField {
 
     Ok(Self {
       parent_field,
-      binary_value: None,
       has_stored_value,
     })
   }
@@ -119,12 +119,10 @@ impl KeywordField {
     };
 
     let v = value.into();
-    let binary_value = Some(BytesRef::from_string(&v));
     let parent_field = Field::from_string(name, v, ft)?;
 
     Ok(Self {
       parent_field,
-      binary_value,
       has_stored_value,
     })
   }
@@ -176,15 +174,7 @@ impl FieldBase for KeywordField {
   where
     T: Into<String>,
   {
-    let v = value.into();
-    self.parent_field.set_string_value(v)?;
-    match &self.parent_field.fields_data {
-      FieldDataEnum::String(v) => match &mut self.binary_value {
-        Some(binary_value) => binary_value.copy_from_slice(v.as_bytes()),
-        None => self.binary_value = Some(BytesRef::from_string(v)),
-      },
-      _ => return Err(LuceneError::illegal_state("invalid state")),
-    }
+    self.parent_field.set_string_value(value)?;
     self.has_stored_value = true;
     Ok(())
   }
@@ -193,7 +183,6 @@ impl FieldBase for KeywordField {
   where
     B: Into<BytesRef<Vec<u8>>>,
   {
-    debug_assert!(self.binary_value.is_none());
     self.parent_field.set_bytes_value(value)?;
     self.has_stored_value = true;
     Ok(())
@@ -224,17 +213,24 @@ impl IndexableField for KeywordField {
     self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    match &self.binary_value {
-      Some(v) => Ok(Some(Cow::Borrowed(v))),
-      None => self.parent_field.binary_value(),
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
+    match &self.parent_field.fields_data {
+      FieldDataEnum::String(value) => Ok(Some(BinaryValueEnum::Slice(BytesRef {
+        bytes: value.as_bytes(),
+        offset: 0,
+        length: value.len(),
+      }))),
+      FieldDataEnum::Binary(value) => Ok(Some(BinaryValueEnum::Slice(value.as_bytes_ref()))),
+      _ => Err(LuceneError::illegal_state(
+        "KeywordField contains neither a string nor a binary value",
+      )),
     }
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-    match self.binary_value.take() {
-      Some(v) => Ok(Some(v)),
-      None => self.parent_field.take_binary_value(),
+    match &self.parent_field.fields_data {
+      FieldDataEnum::String(value) => Ok(Some(BytesRef::from_string(value))),
+      _ => self.parent_field.take_binary_value(),
     }
   }
 
@@ -283,7 +279,6 @@ impl Clone for KeywordField {
   fn clone(&self) -> Self {
     Self {
       parent_field: self.parent_field.clone(),
-      binary_value: self.binary_value.clone(),
       has_stored_value: self.has_stored_value,
     }
   }

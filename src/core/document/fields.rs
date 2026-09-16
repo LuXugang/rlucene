@@ -58,6 +58,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::document::xy_doc_values_field::XYDocValuesField;
 use crate::core::document::xy_point_field::XYPointField;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream, StoredValueEnum,
@@ -274,7 +275,7 @@ impl IndexableField for Fields {
       .token_stream(analyzer, reuse_token_stream))
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     dispatch_fields!(self, |field| field.binary_value())
   }
 

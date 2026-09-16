@@ -45,10 +45,10 @@ use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::{BytesRef, BytesRefValue};
 
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::indexable_field::IndexableField;
@@ -617,7 +617,7 @@ fn test_int_field() -> Result<()> {
     }
 
     assert_eq!(
-      NumericUtils::sortable_bytes_to_int(&field.binary_value()?.unwrap().bytes, 0),
+      NumericUtils::sortable_bytes_to_int(field.binary_value()?.unwrap().as_bytes_ref().bytes, 0),
       6
     );
 
@@ -696,7 +696,7 @@ fn test_long_field() -> Result<()> {
     }
 
     let decoded =
-      NumericUtils::sortable_bytes_to_long(&field.binary_value()?.unwrap().as_ref().bytes, 0);
+      NumericUtils::sortable_bytes_to_long(field.binary_value()?.unwrap().as_bytes_ref().bytes, 0);
     assert_eq!(decoded, 6);
 
     assert_eq!(
@@ -733,7 +733,7 @@ fn test_float_field() -> Result<()> {
       _ => unreachable!(),
     }
     assert!(
-      (FloatPoint::decode_dimension(&field.binary_value()?.unwrap().as_ref().bytes, 0) - 12.6)
+      (FloatPoint::decode_dimension(field.binary_value()?.unwrap().as_bytes_ref().bytes, 0) - 12.6)
         .abs()
         < f32::EPSILON
     );
@@ -792,7 +792,7 @@ fn test_float_field() -> Result<()> {
       _ => unreachable!(),
     }
     assert!(
-      (FloatPoint::decode_dimension(&field.binary_value()?.unwrap().as_ref().bytes, 0) + 28.8)
+      (FloatPoint::decode_dimension(field.binary_value()?.unwrap().as_bytes_ref().bytes, 0) + 28.8)
         .abs()
         < f32::EPSILON
     );
@@ -835,7 +835,8 @@ fn test_double_field() -> Result<()> {
       _ => unreachable!(),
     }
     assert!(
-      (DoublePoint::decode_dimension(&field.binary_value()?.unwrap().as_ref().bytes, 0) - 12.7)
+      (DoublePoint::decode_dimension(field.binary_value()?.unwrap().as_bytes_ref().bytes, 0)
+        - 12.7)
         .abs()
         < f64::EPSILON
     );
@@ -894,7 +895,8 @@ fn test_double_field() -> Result<()> {
       _ => unreachable!(),
     }
     assert!(
-      (DoublePoint::decode_dimension(&field.binary_value()?.unwrap().as_ref().bytes, 0) + 28.8)
+      (DoublePoint::decode_dimension(field.binary_value()?.unwrap().as_bytes_ref().bytes, 0)
+        + 28.8)
         .abs()
         < f64::EPSILON
     );
@@ -1141,8 +1143,11 @@ fn test_sorted_bytes_doc_values_field() -> Result<()> {
     Err(LuceneError::NotImplemented(_))
   ));
   let binary_value = field.binary_value()?;
-  let v = binary_value.as_ref().unwrap().as_ref();
-  assert_eq!(&new_bytes_ref_from_string(&mut random, "baz")?, v);
+  let v = binary_value.as_ref().unwrap();
+  assert_eq!(
+    new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "baz")?.as_byte_slice(),
+    v.as_byte_slice()
+  );
   Ok(())
 }
 #[test]
@@ -1189,8 +1194,11 @@ fn test_binary_doc_values_field() -> Result<()> {
   ));
 
   let binary_value = field.binary_value()?;
-  let v = binary_value.as_ref().unwrap().as_ref();
-  assert_eq!(&new_bytes_ref_from_string(&mut random, "baz")?, v);
+  let v = binary_value.as_ref().unwrap();
+  assert_eq!(
+    new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "baz")?.as_byte_slice(),
+    v.as_byte_slice()
+  );
   Ok(())
 }
 #[test]
@@ -1272,8 +1280,8 @@ fn test_binary_string_field() -> Result<()> {
     ));
     field.set_bytes_value("baz")?;
     assert_eq!(
-      field.binary_value()?.unwrap().as_ref(),
-      &BytesRef::from_string("baz")
+      field.binary_value()?.unwrap().as_byte_slice(),
+      BytesRef::<Vec<u8>>::from_string("baz").as_byte_slice()
     );
     field.set_bytes_value("baz")?;
     assert!(matches!(
@@ -1310,8 +1318,8 @@ fn test_binary_string_field() -> Result<()> {
     ));
 
     assert_eq!(
-      field.binary_value()?.unwrap().as_ref(),
-      &BytesRef::from_string("baz")
+      field.binary_value()?.unwrap().as_byte_slice(),
+      BytesRef::<Vec<u8>>::from_string("baz").as_byte_slice()
     );
 
     if field.field_type().stored() {
@@ -1497,8 +1505,8 @@ fn test_stored_field_bytes() -> Result<()> {
     ));
 
     assert_eq!(
-      field.binary_value()?.unwrap().as_ref(),
-      &new_bytes_ref_from_string(&mut random, "baz")?
+      field.binary_value()?.unwrap().as_byte_slice(),
+      new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "baz")?.as_byte_slice()
     );
   }
 
@@ -1776,7 +1784,10 @@ fn test_indexed_binary_field() -> Result<()> {
   let mut doc = Document::new();
   let br = new_bytes_ref_from_bytes(&mut random, &[0u8; 5])?;
   let field = StringField::from_bytes_ref("binary", br.clone(), Store::Yes)?;
-  assert_eq!(field.binary_value()?.unwrap().as_ref(), &br);
+  assert_eq!(
+    field.binary_value()?.unwrap().as_byte_slice(),
+    br.as_byte_slice()
+  );
 
   doc.add(field);
   writer.add_document(&mut random, doc)?;
@@ -1790,7 +1801,14 @@ fn test_indexed_binary_field() -> Result<()> {
     .stored_fields()?
     .document(hits.score_docs()[0].doc)?;
   let stored_field = stored_doc.get_field("binary").unwrap();
-  assert_eq!(stored_field.binary_value()?.unwrap().as_ref(), &br);
+  assert_eq!(
+    stored_field
+      .binary_value()?
+      .unwrap()
+      .as_bytes_ref()
+      .as_byte_slice(),
+    br.as_byte_slice()
+  );
   writer.close(&mut random)?;
   Ok(())
 }

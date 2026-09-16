@@ -24,6 +24,7 @@ use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::long_range;
 use crate::core::document::long_range_slow_range_query::LongRangeSlowRangeQuery;
 use crate::core::document::range_field_query::QueryType;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
@@ -165,7 +166,7 @@ impl IndexableField for LongRangeDocValuesField {
     self.base.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     self.base.binary_value()
   }
 

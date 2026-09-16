@@ -138,7 +138,8 @@ fn test_arbitrary_fields() -> Result<()> {
           .get_field(&name)
           .unwrap_or_else(|| panic!("doc {id} doesn't have field f{counter}"));
         if binary {
-          let b = f.binary_value()?.unwrap();
+          let binary_value = f.binary_value()?.unwrap();
+          let b = binary_value.as_bytes_ref();
           assert_eq!(10, b.length);
           for idx in 0..10 {
             assert_eq!((idx + counter) as u8, b.bytes[b.offset + idx]);

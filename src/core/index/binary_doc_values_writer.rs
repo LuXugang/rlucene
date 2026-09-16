@@ -88,7 +88,7 @@ impl BinaryDocValuesWriter {
       final_lengths: None,
     })
   }
-  pub(crate) fn add_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+  pub(crate) fn add_value(&mut self, doc_id: i32, value: &BytesRef<&[u8]>) -> Result<()> {
     if doc_id <= self.last_doc_id {
       return Err(LuceneError::illegal_argument(format!(
         "DocValuesField \"{}\" appears more than once in this document (only one value is allowed per field)",
@@ -107,7 +107,7 @@ impl BinaryDocValuesWriter {
 
     self
       .bytes_out
-      .write_bytes_range(&value.bytes, value.offset, value.length)?;
+      .write_bytes_range(value.bytes, value.offset, value.length)?;
 
     self.docs_with_field.add(doc_id)?;
     self.update_bytes_used()?;

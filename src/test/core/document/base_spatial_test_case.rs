@@ -23,6 +23,7 @@ use crate::core::document::shape_field::{DecodedTriangle, DecodedTriangleType, Q
 use crate::core::document::string_field::StringField;
 use crate::core::geo::component2d::{Component2D, WithinRelation};
 use crate::core::geo::geo_utils::GeoUtils;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{
   IndexReader, IndexReaderContextKind, IndexReaderContextType,
@@ -790,7 +791,7 @@ pub trait Validator {
     for field in fields {
       let (intersects, contains) = match field.binary_value()? {
         Some(binary_value) => {
-          shape_field::decode_triangle(&binary_value.as_ref().bytes, &mut decoded_triangle)?;
+          shape_field::decode_triangle(binary_value.as_bytes_ref().bytes, &mut decoded_triangle)?;
 
           match decoded_triangle.type_ {
             DecodedTriangleType::Point => {
@@ -852,7 +853,7 @@ pub trait Validator {
     for field in fields {
       let relation = match field.binary_value()? {
         Some(binary_value) => {
-          shape_field::decode_triangle(&binary_value.as_ref().bytes, &mut decoded_triangle)?;
+          shape_field::decode_triangle(binary_value.as_bytes_ref().bytes, &mut decoded_triangle)?;
 
           match decoded_triangle.type_ {
             DecodedTriangleType::Point => {

@@ -23,6 +23,7 @@ use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::document::range_field_query::{QueryType, RangeFieldQuery, RangeFieldQueryBase};
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
@@ -308,7 +309,7 @@ impl IndexableField for LatLonBoundingBox {
     self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     self.parent_field.binary_value()
   }
 

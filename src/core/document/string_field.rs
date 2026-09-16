@@ -23,7 +23,9 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::document::field::{Field, FieldBase, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
@@ -78,7 +80,6 @@ pub(crate) static TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
 /// separately to the document.
 pub struct StringField {
   parent_field: Field,
-  binary_value: Option<BytesRef<Vec<u8>>>,
   has_stored_value: bool,
 }
 
@@ -102,12 +103,10 @@ impl StringField {
       (TYPE_NOT_STORED.clone(), false)
     };
     let value_str = value.into();
-    let binary_value = Some(BytesRef::from_string(&value_str));
     let parent_field = Field::from_string(name, value_str, field_type)?;
 
     Ok(Self {
       parent_field,
-      binary_value,
       has_stored_value,
     })
   }
@@ -133,7 +132,6 @@ impl StringField {
     let parent_field = Field::from_bytes_ref(name, value, field_type)?;
     Ok(Self {
       parent_field,
-      binary_value: None,
       has_stored_value,
     })
   }
@@ -153,15 +151,7 @@ impl FieldBase for StringField {
   where
     T: Into<String>,
   {
-    let v = value.into();
-    self.parent_field.set_string_value(v)?;
-    match &self.parent_field.fields_data {
-      FieldDataEnum::String(v) => match &mut self.binary_value {
-        Some(binary_value) => binary_value.copy_from_slice(v.as_bytes()),
-        None => self.binary_value = Some(BytesRef::from_string(v)),
-      },
-      _ => return Err(LuceneError::illegal_state("shoudl not be here")),
-    }
+    self.parent_field.set_string_value(value)?;
     self.has_stored_value = true;
     Ok(())
   }
@@ -196,17 +186,25 @@ impl IndexableField for StringField {
   {
     self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    match &self.binary_value {
-      None => Ok(self.parent_field.binary_value()?),
-      Some(v) => Ok(Some(Cow::Borrowed(v))),
+
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
+    match &self.parent_field.fields_data {
+      FieldDataEnum::String(value) => Ok(Some(BinaryValueEnum::Slice(BytesRef {
+        bytes: value.as_bytes(),
+        offset: 0,
+        length: value.len(),
+      }))),
+      FieldDataEnum::Binary(value) => Ok(Some(BinaryValueEnum::Slice(value.as_bytes_ref()))),
+      _ => Err(LuceneError::illegal_state(
+        "StringField contains neither a string nor a binary value",
+      )),
     }
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-    match &self.binary_value {
-      None => Ok(self.parent_field.take_binary_value()?),
-      Some(_) => Ok(self.binary_value.take()),
+    match &self.parent_field.fields_data {
+      FieldDataEnum::String(value) => Ok(Some(BytesRef::from_string(value))),
+      _ => self.parent_field.take_binary_value(),
     }
   }
 
@@ -249,7 +247,6 @@ impl Clone for StringField {
   fn clone(&self) -> Self {
     Self {
       parent_field: self.parent_field.clone(),
-      binary_value: self.binary_value.clone(),
       has_stored_value: self.has_stored_value,
     }
   }

@@ -18,6 +18,7 @@ use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::document::field::FieldDataEnum;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_indexable_field_type::DummyIndexableFieldType;
 use crate::core::index::indexable_field::{
@@ -60,7 +61,7 @@ impl IndexableField for DummyIndexableField {
     dummy_unreachable!()
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     dummy_unreachable!()
   }
 

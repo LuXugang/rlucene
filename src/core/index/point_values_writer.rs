@@ -73,7 +73,7 @@ impl PointValuesWriter {
       packed_bytes_length,
     })
   }
-  pub(crate) fn add_packed_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
+  pub(crate) fn add_packed_value(&mut self, doc_id: i32, value: &BytesRef<&[u8]>) -> Result<()> {
     if value.length != self.packed_bytes_length {
       return Err(LuceneError::illegal_argument(format!(
         "field={}: this field's value has length={} but should be {}",
@@ -94,7 +94,7 @@ impl PointValuesWriter {
     let bytes_ram_bytes_used_before = self.bytes_out.paged_bytes.ram_bytes_used()?;
     self
       .bytes_out
-      .write_bytes_range(&value.bytes, value.offset, value.length)?;
+      .write_bytes_range(value.bytes, value.offset, value.length)?;
     self
       .iw_bytes_used
       .add_and_get(self.bytes_out.paged_bytes.ram_bytes_used()? - bytes_ram_bytes_used_before);

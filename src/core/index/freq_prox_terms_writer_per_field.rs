@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
@@ -29,6 +28,7 @@ use crate::core::index::term_vectors_consumer_per_field::TermVectorsConsumerPerF
 use crate::core::index::terms_hash_per_field::{
   PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
 };
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::store::directory::Directory;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::AttributeSource;
@@ -252,7 +252,7 @@ impl FreqProxTermsWriterPerField {
   /// first TermsHash); postings use this API.
   pub(crate) fn add_with_bytes_ref<AS>(
     &mut self,
-    term_bytes: Option<&BytesRef<Vec<u8>>>,
+    term_bytes: Option<&BytesRef<&[u8]>>,
     doc_id: i32,
     field_state: &mut FieldInvertState,
     attribute_source: &mut AS,
@@ -266,12 +266,16 @@ impl FreqProxTermsWriterPerField {
     // term text into textStart address
     // Get the text & hash of this term.
     let bytes = attribute_source.get_bytes_ref()?;
+    let fallback;
     let term_bytes = if let Some(t) = term_bytes {
       t
     } else {
-      bytes.as_ref().ok_or_else(|| {
-        LuceneError::illegal_state("term bytes and attribute source bytes are both None")
-      })?
+      fallback = bytes
+        .ok_or_else(|| {
+          LuceneError::illegal_state("term bytes and attribute source bytes are both None")
+        })?
+        .as_bytes_ref();
+      &fallback
     };
 
     let term_id = self

@@ -22,6 +22,7 @@ use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::long_point::LongPoint;
 
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::{
@@ -233,12 +234,12 @@ impl IndexableField for LongField {
     self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     match &self.parent_field.fields_data {
       FieldDataEnum::Number(Number::I64(v)) => {
         let mut bytes = vec![0u8; BitUtil::LONG_BYTES];
         NumericUtils::long_to_sortable_bytes(*v, &mut bytes, 0);
-        Ok(Some(Cow::Owned(BytesRef::from_bytes(bytes))))
+        Ok(Some(BinaryValueEnum::Owned(BytesRef::from_bytes(bytes))))
       },
       _ => Err(LuceneError::illegal_state(
         "parent_field's fields_data does not contain an i64 value",
@@ -247,7 +248,7 @@ impl IndexableField for LongField {
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-    self.binary_value().map(|v| v.map(|c| c.into_owned()))
+    Ok(self.binary_value()?.map(BinaryValueEnum::into_owned))
   }
 
   fn string_value(&self) -> Result<Option<Cow<'_, String>>> {

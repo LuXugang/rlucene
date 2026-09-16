@@ -20,6 +20,7 @@ use crate::core::document::field::{Field, FieldBase, FieldDataEnum, IndexingToke
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::stored_field::stored_field_type;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -81,7 +82,7 @@ impl IndexableField for FieldImpl {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     self.parent_field.binary_value()
   }
 
@@ -171,8 +172,8 @@ impl IndexableField for MockIndexableField {
     Ok(None)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Ok(self.value.as_ref().map(Cow::Borrowed))
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
+    Ok(self.value.as_ref().map(BinaryValueEnum::Borrowed))
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
@@ -341,14 +342,16 @@ impl IndexableField for MyField {
     &self.name
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     if (self.counter % 10) == 3 {
       let mut bytes = vec![0u8; 10];
       for (idx, byte) in bytes.iter_mut().enumerate() {
         *byte = self.counter.wrapping_add(idx) as u8;
       }
       let length = bytes.len();
-      Ok(Some(Cow::Owned(BytesRef::from_slice(bytes, 0, length))))
+      Ok(Some(BinaryValueEnum::Owned(BytesRef::from_slice(
+        bytes, 0, length,
+      ))))
     } else {
       Ok(None)
     }
@@ -486,7 +489,7 @@ impl IndexableField for CustomField {
     Ok(None)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     Ok(None)
   }
 

@@ -57,8 +57,8 @@ fn test_set_bytes_value() -> Result<()> {
 
   for mut field in fields {
     assert_eq!(
-      &new_bytes_ref_from_string(&mut random, "value")?,
-      field.binary_value()?.unwrap().as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value")?.as_byte_slice(),
+      field.binary_value()?.unwrap().as_byte_slice()
     );
     assert!(field.string_value()?.is_none());
 
@@ -77,8 +77,8 @@ fn test_set_bytes_value() -> Result<()> {
     field.set_bytes_value(new_bytes_ref_from_string(&mut random, "value2")?)?;
 
     assert_eq!(
-      &new_bytes_ref_from_string(&mut random, "value2")?,
-      field.binary_value()?.unwrap().as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value2")?.as_byte_slice(),
+      field.binary_value()?.unwrap().as_byte_slice()
     );
     assert!(field.string_value()?.is_none());
 
@@ -108,8 +108,8 @@ fn test_set_string_value() -> Result<()> {
   for mut field in fields {
     assert_eq!(Some(Cow::Owned("value".to_string())), field.string_value()?);
     assert_eq!(
-      &new_bytes_ref_from_string(&mut random, "value")?,
-      field.binary_value()?.unwrap().as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value")?.as_byte_slice(),
+      field.binary_value()?.unwrap().as_byte_slice()
     );
 
     if field.field_type().stored() {
@@ -131,8 +131,8 @@ fn test_set_string_value() -> Result<()> {
       field.string_value()?
     );
     assert_eq!(
-      &new_bytes_ref_from_string(&mut random, "value2")?,
-      field.binary_value()?.unwrap().as_ref()
+      new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value2")?.as_byte_slice(),
+      field.binary_value()?.unwrap().as_byte_slice()
     );
 
     if field.field_type().stored() {

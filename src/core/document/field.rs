@@ -22,6 +22,7 @@ use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_options::IndexOptions;
@@ -593,9 +594,9 @@ impl IndexableField for Field {
     }
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     if let FieldDataEnum::Binary(bytes) = &self.fields_data {
-      Ok(Some(Cow::Borrowed(bytes)))
+      Ok(Some(BinaryValueEnum::Borrowed(bytes)))
     } else {
       Ok(None)
     }

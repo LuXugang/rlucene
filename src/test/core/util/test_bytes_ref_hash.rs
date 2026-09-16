@@ -55,7 +55,7 @@ fn test_size() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -92,7 +92,7 @@ fn test_get() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -146,7 +146,7 @@ fn test_compact() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -200,7 +200,7 @@ fn test_sort() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -252,7 +252,7 @@ fn test_add() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -301,7 +301,7 @@ fn test_find() -> Result<()> {
   let mut random = random();
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -479,7 +479,7 @@ fn test_add_by_pool_offset() -> Result<()> {
   let mut pool = new_pool();
   let mut hash = new_hash(&mut random)?;
   let mut offset_hash = new_hash(&mut random)?;
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
@@ -564,7 +564,7 @@ fn assert_all_in(
   hash: &mut DirectBytesRefHash,
   pool: &mut ByteBlockPool,
 ) -> Result<()> {
-  let mut ref_builder = BytesRefBuilder::new();
+  let mut ref_builder = BytesRefBuilder::<Vec<u8>>::new();
   let count = hash.size();
 
   for string in strings {

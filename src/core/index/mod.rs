@@ -207,3 +207,4 @@ pub(crate) mod vector_values_consumer;
 
 pub use doc_id_merger::*;
 pub use index_file_names::*;
+pub use indexable_field::BinaryValueEnum;

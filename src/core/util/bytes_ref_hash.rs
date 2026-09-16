@@ -17,6 +17,7 @@
 use std::sync::{Arc, LazyLock};
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
@@ -249,11 +250,14 @@ where
   /// [`LuceneError::MaxBytesLengthExceeded`](crate::core::util::error::lucene_error::LuceneError::MaxBytesLengthExceeded)
   /// if the given bytes are greater than 2 +
   /// [`BYTE_BLOCK_SIZE`](crate::core::util::byte_block_pool::BYTE_BLOCK_SIZE).
-  pub fn add(
+  pub fn add<BS>(
     &mut self,
-    bytes: &BytesRef<Vec<u8>>,
+    bytes: &BytesRef<BS>,
     byte_block_pool: &mut ByteBlockPool,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    BS: ByteSource,
+  {
     debug_assert!(
       !self.bytes_start_array.need_init(),
       "Bytesstart is null - not initialized"
@@ -305,13 +309,17 @@ where
   pub fn find(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> Result<i32> {
     Ok(self.ids[self.find_hash(bytes, byte_block_pool)?])
   }
-  fn find_hash(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> Result<usize> {
+  fn find_hash<BS>(&self, bytes: &BytesRef<BS>, byte_block_pool: &ByteBlockPool) -> Result<usize>
+  where
+    BS: ByteSource,
+  {
     debug_assert!(
       !self.bytes_start_array.need_init(),
       "bytesStart is null - not initialized"
     );
 
-    let mut code = do_hash(&bytes.bytes, bytes.offset, bytes.length);
+    let bytes_slice = bytes.as_byte_slice();
+    let mut code = do_hash(bytes_slice, 0, bytes_slice.len());
 
     // final position
     let mut hash_pos = (code as usize) & self.hash_mask;

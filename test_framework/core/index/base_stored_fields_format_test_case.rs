@@ -24,7 +24,6 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TYPE_STORED;
-use crate::core::index::BytesRef;
 use crate::core::index::base_composite_reader::{
   BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
 };
@@ -49,6 +48,7 @@ use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::sort::Sort;
@@ -256,9 +256,9 @@ pub trait BaseStoredFieldsFormatTestCase:
 
     let field = StoredField::from_binary_with_range("binary", bytes, 10, 17)?;
     let binary = field.binary_value()?.unwrap();
-    assert_eq!(50, binary.bytes.len());
-    assert_eq!(10, binary.offset);
-    assert_eq!(17, binary.length);
+    assert_eq!(50, binary.as_bytes_ref().bytes.len());
+    assert_eq!(10, binary.as_bytes_ref().offset);
+    assert_eq!(17, binary.as_bytes_ref().length);
 
     let mut doc = Document::new();
     doc.add(field);
@@ -267,9 +267,13 @@ pub trait BaseStoredFieldsFormatTestCase:
     let reader = self.maybe_wrap_with_merging_reader(writer.get_reader(random)?)?;
     let doc = reader.stored_fields()?.document(0)?;
     let field = doc.get_field("binary").unwrap();
-    let binary = field.binary_value()?.unwrap();
-    assert_eq!(17, binary.length);
-    assert_eq!(87, binary.bytes[binary.offset]);
+    let binary_value = field.binary_value()?.unwrap();
+    let binary = binary_value.as_bytes_ref();
+    assert_eq!(17, binary.as_bytes_ref().length);
+    assert_eq!(
+      87,
+      binary.as_bytes_ref().bytes[binary.as_bytes_ref().offset]
+    );
 
     reader.close()?;
     writer.close(random)?;
@@ -450,8 +454,10 @@ pub trait BaseStoredFieldsFormatTestCase:
       let field = doc.get_field(field_name).unwrap();
       match field_name {
         "bytes" => {
-          let binary = field.binary_value()?.unwrap();
-          let actual = &binary.bytes[binary.offset..binary.offset + binary.length];
+          let binary_value = field.binary_value()?.unwrap();
+          let binary = binary_value.as_bytes_ref();
+          let actual = &binary.as_bytes_ref().bytes[binary.as_bytes_ref().offset
+            ..binary.as_bytes_ref().offset + binary.as_bytes_ref().length];
           assert_eq!(bytes.as_slice(), actual);
         },
         "string" => {

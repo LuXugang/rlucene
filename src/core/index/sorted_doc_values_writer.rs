@@ -395,7 +395,7 @@ impl SortedDocValuesWriter {
   pub(crate) fn add_value(
     &mut self,
     doc_id: i32,
-    value: &BytesRef<Vec<u8>>,
+    value: &BytesRef<&[u8]>,
     pool: &mut ByteBlockPool,
   ) -> Result<()> {
     if doc_id <= self.last_doc_id {
@@ -419,7 +419,7 @@ impl SortedDocValuesWriter {
     Ok(())
   }
 
-  fn add_one_value(&mut self, value: &BytesRef<Vec<u8>>, pool: &mut ByteBlockPool) -> Result<()> {
+  fn add_one_value(&mut self, value: &BytesRef<&[u8]>, pool: &mut ByteBlockPool) -> Result<()> {
     let mut term_id = self.hash.add(value, pool)?;
     if term_id < 0 {
       term_id = -term_id - 1;

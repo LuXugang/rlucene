@@ -22,6 +22,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::inet_address_point;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::document::range_field_query::{QueryType, RangeFieldQuery, RangeFieldQueryBase};
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
@@ -241,7 +242,7 @@ impl IndexableField for InetAddressRange {
     self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     self.parent_field.binary_value()
   }
 

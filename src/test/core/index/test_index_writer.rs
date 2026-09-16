@@ -1169,7 +1169,8 @@ fn test_index_store_combos() -> Result<()> {
   let mut stored_fields = reader.stored_fields()?;
   let doc2 = stored_fields.document(0)?;
   let f3 = doc2.get_field("binary").expect("binary field should exist");
-  let b = f3.binary_value()?.expect("binary value should exist");
+  let binary_value = f3.binary_value()?.expect("binary value should exist");
+  let b = binary_value.as_bytes_ref();
   assert_eq!(17, b.length);
   assert_eq!(87, b.bytes[b.offset]);
 

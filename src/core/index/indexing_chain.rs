@@ -25,6 +25,7 @@ use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::document::fields::Fields;
 use crate::core::document::invertable_field::InvertableType;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values_writer::{
   BinaryDocValuesWriter, BufferedBinaryDocValues,
@@ -57,6 +58,7 @@ use crate::core::analysis::reader::ReaderEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::document::field::FieldDataEnum;
+use crate::core::index::BytesRefValue;
 use crate::core::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
@@ -1126,7 +1128,7 @@ where
       pf.point_values_writer
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("point values writer is missing"))?
-        .add_packed_value(doc_id, binary_value.as_ref())?;
+        .add_packed_value(doc_id, &binary_value.as_bytes_ref())?;
     }
 
     if field.field_type().vector_dimension() != 0 {
@@ -1330,14 +1332,14 @@ where
         let bytes = field.binary_value()?.ok_or_else(|| {
           LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
         })?;
-        writer.add_value(doc_id, bytes.as_ref())?;
+        writer.add_value(doc_id, &bytes.as_bytes_ref())?;
       },
       Some(DocValuesWriterEnum::Sorted(writer)) => {
         debug_assert_eq!(dv_type, DocValuesType::Sorted);
         let bytes = field.binary_value()?.ok_or_else(|| {
           LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
         })?;
-        writer.add_value(doc_id, bytes.as_ref(), pool)?;
+        writer.add_value(doc_id, &bytes.as_bytes_ref(), pool)?;
       },
       Some(DocValuesWriterEnum::SortedNumeric(writer)) => {
         debug_assert_eq!(dv_type, DocValuesType::SortedNumeric);
@@ -1364,7 +1366,7 @@ where
         let bytes = field.binary_value()?.ok_or_else(|| {
           LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
         })?;
-        writer.add_value(doc_id, bytes.as_ref(), pool)?;
+        writer.add_value(doc_id, &bytes.as_bytes_ref(), pool)?;
       },
       None => {
         return Err(LuceneError::illegal_state(format!(
@@ -1883,7 +1885,7 @@ impl PerField {
     }
     let mut attribute_source = EmptyAttributeSource;
     match terms_hash_per_field.add_with_bytes_ref(
-      Some(binary_value.as_ref()),
+      Some(&binary_value.as_bytes_ref()),
       doc_id,
       state,
       &mut attribute_source,
@@ -1892,7 +1894,7 @@ impl PerField {
       Ok(()) => {},
       Err(LuceneError::MaxBytesLengthExceeded(e)) => {
         let mut prefix = [0u8; 30];
-        prefix.copy_from_slice(&binary_value.bytes[binary_value.offset..binary_value.offset + 30]);
+        prefix.copy_from_slice(&binary_value.as_bytes()[..30]);
         let msg = format!(
           "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
           self.schema.name, MAX_TERM_LENGTH, prefix
@@ -2843,7 +2845,7 @@ where
     self.delegate.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     self.delegate.binary_value()
   }
 

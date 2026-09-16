@@ -106,7 +106,7 @@ impl Document {
     for field in &self.fields {
       if field.name() == name {
         match field.binary_value() {
-          Ok(Some(bytes)) => result.push(bytes),
+          Ok(Some(bytes)) => result.push(bytes.into_cow()),
           Ok(None) => continue,
           Err(e) => return Err(e),
         }
@@ -129,7 +129,7 @@ impl Document {
     for field in &self.fields {
       if field.name() == name {
         return match field.binary_value() {
-          Ok(Some(bytes)) => Ok(Some(bytes)),
+          Ok(Some(bytes)) => Ok(Some(bytes.into_cow())),
           Ok(None) => Ok(None),
           Err(e) => Err(e),
         };

@@ -117,8 +117,14 @@ fn test_bytes_ref_hash() -> Result<()> {
   let mut pool = ByteBlockPool::new(DirectAllocatorByte::new());
   let mut bytes = BytesRefHash::new()?;
   for i in 0..100 {
-    bytes.add(&BytesRef::from_string(&format!("foo bar {i}")), &mut pool)?;
-    bytes.add(&BytesRef::from_string(&format!("baz bam {i}")), &mut pool)?;
+    bytes.add(
+      &BytesRef::<Vec<u8>>::from_string(&format!("foo bar {i}")),
+      &mut pool,
+    )?;
+    bytes.add(
+      &BytesRef::<Vec<u8>>::from_string(&format!("baz bam {i}")),
+      &mut pool,
+    )?;
   }
   let actual = bytes.ram_bytes_used_with_pool(&pool)?;
   let estimated = size_of_accountable(&bytes)?.saturating_add(pool.ram_bytes_used()?);

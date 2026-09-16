@@ -27,6 +27,7 @@ use crate::core::geo::circle::Circle;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::lat_lon_geometry::{LatLonGeometry, LatLonGeometryEnum};
 use crate::core::geo::polygon::Polygon;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
@@ -373,7 +374,7 @@ impl IndexableField for LatLonDocValuesField {
     self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     self.parent_field.binary_value()
   }
 

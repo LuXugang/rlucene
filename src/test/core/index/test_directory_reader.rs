@@ -569,7 +569,8 @@ fn test_binary_fields() -> Result<()> {
 
   assert_eq!(1, fields.len());
   let b1 = &fields[0];
-  let bytes_ref = b1.binary_value()?.unwrap();
+  let binary_value = b1.binary_value()?.unwrap();
+  let bytes_ref = binary_value.as_bytes_ref();
   assert_eq!(bin.len(), bytes_ref.length);
   for (i, expected) in bin.iter().enumerate() {
     assert_eq!(*expected, bytes_ref.bytes[bytes_ref.offset + i]);
@@ -594,7 +595,8 @@ fn test_binary_fields() -> Result<()> {
 
   assert_eq!(1, fields.len());
   let b1 = &fields[0];
-  let bytes_ref = b1.binary_value()?.unwrap();
+  let binary_value = b1.binary_value()?.unwrap();
+  let bytes_ref = binary_value.as_bytes_ref();
   assert_eq!(bin.len(), bytes_ref.length);
   for (i, expected) in bin.iter().enumerate() {
     assert_eq!(*expected, bytes_ref.bytes[bytes_ref.offset + i]);

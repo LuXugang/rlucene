@@ -16,6 +16,7 @@
  */
 
 use crate::core::index::BytesRef;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::do_hash;
@@ -79,11 +80,10 @@ impl BytesRefBlockPool {
   ///
   /// # See Also
   /// * [`Self::fill_bytes_ref`]
-  pub fn add_bytes_ref(
-    &mut self,
-    bytes: &BytesRef<Vec<u8>>,
-    pool: &mut ByteBlockPool,
-  ) -> Result<i32> {
+  pub fn add_bytes_ref<BS>(&mut self, bytes: &BytesRef<BS>, pool: &mut ByteBlockPool) -> Result<i32>
+  where
+    BS: ByteSource,
+  {
     let length = bytes.length;
     let len2 = 2 + length as i32;
     if len2 + pool.byte_upto > BYTE_BLOCK_SIZE {
@@ -102,24 +102,19 @@ impl BytesRefBlockPool {
     let buffer_index = pool.buffer_upto()?;
     let buffer = pool.get_buffer_mut(buffer_index);
 
+    let bytes_slice = bytes.as_byte_slice();
     // We first encode the length, followed by the bytes. Length is
     // encoded as vInt, but will consume 1 or 2 bytes at
     // most (we reject too-long terms, above).
     let new_length = if length < 128 {
       // 1 byte to store length
       buffer[buffer_upto] = length as u8;
-      buffer.copy_from(
-        &bytes.bytes[bytes.offset..bytes.offset + length],
-        buffer_upto + 1,
-      );
+      buffer.copy_from(bytes_slice, buffer_upto + 1);
       length + 1
     } else {
       // 2 byte to store length
       BitUtil::set_i16_be(buffer, buffer_upto, (length | 0x8000) as i16);
-      buffer.copy_from(
-        &bytes.bytes[bytes.offset..bytes.offset + length],
-        buffer_upto + 2,
-      );
+      buffer.copy_from(bytes_slice, buffer_upto + 2);
       length + 2
     };
     pool.byte_upto += new_length as i32;
@@ -144,7 +139,10 @@ impl BytesRefBlockPool {
   }
   /// Computes the equality between the BytesRef at the given start position
   /// and the provided BytesRef.
-  pub fn equals(&self, start: i32, b: &BytesRef<Vec<u8>>, pool: &ByteBlockPool) -> bool {
+  pub fn equals<BS>(&self, start: i32, b: &BytesRef<BS>, pool: &ByteBlockPool) -> bool
+  where
+    BS: ByteSource,
+  {
     let pos = (start & BYTE_BLOCK_MASK) as usize;
     let bytes = pool.get_buffer((start >> BYTE_BLOCK_SHIFT) as usize);
 
@@ -159,7 +157,7 @@ impl BytesRefBlockPool {
     };
 
     // Compare slices of bytes
-    bytes[offset..offset + length] == b.bytes[b.offset..(b.offset + b.length)]
+    bytes[offset..offset + length] == *b.as_byte_slice()
   }
 }
 

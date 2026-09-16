@@ -23,8 +23,8 @@ use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::field::{FieldDataEnum, IndexingTokenStreamEnum3};
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::invertable_field::InvertableType;
-use crate::core::index::BytesRef;
 use crate::core::index::indexable_field_type::IndexableFieldType;
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::{Borrow, Cow};
@@ -66,7 +66,7 @@ pub trait IndexableField: Display {
   where
     A: Analyzer;
   /// present if this field has a binary value.
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>>;
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>>;
 
   /// present if this field has a string value.
@@ -140,3 +140,76 @@ pub type IndexingTokenStream<'a> = Option<
   >,
 >;
 pub type ReusedIndexingTokenStream = TokenStreamEnum2<BinaryTokenStream, StringTokenStream>;
+/// Binary value returned by an indexable field.
+///
+/// Borrowed values reuse existing Vec-backed storage, slice values borrow external
+/// bytes, and owned values avoid wrapping a newly allocated BytesRef in a Cow.
+#[derive(Debug, PartialEq, Eq)]
+pub enum BinaryValueEnum<'a> {
+  Borrowed(&'a BytesRef<Vec<u8>>),
+  Owned(BytesRef<Vec<u8>>),
+  Slice(BytesRef<&'a [u8]>),
+}
+
+impl<'a> BinaryValueEnum<'a> {
+  /// Adapt to an API requiring Vec-backed BytesRef, copying only a slice-backed value.
+  pub fn into_cow(self) -> Cow<'a, BytesRef<Vec<u8>>> {
+    match self {
+      Self::Borrowed(value) => Cow::Borrowed(value),
+      Self::Owned(value) => Cow::Owned(value),
+      Self::Slice(value) => Cow::Owned(BytesRef::from(value.as_bytes().to_vec())),
+    }
+  }
+
+  /// Move owned storage, or provide owned storage when the caller requires it.
+  pub fn into_owned(self) -> BytesRef<Vec<u8>> {
+    match self {
+      Self::Borrowed(value) => value.clone(),
+      Self::Owned(value) => value,
+      Self::Slice(value) => BytesRef::from(value.as_bytes().to_vec()),
+    }
+  }
+
+  #[inline(always)]
+  pub fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    match self {
+      Self::Borrowed(value) => value.as_bytes_ref(),
+      Self::Owned(value) => value.as_bytes_ref(),
+      Self::Slice(value) => value.as_bytes_ref(),
+    }
+  }
+
+  #[inline(always)]
+  pub fn as_byte_slice(&self) -> &[u8] {
+    match self {
+      Self::Borrowed(value) => value.as_byte_slice(),
+      Self::Owned(value) => value.as_byte_slice(),
+      Self::Slice(value) => value.as_byte_slice(),
+    }
+  }
+}
+
+impl Display for BinaryValueEnum<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    Display::fmt(&self.as_bytes_ref(), f)
+  }
+}
+
+impl<'a> BytesRefValue<'a> for BinaryValueEnum<'a> {
+  #[inline(always)]
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    match self {
+      Self::Borrowed(value) => value.as_bytes_ref(),
+      Self::Owned(value) => value.as_bytes_ref(),
+      Self::Slice(value) => value.as_bytes_ref(),
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    match self {
+      Self::Borrowed(value) => BytesRefValueEnum::Buffer(Cow::Borrowed(value)),
+      Self::Owned(value) => BytesRefValueEnum::Buffer(Cow::Owned(value)),
+      Self::Slice(value) => BytesRefValueEnum::Slice(value),
+    }
+  }
+}

@@ -22,6 +22,7 @@ use crate::core::document::float_point::FloatPoint;
 use crate::core::document::invertable_field::InvertableType;
 
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
+use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::indexable_field::{
@@ -234,15 +235,17 @@ impl IndexableField for FloatField {
     self.parent_field.token_stream(analyzer, reuse_token_stream)
   }
 
-  fn binary_value(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     let mut encode_point = vec![0u8; BitUtil::FLOAT_BYTES];
     let value = self.get_value_as_float()?;
     FloatPoint::encode_dimension(value, &mut encode_point, 0);
-    Ok(Some(Cow::Owned(BytesRef::from_bytes(encode_point))))
+    Ok(Some(BinaryValueEnum::Owned(BytesRef::from_bytes(
+      encode_point,
+    ))))
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-    self.binary_value().map(|v| v.map(|c| c.into_owned()))
+    Ok(self.binary_value()?.map(BinaryValueEnum::into_owned))
   }
 
   fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
