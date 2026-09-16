@@ -415,7 +415,7 @@ where
           let mut reuse = None;
           loop {
             let term = match terms_enum.next()? {
-              Some(byte_ref) => BytesRef::from_bytes(byte_ref.as_bytes().to_vec()),
+              Some(byte_ref) => byte_ref.into_owned(),
               None => break,
             };
             reuse = terms_writer.write(term, &mut terms_enum, norms, reuse)?;

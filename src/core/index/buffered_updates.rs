@@ -371,9 +371,7 @@ impl DeletedTerms {
       self.delete_terms.iter_mut().collect();
     delete_fields.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
-    let mut scratch_field = String::new();
     for (field, terms) in delete_fields {
-      scratch_field.clone_from(field);
       terms.bytes_ref_hash.sort(&self.pool)?;
       let indices = &terms.bytes_ref_hash.ids;
       for &index in &indices[..terms.bytes_ref_hash.count] {
@@ -385,7 +383,7 @@ impl DeletedTerms {
           offset: 0,
           length: position.length,
         };
-        consumer(&scratch_field, &scratch, terms.values[index as usize])?;
+        consumer(field, &scratch, terms.values[index as usize])?;
       }
     }
     Ok(())
