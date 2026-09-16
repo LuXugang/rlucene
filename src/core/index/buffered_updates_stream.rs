@@ -135,7 +135,7 @@ impl BufferedUpdatesStream {
   {
     let wait_for = {
       let inner = self.inner.lock();
-      inner.updates.clone()
+      inner.updates.values().cloned().collect::<Vec<_>>()
     };
     self.wait_apply(wait_for, writer)
   }
@@ -192,17 +192,17 @@ impl BufferedUpdatesStream {
 
     let wait_for = {
       let inner = self.inner.lock();
-      let mut set = HashMap::new();
+      let mut packets = Vec::new();
 
       for packet in inner.updates.values() {
         if packet.del_gen() <= max_del_gen {
           // We must wait for this packet before finishing the merge because its
           // deletes apply to a subset of the segments being merged.
-          set.insert(packet.id.clone(), packet.clone());
+          packets.push(packet.clone());
         }
       }
 
-      set
+      packets
     };
 
     if self.info_stream.is_enabled("BD") {
@@ -221,7 +221,7 @@ impl BufferedUpdatesStream {
 
   fn wait_apply<D>(
     &self,
-    wait_for: HashMap<Identity, Arc<FrozenBufferedUpdates>>,
+    wait_for: Vec<Arc<FrozenBufferedUpdates>>,
     writer: &IndexWriter<D>,
   ) -> Result<()>
   where
@@ -248,7 +248,7 @@ impl BufferedUpdatesStream {
 
     let mut pending = Vec::new();
     let mut total_del_count: i64 = 0;
-    for packet in wait_for.values() {
+    for packet in &wait_for {
       // Frozen packets are now resolved, concurrently, by the indexing threads that
       // create them, by adding a DocumentsWriter.ResolveUpdatesEvent to the events queue,
       // but if we get here and the packet is not yet resolved, we resolve it now ourselves:
