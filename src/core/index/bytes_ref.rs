@@ -443,6 +443,14 @@ impl Display for BytesRefValueEnum<'_> {
 }
 
 impl<'a> BytesRefValueEnum<'a> {
+  /// Moves owned byte storage into the target, or copies borrowed bytes into it.
+  pub(crate) fn copy_or_move_into(self, target: &mut BytesRef<Vec<u8>>) {
+    match self {
+      Self::Buffer(Cow::Owned(value)) => *target = value,
+      value => target.copy_from_slice(value.as_bytes()),
+    }
+  }
+
   /// Adapt to an API requiring Vec-backed BytesRef, copying only a slice-backed value.
   pub fn into_cow(self) -> Cow<'a, BytesRef<Vec<u8>>> {
     match self {

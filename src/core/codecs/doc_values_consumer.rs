@@ -1263,7 +1263,7 @@ where
         return if end {
           Ok(None)
         } else {
-          self.term = sub.term()?.into_owned();
+          sub.term()?.into_value().copy_or_move_into(&mut self.term);
           Ok(Some(&self.term))
         };
       }

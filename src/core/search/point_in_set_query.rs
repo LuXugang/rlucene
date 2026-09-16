@@ -600,8 +600,14 @@ impl MergePointVisitor {
 
   fn next_query_point(&self) -> Result<()> {
     let mut iterator = self.iterator.borrow_mut();
-    let next_query_point = iterator.next()?.map(|point| point.into_owned());
-    *self.next_query_point.borrow_mut() = next_query_point;
+    let point = iterator.next()?;
+    let mut next_query_point = self.next_query_point.borrow_mut();
+    match point {
+      Some(point) => point
+        .into_value()
+        .copy_or_move_into(next_query_point.get_or_insert_with(BytesRef::default)),
+      None => *next_query_point = None,
+    }
     Ok(())
   }
 

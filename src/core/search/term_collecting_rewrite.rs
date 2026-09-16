@@ -66,6 +66,7 @@ pub trait TermCollectingRewrite: RewriteMethod {
     Q: MultiTermQuery,
     C: TermCollector,
   {
+    let mut bytes = BytesRef::<Vec<u8>>::new();
     for context in top_reader_context.leaves()? {
       let terms = context.reader().terms(query.get_field())?;
       let Some(terms) = terms else {
@@ -78,12 +79,12 @@ pub trait TermCollectingRewrite: RewriteMethod {
       collector.set_reader_context(context)?;
       collector.set_next_enum(&mut terms_enum)?;
       loop {
-        let bytes = match terms_enum.next()? {
-          Some(bytes) => bytes.into_owned(),
+        match terms_enum.next()? {
+          Some(next) => next.into_value().copy_or_move_into(&mut bytes),
           None => break,
         };
 
-        if !collector.collect(bytes, &mut terms_enum, top_reader_context)? {
+        if !collector.collect(&bytes, &mut terms_enum, top_reader_context)? {
           return Ok(());
         }
       }
@@ -100,7 +101,7 @@ pub trait TermCollector {
   /// Return false to stop collecting.
   fn collect<TE, IRC>(
     &mut self,
-    bytes: BytesRef<Vec<u8>>,
+    bytes: &BytesRef<Vec<u8>>,
     terms_enum: &mut TE,
     top_reader_context: &IRC,
   ) -> Result<bool>

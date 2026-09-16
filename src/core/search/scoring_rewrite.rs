@@ -197,7 +197,7 @@ where
 
   fn collect<TE, IRC>(
     &mut self,
-    bytes: BytesRef<Vec<u8>>,
+    bytes: &BytesRef<Vec<u8>>,
     terms_enum: &mut TE,
     top_reader_context: &IRC,
   ) -> Result<bool>
@@ -205,7 +205,7 @@ where
     TE: TermsEnum,
     IRC: IndexReaderContext,
   {
-    let e = self.terms.add(&bytes, &mut self.block_pool)?;
+    let e = self.terms.add(bytes, &mut self.block_pool)?;
     let state = terms_enum.term_state()?;
 
     if e < 0 {

@@ -359,11 +359,14 @@ where
   let mut terms_enum = indexed_terms.iterator()?;
   let mut reuse = None;
   loop {
-    let term = match terms.next()? {
-      Some(term) => term.into_owned(),
-      None => break,
+    let found = {
+      let term = match terms.next()? {
+        Some(term) => term,
+        None => break,
+      };
+      terms_enum.seek_exact(&term.as_bytes_ref())?
     };
-    if terms_enum.seek_exact(&term)? {
+    if found {
       let mut postings = terms_enum.postings_with_flags(reuse, OFFSETS as i32)?;
       if postings.advance(doc)? == doc {
         return Ok(Some(Box::new(TermsEnumDisjunctionMatchesIterator::new(

@@ -689,7 +689,12 @@ where
             {
               self.last_term = None;
             }
-            self.reader_term = terms_enum.next()?.map(BytesRefValue::into_owned);
+            match terms_enum.next()? {
+              Some(term) => term
+                .into_value()
+                .copy_or_move_into(self.reader_term.get_or_insert_with(BytesRef::default)),
+              None => self.reader_term = None,
+            }
             if self.reader_term.is_none() {
               self.terms_enum = None;
               return Ok(());
@@ -735,7 +740,10 @@ where
           match terms_enum.seek_ceil(term)? {
             SeekStatus::Found => self.get_docs().map(Some),
             SeekStatus::NotFound => {
-              self.reader_term = Some(terms_enum.term()?.into_owned());
+              terms_enum
+                .term()?
+                .into_value()
+                .copy_or_move_into(self.reader_term.get_or_insert_with(BytesRef::default));
               Ok(None)
             },
             SeekStatus::End => {

@@ -167,7 +167,7 @@ impl TermCollector for TermCollectorImpl {
 
   fn collect<TE, IRC>(
     &mut self,
-    bytes: BytesRef<Vec<u8>>,
+    bytes: &BytesRef<Vec<u8>>,
     terms_enum: &mut TE,
     top_reader_context: &IRC,
   ) -> Result<bool>
@@ -185,7 +185,7 @@ impl TermCollector for TermCollectorImpl {
     };
 
     #[cfg(debug_assertions)]
-    debug_assert!(self.compare_to_last_term(Some(&bytes))?);
+    debug_assert!(self.compare_to_last_term(Some(bytes))?);
 
     if self.st_queue.size() == self.max_size {
       let (key, _) = self
@@ -207,7 +207,7 @@ impl TermCollector for TermCollectorImpl {
     }
 
     let state = terms_enum.term_state()?;
-    if let Some(t) = self.st_queue.compare.visited_terms.get_mut(&bytes) {
+    if let Some(t) = self.st_queue.compare.visited_terms.get_mut(bytes) {
       debug_assert!(t.boost == boost);
       t.term_state.register_with_stats(
         state,
@@ -225,12 +225,13 @@ impl TermCollector for TermCollectorImpl {
         terms_enum.doc_freq()?,
         terms_enum.total_term_freq()?,
       );
+      let owned = bytes.clone();
       self
         .st_queue
         .compare
         .visited_terms
-        .insert(bytes.clone(), st);
-      self.st_queue.add((bytes, boost))?;
+        .insert(owned.clone(), st);
+      self.st_queue.add((owned, boost))?;
 
       if self.st_queue.size() > self.max_size {
         let dropped = self

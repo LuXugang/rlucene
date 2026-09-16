@@ -482,12 +482,9 @@ impl<'a> BufferedUpdateIterator<'a> {
   /// fully consumed before the next call to this method. The returned borrow
   /// prevents advancing the iterator while the update is still in use.
   pub(crate) fn next_value(&mut self) -> Result<Option<&BufferedUpdate<'a>>> {
-    let next_term = self.next_term()?;
-
-    if let Some(next) = next_term {
+    if self.next_term()? {
       let idx = self.term_values_iterator.ord();
       let buffered_update = &mut self.buffered_update;
-      buffered_update.term_value = Some(next);
       buffered_update.has_value = self
         .updates_with_value
         .as_ref()
@@ -539,12 +536,11 @@ impl<'a> BufferedUpdateIterator<'a> {
     }
   }
 
-  fn next_term(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
+  fn next_term(&mut self) -> Result<bool> {
     if let Some(look_ahead_term_iterator) = &mut self.look_ahead_term_iterator {
       if self.buffered_update.term_value.is_none() {
         look_ahead_term_iterator.next()?;
       }
-      let last_term;
       loop {
         let ahead_term = look_ahead_term_iterator.next()?;
         let current_term = self.term_values_iterator.next()?;
@@ -557,18 +553,32 @@ impl<'a> BufferedUpdateIterator<'a> {
         {
           continue;
         }
-        // Only the selected term must outlive the iterator borrow.
-        last_term = current_term.map(|(_, term)| match term {
-          BytesRefValueEnum::Buffer(Cow::Owned(term)) => term,
-          term => BytesRef::from(term.as_bytes()),
-        });
-        break;
+
+        return match current_term {
+          Some((_, term)) => {
+            term.copy_or_move_into(
+              self
+                .buffered_update
+                .term_value
+                .get_or_insert_with(BytesRef::default),
+            );
+            Ok(true)
+          },
+          None => Ok(false),
+        };
       }
-      Ok(last_term)
     } else {
       match self.term_values_iterator.next()? {
-        Some((_, term)) => Ok(Some(term.into_owned())),
-        None => Ok(None),
+        Some((_, term)) => {
+          term.copy_or_move_into(
+            self
+              .buffered_update
+              .term_value
+              .get_or_insert_with(BytesRef::default),
+          );
+          Ok(true)
+        },
+        None => Ok(false),
       }
     }
   }
