@@ -52,6 +52,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::ToInt;
+use crate::core::util::access::ByteSource;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::compiled_automaton::AutomatonType;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -418,7 +419,7 @@ impl RandomPostingsTester {
       println!("  verifyEnum: options={options:?} maxTestOptions={max_test_options:?}");
     }
 
-    assert_eq!(term, terms_enum.term()?.as_ref());
+    assert_eq!(term.as_byte_slice(), terms_enum.term()?.as_bytes());
 
     let field_infos = self.current_field_infos.as_ref().unwrap();
     let field_info = field_infos.field_info_by_name(field)?.unwrap();
@@ -1412,6 +1413,11 @@ impl SeedTermsEnum {
 }
 
 impl BytesRefIterator for SeedTermsEnum {
+  type Value<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if self.next_index >= self.terms.len() {
       self.current_index = None;
@@ -1443,20 +1449,23 @@ impl TermsEnum for SeedTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-    match self.terms.binary_search_by(|(t, _)| t.cmp(term)) {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
+    match self.terms.binary_search_by(|(t, _)| t.compare_to(term)) {
       Ok(index) => {
         self.seek_to_index(index);
         Ok(SeekStatus::Found)
@@ -1484,9 +1493,9 @@ impl TermsEnum for SeedTermsEnum {
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     let _ = state;
@@ -1801,7 +1810,10 @@ impl RandomPostingsTester {
         assert!(terms_enum.seek_exact(&field_and_term.term)?);
       }
 
-      assert_eq!(&field_and_term.term, terms_enum.term()?.as_ref());
+      assert_eq!(
+        field_and_term.term.as_byte_slice(),
+        terms_enum.term()?.as_bytes()
+      );
 
       let term_ord = if supports_ords {
         match terms_enum.ord() {
@@ -1906,8 +1918,11 @@ impl RandomPostingsTester {
         let mut intersected = terms.intersect(&ca, start_term.as_ref())?;
         let mut intersected_terms: HashSet<BytesRef<Vec<u8>>> = HashSet::new();
 
-        while let Some(term) = intersected.next()? {
-          let term = term.into_owned();
+        loop {
+          let term = match intersected.next()? {
+            Some(term) => term.into_owned(),
+            None => break,
+          };
           if let Some(ref start_term) = start_term {
             assert!(start_term < &term);
           }

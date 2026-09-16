@@ -25,6 +25,14 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub(crate) const MIN_CONCURRENCY: usize = 1;
 pub(crate) const MAX_CONCURRENCY: usize = 256;
+fn compute_thread_hash() -> usize {
+  let mut hasher = DefaultHasher::new();
+  std::thread::current().id().hash(&mut hasher);
+  (hasher.finish() as usize) & 0xFFFF
+}
+thread_local! {
+  static THREAD_HASH: usize = compute_thread_hash();
+}
 /// Concurrent version of [`ApproximatePriorityQueue`], which trades a bit more
 /// of ordering for better concurrency by maintaining multiple sub
 /// [`ApproximatePriorityQueue`]s that are locked independently. The number of
@@ -70,10 +78,9 @@ impl<T> ConcurrentApproximatePriorityQueue<T> {
   }
 
   fn thread_hash() -> usize {
-    let thread_id = std::thread::current().id();
-    let mut hasher = DefaultHasher::new();
-    thread_id.hash(&mut hasher);
-    (hasher.finish() as usize) & 0xFFFF
+    THREAD_HASH
+      .try_with(|hash| *hash)
+      .unwrap_or_else(|_| compute_thread_hash())
   }
 }
 

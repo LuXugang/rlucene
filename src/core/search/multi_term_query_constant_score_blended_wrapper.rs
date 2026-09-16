@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRefValue;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;

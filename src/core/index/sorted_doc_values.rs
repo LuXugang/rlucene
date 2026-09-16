@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRefValueEnum;
+use crate::core::util::access::ByteSource;
 
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -82,14 +83,14 @@ pub trait SortedDocValues: DocValuesIterator {
   ///
   /// # Returns
   /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     let mut low = 0;
     let mut high = self.get_value_count()? - 1;
 
     while low <= high {
       let mid = (low + high) >> 1;
       let term = self.lookup_ord(mid)?;
-      let cmp = term.as_bytes().cmp(key.as_bytes()).to_int();
+      let cmp = term.as_bytes().cmp(key.as_byte_slice()).to_int();
       if cmp < 0 {
         low = mid + 1;
       } else if cmp > 0 {
@@ -218,7 +219,7 @@ macro_rules! either_sorted_docvalues {
                 match self { $( Self::$Variant(inner) => inner.get_value_count(), )+ }
             }
 
-            fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+            fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.lookup_term(key), )+ }
             }
 
@@ -280,7 +281,7 @@ where
   }
 
   #[inline]
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     (**self).lookup_term(key)
   }
 

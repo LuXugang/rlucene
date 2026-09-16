@@ -1165,7 +1165,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
           );
           assert_eq!(
             &new_bytes_ref_from_string(random, &value.to_string())?,
-            binary.binary_value()?.as_ref()
+            binary.binary_value()?
           );
         } else {
           assert!(numeric.doc_id() < doc_id);
@@ -1676,13 +1676,19 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       .expect("sorted doc values should exist");
     assert_eq!(doc_values as i32, sorted.get_value_count()?);
 
-    let ord1 = sorted.lookup_term(&new_bytes_ref_from_string(random, &values[0])?)?;
+    let ord1 = sorted.lookup_term(&new_bytes_ref_from_string::<_, Vec<u8>>(
+      random, &values[0],
+    )?)?;
     assert!(ord1 >= 0);
-    let ord2 = sorted.lookup_term(&new_bytes_ref_from_string(random, &values[1])?)?;
+    let ord2 = sorted.lookup_term(&new_bytes_ref_from_string::<_, Vec<u8>>(
+      random, &values[1],
+    )?)?;
     assert!(ord2 >= ord1);
 
-    let nonexistent_ord =
-      sorted.lookup_term(&new_bytes_ref_from_string(random, &nonexistent_value)?)?;
+    let nonexistent_ord = sorted.lookup_term(&new_bytes_ref_from_string::<_, Vec<u8>>(
+      random,
+      &nonexistent_value,
+    )?)?;
     assert!(nonexistent_ord < 0);
     reader.close()?;
     Ok(())
@@ -1819,23 +1825,23 @@ pub(super) trait TestLucene90DocValuesFormatTests:
   {
     let mut terms = Vec::new();
     while let Some(term) = terms_enum.next()? {
-      terms.push(BytesRef::deep_copy_of(term.as_ref())?);
+      terms.push(term.into_owned());
     }
 
     for (i, expected) in terms.iter().enumerate() {
       terms_enum.seek_exact_with_ord(i as i64)?;
-      assert_eq!(expected, terms_enum.term()?.as_ref());
+      assert_eq!(expected.as_byte_slice(), terms_enum.term()?.as_bytes());
     }
 
     for (i, expected) in terms.iter().enumerate().rev() {
       terms_enum.seek_exact_with_ord(i as i64)?;
-      assert_eq!(expected, terms_enum.term()?.as_ref());
+      assert_eq!(expected.as_byte_slice(), terms_enum.term()?.as_bytes());
     }
 
     let mut i = random.random_range(0..5);
     while i < terms.len() {
       terms_enum.seek_exact_with_ord(i as i64)?;
-      assert_eq!(&terms[i], terms_enum.term()?.as_ref());
+      assert_eq!(terms[i].as_byte_slice(), terms_enum.term()?.as_bytes());
       i += 1 + random.random_range(0..5);
     }
 
@@ -1870,24 +1876,15 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     let mut terms_enum = values.terms_enum()?;
     assert_eq!(
       &BytesRef::from_string("abc0defghijkl"),
-      terms_enum
-        .next()?
-        .expect("first term should exist")
-        .as_ref()
+      terms_enum.next()?.expect("first term should exist")
     );
     assert_eq!(
       &BytesRef::from_string("abc1defghijkl"),
-      terms_enum
-        .next()?
-        .expect("second term should exist")
-        .as_ref()
+      terms_enum.next()?.expect("second term should exist")
     );
     assert_eq!(
       &BytesRef::from_string("abc2defghijkl"),
-      terms_enum
-        .next()?
-        .expect("third term should exist")
-        .as_ref()
+      terms_enum.next()?.expect("third term should exist")
     );
     assert!(terms_enum.next()?.is_none());
     reader.close()?;
@@ -1936,13 +1933,10 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     assert_eq!(0, terms_enum.ord()?);
     assert_eq!(
       SeekStatus::NotFound,
-      terms_enum.seek_ceil(&BytesRef::from_string("A"))?
+      terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("A"))?
     );
     assert_eq!(0, terms_enum.ord()?);
-    assert_eq!(
-      &BytesRef::from(string_supplier(0)),
-      terms_enum.term()?.as_ref()
-    );
+    assert_eq!(&BytesRef::from(string_supplier(0)), terms_enum.term()?);
 
     for i in 1..num_terms {
       assert_eq!(
@@ -1950,7 +1944,6 @@ pub(super) trait TestLucene90DocValuesFormatTests:
         terms_enum
           .next()?
           .expect("next term should exist while iterating blocks")
-          .as_ref()
       );
     }
     assert!(terms_enum.next()?.is_none());

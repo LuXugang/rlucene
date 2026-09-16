@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue};
 use crate::core::util::ToInt;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Wrapper around a [`TermsEnum`] and an integer that identifies it.
@@ -47,22 +46,24 @@ impl<TE> TermsEnumIndex<TE> {
     self.current_term.as_ref()
   }
 
-  fn set_term(
+  #[inline(always)]
+  fn set_term<'a, V: BytesRefValue<'a>>(
     current_term: &mut Option<BytesRef<Vec<u8>>>,
     current_term_prefix8: &mut u64,
-    term: Option<Cow<'_, BytesRef<Vec<u8>>>>,
+    term: Option<V>,
   ) {
-    *current_term_prefix8 = term
-      .as_ref()
-      .map_or(0, |t| prefix8_to_comparable_unsigned_long(t));
     match term {
-      Some(Cow::Borrowed(term)) => {
+      Some(term) => {
+        let term = term.as_bytes_ref();
+        *current_term_prefix8 = prefix8_to_comparable_unsigned_long(&term);
         current_term
           .get_or_insert_with(BytesRef::new)
-          .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]);
+          .copy_from_slice(term.as_bytes());
       },
-      Some(Cow::Owned(term)) => *current_term = Some(term),
-      None => *current_term = None,
+      None => {
+        *current_term = None;
+        *current_term_prefix8 = 0;
+      },
     }
   }
 }
@@ -79,14 +80,15 @@ where
     Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, term);
     Ok(self.current_term.as_ref())
   }
-  pub(crate) fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  pub(crate) fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     let Some(terms_enum) = &mut self.terms_enum else {
       return Err(LuceneError::illegal_state("terms_enum is None"));
     };
     let status = terms_enum.seek_ceil(term)?;
 
     if status == SeekStatus::End {
-      Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, None);
+      self.current_term = None;
+      self.current_term_prefix8 = 0;
     } else {
       let term = Some(terms_enum.term()?);
       Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, term);
@@ -94,7 +96,7 @@ where
 
     Ok(status)
   }
-  pub(crate) fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  pub(crate) fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     let Some(terms_enum) = &mut self.terms_enum else {
       return Err(LuceneError::illegal_state("terms_enum is None"));
     };
@@ -104,7 +106,8 @@ where
       let term = Some(terms_enum.term()?);
       Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, term);
     } else {
-      Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, None);
+      self.current_term = None;
+      self.current_term_prefix8 = 0;
     }
 
     Ok(found)
@@ -199,8 +202,8 @@ impl TermState {
 /// This is used by `TermsEnumIndex` to perform fast prefix comparisons.
 ///
 /// Ported from Lucene's `TermsEnumIndex.prefix8ToComparableUnsignedLong`.
-pub fn prefix8_to_comparable_unsigned_long(term: &BytesRef<Vec<u8>>) -> u64 {
-  let bytes = &term.bytes;
+pub fn prefix8_to_comparable_unsigned_long<BS: ByteSource>(term: &BytesRef<BS>) -> u64 {
+  let bytes = term.bytes.as_slice();
   let offset = term.offset;
   let len = term.length;
 

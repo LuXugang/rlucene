@@ -26,6 +26,7 @@ use crate::core::index::multi_terms_enum::MultiTermsEnum;
 use crate::core::index::multi_terms_enum::MultiTermsEnumType;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
+use crate::core::util::access::ByteSource;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
@@ -127,7 +128,12 @@ where
   T: Terms,
   DM: DocMap,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
       Self::A(terms) => terms.next(),
       Self::B(terms) => terms.next(),
@@ -170,28 +176,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::A(terms) => terms.seek_exact(term),
       Self::B(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::A(terms) => terms.prepare_seek_exact(text),
       Self::B(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::A(terms) => terms.get_prepare_seek_exact_status(target),
       Self::B(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::A(terms) => terms.seek_ceil(term),
       Self::B(terms) => terms.seek_ceil(term),
@@ -205,9 +214,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -216,7 +225,7 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
       Self::A(terms) => terms.term(),
       Self::B(terms) => terms.term(),
@@ -382,7 +391,12 @@ where
   TE: TermsEnum,
   DM: DocMap,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     self.in_.next()
   }
 }
@@ -409,19 +423,22 @@ where
     self.in_.attributes_mut()
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     self.in_.seek_exact(term)
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     self.in_.prepare_seek_exact(text)
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.in_.get_prepare_seek_exact_status(target)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     self.in_.seek_ceil(term)
   }
 
@@ -429,15 +446,15 @@ where
     self.in_.seek_exact_with_ord(ord)
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     self.in_.seek_exact_with_state(term, state)
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     self.in_.term()
   }
 

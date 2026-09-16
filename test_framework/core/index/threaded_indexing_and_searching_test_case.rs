@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::core::index::BytesRefValue;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::directory_reader::DirectoryReader;
@@ -329,7 +330,7 @@ where
                       total_hits.fetch_add(
                         self.run_query(
                           searcher.as_ref(),
-                          TermQuery::new(Term::new("body", term.as_ref().clone())).into(),
+                          TermQuery::new(Term::new("body", term.into_owned())).into(),
                         )?,
                         Ordering::SeqCst,
                       );

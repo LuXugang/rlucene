@@ -39,7 +39,7 @@ use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNume
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::{BytesRefBuilder, IndexFileNames};
+use crate::core::index::{BytesRefBuilder, BytesRefValue, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sorted_set_selector::{
@@ -49,7 +49,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteArrayDataOutput, ByteBuffersDataOutput, ByteBuffersIndexOutput, DataOutput, IndexOutput,
 };
-use crate::core::util::access::SharedAccessVec;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -669,7 +668,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT,
     )?;
 
-    let mut previous = BytesRefBuilder::new();
+    let mut previous = BytesRefBuilder::<Vec<u8>>::new();
     let mut ord: i64 = 0;
     let mut start = data.get_file_pointer()?;
     let mut max_length = 0;
@@ -686,6 +685,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       buffered_output.reset()?;
       let mut dict_length: usize = 0;
       while let Some(term) = iterator.next()? {
+        let term = term.as_bytes_ref();
         let length = term.length;
         let offset = term.offset;
         if (ord & block_mask) == 0 {
@@ -705,17 +705,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
           // buffer where we'll use it as a
           // dictionary for compression
           data.write_vint(length as i32)?;
-          term.bytes.access(|bytes| {
-            data.write_bytes_range(bytes, offset, length)?;
-            Self::maybe_grow_buffer(buffered_output, length)?;
-            buffered_output.write_bytes_range(bytes, offset, length)?;
-            // Help the compiler infer types.
-            Ok::<(), LuceneError>(())
-          })?;
+          data.write_bytes_range(term.bytes, offset, length)?;
+          Self::maybe_grow_buffer(buffered_output, length)?;
+          buffered_output.write_bytes_range(term.bytes, offset, length)?;
           dict_length = length;
         } else {
-          let prefix_length =
-            StringHelper::bytes_difference(previous.get_bytes_mut_ref(), term.as_ref())?;
+          let prefix_length = StringHelper::bytes_difference(previous.get_bytes_mut_ref(), &term)?;
           let suffix_length = length - prefix_length;
           // Will write (suffixLength + 1 byte + 2 vint) bytes. Grow
           // the buffer in need.
@@ -728,15 +723,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
           if suffix_length >= 16 {
             buffered_output.write_vint((suffix_length - 16) as i32)?;
           }
-          term.bytes.access(|bytes| {
-            buffered_output.write_bytes_range(bytes, offset + prefix_length, suffix_length)?;
-            // Help the compiler infer types.
-            Ok::<(), LuceneError>(())
-          })?;
+          buffered_output.write_bytes_range(term.bytes, offset + prefix_length, suffix_length)?;
         }
 
         max_length = max_length.max(length);
-        previous.copy_bytes_from_ref(term.as_ref())?;
+        previous.copy_bytes_from_ref(&term)?;
         ord += 1;
       }
       // Compress and write out the last block
@@ -828,11 +819,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       )?;
 
       let mut iterator = values.terms_enum()?;
-      let mut previous = BytesRefBuilder::new();
+      let mut previous = BytesRefBuilder::<Vec<u8>>::new();
       let mut offset: i64 = 0;
       let mut ord: i64 = 0;
 
       while let Some(term) = iterator.next()? {
+        let term = term.as_bytes_ref();
         if (ord & Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64) == 0 {
           writer.add(offset)?;
           let sort_key_length = if ord == 0 {
@@ -841,13 +833,9 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             StringHelper::sort_key_length(previous.get_bytes_mut_ref(), &term)?
           };
           offset += sort_key_length as i64;
-          term.bytes.access(|bytes| {
-            self
-              .data
-              .write_bytes_range(bytes, term.offset, sort_key_length)?;
-            // Help the compiler infer types.
-            Ok::<(), LuceneError>(())
-          })?;
+          self
+            .data
+            .write_bytes_range(term.bytes, term.offset, sort_key_length)?;
         } else if (ord & Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64)
           == Lucene90DocValuesFormat::TERMS_DICT_REVERSE_INDEX_MASK as i64
         {
@@ -1035,9 +1023,10 @@ where
       while doc != NO_MORE_DOCS {
         num_docs_with_field += 1;
         let value = values.binary_value()?;
-        let v = value.as_ref();
-        let length = v.length;
-        self.data.write_bytes_range(&v.bytes, v.offset, length)?;
+        let length = value.length;
+        self
+          .data
+          .write_bytes_range(&value.bytes, value.offset, length)?;
         min_length = min_length.min(length);
         max_length = max_length.max(length);
         doc = values.next_doc()?;
@@ -1098,7 +1087,7 @@ where
       let mut doc = values.next_doc()?;
       while doc != NO_MORE_DOCS {
         let value = values.binary_value()?;
-        addr += value.as_ref().length as i64;
+        addr += value.length as i64;
         writer.add(addr)?;
         doc = values.next_doc()?;
       }

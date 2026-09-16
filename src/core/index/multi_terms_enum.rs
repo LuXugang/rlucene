@@ -23,13 +23,13 @@ use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::access::ByteSource;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{Comparator, ToInt};
-use std::borrow::Cow;
 use std::rc::Rc;
 
 /// Exposes [`TermsEnum`] API, merged from [`TermsEnum`] API of sub-segments. This does a
@@ -166,7 +166,12 @@ impl<TE> BytesRefIterator for MultiTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if self.last_seek_exact {
       // Must seekCeil at this point, so those subs that
       // didn't have the term can find the following term.
@@ -196,7 +201,7 @@ where
     }
     match self.current {
       None => Ok(None),
-      Some(ref v) => Ok(Some(Cow::Borrowed(v))),
+      Some(ref v) => Ok(Some(v)),
     }
   }
 }
@@ -222,13 +227,13 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     self.queue.q.clear();
     self.num_top = 0;
 
     let mut seek_opt = false;
     if let Some(ref last) = self.last_seek
-      && last.cmp(term).to_int() <= 0
+      && last.compare_to(term).to_int() <= 0
     {
       seek_opt = true;
     }
@@ -251,7 +256,7 @@ where
         let cur_term = entry.base.term();
 
         if let Some(cur) = cur_term {
-          let cmp = term.cmp(cur).to_int();
+          let cmp = term.compare_to(cur).to_int();
           if cmp == 0 {
             status = true;
           } else if cmp < 0 {
@@ -289,7 +294,7 @@ where
             entry.base.term()
           };
           match t {
-            Some(v) => term == v,
+            Some(v) => term.compare_to(v) == std::cmp::Ordering::Equal,
             None => false,
           }
         });
@@ -300,22 +305,25 @@ where
     Ok(self.num_top > 0)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     self.queue.q.clear();
     self.num_top = 0;
     self.last_seek_exact = false;
 
     let mut seek_opt = false;
     if let Some(ref last) = self.last_seek
-      && last.cmp(term).to_int() <= 0
+      && last.compare_to(term).to_int() <= 0
     {
       seek_opt = true;
     }
@@ -338,7 +346,7 @@ where
         let cur_term = entry.base.term();
 
         if let Some(cur) = cur_term {
-          let cmp = term.cmp(cur).to_int();
+          let cmp = term.compare_to(cur).to_int();
           if cmp == 0 {
             status = SeekStatus::Found;
           } else if cmp < 0 {
@@ -400,9 +408,9 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     if !self.seek_exact(term)? {
@@ -414,10 +422,10 @@ where
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self.current {
       None => Err(LuceneError::illegal_state("current is None in term() call")),
-      Some(ref v) => Ok(Cow::Borrowed(v)),
+      Some(ref v) => Ok(v),
     }
   }
 
@@ -554,7 +562,12 @@ impl<TE> BytesRefIterator for MultiTermsEnumType<TE>
 where
   TE: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
       Self::A(terms) => terms.next(),
       Self::B(terms) => terms.next(),
@@ -596,28 +609,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::A(terms) => terms.seek_exact(term),
       Self::B(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::A(terms) => terms.prepare_seek_exact(text),
       Self::B(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::A(terms) => terms.get_prepare_seek_exact_status(target),
       Self::B(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::A(terms) => terms.seek_ceil(term),
       Self::B(terms) => terms.seek_ceil(term),
@@ -631,9 +647,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -642,7 +658,7 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
       Self::A(terms) => terms.term(),
       Self::B(terms) => terms.term(),

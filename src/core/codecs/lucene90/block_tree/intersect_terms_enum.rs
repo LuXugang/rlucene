@@ -22,6 +22,7 @@ use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::store::IndexInput;
+use crate::core::util::access::ByteSource;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::AutomatonEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -30,7 +31,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::Arc;
 use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use crate::core::util::{StringHelper, ToInt};
-use std::borrow::Cow;
 
 /// Used to implement efficient [`Terms::intersect`] for the block-tree.
 ///
@@ -603,9 +603,14 @@ where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self.next_() {
-      Ok(Some(v)) => Ok(Option::from(Cow::Borrowed(v))),
+      Ok(Some(v)) => Ok(Some(v)),
       Ok(None) => Ok(None),
       Err(e) => match e {
         LuceneError::NoMoreTerms(_) => Ok(None),
@@ -637,19 +642,22 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<bool> {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -657,9 +665,9 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     if !self.seek_exact(term)? {
@@ -670,8 +678,8 @@ where
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(&self.term))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(&self.term)
   }
 
   fn ord(&self) -> Result<i64> {

@@ -361,8 +361,11 @@ where
     let mut terms_enum = terms.iterator()?;
     let mut docs = None;
 
-    while let Some(term) = terms_enum.next()? {
-      let term_string = term.utf8_to_string()?;
+    loop {
+      let term_string = match terms_enum.next()? {
+        Some(term) => term.utf8_to_string()?,
+        None => break,
+      };
       let no_positions = self.state.random_bool();
       let reuse = if no_positions { docs.take() } else { None };
       docs = Some(terms_enum.postings_with_flags(
@@ -424,7 +427,7 @@ where
       .cloned()
       .collect::<Vec<_>>();
     for term in terms_to_seek {
-      if terms_enum.seek_exact(&BytesRef::from_string(&term))? {
+      if terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string(&term))? {
         let no_positions = self.state.random_bool();
         let reuse = if no_positions { docs.take() } else { None };
         docs = Some(terms_enum.postings_with_flags(
@@ -479,7 +482,7 @@ where
 
     // Also test seekCeil.
     for _ in 0..10 {
-      let term = BytesRef::from_string(&self.state.random_realistic_unicode_string());
+      let term = BytesRef::<Vec<u8>>::from_string(&self.state.random_realistic_unicode_string());
       if terms_enum.seek_ceil(&term)? == SeekStatus::NotFound {
         assert!(term.as_bytes() < terms_enum.term()?.as_bytes());
       }
@@ -697,7 +700,7 @@ pub trait BasePostingsFormatTestCase:
     let terms = ar.terms("")?.unwrap();
     let mut terms_enum = terms.iterator()?;
     let term = terms_enum.next()?.unwrap();
-    assert_eq!(term.as_ref(), &BytesRef::from_string("something"));
+    assert_eq!(term.as_bytes(), b"something");
     assert!(terms_enum.next()?.is_none());
     Ok(())
   }
@@ -720,7 +723,7 @@ pub trait BasePostingsFormatTestCase:
     let terms = ar.terms("")?.unwrap();
     let mut terms_enum = terms.iterator()?;
     let term = terms_enum.next()?.unwrap();
-    assert_eq!(term.as_ref(), &BytesRef::from_string(""));
+    assert_eq!(term.as_bytes(), b"");
     assert!(terms_enum.next()?.is_none());
     Ok(())
   }
@@ -747,7 +750,7 @@ pub trait BasePostingsFormatTestCase:
     let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     let mut terms_enum = ar.terms("field")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("value"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("value"))?);
     let mut docs_enum = terms_enum.postings_with_flags(None, NONE as i32)?;
     assert_eq!(0, docs_enum.next_doc()?);
     assert_eq!(1, docs_enum.freq()?);
@@ -778,7 +781,7 @@ pub trait BasePostingsFormatTestCase:
     let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     let mut terms_enum = ar.terms("field")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("value"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("value"))?);
     let mut docs_enum = terms_enum.postings_with_flags(None, POSITIONS as i32)?;
     assert_eq!(0, docs_enum.next_doc()?);
     assert_eq!(1, docs_enum.freq()?);
@@ -852,11 +855,11 @@ pub trait BasePostingsFormatTestCase:
 
     for _ in 0..20000 {
       let n = random.random_range(0..10000);
-      let target = BytesRef::from_string(&n.to_string());
+      let target = BytesRef::<Vec<u8>>::from_string(&n.to_string());
       assert!(terms_enum.seek_exact(&target)?);
-      assert_eq!(terms_enum.term()?.as_ref(), &target);
+      assert_eq!(terms_enum.term()?.as_bytes(), target.as_byte_slice());
       assert_eq!(SeekStatus::Found, terms_enum.seek_ceil(&target)?);
-      assert_eq!(terms_enum.term()?.as_ref(), &target);
+      assert_eq!(terms_enum.term()?.as_bytes(), target.as_byte_slice());
     }
 
     reader.close()?;
@@ -900,10 +903,10 @@ pub trait BasePostingsFormatTestCase:
       .iterator()?;
 
     for i in 100000..=100400 {
-      let target = BytesRef::from_string(&i.to_string());
+      let target = BytesRef::<Vec<u8>>::from_string(&i.to_string());
       if i % 2 == 1 {
         assert!(terms_enum.seek_exact(&target)?);
-        assert_eq!(terms_enum.term()?.as_ref(), &target);
+        assert_eq!(terms_enum.term()?.as_bytes(), target.as_byte_slice());
       } else {
         assert!(!terms_enum.seek_exact(&target)?);
       }
@@ -912,26 +915,26 @@ pub trait BasePostingsFormatTestCase:
     self.sub_check_binary_search(&mut terms_enum)?;
 
     for i in 100000..100400 {
-      let target = BytesRef::from_string(&i.to_string());
+      let target = BytesRef::<Vec<u8>>::from_string(&i.to_string());
       if i % 2 == 1 {
         assert_eq!(SeekStatus::Found, terms_enum.seek_ceil(&target)?);
-        assert_eq!(terms_enum.term()?.as_ref(), &target);
+        assert_eq!(terms_enum.term()?.as_bytes(), target.as_byte_slice());
         if i <= 100397 {
           let next_term = terms_enum.next()?.unwrap();
-          let expected_next = BytesRef::from_string(&(i + 2).to_string());
-          assert_eq!(next_term.as_ref(), &expected_next);
+          let expected_next = BytesRef::<Vec<u8>>::from_string(&(i + 2).to_string());
+          assert_eq!(next_term.as_bytes(), expected_next.as_byte_slice());
         }
       } else {
         assert_eq!(SeekStatus::NotFound, terms_enum.seek_ceil(&target)?);
         assert_eq!(
-          terms_enum.term()?.as_ref(),
-          &BytesRef::from_string(&(i + 1).to_string())
+          terms_enum.term()?.as_bytes(),
+          BytesRef::<Vec<u8>>::from_string(&(i + 1).to_string()).as_byte_slice()
         );
       }
     }
     assert_eq!(
       SeekStatus::End,
-      terms_enum.seek_ceil(&BytesRef::from_string("100400"))?
+      terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("100400"))?
     );
 
     reader.close()?;
@@ -1099,7 +1102,7 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
     let mut terms_enum = leaf.terms("foo")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
     let mut postings2 = terms_enum.postings(None)?;
     assert_eq!(-1, postings2.doc_id());
     assert_eq!(0, postings2.next_doc()?);
@@ -1155,7 +1158,7 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
     let mut terms_enum = leaf.terms("foo")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
     let mut postings2 = terms_enum.postings(None)?;
     assert_eq!(-1, postings2.doc_id());
     assert_eq!(0, postings2.next_doc()?);
@@ -1222,7 +1225,7 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
     let mut terms_enum = leaf.terms("foo")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
 
     let mut postings2 = terms_enum.postings(Some(postings))?;
     assert_eq!(-1, postings2.doc_id());
@@ -1391,7 +1394,7 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
     let mut terms_enum = leaf.terms("foo")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
 
     let mut postings2 = terms_enum.postings(Some(postings))?;
     assert_eq!(-1, postings2.doc_id());
@@ -1608,7 +1611,7 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
     // termsenum reuse (FREQS)
     let mut terms_enum = leaf.terms("foo")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
 
     let mut postings2 = terms_enum.postings(Some(postings))?;
     // and it had better work
@@ -1858,7 +1861,7 @@ pub trait BasePostingsFormatTestCase:
     assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
     let mut terms_enum = leaf.terms("foo")?.unwrap().iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+    assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
 
     let mut postings2 = terms_enum.postings(Some(postings))?;
     assert_eq!(-1, postings2.doc_id());
@@ -2176,7 +2179,7 @@ pub trait BasePostingsFormatTestCase:
       let terms = leaf.terms(field)?.expect("terms should exist");
       let mut terms_enum = terms.iterator()?;
       let actual = terms_enum.next()?.expect("term should exist");
-      assert_eq!(&BytesRef::from_string(term), actual.as_ref());
+      assert_eq!(term.as_bytes(), actual.as_bytes());
       assert_eq!(2, terms_enum.doc_freq()?);
       assert!(terms_enum.next()?.is_none());
     }

@@ -27,7 +27,6 @@ use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 use std::collections::HashSet;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -195,7 +194,7 @@ impl AttributeSource for RandomTokenStreamAttr {
     Ok(())
   }
 
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     TermToBytesRefAttribute::get_bytes_ref(&mut self.packed)
   }
 

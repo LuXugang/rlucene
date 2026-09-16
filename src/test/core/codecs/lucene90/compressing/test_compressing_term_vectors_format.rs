@@ -193,7 +193,7 @@ fn test_no_ords() -> Result<()> {
     let mut terms_enum = terms.iterator()?;
     assert_eq!(
       SeekStatus::Found,
-      terms_enum.seek_ceil(&BytesRef::from_string("this"))?
+      terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("this"))?
     );
 
     let err = terms_enum.ord();

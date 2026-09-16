@@ -22,7 +22,7 @@ use crate::core::index::terms_enum::{
   TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty,
   TermsEnumWithUnsupportedPostingsAndAttributesWithEmptyIntersect,
 };
-use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -150,6 +150,7 @@ pub trait Terms {
     if v.is_none() {
       return Ok(None);
     }
+    drop(v);
 
     let mut scratch = BytesRefBuilder::new();
     scratch.append_byte(0)?;

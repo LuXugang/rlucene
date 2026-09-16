@@ -26,7 +26,7 @@ use crate::core::util::bytes_ref_hash::DEFAULT_CAPACITY;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_string, size_of_vec};
-use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter, SliceCopyOps};
+use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter};
 #[cfg(test)]
 use parking_lot::Mutex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -365,29 +365,27 @@ impl DeletedTerms {
   #[allow(clippy::type_complexity)]
   pub(crate) fn for_each_ordered<F>(&mut self, mut consumer: F) -> Result<()>
   where
-    F: FnMut(&Term, i32) -> Result<()>,
+    F: FnMut(&str, &BytesRef<&[u8]>, i32) -> Result<()>,
   {
     let mut delete_fields: Vec<(&String, &mut BytesRefIntMap)> =
       self.delete_terms.iter_mut().collect();
     delete_fields.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
-    let mut scratch = Term::new("", BytesRef::new());
+    let mut scratch_field = String::new();
     for (field, terms) in delete_fields {
-      scratch.field.clone_from(field);
+      scratch_field.clone_from(field);
       terms.bytes_ref_hash.sort(&self.pool)?;
       let indices = &terms.bytes_ref_hash.ids;
       for &index in &indices[..terms.bytes_ref_hash.count] {
         let position = terms.bytes_ref_hash.get(index, &self.pool)?;
         let block = self.pool.get_buffer(position.block_index);
-        // The consumer's Term currently requires owned bytes.
-        ArrayUtil::grow_no_copy(&mut scratch.bytes.bytes, position.length)?;
-        scratch.bytes.bytes.copy_from(
-          &block[position.offset..position.offset + position.length],
-          0,
-        );
-        scratch.bytes.offset = 0;
-        scratch.bytes.length = position.length;
-        consumer(&scratch, terms.values[index as usize])?;
+        let bytes = &block[position.offset..position.offset + position.length];
+        let scratch = BytesRef {
+          bytes,
+          offset: 0,
+          length: position.length,
+        };
+        consumer(&scratch_field, &scratch, terms.values[index as usize])?;
       }
     }
     Ok(())

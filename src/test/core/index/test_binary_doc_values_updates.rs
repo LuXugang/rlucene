@@ -481,7 +481,7 @@ fn test_multiple_doc_values_types() -> Result<()> {
     let v = sdv.ord_value()?;
     let term = sdv.lookup_ord(v)?;
     let v: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, &i.to_string())?;
-    assert_eq!(&v, term.as_ref());
+    assert_eq!(&v, term);
 
     // SortedSetDocValues
     assert_eq!(i, ssdv.next_doc()?);
@@ -983,7 +983,7 @@ fn test_sorted_index() -> Result<()> {
           }
 
           assert!(!sort_doc.deleted);
-          assert_eq!(&sort_doc.value, values.binary_value()?.as_ref());
+          assert_eq!(&sort_doc.value, values.binary_value()?);
 
           let sort_value = sort_values.long_value()?;
           assert_eq!(sort_doc.sort_value, sort_value);

@@ -18,14 +18,13 @@ use crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermTo
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummyTermToBytesRefAttribute;
 
 impl Attribute for DummyTermToBytesRefAttribute {}
 
 impl TermToBytesRefAttribute for DummyTermToBytesRefAttribute {
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     dummy_unreachable!()
   }
 }

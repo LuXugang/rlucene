@@ -22,7 +22,6 @@ use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps};
-use std::borrow::Cow;
 #[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::Display;
@@ -246,11 +245,11 @@ impl<T> TermToBytesRefAttribute for CharTermAttributeImpl<T>
 where
   T: AttributeImpl + CharTermAttributeImplBase,
 {
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     self
       .builder
       .copy_chars_from_chars(&self.term_buffer, 0, self.term_length)?;
-    Ok(Some(Cow::Borrowed(&self.builder.bytes_ref)))
+    Ok(Some(&self.builder.bytes_ref))
   }
 }
 

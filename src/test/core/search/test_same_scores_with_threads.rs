@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
 use crate::core::index::multi_terms;
@@ -75,7 +76,7 @@ fn test() -> Result<()> {
   let mut answers = HashMap::new();
   while terms_enum.next()?.is_some() {
     if random.random::<f64>() <= chance {
-      let term = BytesRef::deep_copy_of(terms_enum.term()?.as_ref())?;
+      let term = terms_enum.term()?.into_owned();
       answers.insert(
         term.clone(),
         s.search(TermQuery::new(Term::new("body", term)), 100)?,

@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
-use crate::core::index::BytesRef;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::util::ToInt;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -110,9 +111,17 @@ where
   T: TermsEnum,
   F: FilteredTermsEnumBase,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if matches!(&self.hook, FilteredTermsEnumHook::Default) {
-      return self.tenum.next();
+      return self
+        .tenum
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value));
     }
     loop {
       if self.do_seek {
@@ -130,20 +139,10 @@ where
         if self.tenum.seek_ceil(&t)? == SeekStatus::End {
           return Ok(None);
         }
-        match self.tenum.term()? {
-          Cow::Borrowed(term) => self
-            .actual_term
-            .get_or_insert_with(BytesRef::default)
-            .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
-          Cow::Owned(term) => self.actual_term = Some(term),
-        }
+        self.actual_term = Some(self.tenum.term()?.into_owned());
       } else {
         match self.tenum.next()? {
-          Some(Cow::Borrowed(term)) => self
-            .actual_term
-            .get_or_insert_with(BytesRef::default)
-            .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
-          Some(Cow::Owned(term)) => self.actual_term = Some(term),
+          Some(term) => self.actual_term = Some(term.into_owned()),
           None => {
             self.actual_term = None;
             return Ok(None);
@@ -173,15 +172,19 @@ where
       match accept_status {
         AcceptStatus::YesAndSeek => {
           self.do_seek = true;
-          return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().ok_or_else(
-            || LuceneError::illegal_state("filtered terms enum has no current term"),
-          )?)));
+          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Borrowed(
+            self.actual_term.as_ref().ok_or_else(|| {
+              LuceneError::illegal_state("filtered terms enum has no current term")
+            })?,
+          ))));
         },
         // term accepted, but we need to seek so fall-through
         AcceptStatus::Yes => {
-          return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().ok_or_else(
-            || LuceneError::illegal_state("filtered terms enum has no current term"),
-          )?)));
+          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Borrowed(
+            self.actual_term.as_ref().ok_or_else(|| {
+              LuceneError::illegal_state("filtered terms enum has no current term")
+            })?,
+          ))));
         },
         AcceptStatus::NoAndSeek => {
           // invalid term, seek next time
@@ -220,14 +223,14 @@ where
     self.tenum.attributes_mut()
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match &self.hook {
       FilteredTermsEnumHook::Default => self.tenum.seek_exact(term),
       FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match &self.hook {
       FilteredTermsEnumHook::Default => self.tenum.prepare_seek_exact(text),
       FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(format!(
@@ -237,7 +240,10 @@ where
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match &self.hook {
       FilteredTermsEnumHook::Default => self.tenum.get_prepare_seek_exact_status(target),
       FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(format!(
@@ -247,7 +253,7 @@ where
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match &self.hook {
       FilteredTermsEnumHook::Default => self.tenum.seek_ceil(term),
       FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(
@@ -265,9 +271,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match &self.hook {
@@ -278,8 +284,8 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    self.tenum.term()
+  fn term(&self) -> Result<Self::Value<'_>> {
+    self.tenum.term().map(BytesRefValue::into_value)
   }
 
   fn ord(&self) -> Result<i64> {

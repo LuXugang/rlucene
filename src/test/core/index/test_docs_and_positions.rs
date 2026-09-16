@@ -519,7 +519,7 @@ fn test_docs_enum_start() -> Result<()> {
   };
 
   let mut te = r.terms("foo")?.unwrap().iterator()?;
-  assert!(te.seek_exact(&BytesRef::from_string("bar"))?);
+  assert!(te.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
   let mut disi = TestUtil::docs(&mut random, &mut te, Some(disi), NONE as i32)?;
   let docid = disi.doc_id();
   assert_eq!(-1, docid);
@@ -564,7 +564,10 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
   let terms = r.terms("foo")?.unwrap();
   let mut te = terms.iterator()?;
 
-  assert!(te.seek_exact(&new_bytes_ref_from_string(&mut random, "bar")?)?);
+  assert!(te.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(
+    &mut random,
+    "bar"
+  )?)?);
   let mut disi = te.postings_with_flags(Some(disi), ALL as i32)?;
 
   let docid = disi.doc_id();

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
-use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
@@ -24,12 +23,13 @@ use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::postings_enum::{FREQS, PostingsEnum, PostingsEnumEnum2};
 use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::terms::{Terms, TermsPosting};
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
+use crate::core::util::access::ByteSource;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 use std::marker::PhantomData;
 
 /// Iterator to seek [`seek_ceil(BytesRef)`](TermsEnum::seek_ceil),
@@ -60,7 +60,7 @@ pub trait TermsEnum: BytesRefIterator {
   ///
   /// Returns `true` if the term is found; `false` if the enum is
   /// unpositioned.
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool>;
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool>;
   /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
   /// typically calls [`IndexInput::prefetch`](crate::core::store::index_input::IndexInput::prefetch)
   /// on the relevant bytes. The second phase,
@@ -77,19 +77,22 @@ pub trait TermsEnum: BytesRefIterator {
   /// After `Some(())`, complete the seek on the same thread with the same
   /// target term before calling other methods on this terms enum. A `None`
   /// result has no second phase to complete.
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>>;
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>>;
   /// Executes a prepared seek and returns whether the target term exists.
   ///
   /// This may perform I/O and is not a cached-status accessor. The target
   /// must be the same term passed to [`prepare_seek_exact`](Self::prepare_seek_exact).
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool>;
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool>;
 
   /// Seeks to the specified term, if it exists, or to the next (ceiling)
   /// term. Returns [`SeekStatus`] to indicate whether the exact term was
   /// found, a different term was found, or EOF was hit.
   /// The target term may be before or after the current term.
   /// If this returns [`SeekStatus::End`], the enum is unpositioned.
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus>;
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus>;
 
   /// Seeks to the specified term by ordinal (position) as previously returned
   /// by [`ord()`](TermsEnum::ord). The target ordinal may be before or
@@ -116,14 +119,14 @@ pub trait TermsEnum: BytesRefIterator {
   ///
   /// - `term`: the term the [`TermState`](crate::core::index::term_state::TermState) corresponds to
   /// - `state`: the [`TermState`](crate::core::index::term_state::TermState)
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()>;
 
   /// Returns current term. Do not call this when the enum is unpositioned.
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
+  fn term(&self) -> Result<Self::Value<'_>>;
   /// Returns ordinal position for the current term.
   /// This is an optional method (the codec may return an error or indicate
   /// unsupported). Do not call this when the enum is unpositioned.
@@ -210,7 +213,12 @@ pub enum PrepareSeekStatus {
 #[derive(Default)]
 pub struct EmptyTermsEnum;
 impl BytesRefIterator for EmptyTermsEnum {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     Ok(None)
   }
 }
@@ -233,19 +241,22 @@ impl TermsEnum for EmptyTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     Ok(SeekStatus::End)
   }
 
@@ -253,9 +264,9 @@ impl TermsEnum for EmptyTermsEnum {
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     Err(LuceneError::illegal_state(
@@ -263,7 +274,7 @@ impl TermsEnum for EmptyTermsEnum {
     ))
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     Err(LuceneError::illegal_state(
       "this method should never be called",
     ))
@@ -328,7 +339,12 @@ impl<T> BytesRefIterator for EmptyTermsEnumTermsWrapper<T>
 where
   T: Terms,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     Ok(None)
   }
 }
@@ -354,19 +370,22 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     Ok(SeekStatus::End)
   }
 
@@ -374,9 +393,9 @@ where
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     Err(LuceneError::illegal_state(
@@ -384,7 +403,7 @@ where
     ))
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     Err(LuceneError::illegal_state(
       "this method should never be called",
     ))
@@ -461,22 +480,25 @@ where
   }
 
   #[inline]
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     (**self).seek_exact(term)
   }
 
   #[inline]
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     (**self).prepare_seek_exact(text)
   }
 
   #[inline]
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     (**self).get_prepare_seek_exact_status(target)
   }
 
   #[inline]
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     (**self).seek_ceil(term)
   }
 
@@ -486,16 +508,16 @@ where
   }
 
   #[inline]
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     (**self).seek_exact_with_state(term, state)
   }
 
   #[inline]
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     (**self).term()
   }
 
@@ -554,10 +576,19 @@ where
   A: TermsEnum,
   B: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::WithPostings(terms) => terms.next(),
-      Self::WithoutPostings(terms) => terms.next(),
+      Self::WithPostings(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::WithoutPostings(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -597,28 +628,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::WithPostings(terms) => terms.seek_exact(term),
       Self::WithoutPostings(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::WithPostings(terms) => terms.prepare_seek_exact(text),
       Self::WithoutPostings(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::WithPostings(terms) => terms.get_prepare_seek_exact_status(target),
       Self::WithoutPostings(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::WithPostings(terms) => terms.seek_ceil(term),
       Self::WithoutPostings(terms) => terms.seek_ceil(term),
@@ -632,9 +666,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -643,10 +677,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::WithPostings(terms) => terms.term(),
-      Self::WithoutPostings(terms) => terms.term(),
+      Self::WithPostings(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::WithoutPostings(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -718,10 +752,19 @@ where
   A: TermsEnum,
   B: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::WithAttributes(terms) => terms.next(),
-      Self::WithoutAttributes(terms) => terms.next(),
+      Self::WithAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::WithoutAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -761,28 +804,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::WithAttributes(terms) => terms.seek_exact(term),
       Self::WithoutAttributes(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::WithAttributes(terms) => terms.prepare_seek_exact(text),
       Self::WithoutAttributes(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::WithAttributes(terms) => terms.get_prepare_seek_exact_status(target),
       Self::WithoutAttributes(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::WithAttributes(terms) => terms.seek_ceil(term),
       Self::WithoutAttributes(terms) => terms.seek_ceil(term),
@@ -796,9 +842,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -807,10 +853,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::WithAttributes(terms) => terms.term(),
-      Self::WithoutAttributes(terms) => terms.term(),
+      Self::WithAttributes(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::WithoutAttributes(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -886,10 +932,19 @@ where
   A: TermsEnum,
   B: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.next(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.next(),
+      Self::WithPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::WithoutPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -929,28 +984,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_exact(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
       Self::WithoutPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
       Self::WithoutPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_ceil(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_ceil(term),
@@ -964,9 +1022,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -975,10 +1033,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.term(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.term(),
+      Self::WithPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1049,10 +1107,19 @@ impl<T> BytesRefIterator for TermsEnumWithUnsupportedPostingsAndAttributesWithEm
 where
   T: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.next(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.next(),
+      Self::WithPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::WithoutPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -1091,28 +1158,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_exact(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
       Self::WithoutPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
       Self::WithoutPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_ceil(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_ceil(term),
@@ -1126,9 +1196,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -1137,10 +1207,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.term(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.term(),
+      Self::WithPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1212,10 +1282,19 @@ impl<T> BytesRefIterator for TermsEnumWithUnsupportedPostingsAndAttributesWithEm
 where
   T: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.next(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.next(),
+      Self::WithPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::WithoutPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -1254,28 +1333,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_exact(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
       Self::WithoutPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
       Self::WithoutPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_ceil(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_ceil(term),
@@ -1289,9 +1371,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -1300,10 +1382,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.term(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.term(),
+      Self::WithPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1377,12 +1459,25 @@ impl<T> BytesRefIterator for TermsEnumWithUnsupportedFirstPostings<T>
 where
   T: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::None(terms) => terms.next(),
-      Self::All(terms) => terms.next(),
-      Self::Single(terms) => terms.next(),
-      Self::Normal(terms) => terms.next(),
+      Self::None(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::All(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::Single(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::Normal(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -1427,7 +1522,7 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::None(terms) => terms.seek_exact(term),
       Self::All(terms) => terms.seek_exact(term),
@@ -1436,7 +1531,7 @@ where
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::None(terms) => terms.prepare_seek_exact(text),
       Self::All(terms) => terms.prepare_seek_exact(text),
@@ -1445,7 +1540,10 @@ where
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::None(terms) => terms.get_prepare_seek_exact_status(target),
       Self::All(terms) => terms.get_prepare_seek_exact_status(target),
@@ -1454,7 +1552,7 @@ where
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::None(terms) => terms.seek_ceil(term),
       Self::All(terms) => terms.seek_ceil(term),
@@ -1472,9 +1570,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -1485,12 +1583,12 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::None(terms) => terms.term(),
-      Self::All(terms) => terms.term(),
-      Self::Single(terms) => terms.term(),
-      Self::Normal(terms) => terms.term(),
+      Self::None(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::All(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::Single(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::Normal(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1582,9 +1680,14 @@ macro_rules! define_terms_enum_enum {
         where
             $($V: TermsEnum,)+
         {
-            fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+          type Value<'a>
+            = BytesRefValueEnum<'a>
+          where
+            Self: 'a;
+
+            fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
                 match self {
-                    $(Self::$V(t) => t.next(),)+
+                    $(Self::$V(t) => t.next().map(|value| value.map(BytesRefValue::into_value)),)+
                 }
             }
 
@@ -1614,25 +1717,25 @@ macro_rules! define_terms_enum_enum {
                 }
             }
 
-            fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+            fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
                 match self {
                     $(Self::$V(t) => t.seek_exact(term),)+
                 }
             }
 
-            fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+            fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
                 match self {
                     $(Self::$V(t) => t.prepare_seek_exact(text),)+
                 }
             }
 
-            fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+            fn get_prepare_seek_exact_status<BS: ByteSource>(&mut self, target: &BytesRef<BS>) -> Result<bool> {
                 match self {
                     $(Self::$V(t) => t.get_prepare_seek_exact_status(target),)+
                 }
             }
 
-            fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+            fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
                 match self {
                     $(Self::$V(t) => t.seek_ceil(term),)+
                 }
@@ -1644,9 +1747,9 @@ macro_rules! define_terms_enum_enum {
                 }
             }
 
-            fn seek_exact_with_state(
+            fn seek_exact_with_state<BS: ByteSource>(
                 &mut self,
-                term: &BytesRef<Vec<u8>>,
+                term: &BytesRef<BS>,
                 state: &TermStateEnum,
             ) -> Result<()> {
                 match self {
@@ -1654,9 +1757,9 @@ macro_rules! define_terms_enum_enum {
                 }
             }
 
-            fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+            fn term(&self) -> Result<Self::Value<'_>> {
                 match self {
-                    $(Self::$V(t) => t.term(),)+
+                    $(Self::$V(t) => t.term().map(BytesRefValue::into_value),)+
                 }
             }
 

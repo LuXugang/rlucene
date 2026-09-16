@@ -73,7 +73,7 @@ use crate::core::store::{
 };
 use crate::core::util::CoreHelper;
 use crate::core::util::SliceCopyOps;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{ByteSource, SharedAccessVec};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
@@ -1475,7 +1475,7 @@ where
 pub(crate) fn new_bytes_ref_from_string<R, AV>(random: &mut R, s: &str) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
-  AV: SharedAccessVec<u8>,
+  AV: SharedAccessVec<u8> + ByteSource,
 {
   let bytes = s.as_bytes();
   new_bytes_ref(random, bytes, 0, bytes.len())
@@ -1490,7 +1490,7 @@ pub(crate) fn new_bytes_ref_from_bytes_ref<R, AV>(
 ) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
-  AV: SharedAccessVec<u8>,
+  AV: SharedAccessVec<u8> + ByteSource,
 {
   assert!(b.is_valid()?);
   b.bytes
@@ -1506,7 +1506,7 @@ pub(crate) fn new_bytes_ref_from_bytes<R, AV>(
 ) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
-  AV: SharedAccessVec<u8>,
+  AV: SharedAccessVec<u8> + ByteSource,
 {
   new_bytes_ref(random, bytes_in, 0, bytes_in.len())
 }
@@ -1517,7 +1517,7 @@ where
 pub(crate) fn new_bytes_ref_empty<R, AV>(random: &mut R) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
-  AV: SharedAccessVec<u8>,
+  AV: SharedAccessVec<u8> + ByteSource,
 {
   // Calling the existing `new_bytes_ref` function
   new_bytes_ref(random, &[], 0, 0)
@@ -1532,7 +1532,7 @@ pub(crate) fn new_bytes_ref_with_length<R, AV>(
 ) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
-  AV: SharedAccessVec<u8>,
+  AV: SharedAccessVec<u8> + ByteSource,
 {
   let bytes_in = vec![0u8; byte_length];
   new_bytes_ref(random, &bytes_in, 0, byte_length)
@@ -1549,7 +1549,7 @@ pub(crate) fn new_bytes_ref<R, AV>(
 ) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
-  AV: SharedAccessVec<u8>,
+  AV: SharedAccessVec<u8> + ByteSource,
 {
   assert!(
     bytes_in.len() >= (offset + length),

@@ -18,6 +18,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
+use crate::core::index::BytesRefValue;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;

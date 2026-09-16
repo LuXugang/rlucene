@@ -23,7 +23,6 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
-use crate::core::index::BytesRef;
 use crate::core::index::codec_reader::{CodecReader, TermVectorsType};
 use crate::core::index::directory_reader;
 use crate::core::index::field_info::FieldInfo;
@@ -43,8 +42,10 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::ToInt;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::clone::TryClone;
@@ -655,27 +656,30 @@ where
     }
   }
 
-  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<bool> {
     Err(LuceneError::unsupported_operation(
       "MigratingTermsEnum::seek_exact",
     ))
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::Delegate(terms) => terms.prepare_seek_exact(text),
       Self::Filtered(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::Delegate(terms) => terms.get_prepare_seek_exact_status(target),
       Self::Filtered(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     Err(LuceneError::unsupported_operation(
       "MigratingTermsEnum::seek_ceil",
     ))
@@ -687,9 +691,9 @@ where
     ))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     _state: &crate::core::codecs::block_term_state::TermStateEnum,
   ) -> Result<()> {
     Err(LuceneError::unsupported_operation(
@@ -697,10 +701,10 @@ where
     ))
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      MigratingTermsEnum::Delegate(e) => e.term(),
-      MigratingTermsEnum::Filtered(e) => e.term(),
+      MigratingTermsEnum::Delegate(e) => e.term().map(BytesRefValue::into_value),
+      MigratingTermsEnum::Filtered(e) => e.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -759,10 +763,15 @@ impl<TE> BytesRefIterator for MigratingTermsEnum<TE>
 where
   TE: TermsEnum + BytesRefIterator,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      MigratingTermsEnum::Delegate(e) => e.next(),
-      MigratingTermsEnum::Filtered(e) => e.next(),
+      MigratingTermsEnum::Delegate(e) => e.next().map(|value| value.map(BytesRefValue::into_value)),
+      MigratingTermsEnum::Filtered(e) => e.next().map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 }

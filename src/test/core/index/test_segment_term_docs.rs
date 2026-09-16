@@ -98,7 +98,7 @@ fn test_term_docs() -> Result<()> {
 
   let terms = reader.terms(TEXT_FIELD_2_KEY)?.expect("terms should exist");
   let mut terms_enum = terms.iterator()?;
-  terms_enum.seek_ceil(&BytesRef::from_string("field"))?;
+  terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("field"))?;
 
   let mut term_docs = TestUtil::docs(&mut random, &mut terms_enum, None, FREQS as i32)?;
 

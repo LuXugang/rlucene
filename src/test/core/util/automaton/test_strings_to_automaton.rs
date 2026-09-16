@@ -262,6 +262,11 @@ struct TermIterator {
   it: std::vec::IntoIter<BytesRef<Vec<u8>>>,
 }
 impl BytesRefIterator for TermIterator {
+  type Value<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self.it.next() {
       Some(b) => Ok(Some(Cow::Owned(b))),

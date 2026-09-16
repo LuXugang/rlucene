@@ -394,7 +394,7 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     TermToBytesRefAttribute::get_bytes_ref(self)
   }
 

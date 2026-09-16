@@ -25,6 +25,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms_enum::SeekStatus;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
+use crate::core::util::access::ByteSource;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
@@ -489,29 +490,30 @@ impl SegmentTermsEnumFrame {
     I: IndexInput,
     P: PostingsReaderBase,
   {
-    Self::scan_to_floor_frame_with_target(frame_idx, &BytesRef::new(), ste, false)
+    Self::scan_to_floor_frame_with_target(frame_idx, &BytesRef::<Vec<u8>>::new(), ste, false)
   }
-  pub fn scan_to_floor_frame_with_target<I, P>(
+  pub fn scan_to_floor_frame_with_target<I, P, BS>(
     frame_idx: usize,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     ste: &mut SegmentTermsEnum<I, P>,
     use_target: bool,
   ) -> Result<()>
   where
     I: IndexInput,
     P: PostingsReaderBase,
+    BS: ByteSource,
   {
     let frame = &mut ste.stack[frame_idx];
     let target = if use_target {
-      target
+      target.as_byte_slice()
     } else {
-      ste.term.get_bytes_ref()
+      ste.term.get_bytes_ref().as_byte_slice()
     };
-    if !frame.is_floor || target.length <= frame.prefix_length {
+    if !frame.is_floor || target.len() <= frame.prefix_length {
       return Ok(());
     }
 
-    let target_label = target.bytes[target.offset + frame.prefix_length] as i32;
+    let target_label = target[frame.prefix_length] as i32;
 
     if target_label < frame.next_floor_label {
       return Ok(());
@@ -603,18 +605,19 @@ impl SegmentTermsEnumFrame {
   }
   /// Used only in debug assertions: does target prefix match the current
   /// term?
-  fn prefix_matches<I, P>(
+  fn prefix_matches<I, P, BS>(
     frame_idx: usize,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     ste: &SegmentTermsEnum<I, P>,
   ) -> bool
   where
     I: IndexInput,
     P: PostingsReaderBase,
+    BS: ByteSource,
   {
     let frame = &ste.stack[frame_idx];
     for byte_pos in 0..frame.prefix_length {
-      if target.bytes[target.offset + byte_pos] != ste.term.byte_at(byte_pos) {
+      if target.as_byte_slice()[byte_pos] != ste.term.byte_at(byte_pos) {
         return false;
       }
     }
@@ -663,15 +666,16 @@ impl SegmentTermsEnumFrame {
   }
   /// Scan to a specific target term within the block. May update
   /// suffix/startBytePos.
-  pub(crate) fn scan_to_term<I, P>(
+  pub(crate) fn scan_to_term<I, P, BS>(
     frame_idx: usize,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     exact_only: bool,
     ste: &mut SegmentTermsEnum<I, P>,
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
     P: PostingsReaderBase,
+    BS: ByteSource,
   {
     let frame = &mut ste.stack[frame_idx];
     if frame.is_leaf_block {
@@ -686,15 +690,16 @@ impl SegmentTermsEnumFrame {
   }
   // Target's prefix matches this block's prefix; we
   // scan the entries to check if the suffix matches.
-  pub fn scan_to_term_leaf<I, P>(
+  pub fn scan_to_term_leaf<I, P, BS>(
     frame_idx: usize,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     exact_only: bool,
     ste: &mut SegmentTermsEnum<I, P>,
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
     P: PostingsReaderBase,
+    BS: ByteSource,
   {
     {
       let frame = &mut ste.stack[frame_idx];
@@ -726,7 +731,7 @@ impl SegmentTermsEnumFrame {
       let suffix_end = suffix_start + frame.suffix_length;
 
       let cmp = frame.suffixes_reader.bytes[suffix_start..suffix_end]
-        .cmp(&target.bytes[target.offset + frame.prefix_length..target.offset + target.length])
+        .cmp(&target.as_byte_slice()[frame.prefix_length..])
         .to_int();
 
       if cmp < 0 {
@@ -768,15 +773,16 @@ impl SegmentTermsEnumFrame {
   // Target's prefix matches this block's prefix;
   // And all suffixes have the same length in this block,
   // we binary search the entries to check if the suffix matches.
-  pub fn binary_search_term_leaf<I, P>(
+  pub fn binary_search_term_leaf<I, P, BS>(
     frame_idx: usize,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     exact_only: bool,
     ste: &mut SegmentTermsEnum<I, P>,
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
     P: PostingsReaderBase,
+    BS: ByteSource,
   {
     {
       let frame = &mut ste.stack[frame_idx];
@@ -810,7 +816,7 @@ impl SegmentTermsEnumFrame {
       let suffix_end = suffix_start + frame.suffix_length;
 
       cmp = frame.suffixes_reader.bytes[suffix_start..suffix_end]
-        .cmp(&target.bytes[target.offset + frame.prefix_length..target.offset + target.length])
+        .cmp(&target.as_byte_slice()[frame.prefix_length..])
         .to_int();
 
       if cmp < 0 {
@@ -861,15 +867,16 @@ impl SegmentTermsEnumFrame {
   }
   // Target's prefix matches this block's prefix; we
   // scan the entries to check if the suffix matches.
-  pub fn scan_to_term_non_leaf<I, P>(
+  pub fn scan_to_term_non_leaf<I, P, BS>(
     frame_idx: usize,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     exact_only: bool,
     ste: &mut SegmentTermsEnum<I, P>,
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
     P: PostingsReaderBase,
+    BS: ByteSource,
   {
     debug_assert!({
       let frame = &mut ste.stack[frame_idx];
@@ -920,7 +927,7 @@ impl SegmentTermsEnumFrame {
         let suffix_end = suffix_start + frame.suffix_length;
 
         frame.suffixes_reader.bytes[suffix_start..suffix_end]
-          .cmp(&target.bytes[target.offset + frame.prefix_length..target.offset + target.length])
+          .cmp(&target.as_byte_slice()[frame.prefix_length..])
           .to_int()
       };
 

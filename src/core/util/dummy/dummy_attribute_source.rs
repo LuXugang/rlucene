@@ -17,7 +17,6 @@
 use crate::core::index::BytesRef;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummyAttributeSource;
 impl AttributeSource for DummyAttributeSource {
@@ -37,7 +36,7 @@ impl AttributeSource for DummyAttributeSource {
     dummy_unreachable!()
   }
 
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     dummy_unreachable!()
   }
 

@@ -34,9 +34,9 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 
 pub type EmptySortedSet = SingletonSortedSetDocValues<EmptySorted>;
 /// This struct contains utility methods and constants for DocValues
@@ -327,12 +327,12 @@ impl DocValuesIterator for EmptyBinary {
   }
 }
 impl BinaryDocValues for EmptyBinary {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     debug_assert!(
       false,
       "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
     );
-    Ok(Cow::Borrowed(&self.bytes))
+    Ok(&self.bytes)
   }
 }
 
@@ -410,7 +410,7 @@ impl<A> BinaryDocValues for BinaryDocValuesWithEmpty<A>
 where
   A: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     match self {
       Self::A(inner) => inner.binary_value(),
       Self::B(inner) => inner.binary_value(),
@@ -937,7 +937,7 @@ impl DocIdSetIterator for EmptySorted {
 
 impl SortedDocValues for EmptySorted {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -950,7 +950,7 @@ impl SortedDocValues for EmptySorted {
   }
 
   fn lookup_ord(&mut self, _ord: i32) -> Result<Self::OrdValue<'_>> {
-    Ok(Cow::Owned(std::mem::take(&mut self.empty)))
+    Ok(&self.empty)
   }
 
   fn get_value_count(&self) -> Result<i32> {
@@ -978,10 +978,19 @@ impl<'a, T> BytesRefIterator for SortedDocValuesTermsEnumWithEmpty<'a, T>
 where
   T: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'b>
+    = BytesRefValueEnum<'b>
+  where
+    Self: 'b;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.next(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.next(),
+      Self::WithPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::WithoutPostingsAndAttributes(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -1020,28 +1029,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_exact(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
       Self::WithoutPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
       Self::WithoutPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::WithPostingsAndAttributes(terms) => terms.seek_ceil(term),
       Self::WithoutPostingsAndAttributes(terms) => terms.seek_ceil(term),
@@ -1055,9 +1067,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -1066,10 +1078,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::WithPostingsAndAttributes(terms) => terms.term(),
-      Self::WithoutPostingsAndAttributes(terms) => terms.term(),
+      Self::WithPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1226,7 +1238,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     match self {
       Self::A(inner) => inner.lookup_term(key),
       Self::B(inner) => inner.lookup_term(key),

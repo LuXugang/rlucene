@@ -243,7 +243,7 @@ fn test_sorted() -> Result<()> {
 
     let single_ord_value = single.ord_value()?;
     let single_ord = single.lookup_ord(single_ord_value)?;
-    let expected = BytesRef::deep_copy_of(single_ord.as_ref())?;
+    let expected = BytesRef::deep_copy_of(single_ord)?;
 
     let multi_ord_value = multi.ord_value()?;
     let multi_ord = multi.lookup_ord(multi_ord_value)?;
@@ -326,7 +326,7 @@ fn test_sorted_with_lots_of_dups() -> Result<()> {
     // check ord value
     let single_ord_value = single.ord_value()?;
     let single_ord = single.lookup_ord(single_ord_value)?;
-    let expected = BytesRef::deep_copy_of(single_ord.as_ref())?;
+    let expected = BytesRef::deep_copy_of(single_ord)?;
 
     let multi_ord_value = multi.ord_value()?;
     let multi_ord = multi.lookup_ord(multi_ord_value)?;

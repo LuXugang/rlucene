@@ -344,7 +344,7 @@ fn test_random() -> Result<()> {
     }
 
     for term in terms {
-      if terms_enum.seek_exact(&BytesRef::from_string(term))? {
+      if terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string(term))? {
         let mut docs = terms_enum.postings_with_flags(None, FREQS as i32)?;
         while docs.next_doc()? != NO_MORE_DOCS {
           let doc = docs.doc_id();

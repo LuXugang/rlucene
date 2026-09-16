@@ -18,12 +18,13 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue};
 use crate::core::search::boost_attribute::BoostAttribute;
 use crate::core::search::boost_attribute_impl::BoostAttributeImpl;
 use crate::core::search::fuzzy_automaton_builder::FuzzyAutomatonBuilder;
 use crate::core::search::max_non_competitive_boost_attribute::MaxNonCompetitiveBoostAttribute;
 use crate::core::search::max_non_competitive_boost_attribute_impl::MaxNonCompetitiveBoostAttributeImpl;
+use crate::core::util::access::ByteSource;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
@@ -31,7 +32,6 @@ use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, ToInt};
-use std::borrow::Cow;
 /// [`TermsEnum`] implementation that enumerates terms similar to the specified filter term.
 ///
 /// Term enumerations are always ordered by [`BytesRef::cmp`]. Each term in the
@@ -210,14 +210,15 @@ where
   }
 
   /// returns true if term is within k edits of the query term
-  fn matches(
+  fn matches<BS: ByteSource>(
     attrs: &mut FuzzyTermsEnumAttributeSource,
     query_term: &Term,
-    term_in: &BytesRef<Vec<u8>>,
+    term_in: &BytesRef<BS>,
     k: usize,
   ) -> Result<bool> {
+    let bytes = term_in.bytes.as_slice();
     if k == 0 {
-      return Ok(term_in.bytes_equals(query_term.bytes()));
+      return Ok(term_in.as_byte_slice() == query_term.bytes().as_byte_slice());
     }
 
     let automata = attrs.get_automata_mut();
@@ -227,7 +228,7 @@ where
         k
       ))
     })?;
-    runnable.run(&term_in.bytes, term_in.offset, term_in.length)
+    runnable.run(bytes, term_in.offset, term_in.length)
   }
 }
 
@@ -235,25 +236,28 @@ impl<T> BytesRefIterator for FuzzyTermsEnum<T>
 where
   T: Terms,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = <T::IntersectIter as BytesRefIterator>::Value<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if let Some(queued_bottom) = self.queued_bottom.take() {
       self.bottom_changed(Some(&queued_bottom))?;
     }
 
     let term = match self.actual_enum.next()? {
       Some(term) => {
-        #[cfg(debug_assertions)]
-        if let Cow::Borrowed(bytes_ref) = &term {
-          debug_assert!(bytes_ref.is_valid().is_ok());
-        }
+        debug_assert!(term.is_valid().is_ok());
         term
       },
       None => return Ok(None),
     };
 
+    let term_ref = term.as_bytes_ref();
     let mut ed = self.max_edits;
     while ed > 0 {
-      if Self::matches(&mut self.attrs, &self.term, &term, ed - 1)? {
+      if Self::matches(&mut self.attrs, &self.term, &term_ref, ed - 1)? {
         ed -= 1;
       } else {
         break;
@@ -263,9 +267,9 @@ where
     if ed == 0 {
       self.attrs.set_boost(1.0)?;
     } else {
-      CoreHelper::check_from_index_size(term.offset, term.length, term.bytes.len())?;
+      CoreHelper::check_from_index_size(term_ref.offset, term_ref.length, term_ref.bytes.len())?;
       let code_point_count =
-        std::str::from_utf8(&term.bytes[term.offset..term.offset + term.length])
+        std::str::from_utf8(&term_ref.bytes[term_ref.offset..term_ref.offset + term_ref.length])
           .map_err(LuceneError::from)?
           .chars()
           .count();
@@ -288,7 +292,7 @@ where
 
       // We must delay bottomChanged until the next next() call otherwise we mess up docFreq(),
       // etc., for the current term:
-      self.queued_bottom = Some(BytesRef::deep_copy_of(&term)?);
+      self.queued_bottom = Some(BytesRef::from_bytes(term_ref.as_bytes().to_vec()));
     }
 
     Ok(Some(term))
@@ -314,19 +318,22 @@ where
     Ok(&mut self.attrs)
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     self.actual_enum.seek_exact(term)
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     self.actual_enum.prepare_seek_exact(text)
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.actual_enum.get_prepare_seek_exact_status(target)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     self.actual_enum.seek_ceil(term)
   }
 
@@ -334,15 +341,15 @@ where
     self.actual_enum.seek_exact_with_ord(ord)
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     self.actual_enum.seek_exact_with_state(term, state)
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     self.actual_enum.term()
   }
 

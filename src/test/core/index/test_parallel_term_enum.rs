@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
@@ -131,8 +132,8 @@ where
   let mut terms_enum = terms.iterator()?;
 
   for expected in terms_list {
-    let term = terms_enum.next()?.expect("term");
-    assert_eq!(*expected, term.utf8_to_string()?);
+    let term = terms_enum.next()?.expect("term").utf8_to_string()?;
+    assert_eq!(*expected, term);
     let mut postings = TestUtil::docs(random, &mut terms_enum, None, NONE as i32)?;
     assert_ne!(NO_MORE_DOCS, postings.next_doc()?);
     assert_eq!(0, postings.doc_id());

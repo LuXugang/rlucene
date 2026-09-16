@@ -27,7 +27,6 @@ use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
-use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
 use crate::core::index::byte_vector_values::ByteVectorValues;
@@ -81,12 +80,14 @@ use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::sort::Sort;
 use crate::core::util::HasIdentity;
+use crate::core::util::access::ByteSource;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -1058,10 +1059,19 @@ impl<'a, S> BytesRefIterator for SortingCodecReaderSortedDocValuesTermsEnum<'a, 
 where
   S: SortedDocValues,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'b>
+    = BytesRefValueEnum<'b>
+  where
+    Self: 'b;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::Original(terms) => terms.next(),
-      Self::Sorting(terms) => terms.next(),
+      Self::Original(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::Sorting(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -1100,28 +1110,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::Original(terms) => terms.seek_exact(term),
       Self::Sorting(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::Original(terms) => terms.prepare_seek_exact(text),
       Self::Sorting(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::Original(terms) => terms.get_prepare_seek_exact_status(target),
       Self::Sorting(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::Original(terms) => terms.seek_ceil(term),
       Self::Sorting(terms) => terms.seek_ceil(term),
@@ -1135,9 +1148,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -1146,10 +1159,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Original(terms) => terms.term(),
-      Self::Sorting(terms) => terms.term(),
+      Self::Original(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::Sorting(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1241,7 +1254,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     match self {
       Self::Original(values) => values.lookup_term(key),
       Self::Sorting(values) => values.lookup_term(key),
@@ -1347,10 +1360,19 @@ impl<'a, S> BytesRefIterator for SortingCodecReaderSortedSetDocValuesTermsEnum<'
 where
   S: SortedSetDocValues,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'b>
+    = BytesRefValueEnum<'b>
+  where
+    Self: 'b;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::Original(terms) => terms.next(),
-      Self::Sorting(terms) => terms.next(),
+      Self::Original(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::Sorting(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -1389,28 +1411,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::Original(terms) => terms.seek_exact(term),
       Self::Sorting(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::Original(terms) => terms.prepare_seek_exact(text),
       Self::Sorting(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::Original(terms) => terms.get_prepare_seek_exact_status(target),
       Self::Sorting(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::Original(terms) => terms.seek_ceil(term),
       Self::Sorting(terms) => terms.seek_ceil(term),
@@ -1424,9 +1449,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -1435,10 +1460,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Original(terms) => terms.term(),
-      Self::Sorting(terms) => terms.term(),
+      Self::Original(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::Sorting(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1537,7 +1562,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self {
       Self::Original(values) => values.lookup_term(key),
       Self::Sorting(values) => values.lookup_term(key),
@@ -1733,7 +1758,7 @@ impl<B> BinaryDocValues for SortingCodecReaderBinaryDocValues<B>
 where
   B: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     match self {
       Self::Original(values) => values.binary_value(),
       Self::Sorting(values) => values.binary_value(),
@@ -3512,10 +3537,19 @@ where
   T: TermsEnum,
   DM: DocMap,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::Original(terms) => terms.next(),
-      Self::Sorting(terms) => terms.next(),
+      Self::Original(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::Sorting(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -3555,28 +3589,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::Original(terms) => terms.seek_exact(term),
       Self::Sorting(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::Original(terms) => terms.prepare_seek_exact(text),
       Self::Sorting(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::Original(terms) => terms.get_prepare_seek_exact_status(target),
       Self::Sorting(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::Original(terms) => terms.seek_ceil(term),
       Self::Sorting(terms) => terms.seek_ceil(term),
@@ -3590,9 +3627,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -3601,10 +3638,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Original(terms) => terms.term(),
-      Self::Sorting(terms) => terms.term(),
+      Self::Original(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::Sorting(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 

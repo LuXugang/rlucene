@@ -108,7 +108,7 @@ impl TestDefaultCodecParallelizesIO {
     let mut suppliers = Vec::with_capacity(term_values.len());
     for term_value in term_values {
       let mut terms_enum = terms.iterator()?;
-      let term = BytesRef::from_string(term_value);
+      let term = BytesRef::<Vec<u8>>::from_string(term_value);
       if TermsEnum::prepare_seek_exact(&mut terms_enum, &term)?.is_some() {
         suppliers.push(Some((terms_enum, term)));
       } else {

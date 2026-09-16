@@ -21,6 +21,7 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::util::access::ByteSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Exposes a multi-valued iterator view over a single-valued iterator.
@@ -160,7 +161,7 @@ where
     Ok(self.inner_ref()?.get_value_count()? as i64)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     Ok(self.inner_mut()?.lookup_term(key)? as i64)
   }
 

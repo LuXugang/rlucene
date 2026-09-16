@@ -26,6 +26,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::stored_field_type;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;

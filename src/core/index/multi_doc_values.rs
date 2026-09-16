@@ -51,7 +51,6 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
-use std::borrow::Cow;
 use std::sync::Arc;
 
 /// A wrapper for `CompositeIndexReader` providing access to [`DocValues`].
@@ -1325,7 +1324,7 @@ impl<IRC> BinaryDocValues for BinaryDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     match self.current_values {
       Some(ref mut values) => values.binary_value(),
       None => Err(LuceneError::illegal_state("current_values is none")),

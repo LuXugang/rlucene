@@ -108,14 +108,14 @@ fn test_stress_advance() -> Result<()> {
 
       assert_eq!(
         SeekStatus::Found,
-        te.seek_ceil(&BytesRef::from_string("a"))?
+        te.seek_ceil(&BytesRef::<Vec<u8>>::from_string("a"))?
       );
       de = Some(TestUtil::docs(&mut random, &mut te, de, NONE as i32)?);
       test_one(&mut random, de.as_mut().unwrap(), &a_doc_ids)?;
 
       assert_eq!(
         SeekStatus::Found,
-        te.seek_ceil(&BytesRef::from_string("b"))?
+        te.seek_ceil(&BytesRef::<Vec<u8>>::from_string("b"))?
       );
       de = Some(TestUtil::docs(&mut random, &mut te, de, NONE as i32)?);
       test_one(&mut random, de.as_mut().unwrap(), &b_doc_ids)?;

@@ -41,6 +41,7 @@ use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeightMatches
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
+use crate::core::util::access::ByteSource;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{bits::Bits, bytes_ref_iterator::BytesRefIterator};
@@ -1057,7 +1058,12 @@ impl<TE> BytesRefIterator for SeekCountingTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = TE::Value<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     self.in_.next()
   }
 }
@@ -1083,20 +1089,23 @@ where
     self.in_.attributes_mut()
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     self.seeks.fetch_add(1, Ordering::Relaxed);
     self.in_.seek_exact(term)
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     self.in_.prepare_seek_exact(text)
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.in_.get_prepare_seek_exact_status(target)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     self.in_.seek_ceil(term)
   }
 
@@ -1104,15 +1113,15 @@ where
     self.in_.seek_exact_with_ord(ord)
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     self.in_.seek_exact_with_state(term, state)
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     self.in_.term()
   }
 

@@ -64,7 +64,6 @@ use crate::test_framework::core::util::failure_context::{
   ExecutionMethod, ExecutionOwner, ExecutionScope,
 };
 use parking_lot::Mutex;
-use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -1191,7 +1190,7 @@ impl<DI> BinaryDocValues for BinaryDocValuesImpl<DI>
 where
   DI: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     match self.merged_doc_values.current_values_supplier {
       Some(CurrentSource::OnDisk) => {
         if let Some(dv) = &mut self.merged_doc_values.on_disk_doc_values {

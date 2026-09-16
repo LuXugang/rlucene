@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRefValueEnum;
+use crate::core::util::access::ByteSource;
 
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -183,7 +184,7 @@ where
     Ok(self.inner.get_value_count()? as i32)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     Ok(self.inner.lookup_term(key)? as i32)
   }
   type TermsEnum<'a>
@@ -291,7 +292,7 @@ where
     Ok(self.inner.get_value_count()? as i32)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     Ok(self.inner.lookup_term(key)? as i32)
   }
 
@@ -402,7 +403,7 @@ where
     Ok(self.inner.get_value_count()? as i32)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     Ok(self.inner.lookup_term(key)? as i32)
   }
   type TermsEnum<'a>
@@ -512,7 +513,7 @@ where
     Ok(self.inner.get_value_count()? as i32)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     Ok(self.inner.lookup_term(key)? as i32)
   }
   type TermsEnum<'a>
@@ -662,7 +663,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     match self {
       SortedDocValuesWrap::Singleton(single) => single.lookup_term(key),
       SortedDocValuesWrap::Min(min) => min.lookup_term(key),

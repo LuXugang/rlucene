@@ -19,7 +19,6 @@ use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 /// A binary representation of a range that wraps a BinaryDocValues field
 pub struct BinaryRangeDocValues<T> {
@@ -111,7 +110,7 @@ impl<T: BinaryDocValues> DocValuesIterator for BinaryRangeDocValues<T> {
 }
 
 impl<T: BinaryDocValues> BinaryDocValues for BinaryRangeDocValues<T> {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     self.in_.binary_value()
   }
 }

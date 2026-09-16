@@ -38,6 +38,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::io_context::Context;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::automation::compiled_automaton::{
   AutomatonEnum, AutomatonType, CompiledAutomaton,
@@ -49,7 +50,6 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Keys;
 use std::fmt::{Display, Formatter};
@@ -578,7 +578,11 @@ impl DirectField {
     let mut payload_output = Vec::new();
     let mut count = 0usize;
 
-    while let Some(term) = terms_enum.next()?.map(Cow::into_owned) {
+    loop {
+      let term = match terms_enum.next()? {
+        Some(term) => term.into_owned(),
+        None => break,
+      };
       let doc_freq = terms_enum.doc_freq()?;
       let total_term_freq = terms_enum.total_term_freq()?;
 
@@ -768,11 +772,11 @@ impl DirectField {
   }
 
   // Compares in Unicode (UTF-8) order:
-  fn compare(data: &DirectFieldData, ord: usize, other: &BytesRef<Vec<u8>>) -> i32 {
-    let other_bytes = &other.bytes;
+  fn compare<BS: ByteSource>(data: &DirectFieldData, ord: usize, other: &BytesRef<BS>) -> i32 {
+    let other_bytes = other.as_byte_slice();
     let mut upto = data.term_offsets[ord] as usize;
     let term_len = data.term_offsets[ord + 1] as usize - upto;
-    let mut other_upto = other.offset;
+    let mut other_upto = 0;
     let stop = upto + term_len.min(other.length);
     while upto < stop {
       let diff = data.term_bytes[upto] as i32 - other_bytes[other_upto] as i32;
@@ -963,33 +967,49 @@ impl Terms for DirectField {
 
 pub struct DirectTermsEnum {
   data: Arc<DirectFieldData>,
-  scratch: BytesRef<Vec<u8>>,
   term_ord: Option<usize>,
+  term_ref_ord: Option<usize>,
 }
 
 impl DirectTermsEnum {
   fn new(data: Arc<DirectFieldData>) -> Self {
     Self {
       data,
-      scratch: BytesRef::new(),
       term_ord: None,
+      term_ref_ord: None,
     }
   }
 
-  fn set_term(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  fn set_term_ref(&mut self) -> Result<()> {
     let term_ord = self
       .term_ord
       .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
+    if term_ord >= self.data.terms.len() {
+      return Err(LuceneError::illegal_state("terms enum is not positioned"));
+    }
+    self.term_ref_ord = Some(term_ord);
+    Ok(())
+  }
+
+  fn term_ref(&self) -> BytesRef<&[u8]> {
+    let Some(term_ord) = self.term_ref_ord else {
+      return BytesRef {
+        bytes: &[],
+        offset: 0,
+        length: 0,
+      };
+    };
     let start = self.data.term_offsets[term_ord] as usize;
     let end = self.data.term_offsets[term_ord + 1] as usize;
-    self
-      .scratch
-      .copy_from_slice(&self.data.term_bytes[start..end]);
-    Ok(&self.scratch)
+    BytesRef {
+      bytes: self.data.term_bytes.as_slice(),
+      offset: start,
+      length: end - start,
+    }
   }
 
   // If non-negative, exact match; else, -ord-1, where ord is where the term would be inserted.
-  fn find_term(&self, term: &BytesRef<Vec<u8>>) -> i32 {
+  fn find_term<BS: ByteSource>(&self, term: &BytesRef<BS>) -> i32 {
     let mut low = 0i32;
     let mut high = self.data.terms.len() as i32 - 1;
     while low <= high {
@@ -1015,12 +1035,17 @@ impl DirectTermsEnum {
 }
 
 impl BytesRefIterator for DirectTermsEnum {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRef<&'a [u8]>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     let term_ord = self.term_ord.map_or(0, |term_ord| term_ord + 1);
     self.term_ord = Some(term_ord);
     if term_ord < self.data.terms.len() {
-      self.set_term()?;
-      Ok(Some(Cow::Borrowed(&self.scratch)))
+      self.set_term_ref()?;
+      Ok(Some(self.term_ref()))
     } else {
       Ok(None)
     }
@@ -1045,36 +1070,39 @@ impl TermsEnum for DirectTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     let ord = self.find_term(term);
     if ord >= 0 {
       self.term_ord = Some(ord as usize);
-      self.set_term()?;
+      self.set_term_ref()?;
       Ok(true)
     } else {
       Ok(false)
     }
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     let ord = self.find_term(term);
     if ord >= 0 {
       self.term_ord = Some(ord as usize);
-      self.set_term()?;
+      self.set_term_ref()?;
       Ok(SeekStatus::Found)
     } else if ord == -(self.data.terms.len() as i32) - 1 {
       Ok(SeekStatus::End)
     } else {
       self.term_ord = Some((-ord - 1) as usize);
-      self.set_term()?;
+      self.set_term_ref()?;
       Ok(SeekStatus::NotFound)
     }
   }
@@ -1082,24 +1110,24 @@ impl TermsEnum for DirectTermsEnum {
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
     let term_ord = ord as i32;
     self.term_ord = (term_ord != -1).then_some(term_ord as usize);
-    self.set_term()?;
+    self.set_term_ref()?;
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     let term_ord = state.ord()? as i32;
     self.term_ord = (term_ord != -1).then_some(term_ord as usize);
-    self.set_term()?;
-    debug_assert!(self.scratch.bytes_equals(term));
+    self.set_term_ref()?;
+    debug_assert_eq!(self.term_ref().compare_to(term), std::cmp::Ordering::Equal);
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(&self.scratch))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(self.term_ref())
   }
 
   fn ord(&self) -> Result<i64> {
@@ -1159,7 +1187,7 @@ pub struct DirectIntersectTermsEnum {
   automaton: AutomatonEnum,
   common_suffix_ref: Option<Arc<BytesRef<Vec<u8>>>>,
   term_ord: Option<usize>,
-  scratch: BytesRef<Vec<u8>>,
+  term_ref_ord: Option<usize>,
   states: Vec<DirectIntersectState>,
   state_upto: usize,
 }
@@ -1205,7 +1233,7 @@ impl DirectIntersectTermsEnum {
       automaton,
       common_suffix_ref: compiled.common_suffix_ref.clone(),
       term_ord: None,
-      scratch: BytesRef::new(),
+      term_ref_ord: None,
       states: vec![first_state],
       state_upto: 0,
     };
@@ -1348,16 +1376,32 @@ impl DirectIntersectTermsEnum {
     Ok(())
   }
 
-  fn set_term(&mut self) -> Result<()> {
+  fn set_term_ref(&mut self) -> Result<()> {
     let term_ord = self
       .term_ord
       .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
+    if term_ord >= self.data.terms.len() {
+      return Err(LuceneError::illegal_state("terms enum is not positioned"));
+    }
+    self.term_ref_ord = Some(term_ord);
+    Ok(())
+  }
+
+  fn term_ref(&self) -> BytesRef<&[u8]> {
+    let Some(term_ord) = self.term_ref_ord else {
+      return BytesRef {
+        bytes: &[],
+        offset: 0,
+        length: 0,
+      };
+    };
     let start = self.data.term_offsets[term_ord] as usize;
     let end = self.data.term_offsets[term_ord + 1] as usize;
-    self
-      .scratch
-      .copy_from_slice(&self.data.term_bytes[start..end]);
-    Ok(())
+    BytesRef {
+      bytes: self.data.term_bytes.as_slice(),
+      offset: start,
+      length: end - start,
+    }
   }
 
   fn current_term(&self) -> Result<&DirectTerm> {
@@ -1369,7 +1413,12 @@ impl DirectIntersectTermsEnum {
 }
 
 impl BytesRefIterator for DirectIntersectTermsEnum {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRef<&'a [u8]>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
     let mut skip_upto = 0usize;
 
@@ -1377,8 +1426,8 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
       // Special-case empty string:
       debug_assert_eq!(self.state_upto, 0);
       if self.automaton.is_accept(self.states[0].state)? {
-        self.scratch = BytesRef::new();
-        return Ok(Some(Cow::Borrowed(&self.scratch)));
+        self.term_ref_ord = Some(0);
+        return Ok(Some(self.term_ref()));
       }
       self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
     }
@@ -1498,8 +1547,8 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
 
         if self.state_upto == term_length {
           if self.automaton.is_accept(next_state)? {
-            self.set_term()?;
-            return Ok(Some(Cow::Borrowed(&self.scratch)));
+            self.set_term_ref()?;
+            return Ok(Some(self.term_ref()));
           }
           self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
           skip_upto = 0;
@@ -1537,8 +1586,8 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
         }
 
         if self.automaton.is_accept(next_state)? {
-          self.set_term()?;
-          return Ok(Some(Cow::Borrowed(&self.scratch)));
+          self.set_term_ref()?;
+          return Ok(Some(self.term_ref()));
         }
         self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
         skip_upto = 0;
@@ -1565,19 +1614,22 @@ impl TermsEnum for DirectIntersectTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<bool> {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -1585,9 +1637,9 @@ impl TermsEnum for DirectIntersectTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     if !self.seek_exact(term)? {
@@ -1598,8 +1650,8 @@ impl TermsEnum for DirectIntersectTermsEnum {
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(&self.scratch))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(self.term_ref())
   }
 
   fn ord(&self) -> Result<i64> {

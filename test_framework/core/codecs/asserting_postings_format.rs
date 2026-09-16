@@ -18,6 +18,7 @@ use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_format::PostingsFormat;
+use crate::core::index::BytesRefValue;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::Identity;
@@ -250,8 +251,11 @@ where
       assert_eq!(has_positions, terms.has_positions());
       assert_eq!(has_offsets, terms.has_offsets());
 
-      while let Some(term) = terms_enum.next()? {
-        let term = term.into_owned();
+      loop {
+        let term = match terms_enum.next()? {
+          Some(term) => term.into_owned(),
+          None => break,
+        };
         assert!(last_term.as_ref().is_none_or(|last_term| last_term < &term));
         last_term = Some(term);
 

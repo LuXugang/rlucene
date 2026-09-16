@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -129,7 +130,7 @@ fn verify_doc_freq(dir: Arc<DirEnum>) -> Result<()> {
   assert_eq!(term.utf8_to_string()?, "bbb");
   assert_eq!(term_enum.doc_freq()?, 100);
 
-  term_enum.seek_ceil(&BytesRef::from_string("aaa"))?;
+  term_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("aaa"))?;
   let term = term_enum.term()?;
   assert_eq!(term.utf8_to_string()?, "aaa");
   assert_eq!(term_enum.doc_freq()?, 200);

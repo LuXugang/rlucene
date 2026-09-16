@@ -21,13 +21,13 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
-use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::multi_phrase_query::{
@@ -116,7 +116,7 @@ fn test_phrase_prefix() -> Result<()> {
   let terms_opt = r.terms("body")?;
   let terms = terms_opt.expect("terms for body should exist");
   let mut te = terms.iterator()?;
-  te.seek_ceil(&BytesRef::from_string(prefix))?;
+  te.seek_ceil(&BytesRef::<Vec<u8>>::from_string(prefix))?;
   loop {
     let term_bytes = te.term()?;
     let s = term_bytes.utf8_to_string()?;
@@ -158,7 +158,7 @@ fn test_phrase_prefix() -> Result<()> {
   let terms_opt = r.terms("body")?;
   let terms = terms_opt.expect("terms for body should exist");
   let mut te = terms.iterator()?;
-  te.seek_ceil(&BytesRef::from_string(prefix))?;
+  te.seek_ceil(&BytesRef::<Vec<u8>>::from_string(prefix))?;
   loop {
     let term_bytes = te.term()?;
     let s = term_bytes.utf8_to_string()?;

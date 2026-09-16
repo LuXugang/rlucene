@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values_field_updates::BinaryDocValuesFieldUpdates;
 use crate::core::index::buffered_updates::BufferedUpdates;
 use crate::core::index::buffered_updates_stream::SegmentState;
@@ -36,6 +35,7 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -43,6 +43,7 @@ use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::search::scorer::Scorer;
 use crate::core::store::directory::Directory;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -53,7 +54,6 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{Counter, ToInt};
 use parking_lot::lock_api::ReentrantMutexGuard;
 use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -110,7 +110,7 @@ impl FrozenBufferedUpdates {
     let mut builder = PrefixCodedTermsBuilder::new();
     updates
       .delete_terms
-      .for_each_ordered(|term, _| builder.add_term(term))?;
+      .for_each_ordered(|field, bytes, _| builder.add(field, bytes))?;
     let delete_terms = builder.finish();
 
     let mut delete_queries = Vec::with_capacity(updates.delete_queries.len());
@@ -689,14 +689,7 @@ where
             {
               self.last_term = None;
             }
-            match terms_enum.next()? {
-              Some(Cow::Owned(term)) => self.reader_term = Some(term),
-              Some(Cow::Borrowed(term)) => self
-                .reader_term
-                .get_or_insert_with(BytesRef::default)
-                .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
-              None => self.reader_term = None,
-            }
+            self.reader_term = terms_enum.next()?.map(BytesRefValue::into_owned);
             if self.reader_term.is_none() {
               self.terms_enum = None;
               return Ok(());
@@ -711,10 +704,10 @@ where
     }
     Ok(())
   }
-  pub(crate) fn next_term(
+  pub(crate) fn next_term<BS: ByteSource>(
     &mut self,
     field: &str,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
   ) -> Result<Option<&mut Disi<P>>> {
     self.set_field(field)?;
 
@@ -726,7 +719,7 @@ where
         // this allows us depending on the term dict impl to reuse data-structures internally
         // which speed up iteration over terms and docs significantly.
         let cmp = term
-          .cmp(
+          .compare_to(
             self
               .reader_term
               .as_ref()
@@ -742,13 +735,7 @@ where
           match terms_enum.seek_ceil(term)? {
             SeekStatus::Found => self.get_docs().map(Some),
             SeekStatus::NotFound => {
-              match terms_enum.term()? {
-                Cow::Owned(term) => self.reader_term = Some(term),
-                Cow::Borrowed(term) => self
-                  .reader_term
-                  .get_or_insert_with(BytesRef::default)
-                  .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
-              }
+              self.reader_term = Some(terms_enum.term()?.into_owned());
               Ok(None)
             },
             SeekStatus::End => {
@@ -765,21 +752,19 @@ where
     Ok(None)
   }
   #[cfg(debug_assertions)]
-  fn assert_sorted(
+  fn assert_sorted<BS: ByteSource>(
     sorted_terms: bool,
     last_term: &mut Option<BytesRef<Vec<u8>>>,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
   ) -> Result<()> {
     debug_assert!(sorted_terms);
     if let Some(last) = last_term.as_ref() {
       debug_assert!(
-        term >= last,
-        "boom: {:?} last: {:?}",
-        term.utf8_to_string(),
-        last.utf8_to_string()
+        term.compare_to(last) != std::cmp::Ordering::Less,
+        "boom: {term} last: {last}",
       );
     }
-    *last_term = Some(BytesRef::deep_copy_of(term)?);
+    *last_term = Some(BytesRef::from(term.as_byte_slice()));
     Ok(())
   }
   fn get_docs(&mut self) -> Result<&mut Disi<P>> {

@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   is_light_mode, new_directory_shared, random,

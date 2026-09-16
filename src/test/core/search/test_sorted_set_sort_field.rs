@@ -237,7 +237,7 @@ fn test_missing_first() -> Result<()> {
   )?);
   writer.add_document(&mut random, doc)?;
 
-  // doc3: missing 'value'
+  // doc3: missing 'a'
   let mut doc = Document::new();
   doc.add(new_string_field(
     &mut random,
@@ -323,7 +323,7 @@ fn test_missing_last() -> Result<()> {
   )?);
   writer.add_document(&mut random, doc)?;
 
-  // doc3: missing 'value'
+  // doc3: missing 'a'
   let mut doc = Document::new();
   doc.add(new_string_field(
     &mut random,

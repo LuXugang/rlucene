@@ -19,6 +19,7 @@ use crate::core::document::field::Store::{No, Yes};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::index_reader::{IndexReader, IndexReaderContextKind};
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
@@ -107,7 +108,10 @@ fn test() -> Result<()> {
         upto = -1;
       } else {
         assert!(upto < terms.len() as isize);
-        assert_eq!(&terms[upto as usize], terms_enum.term()?.as_ref());
+        assert_eq!(
+          terms[upto as usize].as_byte_slice(),
+          terms_enum.term()?.as_bytes()
+        );
       }
     } else {
       let target = if random.random_bool(0.5) {
@@ -137,11 +141,17 @@ fn test() -> Result<()> {
             upto = -1;
           } else {
             assert_eq!(SeekStatus::NotFound, status);
-            assert_eq!(&terms[upto as usize], terms_enum.term()?.as_ref());
+            assert_eq!(
+              terms[upto as usize].as_byte_slice(),
+              terms_enum.term()?.as_bytes()
+            );
           }
         } else {
           assert_eq!(SeekStatus::Found, status);
-          assert_eq!(&terms[upto as usize], terms_enum.term()?.as_ref());
+          assert_eq!(
+            terms[upto as usize].as_byte_slice(),
+            terms_enum.term()?.as_bytes()
+          );
         }
       } else {
         let result = terms_enum.seek_exact(&target)?;
@@ -150,7 +160,7 @@ fn test() -> Result<()> {
           upto = -1;
         } else {
           assert!(result);
-          assert_eq!(&target, terms_enum.term()?.as_ref());
+          assert_eq!(target.as_byte_slice(), terms_enum.term()?.as_bytes());
         }
       }
     }
@@ -330,7 +340,10 @@ fn test_intersect_random() -> Result<()> {
       while loc < terms_array.len() {
         let expected = &terms_array[loc];
         let actual = te.next()?;
-        assert_eq!(expected, actual.as_ref().unwrap().as_ref());
+        assert_eq!(
+          expected.as_byte_slice(),
+          actual.as_ref().unwrap().as_bytes()
+        );
 
         assert_eq!(1, te.doc_freq()?);
 
@@ -524,7 +537,7 @@ where
   R: Rng + ?Sized,
   T: TermsEnum,
 {
-  te.seek_exact(&new_bytes_ref_from_string(random, term)?)
+  te.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, term)?)
 }
 fn next_term<T>(te: &mut T) -> Result<Option<String>>
 where
@@ -613,14 +626,17 @@ where
 
     #[allow(clippy::if_same_then_else)]
     if loc >= 0 {
-      assert_eq!(t.as_ref(), te.term()?.as_ref());
+      assert_eq!(t.as_bytes(), te.term()?.as_bytes());
     } else if do_seek_exact {
       continue;
     } else if loc == end_loc {
       continue;
     } else {
       loc = -loc - 1;
-      assert_eq!(&valid_terms[loc as usize], te.term()?.as_ref());
+      assert_eq!(
+        valid_terms[loc as usize].as_byte_slice(),
+        te.term()?.as_bytes()
+      );
     }
 
     // do a bunch of next()
@@ -633,7 +649,7 @@ where
         assert!(t2.is_none());
         break;
       } else {
-        assert_eq!(&valid_terms[loc], t2.unwrap().as_ref());
+        assert_eq!(valid_terms[loc].as_byte_slice(), t2.unwrap().as_bytes());
         if random.random_range(0..40) == 17 && term_states.len() < 100 {
           term_states.push((&valid_terms[loc], te.term_state()?));
         }

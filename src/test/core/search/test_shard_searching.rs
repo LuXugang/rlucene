@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRefValue;
 
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader::CompositeReader;
@@ -195,7 +196,7 @@ fn test_simple() -> Result<()> {
             let mut terms_enum = body_terms.iterator()?;
             let mut new_terms = Vec::new();
             while let Some(term) = terms_enum.next()? {
-              new_terms.push(BytesRef::deep_copy_of(term.as_ref())?);
+              new_terms.push(term.into_owned());
             }
             if !new_terms.is_empty() {
               terms = Some(new_terms);

@@ -17,6 +17,7 @@
 use crate::core::codecs::codec;
 use crate::core::document::document::Document;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_io_context, new_io_context_with_default, random,
 };
@@ -170,7 +171,7 @@ fn test_merge() -> Result<()> {
   let mut terms_enum = v.iterator()?;
   let mut i = 0;
   while (terms_enum.next()?).is_some() {
-    let term = terms_enum.term()?.as_ref().utf8_to_string()?;
+    let term = terms_enum.term()?.as_bytes_ref().utf8_to_string()?;
     let freq = terms_enum.total_term_freq()? as i32;
     assert!(FIELD_2_TEXT.contains(&term));
     assert_eq!(FIELD_2_FREQS[i], freq);

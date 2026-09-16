@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::util::access::SharedAccessVec;
+use crate::core::util::access::{ByteSource, SharedAccessVec};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{BytesRefComparator, ToInt};
 use std::rc::Rc;
@@ -112,7 +112,7 @@ where
 /// allow it to be passed as the same parameter alongside other types
 /// that also implement BytesRefComparator, distinguishing its type by the TYPE
 /// constant.
-impl<AV: SharedAccessVec<u8>> BytesRefComparator<AV> for NaturalOrder {
+impl<AV: SharedAccessVec<u8> + ByteSource> BytesRefComparator<AV> for NaturalOrder {
   fn byte_at(&self, bytes_ref: &BytesRef<AV>, i: usize) -> Result<i32> {
     if bytes_ref.length <= i {
       return Ok(-1);

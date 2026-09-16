@@ -49,7 +49,7 @@ use crate::core::util::{
   AtomicCounter, ByteBlockPool, BytesRefArray, Counter, SharedCounter, SortableBytesRefArray,
   TryIntoInt,
 };
-use std::borrow::{Borrow, Cow};
+use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -307,7 +307,7 @@ impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingBinaryDocV
 }
 
 impl<V: Borrow<PackedLongValues>> BinaryDocValues for BufferedSortingBinaryDocValues<V> {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     match self {
       Self::Buffered(inner) => inner.binary_value(),
       Self::Sorting(inner) => inner.binary_value(),
@@ -433,8 +433,8 @@ where
   D: DocIdSetIterator,
   DI: DataInput,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(self.value.get_bytes_ref()))
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+    Ok(self.value.get_bytes_ref())
   }
 }
 
@@ -496,10 +496,10 @@ impl DocValuesIterator for SortingBinaryDocValues {
 }
 
 impl BinaryDocValues for SortingBinaryDocValues {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     let idx = self.dvs.offsets[self.doc_id as usize] - 1;
     let v = self.dvs.values.get(&mut self.spare, idx)?;
-    Ok(Cow::Borrowed(v))
+    Ok(v)
   }
 }
 
@@ -526,7 +526,7 @@ impl BinaryDVs {
       }
       let new_doc = sort_map.old_to_new(doc_id)?.try_convert()?;
       let val = old_values.binary_value()?;
-      values.append(val.as_ref())?;
+      values.append(val)?;
       offsets[new_doc] = offset;
       offset += 1;
     }

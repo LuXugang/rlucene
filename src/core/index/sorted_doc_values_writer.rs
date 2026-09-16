@@ -22,7 +22,6 @@ use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
-use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
@@ -33,10 +32,12 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::{
@@ -51,7 +52,7 @@ use crate::core::util::packed::packed_long_values::{
   Builder, PackedLongValues, PackedLongValuesIterator,
 };
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, TryIntoInt};
-use std::borrow::{Borrow, Cow};
+use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -71,10 +72,15 @@ pub(crate) enum SortedDocValuesWriterTermsEnum<
 impl<'a, V: Borrow<PackedLongValues> + 'a> BytesRefIterator
   for SortedDocValuesWriterTermsEnum<'a, V>
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'b>
+    = BytesRefValueEnum<'b>
+  where
+    Self: 'b;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::Buffered(terms) => terms.next(),
-      Self::Sorting(terms) => terms.next(),
+      Self::Buffered(terms) => Ok(terms.next()?.map(BytesRefValue::into_value)),
+      Self::Sorting(terms) => Ok(terms.next()?.map(BytesRefValue::into_value)),
     }
   }
 
@@ -110,28 +116,31 @@ impl<'a, V: Borrow<PackedLongValues> + 'a> TermsEnum for SortedDocValuesWriterTe
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::Buffered(terms) => terms.seek_exact(term),
       Self::Sorting(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::Buffered(terms) => terms.prepare_seek_exact(text),
       Self::Sorting(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::Buffered(terms) => terms.get_prepare_seek_exact_status(target),
       Self::Sorting(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::Buffered(terms) => terms.seek_ceil(term),
       Self::Sorting(terms) => terms.seek_ceil(term),
@@ -145,9 +154,9 @@ impl<'a, V: Borrow<PackedLongValues> + 'a> TermsEnum for SortedDocValuesWriterTe
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -156,10 +165,10 @@ impl<'a, V: Borrow<PackedLongValues> + 'a> TermsEnum for SortedDocValuesWriterTe
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Buffered(terms) => terms.term(),
-      Self::Sorting(terms) => terms.term(),
+      Self::Buffered(terms) => Ok(terms.term()?.into_value()),
+      Self::Sorting(terms) => Ok(terms.term()?.into_value()),
     }
   }
 
@@ -311,7 +320,7 @@ impl<V: Borrow<PackedLongValues>> SortedDocValues for SortedDocValuesWriterValue
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     match self {
       Self::Buffered(values) => values.lookup_term(key),
       Self::Sorting(values) => values.lookup_term(key),

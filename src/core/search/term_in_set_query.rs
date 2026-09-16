@@ -293,7 +293,7 @@ impl SetEnum {
     TE: TermsEnum,
   {
     let mut iterator = term_data.iterator()?;
-    let seek_term = iterator.next()?.map(|term| term.into_owned());
+    let seek_term = iterator.next()?.map(Cow::into_owned);
     Ok(FilteredTermsEnum::new(
       terms_enum,
       SetEnum {

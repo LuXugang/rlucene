@@ -51,6 +51,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::index::{BytesRef, directory_reader};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::IO_CONTEXT_DEFAULT;
+use crate::core::util::access::ByteSource;
 
 use crate::core::store::directory::DirEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -251,14 +252,14 @@ where
 
     let mut upto = 0usize;
     while let Some(term) = terms_enum.next()? {
-      let expected = BytesRef::from_string(&field.terms[upto].text2);
-      assert_eq!(&expected, term.as_ref());
+      let expected = BytesRef::<Vec<u8>>::from_string(&field.terms[upto].text2);
+      assert_eq!(expected.as_byte_slice(), term.as_bytes());
       upto += 1;
     }
     assert_eq!(upto, field.terms.len());
 
     let mut term = &field.terms[random.random_range(0..field.terms.len())];
-    let mut status = terms_enum.seek_ceil(&BytesRef::from_string(&term.text2))?;
+    let mut status = terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string(&term.text2))?;
     assert_eq!(SeekStatus::Found, status);
     assert_eq!(term.docs.len() as i32, terms_enum.doc_freq()?);
     if field.omit_tf {
@@ -286,8 +287,8 @@ where
     if terms_enum.seek_exact_with_ord(idx as i64).is_ok() {
       assert_eq!(SeekStatus::Found, status);
       assert_eq!(
-        &BytesRef::from_string(&term.text2),
-        terms_enum.term()?.as_ref()
+        BytesRef::<Vec<u8>>::from_string(&term.text2).as_byte_slice(),
+        terms_enum.term()?.as_bytes()
       );
       assert_eq!(term.docs.len() as i32, terms_enum.doc_freq()?);
       if field.omit_tf {
@@ -313,14 +314,14 @@ where
 
     for _ in 0..100 {
       let text2 = TestUtil::random_unicode_string(random) + ".";
-      status = terms_enum.seek_ceil(&BytesRef::from_string(&text2))?;
+      status = terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string(&text2))?;
       assert!(status == SeekStatus::NotFound || status == SeekStatus::End);
     }
 
     for i in (0..field.terms.len()).rev() {
       assert_eq!(
         SeekStatus::Found,
-        terms_enum.seek_ceil(&BytesRef::from_string(&field.terms[i].text2))?,
+        terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string(&field.terms[i].text2))?,
         "field={} term={}",
         field.field_info.name,
         field.terms[i].text2
@@ -332,19 +333,19 @@ where
       if terms_enum.seek_exact_with_ord(i as i64).is_ok() {
         assert_eq!(field.terms[i].docs.len() as i32, terms_enum.doc_freq()?);
         assert_eq!(
-          &BytesRef::from_string(&field.terms[i].text2),
-          terms_enum.term()?.as_ref()
+          BytesRef::<Vec<u8>>::from_string(&field.terms[i].text2).as_byte_slice(),
+          terms_enum.term()?.as_bytes()
         );
       }
     }
 
     // status = terms_enum.seek_ceil(&BytesRef::from_string(""))?;
     assert_eq!(
-      &BytesRef::from_string(&field.terms[0].text2),
-      terms_enum.term()?.as_ref()
+      BytesRef::<Vec<u8>>::from_string(&field.terms[0].text2).as_byte_slice(),
+      terms_enum.term()?.as_bytes()
     );
 
-    terms_enum.seek_ceil(&BytesRef::from_string(""))?;
+    terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string(""))?;
     upto = 0;
     loop {
       term = &field.terms[upto];
@@ -821,6 +822,11 @@ impl DataTermsEnum {
 }
 
 impl BytesRefIterator for DataTermsEnum {
+  type Value<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     self.upto += 1;
     if self.upto as usize == self.field_data.terms.len() {
@@ -850,21 +856,24 @@ impl TermsEnum for DataTermsEnum {
     Ok(&mut self.attributes)
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<SeekStatus> {
     for (i, term_data) in self.field_data.terms.iter().enumerate() {
-      match term_data.text.cmp(text) {
+      match term_data.text.compare_to(text) {
         std::cmp::Ordering::Equal => {
           self.upto = i as i32;
           return Ok(SeekStatus::Found);
@@ -883,9 +892,9 @@ impl TermsEnum for DataTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))

@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::Yes;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -202,7 +203,7 @@ fn test_seeking() -> Result<()> {
         } else {
           let status = te.seek_ceil(term)?;
           assert_eq!(SeekStatus::Found, status);
-          assert_eq!(term, te.term()?.as_ref());
+          assert_eq!(term.as_byte_slice(), te.term()?.as_bytes());
         }
       }
     }
@@ -227,11 +228,11 @@ fn test_seeking_and_nexting() -> Result<()> {
     for term in terms.iter() {
       let c = random.random_range(0..3);
       if c == 0 {
-        assert_eq!(term, te.next()?.unwrap().as_ref());
+        assert_eq!(term.as_byte_slice(), te.next()?.unwrap().as_bytes());
       } else if c == 1 {
         let status = te.seek_ceil(term)?;
         assert_eq!(SeekStatus::Found, status);
-        assert_eq!(term, te.term()?.as_ref());
+        assert_eq!(term.as_byte_slice(), te.term()?.as_bytes());
       } else {
         assert!(te.seek_exact(term)?);
       }
@@ -270,7 +271,7 @@ fn test_intersect() -> Result<()> {
     };
     let mut found: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
     while let Some(term) = te.next()? {
-      found.insert(BytesRef::deep_copy_of(&term)?);
+      found.insert(term.into_owned());
     }
 
     let v: Vec<BytesRef<Vec<u8>>> = found.into_iter().collect();

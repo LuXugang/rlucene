@@ -6378,7 +6378,7 @@ where
       let live_docs = sr.get_live_docs()?.unwrap();
       for d_id in unique_docs {
         let must_be_hard_deleted = d_id % 2 == 0;
-        if iterator.seek_exact(&BytesRef::from_string(&d_id.to_string()))? {
+        if iterator.seek_exact(&BytesRef::<Vec<u8>>::from_string(&d_id.to_string()))? {
           let mut postings = iterator.postings(None)?;
           while postings.next_doc()? != NO_MORE_DOCS {
             let doc_id = postings.doc_id() as usize;

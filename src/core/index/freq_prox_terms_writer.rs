@@ -35,7 +35,6 @@ use crate::core::index::postings_enum::{FREQS, feature_requested};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
-use crate::core::index::term::Term;
 use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
@@ -45,6 +44,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInputOwned;
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::core::util::access::ByteSource;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -97,9 +97,8 @@ where
       }
 
       let mut iterator = TermDocsIterator::new(TermsProviderImpl1::new(fields), true);
-
-      seg_deletes.for_each_ordered(&mut |term: &Term, doc_id: i32| {
-        if let Some(postings) = iterator.next_term(term.field(), &term.bytes)? {
+      seg_deletes.for_each_ordered(&mut |field: &str, bytes: &BytesRef<&[u8]>, doc_id: i32| {
+        if let Some(postings) = iterator.next_term(field, bytes)? {
           debug_assert!(doc_id < NO_MORE_DOCS);
 
           loop {
@@ -384,8 +383,16 @@ where
   DM: DocMap,
   T: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    self.in_.next()
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
+    self
+      .in_
+      .next()
+      .map(|value| value.map(BytesRefValue::into_value))
   }
 }
 
@@ -411,19 +418,22 @@ where
     self.in_.attributes_mut()
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     self.in_.seek_exact(term)
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     self.in_.prepare_seek_exact(text)
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.in_.get_prepare_seek_exact_status(target)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     self.in_.seek_ceil(term)
   }
 
@@ -431,16 +441,16 @@ where
     self.in_.seek_exact_with_ord(ord)
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     self.in_.seek_exact_with_state(term, state)
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    self.in_.term()
+  fn term(&self) -> Result<Self::Value<'_>> {
+    self.in_.term().map(BytesRefValue::into_value)
   }
 
   fn ord(&self) -> Result<i64> {

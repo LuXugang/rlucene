@@ -56,6 +56,7 @@ use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::HasIdentity;
+use crate::core::util::access::ByteSource;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -488,9 +489,17 @@ impl<TE> BytesRefIterator for AssertingTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if !self.asserting {
-      return self.in_.next();
+      return self
+        .in_
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value));
     }
     assert_thread("Terms enums", self.creation_thread);
     assert!(
@@ -505,7 +514,7 @@ where
     } else {
       self.state = AssertingTermsEnumState::Unpositioned;
     }
-    Ok(result)
+    Ok(result.map(BytesRefValue::into_value))
   }
 
   fn set_next(&mut self) -> Result<bool> {
@@ -534,7 +543,7 @@ where
     self.in_.attributes_mut()
   }
 
-  fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<bool> {
     if !self.asserting {
       return self.in_.seek_exact(text);
     }
@@ -554,7 +563,7 @@ where
     Ok(result)
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     if !self.asserting {
       return self.in_.prepare_seek_exact(text);
     }
@@ -572,7 +581,10 @@ where
     Ok(result)
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     if !self.asserting {
       return self.in_.get_prepare_seek_exact_status(target);
     }
@@ -586,7 +598,7 @@ where
     Ok(result)
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     if !self.asserting {
       return self.in_.seek_ceil(term);
     }
@@ -621,9 +633,9 @@ where
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     if !self.asserting {
@@ -641,9 +653,9 @@ where
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     if !self.asserting {
-      return self.in_.term();
+      return self.in_.term().map(BytesRefValue::into_value);
     }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
@@ -653,7 +665,7 @@ where
     );
     let term = self.in_.term()?;
     assert!(term.is_valid()?);
-    Ok(term)
+    Ok(term.into_value())
   }
 
   fn ord(&self) -> Result<i64> {
@@ -1578,7 +1590,7 @@ impl<DV> BinaryDocValues for AssertingBinaryDocValues<DV>
 where
   DV: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     if self.asserting {
       assert_thread("Binary doc values", self.creation_thread);
       assert!(self.exists);
@@ -1760,7 +1772,7 @@ where
     Ok(value_count)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     if self.asserting {
       assert_thread("Sorted doc values", self.creation_thread);
       assert!(key.is_valid()?);
@@ -2294,7 +2306,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self {
       Self::Default(in_) => in_.lookup_term(key),
       Self::Multi {

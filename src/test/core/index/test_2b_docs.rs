@@ -81,7 +81,7 @@ fn test_2b_docs() -> Result<()> {
   writer.close()?;
 
   let reader = directory_reader::open(dir.clone())?;
-  let term = BytesRef::from_string("a");
+  let term: BytesRef<Vec<u8>> = BytesRef::from_string("a");
   let mut skips = 0i64;
   let context = (&reader).get_context()?;
   for context in context.leaves()? {

@@ -686,7 +686,7 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
         assert_eq!(1, terms.get_sum_total_term_freq()?);
       }
       let mut terms_enum = terms.iterator()?;
-      assert!(terms_enum.seek_exact(&BytesRef::from_string("a"))?);
+      assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("a"))?);
       let mut pe = terms_enum.postings_with_flags(None, ALL as i32)?;
       assert_eq!(0, pe.next_doc()?);
       if *ft.index_options() >= IndexOptions::DocsAndFreqs {
@@ -709,7 +709,7 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
       assert_eq!(1, tv_terms.get_sum_doc_freq()?);
       assert_eq!(2, tv_terms.get_sum_total_term_freq()?);
       let mut tv_terms_enum = tv_terms.iterator()?;
-      assert!(tv_terms_enum.seek_exact(&BytesRef::from_string("a"))?);
+      assert!(tv_terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("a"))?);
       let mut pe = tv_terms_enum.postings_with_flags(None, ALL as i32)?;
       assert_eq!(0, pe.next_doc()?);
       assert_eq!(2, pe.freq()?);

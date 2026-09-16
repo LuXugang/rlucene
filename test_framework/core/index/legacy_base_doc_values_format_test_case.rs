@@ -356,14 +356,14 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, long_term)?,
-        dv.binary_value()?.as_ref()
+        dv.binary_value()?
       );
 
       let mut dv = leaf.reader().get_binary_doc_values("dv2")?.unwrap();
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, &text)?,
-        dv.binary_value()?.as_ref()
+        dv.binary_value()?
       );
     }
     isearcher.get_index_reader().close()?;
@@ -427,10 +427,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let leaf = &isearcher.get_leaf_contexts()?[0];
       let mut dv = leaf.reader().get_binary_doc_values("dv1")?.unwrap();
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
-      assert_eq!(
-        written_values.get(&{ i }).unwrap(),
-        dv.binary_value()?.as_ref()
-      );
+      assert_eq!(written_values.get(&{ i }).unwrap(), dv.binary_value()?);
     }
     Ok(())
   }
@@ -495,7 +492,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv2.advance(doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv2.binary_value()?.as_ref()
+        dv2.binary_value()?
       );
     }
     Ok(())
@@ -572,7 +569,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv3.advance(doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv3.binary_value()?.as_ref()
+        dv3.binary_value()?
       );
     }
     Ok(())
@@ -649,7 +646,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv3.advance(doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv3.binary_value()?.as_ref()
+        dv3.binary_value()?
       );
     }
     Ok(())
@@ -871,7 +868,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv.binary_value()?.as_ref()
+        dv.binary_value()?
       );
     }
     Ok(())
@@ -1275,7 +1272,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
 
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
@@ -1312,7 +1309,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_doc()?);
     assert_eq!(
       &new_bytes_ref_from_string(random, "hello\nworld\r1")?,
-      dv.binary_value()?.as_ref()
+      dv.binary_value()?
     );
     Ok(())
   }
@@ -1406,36 +1403,36 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
     assert_eq!(
       SeekStatus::NotFound,
-      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "ha!")?)?
+      terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "ha!")?)?
     );
     assert_eq!("hello", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(1, terms_enum.ord()?);
     assert_eq!(
       SeekStatus::Found,
-      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "beer")?)?
+      terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "beer")?)?
     );
     assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(0, terms_enum.ord()?);
     assert_eq!(
       SeekStatus::End,
-      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "zzz")?)?
+      terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "zzz")?)?
     );
     assert_eq!(
       SeekStatus::NotFound,
-      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "aba")?)?
+      terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "aba")?)?
     );
     assert_eq!(0, terms_enum.ord()?);
 
-    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "beer")?)?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "beer")?)?);
     assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(0, terms_enum.ord()?);
-    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "hello")?)?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?)?);
     assert_eq!("hello", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(1, terms_enum.ord()?);
-    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "world")?)?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "world")?)?);
     assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(2, terms_enum.ord()?);
-    assert!(!terms_enum.seek_exact(&new_bytes_ref_from_string(random, "bogus")?)?);
+    assert!(!terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "bogus")?)?);
 
     terms_enum.seek_exact_with_ord(0)?;
     assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
@@ -1581,7 +1578,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let leaves = top_reader_context.leaves()?;
     let mut dv = leaves[0].reader().get_binary_doc_values("dv")?.unwrap();
     assert_eq!(0, dv.next_doc()?);
-    assert_eq!(&b, dv.binary_value()?.as_ref());
+    assert_eq!(&b, dv.binary_value()?);
     Ok(())
   }
 
@@ -1817,7 +1814,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let ord = i as i32;
       let actual = doc_values.lookup_ord(ord)?;
       assert_eq!(expected.as_str(), actual.utf8_to_string()?);
-      let expected_ref = new_bytes_ref_from_string(random, expected)?;
+      let expected_ref = new_bytes_ref_from_string::<_, Vec<u8>>(random, expected)?;
       assert_eq!(ord, doc_values.lookup_term(&expected_ref)?);
     }
 
@@ -2343,7 +2340,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let binary_value = stored_doc.get_binary_value("stored")?;
         if let Some(binary_value) = binary_value {
           assert_eq!(i, doc_values.doc_id());
-          assert_eq!(binary_value.as_ref(), doc_values.binary_value()?.as_ref());
+          assert_eq!(binary_value.as_ref(), doc_values.binary_value()?);
           doc_values.next_doc()?;
         } else {
           assert!(doc_values.doc_id() > i);
@@ -2369,7 +2366,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let binary_value = stored_doc.get_binary_value("stored")?;
         if let Some(binary_value) = binary_value {
           assert_eq!(i, doc_values.doc_id());
-          assert_eq!(binary_value.as_ref(), doc_values.binary_value()?.as_ref());
+          assert_eq!(binary_value.as_ref(), doc_values.binary_value()?);
           doc_values.next_doc()?;
         } else {
           assert!(doc_values.doc_id() > i);
@@ -3103,7 +3100,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       .unwrap();
     assert_eq!(0, dv.get_value_count()?);
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
@@ -3153,31 +3150,31 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
     assert_eq!(
       SeekStatus::NotFound,
-      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "ha!")?)?
+      terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "ha!")?)?
     );
     assert_eq!("hello", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(1, terms_enum.ord()?);
     assert_eq!(
       SeekStatus::Found,
-      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "beer")?)?
+      terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "beer")?)?
     );
     assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(0, terms_enum.ord()?);
     assert_eq!(
       SeekStatus::End,
-      terms_enum.seek_ceil(&new_bytes_ref_from_string(random, "zzz")?)?
+      terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "zzz")?)?
     );
 
-    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "beer")?)?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "beer")?)?);
     assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(0, terms_enum.ord()?);
-    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "hello")?)?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "hello")?)?);
     assert_eq!("hello", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(1, terms_enum.ord()?);
-    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string(random, "world")?)?);
+    assert!(terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "world")?)?);
     assert_eq!("world", terms_enum.term()?.utf8_to_string()?);
     assert_eq!(2, terms_enum.ord()?);
-    assert!(!terms_enum.seek_exact(&new_bytes_ref_from_string(random, "bogus")?)?);
+    assert!(!terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(random, "bogus")?)?);
 
     terms_enum.seek_exact_with_ord(0)?;
     assert_eq!("beer", terms_enum.term()?.utf8_to_string()?);
@@ -4214,7 +4211,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
                 && let Some(ref mut binaries) = binaries
               {
                 assert_eq!(j, binaries.next_doc()?);
-                assert_eq!(binary_value.as_ref(), binaries.binary_value()?.as_ref());
+                assert_eq!(binary_value.as_ref(), binaries.binary_value()?);
                 let sorted = sorted.as_mut().expect("dvSorted should exist");
                 assert_eq!(j, sorted.next_doc()?);
                 let ord = sorted.ord_value()?;
@@ -4788,8 +4785,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     {
       let mut dv = make_dv()?;
       let mut te = dv.terms_enum()?;
-      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref())?);
-      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref())?);
+      terms.push(te.next()?.unwrap().into_owned());
+      terms.push(te.next()?.unwrap().into_owned());
     }
 
     {
@@ -4798,8 +4795,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
       let _ = enum1.next()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
-      let term1 = BytesRef::deep_copy_of(enum1.next()?.unwrap().as_ref())?;
+      let term2 = enum2.next()?.unwrap().into_owned();
+      let term1 = enum1.next()?.unwrap().into_owned();
       assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
       assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
@@ -4809,13 +4806,13 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
+      let term2 = enum2.next()?.unwrap().into_owned();
       let mut seek_term_bytes =
         terms[0].bytes[terms[0].offset..(terms[0].offset + terms[0].length)].to_vec();
       seek_term_bytes.push(0);
       let seek_term = BytesRef::from_bytes(seek_term_bytes);
       enum1.seek_ceil(&seek_term)?;
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
+      let term1 = enum1.term()?.into_owned();
       assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
       assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
@@ -4825,9 +4822,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
+      let term2 = enum2.next()?.unwrap().into_owned();
       enum1.seek_ceil(&terms[1])?;
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
+      let term1 = enum1.term()?.into_owned();
       assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
       assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
@@ -4837,9 +4834,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
+      let term2 = enum2.next()?.unwrap().into_owned();
       assert!(enum1.seek_exact(&terms[1])?);
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
+      let term1 = enum1.term()?.into_owned();
       assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
       assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
@@ -4849,9 +4846,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
+      let term2 = enum2.next()?.unwrap().into_owned();
       enum1.seek_exact_with_ord(1)?;
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
+      let term1 = enum1.term()?.into_owned();
       assert_eq!(term1.as_bytes(), enum1.term()?.as_bytes());
       assert_eq!(term2.as_bytes(), enum2.term()?.as_bytes());
     }
@@ -4901,7 +4898,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
 
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
@@ -4953,7 +4950,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
 
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);

@@ -24,7 +24,6 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::LuceneError;
-use std::borrow::Cow;
 
 #[allow(dead_code)] // for quick search
 struct TestPendingSoftDeletes;
@@ -163,9 +162,7 @@ impl DocValuesFieldIterator for TestSingleUpdateDocValuesFieldIterator {
     Ok(1)
   }
 
-  fn binary_value(
-    &mut self,
-  ) -> crate::core::util::error::lucene_error::Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> crate::core::util::error::lucene_error::Result<&BytesRef<Vec<u8>>> {
     Err(LuceneError::unsupported_operation("binary_value"))
   }
 

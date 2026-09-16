@@ -19,7 +19,6 @@ use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummyBinaryDocValues;
 
@@ -55,7 +54,7 @@ impl DocIdSetIterator for DummyBinaryDocValues {
 }
 
 impl BinaryDocValues for DummyBinaryDocValues {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     dummy_unreachable!()
   }
 }

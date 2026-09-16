@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -22,6 +21,7 @@ use crate::core::index::postings_enum::OFFSETS;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, get_terms};
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::query::{Query, QueryWeightMatchesIterator};
@@ -29,7 +29,6 @@ use crate::core::search::term_matches_iterator::TermMatchesIterator;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 /// A [`MatchesIterator`] that combines matches from a set of sub-iterators.
@@ -202,7 +201,7 @@ where
       })?)];
     let mut reuse = None;
     while let Some(term) = self.terms.next()? {
-      if self.te.seek_exact(term.as_ref())? {
+      if self.te.seek_exact(&term.as_bytes_ref())? {
         let mut postings = self.te.postings_with_flags(reuse, OFFSETS as i32)?;
         if postings.advance(self.doc)? == self.doc {
           matches.push(Box::new(TermMatchesIterator::new(
@@ -292,13 +291,18 @@ struct TermBytesRefIterator {
   index: usize,
 }
 impl BytesRefIterator for TermBytesRefIterator {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if self.index == self.terms.len() {
       return Ok(None);
     }
     let term = &self.terms[self.index];
     self.index += 1;
-    Ok(Some(Cow::Borrowed(term.bytes())))
+    Ok(Some(term.bytes()))
   }
 }
 
@@ -354,8 +358,12 @@ where
   let indexed_terms = get_terms(context.reader(), field)?;
   let mut terms_enum = indexed_terms.iterator()?;
   let mut reuse = None;
-  while let Some(term) = terms.next()? {
-    if terms_enum.seek_exact(term.as_ref())? {
+  loop {
+    let term = match terms.next()? {
+      Some(term) => term.into_owned(),
+      None => break,
+    };
+    if terms_enum.seek_exact(&term)? {
       let mut postings = terms_enum.postings_with_flags(reuse, OFFSETS as i32)?;
       if postings.advance(doc)? == doc {
         return Ok(Some(Box::new(TermsEnumDisjunctionMatchesIterator::new(

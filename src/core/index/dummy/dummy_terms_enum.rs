@@ -19,14 +19,19 @@ use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::util::access::ByteSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummyTermsEnum;
 impl BytesRefIterator for DummyTermsEnum {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     dummy_unreachable!()
   }
 }
@@ -49,19 +54,22 @@ impl TermsEnum for DummyTermsEnum {
     dummy_unreachable!()
   }
 
-  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<bool> {
     dummy_unreachable!()
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     dummy_unreachable!()
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    _target: &BytesRef<BS>,
+  ) -> Result<bool> {
     dummy_unreachable!()
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     dummy_unreachable!()
   }
 
@@ -69,15 +77,15 @@ impl TermsEnum for DummyTermsEnum {
     dummy_unreachable!()
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     dummy_unreachable!()
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     dummy_unreachable!()
   }
 

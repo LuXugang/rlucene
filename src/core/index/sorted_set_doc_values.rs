@@ -26,6 +26,7 @@ use crate::core::index::terms_enum::{
 use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::ToInt;
+use crate::core::util::access::ByteSource;
 use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cell::RefCell;
@@ -90,14 +91,14 @@ pub trait SortedSetDocValues: DocValuesIterator {
   ///
   /// # Returns
   /// * Ordinal of the key if found, otherwise `-insertion_point - 1`
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     let mut low = 0;
     let mut high = self.get_value_count()? - 1;
 
     while low <= high {
       let mid = (low + high) >> 1;
       let term = self.lookup_ord(mid)?;
-      let cmp = term.as_bytes().cmp(key.as_bytes()).to_int();
+      let cmp = term.as_bytes().cmp(key.as_byte_slice()).to_int();
       if cmp < 0 {
         low = mid + 1;
       } else if cmp > 0 {
@@ -185,7 +186,7 @@ where
     (**self).get_value_count()
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     (**self).lookup_term(key)
   }
 
@@ -277,7 +278,7 @@ where
     self.borrow().get_value_count()
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     self.borrow_mut().lookup_term(key)
   }
 

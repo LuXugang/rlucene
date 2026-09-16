@@ -21,8 +21,7 @@ use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
-use crate::core::index::BytesRefValue;
-use crate::core::index::BytesRefValueEnum;
+use crate::core::index::BytesRefValueEnum2;
 use crate::core::index::doc_values::{DocValues, EmptySortedSet, SortedDocValuesWithEmpty};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
@@ -42,6 +41,7 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
@@ -1151,7 +1151,7 @@ where
   B: SortedSetDocValues,
 {
   type OrdValue<'a>
-    = BytesRefValueEnum<'a>
+    = BytesRefValueEnum2<A::OrdValue<'a>, B::OrdValue<'a>>
   where
     Self: 'a;
 
@@ -1171,8 +1171,8 @@ where
 
   fn lookup_ord(&mut self, _ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      SortedSetDocValuesEnum2::A(t) => t.lookup_ord(_ord).map(BytesRefValue::into_value),
-      SortedSetDocValuesEnum2::B(s) => s.lookup_ord(_ord).map(BytesRefValue::into_value),
+      SortedSetDocValuesEnum2::A(t) => t.lookup_ord(_ord).map(BytesRefValueEnum2::A),
+      SortedSetDocValuesEnum2::B(s) => s.lookup_ord(_ord).map(BytesRefValueEnum2::B),
     }
   }
 
@@ -1183,7 +1183,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self {
       SortedSetDocValuesEnum2::A(t) => t.lookup_term(key),
       SortedSetDocValuesEnum2::B(s) => s.lookup_term(key),
@@ -1297,7 +1297,7 @@ where
   B: SortedSetDocValues,
 {
   type OrdValue<'a>
-    = BytesRefValueEnum<'a>
+    = BytesRefValueEnum2<A::OrdValue<'a>, B::OrdValue<'a>>
   where
     Self: 'a;
 
@@ -1317,8 +1317,8 @@ where
 
   fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::A(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
-      Self::B(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::A(values) => values.lookup_ord(ord).map(BytesRefValueEnum2::A),
+      Self::B(values) => values.lookup_ord(ord).map(BytesRefValueEnum2::B),
     }
   }
 
@@ -1329,7 +1329,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self {
       Self::A(values) => values.lookup_term(key),
       Self::B(values) => values.lookup_term(key),
@@ -1443,7 +1443,7 @@ where
   A: SortedSetDocValues,
 {
   type OrdValue<'a>
-    = BytesRefValueEnum<'a>
+    = BytesRefValueEnum2<A::OrdValue<'a>, <EmptySortedSet as SortedSetDocValues>::OrdValue<'a>>
   where
     Self: 'a;
 
@@ -1463,8 +1463,8 @@ where
 
   fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::A(inner) => inner.lookup_ord(ord).map(BytesRefValue::into_value),
-      Self::B(inner) => inner.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::A(inner) => inner.lookup_ord(ord).map(BytesRefValueEnum2::A),
+      Self::B(inner) => inner.lookup_ord(ord).map(BytesRefValueEnum2::B),
     }
   }
 
@@ -1475,7 +1475,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self {
       Self::A(inner) => inner.lookup_term(key),
       Self::B(inner) => inner.lookup_term(key),
@@ -1592,7 +1592,7 @@ where
   B: SortedSetDocValues,
 {
   type OrdValue<'a>
-    = BytesRefValueEnum<'a>
+    = BytesRefValueEnum2<A::OrdValue<'a>, B::OrdValue<'a>>
   where
     Self: 'a;
 
@@ -1612,8 +1612,8 @@ where
 
   fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     match self {
-      Self::Singleton(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
-      Self::Multi(values) => values.lookup_ord(ord).map(BytesRefValue::into_value),
+      Self::Singleton(values) => values.lookup_ord(ord).map(BytesRefValueEnum2::A),
+      Self::Multi(values) => values.lookup_ord(ord).map(BytesRefValueEnum2::B),
     }
   }
 
@@ -1624,7 +1624,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self {
       Self::Singleton(values) => values.lookup_term(key),
       Self::Multi(values) => values.lookup_term(key),

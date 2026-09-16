@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -22,6 +21,7 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::{TermStateEnum, TermStates};
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::bulk_scorer::BulkScorerEnum4;

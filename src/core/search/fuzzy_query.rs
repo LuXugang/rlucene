@@ -17,7 +17,6 @@
 use std::fmt::Write as _;
 
 use crate::core::codecs::block_term_state::TermStateEnum;
-use crate::core::index::BytesRef;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader::Identity;
@@ -26,6 +25,7 @@ use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, TermsIntersect, TermsPosting, TermsTE};
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::search::fuzzy_automaton_builder::FuzzyAutomatonBuilder;
 use crate::core::search::fuzzy_terms_enum::FuzzyTermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -36,13 +36,13 @@ use crate::core::search::multi_term_query::{
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::util::access::ByteSource;
 use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, HasIdentity};
-use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
@@ -370,10 +370,15 @@ where
   T: Terms,
   TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::Single(t) => t.next(),
-      Self::Fuzzy(t) => t.next(),
+      Self::Single(t) => t.next().map(|value| value.map(BytesRefValue::into_value)),
+      Self::Fuzzy(t) => t.next().map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -419,28 +424,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::Single(t) => t.seek_exact(term),
       Self::Fuzzy(t) => t.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::Single(t) => t.prepare_seek_exact(text),
       Self::Fuzzy(t) => t.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::Single(t) => t.get_prepare_seek_exact_status(target),
       Self::Fuzzy(t) => t.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::Single(t) => t.seek_ceil(term),
       Self::Fuzzy(t) => t.seek_ceil(term),
@@ -454,9 +462,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -465,10 +473,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Single(t) => t.term(),
-      Self::Fuzzy(t) => t.term(),
+      Self::Single(t) => t.term().map(BytesRefValue::into_value),
+      Self::Fuzzy(t) => t.term().map(BytesRefValue::into_value),
     }
   }
 

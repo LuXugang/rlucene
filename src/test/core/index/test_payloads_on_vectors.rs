@@ -117,7 +117,7 @@ fn test_mixup_docs() -> Result<()> {
     .terms("field")?
     .ok_or_else(|| LuceneError::illegal_state("field term vectors missing"))?;
   let mut terms_enum = terms.iterator()?;
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("withPayload"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("withPayload"))?);
   let mut de = terms_enum.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, de.next_doc()?);
   assert_eq!(0, de.next_position()?);
@@ -195,7 +195,7 @@ fn test_mixup_multi_valued() -> Result<()> {
     .terms("field")?
     .ok_or_else(|| LuceneError::illegal_state("field term vectors missing"))?;
   let mut terms_enum = terms.iterator()?;
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("withPayload"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("withPayload"))?);
   let mut de = terms_enum.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, de.next_doc()?);
   assert_eq!(3, de.next_position()?);

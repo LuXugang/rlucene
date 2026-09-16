@@ -48,13 +48,14 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput, ReadAdvice};
 use crate::core::util::IOUtils;
+use crate::core::util::access::ByteSource;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -1361,7 +1362,7 @@ impl<R> BinaryDocValues for DenseBinaryDocValues<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     self.sub.binary_value(self.doc)
   }
 }
@@ -1431,7 +1432,7 @@ impl<I> BinaryDocValues for SparseBinaryDocValues<I>
 where
   I: IndexInput,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     <SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(
       &mut self.sub,
       &mut self.disi,
@@ -1915,7 +1916,7 @@ where
 }
 
 pub trait DenseBinaryDocValuesBase {
-  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
+  fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>>;
 }
 
 pub struct DenseBinaryDocValuesBaseImpl<R> {
@@ -1927,14 +1928,14 @@ impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
     self.bytes_slice.read_bytes(
       doc as usize * self.length,
       &mut self.bytes.bytes,
       0,
       self.length,
     )?;
-    Ok(Cow::Borrowed(&self.bytes))
+    Ok(&self.bytes)
   }
 }
 pub struct DenseBinaryDocValuesBaseImpl1<R> {
@@ -1946,7 +1947,7 @@ impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
     let start_offset = self.addresses.get_mut(doc as usize)?;
     self.bytes.length = (self.addresses.get_mut((doc + 1) as usize)? - start_offset) as usize;
     self.bytes_slice.read_bytes(
@@ -1955,7 +1956,7 @@ where
       0,
       self.bytes.length,
     )?;
-    Ok(Cow::Borrowed(&self.bytes))
+    Ok(&self.bytes)
   }
 }
 
@@ -1966,7 +1967,7 @@ where
   fn binary_value(
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
-  ) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
+  ) -> Result<&BytesRef<Vec<u8>>>;
 }
 pub struct SparseBinaryDocValuesBaseImpl<R> {
   bytes_slice: R,
@@ -1980,13 +1981,13 @@ where
   fn binary_value(
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
-  ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  ) -> Result<&BytesRef<Vec<u8>>> {
     let length = self.length;
     let pos = disi.index_u() * length;
     self
       .bytes_slice
       .read_bytes(pos, &mut self.bytes.bytes, 0, length)?;
-    Ok(Cow::Borrowed(&self.bytes))
+    Ok(&self.bytes)
   }
 }
 pub struct SparseBinaryDocValuesBaseImpl1<R> {
@@ -2001,7 +2002,7 @@ where
   fn binary_value(
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
-  ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  ) -> Result<&BytesRef<Vec<u8>>> {
     let index = disi.index() as usize;
     let start_offset = self.addresses.get_mut(index)?;
     self.bytes.length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
@@ -2011,7 +2012,7 @@ where
       0,
       self.bytes.length,
     )?;
-    Ok(Cow::Borrowed(&self.bytes))
+    Ok(&self.bytes)
   }
 }
 
@@ -2347,7 +2348,7 @@ where
   I: IndexInput,
 {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -2365,7 +2366,7 @@ where
     Ok(v)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     match self.terms_enum.seek_ceil(key)? {
       SeekStatus::Found => {
         let v = self.terms_enum.ord()?.try_convert()?;
@@ -2474,7 +2475,7 @@ where
   R: RandomAccessInput,
 {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -2593,7 +2594,7 @@ where
   I: IndexInput,
 {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -2685,7 +2686,7 @@ where
   I: IndexInput,
 {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -2791,7 +2792,7 @@ where
   I: IndexInput,
 {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -2817,7 +2818,7 @@ where
     Ok(entry.terms_dict_size)
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self.terms_enum.seek_ceil(key)? {
       SeekStatus::Found => Ok(self.terms_enum.ord()?),
       SeekStatus::NotFound | SeekStatus::End => {
@@ -2935,7 +2936,7 @@ where
     Ok(sub)
   }
 
-  fn get_term_from_index(&mut self, index: usize) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn get_term_from_index(&mut self, index: usize) -> Result<&BytesRef<Vec<u8>>> {
     debug_assert!(
       index <= ((self.entry.terms_dict_size - 1) as usize >> self.entry.terms_dict_index_shift),
       "index {index} out of range"
@@ -2952,16 +2953,16 @@ where
       Ok::<(), LuceneError>(())
     })?;
 
-    Ok(Cow::Borrowed(&self.term))
+    Ok(&self.term)
   }
-  fn seek_terms_index(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn seek_terms_index<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<i64> {
     let mut lo: i64 = 0;
     let mut hi: i64 = (self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift;
 
     while lo <= hi {
       let mid = (lo + hi) >> 1;
       let term = self.get_term_from_index(mid as usize)?;
-      let cmp = term.as_ref().cmp(text).to_int();
+      let cmp = term.compare_to(text).to_int();
       if cmp <= 0 {
         lo = mid + 1;
       } else {
@@ -2973,8 +2974,7 @@ where
       hi < 0
         || self
           .get_term_from_index(hi as usize)?
-          .as_ref()
-          .cmp(text)
+          .compare_to(text)
           .to_int()
           <= 0,
       "hi check failed"
@@ -2983,8 +2983,7 @@ where
       hi == ((self.entry.terms_dict_size - 1) >> self.entry.terms_dict_index_shift)
         || self
           .get_term_from_index((hi + 1) as usize)?
-          .as_ref()
-          .cmp(text)
+          .compare_to(text)
           .to_int()
           > 0,
       "hi+1 check failed"
@@ -2996,7 +2995,7 @@ where
     );
     Ok(hi)
   }
-  fn get_first_term_from_block(&mut self, block: usize) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn get_first_term_from_block(&mut self, block: usize) -> Result<&BytesRef<Vec<u8>>> {
     debug_assert!(
       block
         <= (((self.entry.terms_dict_size - 1) as usize)
@@ -3014,9 +3013,9 @@ where
       Ok::<(), LuceneError>(())
     })?;
 
-    Ok(Cow::Borrowed(&self.term))
+    Ok(&self.term)
   }
-  fn seek_block(&mut self, text: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn seek_block<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<i64> {
     let index = self.seek_terms_index(text)?;
 
     if index == -1 {
@@ -3039,7 +3038,7 @@ where
     while block_lo <= block_hi {
       let block_mid = ((block_lo + block_hi) as u64 >> 1) as i64;
       let term = self.get_first_term_from_block(block_mid as usize)?;
-      let cmp = term.as_ref().cmp(text).to_int();
+      let cmp = term.compare_to(text).to_int();
       if cmp <= 0 {
         block_lo = block_mid + 1;
       } else {
@@ -3051,8 +3050,7 @@ where
       block_hi < 0
         || self
           .get_first_term_from_block(block_hi as usize)?
-          .as_ref()
-          .cmp(text)
+          .compare_to(text)
           .to_int()
           <= 0
     );
@@ -3062,8 +3060,7 @@ where
           >> Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SHIFT) as i64
         || self
           .get_first_term_from_block((block_hi + 1) as usize)?
-          .as_ref()
-          .cmp(text)
+          .compare_to(text)
           .to_int()
           > 0
     );
@@ -3140,7 +3137,12 @@ impl<I> BytesRefIterator for TermsDict<I>
 where
   I: IndexInput,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     self.ord += 1;
     if self.ord >= self.entry.terms_dict_size {
       return Ok(None);
@@ -3168,7 +3170,7 @@ where
         Ok::<(), LuceneError>(())
       })?;
     }
-    Ok(Some(Cow::Borrowed(&self.term)))
+    Ok(Some(&self.term))
   }
 }
 
@@ -3193,19 +3195,22 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<SeekStatus> {
     let block = self.seek_block(text)?;
     if block == -2 {
       // empty terms dict
@@ -3217,7 +3222,7 @@ where
     }
 
     loop {
-      let cmp = self.term.cmp(text).to_int();
+      let cmp = self.term.compare_to(text).to_int();
       if cmp == 0 {
         return Ok(SeekStatus::Found);
       } else if cmp > 0 {
@@ -3256,9 +3261,9 @@ where
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     if !self.seek_exact(term)? {
@@ -3270,8 +3275,8 @@ where
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(&self.term))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(&self.term)
   }
 
   fn ord(&self) -> Result<i64> {
@@ -3825,7 +3830,7 @@ impl<I> BinaryDocValues for Lucene90BinaryDocValuesEnum<I>
 where
   I: IndexInput,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     match self {
       Self::Dense(values) => values.binary_value(),
       Self::Sparse(values) => values.binary_value(),
@@ -3853,10 +3858,19 @@ where
   A: TermsEnum,
   B: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::Single(terms) => terms.next(),
-      Self::Multi(terms) => terms.next(),
+      Self::Single(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::Multi(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -3896,28 +3910,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::Single(terms) => terms.seek_exact(term),
       Self::Multi(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::Single(terms) => terms.prepare_seek_exact(text),
       Self::Multi(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::Single(terms) => terms.get_prepare_seek_exact_status(target),
       Self::Multi(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::Single(terms) => terms.seek_ceil(term),
       Self::Multi(terms) => terms.seek_ceil(term),
@@ -3931,9 +3948,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -3942,10 +3959,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Single(terms) => terms.term(),
-      Self::Multi(terms) => terms.term(),
+      Self::Single(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::Multi(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -4064,7 +4081,7 @@ where
   I: IndexInput,
 {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -4096,7 +4113,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
     match self {
       Self::Single(values) => values.lookup_term(key),
       Self::Multi(values) => values.lookup_term(key),

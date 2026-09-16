@@ -35,15 +35,15 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
-use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::access::ByteSource;
 use crate::core::util::attribute_source::EmptyAttributeSource;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
-use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
+use crate::core::util::bytes_ref_block_pool::{BytesRefBlockPool, BytesRefBlockPoolPosition};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
-use crate::core::util::{ByteBlockPool, SliceCopyOps, ToInt};
+use crate::core::util::{ByteBlockPool, ToInt};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -223,7 +223,7 @@ pub(crate) struct FreqProxTermsEnum {
   int_pool: Rc<IntBlockPool>,
   byte_pool: Rc<ByteBlockPool>,
   terms_pool: BytesRefBlockPool,
-  scratch: BytesRef<Vec<u8>>,
+  current_term_position: Option<BytesRefBlockPoolPosition>,
   num_terms: usize,
   ord: Option<usize>,
 }
@@ -244,7 +244,7 @@ impl FreqProxTermsEnum {
       byte_pool,
       terms_pool,
       attributes: EmptyAttributeSource,
-      scratch: BytesRef::new(),
+      current_term_position: None,
       num_terms,
       ord: Some(0),
     }
@@ -252,10 +252,31 @@ impl FreqProxTermsEnum {
   pub fn reset(&mut self) {
     self.ord = None;
   }
+
+  fn term_ref(&self) -> BytesRef<&[u8]> {
+    let Some(position) = self.current_term_position.as_ref() else {
+      return BytesRef {
+        bytes: &[],
+        offset: 0,
+        length: 0,
+      };
+    };
+    let block = self.byte_pool.as_ref().get_buffer(position.block_index);
+    BytesRef {
+      bytes: block.as_slice(),
+      offset: position.offset,
+      length: position.length,
+    }
+  }
 }
 
 impl BytesRefIterator for FreqProxTermsEnum {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRef<&'a [u8]>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     let ord = self.ord.map_or(0, |ord| ord + 1);
     self.ord = Some(ord);
     if ord >= self.num_terms {
@@ -276,16 +297,9 @@ impl BytesRefIterator for FreqProxTermsEnum {
     let position = self
       .terms_pool
       .fill_bytes_ref(text_start, self.byte_pool.as_ref());
-    let block = self.byte_pool.as_ref().get_buffer(position.block_index);
-    ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
-    self.scratch.bytes.copy_from(
-      &block[position.offset..position.offset + position.length],
-      0,
-    );
-    self.scratch.offset = 0;
-    self.scratch.length = position.length;
+    self.current_term_position = Some(position);
 
-    Ok(Some(Cow::Borrowed(&self.scratch)))
+    Ok(Some(self.term_ref()))
   }
 }
 
@@ -307,19 +321,22 @@ impl TermsEnum for FreqProxTermsEnum {
     Ok(&mut self.attributes)
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<SeekStatus> {
     let postings_array_enum = self.terms.base.postings_array();
     let Some(postings_array) = postings_array_enum else {
       return Err(LuceneError::illegal_state("Postings array is none"));
@@ -346,7 +363,7 @@ impl TermsEnum for FreqProxTermsEnum {
         .fill_bytes_ref(text_start, self.byte_pool.as_ref());
       let block = self.byte_pool.as_ref().get_buffer(position.block_index);
       let cmp = block[position.offset..position.offset + position.length]
-        .cmp(&text.bytes[text.offset..text.offset + text.length])
+        .cmp(text.as_byte_slice())
         .to_int();
 
       if cmp < 0 {
@@ -354,34 +371,20 @@ impl TermsEnum for FreqProxTermsEnum {
       } else if cmp > 0 {
         hi = mid - 1;
       } else {
-        // Keep only the final term; intermediate probes borrow the pool directly.
-        ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
-        self.scratch.bytes.copy_from(
-          &block[position.offset..position.offset + position.length],
-          0,
-        );
-        self.scratch.offset = 0;
-        self.scratch.length = position.length;
+        self.current_term_position = Some(position);
         self.ord = Some(mid_index);
-        debug_assert_eq!((*self.term()?).cmp(text).to_int(), 0);
+        debug_assert_eq!(self.term()?.compare_to(text).to_int(), 0);
         return Ok(SeekStatus::Found);
       }
       last_position = Some(position);
     }
 
-    // Preserve the last probe at End, and the previous scratch for an empty dictionary.
+    // Preserve the last probe at End, and the previous term for an empty dictionary.
     let lo_index = lo as usize;
     if lo_index >= self.num_terms
       && let Some(position) = last_position
     {
-      let block = self.byte_pool.as_ref().get_buffer(position.block_index);
-      ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
-      self.scratch.bytes.copy_from(
-        &block[position.offset..position.offset + position.length],
-        0,
-      );
-      self.scratch.offset = 0;
-      self.scratch.length = position.length;
+      self.current_term_position = Some(position);
     }
 
     // not found
@@ -394,15 +397,8 @@ impl TermsEnum for FreqProxTermsEnum {
       let position = self
         .terms_pool
         .fill_bytes_ref(text_start, self.byte_pool.as_ref());
-      let block = self.byte_pool.as_ref().get_buffer(position.block_index);
-      ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
-      self.scratch.bytes.copy_from(
-        &block[position.offset..position.offset + position.length],
-        0,
-      );
-      self.scratch.offset = 0;
-      self.scratch.length = position.length;
-      debug_assert!((*self.term()?).cmp(text).to_int() > 0);
+      self.current_term_position = Some(position);
+      debug_assert!(self.term()?.compare_to(text).to_int() > 0);
       Ok(SeekStatus::NotFound)
     }
   }
@@ -426,21 +422,14 @@ impl TermsEnum for FreqProxTermsEnum {
     let position = self
       .terms_pool
       .fill_bytes_ref(text_start, self.byte_pool.as_ref());
-    let block = self.byte_pool.as_ref().get_buffer(position.block_index);
-    ArrayUtil::grow_no_copy(&mut self.scratch.bytes, position.length)?;
-    self.scratch.bytes.copy_from(
-      &block[position.offset..position.offset + position.length],
-      0,
-    );
-    self.scratch.offset = 0;
-    self.scratch.length = position.length;
+    self.current_term_position = Some(position);
 
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     if !self.seek_exact(term)? {
@@ -452,8 +441,8 @@ impl TermsEnum for FreqProxTermsEnum {
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(&self.scratch))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(self.term_ref())
   }
 
   fn ord(&self) -> Result<i64> {

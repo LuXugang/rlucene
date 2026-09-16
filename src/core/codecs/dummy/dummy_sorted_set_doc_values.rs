@@ -20,8 +20,8 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::util::access::ByteSource;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 pub struct DummySortedSetDocValues;
 
@@ -61,7 +61,7 @@ impl DocIdSetIterator for DummySortedSetDocValues {
 
 impl SortedSetDocValues for DummySortedSetDocValues {
   type OrdValue<'a>
-    = Cow<'a, BytesRef<Vec<u8>>>
+    = &'a BytesRef<Vec<u8>>
   where
     Self: 'a;
 
@@ -81,7 +81,7 @@ impl SortedSetDocValues for DummySortedSetDocValues {
     dummy_unreachable!()
   }
 
-  fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i64> {
+  fn lookup_term<BS: ByteSource>(&mut self, _key: &BytesRef<BS>) -> Result<i64> {
     dummy_unreachable!()
   }
 

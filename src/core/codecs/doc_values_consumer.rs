@@ -50,10 +50,11 @@ use crate::core::index::sorted_set_doc_values_writer::{
   SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2, SortedSetDocValuesWithEmpty,
 };
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
+use crate::core::index::{BytesRef, BytesRefValue, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -62,7 +63,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
-use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -685,7 +685,7 @@ where
   B: BinaryDocValues,
   DM: DocMap,
 {
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     match self.current {
       Some(ref current) => {
         let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
@@ -1240,7 +1240,12 @@ impl<TE> BytesRefIterator for MergedTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     self.ord += 1;
     if self.ord >= self.value_count {
       return Ok(None);
@@ -1258,15 +1263,8 @@ where
         return if end {
           Ok(None)
         } else {
-          match sub.term()? {
-            Cow::Borrowed(term) => {
-              self.term.bytes.clone_from(&term.bytes);
-              self.term.offset = term.offset;
-              self.term.length = term.length;
-            },
-            Cow::Owned(term) => self.term = term,
-          }
-          Ok(Some(Cow::Borrowed(&self.term)))
+          self.term = sub.term()?.into_owned();
+          Ok(Some(&self.term))
         };
       }
     }
@@ -1294,19 +1292,22 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -1314,16 +1315,16 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(&self.term))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(&self.term)
   }
 
   fn ord(&self) -> Result<i64> {

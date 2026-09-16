@@ -1074,7 +1074,7 @@ fn test_random_finite() -> Result<()> {
     match random.random_range(0..15) {
       0 => {
         let string = get_random_string(&mut random);
-        let prefix = new_bytes_ref_from_string(&mut random, &string)?;
+        let prefix: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, &string)?;
         let mut new_terms = BTreeSet::new();
         let mut new_term = BytesRefBuilder::new();
         for term in &terms {

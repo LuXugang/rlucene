@@ -97,7 +97,7 @@ fn test_non_flex() -> Result<()> {
 
     assert_eq!(
       SeekStatus::End,
-      terms_enum.seek_ceil(&BytesRef::from_string("abc"))?
+      terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("abc"))?
     );
   }
   writer.close()?;

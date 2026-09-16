@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::core::index::BytesRef;
@@ -171,7 +170,7 @@ impl AbstractIteratorBase for AbstractIteratorNumeric {
     Ok(self.value)
   }
 
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     Err(LuceneError::unsupported_operation(
       "NumericDocValuesFieldUpdatesIterator does not support binary_value",
     ))
@@ -188,7 +187,7 @@ impl SingleValueNumericDocValuesFieldUpdates {
   }
 }
 impl SingleValueDocValuesFieldUpdatesBase for SingleValueNumericDocValuesFieldUpdates {
-  fn binary_value(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
     Err(LuceneError::unreachable(
       "SingleValueNumericDocValuesFieldUpdates does not support binary_value",
     ))

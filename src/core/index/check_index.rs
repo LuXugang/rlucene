@@ -1969,23 +1969,24 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
             break;
           };
           debug_assert!(term.is_valid()?);
+          let term = term.as_bytes_ref();
 
           // make sure terms arrive in order according to
           // the comp
           match &mut last_term {
             Some(builder) => {
-              if builder.get_bytes_ref() >= term.as_ref() {
+              if builder.get_bytes_ref().as_bytes() >= term.as_bytes() {
                 return Err(LuceneError::corrupt_index(format!(
                   "terms out of order: lastTerm={} term={term}",
                   builder.get_bytes_ref()
                 )));
               }
-              builder.copy_bytes_from_ref(term.as_ref())?;
+              builder.copy_bytes_from_ref(&term)?;
               builder.get_bytes_ref()
             },
             slot @ None => {
               let mut builder = BytesRefBuilder::new();
-              builder.copy_bytes_from_ref(term.as_ref())?;
+              builder.copy_bytes_from_ref(&term)?;
               slot.insert(builder).get_bytes_ref()
             },
           }
@@ -2614,12 +2615,13 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
             )));
           }
           let current_term = terms_enum.term()?;
-          if current_term.as_ref() != last_term.get_bytes_ref() {
+          if current_term.as_bytes() != last_term.get_bytes_ref().as_bytes() {
             return Err(LuceneError::corrupt_index(format!(
               "seek to last term {} returned FOUND but seeked to the wrong term {current_term}",
               last_term.get_bytes_ref()
             )));
           }
+          drop(current_term);
 
           let expected_doc_freq = terms_enum.doc_freq()?;
           let mut docs = terms_enum.postings_with_flags(None, NONE as i32)?;
@@ -2675,12 +2677,13 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                 )));
               }
               let current_term = terms_enum.term()?;
-              if current_term.as_ref() != &seek_terms[i] {
+              if current_term.as_bytes() != seek_terms[i].as_bytes() {
                 return Err(LuceneError::corrupt_index(format!(
                   "seek to existing term {} returned FOUND but seeked to the wrong term {current_term}",
                   seek_terms[i]
                 )));
               }
+              drop(current_term);
 
               postings = Some(terms_enum.postings_with_flags(postings.take(), NONE as i32)?);
             }
@@ -2793,13 +2796,15 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         let Some(current_term) = current_term else {
           break;
         };
-        if run_automaton.run(
-          &current_term.bytes,
-          current_term.offset,
-          current_term.length,
-        )? {
+        let current_term = current_term.as_bytes_ref();
+        if run_automaton.run(current_term.bytes, current_term.offset, current_term.length)? {
           let filtered_term = filtered_terms.next()?;
-          if filtered_term.as_deref() != Some(current_term.as_ref()) {
+          if filtered_term
+            .as_ref()
+            .map(BytesRefValue::as_bytes_ref)
+            .as_ref()
+            != Some(&current_term)
+          {
             return Err(LuceneError::corrupt_index(format!(
               "Expected next filtered term: {current_term}, but got {filtered_term:?}"
             )));
@@ -4528,8 +4533,11 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
               let has_prox = terms.has_offsets() || terms.has_positions();
               let mut seek_exact_counter = 0;
-              while let Some(term) = terms_enum.next()? {
-                let term = term.into_owned();
+              loop {
+                let term = match terms_enum.next()? {
+                  Some(term) => term.into_owned(),
+                  None => break,
+                };
 
                 // This is the term vectors:
                 postings = Some(terms_enum.postings_with_flags(postings.take(), ALL as i32)?);

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::core::index::doc_values_field_updates::{
@@ -106,7 +105,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     T: DocValuesFieldIterator,
   {
     let value = iterator.binary_value()?;
-    self.add_byte_ref(doc_id, value.as_ref(), index)
+    self.add_byte_ref(doc_id, value, index)
   }
 
   fn iterator(
@@ -206,9 +205,9 @@ impl AbstractIteratorBase for AbstractIteratorBinary {
     ))
   }
 
-  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
     self.values.offset = self.offset;
     self.values.length = self.length;
-    Ok(Cow::Borrowed(&self.values))
+    Ok(&self.values)
   }
 }

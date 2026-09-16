@@ -122,7 +122,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     assert_eq!(NO_MORE_DOCS, skipper.min_doc_id_with_level(0));
 
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
@@ -182,7 +182,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     assert_eq!(NO_MORE_DOCS, skipper.min_doc_id_with_level(0));
 
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
@@ -343,7 +343,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     assert_eq!(NO_MORE_DOCS, skipper.min_doc_id_with_level(0));
 
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
@@ -402,7 +402,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     assert_eq!(NO_MORE_DOCS, skipper.min_doc_id_with_level(0));
 
     let mut terms_enum = dv.terms_enum()?;
-    let lucene = new_bytes_ref_from_string(random, "lucene")?;
+    let lucene = new_bytes_ref_from_string::<_, Vec<u8>>(random, "lucene")?;
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
@@ -879,15 +879,9 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       .get_binary_doc_values("binary")?
       .expect("binary doc values should exist");
     assert_eq!(0, binary.next_doc()?);
-    assert_eq!(
-      &BytesRef::from_string("lucene"),
-      binary.binary_value()?.as_ref()
-    );
+    assert_eq!(&BytesRef::from_string("lucene"), binary.binary_value()?);
     assert_eq!(1, binary.next_doc()?);
-    assert_eq!(
-      &BytesRef::from_string("lucene"),
-      binary.binary_value()?.as_ref()
-    );
+    assert_eq!(&BytesRef::from_string("lucene"), binary.binary_value()?);
     assert_eq!(NO_MORE_DOCS, binary.next_doc()?);
 
     let mut numeric = leaf

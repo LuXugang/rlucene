@@ -355,13 +355,18 @@ impl<'a> BinaryPointSetBytesRefIterator<'a> {
 }
 
 impl BytesRefIterator for BinaryPointSetBytesRefIterator<'_> {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if self.upto == self.sorted_values.len() {
       Ok(None)
     } else {
       self.encoded.copy_from_slice(self.sorted_values[self.upto]);
       self.upto += 1;
-      Ok(Some(Cow::Borrowed(&self.encoded)))
+      Ok(Some(&self.encoded))
     }
   }
 }

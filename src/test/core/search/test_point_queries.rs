@@ -3462,6 +3462,11 @@ struct WrongLengthIter {
 }
 
 impl BytesRefIterator for WrongLengthIter {
+  type Value<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     self.value.bytes = vec![0u8; 3];
     self.value.offset = 0;
@@ -3487,6 +3492,11 @@ impl MultiDimIntSetBytesRefIterator {
 }
 
 impl BytesRefIterator for MultiDimIntSetBytesRefIterator {
+  type Value<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if self.upto >= self.packed_values.len() {
       return Ok(None);

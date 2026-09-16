@@ -52,6 +52,7 @@ use crate::core::store::{
   ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IOContext, IndexInput, ReadAdvice,
 };
 use crate::core::util::IOUtils;
+use crate::core::util::access::ByteSource;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -67,7 +68,6 @@ use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, ReaderIterator};
 use crate::core::util::{ToInt, TryIntoInt};
-use std::borrow::Cow;
 use std::io::Cursor;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -1395,7 +1395,12 @@ impl TVTermsEnum {
 }
 
 impl BytesRefIterator for TVTermsEnum {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if self
       .ord
       .map_or(self.num_terms == 0, |v| v + 1 == self.num_terms)
@@ -1422,7 +1427,7 @@ impl BytesRefIterator for TVTermsEnum {
       .input
       .read_bytes(&mut self.term.bytes, prefix_len, suffix_len)?;
     self.ord = Some(ord);
-    Ok(Option::from(Cow::Borrowed(&self.term)))
+    Ok(Some(&self.term))
   }
 }
 
@@ -1444,23 +1449,26 @@ impl TermsEnum for TVTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<SeekStatus> {
     if let Some(ord) = self.ord
       && ord < self.num_terms
     {
-      let cmp = self.term.cmp(text).to_int();
+      let cmp = self.term.compare_to(text).to_int();
       if cmp == 0 {
         return Ok(SeekStatus::Found);
       } else if cmp > 0 {
@@ -1474,7 +1482,7 @@ impl TermsEnum for TVTermsEnum {
       match term {
         None => return Ok(SeekStatus::End),
         Some(t) => {
-          let cmp = (*t).cmp(text).to_int();
+          let cmp = (*t).compare_to(text).to_int();
           if cmp > 0 {
             return Ok(SeekStatus::NotFound);
           } else if cmp == 0 {
@@ -1489,9 +1497,9 @@ impl TermsEnum for TVTermsEnum {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     if !self.seek_exact(term)? {
@@ -1503,8 +1511,8 @@ impl TermsEnum for TVTermsEnum {
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(&self.term))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(&self.term)
   }
 
   fn ord(&self) -> Result<i64> {

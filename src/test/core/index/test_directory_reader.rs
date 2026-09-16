@@ -28,6 +28,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 
+use crate::core::index::BytesRefValue;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_deletion_policy::IndexDeletionPolicyEnum;
@@ -160,16 +161,16 @@ fn test_multi_term_docs() -> Result<()> {
   let mut te2 = terms2.iterator()?;
   assert_eq!(
     SeekStatus::Found,
-    te2.seek_ceil(&BytesRef::from_string("wow"))?
+    te2.seek_ceil(&BytesRef::<Vec<u8>>::from_string("wow"))?
   );
-  let term = te2.term()?;
+  let term = te2.term()?.into_owned();
   let mut td = TestUtil::docs_with_reader(&mut random, &mr2, "body", &term, None, 0)?.unwrap();
 
   let terms3 = multi_terms::get_terms(&mr3, "body")?.unwrap();
   let mut te3 = terms3.iterator()?;
   assert_eq!(
     SeekStatus::Found,
-    te3.seek_ceil(&BytesRef::from_string("wow"))?
+    te3.seek_ceil(&BytesRef::<Vec<u8>>::from_string("wow"))?
   );
   td = TestUtil::docs(&mut random, &mut te3, Some(td), 0)?;
 

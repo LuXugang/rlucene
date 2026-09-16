@@ -123,7 +123,13 @@ fn test_term_docs_iterator() -> Result<()> {
 
     while let Some((_, ref_)) = values.next()? {
       let ref_ = ref_.into_cow();
-      let mut doc_id_set_iterator = iterator.next_term("field", &ref_)?;
+      let bytes = ref_.as_byte_slice();
+      let borrowed_ref = BytesRef {
+        bytes,
+        offset: 0,
+        length: bytes.len(),
+      };
+      let mut doc_id_set_iterator = iterator.next_term("field", &borrowed_ref)?;
 
       if !non_matches {
         assert!(doc_id_set_iterator.is_some());

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
@@ -30,6 +29,7 @@ use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
@@ -55,13 +55,13 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::Weight;
+use crate::core::util::access::ByteSource;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -624,8 +624,15 @@ impl<S> BytesRefIterator for MultiTermQueryDocValuesTermsEnum<S>
 where
   S: SortedSetDocValues,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum.next())
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
+    dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum
+      .next()
+      .map(|value| value.map(BytesRefValue::into_value)))
   }
 }
 
@@ -650,20 +657,23 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<bool> {
     dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum.seek_exact(text))
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum.prepare_seek_exact(text))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum
       .get_prepare_seek_exact_status(target))
   }
 
-  fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<SeekStatus> {
     dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum.seek_ceil(text))
   }
 
@@ -671,17 +681,19 @@ where
     dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum.seek_exact_with_ord(ord))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &crate::core::codecs::block_term_state::TermStateEnum,
   ) -> Result<()> {
     dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum
       .seek_exact_with_state(term, state))
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum.term())
+  fn term(&self) -> Result<Self::Value<'_>> {
+    dispatch_doc_values_terms_enum!(self, |terms_enum| terms_enum
+      .term()
+      .map(BytesRefValue::into_value))
   }
 
   fn ord(&self) -> Result<i64> {

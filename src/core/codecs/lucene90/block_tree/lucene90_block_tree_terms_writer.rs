@@ -35,7 +35,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::index::{BytesRef, BytesRefBuilder, IndexFileNames};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::{ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexOutput};
@@ -413,11 +413,11 @@ where
             &mut self.terms_out,
           )?;
           let mut reuse = None;
-          while let Some(byte_ref) = terms_enum.next()? {
-            // due to borrow check, we have to clone here early for init PendingTerm
-            let term = BytesRef::from_bytes(
-              byte_ref.bytes[byte_ref.offset..byte_ref.offset + byte_ref.length].to_vec(),
-            );
+          loop {
+            let term = match terms_enum.next()? {
+              Some(byte_ref) => BytesRef::from_bytes(byte_ref.as_bytes().to_vec()),
+              None => break,
+            };
             reuse = terms_writer.write(term, &mut terms_enum, norms, reuse)?;
           }
           terms_writer.finish(&mut self.fields, &mut self.index_out)?;

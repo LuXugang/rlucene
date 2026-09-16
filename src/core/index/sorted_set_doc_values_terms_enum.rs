@@ -22,10 +22,10 @@ use crate::core::index::ord_term_state::OrdTermState;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::access::ByteSource;
 use crate::core::util::attribute_source::EmptyAttributeSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::borrow::Cow;
 
 /// Implements a [`TermsEnum `]wrapping a provided [`SortedSetDocValues`].
 pub struct SortedSetDocValuesTermsEnum<S> {
@@ -49,7 +49,12 @@ impl<S> BytesRefIterator for SortedSetDocValuesTermsEnum<S>
 where
   S: SortedSetDocValues,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     self.current_ord += 1;
     if self.current_ord >= self.values.get_value_count()? {
       return Ok(None);
@@ -59,7 +64,7 @@ where
     self
       .scratch
       .copy_bytes_from_vec(term.bytes, term.offset, term.length)?;
-    Ok(Some(Cow::Borrowed(self.scratch.get_bytes_ref())))
+    Ok(Some(self.scratch.get_bytes_ref()))
   }
 }
 
@@ -84,7 +89,7 @@ where
     Ok(&mut self.attributes)
   }
 
-  fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<bool> {
     let ord = self.values.lookup_term(text)?;
     if ord >= 0 {
       self.current_ord = ord;
@@ -95,15 +100,18 @@ where
     }
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     self.seek_exact(target)
   }
 
-  fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<SeekStatus> {
     let ord = self.values.lookup_term(text)?;
     if ord >= 0 {
       self.current_ord = ord;
@@ -140,9 +148,9 @@ where
     Ok(())
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     debug_assert!(matches!(
@@ -152,8 +160,8 @@ where
     self.seek_exact_with_ord(state.ord()?)
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    Ok(Cow::Borrowed(self.scratch.get_bytes_ref()))
+  fn term(&self) -> Result<Self::Value<'_>> {
+    Ok(self.scratch.get_bytes_ref())
   }
 
   fn ord(&self) -> Result<i64> {

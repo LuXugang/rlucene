@@ -28,7 +28,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
 #[cfg(test)]
 use crate::test_framework::core::analysis::base_token_stream_test_case::CheckClearAttributesAttributeImpl;
-use std::borrow::Cow;
 #[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::Display;
@@ -174,7 +173,7 @@ impl AttributeSource for BinaryTokenStreamAttributeImpl {
     self.packed_token.set_payload(payload)
   }
 
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     AttributeSource::get_bytes_ref(&mut self.binary)
   }
 

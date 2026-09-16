@@ -36,9 +36,9 @@ use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 
 use crate::core::document::string_field::StringField;
-use crate::core::index::BytesRef;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::no_merge_policy::NoMergePolicy;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::dummy::dummy_weight::DummyWeight;
@@ -878,7 +878,7 @@ fn test_realistic_concurrent_minimum_score() -> Result<()> {
   let mut terms_enum = terms.iterator()?;
   while let Some(term) = terms_enum.next()? {
     if random.random::<f64>() <= chance {
-      let term_bytes = BytesRef::deep_copy_of(&*term)?;
+      let term_bytes = term.into_owned();
       let query: Query = TermQuery::new(Term::new("body", term_bytes)).into();
 
       let tdc = do_concurrent_search_with_threshold(

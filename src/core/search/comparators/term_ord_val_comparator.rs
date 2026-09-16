@@ -36,6 +36,7 @@ use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
 use crate::core::util::ToInt;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -717,17 +718,18 @@ where
       self.postings.push_back(min_ord);
 
       for ord in (min_ord + 1)..=max_ord {
-        let next = self.terms.next()?;
-        let next = match next {
-          Some(term) => term,
-          None => {
-            return Err(LuceneError::illegal_state(format!(
-              "Terms have more than {ord} unique terms while doc values have exactly {ord} terms"
-            )));
-          },
+        let expected_ord = {
+          let next = self.terms.next()?;
+          let next = match next {
+            Some(term) => term,
+            None => {
+              return Err(LuceneError::illegal_state(format!(
+                "Terms have more than {ord} unique terms while doc values have exactly {ord} terms"
+              )));
+            },
+          };
+          doc_values.lookup_term(&next.as_bytes_ref())?
         };
-
-        let expected_ord = doc_values.lookup_term(next.as_ref())?;
         debug_assert!(
           expected_ord == ord,
           "docValuesTerms not aligned with terms index"
@@ -915,10 +917,19 @@ where
   LR::SortedDocValues: 'a,
   LR::SortedSetDocValues: 'a,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'b>
+    = BytesRefValueEnum<'b>
+  where
+    Self: 'b;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     match self {
-      Self::A(terms) => terms.next(),
-      Self::B(terms) => terms.next(),
+      Self::A(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
+      Self::B(terms) => terms
+        .next()
+        .map(|value| value.map(BytesRefValue::into_value)),
     }
   }
 
@@ -959,28 +970,31 @@ where
     }
   }
 
-  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<bool> {
     match self {
       Self::A(terms) => terms.seek_exact(term),
       Self::B(terms) => terms.seek_exact(term),
     }
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, text: &BytesRef<BS>) -> Result<Option<()>> {
     match self {
       Self::A(terms) => terms.prepare_seek_exact(text),
       Self::B(terms) => terms.prepare_seek_exact(text),
     }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self {
       Self::A(terms) => terms.get_prepare_seek_exact_status(target),
       Self::B(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
-  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, term: &BytesRef<BS>) -> Result<SeekStatus> {
     match self {
       Self::A(terms) => terms.seek_ceil(term),
       Self::B(terms) => terms.seek_ceil(term),
@@ -994,9 +1008,9 @@ where
     }
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    term: &BytesRef<BS>,
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
@@ -1005,10 +1019,10 @@ where
     }
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     match self {
-      Self::A(terms) => terms.term(),
-      Self::B(terms) => terms.term(),
+      Self::A(terms) => terms.term().map(BytesRefValue::into_value),
+      Self::B(terms) => terms.term().map(BytesRefValue::into_value),
     }
   }
 
@@ -1100,7 +1114,7 @@ where
     }
   }
 
-  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i32> {
     match self {
       Self::A(values) => values.lookup_term(key),
       Self::B(values) => values.lookup_term(key),

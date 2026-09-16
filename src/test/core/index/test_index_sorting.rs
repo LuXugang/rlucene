@@ -3650,7 +3650,7 @@ fn test_index_sort_with_sparse_field() -> Result<()> {
       assert_eq!((127 - doc_id) as i64, sparse_values.long_value()?);
       assert_eq!(
         &BytesRef::from_string(&(127 - doc_id).to_string()),
-        sparse_binary_values.binary_value()?.as_ref()
+        sparse_binary_values.binary_value()?
       );
     } else {
       assert!(!sparse_binary_values.advance_exact(doc_id)?);

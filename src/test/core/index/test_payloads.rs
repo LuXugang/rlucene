@@ -868,7 +868,7 @@ fn test_mixup_docs() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let terms = get_terms(&reader, "field")?.unwrap();
   let mut te = terms.iterator()?;
-  assert!(te.seek_exact(&BytesRef::from_string("withPayload"))?);
+  assert!(te.seek_exact(&BytesRef::<Vec<u8>>::from_string("withPayload"))?);
   let mut de = te.postings_with_flags(None, PAYLOADS as i32)?;
   de.next_doc()?;
   de.next_position()?;

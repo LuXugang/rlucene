@@ -418,7 +418,7 @@ fn test_sort_on_add_indices_random() -> Result<()> {
     assert!(binary_sorted_dv.advance_exact(id_next)?);
     assert_eq!(id_next, values_iterator.advance(id_next)?);
     let expected = BytesRef::from_string(&ids.long_value()?.to_string());
-    assert_eq!(&expected, binary_dv.binary_value()?.as_ref());
+    assert_eq!(&expected, binary_dv.binary_value()?);
     let ord = binary_sorted_dv.ord_value()?;
     assert_eq!(
       expected.as_bytes(),
@@ -446,10 +446,12 @@ fn test_sort_on_add_indices_random() -> Result<()> {
       .get_field_terms(id_next, "term_vectors")?
       .expect("term vectors must exist");
     let mut terms_enum = terms.iterator()?;
-    assert!(terms_enum.seek_exact(&BytesRef::from_string(&format!(
-      "test{}",
-      ids.long_value()?
-    )))?);
+    assert!(
+      terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string(&format!(
+        "test{}",
+        ids.long_value()?
+      )))?
+    );
     assert_eq!(
       ids.long_value()?.to_string(),
       stored_fields

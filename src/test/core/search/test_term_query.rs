@@ -50,6 +50,7 @@ use crate::core::search::similarities_impl::similarities::{
 };
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_statistics::TermStatistics;
+use crate::core::util::access::ByteSource;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
@@ -850,7 +851,12 @@ impl<TE> BytesRefIterator for NoSeekTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = TE::Value<'a>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     self.in_.next()
   }
 }
@@ -876,19 +882,22 @@ where
     self.in_.attributes_mut()
   }
 
-  fn seek_exact(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<bool> {
     panic!("no seek")
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, _text: &BytesRef<BS>) -> Result<Option<()>> {
     panic!("no seek")
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    _target: &BytesRef<BS>,
+  ) -> Result<bool> {
     panic!("no seek")
   }
 
-  fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, _term: &BytesRef<BS>) -> Result<SeekStatus> {
     panic!("no seek")
   }
 
@@ -896,15 +905,15 @@ where
     panic!("no seek")
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<BS>,
     _state: &TermStateEnum,
   ) -> Result<()> {
     panic!("no seek")
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     self.in_.term()
   }
 

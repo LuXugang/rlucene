@@ -19,6 +19,7 @@ use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -144,10 +145,9 @@ where
   let mut seen_terms = HashSet::new();
 
   while let Some(term) = terms_enum.next()? {
-    assert!(last < *term);
-    last = BytesRef::deep_copy_of(&term)?;
-
+    assert!(last.as_byte_slice() < term.as_bytes());
     let s = term.utf8_to_string()?;
+    last = term.into_owned();
     assert!(
       all_terms.contains(&s),
       "term {} was not added to index (count={})",
@@ -162,7 +162,7 @@ where
   }
 
   for term in &seen_terms {
-    let tr = BytesRef::from_string(term);
+    let tr = BytesRef::<Vec<u8>>::from_string(term);
     assert_eq!(
       SeekStatus::Found,
       terms_enum.seek_ceil(&tr)?,

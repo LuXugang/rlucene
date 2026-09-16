@@ -20,7 +20,6 @@ use crate::core::document::float_point::FloatPointInSetQuery;
 use crate::core::document::inet_address_point::InetAddressPointInSetQuery;
 use crate::core::document::int_point::IntPointInSetQuery;
 use crate::core::document::long_point::LongPointInSetQuery;
-use crate::core::index::BytesRef;
 use crate::core::index::bytes_ref_builder::BytesRefBuilder;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -32,6 +31,7 @@ use crate::core::index::point_values::{
 use crate::core::index::prefix_coded_terms::{
   PrefixCodedTermsArc, PrefixCodedTermsBuilder, TermIteratorArc,
 };
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::DocIdSet;
@@ -113,7 +113,7 @@ impl PointInSetQuery {
     let mut previous: Option<BytesRefBuilder<Vec<u8>>> = None;
 
     while let Some(current) = packed_points.next()? {
-      let current = current.as_ref();
+      let current = current.as_bytes_ref();
       let packed_length = num_dims * bytes_per_dim;
       if current.length != packed_length {
         return Err(LuceneError::illegal_argument(format!(
@@ -124,7 +124,7 @@ impl PointInSetQuery {
 
       if let Some(prev) = previous.as_ref() {
         let prev = prev.bytes();
-        match prev.cmp(current) {
+        match prev.as_bytes().cmp(current.as_bytes()) {
           std::cmp::Ordering::Equal => continue,
           std::cmp::Ordering::Greater => {
             return Err(LuceneError::illegal_argument(format!(
@@ -136,9 +136,9 @@ impl PointInSetQuery {
         }
       }
 
-      builder.add(field.as_str(), current)?;
+      builder.add(field.as_str(), &current)?;
       let previous_buffer = previous.get_or_insert_with(BytesRefBuilder::new);
-      previous_buffer.copy_bytes_from_ref(current)?;
+      previous_buffer.copy_bytes_from_ref(&current)?;
       previous_buffer.bytes_mut().bytes.truncate(packed_length);
     }
 
@@ -200,7 +200,7 @@ impl PointInSetQuery {
         sb.push(' ');
       }
       first = false;
-      let value = point.as_ref();
+      let value = point;
       sb.push_str(
         &self
           .sub
@@ -533,7 +533,6 @@ where
     let mut visitor = SinglePointVisitor::new(result, self.num_dims, self.bytes_per_dim);
     let mut iterator = self.sorted_packed_points.iterator()?;
     while let Some(point) = iterator.next()? {
-      let point = point.as_ref();
       visitor.set_point(&point.bytes[point.offset..point.offset + point.length]);
       self.values.intersect(&mut visitor)?;
     }
@@ -564,7 +563,6 @@ where
       let mut cost = 0;
       let mut iterator = self.sorted_packed_points.iterator()?;
       while let Some(point) = iterator.next()? {
-        let point = point.as_ref();
         visitor.set_point(&point.bytes[point.offset..point.offset + point.length]);
         cost += self.values.estimate_doc_count(&visitor)?;
       }
@@ -812,7 +810,6 @@ fn packed_points_as_vec(sorted_packed_points: &PrefixCodedTermsArc) -> Result<Ve
   let mut iterator = sorted_packed_points.iterator()?;
   let mut points = Vec::with_capacity(sorted_packed_points.size().try_convert()?);
   while let Some(point) = iterator.next()? {
-    let point = point.as_ref();
     points.push(point.bytes[point.offset..point.offset + point.length].to_vec());
   }
   Ok(points)

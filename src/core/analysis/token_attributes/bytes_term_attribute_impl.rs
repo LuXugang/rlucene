@@ -26,7 +26,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::base_token_stream_test_case::{
   CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
 };
-use std::borrow::Cow;
 #[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -103,8 +102,8 @@ impl AttributeImpl for BytesTermAttributeImpl {
 }
 
 impl TermToBytesRefAttribute for BytesTermAttributeImpl {
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Ok(self.bytes.as_ref().map(Cow::Borrowed))
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    Ok(self.bytes.as_ref())
   }
 }
 
@@ -138,7 +137,7 @@ impl AttributeSource for BytesTermAttributeImpl {
     BytesTermAttribute::set_bytes_ref(self, bytes)
   }
 
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     TermToBytesRefAttribute::get_bytes_ref(self)
   }
 

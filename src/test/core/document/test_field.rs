@@ -1272,7 +1272,7 @@ fn test_binary_string_field() -> Result<()> {
     ));
     field.set_bytes_value("baz")?;
     assert_eq!(
-      field.binary_value()?.as_ref().unwrap().as_ref(),
+      field.binary_value()?.unwrap().as_ref(),
       &BytesRef::from_string("baz")
     );
     field.set_bytes_value("baz")?;
@@ -1310,7 +1310,7 @@ fn test_binary_string_field() -> Result<()> {
     ));
 
     assert_eq!(
-      field.binary_value()?.as_ref().unwrap().as_ref(),
+      field.binary_value()?.unwrap().as_ref(),
       &BytesRef::from_string("baz")
     );
 
@@ -1497,7 +1497,7 @@ fn test_stored_field_bytes() -> Result<()> {
     ));
 
     assert_eq!(
-      field.binary_value()?.as_ref().unwrap().as_ref(),
+      field.binary_value()?.unwrap().as_ref(),
       &new_bytes_ref_from_string(&mut random, "baz")?
     );
   }
@@ -1776,7 +1776,7 @@ fn test_indexed_binary_field() -> Result<()> {
   let mut doc = Document::new();
   let br = new_bytes_ref_from_bytes(&mut random, &[0u8; 5])?;
   let field = StringField::from_bytes_ref("binary", br.clone(), Store::Yes)?;
-  assert_eq!(field.binary_value()?.as_ref().unwrap().as_ref(), &br);
+  assert_eq!(field.binary_value()?.unwrap().as_ref(), &br);
 
   doc.add(field);
   writer.add_document(&mut random, doc)?;
@@ -1790,7 +1790,7 @@ fn test_indexed_binary_field() -> Result<()> {
     .stored_fields()?
     .document(hits.score_docs()[0].doc)?;
   let stored_field = stored_doc.get_field("binary").unwrap();
-  assert_eq!(stored_field.binary_value()?.as_ref().unwrap().as_ref(), &br);
+  assert_eq!(stored_field.binary_value()?.unwrap().as_ref(), &br);
   writer.close(&mut random)?;
   Ok(())
 }

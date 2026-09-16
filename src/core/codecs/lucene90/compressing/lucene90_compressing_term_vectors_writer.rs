@@ -49,7 +49,7 @@ use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{SliceCopyOps, StringHelper, TryIntoInt};
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::LazyLock;
 
@@ -373,16 +373,15 @@ where
   /// Returns a sorted array containing unique field numbers
   pub(crate) fn flush_field_nums(&mut self) -> Result<Vec<i32>> {
     // 1. Collect unique field numbers
-    let mut field_nums_set =
-      HashSet::with_capacity(self.pending_docs.front().map_or(0, |doc| doc.fields.len()));
+    let mut field_nums =
+      Vec::with_capacity(self.pending_docs.front().map_or(0, |doc| doc.fields.len()));
     for doc in &self.pending_docs {
       for field in &doc.fields {
-        field_nums_set.insert(field.field_num);
+        if let Err(index) = field_nums.binary_search(&field.field_num) {
+          field_nums.insert(index, field.field_num);
+        }
       }
     }
-
-    let mut field_nums: Vec<i32> = field_nums_set.into_iter().collect();
-    field_nums.sort_unstable();
 
     let num_distinct_fields = field_nums.len();
     debug_assert!(num_distinct_fields > 0);

@@ -41,7 +41,6 @@ use crate::core::search::sorted_set_sort_field::SortedDocValuesTermOrdValCompara
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, ToInt};
 use crate::impl_from_for_enum;
-use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -1038,7 +1037,7 @@ impl<B> TermValLeafComparator<B>
 where
   B: BinaryDocValues,
 {
-  fn get_value_for_doc(doc_terms: &mut B, doc: i32) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_value_for_doc(doc_terms: &mut B, doc: i32) -> Result<Option<&BytesRef<Vec<u8>>>> {
     if doc_terms.advance_exact(doc)? {
       Ok(Some(doc_terms.binary_value()?))
     } else {
@@ -1073,7 +1072,7 @@ where
       None => None,
     };
     match val {
-      Some(v) => Ok(comparator.compare_values(bottom_value, Some(v.as_ref()))),
+      Some(v) => Ok(comparator.compare_values(bottom_value, Some(v))),
       None => Ok(comparator.compare_values(bottom_value, None)),
     }
   }
@@ -1096,7 +1095,7 @@ where
       .transpose()?;
     match doc_value {
       None => Ok(comparator.compare_values(top_value, None)),
-      Some(val) => Ok(comparator.compare_values(top_value, Some(val.as_ref()))),
+      Some(val) => Ok(comparator.compare_values(top_value, Some(val))),
     }
   }
 
@@ -1112,11 +1111,11 @@ where
   {
     match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
       None => comparator.values[slot] = None,
-      Some(val) => match (val, comparator.values[slot].as_mut()) {
-        (Cow::Borrowed(value), Some(buffer)) => {
+      Some(value) => match comparator.values[slot].as_mut() {
+        Some(buffer) => {
           buffer.copy_from_slice(&value.bytes[value.offset..value.offset + value.length]);
         },
-        (value, _) => comparator.values[slot] = Some(value.into_owned()),
+        None => comparator.values[slot] = Some(value.to_owned()),
       },
     }
     Ok(())

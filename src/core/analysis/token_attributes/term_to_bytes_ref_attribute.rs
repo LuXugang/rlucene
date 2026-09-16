@@ -17,7 +17,6 @@
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Cow;
 
 /// This attribute is requested by `TermsHashPerField` to index the contents. It can be used to
 /// customize the final byte-slice encoding of terms.
@@ -26,10 +25,9 @@ pub trait TermToBytesRefAttribute: Attribute {
   const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Retrieve this attribute’s [`BytesRef`]. The bytes are updated from the current term.
-  /// The implementation may return a new instance or keep the previous one.
   /// The returned reference stays valid only until the next call to
   /// `increment_token()`.
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>>;
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>>;
 }
 
 pub const NAME: &str = "TermToBytesRefAttribute";

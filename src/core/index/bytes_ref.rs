@@ -45,6 +45,55 @@ pub struct BytesRef<AV> {
   pub length: usize,
 }
 
+impl<AV> BytesRef<AV>
+where
+  AV: ByteSource,
+{
+  /// Returns the active byte range represented by this value.
+  #[inline]
+  pub fn as_byte_slice(&self) -> &[u8] {
+    &self.bytes.as_slice()[self.offset..self.offset + self.length]
+  }
+
+  /// Compares this value with another BytesRef independently of their
+  /// backing byte containers.
+  #[inline]
+  pub fn compare_to<B>(&self, other: &BytesRef<B>) -> Ordering
+  where
+    B: ByteSource,
+  {
+    self.as_byte_slice().cmp(other.as_byte_slice())
+  }
+
+  /// Performs internal consistency checks on the active byte range.
+  pub fn is_valid(&self) -> Result<bool> {
+    let bytes = self.bytes.as_slice();
+    if self.length > bytes.len() {
+      return Err(LuceneError::illegal_state(format!(
+        "length is out of bounds: {},bytes.length= {}",
+        self.length,
+        bytes.len()
+      )));
+    }
+    if self.offset > bytes.len() {
+      return Err(LuceneError::illegal_state(format!(
+        "offset out of bounds: {},bytes.length= {}",
+        self.offset,
+        bytes.len()
+      )));
+    }
+    if self.offset + self.length > bytes.len() {
+      return Err(LuceneError::illegal_state(format!(
+        "offset+length out of bounds: offset={},length={},bytes.length= {}",
+        self.offset,
+        self.length,
+        bytes.len()
+      )));
+    }
+    Ok(true)
+  }
+}
+
 impl BytesRef<Vec<u8>> {
   /// Replaces the contents with a copy of `bytes`, reusing the existing allocation
   /// when its capacity is sufficient. Resets the offset to zero.
@@ -98,7 +147,11 @@ where
       offset,
       length,
     };
-    debug_assert!(bytes_ref.is_valid().is_ok());
+    debug_assert!(bytes_ref.bytes.access(|bytes| {
+      bytes_ref.offset <= bytes.len()
+        && bytes_ref.length <= bytes.len()
+        && bytes_ref.offset + bytes_ref.length <= bytes.len()
+    }));
     bytes_ref
   }
   /// This instance will directly share/ownership bytes w/o making a copy
@@ -110,7 +163,7 @@ where
       length: len,
     }
   }
-  /// Initialize the `&[u8]` from the UTF-8 bytes for the provided `String`.
+  /// Initialize the byte container from UTF-8 text.
   pub fn from_string(s: &str) -> Self {
     let container = AV::from_vec(s.as_bytes().to_vec());
     let len = s.len();
@@ -120,7 +173,6 @@ where
       length: len,
     }
   }
-
   /// Expert: compares the bytes against another BytesRef, returning true if
   /// the bytes are equal.
   ///
@@ -150,61 +202,27 @@ where
       Ok(BytesRef::from_bytes(AV::from_vec(slice.to_vec())))
     })
   }
-  /// Performs internal consistency checks. Always returns `true` (or returns
-  /// [`IllegalStateError`](crate::core::util::error::IllegalStateError)).
-  pub fn is_valid(&self) -> Result<bool> {
-    self.bytes.access(|bytes| {
-      if self.length > bytes.len() {
-        return Err(LuceneError::illegal_state(format!(
-          "length is out of bounds: {},bytes.length= {}",
-          self.length,
-          bytes.len()
-        )));
-      }
-      if self.offset > bytes.len() {
-        return Err(LuceneError::illegal_state(format!(
-          "offset out of bounds: {},bytes.length= {}",
-          self.offset,
-          bytes.len()
-        )));
-      }
-      if (self.offset + self.length) > bytes.len() {
-        return Err(LuceneError::illegal_state(format!(
-          "offset+length out of bounds: offset={},length={},bytes.length= {}",
-          self.offset,
-          self.length,
-          bytes.len()
-        )));
-      }
-      // Help the compiler infer types.
-      Ok::<(), LuceneError>(())
-    })?;
-    Ok(true)
-  }
   pub fn take_bytes(&mut self) -> AV {
     std::mem::take(&mut self.bytes)
   }
 }
 impl<AV> PartialOrd for BytesRef<AV>
 where
-  AV: SharedAccessVec<u8>,
+  AV: ByteSource,
 {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(other))
   }
 }
 
-impl<AV> Eq for BytesRef<AV> where AV: SharedAccessVec<u8> {}
+impl<AV> Eq for BytesRef<AV> where AV: ByteSource {}
 
 impl<AV> Ord for BytesRef<AV>
 where
-  AV: SharedAccessVec<u8>,
+  AV: ByteSource,
 {
   fn cmp(&self, other: &Self) -> Ordering {
-    with_other!(self.bytes, other.bytes, |bytes, other_bytes| {
-      bytes[self.offset..(self.offset + self.length)]
-        .cmp(&other_bytes[other.offset..(other.offset + other.length)])
-    })
+    self.compare_to(other)
   }
 }
 
@@ -230,12 +248,13 @@ where
 }
 impl<AV> PartialEq for BytesRef<AV>
 where
-  AV: SharedAccessVec<u8>,
+  AV: ByteSource,
 {
   fn eq(&self, other: &Self) -> bool {
-    self.bytes_equals(other)
+    self.as_byte_slice() == other.as_byte_slice()
   }
 }
+
 impl<AV> Display for BytesRef<AV>
 where
   AV: ByteSource,
@@ -312,7 +331,7 @@ impl<const N: usize> From<&[u8; N]> for BytesRef<Vec<u8>> {
 
 /// A byte value that can expose its contents without taking ownership.
 /// The lifetime is that of its owner borrow, including through enum adapters.
-pub trait BytesRefValue<'a>: Sized {
+pub trait BytesRefValue<'a>: Sized + Debug + Display {
   fn as_bytes_ref(&self) -> BytesRef<&[u8]>;
 
   /// Normalize heterogeneous results without copying their byte storage.
@@ -366,9 +385,61 @@ pub trait BytesRefValue<'a>: Sized {
 
 /// A bounded carrier for enum adapters whose variants return different byte storage.
 /// Buffer-backed results retain their existing borrowing/ownership behavior.
+#[derive(Debug, PartialEq, Eq)]
 pub enum BytesRefValueEnum<'a> {
   Buffer(Cow<'a, BytesRef<Vec<u8>>>),
   Slice(BytesRef<&'a [u8]>),
+}
+
+/// Preserves the concrete byte carriers of a two-variant adapter.
+///
+/// Unlike [`BytesRefValueEnum`], this type does not widen borrowed results to
+/// the largest supported carrier unless the caller explicitly requests an
+/// owned or normalized value.
+#[derive(Debug, PartialEq, Eq)]
+pub enum BytesRefValueEnum2<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> Display for BytesRefValueEnum2<A, B>
+where
+  A: Debug + Display,
+  B: Debug + Display,
+{
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::A(value) => Display::fmt(value, f),
+      Self::B(value) => Display::fmt(value, f),
+    }
+  }
+}
+
+impl<'a, A, B> BytesRefValue<'a> for BytesRefValueEnum2<A, B>
+where
+  A: BytesRefValue<'a>,
+  B: BytesRefValue<'a>,
+{
+  #[inline(always)]
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    match self {
+      Self::A(value) => value.as_bytes_ref(),
+      Self::B(value) => value.as_bytes_ref(),
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    match self {
+      Self::A(value) => value.into_value(),
+      Self::B(value) => value.into_value(),
+    }
+  }
+}
+
+impl Display for BytesRefValueEnum<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    Display::fmt(&self.as_bytes_ref(), f)
+  }
 }
 
 impl<'a> BytesRefValueEnum<'a> {
@@ -382,6 +453,7 @@ impl<'a> BytesRefValueEnum<'a> {
 }
 
 impl<'a> BytesRefValue<'a> for Cow<'a, BytesRef<Vec<u8>>> {
+  #[inline(always)]
   fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
     BytesRef {
       bytes: &self.bytes,
@@ -395,7 +467,23 @@ impl<'a> BytesRefValue<'a> for Cow<'a, BytesRef<Vec<u8>>> {
   }
 }
 
+impl<'a> BytesRefValue<'a> for &'a BytesRef<Vec<u8>> {
+  #[inline(always)]
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: &self.bytes,
+      offset: self.offset,
+      length: self.length,
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    BytesRefValueEnum::Buffer(Cow::Borrowed(self))
+  }
+}
+
 impl<'a> BytesRefValue<'a> for BytesRef<&'a [u8]> {
+  #[inline(always)]
   fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
     BytesRef {
       bytes: self.bytes,
@@ -410,6 +498,7 @@ impl<'a> BytesRefValue<'a> for BytesRef<&'a [u8]> {
 }
 
 impl<'a> BytesRefValue<'a> for BytesRefValueEnum<'a> {
+  #[inline(always)]
   fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
     match self {
       Self::Buffer(value) => value.as_bytes_ref(),
@@ -423,6 +512,7 @@ impl<'a> BytesRefValue<'a> for BytesRefValueEnum<'a> {
 }
 
 impl<'a> BytesRefValue<'a> for BytesRef<Vec<u8>> {
+  #[inline(always)]
   fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
     BytesRef {
       bytes: &self.bytes,

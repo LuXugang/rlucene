@@ -21,6 +21,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
@@ -438,8 +439,8 @@ fn test_change_gaps() -> Result<()> {
   let terms = fields.terms("f")?.expect("field f should have terms");
   let mut terms_enum = terms.iterator()?;
   assert_eq!(
-    &BytesRef::from_string("a"),
-    terms_enum.next()?.expect("term a should exist").as_ref()
+    b"a",
+    terms_enum.next()?.expect("term a should exist").as_bytes()
   );
   let mut postings = terms_enum.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);

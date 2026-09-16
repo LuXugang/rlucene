@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRefValue;
 use std::borrow::Cow;
 
 use crate::core::document::document::Document;
@@ -442,15 +443,17 @@ where
   O: Outputs<V = Arc<i64>>,
   F: FstReader,
 {
-  let term = terms_enum.term()?;
   let current = fst_enum.current();
-  assert_eq!(
-    term.as_ref(),
-    &current.input,
-    "{} != {}",
-    term.utf8_to_string()?,
-    current.input.utf8_to_string()?
-  );
+  {
+    let term = terms_enum.term()?;
+    assert_eq!(
+      term.as_bytes(),
+      current.input.as_byte_slice(),
+      "{} != {}",
+      term.utf8_to_string()?,
+      current.input.utf8_to_string()?
+    );
+  }
   if store_ord {
     assert_eq!(terms_enum.ord()?, *current.output);
   } else {
@@ -507,11 +510,11 @@ fn test_real_terms() -> Result<()> {
     let mut ord = 0;
 
     while let Some(term) = terms_enum.next()? {
-      let term = BytesRef::deep_copy_of(term.as_ref())?;
+      let term = term.into_owned();
       let term2 = terms_enum2
         .next()?
         .expect("intersect enum must return term");
-      assert_eq!(&term, term2.as_ref());
+      assert_eq!(term.as_byte_slice(), term2.as_bytes());
       assert_eq!(terms_enum.doc_freq()?, terms_enum2.doc_freq()?);
       assert_eq!(
         terms_enum.total_term_freq()?,
@@ -815,22 +818,22 @@ fn test_primary_keys() -> Result<()> {
         };
 
       let status = if next_id.is_none() {
-        if terms_enum.seek_exact(&new_bytes_ref_from_string(&mut random, &id)?)? {
+        if terms_enum.seek_exact(&new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, &id)?)? {
           SeekStatus::Found
         } else {
           SeekStatus::NotFound
         }
       } else {
-        terms_enum.seek_ceil(&new_bytes_ref_from_string(&mut random, &id)?)?
+        terms_enum.seek_ceil(&new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, &id)?)?
       };
 
       if let Some(next_id) = next_id {
         assert_eq!(SeekStatus::NotFound, status);
-        let expected = new_bytes_ref_from_string(&mut random, &next_id)?;
+        let expected = new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, &next_id)?;
         let actual = terms_enum.term()?;
         assert_eq!(
-          expected,
-          *actual,
+          expected.as_byte_slice(),
+          actual.as_bytes(),
           "expected={} actual={}",
           next_id,
           actual.utf8_to_string()?

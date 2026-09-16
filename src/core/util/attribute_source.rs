@@ -27,7 +27,6 @@ use crate::impl_from_for_enum;
 use crate::test_framework::core::analysis::base_token_stream_test_case::CheckClearAttributesAttribute;
 #[cfg(test)]
 use crate::test_framework::core::index::term_vectors::RandomTokenStreamAttr;
-use std::borrow::Cow;
 #[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -104,7 +103,7 @@ pub trait AttributeSource {
   }
 
   // TermToBytesRefAttribute;
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     Ok(None)
   }
 
@@ -326,7 +325,7 @@ where
     (**self).set_payload(payload)
   }
 
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     (**self).get_bytes_ref()
   }
 
@@ -736,7 +735,7 @@ impl AttributeSource for Attributes {
     }
   }
 
-  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     match self {
       Attributes::PackedToken(attr) => AttributeSource::get_bytes_ref(attr),
       Attributes::BytesTerm(attr) => AttributeSource::get_bytes_ref(attr),
@@ -1010,7 +1009,7 @@ macro_rules! define_attribute_source_enum {
                 }
             }
 
-            fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+            fn get_bytes_ref(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
                 match self {
                     $(Self::$V(t) => t.get_bytes_ref(),)+
                 }

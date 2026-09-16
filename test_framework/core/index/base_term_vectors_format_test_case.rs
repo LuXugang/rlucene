@@ -574,10 +574,7 @@ pub trait BaseTermVectorsFormatTestCase:
     let mut term_vectors = leaf.term_vectors()?;
     let terms = term_vectors.get_field_terms(0, "foo")?.unwrap();
     let mut terms_enum = terms.iterator()?;
-    assert_eq!(
-      &BytesRef::from_string("bar"),
-      terms_enum.next()?.unwrap().as_ref()
-    );
+    assert_eq!(b"bar", terms_enum.next()?.unwrap().as_bytes());
     // simple use (FREQS)
     let mut postings = terms_enum.postings(None)?;
     assert_eq!(-1, postings.doc_id());
@@ -648,10 +645,7 @@ pub trait BaseTermVectorsFormatTestCase:
     let mut term_vectors = leaf.term_vectors()?;
     let terms = term_vectors.get_field_terms(0, "foo")?.unwrap();
     let mut terms_enum = terms.iterator()?;
-    assert_eq!(
-      &BytesRef::from_string("bar"),
-      terms_enum.next()?.unwrap().as_ref()
-    );
+    assert_eq!(b"bar", terms_enum.next()?.unwrap().as_bytes());
 
     let mut postings = terms_enum.postings(None)?;
     assert_eq!(-1, postings.doc_id());
@@ -820,10 +814,7 @@ pub trait BaseTermVectorsFormatTestCase:
     let mut term_vectors = leaf.term_vectors()?;
     let terms = term_vectors.get_field_terms(0, "foo")?.unwrap();
     let mut terms_enum = terms.iterator()?;
-    assert_eq!(
-      &BytesRef::from_string("bar"),
-      terms_enum.next()?.unwrap().as_ref()
-    );
+    assert_eq!(b"bar", terms_enum.next()?.unwrap().as_bytes());
 
     let mut postings = terms_enum.postings(None)?;
     assert_eq!(-1, postings.doc_id());
@@ -1028,10 +1019,7 @@ pub trait BaseTermVectorsFormatTestCase:
     let mut term_vectors = leaf.term_vectors()?;
     let terms = term_vectors.get_field_terms(0, "foo")?.unwrap();
     let mut terms_enum = terms.iterator()?;
-    assert_eq!(
-      &BytesRef::from_string("bar"),
-      terms_enum.next()?.unwrap().as_ref()
-    );
+    assert_eq!(b"bar", terms_enum.next()?.unwrap().as_bytes());
 
     let mut postings = terms_enum.postings(None)?;
     assert_eq!(-1, postings.doc_id());
@@ -1252,10 +1240,7 @@ pub trait BaseTermVectorsFormatTestCase:
     let mut term_vectors = leaf.term_vectors()?;
     let terms = term_vectors.get_field_terms(0, "foo")?.unwrap();
     let mut terms_enum = terms.iterator()?;
-    assert_eq!(
-      &BytesRef::from_string("bar"),
-      terms_enum.next()?.unwrap().as_ref()
-    );
+    assert_eq!(b"bar", terms_enum.next()?.unwrap().as_bytes());
 
     let mut postings = terms_enum.postings(None)?;
     assert_eq!(-1, postings.doc_id());
@@ -1496,10 +1481,7 @@ pub trait BaseTermVectorsFormatTestCase:
     let mut term_vectors = leaf.term_vectors()?;
     let terms = term_vectors.get_field_terms(0, "foo")?.unwrap();
     let mut terms_enum = terms.iterator()?;
-    assert_eq!(
-      &BytesRef::from_string("bar"),
-      terms_enum.next()?.unwrap().as_ref()
-    );
+    assert_eq!(b"bar", terms_enum.next()?.unwrap().as_bytes());
 
     let mut postings = terms_enum.postings(None)?;
     assert_eq!(-1, postings.doc_id());
@@ -2277,14 +2259,16 @@ where
         if terms.has_positions() {
           assert!(indexes.iter().any(|index| {
             let index = *index;
-            tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
+            tk.term_bytes[index].as_byte_slice()
+              == terms_enum.term().expect("term must exist").as_bytes()
               && tk.positions[index] == position
           }));
         }
         if terms.has_offsets() {
           assert!(indexes.iter().any(|index| {
             let index = *index;
-            tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
+            tk.term_bytes[index].as_byte_slice()
+              == terms_enum.term().expect("term must exist").as_bytes()
               && tk.start_offsets[index]
                 == docs_and_positions_enum
                   .start_offset()
@@ -2298,7 +2282,8 @@ where
         if terms.has_payloads() {
           assert!(indexes.iter().any(|index| {
             let index = *index;
-            tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
+            tk.term_bytes[index].as_byte_slice()
+              == terms_enum.term().expect("term must exist").as_bytes()
               && equals(
                 tk.payloads[index].as_ref(),
                 docs_and_positions_enum

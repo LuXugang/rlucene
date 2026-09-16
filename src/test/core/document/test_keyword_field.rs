@@ -169,8 +169,8 @@ fn test_index_bytes_value() -> Result<()> {
   let mut terms = leaf.terms("field")?.unwrap().iterator()?;
 
   assert_eq!(
-    &new_bytes_ref_from_string(&mut random, "value")?,
-    terms.next()?.unwrap().as_ref()
+    new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value")?.as_byte_slice(),
+    terms.next()?.unwrap().as_bytes()
   );
   assert!(terms.next()?.is_none());
 
@@ -206,8 +206,8 @@ fn test_index_string_value() -> Result<()> {
   let mut terms = leaf.terms("field")?.unwrap().iterator()?;
 
   assert_eq!(
-    &new_bytes_ref_from_string(&mut random, "value")?,
-    terms.next()?.unwrap().as_ref()
+    new_bytes_ref_from_string::<_, Vec<u8>>(&mut random, "value")?.as_byte_slice(),
+    terms.next()?.unwrap().as_bytes()
   );
   assert!(terms.next()?.is_none());
 

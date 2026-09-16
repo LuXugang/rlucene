@@ -19,7 +19,8 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::hash::{Hash, Hasher};
 
-use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue};
+use crate::core::util::access::ByteSource;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::{Automaton, Builder};
@@ -61,7 +62,7 @@ impl StringsToAutomaton {
     }
   }
   /// Copies `current` into an internal buffer.
-  fn set_previous(&mut self, current: &BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_previous<BS: ByteSource>(&mut self, current: &BytesRef<BS>) -> Result<()> {
     match &mut self.previous {
       Some(prev) => {
         prev.copy_bytes_from_ref(current)?;
@@ -152,34 +153,34 @@ impl StringsToAutomaton {
     let mut builder = StringsToAutomaton::new();
 
     while let Some(b) = input.next()? {
-      builder.add(&b, as_binary)?; // b: Cow<'_, BytesRef<Vec<u8>>> ->
-      // &BytesRef<Vec<u8>>
+      builder.add(&b.as_bytes_ref(), as_binary)?;
     }
 
     builder.complete_and_convert()
   }
 
-  fn add(&mut self, current: &BytesRef<Vec<u8>>, as_binary: bool) -> Result<()> {
+  fn add<BS: ByteSource>(&mut self, current: &BytesRef<BS>, as_binary: bool) -> Result<()> {
+    let bytes = current.bytes.as_slice();
     if current.length > Automata::MAX_STRING_UNION_TERM_LENGTH as usize {
       return Err(LuceneError::illegal_argument(format!(
         "This builder doesn't allow terms that are larger than {} UTF-8 bytes, got {:?}",
         Automata::MAX_STRING_UNION_TERM_LENGTH,
-        current
+        current.as_byte_slice()
       )));
     }
 
     if let Some(prev) = &mut self.previous
-      && prev.bytes_ref.cmp(current) == std::cmp::Ordering::Greater
+      && prev.bytes_ref.as_byte_slice().cmp(current.as_byte_slice()) == std::cmp::Ordering::Greater
     {
       return Err(LuceneError::illegal_argument(format!(
-        "Input must be in sorted UTF-8 order: {} >= {}",
-        prev.bytes_ref, current
+        "Input must be in sorted UTF-8 order: {:?} >= {:?}",
+        prev.bytes_ref.as_byte_slice(),
+        current.as_byte_slice()
       )));
     }
     self.set_previous(current)?;
     let mut code_point = UTF8CodePoint::default();
 
-    let bytes = &current.bytes;
     let mut pos = current.offset;
     let max = current.offset + current.length;
     let mut state = self.root;

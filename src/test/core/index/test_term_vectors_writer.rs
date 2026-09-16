@@ -19,6 +19,7 @@ use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::stored_field_type;
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::directory_reader;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
@@ -107,7 +108,7 @@ fn test_double_offset_counting() -> Result<()> {
 
   let next = terms_enum.next()?;
   assert!(next.is_some());
-  assert_eq!(&BytesRef::from_string("abcd"), next.unwrap().as_ref());
+  assert_eq!(b"abcd", next.unwrap().as_bytes());
 
   let mut dp_enum = terms_enum.postings_with_flags(Some(dp_enum), ALL as i32)?;
   assert_eq!(3, terms_enum.total_term_freq()?);

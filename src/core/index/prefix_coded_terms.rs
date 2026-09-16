@@ -29,7 +29,7 @@ use crate::core::store::byte_buffers_data_input::{
 };
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::StringHelper;
-use crate::core::util::access::WritableVec;
+use crate::core::util::access::{ByteSource, WritableVec};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -258,16 +258,20 @@ impl PrefixCodedTermsBuilder {
     self.add(term.field.as_str(), &term.bytes)
   }
   /// Add a term. This fully consumes the incoming [`BytesRef`].
-  pub fn add<'a, FName>(&mut self, field: FName, bytes: &BytesRef<Vec<u8>>) -> Result<()>
+  pub fn add<'a, FName, B>(&mut self, field: FName, bytes: &BytesRef<B>) -> Result<()>
   where
     FName: Into<Cow<'a, str>>,
+    B: ByteSource,
   {
     let field = field.into();
     let field_name = field.as_ref();
     debug_assert!(
       self.last_term == Term::from_empty("".to_string())
-        || Term::new(field_name.to_string(), bytes.clone()).cmp(&self.last_term)
-          == Ordering::Greater,
+        || field_name.cmp(&self.last_term.field) == Ordering::Greater
+        || (field_name == self.last_term.field
+          && bytes.bytes.as_slice()[bytes.offset..bytes.offset + bytes.length]
+            > self.last_term.bytes.bytes[self.last_term.bytes.offset
+              ..self.last_term.bytes.offset + self.last_term.bytes.length]),
     );
 
     let prefix;
@@ -287,12 +291,15 @@ impl PrefixCodedTermsBuilder {
 
     let suffix = bytes.length - prefix;
     self.output.write_vint(suffix as i32)?;
+    let source = bytes.bytes.as_slice();
     self.output.write_bytes_range(
-      &bytes.bytes[(bytes.offset + prefix)..(bytes.offset + prefix + suffix)],
+      &source[(bytes.offset + prefix)..(bytes.offset + prefix + suffix)],
       0,
       suffix,
     )?;
-    self.last_term_bytes.copy_bytes_from_ref(bytes)?;
+    self
+      .last_term_bytes
+      .copy_bytes_from_vec(source, bytes.offset, bytes.length)?;
     std::mem::swap(
       &mut self.last_term.bytes,
       self.last_term_bytes.get_bytes_mut_ref(),
@@ -356,6 +363,11 @@ impl<B> BytesRefIterator for TermIterator<B>
 where
   B: ByteBuffersDataInputBlock,
 {
+  type Value<'a>
+    = Cow<'a, BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let v = self.set_next()?;
     if v {

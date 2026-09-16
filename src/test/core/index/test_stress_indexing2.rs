@@ -651,11 +651,16 @@ where
     let terms2 = d2.terms(field2)?.expect("terms missing in d2");
     let mut terms_enum2 = terms2.iterator()?;
 
-    while let Some(term1) = terms_enum1.next()? {
-      let term2 = terms_enum2.next()?.expect("term missing in d2");
+    loop {
+      let term1 = match terms_enum1.next()? {
+        Some(term) => term.into_owned(),
+        None => break,
+      };
+      let term2 = terms_enum2
+        .next()?
+        .expect("term missing in d2")
+        .into_owned();
       assert_eq!(term1.as_bytes(), term2.as_bytes());
-      drop(term1);
-      drop(term2);
       assert_eq!(
         terms_enum1.total_term_freq()?,
         terms_enum2.total_term_freq()?

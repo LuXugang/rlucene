@@ -200,13 +200,18 @@ impl LongPointSetBytesRefIterator {
 }
 
 impl BytesRefIterator for LongPointSetBytesRefIterator {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if self.upto == self.sorted_values.len() {
       Ok(None)
     } else {
       LongPoint::encode_dimension(self.sorted_values[self.upto], &mut self.encoded.bytes, 0);
       self.upto += 1;
-      Ok(Some(Cow::Borrowed(&self.encoded)))
+      Ok(Some(&self.encoded))
     }
   }
 }

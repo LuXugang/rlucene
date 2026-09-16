@@ -240,7 +240,12 @@ pub trait TermVectorsWriter: Accountable + Closeable {
       let mut terms_enum = terms.iterator()?;
       let mut term_count = 0;
 
-      while let Some(_term) = terms_enum.next()? {
+      loop {
+        let next = terms_enum.next()?;
+        if next.is_none() {
+          break;
+        }
+        drop(next);
         term_count += 1;
 
         let freq = terms_enum.total_term_freq()? as i32;

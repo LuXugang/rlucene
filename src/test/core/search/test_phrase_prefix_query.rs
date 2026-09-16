@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::index::BytesRefValue;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
@@ -112,7 +113,7 @@ fn test_phrase_prefix() -> Result<()> {
 
   let prefix = "pi";
 
-  te.seek_ceil(&BytesRef::from_string(prefix))?;
+  te.seek_ceil(&BytesRef::<Vec<u8>>::from_string(prefix))?;
 
   loop {
     let term = te.term()?;

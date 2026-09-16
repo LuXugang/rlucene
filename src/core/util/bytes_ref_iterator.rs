@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 
-use crate::core::index::BytesRef;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait BytesRefIterator {
+  type Value<'a>: BytesRefValue<'a>
+  where
+    Self: 'a;
+
   /// The returned [`BytesRef`] may be re-used across calls to `next`. After
   /// this method returns `None`, do not call it again as the results are
   /// undefined.
@@ -47,7 +50,7 @@ pub trait BytesRefIterator {
   /// caller, while preserving performance by avoiding unnecessary
   /// allocations. # Errors
   /// Returns an `std::io::Error` if there is a low-level I/O error.
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     Err(LuceneError::need_implemented("this method need implement"))
   }
   fn set_next(&mut self) -> Result<bool> {
@@ -58,7 +61,9 @@ pub trait BytesRefIterator {
 pub struct EmptyBytesRefIterator;
 
 impl BytesRefIterator for EmptyBytesRefIterator {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a> = &'a BytesRef<Vec<u8>>;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     Ok(None)
   }
 }
@@ -71,8 +76,13 @@ impl<T> BytesRefIterator for &mut T
 where
   T: BytesRefIterator,
 {
+  type Value<'a>
+    = T::Value<'a>
+  where
+    Self: 'a;
+
   #[inline]
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     (**self).next()
   }
 

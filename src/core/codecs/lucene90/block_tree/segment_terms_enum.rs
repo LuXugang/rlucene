@@ -16,7 +16,7 @@
  */
 
 use crate::core::store::data_input_ext::DataInputExt;
-use std::borrow::Cow;
+use crate::core::util::access::ByteSource;
 use std::fmt::{Display, Formatter};
 
 use crate::core::codecs::block_term_state::TermStateEnum;
@@ -294,9 +294,9 @@ where
     true
   }
 
-  pub fn prepare_seek_exact(
+  pub fn prepare_seek_exact<BS: ByteSource>(
     &mut self,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     prefetch: bool,
   ) -> Result<Option<()>> {
     if self.fr.index.is_none() {
@@ -304,13 +304,13 @@ where
     }
     if self.fr.size()? > 0
       && (target
-        .cmp(self.fr.get_min()?.as_ref().ok_or_else(|| {
+        .compare_to(self.fr.get_min()?.as_ref().ok_or_else(|| {
           LuceneError::illegal_state("terms minimum is missing for a non-empty field")
         })?)
         .to_int()
         < 0
         || target
-          .cmp(self.fr.get_max()?.as_ref().ok_or_else(|| {
+          .compare_to(self.fr.get_max()?.as_ref().ok_or_else(|| {
             LuceneError::illegal_state("terms maximum is missing for a non-empty field")
           })?)
           .to_int()
@@ -352,17 +352,14 @@ where
 
       while target_upto < target_limit {
         let term_byte = self.term.byte_at(target_upto) as i32;
-        let target_byte = target.bytes[target.offset + target_upto] as i32;
+        let target_byte = target.as_byte_slice()[target_upto] as i32;
         cmp = term_byte - target_byte;
         if cmp != 0 {
           break;
         }
         arc_index = 1 + target_upto;
         arc = &mut self.arcs[arc_index];
-        debug_assert_eq!(
-          arc.label(),
-          target.bytes[target.offset + target_upto] as i32
-        );
+        debug_assert_eq!(arc.label(), target.as_byte_slice()[target_upto] as i32);
         self.output_accumulator.push(arc.output());
 
         if arc.is_final() {
@@ -378,7 +375,7 @@ where
         // to find out if the target term is before,
         // equal or after the current term
         let a = &self.term.bytes_ref.bytes[target_upto..self.term.length()];
-        let b = &target.bytes[target.offset + target_upto..target.offset + target.length];
+        let b = &target.as_byte_slice()[target_upto..];
         cmp = a.cmp(b).to_int();
       }
 
@@ -428,7 +425,7 @@ where
     // We are done sharing the common prefix with the incoming target and where we
     // are currently seek'd; now continue walking the index:
     while target_upto < target.length {
-      let target_label = target.bytes[target.offset + target_upto] as i32;
+      let target_label = target.as_byte_slice()[target_upto] as i32;
 
       let next_arc_idx = self.get_arc(1 + target_upto)?;
       let fr_index = self
@@ -518,7 +515,12 @@ where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
-  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+  type Value<'a>
+    = BytesRef<&'a [u8]>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     let input_none = { self.input.is_none() };
     if input_none {
       let arc = if let Some(index) = self.fr.index.as_ref() {
@@ -607,7 +609,12 @@ where
         SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
         continue;
       } else {
-        return Ok(Some(Cow::Borrowed(self.term.get_bytes_ref())));
+        let term = self.term.get_bytes_ref();
+        return Ok(Some(BytesRef {
+          bytes: term.bytes.as_slice(),
+          offset: term.offset,
+          length: term.length,
+        }));
       };
     }
   }
@@ -635,17 +642,20 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn seek_exact<BS: ByteSource>(&mut self, target: &BytesRef<BS>) -> Result<bool> {
     match self.prepare_seek_exact(target, false)? {
       Some(_) => self.get_prepare_seek_exact_status(target),
       None => Ok(false),
     }
   }
 
-  fn prepare_seek_exact(&mut self, target: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+  fn prepare_seek_exact<BS: ByteSource>(&mut self, target: &BytesRef<BS>) -> Result<Option<()>> {
     self.prepare_seek_exact(target, true)
   }
-  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+  fn get_prepare_seek_exact_status<BS: ByteSource>(
+    &mut self,
+    target: &BytesRef<BS>,
+  ) -> Result<bool> {
     match self.prepare_seek_status {
       PrepareSeekStatus::NotFound => Ok(false),
       PrepareSeekStatus::Found => Ok(true),
@@ -658,7 +668,7 @@ where
     }
   }
 
-  fn seek_ceil(&mut self, target: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+  fn seek_ceil<BS: ByteSource>(&mut self, target: &BytesRef<BS>) -> Result<SeekStatus> {
     if self.fr.index.is_none() {
       return Err(LuceneError::illegal_state("terms index was not loaded"));
     }
@@ -695,17 +705,14 @@ where
 
       while target_upto < target_limit {
         let term_byte = self.term.byte_at(target_upto) as i32;
-        let target_byte = target.bytes[target.offset + target_upto] as i32;
+        let target_byte = target.as_byte_slice()[target_upto] as i32;
         cmp = term_byte - target_byte;
         if cmp != 0 {
           break;
         }
         arc_index = 1 + target_upto;
         arc = &self.arcs[arc_index];
-        debug_assert_eq!(
-          arc.label(),
-          target.bytes[target.offset + target_upto] as i32
-        );
+        debug_assert_eq!(arc.label(), target.as_byte_slice()[target_upto] as i32);
         self.output_accumulator.push(arc.output());
 
         if arc.is_final() {
@@ -717,7 +724,7 @@ where
 
       if cmp == 0 {
         cmp = self.term.bytes_ref.bytes[target_upto..self.term.length()]
-          .cmp(&target.bytes[target.offset + target_upto..target.offset + target.length])
+          .cmp(&target.as_byte_slice()[target_upto..])
           .to_int();
       }
 
@@ -758,7 +765,7 @@ where
     }
     let mut next_arc_idx;
     while target_upto < target.length {
-      let target_label = target.bytes[target.offset + target_upto] as i32;
+      let target_label = target.as_byte_slice()[target_upto] as i32;
 
       next_arc_idx = self.get_arc(1 + target_upto)?;
       let fr_index = self
@@ -852,14 +859,14 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn seek_exact_with_state(
+  fn seek_exact_with_state<BS: ByteSource>(
     &mut self,
-    target: &BytesRef<Vec<u8>>,
+    target: &BytesRef<BS>,
     other_state: &TermStateEnum,
   ) -> Result<()> {
     #[cfg(any(test, debug_assertions))]
     debug_assert!(self.clear_eof());
-    if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
+    if target.compare_to(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
       self.stack[STATIC_FRAME_IDX].state = other_state.clone();
       self.current_frame_idx = STATIC_FRAME_IDX;
       self.term.copy_bytes_from_ref(target)?;
@@ -871,9 +878,13 @@ where
     Ok(())
   }
 
-  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn term(&self) -> Result<Self::Value<'_>> {
     debug_assert!(!self.eof);
-    Ok(Cow::Borrowed(&self.term.bytes_ref))
+    Ok(BytesRef {
+      bytes: self.term.bytes_ref.bytes.as_slice(),
+      offset: self.term.bytes_ref.offset,
+      length: self.term.bytes_ref.length,
+    })
   }
 
   fn ord(&self) -> Result<i64> {

@@ -21,6 +21,7 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::util::access::ByteSource;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummySortedDocValues;
@@ -74,7 +75,7 @@ impl SortedDocValues for DummySortedDocValues {
     dummy_unreachable!()
   }
 
-  fn lookup_term(&mut self, _key: &BytesRef<Vec<u8>>) -> Result<i32> {
+  fn lookup_term<BS: ByteSource>(&mut self, _key: &BytesRef<BS>) -> Result<i32> {
     dummy_unreachable!()
   }
 

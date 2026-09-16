@@ -385,9 +385,9 @@ fn test_total_term_freq() -> Result<()> {
   let r = directory_reader::open_from_writer(&w)?;
 
   let mut terms_enum = multi_terms::get_terms(&r, "field")?.unwrap().iterator()?;
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("foo"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("foo"))?);
   assert_eq!(179, terms_enum.total_term_freq()?);
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
   assert_eq!(368, terms_enum.total_term_freq()?);
 
   w.close()?;
@@ -622,14 +622,14 @@ fn test_term_vectors() -> Result<()> {
 
   let fields = term_vectors.get(0)?.unwrap();
   let mut terms_enum = fields.terms("field")?.unwrap().iterator()?;
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
   assert_eq!(228, terms_enum.total_term_freq()?);
   let mut postings = terms_enum.postings(None)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(228, postings.freq()?);
   assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("foo"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("foo"))?);
   assert_eq!(59, terms_enum.total_term_freq()?);
   let mut postings = terms_enum.postings(None)?;
   assert_eq!(0, postings.next_doc()?);
@@ -638,14 +638,14 @@ fn test_term_vectors() -> Result<()> {
 
   let fields = term_vectors.get(1)?.unwrap();
   let mut terms_enum = fields.terms("field")?.unwrap().iterator()?;
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("bar"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("bar"))?);
   assert_eq!(140, terms_enum.total_term_freq()?);
   let mut postings = terms_enum.postings(None)?;
   assert_eq!(0, postings.next_doc()?);
   assert_eq!(140, postings.freq()?);
   assert_eq!(NO_MORE_DOCS, postings.next_doc()?);
 
-  assert!(terms_enum.seek_exact(&BytesRef::from_string("foo"))?);
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("foo"))?);
   assert_eq!(120, terms_enum.total_term_freq()?);
   let mut postings = terms_enum.postings(None)?;
   assert_eq!(0, postings.next_doc()?);

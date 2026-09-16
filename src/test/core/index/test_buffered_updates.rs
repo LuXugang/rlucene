@@ -124,8 +124,8 @@ fn test_deleted_terms() -> Result<()> {
     expected_sorted.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut actual_sorted: Vec<_> = Vec::new();
-    actual.for_each_ordered(|term, doc_id| {
-      let copy = Term::new(term.field.clone(), term.bytes.clone());
+    actual.for_each_ordered(|field, bytes, doc_id| {
+      let copy = Term::new(field.to_owned(), BytesRef::from_bytes(bytes.bytes.to_vec()));
       actual_sorted.push((copy, doc_id));
       Ok(())
     })?;

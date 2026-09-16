@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::bytes_ref::BytesRef;
-use crate::core::util::access::{SharedAccessVec, WritableVec};
+use crate::core::util::access::{ByteSource, SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps};
@@ -176,16 +176,15 @@ where
       .access_mut(|bytes| bytes.copy_from(source, 0));
     Ok(())
   }
-  pub fn copy_bytes_from_ref(&mut self, b: &BytesRef<AV>) -> Result<()>
+  pub fn copy_bytes_from_ref<B: ByteSource>(&mut self, b: &BytesRef<B>) -> Result<()>
   where
     AV: WritableVec<u8>,
   {
-    b.bytes
-      .access(|bytes| self.copy_bytes_from_vec(bytes, b.offset, b.length))
+    self.copy_bytes_from_vec(b.bytes.as_slice(), b.offset, b.length)
   }
   pub fn copy_bytes_from_builder(&mut self, b: &mut BytesRefBuilder<AV>) -> Result<()>
   where
-    AV: WritableVec<u8>,
+    AV: WritableVec<u8> + ByteSource,
   {
     self.copy_bytes_from_ref(b.get_bytes_mut_ref())
   }
@@ -226,6 +225,10 @@ where
     let source = &s[off..off + len];
     self.bytes_ref.length = self.bytes_ref.bytes.access_mut(|bytes| {
       bytes.clear();
+      if bytes.capacity() < source.len() {
+        let encoded_len: usize = source.iter().map(|c| c.len_utf8()).sum();
+        bytes.reserve_exact(encoded_len);
+      }
       for &c in source {
         let mut buf = [0u8; 4];
         let encoded_str = c.encode_utf8(&mut buf);

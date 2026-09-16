@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::multi_term_query::{MultiTermQuery, RewriteMethod};
 use crate::core::search::query::Query;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -77,8 +77,11 @@ pub trait TermCollectingRewrite: RewriteMethod {
       // TODO IMPORTANT 这里要判断是否为 EMPTY
       collector.set_reader_context(context)?;
       collector.set_next_enum(&mut terms_enum)?;
-      while let Some(bytes) = terms_enum.next()? {
-        let bytes = bytes.into_owned();
+      loop {
+        let bytes = match terms_enum.next()? {
+          Some(bytes) => bytes.into_owned(),
+          None => break,
+        };
 
         if !collector.collect(bytes, &mut terms_enum, top_reader_context)? {
           return Ok(());
