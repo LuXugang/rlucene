@@ -39,7 +39,7 @@ pub struct SegmentWriteState<'a, D> {
 
   /// FixedBitSet recording live documents; this is only set if there
   /// is one or more deleted documents.
-  pub live_docs: Option<FixedBitSet>,
+  pub live_docs: Option<Arc<FixedBitSet>>,
 
   /// Unique suffix for any postings files written for this segment.
   /// PerFieldPostingsFormat sets this for each of the postings formats it

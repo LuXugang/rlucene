@@ -636,7 +636,7 @@ where
         live_docs.clear_with_index(self.delete_doc_ids[i] as usize)?;
       }
 
-      flush_state.live_docs = Some(live_docs);
+      flush_state.live_docs = Some(Arc::new(live_docs));
       flush_state.del_count_on_flush = self.num_deleted_doc_ids as i32;
       self.delete_doc_ids.clear();
       self.num_deleted_doc_ids = 0;
@@ -1101,7 +1101,7 @@ pub(crate) struct FlushedSegment<D> {
   pub(crate) segment_info: SegmentCommitInfo<D>,
   pub(crate) field_infos: Arc<FieldInfos>,
   pub(crate) segment_updates: Option<FrozenBufferedUpdates>,
-  live_docs: Option<FixedBitSet>,
+  live_docs: Option<Arc<FixedBitSet>>,
   pub(crate) sort_map: Option<Arc<DocMapImpl>>,
   del_count: i32,
 }
@@ -1114,7 +1114,7 @@ where
     segment_info: SegmentCommitInfo<D>,
     field_infos: Arc<FieldInfos>,
     mut segment_updates: Option<BufferedUpdates>,
-    live_docs: Option<FixedBitSet>,
+    live_docs: Option<Arc<FixedBitSet>>,
     del_count: i32,
     sort_map: Option<Arc<DocMapImpl>>,
   ) -> Result<Self> {

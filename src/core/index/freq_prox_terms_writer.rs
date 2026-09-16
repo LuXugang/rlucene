@@ -110,9 +110,14 @@ where
             let live_docs = state.live_docs.get_or_insert_with(|| {
               let mut bits = FixedBitSet::new(max_doc as usize);
               bits.set_with_range(0, max_doc as usize);
-              bits
+              Arc::new(bits)
             });
 
+            let live_docs = Arc::get_mut(live_docs).ok_or_else(|| {
+              LuceneError::illegal_state(
+                "live docs must not be shared while applying flush deletes",
+              )
+            })?;
             if live_docs.get_and_clear(doc as usize) {
               state.del_count_on_flush += 1;
             }
