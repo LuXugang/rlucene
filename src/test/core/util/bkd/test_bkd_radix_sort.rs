@@ -166,7 +166,9 @@ where
         for j in start..end {
           let point_value = heap_writer.get_packed_value_slice(j)?;
           let mut cmp;
-          let (bytes_ref, packed_value_offset, _) = point_value.packed_value();
+          let packed_value = point_value.packed_value();
+          let bytes_ref = packed_value.bytes;
+          let packed_value_offset = packed_value.offset;
           {
             cmp = bytes_ref[packed_value_offset + dim_offset
               ..packed_value_offset + dim_offset + config.bytes_per_dim]
@@ -232,7 +234,9 @@ where
     PointWriterEnum::Heap(heap_writer) => {
       let mut common_prefix_length = config.bytes_per_dim;
       let point_value = heap_writer.get_packed_value_slice(start)?;
-      let (bytes_ref, packed_value_offset, _length) = point_value.packed_value();
+      let packed_value = point_value.packed_value();
+      let bytes_ref = packed_value.bytes;
+      let packed_value_offset = packed_value.offset;
       let mut first_value = vec![0u8; config.bytes_per_dim];
       let offset = sort_dim * config.bytes_per_dim;
       first_value.copy_from(
@@ -242,7 +246,9 @@ where
       );
       for i in (start + 1)..end {
         let point_value = heap_writer.get_packed_value_slice(i)?;
-        let (bytes_ref, packed_value_offset, _length) = point_value.packed_value();
+        let packed_value = point_value.packed_value();
+        let bytes_ref = packed_value.bytes;
+        let packed_value_offset = packed_value.offset;
         let diff = CoreHelper::miss_match_u8(
           &bytes_ref
             [packed_value_offset + offset..packed_value_offset + offset + config.bytes_per_dim],

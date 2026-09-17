@@ -84,8 +84,8 @@ impl MutablePointTreeReaderUtils {
     reader: &mut M,
     from: usize,
     to: usize,
-    _scratch1: &mut BytesRef<Vec<u8>>,
-    _scratch2: &mut BytesRef<Vec<u8>>,
+    scratch1: &mut BytesRef<Vec<u8>>,
+    scratch2: &mut BytesRef<Vec<u8>>,
   ) -> Result<()>
   where
     M: MutablePointTree,
@@ -98,8 +98,8 @@ impl MutablePointTreeReaderUtils {
     let mut intro_sorter = IntroSorterImpl {
       reader,
       config,
-      pivot: BytesRef::new(),
-      scratch2: BytesRef::new(),
+      pivot: scratch1,
+      scratch2,
       pivot_doc: 0,
       comparator,
       start,
@@ -120,8 +120,8 @@ impl MutablePointTreeReaderUtils {
     from: usize,
     to: usize,
     mid: usize,
-    _scratch1: &mut BytesRef<Vec<u8>>,
-    _scratch2: &mut BytesRef<Vec<u8>>,
+    scratch1: &mut BytesRef<Vec<u8>>,
+    scratch2: &mut BytesRef<Vec<u8>>,
   ) -> Result<()>
   where
     M: MutablePointTree,
@@ -142,6 +142,8 @@ impl MutablePointTreeReaderUtils {
       dim_offset,
       data_cmp_bytes,
       bits_per_doc_id,
+      scratch1,
+      scratch2,
     };
     let mut radix_selector = RadixSelector::new(max_length, sub_selector);
     radix_selector.select(from, to, mid)
@@ -196,8 +198,8 @@ where
 struct IntroSorterImpl<'a, M> {
   reader: &'a mut M,
   config: &'a BKDConfig,
-  pivot: BytesRef<Vec<u8>>,
-  scratch2: BytesRef<Vec<u8>>,
+  pivot: &'a mut BytesRef<Vec<u8>>,
+  scratch2: &'a mut BytesRef<Vec<u8>>,
   pivot_doc: i32,
   comparator: ByteArrayComparatorEnum,
   start: usize,
@@ -217,7 +219,7 @@ where
   }
 
   fn set_pivot(&mut self, i: usize) -> Result<()> {
-    let value = self.reader.get_value(i, &mut self.scratch2)?;
+    let value = self.reader.get_value(i, &mut *self.scratch2)?;
     self
       .pivot
       .copy_from_slice(&value.bytes[value.offset..value.offset + value.length]);
@@ -226,7 +228,7 @@ where
   }
 
   fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-    let scratch = self.reader.get_value(j, &mut self.scratch2)?;
+    let scratch = self.reader.get_value(j, &mut *self.scratch2)?;
 
     let cmp = self.comparator.compare(
       &self.pivot.bytes,
@@ -270,6 +272,8 @@ struct RadixSelectorImpl<'a, M> {
   dim_offset: usize,
   data_cmp_bytes: usize,
   bits_per_doc_id: usize,
+  scratch1: &'a mut BytesRef<Vec<u8>>,
+  scratch2: &'a mut BytesRef<Vec<u8>>,
 }
 
 impl<M> Selector for RadixSelectorImpl<'_, M>
@@ -318,11 +322,11 @@ where
     let sub_selector = IntroSelectorImpl {
       dim_cmp_bytes: self.dim_cmp_bytes,
       data_cmp_bytes: self.data_cmp_bytes,
-      pivot: BytesRef::new(),
+      pivot: self.scratch1,
       reader: self.reader,
       pivot_doc: 0,
       k,
-      scratch2: BytesRef::new(),
+      scratch2: self.scratch2,
       dim_comparator,
       dim_start,
       data_start,
@@ -335,11 +339,11 @@ where
 struct IntroSelectorImpl<'a, M> {
   dim_cmp_bytes: usize,
   data_cmp_bytes: usize,
-  pivot: BytesRef<Vec<u8>>,
+  pivot: &'a mut BytesRef<Vec<u8>>,
   reader: &'a mut M,
   pivot_doc: i32,
   k: usize,
-  scratch2: BytesRef<Vec<u8>>,
+  scratch2: &'a mut BytesRef<Vec<u8>>,
   dim_comparator: ByteArrayComparatorEnum,
   dim_start: usize,
   data_start: usize,
@@ -351,7 +355,7 @@ where
   M: MutablePointTree,
 {
   fn set_pivot(&mut self, i: usize) -> Result<()> {
-    let value = self.reader.get_value(i, &mut self.scratch2)?;
+    let value = self.reader.get_value(i, &mut *self.scratch2)?;
     self
       .pivot
       .copy_from_slice(&value.bytes[value.offset..value.offset + value.length]);
@@ -361,7 +365,7 @@ where
 
   fn compare_pivot(&mut self, j: usize) -> Result<i32> {
     if self.k < self.dim_cmp_bytes {
-      let scratch = self.reader.get_value(j, &mut self.scratch2)?;
+      let scratch = self.reader.get_value(j, &mut *self.scratch2)?;
       let cmp = self.dim_comparator.compare(
         &self.pivot.bytes,
         self.pivot.offset + self.dim_start,
@@ -373,7 +377,7 @@ where
       }
     }
     if self.k < self.data_cmp_bytes {
-      let scratch = self.reader.get_value(j, &mut self.scratch2)?;
+      let scratch = self.reader.get_value(j, &mut *self.scratch2)?;
       let pivot_slice =
         &self.pivot.bytes[self.pivot.offset + self.data_start..self.pivot.offset + self.data_end];
       let scratch_slice =

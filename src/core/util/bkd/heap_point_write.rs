@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRef;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
@@ -382,17 +383,17 @@ impl PointWriter for HeapPointWriter {
       self.next_write + 1,
       self.size
     );
-    let (packed_value, offset, length) = point_value.packed_value_doc_id_bytes();
+    let packed_value = point_value.packed_value_doc_id_bytes();
     debug_assert_eq!(
-      length,
+      packed_value.length,
       self.config.bytes_per_doc(),
       "[packedValue] must have length {} but was {}",
       self.config.bytes_per_doc(),
-      length
+      packed_value.length
     );
     let position = self.next_write * self.config.bytes_per_doc();
     self.block.copy_from(
-      &packed_value[offset..(offset + self.config.bytes_per_doc())],
+      &packed_value.bytes[packed_value.offset..(packed_value.offset + self.config.bytes_per_doc())],
       position,
     );
     self.next_write += 1;
@@ -516,8 +517,12 @@ impl PointValue for HeapPointValue {
     self.offset = offset;
   }
 
-  fn packed_value(&self) -> (&[u8], usize, usize) {
-    (&self.value, self.offset, self.packed_value_length)
+  fn packed_value(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: self.value.as_slice(),
+      offset: self.offset,
+      length: self.packed_value_length,
+    }
   }
 
   fn doc_id(&self) -> i32 {
@@ -525,7 +530,11 @@ impl PointValue for HeapPointValue {
     BitUtil::get_i32_be(&self.value[position..], 0)
   }
 
-  fn packed_value_doc_id_bytes(&self) -> (&[u8], usize, usize) {
-    (&self.value, self.offset, self.packed_value_doc_id_length)
+  fn packed_value_doc_id_bytes(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: self.value.as_slice(),
+      offset: self.offset,
+      length: self.packed_value_doc_id_length,
+    }
   }
 }

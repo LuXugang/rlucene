@@ -588,7 +588,9 @@ where
     .get_reader(path_slice.start, path_slice.count, dir)?;
   while reader.next()? {
     let point_value = reader.point_value()?;
-    let (value_ref, packed_value_offset, _) = point_value.packed_value();
+    let packed_value = point_value.packed_value();
+    let value_ref = packed_value.bytes;
+    let packed_value_offset = packed_value.offset;
     let start_idx = packed_value_offset + dimension * config.bytes_per_dim;
     let end_idx = start_idx + size;
     let value = &value_ref[start_idx..end_idx];
@@ -616,7 +618,9 @@ where
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
-    let (bytes, packed_value_offset, _) = point_value_ref.packed_value();
+    let packed_value = point_value_ref.packed_value();
+    let bytes = packed_value.bytes;
+    let packed_value_offset = packed_value.offset;
     let offset = dimension * config.bytes_per_dim;
     let data_offset = config.packed_index_bytes_length();
     let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
@@ -663,7 +667,9 @@ where
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
-    let (value_vec, packed_value_offset, _) = point_value_ref.packed_value();
+    let packed_value = point_value_ref.packed_value();
+    let value_vec = packed_value.bytes;
+    let packed_value_offset = packed_value.offset;
     let start_idx = packed_value_offset + offset;
     let end_idx = packed_value_offset + offset + config.bytes_per_dim;
     let dim_slice = &value_vec[start_idx..end_idx];
@@ -696,7 +702,9 @@ where
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
-    let (bytes_ref, packed_value_offset, _) = point_value_ref.packed_value();
+    let packed_value = point_value_ref.packed_value();
+    let bytes_ref = packed_value.bytes;
+    let packed_value_offset = packed_value.offset;
     let start_idx = packed_value_offset + dimension * config.bytes_per_dim;
     let end_idx = start_idx + size;
     let value = &bytes_ref[start_idx..end_idx];
@@ -726,7 +734,9 @@ where
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
-    let (value_vec, packed_value_offset, _) = point_value_ref.packed_value();
+    let packed_value = point_value_ref.packed_value();
+    let value_vec = packed_value.bytes;
+    let packed_value_offset = packed_value.offset;
 
     let start_idx = packed_value_offset + offset;
     let end_idx = start_idx + config.bytes_per_dim;
@@ -761,7 +771,9 @@ where
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
-    let (value, packed_value_offset, _) = point_value_ref.packed_value();
+    let packed_value = point_value_ref.packed_value();
+    let value = packed_value.bytes;
+    let packed_value_offset = packed_value.offset;
     let offset = dimension * config.bytes_per_dim;
     let data_offset = config.packed_index_bytes_length();
     let data_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;

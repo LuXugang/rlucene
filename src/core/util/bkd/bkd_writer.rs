@@ -1124,7 +1124,9 @@ where
       self.write_actual_bounds(out, count, packed_values)?;
     }
 
-    let (bytes_ref, offset, _) = packed_values.get_value(0)?;
+    let value = packed_values.get_value(0)?;
+    let bytes_ref = value.bytes;
+    let offset = value.offset;
     self.scratch.copy_from(
       &bytes_ref[offset..(offset + self.config.packed_bytes_length())],
       0,
@@ -1132,7 +1134,9 @@ where
 
     let mut cardinality = 1;
     for i in 1..count {
-      let (bytes_ref, offset, _) = packed_values.get_value(i)?;
+      let value = packed_values.get_value(i)?;
+      let bytes_ref = value.bytes;
+      let offset = value.offset;
       for dim in 0..self.config.num_dims {
         let start = dim * self.config.bytes_per_dim;
         if !self
@@ -1199,7 +1203,9 @@ where
       )?;
       debug_assert!(run_len <= 0xff);
 
-      let (bytes_ref, offset, _) = packed_values.get_value(i)?;
+      let value = packed_values.get_value(i)?;
+      let bytes_ref = value.bytes;
+      let offset = value.offset;
       let prefix_byte = bytes_ref[offset + compressed_byte_offset];
 
       out.write_byte(prefix_byte)?;
@@ -1255,7 +1261,9 @@ where
     T: PackedValues,
   {
     debug_assert!(length > 0);
-    let (bytes_ref, first_offset, _first_length) = packed_values.get_value(0)?;
+    let value = packed_values.get_value(0)?;
+    let bytes_ref = value.bytes;
+    let first_offset = value.offset;
     let mut min: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
     let mut max: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
     let bytes = bytes_ref;
@@ -1265,7 +1273,9 @@ where
     let length_usize = length;
     let offset_usize = offset;
     for i in 1..count {
-      let (bytes_ref, candidate_offset, _candidate_length) = packed_values.get_value(i)?;
+      let value = packed_values.get_value(i)?;
+      let bytes_ref = value.bytes;
+      let candidate_offset = value.offset;
       let candidate_offset_usize = candidate_offset;
       let candidate_bytes = bytes_ref;
       if min.bytes().bytes[0..length_usize]
@@ -1302,7 +1312,10 @@ where
     T: PackedValues,
   {
     for i in start..end {
-      let (bytes_ref, offset, length) = packed_values.get_value(i)?;
+      let value = packed_values.get_value(i)?;
+      let bytes_ref = value.bytes;
+      let offset = value.offset;
+      let length = value.length;
       debug_assert!(length == self.config.packed_bytes_length());
 
       for dim in 0..self.config.num_dims {
@@ -1326,10 +1339,14 @@ where
   where
     T: PackedValues,
   {
-    let (bytes_ref, offset, _) = packed_values.get_value(start)?;
+    let value = packed_values.get_value(start)?;
+    let bytes_ref = value.bytes;
+    let offset = value.offset;
     let b = bytes_ref[offset + byte_offset];
     for i in (start + 1)..end {
-      let (bytes_ref, offset, _) = packed_values.get_value(i)?;
+      let value = packed_values.get_value(i)?;
+      let bytes_ref = value.bytes;
+      let offset = value.offset;
       let b2 = bytes_ref[offset + byte_offset];
       debug_assert!(b2 >= b);
       if b != b2 {
@@ -1652,28 +1669,32 @@ where
       }
       // Write the full values:
       let mut packed_values = PackedValuesImpl2 {
-        scratch: BytesRef::new(),
+        scratch: std::mem::take(&mut self.scratch_bytes_ref1),
         reader,
         from,
       };
-      debug_assert!(values_in_order_and_bounds(
-        self.config.clone(),
-        count,
-        sorted_dim,
-        min_packed_value.as_mut(),
-        max_packed_value.as_mut(),
-        &mut packed_values,
-        spare_doc_ids,
-        0,
-      )?);
+      let result = (|| -> Result<()> {
+        debug_assert!(values_in_order_and_bounds(
+          self.config.clone(),
+          count,
+          sorted_dim,
+          min_packed_value.as_mut(),
+          max_packed_value.as_mut(),
+          &mut packed_values,
+          spare_doc_ids,
+          0,
+        )?);
 
-      self.write_leaf_block_packed_values(
-        out,
-        count,
-        sorted_dim,
-        &mut packed_values,
-        leaf_cardinality,
-      )?;
+        self.write_leaf_block_packed_values(
+          out,
+          count,
+          sorted_dim,
+          &mut packed_values,
+          leaf_cardinality,
+        )
+      })();
+      self.scratch_bytes_ref1 = std::mem::take(&mut packed_values.scratch);
+      result?;
     } else {
       // inner node
 
@@ -1809,7 +1830,9 @@ where
       }
       {
         let point_value = reader.point_value()?;
-        let (value, offset, _length) = point_value.packed_value();
+        let value = point_value.packed_value();
+        let offset = value.offset;
+        let value = value.bytes;
         min_packed_value.copy_from(
           &value[offset..(offset + self.config.packed_index_bytes_length())],
           0,
@@ -1822,7 +1845,9 @@ where
 
       while reader.next()? {
         let point_value = reader.point_value()?;
-        let (value, offset, _length) = point_value.packed_value();
+        let value = point_value.packed_value();
+        let offset = value.offset;
+        let value = value.bytes;
         for dim in 0..self.config.num_index_dims {
           let start_offset = dim * self.config.bytes_per_dim;
           if self
@@ -1914,9 +1939,8 @@ where
             if prefix < self.config.bytes_per_dim {
               let offset = dim * self.config.bytes_per_dim;
               for i in from..to {
-                let (bytes, bytes_offset, _) =
-                  heap_source.get_packed_value_slice(i)?.packed_value();
-                let bucket = bytes[bytes_offset + offset + prefix] as usize;
+                let value = heap_source.get_packed_value_slice(i)?.packed_value();
+                let bucket = value.bytes[value.offset + offset + prefix] as usize;
                 match used_bytes[dim] {
                   Some(ref mut set) => set.set(bucket)?,
                   None => {
@@ -2115,7 +2139,9 @@ where
 
     {
       let point_value = heap_point_writer.get_packed_value_slice(from)?;
-      let (bytes, offset, _) = point_value.packed_value();
+      let value = point_value.packed_value();
+      let bytes = value.bytes;
+      let offset = value.offset;
 
       for dim in 0..self.config.num_dims {
         let src_offset = offset + dim * self.config.bytes_per_dim;
@@ -2129,7 +2155,9 @@ where
 
     for i in from + 1..to {
       let point_value = heap_point_writer.get_packed_value_slice(i)?;
-      let (bytes, offset, _) = point_value.packed_value();
+      let value = point_value.packed_value();
+      let bytes = value.bytes;
+      let offset = value.offset;
 
       for dim in 0..self.config.num_dims {
         if self.common_prefix_lengths[dim] != 0 {
@@ -2434,7 +2462,10 @@ where
   let mut last_packed_value = vec![0u8; config.packed_bytes_length()];
   let mut last_doc = -1;
   for i in 0..count {
-    let (bytes_ref, offset, length) = values.get_value(i)?;
+    let value = values.get_value(i)?;
+    let bytes_ref = value.bytes;
+    let offset = value.offset;
+    let length = value.length;
     let bytes = bytes_ref;
     debug_assert_eq!(length, config.packed_bytes_length());
     debug_assert!(value_in_order(
@@ -2894,7 +2925,7 @@ where
 }
 
 trait PackedValues {
-  fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)>;
+  fn get_value(&mut self, i: usize) -> Result<BytesRef<&[u8]>>;
 }
 struct PackedValuesImpl1<'a> {
   scratch_bytes_ref_byte: &'a [u8],
@@ -2902,12 +2933,12 @@ struct PackedValuesImpl1<'a> {
   length: usize,
 }
 impl PackedValues for PackedValuesImpl1<'_> {
-  fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)> {
-    Ok((
-      self.scratch_bytes_ref_byte,
-      self.packed_bytes_length * i,
-      self.length,
-    ))
+  fn get_value(&mut self, i: usize) -> Result<BytesRef<&[u8]>> {
+    Ok(BytesRef {
+      bytes: self.scratch_bytes_ref_byte,
+      offset: self.packed_bytes_length * i,
+      length: self.length,
+    })
   }
 }
 
@@ -2923,9 +2954,8 @@ impl<M> PackedValues for PackedValuesImpl2<'_, M>
 where
   M: MutablePointTree,
 {
-  fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)> {
-    let value = self.reader.get_value(i + self.from, &mut self.scratch)?;
-    Ok((value.bytes, value.offset, value.length))
+  fn get_value(&mut self, i: usize) -> Result<BytesRef<&[u8]>> {
+    self.reader.get_value(i + self.from, &mut self.scratch)
   }
 }
 struct PackedValuesImpl3<'a, O>
@@ -2939,7 +2969,7 @@ impl<O> PackedValues for PackedValuesImpl3<'_, O>
 where
   O: IndexOutput,
 {
-  fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)> {
+  fn get_value(&mut self, i: usize) -> Result<BytesRef<&[u8]>> {
     match self.heap_source {
       PointWriterEnum::Heap(heap_source) => Ok(
         heap_source

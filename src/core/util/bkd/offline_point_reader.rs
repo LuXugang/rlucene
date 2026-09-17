@@ -16,6 +16,7 @@
  */
 
 use crate::core::codecs::CodecUtil;
+use crate::core::index::BytesRef;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexInput};
@@ -259,8 +260,12 @@ impl PointValue for OfflinePointValue {
     self.offset = offset;
   }
 
-  fn packed_value(&self) -> (&[u8], usize, usize) {
-    (&self.value, self.offset, self.packed_value_length)
+  fn packed_value(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: self.value.as_slice(),
+      offset: self.offset,
+      length: self.packed_value_length,
+    }
   }
 
   fn doc_id(&self) -> i32 {
@@ -268,7 +273,11 @@ impl PointValue for OfflinePointValue {
     BitUtil::get_i32_be(&self.value[position..], 0)
   }
 
-  fn packed_value_doc_id_bytes(&self) -> (&[u8], usize, usize) {
-    (&self.value, self.offset, self.packed_value_doc_id_length)
+  fn packed_value_doc_id_bytes(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: self.value.as_slice(),
+      offset: self.offset,
+      length: self.packed_value_doc_id_length,
+    }
   }
 }

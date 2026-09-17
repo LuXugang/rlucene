@@ -266,19 +266,19 @@ impl BKDRadixSelector {
         reader.next()?;
         {
           let point_value = reader.point_value()?;
-          let (value, packed_value_offset, _) = point_value.packed_value_doc_id_bytes();
+          let value = point_value.packed_value_doc_id_bytes();
 
-          let mut start = packed_value_offset + offset;
+          let mut start = value.offset + offset;
           let mut end = start + self.config.bytes_per_dim;
-          self.scratch.copy_from(&value[start..end], 0);
+          self.scratch.copy_from(&value.bytes[start..end], 0);
 
-          start = packed_value_offset + self.config.packed_index_bytes_length();
+          start = value.offset + self.config.packed_index_bytes_length();
           end = start
             + ((self.config.num_dims - self.config.num_index_dims) * self.config.bytes_per_dim)
             + BitUtil::INT_BYTES;
           self
             .scratch
-            .copy_from(&value[start..end], self.config.bytes_per_dim);
+            .copy_from(&value.bytes[start..end], self.config.bytes_per_dim);
         }
         let mut histogram_index;
         for i in (from + 1)..to {
@@ -302,12 +302,12 @@ impl BKDRadixSelector {
             let scratch_start_index = std::cmp::min(dim_common_prefix, self.config.bytes_per_dim);
             let scratch_end_index =
               std::cmp::min(common_prefix_position, self.config.bytes_per_dim);
-            let (value, packed_value_offset, _length) = point_value.packed_value_doc_id_bytes();
-            let packed_value_start_index = (packed_value_offset + offset) + scratch_start_index;
-            let packed_value_end_index = (packed_value_offset + offset) + scratch_end_index;
+            let value = point_value.packed_value_doc_id_bytes();
+            let packed_value_start_index = (value.offset + offset) + scratch_start_index;
+            let packed_value_end_index = (value.offset + offset) + scratch_end_index;
             let j = CoreHelper::miss_match_u8(
               &self.scratch[scratch_start_index..scratch_end_index],
-              &value[packed_value_start_index..packed_value_end_index],
+              &value.bytes[packed_value_start_index..packed_value_end_index],
             );
             if j == -1 {
               if common_prefix_position > self.config.bytes_per_dim {
@@ -316,8 +316,7 @@ impl BKDRadixSelector {
                   start_tie_break + common_prefix_position - self.config.bytes_per_dim;
                 let k = CoreHelper::miss_match_u8(
                   &self.scratch[self.config.bytes_per_dim..common_prefix_position],
-                  &value[(packed_value_offset + start_tie_break)
-                    ..(packed_value_offset + end_tie_break)],
+                  &value.bytes[(value.offset + start_tie_break)..(value.offset + end_tie_break)],
                 );
                 if k != -1 {
                   common_prefix_position = self.config.bytes_per_dim + k as usize;
@@ -365,15 +364,15 @@ impl BKDRadixSelector {
     point_value: &PointValueEnum,
   ) -> usize {
     if common_prefix_position < self.config.bytes_per_dim {
-      let (packed_value, packed_value_offset, _length) = point_value.packed_value();
-      let index = packed_value_offset + offset + common_prefix_position;
-      packed_value[index] as usize
+      let packed_value = point_value.packed_value();
+      let index = packed_value.offset + offset + common_prefix_position;
+      packed_value.bytes[index] as usize
     } else {
-      let (packed_value, packed_value_offset, _length) = point_value.packed_value_doc_id_bytes();
+      let packed_value = point_value.packed_value_doc_id_bytes();
       let index =
-        packed_value_offset + self.config.packed_index_bytes_length() + common_prefix_position
+        packed_value.offset + self.config.packed_index_bytes_length() + common_prefix_position
           - self.config.bytes_per_dim;
-      packed_value[index] as usize
+      packed_value.bytes[index] as usize
     }
   }
   #[allow(clippy::too_many_arguments)]
@@ -667,12 +666,12 @@ impl BKDRadixSelector {
     match points {
       PointWriterEnum::Heap(heap_writer) => {
         let point_value = heap_writer.get_packed_value_slice(partition_point)?;
-        let (bytes, offset, _length) = point_value.packed_value();
+        let bytes = point_value.packed_value();
 
-        let start = offset + (dim * bytes_per_dim);
+        let start = bytes.offset + (dim * bytes_per_dim);
         let end = start + bytes_per_dim;
 
-        partition.copy_from(&bytes[start..end], 0);
+        partition.copy_from(&bytes.bytes[start..end], 0);
         Ok(partition)
       },
       _ => Err(LuceneError::unreachable(

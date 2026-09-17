@@ -176,18 +176,18 @@ where
 
   fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
     debug_assert!(!self.closed, "Point writer is already closed");
-    let (value, offset, length) = point_value.packed_value_doc_id_bytes();
+    let value = point_value.packed_value_doc_id_bytes();
     debug_assert_eq!(
-      length,
+      value.length,
       self.config.bytes_per_doc(),
       "[packedValue and docID] must have length [{}] but was [{}]",
       self.config.bytes_per_doc(),
-      length
+      value.length
     );
     match self.out {
       None => return Err(LuceneError::illegal_state("Point writer is already closed")),
       Some(ref mut out) => {
-        out.write_bytes_range(value, offset, length)?;
+        out.write_bytes_range(value.bytes, value.offset, value.length)?;
       },
     }
     self.count += 1;
