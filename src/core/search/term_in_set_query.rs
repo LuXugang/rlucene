@@ -122,7 +122,7 @@ impl TermInSetQuery {
       if previous.as_ref().is_some_and(|previous| previous == &term) {
         continue;
       }
-      builder.add(field.to_string(), &term)?;
+      builder.add(field, &term)?;
       previous = Some(term);
     }
     Ok(builder.finish().into())
