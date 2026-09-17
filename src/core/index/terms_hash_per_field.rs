@@ -286,18 +286,21 @@ impl TermsHashPerField {
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
-    if BYTE_BLOCK_SIZE - byte_pool.byte_upto
-      < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
-    {
-      // can we fit at least one byte per stream in the current
-      // buffer, if not allocate a new one
-      byte_pool.next_buffer()?;
-    }
-    let byte_offset = byte_pool.byte_offset;
     {
       if self.stream_count + int_pool.int_upto > INT_BLOCK_SIZE {
+        // not enough space remaining in this buffer -- jump to next buffer and lose this remaining
+        // piece
         int_pool.next_buffer()?;
       }
+
+      if BYTE_BLOCK_SIZE - byte_pool.byte_upto
+        < 2 * self.stream_count * ByteSlicePool::FIRST_LEVEL_SIZE
+      {
+        // can we fit at least one byte per stream in the current
+        // buffer, if not allocate a new one
+        byte_pool.next_buffer()?;
+      }
+      let byte_offset = byte_pool.byte_offset;
       self.term_stream_address_buffer_index = int_pool
         .buffer_upto
         .ok_or_else(|| LuceneError::illegal_state("term stream has no current int buffer"))?;
