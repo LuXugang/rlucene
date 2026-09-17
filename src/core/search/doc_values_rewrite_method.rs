@@ -176,7 +176,6 @@ impl Eq for MultiTermQueryDocValuesWrapper {}
 
 pub struct MultiTermQueryDocValuesWeight {
   parent_query: Arc<Query>,
-  query: MultiTermQuerySet,
   matches_query: Arc<Query>,
   base: ConstantScoreWeight,
   score_mode: ScoreMode,
@@ -184,11 +183,9 @@ pub struct MultiTermQueryDocValuesWeight {
 
 impl MultiTermQueryDocValuesWeight {
   fn new(query: MultiTermQueryDocValuesWrapper, boost: f32, score_mode: ScoreMode) -> Self {
-    let query_enum = query.query.clone();
-    let matches_query: Arc<Query> = Arc::new(query_enum.clone().into());
+    let matches_query: Arc<Query> = Arc::new(query.query.clone().into());
     Self {
       parent_query: Arc::new(query.into()),
-      query: query_enum,
       matches_query,
       base: ConstantScoreWeight::new(boost),
       score_mode,
@@ -201,7 +198,12 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field());
+    let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected MultiTermQueryDocValuesWrapper in doc values weight",
+      ));
+    };
+    let field = dispatch_multi_term_query!(&wrapper.query, |q| q.get_field());
     DocValues::is_cacheable(ctx, [field])
   }
 }
@@ -216,10 +218,16 @@ where
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
   ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
-    let field = dispatch_multi_term_query!(&self.query, |query| query.get_field());
+    let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected MultiTermQueryDocValuesWrapper in doc values weight",
+      ));
+    };
+    let query = &wrapper.query;
+    let field = dispatch_multi_term_query!(query, |query| query.get_field());
     for_field(field, move || {
       let values = DocValues::get_sorted_set(context.reader(), field)?;
-      let terms_enum = get_terms_enum(&self.query, values)?;
+      let terms_enum = get_terms_enum(query, values)?;
       from_terms_enum(context, doc, self.matches_query.clone(), field, terms_enum)
     })
   }
@@ -247,7 +255,12 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    let field = dispatch_multi_term_query!(&self.query, |q| q.get_field());
+    let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected MultiTermQueryDocValuesWrapper in doc values weight",
+      ));
+    };
+    let field = dispatch_multi_term_query!(&wrapper.query, |q| q.get_field());
     let values = DocValues::get_sorted_set(context.reader(), field)?;
     if values.get_value_count()? == 0 {
       return Ok(None);
