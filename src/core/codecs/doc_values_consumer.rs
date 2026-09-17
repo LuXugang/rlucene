@@ -50,7 +50,9 @@ use crate::core::index::sorted_set_doc_values_writer::{
   SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2, SortedSetDocValuesWithEmpty,
 };
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::core::index::{BytesRef, BytesRefValue, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
+use crate::core::index::{
+  BytesRef, BytesRefValueEnum2, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of,
+};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
@@ -1221,6 +1223,7 @@ pub struct MergedTermsEnum<TE> {
   ordinal_map: Rc<OrdinalMap>,
   value_count: i64,
   ord: i64,
+  sub_num: usize,
   term: BytesRef<Vec<u8>>,
 }
 impl<TE> MergedTermsEnum<TE> {
@@ -1231,6 +1234,7 @@ impl<TE> MergedTermsEnum<TE> {
       ordinal_map,
       value_count,
       ord: -1,
+      sub_num: 0,
       term: BytesRef::new(),
     }
   }
@@ -1241,7 +1245,7 @@ where
   TE: TermsEnum,
 {
   type Value<'a>
-    = &'a BytesRef<Vec<u8>>
+    = BytesRefValueEnum2<TE::Value<'a>, &'a BytesRef<Vec<u8>>>
   where
     Self: 'a;
 
@@ -1258,13 +1262,13 @@ where
     let mut end;
     loop {
       end = sub.next()?.is_none();
+      self.sub_num = sub_num;
       if sub.ord()? >= sub_ord {
         debug_assert!(sub.ord()? == sub_ord);
         return if end {
           Ok(None)
         } else {
-          sub.term()?.into_value().copy_or_move_into(&mut self.term);
-          Ok(Some(&self.term))
+          Ok(Some(BytesRefValueEnum2::A(self.subs[sub_num].term()?)))
         };
       }
     }
@@ -1324,7 +1328,11 @@ where
   }
 
   fn term(&self) -> Result<Self::Value<'_>> {
-    Ok(&self.term)
+    if self.ord < 0 {
+      Ok(BytesRefValueEnum2::B(&self.term))
+    } else {
+      Ok(BytesRefValueEnum2::A(self.subs[self.sub_num].term()?))
+    }
   }
 
   fn ord(&self) -> Result<i64> {
