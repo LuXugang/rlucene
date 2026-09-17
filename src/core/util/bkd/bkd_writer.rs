@@ -831,8 +831,9 @@ where
       let split_offset = right_offset - 1;
 
       let split_dim = leaf_nodes.get_split_dimension(split_offset);
-      let (split_bytes, split_offset, _) = leaf_nodes.get_split_value(split_offset);
-      let address = split_offset;
+      let split_value = leaf_nodes.get_split_value(split_offset);
+      let split_bytes = split_value.bytes;
+      let address = split_value.offset;
 
       let prefix: usize = self
         .common_prefix_comparator
@@ -2798,7 +2799,7 @@ trait BKDTreeLeafNodes {
 
   /// split value between two leaves. The split value at position n
   /// corresponds to the leaves at (n -1) and n.
-  fn get_split_value(&self, index: usize) -> (&[u8], usize, usize);
+  fn get_split_value(&self, index: usize) -> BytesRef<&[u8]>;
 
   /// split dimension between two leaves. The split dimension at position n
   /// corresponds to the leaves at (n -1) and n.
@@ -2819,12 +2820,12 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesOneDimension {
     self.leaf_block_fps[index]
   }
 
-  fn get_split_value(&self, index: usize) -> (&[u8], usize, usize) {
-    (
-      &self.leaf_block_start_values[index * self.length..(index + 1) * self.length],
-      self.offset,
-      self.length,
-    )
+  fn get_split_value(&self, index: usize) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: &self.leaf_block_start_values[index * self.length..(index + 1) * self.length],
+      offset: self.offset,
+      length: self.length,
+    }
   }
 
   fn get_split_dimension(&self, _index: usize) -> usize {
@@ -2846,12 +2847,12 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesImpl {
     self.leaf_block_fps[index]
   }
 
-  fn get_split_value(&self, index: usize) -> (&[u8], usize, usize) {
-    (
-      &self.scratch_bytes_ref1.bytes,
-      index * self.bytes_per_dim,
-      self.bytes_per_dim,
-    )
+  fn get_split_value(&self, index: usize) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: self.scratch_bytes_ref1.bytes.as_slice(),
+      offset: index * self.bytes_per_dim,
+      length: self.bytes_per_dim,
+    }
   }
 
   fn get_split_dimension(&self, index: usize) -> usize {
@@ -2878,7 +2879,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesEnum {
     }
   }
 
-  fn get_split_value(&self, index: usize) -> (&[u8], usize, usize) {
+  fn get_split_value(&self, index: usize) -> BytesRef<&[u8]> {
     match self {
       BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_split_value(index),
       BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_split_value(index),
