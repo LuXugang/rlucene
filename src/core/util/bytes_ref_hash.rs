@@ -769,7 +769,13 @@ impl BytesStartArray for DirectBytesStartArray {
 /// # Note
 /// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language
 /// limitations, a new MSBStringHashRadixSorter is currently being used.
-pub struct MSBStringHashRadixSorter<'a, T, C> {
+pub struct MSBStringHashRadixSorter<'a, T: StringSorterBase, C> {
+  scratch1: BytesRefBuilder<Vec<u8>>,
+  scratch2: BytesRefBuilder<Vec<u8>>,
+  pivot_builder: BytesRefBuilder<Vec<u8>>,
+  scratch_bytes1: BytesRef<T::Bytes>,
+  scratch_bytes2: BytesRef<T::Bytes>,
+  pivot: BytesRef<T::Bytes>,
   cmp: &'a mut C,
   delegate: &'a mut T,
 }
@@ -779,7 +785,16 @@ where
   C: BytesRefComparator<T::Bytes>,
 {
   pub fn new(cmp: &'a mut C, delegate: &'a mut T) -> MSBStringHashRadixSorter<'a, T, C> {
-    MSBStringHashRadixSorter { cmp, delegate }
+    MSBStringHashRadixSorter {
+      scratch1: BytesRefBuilder::default(),
+      scratch2: BytesRefBuilder::default(),
+      pivot_builder: BytesRefBuilder::default(),
+      scratch_bytes1: BytesRef::default(),
+      scratch_bytes2: BytesRef::default(),
+      pivot: BytesRef::default(),
+      cmp,
+      delegate,
+    }
   }
 }
 
@@ -803,7 +818,16 @@ where
   }
 
   fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
-    self.delegate.fall_back_sorter(self.cmp, Some(k))
+    self.delegate.fall_back_sorter(
+      self.cmp,
+      Some(k),
+      &mut self.scratch1,
+      &mut self.scratch2,
+      &mut self.pivot_builder,
+      &mut self.scratch_bytes1,
+      &mut self.scratch_bytes2,
+      &mut self.pivot,
+    )
   }
 
   fn reorder(

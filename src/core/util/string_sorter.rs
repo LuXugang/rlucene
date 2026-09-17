@@ -32,6 +32,8 @@ pub(crate) struct StringSorter<T: StringSorterBase, C> {
   scratch2: BytesRefBuilder<Vec<u8>>,
   scratch_bytes1: BytesRef<T::Bytes>,
   scratch_bytes2: BytesRef<T::Bytes>,
+  pivot_builder: BytesRefBuilder<Vec<u8>>,
+  pivot: BytesRef<T::Bytes>,
   cmp: C,
 }
 
@@ -47,6 +49,8 @@ where
       scratch2: BytesRefBuilder::default(),
       scratch_bytes1: BytesRef::default(),
       scratch_bytes2: BytesRef::default(),
+      pivot_builder: BytesRefBuilder::default(),
+      pivot: BytesRef::default(),
       cmp,
     }
   }
@@ -84,7 +88,16 @@ where
     } else {
       self
         .delegate
-        .fall_back_sorter(&mut self.cmp, None)
+        .fall_back_sorter(
+          &mut self.cmp,
+          None,
+          &mut self.scratch1,
+          &mut self.scratch2,
+          &mut self.pivot_builder,
+          &mut self.scratch_bytes1,
+          &mut self.scratch_bytes2,
+          &mut self.pivot,
+        )
         .sort(from, to)
     }
   }
@@ -93,6 +106,10 @@ where
 pub struct MSBStringRadixSorter<'a, T: StringSorterBase, C> {
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch_bytes1: BytesRef<T::Bytes>,
+  scratch2: BytesRefBuilder<Vec<u8>>,
+  scratch_bytes2: BytesRef<T::Bytes>,
+  pivot_builder: BytesRefBuilder<Vec<u8>>,
+  pivot: BytesRef<T::Bytes>,
   cmp: &'a mut C,
   delegate: &'a mut T,
 }
@@ -105,6 +122,10 @@ where
     MSBStringRadixSorter {
       scratch1: BytesRefBuilder::default(),
       scratch_bytes1: BytesRef::default(),
+      scratch2: BytesRefBuilder::default(),
+      scratch_bytes2: BytesRef::default(),
+      pivot_builder: BytesRefBuilder::default(),
+      pivot: BytesRef::default(),
       cmp,
       delegate,
     }
@@ -134,17 +155,26 @@ where
   }
 
   fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
-    self.delegate.fall_back_sorter(self.cmp, Some(k))
+    self.delegate.fall_back_sorter(
+      self.cmp,
+      Some(k),
+      &mut self.scratch1,
+      &mut self.scratch2,
+      &mut self.pivot_builder,
+      &mut self.scratch_bytes1,
+      &mut self.scratch_bytes2,
+      &mut self.pivot,
+    )
   }
 }
 
 pub struct IntroSorterImpl<'a, T: StringSorterBase, C> {
-  pivot: BytesRef<T::Bytes>,
-  pivot_builder: BytesRefBuilder<Vec<u8>>,
-  scratch1: BytesRefBuilder<Vec<u8>>,
-  scratch2: BytesRefBuilder<Vec<u8>>,
-  scratch_bytes1: BytesRef<T::Bytes>,
-  scratch_bytes2: BytesRef<T::Bytes>,
+  pivot_builder: &'a mut BytesRefBuilder<Vec<u8>>,
+  pivot: &'a mut BytesRef<T::Bytes>,
+  scratch1: &'a mut BytesRefBuilder<Vec<u8>>,
+  scratch2: &'a mut BytesRefBuilder<Vec<u8>>,
+  scratch_bytes1: &'a mut BytesRef<T::Bytes>,
+  scratch_bytes2: &'a mut BytesRef<T::Bytes>,
   cmp: &'a mut C,
   delegate: &'a mut T,
   k: Option<usize>,
@@ -154,14 +184,25 @@ where
   T: StringSorterBase,
   C: BytesRefComparator<T::Bytes>,
 {
-  pub fn new(cmp: &'a mut C, delegate: &'a mut T, k: Option<usize>) -> IntroSorterImpl<'a, T, C> {
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    cmp: &'a mut C,
+    delegate: &'a mut T,
+    k: Option<usize>,
+    scratch1: &'a mut BytesRefBuilder<Vec<u8>>,
+    scratch2: &'a mut BytesRefBuilder<Vec<u8>>,
+    pivot_builder: &'a mut BytesRefBuilder<Vec<u8>>,
+    scratch_bytes1: &'a mut BytesRef<T::Bytes>,
+    scratch_bytes2: &'a mut BytesRef<T::Bytes>,
+    pivot: &'a mut BytesRef<T::Bytes>,
+  ) -> IntroSorterImpl<'a, T, C> {
     IntroSorterImpl {
-      pivot: BytesRef::default(),
-      pivot_builder: BytesRefBuilder::default(),
-      scratch1: BytesRefBuilder::default(),
-      scratch2: BytesRefBuilder::default(),
-      scratch_bytes1: BytesRef::default(),
-      scratch_bytes2: BytesRef::default(),
+      pivot_builder,
+      pivot,
+      scratch1,
+      scratch2,
+      scratch_bytes1,
+      scratch_bytes2,
       cmp,
       delegate,
       k,
@@ -174,17 +215,13 @@ where
   C: BytesRefComparator<T::Bytes>,
 {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-    self
-      .delegate
-      .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
-    self
-      .delegate
-      .get(&mut self.scratch2, &mut self.scratch_bytes2, j)?;
+    self.delegate.get(self.scratch1, self.scratch_bytes1, i)?;
+    self.delegate.get(self.scratch2, self.scratch_bytes2, j)?;
     match self.k {
       Some(k) => self
         .cmp
-        .compare_with_offset(&self.scratch_bytes1, &self.scratch_bytes2, k),
-      None => self.cmp.compare(&self.scratch_bytes1, &self.scratch_bytes2),
+        .compare_with_offset(self.scratch_bytes1, self.scratch_bytes2, k),
+      None => self.cmp.compare(self.scratch_bytes1, self.scratch_bytes2),
     }
   }
 
@@ -193,21 +230,17 @@ where
   }
 
   fn set_pivot(&mut self, i: usize) -> Result<()> {
-    self
-      .delegate
-      .get(&mut self.pivot_builder, &mut self.pivot, i)?;
+    self.delegate.get(self.pivot_builder, self.pivot, i)?;
     Ok(())
   }
 
   fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-    self
-      .delegate
-      .get(&mut self.scratch1, &mut self.scratch_bytes1, j)?;
+    self.delegate.get(self.scratch1, self.scratch_bytes1, j)?;
     match self.k {
       Some(k) => self
         .cmp
-        .compare_with_offset(&self.pivot, &self.scratch_bytes1, k),
-      None => self.cmp.compare(&self.pivot, &self.scratch_bytes1),
+        .compare_with_offset(self.pivot, self.scratch_bytes1, k),
+      None => self.cmp.compare(self.pivot, self.scratch_bytes1),
     }
   }
 
@@ -235,12 +268,33 @@ pub trait StringSorterBase: Sorter {
     result: &mut BytesRef<Self::Bytes>,
     i: usize,
   ) -> Result<()>;
-  fn fall_back_sorter<'a, C>(&'a mut self, cmp: &'a mut C, k: Option<usize>) -> impl Sorter + 'a
+  #[allow(clippy::too_many_arguments)]
+  fn fall_back_sorter<'a, C>(
+    &'a mut self,
+    cmp: &'a mut C,
+    k: Option<usize>,
+    scratch1: &'a mut BytesRefBuilder<Vec<u8>>,
+    scratch2: &'a mut BytesRefBuilder<Vec<u8>>,
+    pivot_builder: &'a mut BytesRefBuilder<Vec<u8>>,
+    scratch_bytes1: &'a mut BytesRef<Self::Bytes>,
+    scratch_bytes2: &'a mut BytesRef<Self::Bytes>,
+    pivot: &'a mut BytesRef<Self::Bytes>,
+  ) -> impl Sorter + 'a
   where
     C: BytesRefComparator<Self::Bytes>,
     Self: Sorter + Sized,
   {
-    IntroSorterImpl::new(cmp, self, k)
+    IntroSorterImpl::new(
+      cmp,
+      self,
+      k,
+      scratch1,
+      scratch2,
+      pivot_builder,
+      scratch_bytes1,
+      scratch_bytes2,
+      pivot,
+    )
   }
   fn radix_sorter<'a, C>(&'a mut self, cmp: &'a mut C) -> impl Sorter + 'a
   where
