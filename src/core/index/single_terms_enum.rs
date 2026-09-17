@@ -19,6 +19,8 @@ use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
 use crate::core::index::terms_enum::TermsEnum;
+use crate::core::util::error::lucene_error::Result;
+use std::borrow::Cow;
 /// [`FilteredTermsEnum`] implementation for enumerating a single term.
 ///
 /// For example, this can be used by [`MultiTermQuery`](crate::core::search::multi_term_query::MultiTermQuery)s that need only visit one term, but
@@ -32,14 +34,23 @@ impl SingleTermsEnum {
     T: TermsEnum,
   {
     let sub = SingleTermsEnum {
-      single_ref: term_text.clone(),
+      single_ref: term_text,
     };
-    let mut v = FilteredTermsEnum::new(te, sub);
-    v.set_initial_seek_term(term_text);
-    v
+    FilteredTermsEnum::new(te, sub)
   }
 }
 impl FilteredTermsEnumBase for SingleTermsEnum {
+  fn next_seek_term(
+    &mut self,
+    current: Option<&BytesRef<&[u8]>>,
+  ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if current.is_none() {
+      Ok(Some(Cow::Borrowed(&self.single_ref)))
+    } else {
+      Ok(None)
+    }
+  }
+
   fn accept(
     &mut self,
     term: &BytesRef<&[u8]>,
@@ -48,7 +59,7 @@ impl FilteredTermsEnumBase for SingleTermsEnum {
     if term.compare_to(&self.single_ref).is_eq() {
       Ok(AcceptStatus::Yes)
     } else {
-      Ok(AcceptStatus::No)
+      Ok(AcceptStatus::End)
     }
   }
 }

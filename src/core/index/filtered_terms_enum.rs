@@ -98,6 +98,7 @@ impl<T, F> FilteredTermsEnum<T, F> {
       hook: FilteredTermsEnumHook::Default,
     }
   }
+  #[cfg(test)]
   pub(crate) fn set_initial_seek_term(&mut self, term: BytesRef<Vec<u8>>) {
     self.initial_seek_term = Some(term);
   }
@@ -120,72 +121,65 @@ where
         .next()
         .map(|value| value.map(BytesRefValue::into_value));
     }
-    let Self {
-      initial_seek_term,
-      do_seek,
-      has_actual_term,
-      tenum,
-      hook,
-    } = self;
     loop {
-      if *do_seek {
-        *do_seek = false;
+      if self.do_seek {
+        self.do_seek = false;
         let t = {
-          let current_term = if *has_actual_term {
-            Some(tenum.term()?)
+          let current_term = if self.has_actual_term {
+            Some(self.tenum.term()?)
           } else {
             None
           };
           let current = current_term.as_ref().map(BytesRefValue::as_bytes_ref);
-          let t = hook.next_seek_term(current.as_ref(), initial_seek_term)?;
+          let t = self
+            .hook
+            .next_seek_term(current.as_ref(), &mut self.initial_seek_term)?;
           if let (Some(actual), Some(term)) = (current.as_ref(), t.as_ref()) {
             debug_assert!(term.compare_to(actual).is_gt());
           }
           t
         };
         let Some(t) = t else {
-          *has_actual_term = false;
+          self.has_actual_term = false;
           return Ok(None);
         };
-        if tenum.seek_ceil(t.as_ref())? == SeekStatus::End {
-          *has_actual_term = false;
+        if self.tenum.seek_ceil(t.as_ref())? == SeekStatus::End {
+          self.has_actual_term = false;
           return Ok(None);
         }
-        *has_actual_term = true;
-      } else if tenum.next()?.is_none() {
-        *has_actual_term = false;
+        self.has_actual_term = true;
+      } else if self.tenum.next()?.is_none() {
+        self.has_actual_term = false;
         return Ok(None);
       } else {
-        *has_actual_term = true;
+        self.has_actual_term = true;
       }
 
-      let need_ord = match hook {
+      let need_ord = match &self.hook {
         FilteredTermsEnumHook::Default => false,
         FilteredTermsEnumHook::Filtered(sub) => sub.need_ord(),
       };
-      let ord = if need_ord { tenum.ord()? } else { 0 };
-      let term = tenum.term()?;
-      let term_ref = term.as_bytes_ref();
-      let accept_status = match hook {
-        FilteredTermsEnumHook::Default => AcceptStatus::Yes,
-        FilteredTermsEnumHook::Filtered(sub) => sub.accept(&term_ref, ord)?,
+      let ord = if need_ord { self.tenum.ord()? } else { 0 };
+      let accept_status = {
+        let term = self.tenum.term()?;
+        let term_ref = term.as_bytes_ref();
+        match &mut self.hook {
+          FilteredTermsEnumHook::Default => AcceptStatus::Yes,
+          FilteredTermsEnumHook::Filtered(sub) => sub.accept(&term_ref, ord)?,
+        }
       };
       match accept_status {
         AcceptStatus::YesAndSeek => {
-          *do_seek = true;
-          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Owned(
-            term.into_owned(),
-          ))));
+          self.do_seek = true;
+          return self.tenum.term().map(|term| Some(term.into_value()));
         },
         // term accepted, but we need to seek so fall-through
         AcceptStatus::Yes => {
-          return Ok(Some(BytesRefValueEnum::Buffer(Cow::Owned(
-            term.into_owned(),
-          ))));
+          return self.tenum.term().map(|term| Some(term.into_value()));
         },
         AcceptStatus::NoAndSeek => {
           // invalid term, seek next time
-          *do_seek = true;
+          self.do_seek = true;
         },
         AcceptStatus::End => {
           // we are supposed to end the enum
