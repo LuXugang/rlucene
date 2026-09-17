@@ -62,7 +62,6 @@ pub trait PointsWriter: Closeable {
   {
     let mut max_point_count = 0;
     let mut point_values = Vec::with_capacity(merge_state.points_readers.len());
-    let mut doc_maps = Vec::with_capacity(merge_state.points_readers.len());
     for (i, points_reader_opt) in merge_state.points_readers.iter().enumerate() {
       let points_reader = match points_reader_opt.as_ref() {
         Some(v) => v,
@@ -85,11 +84,10 @@ pub trait PointsWriter: Closeable {
       };
 
       max_point_count += values.size()?;
-      point_values.push(values);
-      doc_maps.push(merge_state.doc_maps[i].clone())
+      point_values.push((values, merge_state.doc_maps[i].clone()));
     }
     let mut points_reader: PointsReaderImpl<'_, _, Rc<MergeStateDocMap<CR>>> =
-      PointsReaderImpl::new(field_info.as_ref(), max_point_count, point_values, doc_maps);
+      PointsReaderImpl::new(field_info.as_ref(), max_point_count, point_values);
     self.write_field(
       field_info,
       &mut points_reader,
@@ -210,8 +208,7 @@ where
 struct PointsReaderImpl<'a, P, DM> {
   field_info: &'a FieldInfo,
   final_max_point_count: usize,
-  point_value: Rc<Vec<P>>,
-  doc_map: Rc<Vec<DM>>,
+  point_values: Rc<Vec<(P, DM)>>,
 }
 
 impl<P, DM> CloseableRef for PointsReaderImpl<'_, P, DM> {}
@@ -220,14 +217,12 @@ impl<'a, P, DM> PointsReaderImpl<'a, P, DM> {
   fn new(
     field_info: &'a FieldInfo,
     final_max_point_count: usize,
-    point_value: Vec<P>,
-    doc_map: Vec<DM>,
+    point_values: Vec<(P, DM)>,
   ) -> Self {
     Self {
       field_info,
       final_max_point_count,
-      point_value: Rc::new(point_value),
-      doc_map: Rc::new(doc_map),
+      point_values: Rc::new(point_values),
     }
   }
 }
@@ -251,23 +246,20 @@ where
     }
     Ok(Some(PointValuesImpl::new(
       self.final_max_point_count,
-      self.point_value.clone(),
-      self.doc_map.clone(),
+      self.point_values.clone(),
     )))
   }
 }
 
 struct PointValuesImpl<P, DM> {
   final_max_point_count: usize,
-  point_value: Rc<Vec<P>>,
-  doc_map: Rc<Vec<DM>>,
+  point_values: Rc<Vec<(P, DM)>>,
 }
 impl<P, DM> PointValuesImpl<P, DM> {
-  fn new(final_max_point_count: usize, point_value: Rc<Vec<P>>, doc_map: Rc<Vec<DM>>) -> Self {
+  fn new(final_max_point_count: usize, point_values: Rc<Vec<(P, DM)>>) -> Self {
     Self {
       final_max_point_count,
-      point_value,
-      doc_map,
+      point_values,
     }
   }
 }
@@ -311,23 +303,20 @@ where
   fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     Ok(PointTreeEnum::Other(PointTreeImpl::new(
       self.final_max_point_count,
-      self.doc_map.clone(),
-      self.point_value.clone(),
+      self.point_values.clone(),
     )))
   }
 }
 
 struct PointTreeImpl<P, DM> {
   final_max_point_count: usize,
-  doc_map: Rc<Vec<DM>>,
-  point_value: Rc<Vec<P>>,
+  point_values: Rc<Vec<(P, DM)>>,
 }
 impl<P, DM> PointTreeImpl<P, DM> {
-  fn new(final_max_point_count: usize, doc_map: Rc<Vec<DM>>, point_value: Rc<Vec<P>>) -> Self {
+  fn new(final_max_point_count: usize, point_values: Rc<Vec<(P, DM)>>) -> Self {
     Self {
       final_max_point_count,
-      doc_map,
-      point_value,
+      point_values,
     }
   }
 }
@@ -385,9 +374,8 @@ where
   where
     IV: IntersectVisitor,
   {
-    for (i, values) in self.point_value.iter().enumerate() {
-      let mut v: IntersectVisitorImpl<'_, _, DM> =
-        IntersectVisitorImpl::new(&self.doc_map[i], visitor);
+    for (values, doc_map) in self.point_values.iter() {
+      let mut v: IntersectVisitorImpl<'_, _, DM> = IntersectVisitorImpl::new(doc_map, visitor);
       values.get_point_tree()?.visit_doc_values(&mut v)?;
     }
     Ok(())
