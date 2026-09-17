@@ -139,12 +139,14 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let query = self.clone();
-    let fallback_query = *self.fallback_query;
+    let fallback_query = self.fallback_query.as_ref().clone();
     let fallback_query_weight = fallback_query.create_weight(searcher, score_mode, boost)?;
     Ok(Box::new(
       IndexSortSortedNumericDocValuesRangeQueryWeight::new(
-        query,
+        Arc::clone(&self.field),
+        self.lower_value,
+        self.upper_value,
+        Arc::new(self.into()),
         ConstantScoreWeight::new(boost),
         *score_mode,
         fallback_query_weight,
@@ -168,12 +170,13 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     }
     match rewritten {
       Some(query) => Ok(Some(
-        IndexSortSortedNumericDocValuesRangeQuery::new(
-          self.field.as_ref().clone(),
-          self.lower_value,
-          self.upper_value,
-          Box::new(query),
-        )
+        IndexSortSortedNumericDocValuesRangeQuery {
+          id: Identity::new(),
+          field: Arc::clone(&self.field),
+          lower_value: self.lower_value,
+          upper_value: self.upper_value,
+          fallback_query: Box::new(query),
+        }
         .into(),
       )),
       None => Ok(None),
@@ -193,7 +196,9 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
 }
 
 pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<IRC> {
-  query: IndexSortSortedNumericDocValuesRangeQuery,
+  field: Arc<String>,
+  lower_value: i64,
+  upper_value: i64,
   base: ConstantScoreWeight,
   score_mode: ScoreMode,
   fallback_query_weight: QueryWeight<IRC>,
@@ -204,18 +209,22 @@ where
   IRC: IndexReaderContext,
 {
   pub fn new(
-    query: IndexSortSortedNumericDocValuesRangeQuery,
+    field: Arc<String>,
+    lower_value: i64,
+    upper_value: i64,
+    parent_query: Arc<Query>,
     base: ConstantScoreWeight,
     score_mode: ScoreMode,
     fallback_query_weight: QueryWeight<IRC>,
   ) -> Self {
-    let query_clone = query.clone();
     Self {
-      query: query_clone,
+      field,
+      lower_value,
+      upper_value,
       base,
       score_mode,
       fallback_query_weight,
-      parent_query: Arc::new(query.into()),
+      parent_query,
     }
   }
 }
@@ -259,20 +268,16 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    match get_doc_id_set_iterator_or_null(
-      context,
-      self.query.lower_value,
-      self.query.upper_value,
-      &self.query.field,
-    )? {
+    match get_doc_id_set_iterator_or_null(context, self.lower_value, self.upper_value, &self.field)?
+    {
       Some(it_and_count) => {
         let disi = it_and_count.it;
         let scorer_supplier = ScorerSupplierImpl::new(
           disi,
           self.score_mode,
-          self.query.lower_value,
-          self.query.upper_value,
-          self.query.field.as_ref().clone(),
+          self.lower_value,
+          self.upper_value,
+          Arc::clone(&self.field),
           self.base.score(),
         )?;
         Ok(Some(Box::new(scorer_supplier)))
@@ -296,11 +301,11 @@ where {
     let reader = context.reader();
 
     if !reader.has_deletions()? {
-      if self.query.lower_value > self.query.upper_value {
+      if self.lower_value > self.upper_value {
         return Ok(0);
       }
 
-      let mut sorted_numeric_values = DocValues::get_sorted_numeric(reader, &self.query.field)?;
+      let mut sorted_numeric_values = DocValues::get_sorted_numeric(reader, &self.field)?;
       if !sorted_numeric_values.is_single_valued() {
         return self.fallback_query_weight.count(context, searcher);
       }
@@ -308,7 +313,7 @@ where {
         &mut sorted_numeric_values,
       )?);
 
-      let point_values = reader.get_point_values(&self.query.field)?;
+      let point_values = reader.get_point_values(&self.field)?;
 
       if let Some(ref points) = point_values
         && points.get_doc_count()? == reader.max_doc()?
@@ -319,9 +324,9 @@ where {
         let (opt_itc, remaining_numeric_values) = get_doc_id_set_iterator_or_null_from_bkd(
           context,
           values,
-          self.query.lower_value,
-          self.query.upper_value,
-          &self.query.field,
+          self.lower_value,
+          self.upper_value,
+          &self.field,
         )?;
         numeric_values = remaining_numeric_values;
 
@@ -336,8 +341,7 @@ where {
       if let Some(index_sort) = meta.get_sort() {
         let sort_fields = index_sort.get_sort();
 
-        if !sort_fields.is_empty() && sort_fields[0].get_field() == Some(self.query.field.as_str())
-        {
+        if !sort_fields.is_empty() && sort_fields[0].get_field() == Some(self.field.as_str()) {
           let sort_field = &sort_fields[0];
           let sort_field_type = get_sort_field_type(sort_field);
           // The index sort optimization is only supported for Type.INT and Type.LONG
@@ -359,17 +363,16 @@ where {
             };
 
             if (all_docs_have_values
-              || (missing_long_value < self.query.lower_value
-                || missing_long_value > self.query.upper_value))
+              || (missing_long_value < self.lower_value || missing_long_value > self.upper_value))
               && let Some(numeric_values) = numeric_values
             {
               let itc = get_doc_id_set_iterator(
                 sort_field,
                 context,
                 numeric_values,
-                self.query.lower_value,
-                self.query.upper_value,
-                &self.query.field,
+                self.lower_value,
+                self.upper_value,
+                &self.field,
               )?;
               if itc.count != -1 {
                 return Ok(itc.count);
@@ -389,25 +392,21 @@ pub struct ScorerSupplierImpl<D> {
   cost: i64,
   lower_value: i64,
   upper_value: i64,
-  field: String,
+  field: Arc<String>,
   score: f32,
 }
 impl<D> ScorerSupplierImpl<D>
 where
   D: DocIdSetIterator,
 {
-  pub fn new<FName>(
+  pub fn new(
     disi: IteratorAndCountDisi<D>,
     score_mode: ScoreMode,
     lower_value: i64,
     upper_value: i64,
-    field: FName,
+    field: Arc<String>,
     score: f32,
-  ) -> Result<Self>
-  where
-    FName: Into<String>,
-  {
-    let field = field.into();
+  ) -> Result<Self> {
     let cost = disi.cost()?;
     Ok(Self {
       disi: Some(disi),
