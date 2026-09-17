@@ -44,14 +44,14 @@ where
   pub fn new(max_length: usize, sub_selector: T) -> Self {
     RadixSelector {
       max_length,
-      common_prefix: vec![0; std::cmp::max(24, max_length)],
+      common_prefix: vec![0; std::cmp::min(24, max_length)],
       histogram: [0; HISTOGRAM_SIZE],
       sub_selector,
     }
   }
 
   fn select(&mut self, from: usize, to: usize, k: usize, d: usize, l: usize) -> Result<()> {
-    if to - from <= Self::LENGTH_THRESHOLD || l > Self::LEVEL_THRESHOLD {
+    if to - from <= Self::LENGTH_THRESHOLD || l >= Self::LEVEL_THRESHOLD {
       self
         .sub_selector
         .get_fallback_selector(d, self.max_length)
