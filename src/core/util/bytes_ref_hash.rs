@@ -556,12 +556,13 @@ where
   BSA: BytesStartArray,
 {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
-    let mut scratch = BytesRefBuilder::new();
-    let mut scratch_bytes = std::mem::take(&mut self.scratch_bytes);
-    self.get(&mut scratch, &mut scratch_bytes, i)?;
-    let byte = self.cmp.byte_at(&scratch_bytes, k)?;
-    self.scratch_bytes = scratch_bytes;
-    Ok(byte)
+    let start = self.bytes_start_array.get_value(self.compact[i] as usize)?;
+    let position = self.pool.fill_bytes_ref(start, self.byte_block_pool);
+    let block = self.byte_block_pool.get_buffer(position.block_index);
+    self.scratch_bytes.bytes = &block[position.offset..position.offset + position.length];
+    self.scratch_bytes.offset = 0;
+    self.scratch_bytes.length = position.length;
+    self.cmp.byte_at(&self.scratch_bytes, k)
   }
 
   fn reorder(
