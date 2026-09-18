@@ -220,14 +220,13 @@ where
   where
     F1: Fn(&Arc<DwptWrapper<D>>) -> bool,
   {
-    let mut list = Vec::new();
     let cloned_dwpt = self.iterator();
-    list.reserve(cloned_dwpt.len());
-    for state in &cloned_dwpt {
-      if predicate(state) {
+    let mut list = Vec::with_capacity(cloned_dwpt.len());
+    for state in cloned_dwpt {
+      if predicate(&state) {
         state.lock();
         if self.is_registered_with_state(&state.state.id, None) {
-          list.push(state.clone());
+          list.push(state);
         } else {
           state.state.unlock()?;
         }
