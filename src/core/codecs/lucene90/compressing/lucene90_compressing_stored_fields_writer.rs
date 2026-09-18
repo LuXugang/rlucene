@@ -656,7 +656,7 @@ where
     Self: Sized,
   {
     let matching_readers = MatchingReaders::new(merge_state)?;
-    let mut visitors: Vec<Option<MergeVisitor>> =
+    let mut visitors: Vec<Option<MergeVisitor<'_>>> =
       vec![None; merge_state.stored_fields_readers.len()];
     let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
 
@@ -667,7 +667,10 @@ where
         .check_integrity()?;
       let strategy = self.get_merge_strategy(merge_state, &matching_readers, i)?;
       if strategy == MergeStrategy::Visitor {
-        visitors[i] = Some(MergeVisitor::new(merge_state, i)?);
+        visitors[i] = Some(MergeVisitor::new(
+          merge_state.merge_field_infos.as_ref(),
+          merge_state.field_infos[i].as_ref(),
+        )?);
       }
       subs.push(Sub::new(CompressingStoredFieldsMergeSub::new(
         merge_state.doc_maps[i].as_ref(),

@@ -142,7 +142,10 @@ impl StoredFieldsWriterDefaults {
         };
         reader.check_integrity()?;
       }
-      let visitor = MergeVisitor::new(merge_state, i)?;
+      let visitor = MergeVisitor::new(
+        merge_state.merge_field_infos.as_ref(),
+        merge_state.field_infos[i].as_ref(),
+      )?;
 
       subs.push(Sub::new(StoredFieldsMergeSub::new(
         visitor,
@@ -179,16 +182,16 @@ impl StoredFieldsWriterDefaults {
 }
 pub type DefaultStoredFieldsWriter<D> =
   <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>;
-struct StoredFieldsMergeSub<DM> {
+struct StoredFieldsMergeSub<'a, DM> {
   pub reader_index: usize,
   pub max_doc: i32,
-  pub visitor: MergeVisitor,
+  pub visitor: MergeVisitor<'a>,
   pub doc_id: i32,
   pub doc_map: Rc<DM>,
 }
 
-impl<DM> StoredFieldsMergeSub<DM> {
-  fn new(visitor: MergeVisitor, doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
+impl<'a, DM> StoredFieldsMergeSub<'a, DM> {
+  fn new(visitor: MergeVisitor<'a>, doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
     Self {
       reader_index,
       max_doc,
@@ -198,7 +201,7 @@ impl<DM> StoredFieldsMergeSub<DM> {
     }
   }
 }
-impl<DM> SubBase for StoredFieldsMergeSub<DM>
+impl<DM> SubBase for StoredFieldsMergeSub<'_, DM>
 where
   DM: DocMap,
 {
@@ -219,38 +222,32 @@ where
 }
 /// A visitor that adds every field it sees.
 #[derive(Default, Clone)]
-pub(crate) struct MergeVisitor {
-  remapper: Option<Arc<FieldInfos>>,
+pub(crate) struct MergeVisitor<'a> {
+  remapper: Option<&'a FieldInfos>,
 }
-impl MergeVisitor {
-  pub(crate) fn new<D, CR>(merge_state: &MergeState<D, CR>, reader_index: usize) -> Result<Self>
-  where
-    CR: CodecReader,
-  {
-    for fi in merge_state.field_infos[reader_index].as_ref() {
-      if let Some(other) = merge_state
-        .merge_field_infos
-        .field_info_by_number(fi.number)?
-      {
-        if other.name != fi.name {
+impl<'a> MergeVisitor<'a> {
+  pub(crate) fn new(
+    merge_field_infos: &'a FieldInfos,
+    reader_field_infos: &FieldInfos,
+  ) -> Result<Self> {
+    for fi in reader_field_infos {
+      match merge_field_infos.field_info_by_number(fi.number)? {
+        Some(other) if other.name == fi.name => {},
+        _ => {
           return Ok(Self {
-            remapper: Some(Arc::clone(&merge_state.merge_field_infos)),
+            remapper: Some(merge_field_infos),
           });
-        }
-      } else {
-        return Ok(Self {
-          remapper: Some(Arc::clone(&merge_state.merge_field_infos)),
-        });
+        },
       }
     }
     Ok(Self { remapper: None })
   }
   fn remap(&self, field: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
-    if let Some(ref remapper) = self.remapper {
+    if let Some(remapper) = self.remapper {
       // field numbers are not aligned, we need to remap to the new field
       // number
       match remapper.field_info_by_name(&field.name)? {
-        Some(new_field) => Ok(new_field),
+        Some(new_field) => Ok(new_field.clone()),
         None => Err(LuceneError::illegal_state(format!(
           "FieldInfo not found in remapper with filed_name: {}",
           field.name
@@ -261,7 +258,7 @@ impl MergeVisitor {
     }
   }
 }
-impl StoredFieldVisitor for MergeVisitor {
+impl StoredFieldVisitor for MergeVisitor<'_> {
   fn binary_field_with_input<S, DI>(
     &mut self,
     field_info: Arc<FieldInfo>,
