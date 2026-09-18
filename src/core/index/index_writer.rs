@@ -253,7 +253,7 @@ where
   // used by forceMerge to note those needing merging
   segments_to_merge: HashMap<String, Option<bool>>,
   merges: Merges,
-  merging_segments: HashSet<String>,
+  merging_segments: HashSet<Arc<str>>,
   merge_max_num_segments: i32,
   running_add_indexes_merges: HashSet<[u8; StringHelper::ID_LENGTH]>,
   add_indexes_merge_sources: Vec<Weak<dyn AddIndexesMergeAbort<D>>>,
@@ -2261,11 +2261,20 @@ where
 
       match spec {
         Some(spec) => {
-          let merge_stats: Vec<MergeStat> = spec.merges.iter().map(|m| m.stat.clone()).collect();
+          let mut merge_stats = if do_wait {
+            Vec::with_capacity(spec.merges.len())
+          } else {
+            Vec::new()
+          };
           for merge in spec.merges {
-            let _ = self.register_merge(merge, &mut inner)?;
+            match self.register_merge(merge, &mut inner)? {
+              RegisterMergeResult::Registered(merge_stat) if do_wait => {
+                merge_stats.push(merge_stat);
+              },
+              _ => {},
+            }
           }
-          Some(merge_stats)
+          do_wait.then_some(merge_stats)
         },
         None => None,
       }
@@ -3379,11 +3388,11 @@ where
 
       self.test_reserve_docs(total_max_doc)?;
 
-      let mut infos: Vec<SegmentCommitInfo<D>> = Vec::new();
+      let segment_count = commits.iter().map(SegmentInfos::size).sum();
+      let mut infos: Vec<SegmentCommitInfo<D>> = Vec::with_capacity(segment_count);
       let mut success = false;
       let copy_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         for sis in &commits {
-          infos.reserve(sis.size());
           for info in sis.iter() {
             debug_assert!(
               !infos.iter().any(|new_info| std::ptr::eq(
@@ -4397,13 +4406,13 @@ where
       }
     }
     // now do some best effort to check if a segment is fully deleted
-    let mut to_drop = Vec::new();
+    let mut to_drop: Vec<Arc<str>> = Vec::new();
 
     for info in inner.segment_infos.iter() {
       if let Some(rld) = self.reader_pool.get(info, false, None)?
         && self.is_fully_deleted(rld.as_ref(), info, inner)?
       {
-        to_drop.push(info.info.get_id_key().to_string());
+        to_drop.push(Arc::clone(&info.info.id_key));
       }
     }
 
@@ -5576,7 +5585,7 @@ where
     }
 
     for info_id in merge.stat.segments.iter() {
-      inner.merging_segments.insert(info_id.to_string());
+      inner.merging_segments.insert(Arc::clone(info_id));
     }
 
     debug_assert!(merge.estimated_merge_bytes.load(Ordering::SeqCst) == 0);
@@ -6529,7 +6538,7 @@ where
     }
     let start_ns = Instant::now();
     debug_assert!(updates.any());
-    let mut seen_segments: HashSet<String> = HashSet::new();
+    let mut seen_segments: HashSet<Arc<str>> = HashSet::new();
     let mut iter: i32 = 0;
     let mut total_segment_count: usize = 0;
     let mut total_del_count: i64 = 0;
@@ -6780,7 +6789,7 @@ where
     success: bool,
     inner: &mut Inner<D>, // we hold lock
   ) -> Result<ApplyDeletesResult> {
-    let mut all_deleted = Vec::new();
+    let mut all_deleted: Vec<Arc<str>> = Vec::new();
     let mut tot_del_count: i64 = 0;
 
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -6820,7 +6829,7 @@ where
               .get_merge_policy()
               .keep_fully_deleted_segment(|| Ok(seg_state.reader.clone()))?
           {
-            all_deleted.push(seg_state.reader.get_original_segment_info_id().to_string());
+            all_deleted.push(Arc::clone(&seg_state.rld.info_id));
           }
         }
       }
@@ -6887,8 +6896,8 @@ where
   /// Opens SegmentReader and inits SegmentState for each segment.
   pub(crate) fn open_segment_states(
     &self,
-    info_from: Option<String>,
-    already_seen: &mut HashSet<String>,
+    info_from: Option<Arc<str>>,
+    already_seen: &mut HashSet<Arc<str>>,
     del_gen: i64,
     inner: &mut Inner<D>, // we hold lock
   ) -> Result<Vec<SegmentState<D>>> {
@@ -6906,7 +6915,7 @@ where
                 .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
               let seg_state = SegmentState::new(rld, info)?;
               seg_states.push(seg_state);
-              already_seen.insert(info_id.to_string());
+              already_seen.insert(Arc::clone(&info.info.id_key));
             }
           }
         },
@@ -7751,7 +7760,11 @@ where
       Some(i) => i,
       None => &*self.inner.lock(),
     };
-    inner.merging_segments.clone()
+    inner
+      .merging_segments
+      .iter()
+      .map(|id| id.to_string())
+      .collect()
   }
 }
 pub(crate) struct Merges {
@@ -8877,7 +8890,7 @@ impl DocModifier for DocModifierImpl2 {
       let mut field_updates_map: HashMap<
         &str,
         DocValuesFieldUpdates<DocValuesFieldUpdatesBaseEnum>,
-      > = HashMap::new();
+      > = HashMap::with_capacity(self.dv_updates.len());
 
       for update in &self.dv_updates {
         match update.doc_values_type {
@@ -9129,7 +9142,8 @@ where
         inner.deleter.inc_ref_files(orig_info.files()?)?;
       }
 
-      let merged_segment_ids: HashSet<&str> = stat.segments.iter().map(|id| id.as_ref()).collect();
+      let mut merged_segment_ids = HashSet::with_capacity(stat.segments.len());
+      merged_segment_ids.extend(stat.segments.iter().map(|id| id.as_ref()));
       let mut to_commit_merged_away_segments = Vec::with_capacity(stat.segments.len());
       {
         let mut merging_segment_infos = self.merging_segment_infos.lock();
