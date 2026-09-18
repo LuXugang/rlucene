@@ -1167,28 +1167,32 @@ impl<D> SegmentInfos<D> {
   }
 
   /// Removes the provided [`SegmentCommitInfo`].
-  pub fn remove_with_id(&mut self, si_id: &str) -> Option<SegmentCommitInfo<D>> {
-    let idx = self
+  ///
+  /// Returns `true` if the segment was present and removed.
+  pub fn remove_with_id(&mut self, si_id: &str) -> bool {
+    let Some(idx) = self
       .segments
       .iter()
-      .position(|sci| sci.info.get_id_key() == si_id)?;
+      .position(|sci| sci.info.get_id_key() == si_id)
+    else {
+      return false;
+    };
     let info = self.segments.remove(idx);
     self
       .dropped_segment_commit_infos
-      .insert(info.info.get_id_key().to_string(), info.clone());
-    Some(info)
+      .insert(info.info.get_id_key().to_string(), info);
+    true
   }
 
   /// Removes the [`SegmentCommitInfo`] at the provided index.
-  pub fn remove(&mut self, index: usize) -> Option<SegmentCommitInfo<D>> {
+  pub fn remove(&mut self, index: usize) {
     if index >= self.segments.len() {
-      return None;
+      return;
     }
     let info = self.segments.remove(index);
     self
       .dropped_segment_commit_infos
-      .insert(info.info.get_id_key().to_string(), info.clone());
-    Some(info)
+      .insert(info.info.get_id_key().to_string(), info);
   }
 
   pub(crate) fn remove_dropped_segment_commit_info(

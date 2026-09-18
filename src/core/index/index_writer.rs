@@ -1237,7 +1237,7 @@ where
       .map(|sci| Arc::clone(&sci.info));
     // it's possible that we invoke this method more than once for the same SCI
     // we must only remove the docs once!
-    let mut drop_pending_docs = inner.segment_infos.remove_with_id(seg_id).is_some();
+    let mut drop_pending_docs = inner.segment_infos.remove_with_id(seg_id);
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       // this is sneaky - we might hit an error while dropping a reader, but then we have
       // already
