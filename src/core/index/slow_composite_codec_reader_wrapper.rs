@@ -1726,7 +1726,7 @@ where
   FP: Fields,
 {
   pub fn new(producers: Vec<Option<FP>>, doc_starts: &[usize]) -> Result<Self> {
-    let mut subs = Vec::new();
+    let mut subs = Vec::with_capacity(producers.len());
     let mut slices = Vec::with_capacity(producers.len());
 
     for (i, producer) in producers.into_iter().enumerate() {
@@ -2411,7 +2411,7 @@ where
   type PointValuesType = PointValuesImpl<<CRPointsReader<CR> as PointsReader>::PointValuesType>;
 
   fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(self.readers.len());
 
     for i in 0..self.readers.len() {
       if let Some(fi) = self.codec_readers[i]

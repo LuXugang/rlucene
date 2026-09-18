@@ -272,6 +272,12 @@ impl<D> SegmentCommitInfo<D> {
   pub fn files(&self) -> Result<HashSet<String>> {
     // Start from the wrapped info's files (deep copy):
     let mut files = self.info.files()?.clone();
+    let update_file_count = self
+      .dv_updates_files
+      .values()
+      .map(HashSet::len)
+      .sum::<usize>();
+    files.reserve(update_file_count + self.field_infos_files.len());
     if self.has_deletions() {
       // debug_assert!(self.info.codec.is_some());
       self

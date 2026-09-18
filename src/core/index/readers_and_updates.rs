@@ -786,10 +786,13 @@ where
 
     for (field, updates) in pending_dv_updates.iter() {
       let entry = match merging_dv_updates.get_mut(field) {
-        Some(entry) => entry,
+        Some(entry) => {
+          entry.reserve(updates.len());
+          entry
+        },
         None => merging_dv_updates
           .entry(field.clone())
-          .or_insert_with(Vec::new),
+          .or_insert_with(|| Vec::with_capacity(updates.len())),
       };
       entry.extend(updates.iter().cloned());
     }

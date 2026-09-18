@@ -194,7 +194,7 @@ where
 
     // merge any remaining old segments that the inner policy didn't handle
     if !old_segments.is_empty() {
-      let mut new_infos: Vec<SegmentDocAndID> = Vec::new();
+      let mut new_infos: Vec<SegmentDocAndID> = Vec::with_capacity(old_segments.len());
       for i in 0..segment_infos.size() {
         if let Some(sci) = segment_infos.info(i) {
           let seg_key = sci.info.get_id_key();

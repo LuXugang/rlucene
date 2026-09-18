@@ -239,7 +239,7 @@ where
     let mut created_version_major = -1;
     let mut tv_field_to_reader = BTreeMap::new();
     let mut field_to_reader = BTreeMap::new();
-    let mut terms_field_to_reader = HashMap::new();
+    let mut terms_field_to_reader = HashMap::with_capacity(complete_reader_set.len());
 
     // Build FieldInfos and field-to-reader maps.
     for (parallel_reader_index, complete_reader_index) in parallel_reader_indices.iter().enumerate()

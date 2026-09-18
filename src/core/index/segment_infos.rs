@@ -529,7 +529,7 @@ impl<D> SegmentInfos<D> {
       let dv_update_files = if num_dv_fields == 0 {
         HashMap::new()
       } else {
-        let mut map = HashMap::new();
+        let mut map = HashMap::with_capacity(num_dv_fields.max(0) as usize);
         for _ in 0..num_dv_fields {
           map.insert(CodecUtil::read_be_int(input)?, input.read_set_of_strings()?);
         }

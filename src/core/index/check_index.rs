@@ -745,6 +745,7 @@ where
     let num_segments: i32 = last_commit.size().try_convert()?;
     result.segments_file_name = last_commit.get_segments_file_name();
     result.num_segments = num_segments;
+    result.segment_infos.reserve(num_segments as usize);
     result.user_data = Some(last_commit.get_user_data().clone());
 
     let version_string = if let Some(old_segments) = old_segments {

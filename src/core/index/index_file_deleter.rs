@@ -731,7 +731,7 @@ where
   // since it means DV updates will suddenly write to the next gen after
   // live docs' gen, for example, but we don't have the APIs to ask the
   // codec which file is which:
-  let mut max_per_segment_gen = HashMap::new();
+  let mut max_per_segment_gen = HashMap::with_capacity(infos.size());
 
   for file_name in files {
     if file_name == WRITE_LOCK_NAME {

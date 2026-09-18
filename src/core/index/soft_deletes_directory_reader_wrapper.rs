@@ -97,8 +97,9 @@ where
   }
 
   fn do_wrap_directory_reader_impl(&self, in_: DR) -> Result<Self> {
-    let mut reader_cache = HashMap::new();
-    for reader in self.get_sequential_sub_readers() {
+    let sub_readers = self.get_sequential_sub_readers();
+    let mut reader_cache = HashMap::with_capacity(sub_readers.len());
+    for reader in sub_readers {
       if let SoftDeletesCodecReader::B(reader) = reader
         && let Some(reader_cache_helper) = reader.get_delegate().get_reader_cache_helper()?
       {

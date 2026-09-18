@@ -58,10 +58,18 @@ where
     D: Directory<IndexInput = I>,
     D1: Directory<IndexInput = I>,
   {
-    let mut dv_producers_by_field = HashMap::new();
-    let mut dv_producers = Vec::new();
-    let mut producer_indices = HashMap::new();
-    let mut dv_gens = Vec::new();
+    let num_dv_fields = if all_infos.has_doc_values() {
+      all_infos
+        .iter()
+        .filter(|fi| *fi.get_doc_values_type() != DocValuesType::None)
+        .count()
+    } else {
+      0
+    };
+    let mut dv_producers_by_field = HashMap::with_capacity(num_dv_fields);
+    let mut dv_producers = Vec::with_capacity(num_dv_fields);
+    let mut producer_indices = HashMap::with_capacity(num_dv_fields);
+    let mut dv_gens = Vec::with_capacity(num_dv_fields);
 
     let mut base_producer_index = None;
 

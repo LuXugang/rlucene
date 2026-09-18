@@ -249,7 +249,7 @@ impl BufferedUpdatesStream {
       )?;
     }
 
-    let mut pending = Vec::new();
+    let mut pending = Vec::with_capacity(wait_for.len());
     let mut total_del_count: i64 = 0;
     for packet in &wait_for {
       // Frozen packets are now resolved, concurrently, by the indexing threads that

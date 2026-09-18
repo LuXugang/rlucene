@@ -3032,7 +3032,7 @@ impl OneMergeProgress {
   }
   /// Returns pause reasons and associated times in nanoseconds.
   pub fn get_pause_times(&self) -> HashMap<PauseReason, u64> {
-    let mut map = HashMap::new();
+    let mut map = HashMap::with_capacity(3);
     map.insert(
       PauseReason::Stopped,
       self.pause_times.stopped.load(Ordering::SeqCst),

@@ -4017,10 +4017,11 @@ where
     new_info_per_commit.set_doc_values_updates_files(std::borrow::Cow::Borrowed(
       info.get_doc_values_updates_files(),
     ));
-    let mut copied_files = HashSet::new();
+    let files = info.files()?;
+    let mut copied_files = HashSet::with_capacity(files.len());
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      for file in info.files()? {
+      for file in files {
         let new_filename = named_for_this_segment(seg_name, &file);
         self
           .directory
@@ -4983,7 +4984,7 @@ where
     let _ = merged_deletes_and_updates.get_del_count(sci);
 
     // field -> delGen -> dv field updates
-    let mut mapped_dv_updates = HashMap::new();
+    let mut mapped_dv_updates = HashMap::with_capacity(source_segments.len());
     let mut any_dv_updates = false;
     debug_assert_eq!(source_segments.len(), doc_maps.len());
     for (i, info_id) in source_segments.iter().enumerate() {
@@ -5713,6 +5714,7 @@ where
     )?;
 
     let mut details = HashMap::new();
+    details.reserve(2);
     details.insert(
       "mergeMaxNumSegments".to_string(),
       merge.stat.max_num_segments().to_string(),
@@ -8241,7 +8243,8 @@ fn set_diagnostics_impl<D>(
   source: &str,
   details: Option<HashMap<String, String>>,
 ) {
-  let mut diagnostics = HashMap::new();
+  let detail_count = details.as_ref().map_or(0, |details| details.len());
+  let mut diagnostics = HashMap::with_capacity(6 + detail_count);
   diagnostics.insert("source".to_string(), source.to_string());
   diagnostics.insert("lucene.version".to_string(), LATEST.to_string());
   diagnostics.insert("os".to_string(), Constants::os_name());

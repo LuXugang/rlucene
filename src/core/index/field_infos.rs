@@ -595,7 +595,7 @@ where
   let reader = reader.get_context()?;
   let leaves = reader.leaves()?;
 
-  let mut fields = HashSet::new();
+  let mut fields = HashSet::with_capacity(leaves.len());
 
   for leaf in leaves {
     let field_infos = leaf.reader().get_field_infos()?;

@@ -361,9 +361,10 @@ where
   let mut per_reader_term_state = TermStates::with_term(None, context)?;
 
   if needs_stats {
-    let mut pending_term_lookups = Vec::new();
+    let leaves = context.leaves()?;
+    let mut pending_term_lookups = Vec::with_capacity(leaves.len());
 
-    for ctx in context.leaves()? {
+    for ctx in leaves {
       let terms = ctx.reader().terms(term.field())?;
       match terms {
         None => {

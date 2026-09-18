@@ -334,6 +334,7 @@ impl TieredMergePolicy {
     }
 
     let mut to_be_merged = HashSet::new();
+    to_be_merged.reserve(sorted_eligible.len());
 
     let mut spec = None;
     // Cycle to possibly select more than one merge:
