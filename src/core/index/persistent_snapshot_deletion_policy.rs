@@ -279,8 +279,13 @@ where
     let guard = self.base.lock();
     let mut gen_loaded = -1;
     let mut io_error = None;
-    let mut snapshot_files = Vec::new();
-    for file in self.dir.list_all()? {
+    let files = self.dir.list_all()?;
+    let snapshot_count = files
+      .iter()
+      .filter(|file| file.starts_with(SNAPSHOTS_PREFIX))
+      .count();
+    let mut snapshot_files = Vec::with_capacity(snapshot_count);
+    for file in files {
       if let Some(gen_part) = file.strip_prefix(SNAPSHOTS_PREFIX) {
         let gen_: i64 = gen_part.parse()?;
         if gen_loaded == -1 || gen_ > gen_loaded {

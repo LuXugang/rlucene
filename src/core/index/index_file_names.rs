@@ -109,9 +109,9 @@ impl IndexFileNames {
   /// Returns true if the given filename ends with the given extension. One
   /// should provide a `pure` extension, without '.'.
   pub fn matches_extension(filename: &str, ext: &str) -> bool {
-    // It doesn't make a difference whether we allocate a StringBuilder
-    // ourselves or not, since there's only 1 '+' operator.
-    filename.ends_with(&format!(".{ext}"))
+    filename
+      .strip_suffix(ext)
+      .is_some_and(|prefix| prefix.ends_with('.'))
   }
   /// Locates the boundary of the segment name, if present.
   pub fn index_of_segment_name(filename: &str) -> Option<usize> {

@@ -139,6 +139,7 @@ impl<D> SegmentCommitInfo<D> {
     self.dv_updates_files.clear();
     match dv_updates_files {
       Cow::Borrowed(files) => {
+        self.dv_updates_files.reserve(files.len());
         for (key, file_set) in files {
           let mut renamed_set = HashSet::with_capacity(file_set.len());
           for file in file_set {
@@ -486,6 +487,7 @@ impl<D> Clone for SegmentCommitInfo<D> {
     other.next_write_field_infos_gen = self.next_write_field_infos_gen;
     other.next_write_doc_values_gen = self.next_write_doc_values_gen;
 
+    other.dv_updates_files.reserve(self.dv_updates_files.len());
     for (key, value) in &self.dv_updates_files {
       other.dv_updates_files.insert(*key, value.clone());
     }

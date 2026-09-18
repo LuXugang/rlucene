@@ -5584,6 +5584,7 @@ where
     // is running while the lock is held to avoid a race.
     // condition where two conflicting merges from different
     // threads, start
+    inner.merging_segments.reserve(merge.stat.segments.len());
     if self.info_stream.is_enabled("IW") {
       let mut builder = String::from("registerMerge merging= [");
       for id in &inner.merging_segments {
