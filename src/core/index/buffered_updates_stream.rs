@@ -192,7 +192,7 @@ impl BufferedUpdatesStream {
 
     let wait_for = {
       let inner = self.inner.lock();
-      let mut packets = Vec::new();
+      let mut packets = Vec::with_capacity(inner.updates.len());
 
       for packet in inner.updates.values() {
         if packet.del_gen() <= max_del_gen {

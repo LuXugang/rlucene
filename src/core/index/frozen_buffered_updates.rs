@@ -297,7 +297,7 @@ impl FrozenBufferedUpdates {
   {
     let mut update_count: i64 = 0;
 
-    let mut resolved_updates = Vec::new();
+    let mut resolved_updates = Vec::with_capacity(updates.len());
 
     for (update_field, value) in updates.iter() {
       let is_numeric = value.is_numeric();

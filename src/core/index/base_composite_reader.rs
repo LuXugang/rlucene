@@ -295,7 +295,7 @@ where
   R: IndexReader,
 {
   pub fn new(sub_reader: Arc<[R]>, starts: Arc<[usize]>, max_doc: i32) -> Self {
-    let mut sub_term_vectors = Vec::with_capacity(starts.len());
+    let mut sub_term_vectors = Vec::with_capacity(sub_reader.len());
     for _ in 0..sub_reader.len() {
       sub_term_vectors.push(None);
     }
@@ -385,7 +385,7 @@ where
   R: IndexReader,
 {
   pub fn new(sub_reader: Arc<[R]>, starts: Arc<[usize]>, max_doc: i32) -> Self {
-    let mut sub_stored_fields = Vec::with_capacity(starts.len());
+    let mut sub_stored_fields = Vec::with_capacity(sub_reader.len());
     for _ in 0..sub_reader.len() {
       sub_stored_fields.push(None);
     }

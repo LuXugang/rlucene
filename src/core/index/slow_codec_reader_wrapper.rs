@@ -664,9 +664,10 @@ fn reader_to_fields_producer<LR>(reader: LR) -> Result<FieldsProducerImpl<LR>>
 where
   LR: LeafReader,
 {
-  let mut indexed_fields = Vec::new();
+  let field_infos = reader.get_field_infos()?;
+  let mut indexed_fields = Vec::with_capacity(field_infos.size());
 
-  for field_info in reader.get_field_infos()?.iter() {
+  for field_info in field_infos.iter() {
     if *field_info.get_index_options() != IndexOptions::None {
       indexed_fields.push(field_info.name.clone());
     }

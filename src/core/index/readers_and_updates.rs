@@ -439,7 +439,7 @@ where
         ty
       );
 
-      let mut updates_to_apply = Vec::new();
+      let mut updates_to_apply = Vec::with_capacity(updates.len());
       let mut bytes: i64 = 0;
 
       for update in updates {
@@ -569,7 +569,7 @@ where
     let mut inner = self.inner.lock();
     let start_time_ns = std::time::Instant::now();
 
-    let mut new_dv_files = HashMap::new();
+    let mut new_dv_files = HashMap::with_capacity(inner.pending_dv_updates.len());
     let mut field_infos_files: Option<HashSet<String>> = None;
     let mut field_infos = FieldInfos::default();
 
