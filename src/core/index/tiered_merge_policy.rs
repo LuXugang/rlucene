@@ -302,7 +302,7 @@ impl TieredMergePolicy {
   #[allow(clippy::too_many_arguments)]
   fn do_find_merges<MC, D>(
     &self,
-    sorted_eligible_infos: &[SegmentSizeAndDocs<'_, D>],
+    mut sorted_eligible: Vec<SegmentSizeAndDocs<'_, D>>,
     max_merged_segment_bytes: i64,
     merge_factor: i32,
     allowed_seg_count: usize,
@@ -316,8 +316,6 @@ impl TieredMergePolicy {
     MC: MergeContext<D>,
     D: Directory,
   {
-    let mut sorted_eligible: Vec<SegmentSizeAndDocs<'_, D>> = sorted_eligible_infos.to_vec();
-
     let mut seg_infos_sizes = HashMap::with_capacity(sorted_eligible.len());
     for seg in &sorted_eligible {
       seg_infos_sizes.insert(seg.seg_info.info.get_id_key(), *seg);
@@ -840,7 +838,7 @@ where
     }
 
     self.do_find_merges(
-      &sorted_infos,
+      sorted_infos,
       self.max_merged_segment_bytes,
       merge_factor,
       allowed_seg_count as usize,
@@ -1126,12 +1124,12 @@ where
     if self.verbose(merge_context) {
       let mut eligible = Vec::with_capacity(sorted_infos.len());
       for seg in &sorted_infos {
-        eligible.push(seg.seg_info.info.name.as_str());
+        eligible.push(seg.seg_info.info.name.as_ref());
       }
       self.message(&format!("eligible={:?}", eligible), merge_context)?;
     }
     self.do_find_merges(
-      &sorted_infos,
+      sorted_infos,
       self.max_merged_segment_bytes,
       i32::MAX,
       usize::MAX,
