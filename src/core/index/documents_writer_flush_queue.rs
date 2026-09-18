@@ -65,9 +65,9 @@ where
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       let ticket_opt = ticket_supplier()?;
       if let Some(ticket) = ticket_opt {
-        let id = ticket.id.clone();
-        inner.queue.push_back(ticket.id.clone());
-        inner.value.insert(ticket.id.clone(), ticket);
+        let id = Identity::new();
+        inner.queue.push_back(id.clone());
+        inner.value.insert(id.clone(), ticket);
         success = true;
         Ok(Some(id))
       } else {
@@ -206,7 +206,6 @@ where
   failed: bool,
   published: bool,
   lock: Mutex<()>,
-  id: Identity,
 }
 impl<D> FlushTicket<D>
 where
@@ -220,7 +219,6 @@ where
       failed: false,
       published: false,
       lock: Mutex::new(()),
-      id: Identity::new(),
     }
   }
   pub(crate) fn can_publish(&self) -> bool {
