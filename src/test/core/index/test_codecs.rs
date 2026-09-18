@@ -126,8 +126,7 @@ fn test_fixed_postings() -> Result<()> {
   let reader = codec.postings_format().fields_producer(&read_state, &si)?;
 
   let mut fields_enum = reader.iterator()?;
-  let field_name = fields_enum
-    .next()?
+  let field_name = IteratorExt::next(&mut fields_enum)?
     .ok_or_else(|| LuceneError::illegal_state("field missing"))?;
   let terms2 = reader
     .terms(field_name)?

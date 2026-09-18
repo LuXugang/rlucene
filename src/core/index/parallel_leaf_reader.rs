@@ -31,7 +31,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::iterator::{VecIter, VecIteratorExt};
+use crate::core::util::iterator::IteratorExt;
 use crate::core::util::version::LATEST;
 use parking_lot::Mutex;
 use std::collections::{BTreeMap, HashMap};
@@ -363,7 +363,6 @@ where
 // Single instance of this per ParallelLeafReader term-vectors instance.
 pub struct ParallelFields<T> {
   fields: BTreeMap<String, Arc<T>>,
-  field_names: Vec<String>,
 }
 
 impl<T> ParallelFields<T>
@@ -373,12 +372,10 @@ where
   fn new() -> Self {
     Self {
       fields: BTreeMap::new(),
-      field_names: Vec::new(),
     }
   }
 
   fn add_field(&mut self, field_name: String, terms: T) {
-    self.field_names.push(field_name.clone());
     self.fields.insert(field_name, Arc::new(terms));
   }
 }
@@ -388,12 +385,12 @@ where
   T: Terms,
 {
   type FieldIter<'a>
-    = VecIter<'a, String>
+    = std::collections::btree_map::Keys<'a, String, Arc<T>>
   where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(self.field_names.iter_ext())
+    Ok(self.fields.keys())
   }
 
   type Terms = Arc<T>;
@@ -408,6 +405,17 @@ where
   }
 }
 
+impl<'a, T> IteratorExt for std::collections::btree_map::Keys<'a, String, Arc<T>> {
+  type Item = &'a String;
+
+  fn next(&mut self) -> Result<Option<Self::Item>> {
+    Ok(std::iter::Iterator::next(self))
+  }
+
+  fn has_next(&self) -> Result<bool> {
+    Ok(self.len() != 0)
+  }
+}
 pub struct ParallelStoredFields<S> {
   fields: Vec<S>,
 }

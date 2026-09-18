@@ -1416,7 +1416,7 @@ where
         let mut iterator = inner.iterator()?;
         let mut indexed_fields = Vec::new();
         while iterator.has_next()? {
-          let field = iterator.next()?.ok_or_else(|| {
+          let field = IteratorExt::next(&mut iterator)?.ok_or_else(|| {
             LuceneError::illegal_state("Fields.iterator().has_next returned true")
           })?;
           indexed_fields.push(field.clone());

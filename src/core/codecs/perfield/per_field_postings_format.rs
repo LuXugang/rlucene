@@ -34,6 +34,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{IteratorExt, VecIter, VecIteratorExt};
 use crate::core::util::merged_iterator::MergedIterator;
 use crate::core::util::{HasIdentity, IOUtils};
+use std::collections::BTreeMap;
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -392,8 +393,7 @@ where
 }
 
 pub struct FieldsReader<FP> {
-  fields: HashMap<String, Arc<FP>>,
-  field_names: Arc<Vec<String>>,
+  fields: BTreeMap<String, Arc<FP>>,
   formats: HashMap<String, Arc<FP>>,
   segment: String,
 }
@@ -426,7 +426,7 @@ where
       old_to_new.insert(old_ptr, Arc::clone(&producer));
       formats.insert(segment_suffix, producer);
     }
-    let mut fields = HashMap::with_capacity(field_formats.len());
+    let mut fields = BTreeMap::new();
     for (field, old_ptr) in field_formats {
       let producer = old_to_new.get(&old_ptr).ok_or_else(|| {
         LuceneError::illegal_state(format!("missing postings producer for field: {field}"))
@@ -435,7 +435,6 @@ where
     }
     Ok(FieldsReader {
       fields,
-      field_names: self.field_names,
       formats,
       segment: self.segment,
     })
@@ -443,7 +442,7 @@ where
 
   // Clone for merge.
   fn from_other(other: &Self) -> Result<Self> {
-    let mut fields = HashMap::with_capacity(other.fields.len());
+    let mut fields = BTreeMap::new();
     let mut formats = HashMap::with_capacity(other.formats.len());
     let mut old_to_new = HashMap::with_capacity(other.formats.len());
     // First clone all formats.
@@ -466,7 +465,6 @@ where
 
     Ok(Self {
       fields,
-      field_names: other.field_names.clone(),
       formats,
       segment: other.segment.clone(),
     })
@@ -480,7 +478,7 @@ where
     PF: PostingsFormat<FieldsProducer<D1::IndexInput> = FP>,
     D1: Directory,
   {
-    let mut fields = HashMap::new();
+    let mut fields = BTreeMap::new();
     let mut formats: HashMap<String, Arc<FP>> = HashMap::new();
 
     let mut success = false;
@@ -520,11 +518,8 @@ where
     }
     unwrap_caught_result!(result)?;
 
-    let mut field_names: Vec<String> = fields.keys().cloned().collect();
-    field_names.sort_unstable();
     Ok(Self {
       fields,
-      field_names: Arc::new(field_names),
       formats,
       segment: segment_info.name.clone(),
     })
@@ -547,12 +542,12 @@ where
   FP: FieldsProducer,
 {
   type FieldIter<'a>
-    = VecIter<'a, String>
+    = std::collections::btree_map::Keys<'a, String, Arc<FP>>
   where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(self.field_names.iter_ext())
+    Ok(self.fields.keys())
   }
 
   type Terms = FP::Terms;
