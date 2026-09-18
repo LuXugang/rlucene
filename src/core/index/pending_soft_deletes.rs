@@ -45,7 +45,7 @@ pub(crate) struct PendingSoftDeletes {
 impl PendingSoftDeletes {
   pub(crate) fn new<D>(field: Arc<str>, info: &SegmentCommitInfo<D>) -> Result<Self> {
     let base = PendingDeletes::with(
-      Arc::from(info.info.get_id_key()),
+      Arc::clone(&info.info.id_key),
       None,
       info.get_del_count_with_soft_deletes(true) == 0,
       info.info.max_doc()?,

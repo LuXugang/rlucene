@@ -106,7 +106,7 @@ impl PendingDeletes {
   }
   pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self> {
     Ok(PendingDeletes::with(
-      Arc::from(info.info.get_id_key()),
+      Arc::clone(&info.info.id_key),
       None,
       !info.has_deletions(),
       info.info.max_doc()?,

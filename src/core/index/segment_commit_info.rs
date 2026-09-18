@@ -271,13 +271,15 @@ impl<D> SegmentCommitInfo<D> {
   /// Returns all files in use by this segment.
   pub fn files(&self) -> Result<HashSet<String>> {
     // Start from the wrapped info's files (deep copy):
-    let mut files = self.info.files()?.clone();
     let update_file_count = self
       .dv_updates_files
       .values()
       .map(HashSet::len)
       .sum::<usize>();
-    files.reserve(update_file_count + self.field_infos_files.len());
+    let info_files = self.info.files()?;
+    let mut files =
+      HashSet::with_capacity(info_files.len() + update_file_count + self.field_infos_files.len());
+    files.extend(info_files.iter().cloned());
     if self.has_deletions() {
       // debug_assert!(self.info.codec.is_some());
       self

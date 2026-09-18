@@ -510,7 +510,7 @@ where
       if !create {
         return Ok(None);
       }
-      let info_id: Arc<str> = Arc::from(info_id);
+      let info_id = Arc::clone(&info.info.id_key);
       let mut v = ReadersAndUpdates::new(
         self.index_created_version_major,
         Arc::clone(&info_id),

@@ -109,7 +109,8 @@ where
     I: IntoIterator<Item = String>,
   {
     // init fields
-    let commits = Vec::new();
+    let files = files.into_iter();
+    let commits = Vec::with_capacity(files.size_hint().0);
     let mut last_segment_infos: Option<SegmentInfos<D>> = None;
 
     let current_segments_file_opt = segment_infos.get_segments_file_name();
@@ -323,12 +324,12 @@ where
     if !self.commits_to_delete.load(SeqCst) {
       return Ok(());
     }
-    let removed = self
-      .commits
-      .iter()
-      .filter(|commit| commit.is_deleted())
-      .cloned()
-      .collect::<Vec<_>>();
+    let mut removed = Vec::with_capacity(self.commits.len());
+    for commit in &self.commits {
+      if commit.is_deleted() {
+        removed.push(Arc::clone(commit));
+      }
+    }
 
     // First decref all files that had been referred to by
     // the now-deleted commits:

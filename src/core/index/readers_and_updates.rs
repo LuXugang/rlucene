@@ -146,11 +146,8 @@ where
     pending_deletes: PendingDeletesEnum,
   ) -> Result<Self> {
     debug_assert!(reader.get_original_segment_info_id() == pending_deletes.get_info_id());
-    let v = Self::new(
-      index_created_version_major,
-      Arc::from(reader.get_original_segment_info_id()),
-      pending_deletes,
-    );
+    let info_id = Arc::clone(&reader.original_si_id);
+    let v = Self::new(index_created_version_major, info_id, pending_deletes);
     {
       let mut inner = v.inner.lock();
       inner.pending_deletes.on_new_reader(&reader, info)?;

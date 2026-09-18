@@ -450,7 +450,7 @@ impl BytesRefIntMap {
     }
   }
   fn key_set(&self, pool: &ByteBlockPool) -> Result<HashSet<BytesRef<Vec<u8>>>> {
-    let mut set = HashSet::new();
+    let mut set = HashSet::with_capacity(self.bytes_ref_hash.size());
 
     for i in 0..self.bytes_ref_hash.size() {
       let position = self.bytes_ref_hash.get(i as i32, pool)?;

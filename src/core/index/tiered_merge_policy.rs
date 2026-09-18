@@ -1011,7 +1011,7 @@ where
 
     let mut index = starting_segment_count.checked_sub(1);
     let mut resulting_segments = starting_segment_count;
-    let mut candidate = Vec::new();
+    let mut candidate = Vec::with_capacity(starting_segment_count);
 
     loop {
       candidate.clear();

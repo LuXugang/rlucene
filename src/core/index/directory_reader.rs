@@ -402,10 +402,15 @@ where
 {
   let files = dir.list_all()?;
 
-  let mut commits = Vec::new();
-
   let latest = SegmentInfos::read_latest_commit(dir.clone())?;
   let current_gen = latest.get_generation();
+
+  let commit_capacity = 1
+    + files
+      .iter()
+      .filter(|file_name| file_name.starts_with(IndexFileNames::SEGMENTS))
+      .count();
+  let mut commits = Vec::with_capacity(commit_capacity);
 
   commits.push(ReaderCommit::new(&latest, dir.clone())?);
 

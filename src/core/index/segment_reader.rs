@@ -105,7 +105,7 @@ where
     let meta_data = Arc::new(meta_data);
 
     let is_nrt = false;
-    let original_si_id: Arc<str> = Arc::from(si.info.get_id_key());
+    let original_si_id = Arc::clone(&si.info.id_key);
     let index_base = IndexReaderBase::new();
     let reader_cache_helper = CacheHelperImpl::new();
     let core = Arc::new(SegmentCoreReaders::new(si.info.dir.as_ref(), &si, context)?);
@@ -206,7 +206,7 @@ where
       hard_live_docs.as_ref(),
       live_docs.as_ref()
     )?);
-    let original_si_id: Arc<str> = Arc::from(si.info.get_id_key());
+    let original_si_id = Arc::clone(&si.info.id_key);
     let index_base = IndexReaderBase::new();
     let reader_cache_helper = CacheHelperImpl::new();
     core.inc_ref()?;
