@@ -103,6 +103,7 @@ use crate::core::util::{CoreHelper, IOUtils, TryIntoInt};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::io::{Sink, Stdout, Write};
 use std::panic::{self, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -609,6 +610,9 @@ where
   ) -> Result<Status<D>> {
     self.ensure_open()?;
 
+    let only_segments_set =
+      only_segments.map(|segments| segments.iter().map(String::as_str).collect::<HashSet<_>>());
+
     let start = Instant::now();
     Self::msg(
       self.info_stream.as_mut(),
@@ -800,7 +804,10 @@ where
     if self.thread_count == 1 {
       for (index, info) in last_commit.iter().iter().enumerate() {
         Self::update_max_segment_name(&mut result, info)?;
-        if only_segments.is_some_and(|segments| !segments.contains(&info.info.name)) {
+        if only_segments_set
+          .as_ref()
+          .is_some_and(|segments| !segments.contains(info.info.name.as_ref()))
+        {
           continue;
         }
 
@@ -878,7 +885,10 @@ where
       for index in (0..segment_commit_infos.len()).rev() {
         let info = segment_commit_infos[index];
         Self::update_max_segment_name(&mut result, info)?;
-        if only_segments.is_some_and(|segments| !segments.contains(&info.info.name)) {
+        if only_segments_set
+          .as_ref()
+          .is_some_and(|segments| !segments.contains(info.info.name.as_ref()))
+        {
           continue;
         }
         jobs.push((index, info));
@@ -940,7 +950,10 @@ where
         let mut index = 0;
         while index < segment_commit_infos.len() {
           let info = segment_commit_infos[index];
-          if only_segments.is_some_and(|segments| !segments.contains(&info.info.name)) {
+          if only_segments_set
+            .as_ref()
+            .is_some_and(|segments| !segments.contains(info.info.name.as_ref()))
+          {
             index += 1;
             continue;
           }
