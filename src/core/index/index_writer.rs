@@ -2364,6 +2364,16 @@ where
 
       self.reset_merge_exceptions(&mut inner);
       inner.segments_to_merge.clear();
+      let segments_to_merge_capacity = {
+        let Inner {
+          segment_infos,
+          pending_merges,
+          running_merges,
+          ..
+        } = &*inner;
+        segment_infos.size() + pending_merges.len() + running_merges.len()
+      };
+      inner.segments_to_merge.reserve(segments_to_merge_capacity);
       {
         let Inner {
           segment_infos,
@@ -2607,7 +2617,7 @@ where
     match spec_opt {
       Some(spec) => {
         let mut registered_merges = Vec::with_capacity(spec.merges.len());
-        let mut rejected_merges = Vec::new();
+        let mut rejected_merges = Vec::with_capacity(spec.merges.len());
         for m in spec.merges.into_iter() {
           match self.register_merge(m, inner)? {
             RegisterMergeResult::Registered(merge_stat) => {
@@ -3225,7 +3235,7 @@ where
         )?;
       }
       new_segment.set_buffered_deletes_gen(next_gen)?;
-      let new_segment_id = new_segment.info.get_id_key().to_string();
+      let new_segment_id = Arc::clone(&new_segment.info.id_key);
       inner.segment_infos.add(new_segment)?;
       published = true;
       self.checkpoint(&mut *inner)?;
@@ -5311,8 +5321,8 @@ where
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
       .info
-      .get_id_key()
-      .to_string();
+      .id_key
+      .clone();
     inner
       .segment_infos
       .apply_merge_changes(merge, drop_segment)?;
@@ -5373,7 +5383,7 @@ where
       // cascade the forceMerge:
       inner
         .segments_to_merge
-        .entry(merge_id)
+        .entry(merge_id.to_string())
         .or_insert(Some(false));
     }
 
@@ -6585,7 +6595,7 @@ where
           InfoFrom::Updates => Some(
             updates
               .private_segment
-              .clone()
+              .as_deref()
               .ok_or_else(|| LuceneError::illegal_state("private segment is missing"))?,
           ),
           // all segments
@@ -6896,12 +6906,17 @@ where
   /// Opens SegmentReader and inits SegmentState for each segment.
   pub(crate) fn open_segment_states(
     &self,
-    info_from: Option<Arc<str>>,
+    info_from: Option<&str>,
     already_seen: &mut HashSet<Arc<str>>,
     del_gen: i64,
     inner: &mut Inner<D>, // we hold lock
   ) -> Result<Vec<SegmentState<D>>> {
-    let mut seg_states = Vec::new();
+    let expected_segments = match info_from {
+      Some(_) => 1,
+      None => inner.segment_infos.size(),
+    };
+    let mut seg_states = Vec::with_capacity(expected_segments);
+    already_seen.reserve(expected_segments.saturating_sub(already_seen.len()));
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       match info_from {
@@ -6920,16 +6935,16 @@ where
           }
         },
         Some(info_id) => {
-          let info = inner.segment_infos.index_of_live(&info_id).ok_or_else(|| {
+          let info = inner.segment_infos.index_of_live(info_id).ok_or_else(|| {
             LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", info_id))
           })?;
-          if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(&info_id) {
+          if info.get_buffered_deletes_gen() <= del_gen && !already_seen.contains(info_id) {
             let rld = self
               .get_pooled_instance(info, true)?
               .ok_or_else(|| LuceneError::illegal_state("should not None"))?;
             let seg_state = SegmentState::new(rld, info)?;
             seg_states.push(seg_state);
-            already_seen.insert(info_id);
+            already_seen.insert(Arc::clone(&info.info.id_key));
           }
         },
       }
@@ -7319,12 +7334,15 @@ where
   where
     D: 'static,
   {
-    if merged_readers.lock().is_empty() {
-      return Ok(None);
-    }
-
+    let merged_reader_count = {
+      let merged_readers = merged_readers.lock();
+      if merged_readers.is_empty() {
+        return Ok(None);
+      }
+      merged_readers.len()
+    };
     let opening_segment_infos = Some(&*opening_segment_infos.lock());
-    let mut files = Vec::new();
+    let mut files = Vec::with_capacity(merged_reader_count);
     let mut reader_function =
       MergedNRTReaderFunction::new(merged_readers, opened_read_only_clones, &mut files);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
