@@ -153,7 +153,7 @@ where
             }
           }
           writer.start_field(
-            &field_info,
+            field_info,
             num_terms as usize,
             has_positions,
             has_offsets,

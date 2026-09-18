@@ -404,7 +404,7 @@ where
             .field_info_by_name(field)?
             .ok_or_else(|| LuceneError::illegal_state(format!("Missing fields:{field}")))?;
           let mut terms_writer = TermsWriter::new(
-            field_info,
+            field_info.clone(),
             self.max_doc,
             &mut self.postings_writer,
             self.min_items_in_block,

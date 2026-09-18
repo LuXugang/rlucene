@@ -220,10 +220,8 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    let field_info = context
-      .reader()
-      .get_field_infos()?
-      .field_info_by_name(self.query.sub.field())?;
+    let field_infos = context.reader().get_field_infos()?;
+    let field_info = field_infos.field_info_by_name(self.query.sub.field())?;
     if field_info.is_none() {
       return Ok(None);
     }

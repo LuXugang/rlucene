@@ -1048,7 +1048,7 @@ impl Fields for SeedFields {
         })?;
         Ok(Some(SeedTerms::new(
           terms.clone(),
-          field_info,
+          field_info.clone(),
           self.max_allowed,
           self.allow_payloads,
         )))

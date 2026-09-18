@@ -3071,7 +3071,7 @@ where
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
     self.ensure_open()?;
     let doc_values = self.in_.get_numeric_doc_values(field)?;
-    let field_info = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_info = self.get_field_infos()?.field_info_by_name(field)?.cloned();
     if doc_values.is_some() {
       assert!(field_info.is_some());
       assert_eq!(
@@ -3099,7 +3099,7 @@ where
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
     self.ensure_open()?;
     let doc_values = self.in_.get_binary_doc_values(field)?;
-    let field_info = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_info = self.get_field_infos()?.field_info_by_name(field)?.cloned();
     if doc_values.is_some() {
       assert!(field_info.is_some());
       assert_eq!(
@@ -3127,7 +3127,7 @@ where
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
     self.ensure_open()?;
     let doc_values = self.in_.get_sorted_doc_values(field)?;
-    let field_info = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_info = self.get_field_infos()?.field_info_by_name(field)?.cloned();
     if doc_values.is_some() {
       assert!(field_info.is_some());
       assert_eq!(
@@ -3160,7 +3160,7 @@ where
   ) -> Result<Option<Self::SortedNumericDocValues>> {
     self.ensure_open()?;
     let doc_values = self.in_.get_sorted_numeric_doc_values(field)?;
-    let field_info = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_info = self.get_field_infos()?.field_info_by_name(field)?.cloned();
     if doc_values.is_some() {
       assert!(field_info.is_some());
       assert_eq!(
@@ -3190,7 +3190,7 @@ where
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
     self.ensure_open()?;
     let doc_values = self.in_.get_sorted_set_doc_values(field)?;
-    let field_info = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_info = self.get_field_infos()?.field_info_by_name(field)?.cloned();
     if doc_values.is_some() {
       assert!(field_info.is_some());
       assert_eq!(
@@ -3220,7 +3220,7 @@ where
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
     self.ensure_open()?;
     let norms = self.in_.get_norm_values(field)?;
-    let field_info = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_info = self.get_field_infos()?.field_info_by_name(field)?.cloned();
     if norms.is_some() {
       assert!(
         field_info
@@ -3245,7 +3245,7 @@ where
   fn get_doc_values_skipper(&self, field: &str) -> Result<Option<Self::DocValuesSkipper>> {
     self.ensure_open()?;
     let skipper = self.in_.get_doc_values_skipper(field)?;
-    let field_info = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_info = self.get_field_infos()?.field_info_by_name(field)?.cloned();
     if skipper.is_some() {
       assert!(
         field_info

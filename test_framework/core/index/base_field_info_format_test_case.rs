@@ -557,7 +557,7 @@ pub trait BaseFieldInfoFormatTestCase:
       match actual_field {
         None => unreachable!("should be Some"),
         Some(actual_field) => {
-          Self::assert_field_info_equals(expected_field, &actual_field);
+          Self::assert_field_info_equals(expected_field, actual_field);
         },
       }
     }

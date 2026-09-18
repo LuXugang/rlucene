@@ -348,7 +348,7 @@ where
         let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
           let field_infos = pending_soft_deletes::read_field_infos(info)?;
           let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?)?;
-          let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
+          let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info);
           let reader = if on_new_reader {
             Some(self.get_latest_read(info, &mut inner, self.index_created_version_major)?)
           } else {
@@ -494,19 +494,19 @@ where
 
         let write_result =
           std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-            let update_supplier = FunctionImpl::new(&field_info, updates_to_apply);
+            let update_supplier = FunctionImpl::new(field_info, updates_to_apply);
 
             inner.pending_deletes.on_doc_values_update(
-              &field_info,
-              update_supplier.apply(&field_info)?,
+              field_info,
+              update_supplier.apply(field_info)?,
               info,
             )?;
             if ty == DocValuesType::Binary {
-              let v = DocValuesProducerBinary::new(update_supplier, field, reader, &field_info);
-              fields_consumer.add_binary_field(&state, &info.info, &field_info, &v)?
+              let v = DocValuesProducerBinary::new(update_supplier, field, reader, field_info);
+              fields_consumer.add_binary_field(&state, &info.info, field_info, &v)?
             } else {
-              let v = DocValuesProducerNumeric::new(update_supplier, field, reader, &field_info);
-              fields_consumer.add_numeric_field(&state, &info.info, &field_info, &v)?;
+              let v = DocValuesProducerNumeric::new(update_supplier, field, reader, field_info);
+              fields_consumer.add_numeric_field(&state, &info.info, field_info, &v)?;
             }
             Ok(())
           }));
@@ -843,7 +843,7 @@ where
       let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
         let field_infos = pending_soft_deletes::read_field_infos(info)?;
         let field_info = field_infos.field_info_by_name(inner.pending_deletes.field()?)?;
-        let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
+        let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info);
         let reader = if on_new_reader {
           Some(self.get_latest_read(info, &mut inner, self.index_created_version_major)?)
         } else {

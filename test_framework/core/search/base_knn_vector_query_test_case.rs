@@ -1011,7 +1011,10 @@ pub trait BaseKnnVectorQueryTestCase {
 
     let reader = directory_reader::open(directory.into())?;
     let leaf_reader = get_only_leaf_reader(&reader)?;
-    let field_info = leaf_reader.get_field_infos()?.field_info_by_name("field")?;
+    let field_info = leaf_reader
+      .get_field_infos()?
+      .field_info_by_name("field")?
+      .cloned();
     assert!(field_info.is_some());
     let field_info = field_info.unwrap();
 

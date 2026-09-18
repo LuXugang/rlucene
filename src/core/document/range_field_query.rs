@@ -268,10 +268,8 @@ where
     let Some(values) = reader.get_point_values(&self.query.field)? else {
       return Ok(None);
     };
-    let Some(field_info) = reader
-      .get_field_infos()?
-      .field_info_by_name(&self.query.field)?
-    else {
+    let field_infos = reader.get_field_infos()?;
+    let Some(field_info) = field_infos.field_info_by_name(&self.query.field)? else {
       return Ok(None);
     };
     self.query.check_field_info(field_info.as_ref())?;

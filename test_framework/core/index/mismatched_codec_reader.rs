@@ -436,9 +436,13 @@ where
         LuceneError::illegal_state(format!("missing shuffled field info for {}", field.name))
       })?;
     assert_eq!(shuffled.number, field.number);
-    self.orig.field_info_by_name(&field.name)?.ok_or_else(|| {
-      LuceneError::illegal_state(format!("missing original field info for {}", field.name))
-    })
+    self
+      .orig
+      .field_info_by_name(&field.name)?
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!("missing original field info for {}", field.name))
+      })
+      .cloned()
   }
 }
 
@@ -522,9 +526,13 @@ where
         LuceneError::illegal_state(format!("missing shuffled field info for {}", field.name))
       })?;
     assert_eq!(shuffled.number, field.number);
-    self.orig.field_info_by_name(&field.name)?.ok_or_else(|| {
-      LuceneError::illegal_state(format!("missing original field info for {}", field.name))
-    })
+    self
+      .orig
+      .field_info_by_name(&field.name)?
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!("missing original field info for {}", field.name))
+      })
+      .cloned()
   }
 }
 

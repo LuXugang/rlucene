@@ -792,11 +792,9 @@ where
         .ok_or_else(|| {
           LuceneError::illegal_argument(format!("field=\"{}\" not found", field_info.name))
         })?;
-      self.raw_vector_delegate.merge_one_field(
-        &field_info_arc,
-        merge_state,
-        segment_write_state,
-      )?;
+      self
+        .raw_vector_delegate
+        .merge_one_field(field_info_arc, merge_state, segment_write_state)?;
       let merged_quantization_state = merge_and_recalculate_quantiles(
         merge_state,
         field_info,

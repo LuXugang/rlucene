@@ -129,11 +129,14 @@ impl FieldInfosDefaults {
     &in_.values
   }
 
-  fn field_info_by_name(in_: &FieldInfos, field_name: &str) -> Result<Option<Arc<FieldInfo>>> {
-    Ok(in_.by_name.get(field_name).cloned())
+  fn field_info_by_name<'a>(
+    in_: &'a FieldInfos,
+    field_name: &str,
+  ) -> Result<Option<&'a Arc<FieldInfo>>> {
+    Ok(in_.by_name.get(field_name))
   }
 
-  fn field_info_by_number(in_: &FieldInfos, field_number: i32) -> Result<Option<Arc<FieldInfo>>> {
+  fn field_info_by_number(in_: &FieldInfos, field_number: i32) -> Result<Option<&Arc<FieldInfo>>> {
     if field_number < 0 {
       return Err(LuceneError::illegal_argument(format!(
         "Illegal field number: {field_number}"
@@ -143,7 +146,7 @@ impl FieldInfosDefaults {
       in_
         .by_number
         .get(field_number as usize)
-        .and_then(|fi| fi.clone()),
+        .and_then(|fi| fi.as_ref()),
     )
   }
 }
@@ -226,11 +229,11 @@ impl FieldInfosHook {
     }
   }
 
-  fn field_info_by_name(
-    &self,
-    in_: &FieldInfos,
+  fn field_info_by_name<'a>(
+    &'a self,
+    in_: &'a FieldInfos,
     field_name: &str,
-  ) -> Result<Option<Arc<FieldInfo>>> {
+  ) -> Result<Option<&'a Arc<FieldInfo>>> {
     match self {
       Self::Default => FieldInfosDefaults::field_info_by_name(in_, field_name),
       Self::Filter(hook) => {
@@ -251,11 +254,11 @@ impl FieldInfosHook {
     }
   }
 
-  fn field_info_by_number(
-    &self,
-    in_: &FieldInfos,
+  fn field_info_by_number<'a>(
+    &'a self,
+    in_: &'a FieldInfos,
     field_number: i32,
-  ) -> Result<Option<Arc<FieldInfo>>> {
+  ) -> Result<Option<&'a Arc<FieldInfo>>> {
     match self {
       Self::Default => FieldInfosDefaults::field_info_by_number(in_, field_number),
       Self::Filter(hook) => {
@@ -499,14 +502,14 @@ impl FieldInfos {
   /// Return the FieldInfo object referenced by the field name.
   ///
   /// Returns None if the given field name doesn't exist.
-  pub fn field_info_by_name(&self, field_name: &str) -> Result<Option<Arc<FieldInfo>>> {
+  pub fn field_info_by_name(&self, field_name: &str) -> Result<Option<&Arc<FieldInfo>>> {
     self.hook.field_info_by_name(self, field_name)
   }
 
   /// Return the FieldInfo object referenced by the field number.
   ///
   /// Returns None if the given field number doesn't exist.
-  pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<Arc<FieldInfo>>> {
+  pub fn field_info_by_number(&self, field_number: i32) -> Result<Option<&Arc<FieldInfo>>> {
     self.hook.field_info_by_number(self, field_number)
   }
 }

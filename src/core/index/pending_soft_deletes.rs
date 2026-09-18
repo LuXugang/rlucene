@@ -104,7 +104,7 @@ impl PendingSoftDeletes {
       // big segments that don't even have any docs in the soft deletes field. In such a case it's
       // simply
       // enough to look at the FieldInfo for the field and check if the field has DocValues
-      debug_assert_eq!(do_on_new_reader(field_info.as_ref()), on_new_reader);
+      debug_assert_eq!(do_on_new_reader(field_info), on_new_reader);
       if on_new_reader {
         // in order to get accurate numbers we need to have at least one reader see here.
         let reader =

@@ -280,7 +280,7 @@ where
       // No docs in this segment indexed this field at all
       return Ok(None);
     };
-    LatLonPoint::check_compatible(&field_info)?;
+    LatLonPoint::check_compatible(field_info)?;
     let result = DocIdSetBuilder::from_point_values(reader.max_doc()?, &values, &self.query.field)?;
     let visitor = self.get_intersect_visitor(result);
     Ok(Some(Box::new(ScorerSupplierImpl::new(

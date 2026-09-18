@@ -290,7 +290,8 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
     TV: Into<Vec<f32>>,
   {
     let target = target.into();
-    let fi = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_infos = self.get_field_infos()?;
+    let fi = field_infos.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());
     };
@@ -351,7 +352,8 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
     TV: Into<Vec<u8>>,
   {
     let target = target.into();
-    let fi = self.get_field_infos()?.field_info_by_name(field)?;
+    let field_infos = self.get_field_infos()?;
+    let fi = field_infos.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());
     };

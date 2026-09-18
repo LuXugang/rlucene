@@ -127,16 +127,15 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
       assert!(s.starts_with("SortingCodecReader("), "{}", s);
       match wrap {
         SortingCodecReaderEnum::Sorting(sorting_codec_reader) => {
-          let fi = ctx
-            .reader()
-            .get_field_infos()?
+          let field_infos = ctx.reader().get_field_infos()?;
+          let fi = field_infos
             .field_info_by_name("foo")?
             .expect("field foo must exist");
 
           let mut sorted_set_doc_values = sorting_codec_reader
             .get_doc_values_reader()?
             .expect("doc values reader must exist")
-            .get_sorted_set(&fi)?;
+            .get_sorted_set(fi)?;
 
           sorted_set_doc_values.next_doc()?;
           assert_eq!(sorted_set_doc_values.doc_value_count()?, 2);

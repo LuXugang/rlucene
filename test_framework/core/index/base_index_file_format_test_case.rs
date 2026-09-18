@@ -911,8 +911,8 @@ pub trait BaseIndexFileFormatTestCase: Sized {
       HashMap::new(),
       None,
     )?;
-    let proto = one_doc_reader
-      .get_field_infos()?
+    let field_infos = one_doc_reader.get_field_infos()?;
+    let proto = field_infos
       .field_info_by_name("field")?
       .ok_or_else(|| LuceneError::illegal_state("missing FieldInfo for field"))?;
     let field = Arc::new(FieldInfo::new(

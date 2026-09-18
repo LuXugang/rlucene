@@ -631,6 +631,7 @@ where
       .ok_or_else(|| {
         LuceneError::illegal_state(format!("missing original field info for {}", field.name))
       })
+      .cloned()
   }
 }
 
@@ -706,6 +707,7 @@ where
       .ok_or_else(|| {
         LuceneError::illegal_state(format!("missing original field info for {}", field.name))
       })
+      .cloned()
   }
 }
 

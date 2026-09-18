@@ -191,7 +191,7 @@ where
         },
       };
 
-      let field_entry = FieldEntry::create(meta, &info)?;
+      let field_entry = FieldEntry::create(meta, info)?;
       fields.insert(info.number, field_entry);
 
       field_number = meta.read_int()?;

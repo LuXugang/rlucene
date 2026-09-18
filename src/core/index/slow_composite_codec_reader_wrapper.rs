@@ -1250,7 +1250,7 @@ where
   fn remap(&self, field_info: &FieldInfo) -> Result<Arc<FieldInfo>> {
     let fi = self.field_infos.field_info_by_name(&field_info.name)?;
     match fi {
-      Some(fi) => Ok(fi),
+      Some(fi) => Ok(fi.clone()),
       None => Err(LuceneError::illegal_state(format!(
         "FieldInfo not found by {}",
         field_info.name

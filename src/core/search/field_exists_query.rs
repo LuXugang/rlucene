@@ -166,7 +166,7 @@ impl QueryBase for FieldExistsQuery {
           break;
         }
       } else if field_info.get_vector_dimension() != 0 {
-        if self.get_vector_values_size(&field_info, leaf)? != leaf.max_doc()? as usize {
+        if self.get_vector_values_size(field_info, leaf)? != leaf.max_doc()? as usize {
           all_readers_rewritable = false;
           break;
         }
@@ -434,7 +434,8 @@ pub fn get_doc_values_doc_id_set_iterator<LR>(
 where
   LR: LeafReader,
 {
-  let field_info = reader.get_field_infos()?.field_info_by_name(field)?;
+  let field_infos = reader.get_field_infos()?;
+  let field_info = field_infos.field_info_by_name(field)?;
 
   let Some(fi) = field_info else {
     return Ok(None);

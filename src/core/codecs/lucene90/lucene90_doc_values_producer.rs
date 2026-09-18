@@ -252,7 +252,7 @@ where
         break;
       }
       let info = infos.field_info_by_number(field_number)?;
-      let Some(ref info) = info else {
+      let Some(info) = info else {
         return Err(LuceneError::corrupt_index(format!(
           "Field number {field_number} not found in field infos, resource {meta}"
         )));

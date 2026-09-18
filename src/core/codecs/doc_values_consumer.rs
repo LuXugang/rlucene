@@ -244,7 +244,7 @@ pub trait DocValuesConsumer: Closeable {
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
         values = Some(SortedDocValuesWithEmpty::A(
-          doc_values_producer.get_sorted(&reader_field_info)?,
+          doc_values_producer.get_sorted(reader_field_info)?,
         ));
       }
       let values = match values {
@@ -328,7 +328,7 @@ pub trait DocValuesConsumer: Closeable {
         && *field_info.get_doc_values_type() == DocValuesType::SortedSet
       {
         values = Some(SortedSetDocValuesEnum2::A(
-          doc_values_producer.get_sorted_set(&field_info)?,
+          doc_values_producer.get_sorted_set(field_info)?,
         ));
       }
 
@@ -937,7 +937,7 @@ where
           && *reader_field_info.get_doc_values_type() == DocValuesType::SortedNumeric
         {
           values = Some(SortedNumericDocValuesWithEmpty::A(
-            doc_values_producer.get_sorted_numeric(&reader_field_info)?,
+            doc_values_producer.get_sorted_numeric(reader_field_info)?,
           ));
         }
       }
@@ -1078,7 +1078,7 @@ where
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
         values = Some(SortedDocValuesWithEmpty::A(
-          doc_values_producer.get_sorted(&reader_field_info)?,
+          doc_values_producer.get_sorted(reader_field_info)?,
         ));
       }
       let values = match values {
@@ -1604,10 +1604,10 @@ where
         && *reader_field_info.get_doc_values_type() == DocValuesType::SortedSet
       {
         values = Some(SortedSetDocValuesWithEmpty::A(
-          doc_values_producer.get_sorted_set(&reader_field_info)?,
+          doc_values_producer.get_sorted_set(reader_field_info)?,
         ));
         values_for_merge = Some(SortedSetDocValuesWithEmpty::A(
-          doc_values_producer.get_sorted_set(&reader_field_info)?,
+          doc_values_producer.get_sorted_set(reader_field_info)?,
         ));
       }
 

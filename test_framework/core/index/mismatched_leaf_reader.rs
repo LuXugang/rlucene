@@ -52,6 +52,7 @@ where
           field_info.name
         ))
       })
+      .cloned()
   }
 }
 

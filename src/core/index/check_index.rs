@@ -2550,7 +2550,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
               "field \"{field}\" has norms but normsProducer is null"
             ))
           })?;
-          let mut norms = norms_producer.get_norms(&field_info)?;
+          let mut norms = norms_producer.get_norms(field_info)?;
           // count of valid norm values found for the field
           let mut actual_count = 0;
           // Cross-check terms with norms
