@@ -1346,12 +1346,12 @@ struct NoLiveDocsSubReaderWrapper;
 
 impl<LR> SubReaderWrapper<LR> for NoLiveDocsSubReaderWrapper
 where
-  LR: LeafReader,
+  LR: LeafReader + Clone,
 {
   type LeafReader1 = Self::LeafReader2;
 
-  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
-    self.default_wrap_readers(readers)
+  fn wrap_readers(&self, readers: &[LR]) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers.to_vec())
   }
 
   type LeafReader2 = NoLiveDocsLeafReader<LR>;
@@ -1379,7 +1379,7 @@ where
   fn new(in_: DR) -> Result<Self> {
     let result = catch_unwind(AssertUnwindSafe(|| -> Result<_> {
       let wrapper = NoLiveDocsSubReaderWrapper;
-      let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+      let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
       let index_base = IndexReaderBase::new();
       let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
       Ok((base, index_base))

@@ -80,9 +80,7 @@ where
     in_: DR,
     wrapper: SoftDeletesSubReaderWrapper<DR::LeafReader>,
   ) -> Result<Self> {
-    let leaf_reads = in_.get_sequential_sub_readers().to_vec();
-
-    let wrapped_readers = wrapper.wrap_readers(leaf_reads)?;
+    let wrapped_readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(wrapped_readers, None, &index_base)?;
     let reader_cache_helper = in_
@@ -350,10 +348,10 @@ where
 {
   type LeafReader1 = SoftDeletesCodecReader<LR>;
 
-  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<SoftDeletesCodecReader<LR>>> {
+  fn wrap_readers(&self, readers: &[LR]) -> Result<Vec<SoftDeletesCodecReader<LR>>> {
     let mut wrapped = Vec::with_capacity(readers.len());
     for reader in readers {
-      let wrap = self.wrap(reader)?;
+      let wrap = self.wrap(reader.clone())?;
       if wrap.num_docs()? != 0 {
         wrapped.push(wrap);
       }

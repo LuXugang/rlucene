@@ -36,14 +36,15 @@ struct MergingSubReaderWrapper;
 
 impl<CR> SubReaderWrapper<CR> for MergingSubReaderWrapper
 where
-  CR: CodecReader,
+  CR: CodecReader + Clone,
 {
   type LeafReader1 = MergingCodecReaderEnum<CR>;
 
-  fn wrap_readers(&self, readers: Vec<CR>) -> Result<Vec<Self::LeafReader1>> {
+  fn wrap_readers(&self, readers: &[CR]) -> Result<Vec<Self::LeafReader1>> {
     Ok(
       readers
-        .into_iter()
+        .iter()
+        .cloned()
         .map(|reader| MergingCodecReaderEnum::Merging(MergingCodecReader::new(reader)))
         .collect(),
     )
@@ -79,7 +80,7 @@ where
   /// Wrap the given directory.
   pub fn new(in_: DR) -> Result<Self> {
     let wrapper = MergingSubReaderWrapper;
-    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {

@@ -55,12 +55,12 @@ struct DummySubReaderWrapper;
 
 impl<LR> SubReaderWrapper<LR> for DummySubReaderWrapper
 where
-  LR: LeafReader,
+  LR: LeafReader + Clone,
 {
   type LeafReader1 = LR;
 
-  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
-    self.default_wrap_readers(readers)
+  fn wrap_readers(&self, readers: &[LR]) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers.to_vec())
   }
 
   type LeafReader2 = LR;
@@ -85,7 +85,7 @@ where
 {
   fn new(in_: DR) -> Result<Self> {
     let wrapper = DummySubReaderWrapper;
-    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {
@@ -307,12 +307,12 @@ impl NumDocsCountingSubReaderWrapper {
 
 impl<LR> SubReaderWrapper<LR> for NumDocsCountingSubReaderWrapper
 where
-  LR: LeafReader,
+  LR: LeafReader + Clone,
 {
   type LeafReader1 = Self::LeafReader2;
 
-  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
-    self.default_wrap_readers(readers)
+  fn wrap_readers(&self, readers: &[LR]) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers.to_vec())
   }
 
   type LeafReader2 = NumDocsCountingLeafReader<LR>;
@@ -580,7 +580,7 @@ where
 {
   fn new(in_: DR, num_docs_call_count: Arc<AtomicI64>) -> Result<Self> {
     let wrapper = NumDocsCountingSubReaderWrapper::new(num_docs_call_count.clone());
-    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {
@@ -812,7 +812,7 @@ where
 {
   fn new(in_: DR) -> Result<Self> {
     let wrapper = DummySubReaderWrapper;
-    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     let cache_helper = in_

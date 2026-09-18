@@ -34,12 +34,16 @@ struct AssertingSubReaderWrapper;
 
 impl<LR> SubReaderWrapper<LR> for AssertingSubReaderWrapper
 where
-  LR: LeafReader,
+  LR: LeafReader + Clone,
 {
   type LeafReader1 = AssertingLeafReader<LR>;
 
-  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
-    readers.into_iter().map(AssertingLeafReader::new).collect()
+  fn wrap_readers(&self, readers: &[LR]) -> Result<Vec<Self::LeafReader1>> {
+    readers
+      .iter()
+      .cloned()
+      .map(AssertingLeafReader::new)
+      .collect()
   }
 
   type LeafReader2 = AssertingLeafReader<LR>;
@@ -67,7 +71,7 @@ where
 {
   pub fn new(in_: DR) -> Result<Self> {
     let wrapper = AssertingSubReaderWrapper;
-    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {

@@ -48,7 +48,7 @@ where
   ///
   /// Returns an array of wrapped [`LeafReader`]s. The returned array might contain fewer elements
   /// compared to the given reader list if an entire reader is filtered out.
-  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>>;
+  fn wrap_readers(&self, readers: &[LR]) -> Result<Vec<Self::LeafReader1>>;
   fn default_wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader2>> {
     let mut wrapped = Vec::with_capacity(readers.len());
     for reader in readers {

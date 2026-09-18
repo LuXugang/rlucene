@@ -1053,6 +1053,7 @@ fn test_rewrite_retention_query() -> Result<()> {
 struct SoftDeleteWhileMergeWarmer<D>
 where
   D: Directory,
+  DefaultLeafReader<D>: Clone,
 {
   writer: Weak<IndexWriter<D>>,
   update: Arc<AtomicBool>,
@@ -1654,8 +1655,8 @@ where
 {
   type LeafReader1 = Self::LeafReader2;
 
-  fn wrap_readers(&self, readers: Vec<DefaultLeafReader<D>>) -> Result<Vec<Self::LeafReader1>> {
-    self.default_wrap_readers(readers)
+  fn wrap_readers(&self, readers: &[DefaultLeafReader<D>]) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers.to_vec())
   }
 
   type LeafReader2 = IncludeSoftDeletesFilterLeafReader<D>;
@@ -1680,7 +1681,7 @@ where
 {
   fn new(in_: Arc<StandardDirectoryReader<D>>) -> Result<Self> {
     let wrapper = IncludeSoftDeletesSubReaderWrapper;
-    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers().to_vec())?;
+    let readers = wrapper.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(readers, None, &index_base)?;
     Ok(Self {
