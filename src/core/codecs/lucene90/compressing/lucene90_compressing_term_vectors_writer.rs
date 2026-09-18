@@ -28,7 +28,7 @@ use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap, MergeStateMeta};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::{BytesRef, DocIDMerger, IndexFileNames, Sub, SubBase, of};
@@ -87,6 +87,7 @@ where
   // current field
   cur_field: usize,
   last_term: BytesRef<Vec<u8>>,
+  field_nums: Vec<i32>,
 
   positions_buf: Vec<i32>,
   start_offsets_buf: Vec<i32>,
@@ -241,6 +242,7 @@ where
       cur_doc: 0,
       cur_field: 0,
       last_term,
+      field_nums: Vec::new(),
       positions_buf,
       start_offsets_buf,
       lengths_buf,
@@ -312,31 +314,37 @@ where
     let total_fields = self.flush_num_fields(chunk_docs)?;
 
     if total_fields > 0 {
-      // unique field numbers (sorted)
-      let field_nums = self.flush_field_nums()?;
-      // offsets in the array of unique field numbers
-      self.flush_fields(total_fields, &field_nums)?;
-      // flags (does the field have positions, offsets, payloads?)
-      self.flush_flags(total_fields, &field_nums)?;
-      // number of terms of each field
-      self.flush_num_terms(total_fields)?;
-      // prefix and suffix lengths for each field
-      self.flush_term_lengths()?;
-      // term freqs - 1 (because termFreq is always >=1) for each term
-      self.flush_term_freqs()?;
-      // positions for all terms, when enabled
-      self.flush_positions()?;
-      // offsets for all terms, when enabled
-      self.flush_offsets(&field_nums)?;
-      // payload lengths for all terms, when enabled
-      self.flush_payload_lengths()?;
+      let mut field_nums = std::mem::take(&mut self.field_nums);
+      let result = (|| -> Result<()> {
+        // unique field numbers (sorted)
+        self.flush_field_nums(&mut field_nums)?;
+        // offsets in the array of unique field numbers
+        self.flush_fields(total_fields, &field_nums)?;
+        // flags (does the field have positions, offsets, payloads?)
+        self.flush_flags(total_fields, &field_nums)?;
+        // number of terms of each field
+        self.flush_num_terms(total_fields)?;
+        // prefix and suffix lengths for each field
+        self.flush_term_lengths()?;
+        // term freqs - 1 (because termFreq is always >=1) for each term
+        self.flush_term_freqs()?;
+        // positions for all terms, when enabled
+        self.flush_positions()?;
+        // offsets for all terms, when enabled
+        self.flush_offsets(&field_nums)?;
+        // payload lengths for all terms, when enabled
+        self.flush_payload_lengths()?;
 
-      // compress terms and payloads and write them to the output
-      // using ByteBuffersDataInput reduce memory copy
-      let mut input = self.term_suffixes.get_data_input_ref()?;
-      self
-        .compressor
-        .compress(&mut input, &mut self.vectors_stream)?;
+        // compress terms and payloads and write them to the output
+        // using ByteBuffersDataInput reduce memory copy
+        let mut input = self.term_suffixes.get_data_input_ref()?;
+        self
+          .compressor
+          .compress(&mut input, &mut self.vectors_stream)?;
+        Ok(())
+      })();
+      self.field_nums = field_nums;
+      result?;
     }
 
     // reset state
@@ -370,11 +378,11 @@ where
       Ok(total_fields)
     }
   }
-  /// Returns a sorted array containing unique field numbers
-  pub(crate) fn flush_field_nums(&mut self) -> Result<Vec<i32>> {
+  /// Populates a sorted array containing unique field numbers
+  pub(crate) fn flush_field_nums(&mut self, field_nums: &mut Vec<i32>) -> Result<()> {
     // 1. Collect unique field numbers
-    let mut field_nums =
-      Vec::with_capacity(self.pending_docs.front().map_or(0, |doc| doc.fields.len()));
+    field_nums.clear();
+    field_nums.reserve(self.pending_docs.front().map_or(0, |doc| doc.fields.len()));
     for doc in &self.pending_docs {
       for field in &doc.fields {
         if let Err(index) = field_nums.binary_search(&field.field_num) {
@@ -406,12 +414,12 @@ where
       1,
     )?;
 
-    for &field_num in &field_nums {
+    for &field_num in field_nums.iter() {
       writer.add(field_num as i64)?;
     }
     writer.finish()?;
 
-    Ok(field_nums)
+    Ok(())
   }
   fn flush_fields(&mut self, total_fields: i32, field_nums: &[i32]) -> Result<()> {
     self.scratch_buffer.reset();
@@ -757,6 +765,7 @@ where
   fn copy_chunks<MD, CR>(
     &mut self,
     merge_state: &mut MergeState<MD, CR>,
+    merge_state_meta: &MergeStateMeta<Rc<MergeStateDocMap<CR>>>,
     sub: &CompressingTermVectorsSub<MergeStateDocMap<CR>>,
     from_doc_id: i32,
     to_doc_id: i32,
@@ -764,7 +773,6 @@ where
   where
     CR: CodecReader,
   {
-    let merge_state_meta = merge_state.get_meta();
     let reader_wrap = merge_state.term_vectors_readers[sub.reader_index]
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("TermVectorsReader is None"))?;
@@ -781,7 +789,7 @@ where
     // copy docs that belong to the previous chunk
     while doc_id < to_doc_id && reader.is_loaded(doc_id) {
       let fields = reader.get(doc_id)?;
-      self.add_all_doc_vectors(fields.as_ref(), &merge_state_meta)?;
+      self.add_all_doc_vectors(fields.as_ref(), merge_state_meta)?;
       doc_id += 1;
     }
 
@@ -869,7 +877,7 @@ where
     debug_assert!(!reader.is_loaded(doc_id));
     while doc_id < to_doc_id {
       let fields = reader.get(doc_id)?;
-      self.add_all_doc_vectors(fields.as_ref(), &merge_state_meta)?;
+      self.add_all_doc_vectors(fields.as_ref(), merge_state_meta)?;
       doc_id += 1;
     }
 
@@ -936,6 +944,7 @@ where
         .saturating_add(size_of_vec(&self.start_offsets_buf))
         .saturating_add(size_of_vec(&self.lengths_buf))
         .saturating_add(size_of_vec(&self.payload_lengths_buf))
+        .saturating_add(size_of_vec(&self.field_nums))
         .saturating_add(self.term_suffixes.ram_bytes_used()?)
         .saturating_add(self.payload_bytes.ram_bytes_used()?)
         .saturating_add(size_of_vec(&self.last_term.bytes))
@@ -1291,6 +1300,7 @@ where
         to_doc_id += 1; // exclusive bound
         self.copy_chunks(
           merge_state,
+          &merge_state_meta,
           &doc_id_merger.get_subs()[current_idx].sub,
           from_doc_id,
           to_doc_id,

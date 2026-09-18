@@ -416,9 +416,9 @@ where
       let mut nodes = graph.get_nodes_on_level(level)?;
       let sorted_nodes = get_sorted_nodes(&mut nodes);
 
-      let mut current_level_offsets = vec![0i32; sorted_nodes.len()];
+      let mut current_level_offsets = Vec::with_capacity(sorted_nodes.len());
 
-      for (node_offset_id, &node) in sorted_nodes.iter().enumerate() {
+      for &node in &sorted_nodes {
         let neighbors = graph.get_neighbors_mut(level, node)?;
         let size = neighbors.size();
 
@@ -446,7 +446,7 @@ where
 
         let offset = (vector_index.get_file_pointer()? - offset_start).try_convert()?;
 
-        current_level_offsets[node_offset_id] = offset;
+        current_level_offsets.push(offset);
       }
 
       *level_offsets = current_level_offsets;

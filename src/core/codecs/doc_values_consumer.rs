@@ -257,7 +257,7 @@ pub trait DocValuesConsumer: Closeable {
     let num_readers = to_merge.len();
     // step 1: iterate thru each sub and mark terms still in use
     let mut live_terms = Vec::with_capacity(num_readers);
-    let mut weights: Vec<i64> = vec![0; num_readers];
+    let mut weights = Vec::with_capacity(num_readers);
 
     let mut remaining = to_merge.as_mut_slice();
     let mut sub = 0;
@@ -268,7 +268,7 @@ pub trait DocValuesConsumer: Closeable {
       match live_docs_opt {
         None => {
           let value_count = dvs.get_value_count()?;
-          weights[sub] = value_count as i64;
+          weights.push(value_count as i64);
           let terms_enum = FilteredTermsEnum::unfiltered(dvs.terms_enum()?);
           live_terms.push(terms_enum);
         },
@@ -290,7 +290,7 @@ pub trait DocValuesConsumer: Closeable {
           }
 
           let cardinality = bitset.cardinality();
-          weights[sub] = cardinality as i64;
+          weights.push(cardinality as i64);
           let terms_enum = BitsFilteredTermsEnum::new(dvs.terms_enum()?, bitset);
           live_terms.push(terms_enum);
         },
@@ -342,7 +342,7 @@ pub trait DocValuesConsumer: Closeable {
     // step 1: iterate thru each sub and mark terms still in use
     let num_readers = to_merge.len();
     let mut live_terms = Vec::with_capacity(num_readers);
-    let mut weights: Vec<i64> = vec![0; num_readers];
+    let mut weights = Vec::with_capacity(num_readers);
 
     for (sub, dv) in to_merge.iter_mut().enumerate() {
       let live_docs_opt = merge_state.live_docs()[sub].as_ref();
@@ -350,7 +350,7 @@ pub trait DocValuesConsumer: Closeable {
       match live_docs_opt {
         None => {
           let value_count = dv.get_value_count()?;
-          weights[sub] = value_count;
+          weights.push(value_count);
           let terms_enum = FilteredTermsEnum::unfiltered(dv.terms_enum()?);
           live_terms.push(terms_enum);
         },
@@ -373,7 +373,7 @@ pub trait DocValuesConsumer: Closeable {
           }
 
           let cardinality = bitset.cardinality();
-          weights[sub] = cardinality as i64;
+          weights.push(cardinality as i64);
 
           let terms_enum = BitsFilteredTermsEnum::new(dv.terms_enum()?, bitset);
           live_terms.push(terms_enum);
@@ -996,7 +996,7 @@ where
 {
   let mut cost = 0;
   for sub in &mut subs {
-    cost = sub.sub.values.cost()?;
+    cost += sub.sub.values.cost()?;
   }
   let doc_id_merger = of(subs, index_is_sorted)?;
   Ok(NumericDocValuesMerge {

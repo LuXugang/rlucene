@@ -61,7 +61,7 @@ use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::to_string_utils::ToStringUtils;
-use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, TryIntoInt};
+use crate::core::util::{CoreHelper, StringHelper, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt;
 use std::sync::Arc;
@@ -942,8 +942,11 @@ where
     let start_fp = self.terms_out.get_file_pointer()? as i64;
     let has_floor_lead = is_floor && floor_lead_label != -1;
 
-    let mut prefix_bytes = vec![0u8; prefix_length + if has_floor_lead { 1 } else { 0 }];
-    prefix_bytes.copy_from(&self.last_term.bytes_ref.bytes[0..prefix_length], 0);
+    let mut prefix_bytes = Vec::with_capacity(prefix_length + if has_floor_lead { 1 } else { 0 });
+    prefix_bytes.extend_from_slice(&self.last_term.bytes_ref.bytes[0..prefix_length]);
+    if has_floor_lead {
+      prefix_bytes.resize(prefix_length + 1, 0);
+    }
     let mut prefix = BytesRef::from_bytes(prefix_bytes);
     prefix.length = prefix_length;
 

@@ -378,10 +378,11 @@ where
     let mut term_index = term_index as usize;
     for (i, slot) in position_index.iter_mut().enumerate().take(num_fields) {
       let term_count = num_terms.get_mut(skip + i)? as usize;
-      let mut arr = vec![0; term_count + 1];
+      let mut arr = Vec::with_capacity(term_count + 1);
+      arr.push(0);
       for j in 0..term_count {
         let freq = term_freqs[term_index + j];
-        arr[j + 1] = arr[j] + freq;
+        arr.push(arr[j] + freq);
       }
       term_index += term_count;
       *slot = arr;
@@ -430,18 +431,16 @@ where
 
       if (f & flag) != 0 {
         let total_freq = position_index[i][term_count];
-        let mut field_positions = vec![0; total_freq];
-        let mut j = 0;
-        while j < total_freq {
+        let mut field_positions = Vec::with_capacity(total_freq);
+        while field_positions.len() < total_freq {
+          let remaining = total_freq - field_positions.len();
           let next_positions = self
             .reader
-            .next_batch(total_freq - j, &mut self.vectors_stream)?;
+            .next_batch(remaining, &mut self.vectors_stream)?;
           let slice = &next_positions.longs
             [next_positions.offset..next_positions.offset + next_positions.length];
-          for &val in slice {
-            field_positions[j] = val as i32;
-            j += 1;
-          }
+          assert!(slice.len() <= remaining);
+          field_positions.extend(slice.iter().map(|&val| val as i32));
         }
         positions[i] = field_positions;
       }

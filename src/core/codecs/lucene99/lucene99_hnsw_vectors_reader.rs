@@ -660,11 +660,13 @@ impl FieldEntry {
         let num_nodes_on_level = input.read_vint()?.try_convert()?;
         number_of_offsets += num_nodes_on_level as i64;
 
-        let mut level_nodes = vec![0usize; num_nodes_on_level];
+        let mut level_nodes = Vec::with_capacity(num_nodes_on_level);
         if num_nodes_on_level > 0 {
-          level_nodes[0] = input.read_vint()?.try_convert()?;
-          for i in 1..num_nodes_on_level {
-            level_nodes[i] = level_nodes[i - 1] + input.read_vint()?.try_convert()?;
+          let mut node = input.read_vint()?.try_convert()?;
+          level_nodes.push(node);
+          for _ in 1..num_nodes_on_level {
+            node += input.read_vint()?.try_convert()?;
+            level_nodes.push(node);
           }
         }
         nodes_by_level.push(Some(Arc::new(level_nodes)));

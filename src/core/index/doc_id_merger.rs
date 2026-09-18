@@ -106,7 +106,7 @@ where
       return Err(LuceneError::illegal_argument(""));
     }
     let sub_compare = SubCompare::new(subs);
-    let queue = PriorityQueue::new(max_count, sub_compare)?;
+    let queue = PriorityQueue::new(max_count - 1, sub_compare)?;
     let mut merger = Self {
       current: None,
       queue,
@@ -143,15 +143,10 @@ where
       // next() will advance it
       self.queue.compare.subs[0].mapped_doc_id = -1;
       self.current = Some(0);
-
-      let mut i = 1;
-      while i < self.queue.compare.subs.len() {
-        self.queue.compare.subs[i].next_mapped_doc()?;
-        i += 1;
-      }
     }
     // Keep the queue empty until every sub has advanced successfully.
     for i in 1..self.queue.compare.subs.len() {
+      self.queue.compare.subs[i].next_mapped_doc()?;
       if self.queue.compare.subs[i].mapped_doc_id != NO_MORE_DOCS {
         self.queue.add(i)?;
       }

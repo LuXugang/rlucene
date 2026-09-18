@@ -41,10 +41,9 @@ pub struct MultiTermsEnum<TE> {
   /// Current subs that have at least one term for this field
   current_subs: Vec<usize>,
   top: Vec<usize>,
-  /// Last seek term
-  last_seek: Option<BytesRef<Vec<u8>>>,
   sub_docs: Vec<EnumWithSlice>,
   last_seek_exact: bool,
+  has_last_seek: bool,
   last_seek_scratch: BytesRefBuilder<Vec<u8>>,
   num_top: usize,
   num_subs: usize,
@@ -78,9 +77,9 @@ where
       subs,
       current_subs,
       top,
-      last_seek: None,
       sub_docs,
       last_seek_exact: false,
+      has_last_seek: false,
       last_seek_scratch: BytesRefBuilder::new(),
       num_top: 0,
       num_subs: 0,
@@ -179,16 +178,24 @@ where
       // subs that didn't match the last exact seek... but
       // most impls short-circuit if you seekCeil to term
       // they are already on.
-      let current = self.current.clone();
-      let cur = current
-        .as_ref()
+      let current = self
+        .current
+        .take()
         .ok_or_else(|| LuceneError::illegal_state("current is None but last_seek_exact=true"))?;
-      let status = self.seek_ceil(cur)?;
+      let status = match self.seek_ceil(&current) {
+        Ok(status) => status,
+        Err(error) => {
+          if self.current.is_none() {
+            self.current = Some(current);
+          }
+          return Err(error);
+        },
+      };
       debug_assert_eq!(status, SeekStatus::Found);
       self.last_seek_exact = false;
     }
 
-    self.last_seek = None;
+    self.has_last_seek = false;
 
     // restore queue
     self.push_top()?;
@@ -232,13 +239,18 @@ where
     self.num_top = 0;
 
     let mut seek_opt = false;
-    if let Some(ref last) = self.last_seek
-      && last.compare_to(term).to_int() <= 0
+    if self.has_last_seek
+      && self
+        .last_seek_scratch
+        .get_bytes_ref()
+        .compare_to(term)
+        .to_int()
+        <= 0
     {
       seek_opt = true;
     }
 
-    self.last_seek = None;
+    self.has_last_seek = false;
     self.last_seek_exact = true;
 
     for i in 0..self.num_subs {
@@ -322,14 +334,19 @@ where
     self.last_seek_exact = false;
 
     let mut seek_opt = false;
-    if let Some(ref last) = self.last_seek
-      && last.compare_to(term).to_int() <= 0
+    if self.has_last_seek
+      && self
+        .last_seek_scratch
+        .get_bytes_ref()
+        .compare_to(term)
+        .to_int()
+        <= 0
     {
       seek_opt = true;
     }
 
     self.last_seek_scratch.copy_bytes_from_ref(term)?;
-    self.last_seek = Some(self.last_seek_scratch.get_bytes_owner());
+    self.has_last_seek = true;
 
     for i in 0..self.num_subs {
       let entry_idx = self.current_subs[i];

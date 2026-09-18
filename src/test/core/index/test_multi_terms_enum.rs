@@ -37,11 +37,15 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::index::multi_terms;
+use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::ToInt;
@@ -97,6 +101,74 @@ fn test_no_terms_in_field() -> Result<()> {
   reader.close()?;
   directory.close()?;
 
+  Ok(())
+}
+
+#[test]
+fn test_seek_state_across_multiple_segments() -> Result<()> {
+  let mut random = random();
+  let directory = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
+  config.set_merge_policy(NoMergePolicy::default());
+  let writer = IndexWriter::new(directory.clone(), config)?;
+
+  // Keep each term in a separate leaf to exercise the cross-segment seek state.
+  for term in ["a", "b", "c", "d", "e", "f"] {
+    let mut document = Document::new();
+    document.add(StringField::from_string("field", term, Store::No)?);
+    writer.add_document(document)?;
+    writer.commit()?;
+  }
+
+  let reader = directory_reader::open_from_writer(&writer)?;
+  assert_eq!(6, reader.get_context()?.leaves()?.len());
+  writer.close()?;
+
+  let reader = directory_reader::open(directory.clone())?;
+
+  let terms = multi_terms::get_terms(&reader, "field")?
+    .ok_or_else(|| LuceneError::illegal_state("field is missing"))?;
+  let mut terms_enum = terms.iterator()?;
+
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("c"))?);
+  assert_eq!(b"c", terms_enum.term()?.as_bytes());
+  assert_eq!(b"d", terms_enum.next()?.unwrap().as_bytes());
+  assert_eq!(b"e", terms_enum.next()?.unwrap().as_bytes());
+  assert_eq!(b"f", terms_enum.next()?.unwrap().as_bytes());
+  assert!(terms_enum.next()?.is_none());
+
+  assert_eq!(
+    SeekStatus::Found,
+    terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("b"))?,
+  );
+  assert_eq!(b"b", terms_enum.term()?.as_bytes());
+  assert_eq!(
+    SeekStatus::Found,
+    terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("d"))?,
+  );
+  assert_eq!(b"d", terms_enum.term()?.as_bytes());
+  assert_eq!(
+    SeekStatus::NotFound,
+    terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("dd"))?,
+  );
+  assert_eq!(b"e", terms_enum.term()?.as_bytes());
+  assert_eq!(
+    SeekStatus::End,
+    terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("z"))?,
+  );
+
+  assert!(terms_enum.seek_exact(&BytesRef::<Vec<u8>>::from_string("f"))?);
+  assert_eq!(b"f", terms_enum.term()?.as_bytes());
+  assert!(terms_enum.next()?.is_none());
+
+  assert_eq!(
+    SeekStatus::End,
+    terms_enum.seek_ceil(&BytesRef::<Vec<u8>>::from_string("z"))?,
+  );
+
+  reader.close()?;
+  directory.close()?;
   Ok(())
 }
 

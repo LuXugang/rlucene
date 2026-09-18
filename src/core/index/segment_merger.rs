@@ -104,10 +104,10 @@ where
       let leaf_min_version = reader.get_metadata()?.get_min_version();
       match leaf_min_version {
         Some(v) => {
-          if let Some(cur) = &mut min_version
+          if let Some(cur) = &min_version
             && cur.on_or_after(v)
           {
-            *cur = v.clone();
+            min_version = Some(v.clone());
           }
         },
         None => {
