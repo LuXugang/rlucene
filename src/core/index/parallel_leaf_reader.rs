@@ -70,9 +70,9 @@ where
   num_docs: i32,
   has_deletions: bool,
   meta_data: LeafMetaData,
-  tv_field_to_reader: Arc<BTreeMap<String, usize>>,
-  field_to_reader: BTreeMap<String, usize>,
-  terms_field_to_reader: HashMap<String, usize>,
+  tv_field_to_reader: Arc<BTreeMap<Arc<str>, usize>>,
+  field_to_reader: BTreeMap<Arc<str>, usize>,
+  terms_field_to_reader: HashMap<Arc<str>, usize>,
   index_base: IndexReaderBase,
   hook: ParallelLeafReaderHook,
 }
@@ -242,7 +242,8 @@ where
     let mut terms_field_to_reader = HashMap::new();
 
     // Build FieldInfos and field-to-reader maps.
-    for complete_reader_index in &parallel_reader_indices {
+    for (parallel_reader_index, complete_reader_index) in parallel_reader_indices.iter().enumerate()
+    {
       let reader = &complete_reader_set[*complete_reader_index];
       let leaf_meta_data = reader.get_metadata()?;
       let leaf_index_sort = leaf_meta_data.get_sort();
@@ -271,16 +272,17 @@ where
       let reader_field_infos = reader.get_field_infos()?;
       for field_info in reader_field_infos.iter() {
         // NOTE: the first reader having a given field wins.
-        if !field_to_reader.contains_key(&field_info.name) {
+        if !field_to_reader.contains_key(field_info.name.as_str()) {
           builder.add_with_dv_gen(field_info.as_ref(), field_info.get_doc_values_gen())?;
-          field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
+          let field_name: Arc<str> = Arc::from(field_info.name.as_str());
+          field_to_reader.insert(Arc::clone(&field_name), *complete_reader_index);
           // Only add these if the reader responsible for that field name is
           // the current reader.
           if field_info.has_term_vectors() {
-            tv_field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
+            tv_field_to_reader.insert(Arc::clone(&field_name), parallel_reader_index);
           }
           if field_info.get_index_options() != &IndexOptions::None {
-            terms_field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
+            terms_field_to_reader.insert(field_name, *complete_reader_index);
           }
         }
       }
@@ -466,7 +468,7 @@ where
 
 pub struct ParallelTermVectors<TV> {
   reader_to_term_vectors: Vec<Option<TV>>,
-  tv_field_to_reader: Arc<BTreeMap<String, usize>>,
+  tv_field_to_reader: Arc<BTreeMap<Arc<str>, usize>>,
 }
 
 impl<TV> TermVectors for ParallelTermVectors<TV>
@@ -486,9 +488,9 @@ where
     let mut parallel_fields = ParallelFields::new();
     for (field_name, reader_index) in self.tv_field_to_reader.iter() {
       if let Some(term_vectors) = self.reader_to_term_vectors[*reader_index].as_mut()
-        && let Some(vector) = term_vectors.get_field_terms(doc, field_name)?
+        && let Some(vector) = term_vectors.get_field_terms(doc, field_name.as_ref())?
       {
-        parallel_fields.add_field(field_name.clone(), vector);
+        parallel_fields.add_field(field_name.to_string(), vector);
       }
     }
 
@@ -539,11 +541,10 @@ where
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     self.ensure_open()?;
-    let mut term_vectors = Vec::with_capacity(self.complete_reader_set.len());
-    for (reader_index, reader) in self.complete_reader_set.iter().enumerate() {
-      if self.parallel_reader_indices.contains(&reader_index)
-        && reader.get_field_infos()?.has_term_vectors()
-      {
+    let mut term_vectors = Vec::with_capacity(self.parallel_reader_indices.len());
+    for reader_index in &self.parallel_reader_indices {
+      let reader = &self.complete_reader_set[*reader_index];
+      if reader.get_field_infos()?.has_term_vectors() {
         term_vectors.push(Some(reader.term_vectors()?));
       } else {
         term_vectors.push(None);
