@@ -206,15 +206,35 @@ where
       stored_reader_leaves.push(leaves);
     }
 
+    // The flattened buffers are consumed exactly once. Pop from reversed
+    // buffers so each leaf reader is moved into the synthetic reader instead
+    // of cloned a second time.
+    for leaves in &mut reader_leaves {
+      leaves.reverse();
+    }
+    for leaves in &mut stored_reader_leaves {
+      leaves.reverse();
+    }
+
     let mut wrapped_leaves = Vec::with_capacity(leaf_max_doc.len());
-    for leaf_index in 0..leaf_max_doc.len() {
+    for _leaf_index in 0..leaf_max_doc.len() {
       let parallel_leaves = reader_leaves
-        .iter()
-        .map(|leaves| leaves[leaf_index].clone())
+        .iter_mut()
+        .map(|leaves| {
+          expect_invariant!(
+            leaves.pop(),
+            "validated readers have the same number of leaves"
+          )
+        })
         .collect();
       let stored_leaves = stored_reader_leaves
-        .iter()
-        .map(|leaves| leaves[leaf_index].clone())
+        .iter_mut()
+        .map(|leaves| {
+          expect_invariant!(
+            leaves.pop(),
+            "validated stored-fields readers have the same number of leaves"
+          )
+        })
         .collect();
 
       // Close sub-readers and prevent the synthetic disposable readers
