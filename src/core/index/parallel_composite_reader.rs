@@ -170,18 +170,18 @@ where
       return Ok(Vec::new());
     }
 
-    let mut first_leaves = Vec::new();
-    readers[0].visit_leaves(&mut |reader| {
-      first_leaves.push(reader.clone());
+    // Check compatibility.
+    let mut leaf_count = 0usize;
+    readers[0].visit_leaves(&mut |_| {
+      leaf_count += 1;
       Ok(())
     })?;
-
-    // Check compatibility.
     let max_doc = readers[0].max_doc()?;
-    let leaf_max_doc = first_leaves
-      .iter()
-      .map(IndexReader::max_doc)
-      .collect::<Result<Vec<_>>>()?;
+    let mut leaf_max_doc = Vec::with_capacity(leaf_count);
+    readers[0].visit_leaves(&mut |reader| {
+      leaf_max_doc.push(reader.max_doc()?);
+      Ok(())
+    })?;
     Self::validate(readers, max_doc, &leaf_max_doc)?;
     Self::validate(stored_fields_readers, max_doc, &leaf_max_doc)?;
 
@@ -252,30 +252,33 @@ where
 
   fn validate(readers: &[R], max_doc: i32, leaf_max_doc: &[i32]) -> Result<()> {
     for reader in readers {
-      let mut leaves = Vec::with_capacity(leaf_max_doc.len());
-      reader.visit_leaves(&mut |leaf| {
-        leaves.push(leaf.clone());
-        Ok(())
-      })?;
-
-      if reader.max_doc()? != max_doc {
+      let actual_max_doc = reader.max_doc()?;
+      if actual_max_doc != max_doc {
         return Err(LuceneError::illegal_argument(format!(
           "All readers must have same maxDoc: {max_doc}!={}",
-          reader.max_doc()?
+          actual_max_doc
         )));
       }
-      if leaves.len() != leaf_max_doc.len() {
+      let mut leaf_count = 0usize;
+      reader.visit_leaves(&mut |_| {
+        leaf_count += 1;
+        Ok(())
+      })?;
+      if leaf_count != leaf_max_doc.len() {
         return Err(LuceneError::illegal_argument(
           "All readers must have same number of leaf readers",
         ));
       }
-      for (leaf, expected_max_doc) in leaves.iter().zip(leaf_max_doc) {
-        if leaf.max_doc()? != *expected_max_doc {
+      let mut leaf_index = 0usize;
+      reader.visit_leaves(&mut |leaf| {
+        if leaf.max_doc()? != leaf_max_doc[leaf_index] {
           return Err(LuceneError::illegal_argument(
             "All leaf readers must have same corresponding subReader maxDoc",
           ));
         }
-      }
+        leaf_index += 1;
+        Ok(())
+      })?;
     }
     Ok(())
   }
