@@ -34,7 +34,7 @@ use crate::core::util::version::Version;
 /// This API is experimental and may change in future releases.
 pub struct SegmentInfo<D> {
   /// Unique segment name in the directory.
-  pub(crate) name: String,
+  pub(crate) name: Arc<str>,
   max_doc: i32, // number of docs in seg
   /// Where this segment resides.
   pub(crate) dir: Arc<D>,
@@ -43,7 +43,7 @@ pub struct SegmentInfo<D> {
   id: [u8; StringHelper::ID_LENGTH],
   #[cfg(test)]
   id_str: String,
-  id_key: String,
+  pub(crate) id_key: Arc<str>,
   codec: Option<Codecs>,
   diagnostics: HashMap<String, String>,
   attributes: HashMap<String, String>,
@@ -72,13 +72,13 @@ impl Default for SegmentInfo<DummyDirectory> {
     let id = [0; 16];
     let id_str = StringHelper::id_to_string(Some(&id));
     SegmentInfo {
-      name: String::new(),
+      name: Arc::from(""),
       max_doc: -1,
       dir: Arc::new(DummyDirectory),
       is_compound_file: false,
       id: [0; 16],
       id_str: id_str.clone(),
-      id_key: id_str,
+      id_key: Arc::from(id_str),
       diagnostics: HashMap::new(),
       attributes: HashMap::new(),
       codec: None,
@@ -116,7 +116,7 @@ impl<D> SegmentInfo<D> {
   /// * `attributes` - Additional attributes for the segment.
   /// * `index_sort` - The sort order of the index, if any.
   #[allow(clippy::too_many_arguments)]
-  pub fn new<N: Into<String>>(
+  pub fn new<N: Into<Arc<str>>>(
     dir: Arc<D>,
     version: Option<Version>,
     min_version: Option<Version>,
@@ -161,7 +161,7 @@ impl<D> SegmentInfo<D> {
       id,
       #[cfg(test)]
       id_str: StringHelper::id_to_string(Some(&id)),
-      id_key,
+      id_key: id_key.into(),
       attributes,
       index_sort,
       set_files: None,
@@ -499,14 +499,14 @@ impl<D> SegmentInfo<D> {
     let id = [0u8; StringHelper::ID_LENGTH];
     let id_str = StringHelper::id_to_string(Some(&id));
     SegmentInfo {
-      name: String::new(),
+      name: Arc::from(""),
       max_doc: 0,
       dir,
       is_compound_file: false,
       id,
       #[cfg(test)]
       id_str: id_str.clone(),
-      id_key: id_str,
+      id_key: Arc::from(id_str),
       diagnostics: HashMap::new(),
       attributes: HashMap::new(),
       codec: None,

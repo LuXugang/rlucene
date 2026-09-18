@@ -282,6 +282,7 @@ fn test_update() -> Result<()> {
   }
 
   for (idx, seg_id) in segment_infos.seg_ids().clone().iter().enumerate() {
+    let seg_id = Arc::from(seg_id.as_str());
     let (read_only_clone, max_doc, readers_and_updates, mut postings) = {
       let commit_info = segment_infos.info_idx_mut(idx).unwrap();
       let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
@@ -335,7 +336,7 @@ fn test_update() -> Result<()> {
         assert!(!readers_and_updates.is_merging());
       } else {
         written_to_disk = pool.write_doc_values_updates_for_merge(
-          std::slice::from_ref(seg_id),
+          std::slice::from_ref(&seg_id),
           segment_infos,
           &field_numbers,
         )?;
@@ -359,7 +360,7 @@ fn test_update() -> Result<()> {
       assert!(!readers_and_updates.is_merging());
     } else {
       written_to_disk = pool.write_doc_values_updates_for_merge(
-        std::slice::from_ref(seg_id),
+        std::slice::from_ref(&seg_id),
         segment_infos,
         &field_numbers,
       )?;

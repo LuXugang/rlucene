@@ -302,7 +302,7 @@ where
 
       // find SegmentReader for this segment
       let old_reader = segment_readers
-        .get(commit_info.info.name.as_str())
+        .get(commit_info.info.name.as_ref())
         .map(|old_reader_index| &old_readers[*old_reader_index]);
 
       // Make a best effort to detect when the app illegally "rm -rf" their

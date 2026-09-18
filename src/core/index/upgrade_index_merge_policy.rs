@@ -187,7 +187,7 @@ where
     if let Some(ref spec_inner) = spec {
       for om in &spec_inner.merges {
         for seg_key in om.stat.segments.iter() {
-          old_segments.remove(seg_key);
+          old_segments.remove(seg_key.as_ref());
         }
       }
     }
@@ -200,7 +200,7 @@ where
           let seg_key = sci.info.get_id_key();
           if old_segments.contains_key(seg_key) {
             new_infos.push(SegmentDocAndID::new(
-              seg_key.to_string(),
+              sci.info.id_key.clone(),
               sci.info.max_doc()?,
             ));
           }

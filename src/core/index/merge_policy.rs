@@ -246,7 +246,7 @@ where
           let mut below_max_full_flush_size = true;
 
           for seg_id in one_merge.stat.segments.iter() {
-            match segment_infos_by_id.get(seg_id.as_str()).copied() {
+            match segment_infos_by_id.get(seg_id.as_ref()).copied() {
               Some(sci) => {
                 if self.size(sci, merge_context)? >= self.max_full_flush_merge_size() {
                   below_max_full_flush_size = false;
@@ -1863,7 +1863,7 @@ pub struct MergeStat {
   merge_progress: Arc<OneMergeProgress>,
   /// Segments to be merged.
   /// [`SegmentInfo::name`](crate::core::index::segment_info::SegmentInfo::name) and [`SegmentInfo::id`](crate::core::index::segment_info::SegmentInfo::id).
-  pub(crate) segments: Arc<Vec<String>>,
+  pub(crate) segments: Arc<Vec<Arc<str>>>,
   pub(crate) merge_gen: i64,
 }
 impl Default for MergeStat {
@@ -1948,8 +1948,8 @@ impl MergeCompletion {
 #[derive(Default)]
 struct MergeStatState {
   max_num_segments: i32,
-  info_id: Option<String>,
-  name: Option<String>,
+  info_id: Option<Arc<str>>,
+  name: Option<Arc<str>>,
   error: Option<CaughtResult>,
   #[cfg(test)]
   max_doc: Option<i32>,
@@ -2046,11 +2046,11 @@ impl MergeStat {
     self.state.lock().max_num_segments = max_num_segments;
   }
 
-  pub(crate) fn info_id(&self) -> Option<String> {
+  pub(crate) fn info_id(&self) -> Option<Arc<str>> {
     self.state.lock().info_id.clone()
   }
 
-  pub(crate) fn name(&self) -> Option<String> {
+  pub(crate) fn name(&self) -> Option<Arc<str>> {
     self.state.lock().name.clone()
   }
 
@@ -2059,7 +2059,7 @@ impl MergeStat {
     self.state.lock().max_doc
   }
 
-  pub(crate) fn set_merge_info(&self, info_id: String, name: String) {
+  pub(crate) fn set_merge_info(&self, info_id: Arc<str>, name: Arc<str>) {
     let mut state = self.state.lock();
     state.info_id = Some(info_id);
     state.name = Some(name);
@@ -2131,7 +2131,7 @@ where
     let mut segments_meta = Vec::with_capacity(segments.len());
     for v in segments {
       segments_meta.push(SegmentDocAndID::new(
-        v.seg_info.info.get_id_key().to_string(),
+        v.seg_info.info.id_key.clone(),
         v.max_doc,
       ))
     }
@@ -2298,7 +2298,7 @@ where
 
   pub fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR>>,
+    F: FnMut(&Arc<str>) -> Result<MergeReader<CR>>,
   {
     <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::init_merge_readers(
       &self.hook,
@@ -2464,7 +2464,7 @@ impl OneMergeDefaults {
     merge_info: &mut Option<SegmentCommitInfo<D>>,
     info: SegmentCommitInfo<D>,
   ) {
-    stat.set_merge_info(info.info.get_id_key().to_string(), info.info.name.clone());
+    stat.set_merge_info(info.info.id_key.clone(), info.info.name.clone());
     *merge_info = Some(info);
   }
 
@@ -2487,7 +2487,7 @@ impl OneMergeDefaults {
   ) -> Result<()>
   where
     CR: CodecReader,
-    F: FnMut(&String) -> Result<MergeReader<CR>>,
+    F: FnMut(&Arc<str>) -> Result<MergeReader<CR>>,
   {
     debug_assert!(merge_readers.is_empty());
     debug_assert!(!stat.has_finished(), "merge is already done");
@@ -2758,7 +2758,7 @@ where
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR>>,
+    F: FnMut(&Arc<str>) -> Result<MergeReader<CR>>,
   {
     match self {
       Self::Default => OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory),
@@ -2865,7 +2865,7 @@ where
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR>>;
+    F: FnMut(&Arc<str>) -> Result<MergeReader<CR>>;
 }
 pub type DefaultMergeSpecification<D> = MergeSpecification<D, DefaultLeafReader<D>>;
 pub struct MergeSpecification<D, CR>

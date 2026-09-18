@@ -1553,7 +1553,7 @@ where
         merge_scheduler.message(&format!(
           "merge thread {} merge segment [{}] done estSize={:.1} MB (written={:.1} MB) runTime={:.1}s (stopped={:.1}s, paused={:.1}s) rate={}",
           state.name,
-          state.merge_stat.name().unwrap_or_else(|| "_na_".to_string()),
+          state.merge_stat.name().unwrap_or_else(|| Arc::from("_na_")),
           ConcurrentMergeScheduler::bytes_to_mb(
             state.estimated_merge_bytes.load(Ordering::SeqCst),
           ),

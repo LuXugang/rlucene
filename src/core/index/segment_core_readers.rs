@@ -57,7 +57,7 @@ where
   pub(crate) points_reader: Option<Arc<CodecPointsReader<I>>>,
   pub(crate) knn_vectors_reader: Option<Arc<CodecKnnVectorsReader<I>>>,
   pub(crate) cfs_reader: Option<DefaultCompoundReaderImpl<I>>,
-  pub(crate) segment: String,
+  pub(crate) segment: Arc<str>,
   /// fieldinfos for this core: means gen=-1. this is the exact fieldinfos these codec components saw at write.
   /// in the case of DV updates, SR may hold a newer version.
   pub(crate) core_field_infos: Arc<FieldInfos>,
@@ -98,7 +98,7 @@ where
         None => CompoundDirectoryEnum::B(dir),
       };
 
-      let segment = si.info.name.to_string();
+      let segment = Arc::clone(&si.info.name);
       let core_field_infos = Arc::new(
         codec
           .field_infos_format()

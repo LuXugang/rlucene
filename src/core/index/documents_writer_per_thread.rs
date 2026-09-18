@@ -123,7 +123,7 @@ pub(crate) struct State {
   pub(crate) flush_pending: OnceLock<bool>,
   pub(crate) last_committed_bytes_used: AtomicI64,
   pub(crate) num_docs_in_ram: AtomicI32,
-  pub(crate) id: String,
+  pub(crate) id: Arc<str>,
   pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
   has_flushed: OnceLock<bool>,
   pub(crate) aborted: Arc<AtomicBool>,
@@ -263,7 +263,7 @@ where
     unwrap_caught_result!(abort_result)
   }
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new<L, N: Into<String>>(
+  pub(crate) fn new<L, N: Into<Arc<str>>>(
     index_major_version_created: i32,
     segment_name: N,
     directory_orig: Arc<D>,
@@ -284,6 +284,7 @@ where
     let delete_slice = Some(delete_queue.new_slice());
     let random_id = StringHelper::random_id();
     let id = StringHelper::id_to_string(Some(&random_id));
+    let id: Arc<str> = Arc::from(id);
     let segment_info = SegmentInfo::new(
       directory_orig,
       Some((*LATEST).clone()),

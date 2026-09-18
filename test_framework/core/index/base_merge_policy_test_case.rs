@@ -166,7 +166,7 @@ pub trait BaseMergePolicyTestCase {
         directory.clone(),
         Some((*LATEST).clone()),
         Some((*LATEST).clone()),
-        &name,
+        name.as_str(),
         random.random_range(0..i32::MAX),
         random.random_bool(0.5),
         false,
@@ -599,7 +599,7 @@ where
   let mut new_max_doc = 0i32;
   let mut new_size_mb = 0f64;
   let mut merged_away = vec![false; infos.size()];
-  let mut merged_ids: Vec<_> = merge.stat.segments.iter().map(String::as_str).collect();
+  let mut merged_ids: Vec<_> = merge.stat.segments.iter().map(|id| id.as_ref()).collect();
   merged_ids.sort_unstable();
 
   let mut num_merged_segments = 0;

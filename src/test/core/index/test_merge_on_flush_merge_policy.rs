@@ -151,8 +151,8 @@ fn test_find_full_flush_merges() -> Result<()> {
     if let Some(merge_spec) = merge_spec {
       for one_merge in &merge_spec.merges {
         for seg_key in one_merge.stat.segments.iter() {
-          assert!(small_segments.contains(seg_key));
-          assert!(!merging_segments.contains(seg_key));
+          assert!(small_segments.contains(seg_key.as_ref()));
+          assert!(!merging_segments.contains(seg_key.as_ref()));
         }
       }
     } else {

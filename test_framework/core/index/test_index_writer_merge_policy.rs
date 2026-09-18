@@ -220,7 +220,7 @@ where
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR>>,
+    F: FnMut(&Arc<str>) -> Result<MergeReader<CR>>,
   {
     OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)?;
     self.wait_for_init_merge_reader.count_down();
@@ -447,7 +447,7 @@ where
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR>>,
+    F: FnMut(&Arc<str>) -> Result<MergeReader<CR>>,
   {
     OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)
   }

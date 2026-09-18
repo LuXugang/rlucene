@@ -125,7 +125,7 @@ where
       .parent
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?;
-    let mut stats = Stats::new(parent.segment.clone(), self.fr.field_info.name.clone());
+    let mut stats = Stats::new(parent.segment.to_string(), self.fr.field_info.name.clone());
     if let Some(index) = self.fr.index.as_ref() {
       stats.index_num_bytes = index.fst_reader.lock().ram_bytes_used()?;
     }

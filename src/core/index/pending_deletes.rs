@@ -81,7 +81,7 @@ impl Bits for LiveDocsState {
 /// This struct handles accounting and applies pending deletes for live segment readers.
 pub(crate) struct PendingDeletes {
   // SegmentInfo::id
-  pub(crate) info_id: String,
+  pub(crate) info_id: Arc<str>,
   live_docs: Option<LiveDocsState>,
   pub(crate) pending_delete_count: i32,
   pub(crate) live_docs_initialized: bool,
@@ -96,7 +96,7 @@ impl PendingDeletes {
     D: Directory,
   {
     let mut v = Self::with(
-      info.info.get_id_key().to_string(),
+      Arc::clone(&reader.original_si_id),
       reader.get_live_docs()?,
       true,
       info.info.max_doc()?,
@@ -106,7 +106,7 @@ impl PendingDeletes {
   }
   pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self> {
     Ok(PendingDeletes::with(
-      info.info.get_id_key().to_string(),
+      Arc::from(info.info.get_id_key()),
       None,
       !info.has_deletions(),
       info.info.max_doc()?,
@@ -120,7 +120,7 @@ impl PendingDeletes {
   }
 
   pub(crate) fn with(
-    info_id: String,
+    info_id: Arc<str>,
     live_docs: Option<DocBits>,
     live_docs_initialized: bool,
     max_doc: i32,

@@ -1070,7 +1070,7 @@ impl<D> SegmentInfos<D> {
         "All segments must record the minVersion for indices created on or after Lucene 7",
       ));
     }
-    let merged_away: HashSet<&str> = merge.stat.segments.iter().map(String::as_str).collect();
+    let merged_away: HashSet<&str> = merge.stat.segments.iter().map(|id| id.as_ref()).collect();
 
     let mut inserted = false;
     let mut new_segments: Vec<SegmentCommitInfo<D>> = Vec::with_capacity(self.segments.len());

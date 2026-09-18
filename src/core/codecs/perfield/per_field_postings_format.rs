@@ -395,7 +395,7 @@ where
 pub struct FieldsReader<FP> {
   fields: BTreeMap<String, Arc<FP>>,
   formats: HashMap<String, Arc<FP>>,
-  segment: String,
+  segment: Arc<str>,
 }
 
 impl<FP> FieldsReader<FP>

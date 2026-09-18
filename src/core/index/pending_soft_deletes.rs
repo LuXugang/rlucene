@@ -37,22 +37,22 @@ use num_bigint::BigInt;
 use std::sync::Arc;
 
 pub(crate) struct PendingSoftDeletes {
-  pub(crate) field: String,
+  pub(crate) field: Arc<str>,
   pub(crate) dv_generation: i64,
   pub(crate) hard_deletes: PendingDeletes,
   pub(crate) base: PendingDeletes,
 }
 impl PendingSoftDeletes {
-  pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfo<D>) -> Result<Self> {
+  pub(crate) fn new<D>(field: Arc<str>, info: &SegmentCommitInfo<D>) -> Result<Self> {
     let base = PendingDeletes::with(
-      info.info.get_id_key().to_string(),
+      Arc::from(info.info.get_id_key()),
       None,
       info.get_del_count_with_soft_deletes(true) == 0,
       info.info.max_doc()?,
     );
     let hard_deletes = PendingDeletes::new(info)?;
     Ok(Self {
-      field: field.to_string(),
+      field,
       dv_generation: -2,
       hard_deletes,
       base,
@@ -60,7 +60,7 @@ impl PendingSoftDeletes {
   }
 
   pub(crate) fn from_reader<D>(
-    field: &str,
+    field: Arc<str>,
     reader: &SegmentReader<D>,
     info: &SegmentCommitInfo<D>,
   ) -> Result<Self>
@@ -70,7 +70,7 @@ impl PendingSoftDeletes {
     let base = PendingDeletes::from_reader(reader, info)?;
     let hard_deletes = PendingDeletes::from_reader(reader, info)?;
     Ok(Self {
-      field: field.to_string(),
+      field,
       dv_generation: -2,
       hard_deletes,
       base,
@@ -281,7 +281,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
     iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     info: &mut SegmentCommitInfo<D>,
   ) -> Result<()> {
-    if self.field == field_info.name
+    if self.field.as_ref() == field_info.name
       && let Some(mut iter) = iterator
     {
       let delta = apply_soft_deletes(&mut iter, self.base.get_mutable_bits()?, |iter| {

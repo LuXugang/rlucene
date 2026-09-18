@@ -85,7 +85,7 @@ where
   pub(crate) sort_map: Option<Arc<DocMapImpl>>,
   pub(crate) ram_bytes_used: AtomicI64,
   pub(crate) inner: Mutex<Inner<D>>,
-  pub(crate) info_id: String,
+  pub(crate) info_id: Arc<str>,
 }
 
 pub(crate) struct Inner<D>
@@ -119,7 +119,7 @@ where
 {
   pub(crate) fn new(
     index_created_version_major: i32,
-    info_id: String,
+    info_id: Arc<str>,
     pending_deletes: PendingDeletesEnum,
   ) -> Self {
     let inner = Mutex::new(Inner {
@@ -148,7 +148,7 @@ where
     debug_assert!(reader.get_original_segment_info_id() == pending_deletes.get_info_id());
     let v = Self::new(
       index_created_version_major,
-      reader.get_original_segment_info_id().to_string(),
+      Arc::from(reader.get_original_segment_info_id()),
       pending_deletes,
     );
     {
@@ -252,7 +252,7 @@ where
       Some(inner) => inner,
       None => &mut *self.inner.lock(),
     };
-    debug_assert!(self.info_id == sr.get_original_segment_info_id());
+    debug_assert!(self.info_id.as_ref() == sr.get_original_segment_info_id());
     sr.dec_ref()?;
     Ok(())
   }

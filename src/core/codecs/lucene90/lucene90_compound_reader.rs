@@ -16,6 +16,7 @@
  */
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 use parking_lot::Mutex;
 
@@ -48,7 +49,7 @@ pub struct Lucene90CompoundReader<I>
 where
   I: IndexInput,
 {
-  segment_name: String,
+  segment_name: Arc<str>,
   entries: HashMap<String, FileEntry>,
   handle: Mutex<I>,
 

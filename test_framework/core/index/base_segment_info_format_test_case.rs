@@ -802,7 +802,7 @@ pub trait BaseSegmentInfoFormatTestCase:
         dir.clone(),
         Some(version.clone()),
         None,
-        &name,
+        name.as_str(),
         doc_count,
         is_compound_file,
         false,

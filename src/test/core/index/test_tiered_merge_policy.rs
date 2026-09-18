@@ -957,7 +957,7 @@ where
   let mut names = Vec::with_capacity(infos.size());
   for i in 0..infos.size() {
     let info = infos.info(i).unwrap();
-    names.push(info.info.name.clone());
+    names.push(info.info.name.to_string());
   }
   Ok(names)
 }

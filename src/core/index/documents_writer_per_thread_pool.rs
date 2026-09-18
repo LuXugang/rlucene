@@ -50,7 +50,7 @@ pub(crate) struct Inner<D>
 where
   D: Directory,
 {
-  pub(crate) dwpts: HashMap<String, Arc<DwptWrapper<D>>>,
+  pub(crate) dwpts: HashMap<Arc<str>, Arc<DwptWrapper<D>>>,
   taken_writer_permits: i32,
   // Rust has no Thread.State.WAITING; tests inspect this under inner's mutex after wait releases it.
   #[cfg(test)]
@@ -151,7 +151,7 @@ where
     let dwpt = Self::new_dwpt(writer, delete_queue)?;
     dwpt.lock();
 
-    inner.dwpts.insert(dwpt.id().to_string(), dwpt.clone());
+    inner.dwpts.insert(Arc::clone(&dwpt.state.id), dwpt.clone());
     Ok(dwpt)
   }
   /// This method is used by `DocumentsWriter`/`FlushControl` to obtain a DWPT to do an indexing

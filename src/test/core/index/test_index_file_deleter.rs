@@ -396,7 +396,7 @@ fn test_segment_name_inflation() -> Result<()> {
   writer.close()?;
   drop(writer);
   sis = SegmentInfos::read_latest_commit(Arc::new(dir.clone()))?;
-  assert_eq!("_4", sis.info(0).unwrap().info.name);
+  assert_eq!("_4", sis.info(0).unwrap().info.name.as_ref());
   assert_eq!(5, sis.counter);
 
   Ok(())

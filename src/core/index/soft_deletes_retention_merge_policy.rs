@@ -498,7 +498,7 @@ where
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<crate::core::index::merge_policy::MergeReader<CR>>,
+    F: FnMut(&Arc<str>) -> Result<crate::core::index::merge_policy::MergeReader<CR>>,
   {
     OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)
   }

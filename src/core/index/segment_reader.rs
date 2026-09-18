@@ -68,8 +68,8 @@ where
   D: Directory,
 {
   pub(crate) si: SegmentCommitInfo<D>,
-  pub(crate) original_si_id: String,
-  meta_data: LeafMetaData,
+  pub(crate) original_si_id: Arc<str>,
+  meta_data: Arc<LeafMetaData>,
   live_docs: Option<DocBits>,
   hard_live_docs: Option<DocBits>,
   // Normally set to si.maxDoc - si.delDocCount, unless we
@@ -102,9 +102,10 @@ where
       si.info.get_index_sort(),
       si.info.get_has_blocks(),
     )?;
+    let meta_data = Arc::new(meta_data);
 
     let is_nrt = false;
-    let original_si_id = si.info.get_id_key().to_string();
+    let original_si_id: Arc<str> = Arc::from(si.info.get_id_key());
     let index_base = IndexReaderBase::new();
     let reader_cache_helper = CacheHelperImpl::new();
     let core = Arc::new(SegmentCoreReaders::new(si.info.dir.as_ref(), &si, context)?);
@@ -197,7 +198,7 @@ where
       }
     }
 
-    let meta_data = sr.meta_data.clone();
+    let meta_data = Arc::clone(&sr.meta_data);
     let core = &sr.core;
     let seg_doc_values = &sr.seg_doc_values;
     debug_assert!(Self::assert_live_docs(
@@ -205,7 +206,7 @@ where
       hard_live_docs.as_ref(),
       live_docs.as_ref()
     )?);
-    let original_si_id = si.info.get_id_key().to_string();
+    let original_si_id: Arc<str> = Arc::from(si.info.get_id_key());
     let index_base = IndexReaderBase::new();
     let reader_cache_helper = CacheHelperImpl::new();
     core.inc_ref()?;
@@ -668,7 +669,7 @@ where
   }
 
   fn get_metadata(&self) -> Result<&LeafMetaData> {
-    Ok(&self.meta_data)
+    Ok(self.meta_data.as_ref())
   }
 }
 impl<D> CodecReader for SegmentReader<D>

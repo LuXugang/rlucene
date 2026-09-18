@@ -1103,7 +1103,7 @@ where
     mut info_stream: Option<&mut O>,
   ) -> Result<SegmentInfoStatus> {
     let mut segment_status = SegmentInfoStatus::default();
-    segment_status.name = Some(info.info.name.clone());
+    segment_status.name = Some(info.info.name.to_string());
     segment_status.max_doc = info.info.max_doc()?;
     if segment_status.max_doc <= 0 {
       return Err(LuceneError::corrupt_index(format!(

@@ -1729,12 +1729,12 @@ where
 pub struct SubReaderWrapperImpl;
 impl<LR> SubReaderWrapper<LR> for SubReaderWrapperImpl
 where
-  LR: LeafReader,
+  LR: LeafReader + Clone,
 {
   type LeafReader1 = Self::LeafReader2;
 
-  fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>> {
-    self.default_wrap_readers(readers)
+  fn wrap_readers(&self, readers: &[LR]) -> Result<Vec<Self::LeafReader1>> {
+    self.default_wrap_readers(readers.to_vec())
   }
 
   type LeafReader2 = NoIndexLeafReader<LR>;
@@ -2013,8 +2013,7 @@ where
 {
   pub fn new(in_: DR) -> Result<Self> {
     let wrap = SubReaderWrapperImpl;
-    let leaf_reads = in_.get_sequential_sub_readers().to_vec();
-    let wrap_readers = wrap.wrap_readers(leaf_reads)?;
+    let wrap_readers = wrap.wrap_readers(in_.get_sequential_sub_readers())?;
     let index_base = IndexReaderBase::new();
     let base_composite_reader_base: BaseCompositeReaderBase<NoIndexLeafReader<_>> =
       BaseCompositeReaderBase::new::<DummyComparator>(wrap_readers, None, &index_base)?;

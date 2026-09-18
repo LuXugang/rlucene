@@ -569,7 +569,9 @@ where
         directory_orig.clone(),
         &segment_infos,
         info_stream.clone(),
-        conf.get_soft_deletes_field().cloned(),
+        conf
+          .get_soft_deletes_field()
+          .map(|field| Arc::from(field.as_str())),
         LongSupplierImpl::new(buffered_updates_stream.clone()),
         reader,
         conf.get_index_created_version_major(),
@@ -1659,7 +1661,7 @@ where
     let dir_wrapper = TrackingDirectoryWrapper::new(&merge_directory);
     let mut success = false;
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i32> {
-      merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
+      merge.init_merge_readers(|sci_id: &Arc<str>| -> Result<MergeReaderSR<D>> {
         let rld = {
           let inner = self.inner.lock();
           let sci = inner.segment_infos.index_of(sci_id).ok_or_else(|| {
@@ -2380,7 +2382,7 @@ where
           // this can be None since we register the merge under lock before we then do the actual
           // merge and
           // set the merge.info in _mergeInit
-          segments_to_merge.insert(info_id, Some(true));
+          segments_to_merge.insert(info_id.to_string(), Some(true));
         }
       }
 
@@ -2389,7 +2391,7 @@ where
         if let Some(info_id) = merge.info_id() {
           // this can be None since we put the merge on runningMerges before we do the actual merge
           // and set the merge.info in _mergeInit
-          segments_to_merge.insert(info_id, Some(true));
+          segments_to_merge.insert(info_id.to_string(), Some(true));
         }
       }
     }
@@ -3047,8 +3049,20 @@ where
     Ok(())
   }
 
-  fn segment_ids_to_string(ids: &[String]) -> String {
-    ids.join(" ")
+  fn segment_ids_to_string(ids: &[Arc<str>]) -> String {
+    let capacity = ids
+      .iter()
+      .map(|id| id.len())
+      .sum::<usize>()
+      .saturating_add(ids.len().saturating_sub(1));
+    let mut result = String::with_capacity(capacity);
+    for (index, id) in ids.iter().enumerate() {
+      if index > 0 {
+        result.push(' ');
+      }
+      result.push_str(id);
+    }
+    result
   }
   /// Waits for any currently outstanding merges to finish.
   ///
@@ -4323,7 +4337,7 @@ where
       let init_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         point_in_time_merges.for_each_merge_mut(inner, |merge, segment_infos, deleter| {
           let context = IOContext::with_merge(merge.get_store_merge_info())?;
-          merge.init_merge_readers(|sci_id: &String| -> Result<MergeReaderSR<D>> {
+          merge.init_merge_readers(|sci_id: &Arc<str>| -> Result<MergeReaderSR<D>> {
             let sci = segment_infos.index_of(sci_id).ok_or_else(|| {
               LuceneError::illegal_state(format!("segment info with id={} not found", sci_id))
             })?;
@@ -5520,7 +5534,7 @@ where
     let mut is_external = false;
 
     for info_id in merge.stat.segments.iter() {
-      if inner.merging_segments.contains(info_id) {
+      if inner.merging_segments.contains(info_id.as_ref()) {
         return Ok(false);
       }
       if !inner.segment_infos.contains(info_id) {
@@ -5535,7 +5549,7 @@ where
         is_external = true;
       }
 
-      if inner.segments_to_merge.contains_key(info_id) {
+      if inner.segments_to_merge.contains_key(info_id.as_ref()) {
         merge
           .stat
           .set_max_num_segments(inner.merge_max_num_segments);
@@ -5561,7 +5575,7 @@ where
     }
 
     for info_id in merge.stat.segments.iter() {
-      inner.merging_segments.insert(info_id.clone());
+      inner.merging_segments.insert(info_id.to_string());
     }
 
     debug_assert!(merge.estimated_merge_bytes.load(Ordering::SeqCst) == 0);
@@ -5730,7 +5744,7 @@ where
     // error inside mergeInit
     if merge.register_done.load(Ordering::Acquire) {
       for seg_id in merge.segments.iter() {
-        inner.merging_segments.remove(seg_id);
+        inner.merging_segments.remove(seg_id.as_ref());
       }
       merge.register_done.store(false, Ordering::Release);
     }
@@ -6780,7 +6794,7 @@ where
         }
         for seg_state in seg_states.iter_mut() {
           let info_id = &seg_state.rld.info_id;
-          let info = match infos_by_id.get(info_id.as_str()).copied() {
+          let info = match infos_by_id.get(info_id.as_ref()).copied() {
             Some(info) => info,
             None => Err(LuceneError::illegal_state(
               "could not find segment info from IndexWriter#segment_infos",
@@ -7246,8 +7260,8 @@ where
   fn finish_get_reader_merge(
     self: &Arc<Self>,
     stop_collecting_merged_readers: Arc<AtomicBool>,
-    merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
-    opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    merged_readers: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
     opening_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
@@ -7284,8 +7298,8 @@ where
   #[allow(clippy::too_many_arguments)]
   fn maybe_reopen_merged_nrt_reader(
     self: &Arc<Self>,
-    merged_readers: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
-    opened_read_only_clones: &Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    merged_readers: &Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: &Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
     opening_segment_infos: &Arc<Mutex<SegmentInfos<D>>>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
@@ -7773,7 +7787,7 @@ where
   D: Directory,
 {
   writer: Weak<IndexWriter<D>>,
-  opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+  opened_read_only_clones: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
   max_full_flush_merge_wait_millis: i64,
 }
 impl<D> Clone for IOFunctionImpl<D>
@@ -7794,7 +7808,7 @@ where
 {
   pub(crate) fn new(
     writer: Weak<IndexWriter<D>>,
-    opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
     max_full_flush_merge_wait_millis: i64,
   ) -> Self {
     Self {
@@ -7842,8 +7856,8 @@ struct MergedNRTReaderFunction<'a, D>
 where
   D: Directory,
 {
-  merged_readers: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
-  opened_read_only_clones: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+  merged_readers: &'a Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
+  opened_read_only_clones: &'a Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
   files: &'a mut Vec<String>,
 }
 impl<'a, D> MergedNRTReaderFunction<'a, D>
@@ -7851,8 +7865,8 @@ where
   D: Directory,
 {
   fn new(
-    merged_readers: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
-    opened_read_only_clones: &'a Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    merged_readers: &'a Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: &'a Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
     files: &'a mut Vec<String>,
   ) -> Self {
     Self {
@@ -8945,7 +8959,7 @@ where
   D: Directory,
 {
   reader_factory: IOFunctionImpl<D>,
-  merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+  merged_readers: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
   stop_collecting_merged_readers: Arc<AtomicBool>,
 }
 
@@ -8980,7 +8994,7 @@ where
 {
   pub(crate) fn new(
     reader_factory: IOFunctionImpl<D>,
-    merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
+    merged_readers: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
     stop_collecting_merged_readers: Arc<AtomicBool>,
   ) -> Self {
     Self {
@@ -9112,14 +9126,14 @@ where
         inner.deleter.inc_ref_files(orig_info.files()?)?;
       }
 
-      let merged_segment_ids: HashSet<&str> = stat.segments.iter().map(String::as_str).collect();
+      let merged_segment_ids: HashSet<&str> = stat.segments.iter().map(|id| id.as_ref()).collect();
       let mut to_commit_merged_away_segments = Vec::with_capacity(stat.segments.len());
       {
         let mut merging_segment_infos = self.merging_segment_infos.lock();
         for sci in merging_segment_infos.iter() {
           if merged_segment_ids.contains(sci.info.get_id_key()) {
             to_commit_merged_away_segments.push(SegmentDocAndID::new(
-              sci.info.get_id_key().to_string(),
+              sci.info.id_key.clone(),
               sci.info.max_doc()?,
             ));
             if self.trigger == MergeTrigger::Commit {
@@ -9200,7 +9214,7 @@ where
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR>>,
+    F: FnMut(&Arc<str>) -> Result<MergeReader<CR>>,
   {
     if self
       .only_once

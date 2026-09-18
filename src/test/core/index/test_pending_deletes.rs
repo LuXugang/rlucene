@@ -259,14 +259,14 @@ pub(crate) trait TestPendingDeletesBase {
       }
 
       let (dv_gen, field) = match deletes {
-        PendingDeletesEnum::Soft(ref v) => (v.dv_generation, v.field.as_str()),
+        PendingDeletesEnum::Soft(ref v) => (v.dv_generation, v.field.as_ref()),
         // not -2
         PendingDeletesEnum::PD(_) => (-1, ""),
       };
       let (reader, field_infos, on_new_reader) = if dv_gen == -2 {
         let field_infos = pending_soft_deletes::read_field_infos(&commit_info)?;
         let field_info = field_infos.field_info_by_name(field)?;
-        let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info.as_ref());
+        let on_new_reader = pending_soft_deletes::do_on_new_reader(field_info);
         (None, Some(field_infos), on_new_reader)
       } else {
         (None, None, false)

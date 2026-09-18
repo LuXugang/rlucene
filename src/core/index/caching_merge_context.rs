@@ -22,6 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamMT;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 /// A wrapper around the IndexWriter [`MergeContext`](crate::core::index::merge_policy::MergeContext).
 ///
@@ -32,7 +33,7 @@ use std::collections::{HashMap, HashSet};
 /// [`SegmentCommitInfo`](crate::core::index::segment_commit_info::SegmentCommitInfo).
 pub(crate) struct CachingMergeContext<'a, T> {
   merge_context: &'a T,
-  pub(crate) cached_num_deletes_to_merge: RefCell<HashMap<String, i32>>,
+  pub(crate) cached_num_deletes_to_merge: RefCell<HashMap<Arc<str>, i32>>,
 }
 impl<'a, T> CachingMergeContext<'a, T> {
   pub fn new(merge_context: &'a T) -> Self {
@@ -59,7 +60,7 @@ where
     self
       .cached_num_deletes_to_merge
       .borrow_mut()
-      .insert(key.to_string(), v);
+      .insert(info.info.id_key.clone(), v);
     Ok(v)
   }
 

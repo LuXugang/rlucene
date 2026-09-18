@@ -131,7 +131,7 @@ where
 {
   writers
     .iter()
-    .find(|dwpt| dwpt.state.id == state_id)
+    .find(|dwpt| dwpt.state.id.as_ref() == state_id)
     .cloned()
 }
 fn find_pending<D>(

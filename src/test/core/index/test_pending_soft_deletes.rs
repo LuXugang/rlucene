@@ -52,6 +52,7 @@ use crate::core::util::{LATEST, StringHelper};
 use crate::test_framework::core::index::test_pending_soft_deletes::TestSingleUpdateDocValuesFieldUpdates;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestPendingSoftDeletes;
@@ -90,7 +91,7 @@ impl TestPendingDeletesBase for TestPendingSoftDeletes {
     D: Directory,
   {
     Ok(PendingDeletesEnum::Soft(PendingSoftDeletes::new(
-      "_soft_deletes",
+      Arc::from("_soft_deletes"),
       commit_info,
     )?))
   }

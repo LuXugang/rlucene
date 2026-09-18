@@ -52,7 +52,7 @@ where
   directory: Arc<IndexWriterDir<D>>,
   original_directory: Arc<D>,
   info_stream: InfoStreamMT,
-  soft_deletes_field: Option<String>,
+  soft_deletes_field: Option<Arc<str>>,
   // This is a "write once" variable (like the organic dye
   // on a DVD-R that may or may not be heated by a laser and
   // then cooled to permanently record the event): it's
@@ -74,7 +74,7 @@ pub(crate) struct Inner<D>
 where
   D: Directory,
 {
-  reader_map: HashMap<String, Arc<ReadersAndUpdates<D>>>,
+  reader_map: HashMap<Arc<str>, Arc<ReadersAndUpdates<D>>>,
   closed: AtomicBool,
 }
 impl<D, F> ReaderPool<D, F>
@@ -88,7 +88,7 @@ where
     original_directory: Arc<D>,
     segment_infos: &SegmentInfos<D>,
     info_stream: InfoStreamMT,
-    soft_deletes_field: Option<String>,
+    soft_deletes_field: Option<Arc<str>>,
     completed_del_gen_supplier: F,
     reader: Option<&StandardDirectoryReader<D>>,
     index_created_version_major: i32,
@@ -115,7 +115,7 @@ where
           seg_reader.num_docs()?,
           true,
         )?;
-        let info_id = new_reader.get_original_segment_info_id().to_string();
+        let info_id = Arc::clone(&new_reader.original_si_id);
         let pending_deletes =
           Self::new_pending_deletes_with_reader(&soft_deletes_field, &new_reader, info)?;
         reader_map.insert(
@@ -153,7 +153,7 @@ where
   pub(crate) fn drop(&self, info_id: &str, segment_infos: &mut SegmentInfos<D>) -> Result<bool> {
     let mut inner = self.inner.lock();
     if let Some(rld) = inner.reader_map.remove(info_id) {
-      debug_assert_eq!(info_id, rld.info_id);
+      debug_assert_eq!(info_id, rld.info_id.as_ref());
       rld.drop_readers()?;
       let remove_dropped_info = rld.ref_count() == 0;
       if remove_dropped_info {
@@ -340,13 +340,13 @@ where
   /// Writes all doc values updates to disk if there are any.
   pub(crate) fn write_doc_values_updates_for_merge(
     &self,
-    info_ids: &[String],
+    info_ids: &[Arc<str>],
     infos: &mut SegmentInfos<D>,
     global_field_number: &FieldNumbersLock,
   ) -> Result<bool> {
     let mut any = false;
     for ids in info_ids {
-      let info = infos.index_of_mut(ids).ok_or_else(|| {
+      let info = infos.index_of_mut(ids.as_ref()).ok_or_else(|| {
         LuceneError::illegal_state(format!(
           "could not find SegmentCommitInfo with {} in SegmentInfos",
           ids
@@ -430,7 +430,7 @@ where
 
     for info in infos.segments.iter_mut() {
       if let Some(rld) = inner.reader_map.get(info.info.get_id_key()) {
-        debug_assert_eq!(rld.info_id, info.info.get_id_key());
+        debug_assert_eq!(rld.info_id.as_ref(), info.info.get_id_key());
 
         let mut changed = rld.write_live_docs(&self.directory, info)?;
         changed |= rld.write_field_updates(
@@ -498,7 +498,7 @@ where
     let rld = if let Some(rld) = inner.reader_map.get(info_id) {
       // TODO
       debug_assert!(
-        rld.info_id == info_id,
+        rld.info_id.as_ref() == info_id,
         "rld.info={} info={} isLive?={} ",
         rld.info_id,
         info,
@@ -510,16 +510,15 @@ where
       if !create {
         return Ok(None);
       }
+      let info_id: Arc<str> = Arc::from(info_id);
       let mut v = ReadersAndUpdates::new(
         self.index_created_version_major,
-        info_id.to_string(),
+        Arc::clone(&info_id),
         self.new_pending_deletes(info)?,
       );
       v.sort_map = sort_map;
       let rld = Arc::new(v);
-      inner
-        .reader_map
-        .insert(info_id.to_string(), Arc::clone(&rld));
+      inner.reader_map.insert(info_id, Arc::clone(&rld));
       rld
     };
 
@@ -534,20 +533,23 @@ where
   fn new_pending_deletes(&self, info: &SegmentCommitInfo<D>) -> Result<PendingDeletesEnum> {
     match &self.soft_deletes_field {
       Some(field) => Ok(PendingDeletesEnum::Soft(PendingSoftDeletes::new(
-        field, info,
+        Arc::clone(field),
+        info,
       )?)),
       None => Ok(PendingDeletesEnum::PD(PendingDeletes::new(info)?)),
     }
   }
 
   fn new_pending_deletes_with_reader(
-    soft_deletes_field: &Option<String>,
+    soft_deletes_field: &Option<Arc<str>>,
     reader: &SegmentReader<D>,
     info: &SegmentCommitInfo<D>,
   ) -> Result<PendingDeletesEnum> {
     match soft_deletes_field {
       Some(field) => Ok(PendingDeletesEnum::Soft(PendingSoftDeletes::from_reader(
-        field, reader, info,
+        Arc::clone(field),
+        reader,
+        info,
       )?)),
       None => Ok(PendingDeletesEnum::PD(PendingDeletes::from_reader(
         reader, info,

@@ -171,7 +171,7 @@ impl BufferedUpdatesStream {
   /// This is called when a merge needs to finish and must ensure all deletes to the merging segments are resolved.
   pub(crate) fn wait_apply_for_merge<D>(
     &self,
-    merge_infos_id: &[String],
+    merge_infos_id: &[Arc<str>],
     writer: &IndexWriter<D>,
   ) -> Result<()>
   where
@@ -181,11 +181,14 @@ impl BufferedUpdatesStream {
     {
       let writer_inner = writer.inner.lock();
       for info in merge_infos_id {
-        let info = writer_inner.segment_infos.index_of(info).ok_or_else(|| {
-          LuceneError::illegal_argument(
-            "could not find merge's segment from IndexWriter's segment_infos",
-          )
-        })?;
+        let info = writer_inner
+          .segment_infos
+          .index_of(info.as_ref())
+          .ok_or_else(|| {
+            LuceneError::illegal_argument(
+              "could not find merge's segment from IndexWriter's segment_infos",
+            )
+          })?;
         max_del_gen = max_del_gen.max(info.get_buffered_deletes_gen());
       }
     }

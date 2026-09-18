@@ -78,7 +78,7 @@ where
   // Open input to the main terms dict file (_X.tib)
   pub(crate) terms_in: I,
   pub(crate) postings_reader: PR,
-  pub(crate) segment: String,
+  pub(crate) segment: Arc<str>,
   pub(crate) version: i32,
 }
 

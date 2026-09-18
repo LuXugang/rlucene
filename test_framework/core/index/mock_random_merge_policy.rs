@@ -192,7 +192,7 @@ where
         .stat
         .segments
         .iter()
-        .all(|id| segments_to_merge.contains_key(id))
+        .all(|id| segments_to_merge.contains_key(id.as_ref()))
     }));
     Ok(Some(merge_spec))
   }

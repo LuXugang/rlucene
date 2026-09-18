@@ -218,7 +218,7 @@ impl Lucene99SegmentInfoFormat {
     {
       let files = si.files()?;
       for file in files {
-        if IndexFileNames::parse_segment_name(file) != si.name {
+        if IndexFileNames::parse_segment_name(file) != si.name.as_ref() {
           return Err(LuceneError::illegal_argument(format!(
             "invalid files: expected segment={}, got file={}",
             si.name, file

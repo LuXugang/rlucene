@@ -50,7 +50,7 @@ fn test_num_deletes_to_merge() -> Result<()> {
     let cache = caching_merge_context.cached_num_deletes_to_merge.borrow();
     assert_eq!(cache.len(), 1);
     let key = id;
-    assert_eq!(cache.get(&key), Some(&1));
+    assert_eq!(cache.get(key.as_str()), Some(&1));
   }
 
   assert_eq!(

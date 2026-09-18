@@ -810,7 +810,7 @@ where
   }
   for info in infos.iter_mut() {
     let gen_long = *max_per_segment_gen
-      .get(info.info.name.as_str())
+      .get(info.info.name.as_ref())
       .ok_or_else(|| {
         LuceneError::illegal_state(format!(
           "missing maximum generation for segment {}",

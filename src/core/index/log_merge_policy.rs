@@ -383,7 +383,7 @@ impl<T> LogMergePolicy<T> {
     let mut meta = Vec::with_capacity(segments.len());
     for seg in segments {
       meta.push(SegmentDocAndID::new(
-        seg.info.get_id_key().to_string(),
+        seg.info.id_key.clone(),
         seg.info.max_doc()?,
       ));
     }
@@ -633,7 +633,10 @@ where
             let info = level.info;
             let idx = info.info.get_id_key();
             debug_assert!(infos.contains(idx));
-            meta.push(SegmentDocAndID::new(idx.to_string(), info.info.max_doc()?));
+            meta.push(SegmentDocAndID::new(
+              info.info.id_key.clone(),
+              info.info.max_doc()?,
+            ));
           }
 
           v.add(OneMerge::new(meta)?);

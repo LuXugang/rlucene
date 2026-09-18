@@ -27,6 +27,7 @@ use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 /// Default noCFSRatio. If a merge's size is >= 10% of the index, then we disable compound file for it.
 pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
@@ -651,12 +652,15 @@ impl<'a, D> SegmentCommitInfoMeta<'a, D> {
 }
 #[derive(Clone)]
 pub struct SegmentDocAndID {
-  pub(crate) seg_id: String,
+  pub(crate) seg_id: Arc<str>,
   pub(crate) max_doc: i32,
 }
 impl SegmentDocAndID {
-  pub(crate) fn new(seg_id: String, max_doc: i32) -> Self {
-    Self { seg_id, max_doc }
+  pub(crate) fn new<S: Into<Arc<str>>>(seg_id: S, max_doc: i32) -> Self {
+    Self {
+      seg_id: seg_id.into(),
+      max_doc,
+    }
   }
 }
 
@@ -977,7 +981,7 @@ where
     if self.verbose(merge_context) {
       let mut eligible = Vec::with_capacity(sorted_size_and_docs.len());
       for seg in &sorted_size_and_docs {
-        eligible.push(seg.seg_info.info.name.as_str());
+        eligible.push(seg.seg_info.info.name.as_ref());
       }
       self.message(&format!("eligible={:?}", eligible), merge_context)?;
     }
