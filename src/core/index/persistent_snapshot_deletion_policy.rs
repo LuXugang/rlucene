@@ -200,11 +200,11 @@ where
             .as_mut()
             .ok_or_else(|| LuceneError::illegal_state("snapshot output is missing"))?;
           CodecUtil::write_header(out, CODEC_NAME, VERSION_CURRENT)?;
-          let ref_counts = guard.borrow().ref_counts.clone();
-          out.write_vint(ref_counts.len() as i32)?;
-          for (generation, ref_count) in ref_counts {
-            out.write_vlong(generation)?;
-            out.write_vint(ref_count)?;
+          let ref_counts = guard.borrow();
+          out.write_vint(ref_counts.ref_counts.len() as i32)?;
+          for (generation, ref_count) in &ref_counts.ref_counts {
+            out.write_vlong(*generation)?;
+            out.write_vint(*ref_count)?;
           }
           success = true;
           Ok(())

@@ -651,7 +651,7 @@ pub(crate) struct FieldProperties {
 
 pub(crate) type FieldNumbersLock = Arc<Mutex<FieldNumbers>>;
 pub(crate) struct FieldNumbers {
-  number_to_name: HashMap<i32, String>,
+  number_to_name: HashSet<i32>,
   field_properties: HashMap<String, FieldProperties>,
   lowest_unassigned_field_number: i32,
   soft_deletes_field_name: Option<String>,
@@ -680,7 +680,7 @@ impl FieldNumbers {
     }
 
     Ok(FieldNumbers {
-      number_to_name: HashMap::new(),
+      number_to_name: HashSet::new(),
       field_properties: HashMap::new(),
       lowest_unassigned_field_number: -1,
       soft_deletes_field_name,
@@ -712,7 +712,7 @@ impl FieldNumbers {
       },
       None => {
         // first time we see this field in this index
-        let field_number = if fi.number != -1 && !self.number_to_name.contains_key(&fi.number) {
+        let field_number = if fi.number != -1 && !self.number_to_name.contains(&fi.number) {
           // cool - we can use this number globally
           fi.number
         } else {
@@ -721,7 +721,7 @@ impl FieldNumbers {
             self.lowest_unassigned_field_number += 1;
             if !self
               .number_to_name
-              .contains_key(&self.lowest_unassigned_field_number)
+              .contains(&self.lowest_unassigned_field_number)
             {
               break;
             }
@@ -730,9 +730,7 @@ impl FieldNumbers {
           self.lowest_unassigned_field_number
         };
         debug_assert!(field_number >= 0);
-        self
-          .number_to_name
-          .insert(field_number, field_name.to_string());
+        self.number_to_name.insert(field_number);
         let index_options_props = if fi.get_index_options() != &IndexOptions::None {
           Some(IndexOptionsProperties {
             store_term_vectors: fi.has_term_vectors(),

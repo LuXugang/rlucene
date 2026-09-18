@@ -143,7 +143,7 @@ pub struct SegmentInfos<D> {
   pub(crate) segments: Vec<SegmentCommitInfo<D>>,
   /// [`SegmentCommitInfo`](crate::core::index::segment_commit_info::SegmentCommitInfo)s removed from `segments` but still needed by
   /// concurrent reader-pool work.
-  pub(crate) dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
+  pub(crate) dropped_segment_commit_infos: HashMap<Arc<str>, SegmentCommitInfo<D>>,
   /// ID for this commit; only written starting with Lucene 5.0.
   id: Option<[u8; StringHelper::ID_LENGTH]>,
   /// Which Lucene version wrote this commit?
@@ -911,11 +911,11 @@ impl<D> SegmentInfos<D> {
   /// Returns all file names referenced by [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo). The returned
   /// collection is recomputed on each invocation.
   pub fn files(&self, include_segments_file: bool) -> Result<HashSet<String>> {
-    let mut files = HashSet::new();
+    let size = self.size();
+    let mut files = HashSet::with_capacity(size + usize::from(include_segments_file));
     if include_segments_file && let Some(segment_file_name) = self.get_segments_file_name() {
       files.insert(segment_file_name);
     }
-    let size = self.size();
     for i in 0..size {
       let segment_commit_info = self
         .info(i)
@@ -1070,7 +1070,8 @@ impl<D> SegmentInfos<D> {
         "All segments must record the minVersion for indices created on or after Lucene 7",
       ));
     }
-    let merged_away: HashSet<&str> = merge.stat.segments.iter().map(|id| id.as_ref()).collect();
+    let mut merged_away = HashSet::with_capacity(merge.stat.segments.len());
+    merged_away.extend(merge.stat.segments.iter().map(|id| id.as_ref()));
 
     let mut inserted = false;
     let mut new_segments: Vec<SegmentCommitInfo<D>> = Vec::with_capacity(self.segments.len());
@@ -1080,7 +1081,7 @@ impl<D> SegmentInfos<D> {
       if merged_away.contains(info_id) {
         self
           .dropped_segment_commit_infos
-          .insert(info_id.to_string(), info);
+          .insert(Arc::clone(&info.info.id_key), info);
         if !inserted && !drop_segment {
           let merged_info = merge
             .info
@@ -1151,6 +1152,8 @@ impl<D> SegmentInfos<D> {
   where
     I: IntoIterator<Item = SegmentCommitInfo<D>>,
   {
+    let sis = sis.into_iter();
+    self.segments.reserve(sis.size_hint().0);
     for si in sis {
       self.add(si)?;
     }
@@ -1159,10 +1162,13 @@ impl<D> SegmentInfos<D> {
 
   /// Clears all [`SegmentCommitInfo`]s.
   pub fn clear(&mut self) {
+    self
+      .dropped_segment_commit_infos
+      .reserve(self.segments.len());
     for info in self.segments.drain(..) {
       self
         .dropped_segment_commit_infos
-        .insert(info.info.get_id_key().to_string(), info);
+        .insert(Arc::clone(&info.info.id_key), info);
     }
   }
 
@@ -1180,7 +1186,7 @@ impl<D> SegmentInfos<D> {
     let info = self.segments.remove(idx);
     self
       .dropped_segment_commit_infos
-      .insert(info.info.get_id_key().to_string(), info);
+      .insert(Arc::clone(&info.info.id_key), info);
     true
   }
 
@@ -1192,7 +1198,7 @@ impl<D> SegmentInfos<D> {
     let info = self.segments.remove(index);
     self
       .dropped_segment_commit_infos
-      .insert(info.info.get_id_key().to_string(), info);
+      .insert(Arc::clone(&info.info.id_key), info);
   }
 
   pub(crate) fn remove_dropped_segment_commit_info(

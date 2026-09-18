@@ -149,7 +149,7 @@ impl<D> SegmentCommitInfo<D> {
       },
       Cow::Owned(mut files) => {
         for file_set in files.values_mut() {
-          let previous_files = std::mem::take(file_set);
+          let previous_files = std::mem::replace(file_set, HashSet::with_capacity(file_set.len()));
           for file in previous_files {
             file_set.insert(named_for_this_segment(&self.info.name, file));
           }

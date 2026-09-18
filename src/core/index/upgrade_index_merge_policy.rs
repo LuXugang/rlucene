@@ -159,7 +159,8 @@ where
     MC: MergeContext<D>,
   {
     // first find all old segments
-    let mut old_segments: HashMap<String, Option<bool>> = HashMap::new();
+    let mut old_segments: HashMap<String, Option<bool>> =
+      HashMap::with_capacity(segments_to_merge.len());
     for i in 0..segment_infos.size() {
       if let Some(sci) = segment_infos.info(i) {
         let seg_key = sci.info.get_id_key();

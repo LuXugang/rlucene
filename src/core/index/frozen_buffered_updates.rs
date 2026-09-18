@@ -92,7 +92,7 @@ pub(crate) struct FrozenBufferedUpdates {
   // assigned by BufferedUpdatesStream once pushed
   del_gen: i64,
   // SegmentInfo ID in SegmentCommitInfo
-  pub(crate) private_segment: Option<String>,
+  pub(crate) private_segment: Option<Arc<str>>,
   pub(crate) id: Identity,
 }
 
@@ -100,7 +100,7 @@ impl FrozenBufferedUpdates {
   pub fn new(
     info_stream: InfoStreamMT,
     updates: &mut BufferedUpdates,
-    private_segment: Option<String>,
+    private_segment: Option<Arc<str>>,
   ) -> Result<Self> {
     debug_assert!(
       private_segment.is_none() || updates.delete_terms.is_empty(),
@@ -211,7 +211,7 @@ impl FrozenBufferedUpdates {
       );
       let seg0_id = seg_states[0].reader.get_original_segment_info_id();
       debug_assert!(
-        *private_segment.as_str() == *seg0_id,
+        private_segment.as_ref() == seg0_id,
         "privateSegment={} vs seg0={}",
         private_segment,
         seg0_id

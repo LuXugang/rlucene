@@ -1123,7 +1123,7 @@ where
       Some(ref mut upd) if upd.any() => Some(FrozenBufferedUpdates::new(
         info_stream,
         upd,
-        Option::from(segment_info.info.get_id_key().to_string()),
+        Some(Arc::clone(&segment_info.info.id_key)),
       )?),
       _ => None,
     };

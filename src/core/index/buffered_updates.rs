@@ -349,7 +349,7 @@ impl DeletedTerms {
   }
   /// Just for test, not efficient.
   pub(crate) fn key_set(&self) -> Result<HashSet<Term>> {
-    let mut set = HashSet::new();
+    let mut set = HashSet::with_capacity(self.terms_size as usize);
     for (field, hash) in &self.delete_terms {
       for bytes in hash.key_set(&self.pool)? {
         set.insert(Term::new(field.clone(), bytes));
@@ -368,7 +368,8 @@ impl DeletedTerms {
     F: FnMut(&str, &BytesRef<&[u8]>, i32) -> Result<()>,
   {
     let mut delete_fields: Vec<(&String, &mut BytesRefIntMap)> =
-      self.delete_terms.iter_mut().collect();
+      Vec::with_capacity(self.delete_terms.len());
+    delete_fields.extend(self.delete_terms.iter_mut());
     delete_fields.sort_unstable_by(|a, b| a.0.cmp(b.0));
 
     for (field, terms) in delete_fields {
@@ -409,8 +410,9 @@ impl Accountable for DeletedTerms {
 impl fmt::Display for DeletedTerms {
   /// Used for `BufferedUpdates::VERBOSE_DELETES`.
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut entries = Vec::new();
-    for term in self.key_set().map_err(|_| fmt::Error)?.iter() {
+    let terms = self.key_set().map_err(|_| fmt::Error)?;
+    let mut entries = Vec::with_capacity(terms.len());
+    for term in &terms {
       entries.push(format!(
         "{}={}",
         term,
