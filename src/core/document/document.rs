@@ -48,7 +48,9 @@ impl Default for Document {
 impl Document {
   /// Constructs a new document with no fields.
   pub fn new() -> Self {
-    Document { fields: Vec::new() }
+    Document {
+      fields: Vec::with_capacity(10),
+    }
   }
   /// Adds a field to a document. Several fields may be added with the same
   /// name. In this case, if the fields are indexed, their text is treated
