@@ -529,7 +529,7 @@ impl IndexableField for Field {
     }
 
     if !self.field_type().tokenized() {
-      if let Some(string_value) = self.string_value()?.map(|v| v.into_owned()) {
+      if let Some(string_value) = self.string_value()? {
         if !matches!(
           reuse_token_stream.as_ref(),
           Some(ReusedIndexingTokenStream::B(_))
@@ -541,7 +541,7 @@ impl IndexableField for Field {
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("should StringTokenStream here"))?;
         match stream {
-          ReusedIndexingTokenStream::B(s) => s.set_value(string_value)?,
+          ReusedIndexingTokenStream::B(s) => s.set_value(string_value.as_str())?,
           ReusedIndexingTokenStream::A(_) => {
             return Err(LuceneError::illegal_state("should StringTokenStream here"));
           },
@@ -967,7 +967,8 @@ impl TokenStream for BinaryTokenStream {
 
 pub struct StringTokenStream {
   used: bool,
-  value: Option<String>,
+  value: String,
+  has_value: bool,
   end_offset: i32,
   token_stream_base: TokenStreamBase,
 }
@@ -976,15 +977,23 @@ impl StringTokenStream {
   pub(crate) fn new() -> Self {
     Self {
       used: false,
-      value: None,
+      value: String::new(),
+      has_value: false,
       end_offset: 0,
       token_stream_base: TokenStreamBase::new(Attributes::default()),
     }
   }
-  pub(crate) fn set_value(&mut self, value: String) -> Result<()> {
-    self.end_offset = i32::try_from(value.encode_utf16().count())
+  pub(crate) fn set_value(&mut self, value: &str) -> Result<()> {
+    let utf16_length = if value.is_ascii() {
+      value.len()
+    } else {
+      value.encode_utf16().count()
+    };
+    self.end_offset = i32::try_from(utf16_length)
       .map_err(|_| LuceneError::illegal_argument("string UTF-16 length exceeds i32::MAX"))?;
-    self.value = Some(value);
+    self.value.clear();
+    self.value.push_str(value);
+    self.has_value = true;
     Ok(())
   }
 }
@@ -997,7 +1006,7 @@ impl Drop for StringTokenStream {
 
 impl Closeable for StringTokenStream {
   fn close(&mut self) -> Result<()> {
-    let _ = self.value.take();
+    self.has_value = false;
     Ok(())
   }
 }
@@ -1008,11 +1017,10 @@ impl TokenStream for StringTokenStream {
       return Ok(false);
     }
     self.token_stream_base.att.clear_attributes()?;
-    let value = self
-      .value
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_argument("set_value() not call?"))?;
-    self.token_stream_base.att.append_str(Some(value))?;
+    if !self.has_value {
+      return Err(LuceneError::illegal_argument("set_value() not call?"));
+    }
+    self.token_stream_base.att.append_str(Some(&self.value))?;
     self.token_stream_base.att.set_offset(0, self.end_offset)?;
     self.used = true;
     Ok(true)
@@ -1020,10 +1028,11 @@ impl TokenStream for StringTokenStream {
 
   fn end(&mut self) -> Result<()> {
     self.default_end()?;
-    self
-      .value
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("StringTokenStream value is not set"))?;
+    if !self.has_value {
+      return Err(LuceneError::illegal_state(
+        "StringTokenStream value is not set",
+      ));
+    }
     let final_offset = self.end_offset;
     self
       .token_stream_base
