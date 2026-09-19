@@ -2003,6 +2003,7 @@ impl FieldSchema {
       vector_similarity_function: VectorSimilarityFunction::Euclidean,
     }
   }
+  #[inline]
   pub(crate) fn assert_same<T>(&self, label: &str, expected: &T, given: &T) -> Result<()>
   where
     T: PartialEq + Display,
@@ -2135,6 +2136,7 @@ impl FieldSchema {
     self.vector_similarity_function = VectorSimilarityFunction::Euclidean;
   }
 
+  #[inline]
   pub(crate) fn assert_same_schema(&self, fi: &FieldInfo) -> Result<()> {
     self.assert_same("index options", fi.get_index_options(), &self.index_options)?;
     self.assert_same("omit norms", &fi.omits_norms(), &self.omit_norms)?;
