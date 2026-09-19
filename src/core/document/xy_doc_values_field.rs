@@ -82,15 +82,6 @@ pub struct XYDocValuesField {
   parent_field: Field,
 }
 
-#[cfg(test)]
-impl Clone for XYDocValuesField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}
-
 impl XYDocValuesField {
   /// Creates a new XYDocValuesField with the specified x and y
   ///

@@ -432,12 +432,3 @@ impl RangeFieldQueryBase for LatLonBoundingBoxFieldQuery {
     Ok(buffer)
   }
 }
-
-#[cfg(test)]
-impl Clone for LatLonBoundingBox {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

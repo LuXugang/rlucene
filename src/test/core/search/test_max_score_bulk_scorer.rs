@@ -353,10 +353,12 @@ fn test_deletes() -> Result<()> {
 
   let mut doc2 = Document::new();
   let mut doc3 = Document::new();
-  for x in &doc1 {
-    doc2.add(x.clone());
-    doc3.add(x.clone());
-  }
+  doc2.add(StringField::from_string("field", "foo", Store::No)?);
+  doc2.add(StringField::from_string("field", "bar", Store::No)?);
+  doc2.add(StringField::from_string("field", "quux", Store::No)?);
+  doc3.add(StringField::from_string("field", "foo", Store::No)?);
+  doc3.add(StringField::from_string("field", "bar", Store::No)?);
+  doc3.add(StringField::from_string("field", "quux", Store::No)?);
 
   doc1.add(StringField::from_string("id", "1", Store::No)?);
   doc2.add(StringField::from_string("id", "2", Store::No)?);

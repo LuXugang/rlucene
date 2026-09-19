@@ -146,13 +146,14 @@ fn test_flush_exceptions() -> Result<()> {
   }
   let writer = IndexWriter::new(directory.clone(), iwc)?;
 
+  let mut doc = Document::new();
   'outer: for i in 0..10 {
     if cfg!(feature = "test_log_verbose") {
       println!("TEST: iter={i}");
     }
 
     for j in 0..20 {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(StringField::from_string(
         "id",
         (i * 20 + j).to_string(),
@@ -163,17 +164,17 @@ fn test_flush_exceptions() -> Result<()> {
         "knn",
         vec![random.random::<f32>(), random.random::<f32>()],
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(&mut doc)?;
     }
 
     // must cycle here because sometimes the merge flushes
     // the doc we just added and so there's nothing to
     // flush, and we don't hit the error
     loop {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(StringField::from_string("id", "", Store::Yes)?);
       doc.add(KnnFloatVectorField::new("knn", vec![0.0, 0.0])?);
-      writer.add_document(doc)?;
+      writer.add_document(&mut doc)?;
       failure.set_do_fail();
       match writer.flush() {
         Ok(()) => {
@@ -228,18 +229,19 @@ fn test_delete_merging() -> Result<()> {
   let writer = IndexWriter::new(directory.clone(), iwc)?;
   TestUtil::reduce_open_files(&writer)?;
 
+  let mut doc = Document::new();
   for i in 0..10 {
     if cfg!(feature = "test_log_verbose") {
       println!("\nTEST: cycle");
     }
     for j in 0..100 {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(StringField::from_string(
         "id",
         (i * 100 + j).to_string(),
         Store::Yes,
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(&mut doc)?;
     }
 
     let mut del_id = i;
@@ -324,10 +326,11 @@ fn test_no_wait_close() -> Result<()> {
 
   let mut writer = IndexWriter::new(directory.clone(), iwc)?;
 
+  let mut doc = Document::new();
   let num_iters = if is_night_mode() { 10 } else { 3 };
   for iter in 0..num_iters {
     for j in 0..201 {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(StringField::from_string(
         "id",
         (iter * 201 + j).to_string(),
@@ -337,7 +340,7 @@ fn test_no_wait_close() -> Result<()> {
         "knn",
         vec![random.random::<f32>(), random.random::<f32>()],
       )?);
-      writer.add_document(doc)?;
+      writer.add_document(&mut doc)?;
     }
 
     let mut del_id = iter * 201;
@@ -355,7 +358,7 @@ fn test_no_wait_close() -> Result<()> {
       },
       _ => {},
     }
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(StringField::from_string(
       "id",
       format!("extra-{iter}"),
@@ -365,7 +368,7 @@ fn test_no_wait_close() -> Result<()> {
       "knn",
       vec![random.random::<f32>(), random.random::<f32>()],
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut doc)?;
 
     let commit_result = writer.commit();
     let close_result = writer.close();
@@ -421,11 +424,12 @@ fn test_max_merge_count() -> Result<()> {
   iwc.set_merge_policy(tmp);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut doc = Document::new();
   while test_scheduler.enough_merges_waiting().get_count() != 0 && !test_scheduler.failed() {
     for _ in 0..10 {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(TextField::from_string("field", "field", Store::No)?);
-      writer.add_document(doc)?;
+      writer.add_document(&mut doc)?;
     }
   }
   let commit_result = writer.commit();

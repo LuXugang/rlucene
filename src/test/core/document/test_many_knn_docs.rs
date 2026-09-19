@@ -23,6 +23,7 @@ mod monster {
     DEFAULT_BEAM_WIDTH, Lucene99HnswVectorsFormat,
   };
   use crate::core::document::document::Document;
+  use crate::core::document::fields::Fields;
   use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
   use crate::core::index::directory_reader;
   use crate::core::index::index_writer::IndexWriter;
@@ -66,14 +67,19 @@ mod monster {
 
     let num_vectors = 2_088_992;
     let mut vector = [0.0f32; 1];
-    let mut field =
-      KnnFloatVectorField::with_similarity_function(field_name, vector, similarity_function)?;
+    let mut doc = Document::new();
+    doc.add(KnnFloatVectorField::with_similarity_function(
+      field_name,
+      vector,
+      similarity_function,
+    )?);
     for i in 0..num_vectors {
       vector[0] = (i % 256) as f32;
+      let Some(Fields::KnnFloatVector(field)) = doc.get_field_mut(field_name) else {
+        unreachable!("field must be a KnnFloatVectorField")
+      };
       field.set_vector_value(vector)?;
-      let mut doc = Document::new();
-      doc.add(field.clone());
-      iw.add_document(doc)?;
+      iw.add_document(&mut doc)?;
     }
 
     // Merge to single segment and then verify.

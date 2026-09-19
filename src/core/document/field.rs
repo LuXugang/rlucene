@@ -78,16 +78,6 @@ pub struct Field {
   /// Field's value.
   pub(crate) fields_data: FieldDataEnum,
 }
-#[cfg(test)]
-impl Clone for Field {
-  fn clone(&self) -> Self {
-    Self {
-      indexable_field_type: self.indexable_field_type.clone(),
-      name: self.name.clone(),
-      fields_data: self.fields_data.clone(),
-    }
-  }
-}
 impl Field {
   /// Expert: creates a field with no initial value. This is intended to be
   /// used by custom [`Field`] implementations with preconfigured
@@ -823,16 +813,6 @@ impl FieldDataEnum {
       },
       Self::VectorValue(v) => Ok(Self::VectorValue(v.clone())),
     }
-  }
-}
-
-#[cfg(test)]
-impl Clone for FieldDataEnum {
-  fn clone(&self) -> Self {
-    expect_invariant!(
-      self.try_clone(),
-      "test field clone call sites never contain token stream field data",
-    )
   }
 }
 

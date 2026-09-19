@@ -521,12 +521,3 @@ impl PointInSetBase for InetAddressPointInSetQuery {
     Ok(host_address(InetAddressPoint::decode(value)))
   }
 }
-
-#[cfg(test)]
-impl Clone for InetAddressPoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

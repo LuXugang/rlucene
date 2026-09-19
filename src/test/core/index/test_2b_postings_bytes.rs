@@ -39,6 +39,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 /// Tests indexing two billion documents with about 65K frequencies each, producing more than
 /// `i32::MAX` bytes of postings data for the term.
@@ -78,20 +79,24 @@ fn test() -> Result<()> {
   field_type.set_omit_norms(true)?;
 
   let num_docs = 1000;
+  let n = Arc::new(AtomicI32::new(0));
+  let mut doc = Document::new();
+  doc.add(Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(MyTokenStream::new(n.clone())),
+    field_type,
+  )?);
   for i in 0..num_docs {
-    let n = if i % 2 == 1 {
-      // Trick blockPF's small optimization.
-      65536
-    } else {
-      65537
-    };
-    let mut doc = Document::new();
-    doc.add(Field::from_token_stream(
-      "field",
-      FieldTokenStreamEnum::custom(MyTokenStream::new(n)),
-      field_type.clone(),
-    )?);
-    writer.add_document(doc)?;
+    n.store(
+      if i % 2 == 1 {
+        // Trick blockPF's small optimization.
+        65536
+      } else {
+        65537
+      },
+      Ordering::Relaxed,
+    );
+    writer.add_document(&mut doc)?;
   }
   writer.force_merge(1)?;
   writer.close()?;
@@ -135,11 +140,11 @@ fn test() -> Result<()> {
 struct MyTokenStream {
   attrs: Attributes,
   index: i32,
-  n: i32,
+  n: Arc<AtomicI32>,
 }
 
 impl MyTokenStream {
-  fn new(n: i32) -> Self {
+  fn new(n: Arc<AtomicI32>) -> Self {
     Self {
       attrs: Attributes::default(),
       index: 0,
@@ -152,7 +157,7 @@ impl Closeable for MyTokenStream {}
 
 impl TokenStream for MyTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
-    if self.index < self.n {
+    if self.index < self.n.load(Ordering::Relaxed) {
       self.attrs.clear_attributes()?;
       self.attrs.append_str(Some("a"))?;
       self.index += 1;

@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
@@ -53,8 +54,21 @@ fn test_stress_advance() -> Result<()> {
 
     let mut a_docs: HashSet<i32> = HashSet::new();
     let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-    let mut f = new_string_field(&mut random, "field", "", Store::No, &mut field_to_type)?;
-    let mut id_field = new_string_field(&mut random, "id", "", Store::Yes, &mut field_to_type)?;
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "field",
+      "",
+      Store::No,
+      &mut field_to_type,
+    )?);
+    doc.add(new_string_field(
+      &mut random,
+      "id",
+      "",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
 
     let num_docs = at_least(&mut random, 4097);
     if cfg!(feature = "test_log_verbose") {
@@ -62,17 +76,21 @@ fn test_stress_advance() -> Result<()> {
     }
 
     for id in 0..num_docs {
+      let Some(Fields::Field(f)) = doc.get_field_mut("field") else {
+        unreachable!("field must exist")
+      };
       if random.random_range(0..4) == 3 {
         f.set_string_value("a")?;
         a_docs.insert(id);
       } else {
         f.set_string_value("b")?;
       }
+
+      let Some(Fields::Field(id_field)) = doc.get_field_mut("id") else {
+        unreachable!("id field must exist")
+      };
       id_field.set_string_value(id.to_string())?;
-      let mut doc = Document::new();
-      doc.add(f.clone());
-      doc.add(id_field.clone());
-      w.add_document(&mut random, doc)?;
+      w.add_document(&mut random, &mut doc)?;
     }
 
     w.force_merge(&mut random, 1)?;

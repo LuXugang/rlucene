@@ -84,15 +84,6 @@ pub struct LatLonDocValuesField {
   parent_field: Field,
 }
 
-#[cfg(test)]
-impl Clone for LatLonDocValuesField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}
-
 impl LatLonDocValuesField {
   /// Creates a new [`LatLonDocValuesField`] with the specified latitude and longitude.
   ///

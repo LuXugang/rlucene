@@ -794,6 +794,7 @@ fn test_random_phrases() -> Result<()> {
 
   let num_docs = at_least_usize(&mut random, 10);
   docs.reserve(num_docs);
+  let mut document = Document::new();
   for _ in 0..num_docs {
     // at night, must be > 4096 so it spans multiple chunks
     let term_count = if is_night_mode() {
@@ -847,7 +848,7 @@ fn test_random_phrases() -> Result<()> {
       }
     }
 
-    let mut document = Document::new();
+    document.clear();
     document.add(new_text_field(
       &mut random,
       "f",
@@ -855,7 +856,7 @@ fn test_random_phrases() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(&mut random, document)?;
+    writer.add_document(&mut random, &mut document)?;
     docs.push(doc_terms);
   }
 

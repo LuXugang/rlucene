@@ -1175,10 +1175,10 @@ pub trait BaseKnnVectorQueryTestCase {
     let writer = IndexWriter::new(directory.clone().into(), config)?;
     let mut doc = Document::new();
     doc.add(self.get_knn_vector_field("field1", vec![1.0, 1.0, 1.0])?);
-    writer.add_document(doc)?;
-    let mut doc = Document::new();
+    writer.add_document(&mut doc)?;
+    doc.clear();
     doc.add(self.get_knn_vector_field("field1", vec![1.0, 2.0, 3.0])?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut doc)?;
     writer.commit()?;
     writer.close()?;
 
@@ -1186,11 +1186,12 @@ pub trait BaseKnnVectorQueryTestCase {
     config.set_codec(TestUtil::always_knn_vectors_format(format2));
     let writer = IndexWriter::new(directory.clone().into(), config)?;
     let mut doc = Document::new();
+    doc.clear();
     doc.add(self.get_knn_vector_field("field1", vec![1.0, 1.0, 2.0])?);
-    writer.add_document(doc)?;
-    let mut doc = Document::new();
+    writer.add_document(&mut doc)?;
+    doc.clear();
     doc.add(self.get_knn_vector_field("field1", vec![4.0, 5.0, 6.0])?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut doc)?;
     writer.commit()?;
     writer.close()?;
 

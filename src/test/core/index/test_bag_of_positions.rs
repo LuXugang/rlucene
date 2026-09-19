@@ -18,6 +18,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::BytesRefValue;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_options::IndexOptions;
@@ -105,6 +106,9 @@ fn test() -> Result<()> {
       handles.push(scope.spawn(move || -> Result<()> {
         let mut thread_random = random_from_seed(thread_seed);
 
+        let mut doc = Document::new();
+        doc.add(Field::new("field", "", field_type.clone()));
+
         let _ = barrier.wait();
 
         loop {
@@ -132,10 +136,11 @@ fn test() -> Result<()> {
             text.push_str(&token);
           }
 
-          // Create document and add field
-          let mut doc = Document::new();
-          doc.add(Field::new("field", text, field_type.clone()));
-          iw.add_document(&mut thread_random, doc)?;
+          let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+            unreachable!("field must exist")
+          };
+          field.set_string_value(text)?;
+          iw.add_document(&mut thread_random, &mut doc)?;
         }
 
         Ok(())

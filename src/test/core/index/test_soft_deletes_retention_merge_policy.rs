@@ -443,9 +443,12 @@ fn test_soft_delete_with_retention() -> Result<()> {
             doc.add(StringField::from_string("id", &id, Store::Yes)?);
             doc.add(IntPoint::new("seq_id", [seq_id])?);
             if update_several_docs {
+              let mut doc_copy = Document::new();
+              doc_copy.add(StringField::from_string("id", &id, Store::Yes)?);
+              doc_copy.add(IntPoint::new("seq_id", [seq_id])?);
               writer.soft_update_documents(
                 Term::from_text("id", &id),
-                vec![doc.clone(), doc],
+                vec![doc, doc_copy],
                 vec![NumericDocValuesField::new("soft_delete", 1).into()],
               )?;
             } else {
@@ -692,13 +695,13 @@ fn test_soft_delete_while_merge_survives() -> Result<()> {
       let mut d = Document::new();
       d.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
       if pre_existing_deletes && random.random_bool(0.5) {
-        writer.add_document(d.clone())?; // Randomly add a preexisting hard delete we don't retain.
+        writer.add_document(&mut d)?; // Randomly add a preexisting hard delete we don't retain.
         writer.delete_documents_with_terms(vec![Term::from_text("id", i.to_string())])?;
         d.add(NumericDocValuesField::new("keep", 1));
-        writer.add_document(d)?;
+        writer.add_document(&mut d)?;
       } else {
         d.add(NumericDocValuesField::new("keep", 1));
-        writer.add_document(d)?;
+        writer.add_document(&mut d)?;
       }
       writer.flush()?;
     }
@@ -816,11 +819,11 @@ fn test_undelete_document() -> Result<()> {
     let mut field_type = FieldType::new();
     field_type.set_doc_values_type(DocValuesType::Numeric)?;
     field_type.freeze();
-    do_update(
-      Term::from_text("id", "0"),
-      &writer,
-      vec![Field::new("soft_delete", FieldDataEnum::Dummy(()), field_type).into()],
-    )?;
+    do_update(Term::from_text("id", "0"), &writer, || {
+      Ok(vec![
+        Field::new("soft_delete", FieldDataEnum::Dummy(()), field_type.clone()).into(),
+      ])
+    })?;
     let reader = directory_reader::open_from_writer(&writer)?;
     assert_eq!(2, reader.max_doc()?);
     assert_eq!(2, reader.num_docs()?);
@@ -908,14 +911,12 @@ fn test_soft_delete_with_try_update_doc_value() -> Result<()> {
     d.add(StringField::from_string("id", "0", Store::Yes)?);
     writer.add_document(d)?;
     sm.maybe_refresh_blocking()?;
-    do_update(
-      Term::from_text("id", "0"),
-      &writer,
-      vec![
+    do_update(Term::from_text("id", "0"), &writer, || {
+      Ok(vec![
         NumericDocValuesField::new("soft_delete", 1).into(),
         NumericDocValuesField::new("other-field", 1).into(),
-      ],
-    )?;
+      ])
+    })?;
     sm.maybe_refresh_blocking()?;
     let infos = writer.clone_segment_infos()?;
     assert_eq!(1, infos.size());
@@ -961,11 +962,11 @@ fn test_mixed_soft_deletes_and_hard_deletes() -> Result<()> {
       if random.random_bool(0.5) {
         let id = i.to_string();
         if random.random_bool(0.5) && live_docs.contains(&id) {
-          do_update(
-            Term::from_text("id", &id),
-            &writer,
-            vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
-          )?;
+          do_update(Term::from_text("id", &id), &writer, || {
+            Ok(vec![
+              NumericDocValuesField::new(soft_deletes_field, 1).into(),
+            ])
+          })?;
         } else {
           let version_id = format!("v{id}");
           let mut doc = Document::new();
@@ -1032,11 +1033,11 @@ fn test_rewrite_retention_query() -> Result<()> {
 
     let mut d = Document::new();
     d.add(StringField::from_string("id", "bar-1", Store::Yes)?);
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
     d.add(StringField::from_string("id", "bar-2", Store::Yes)?);
     writer.soft_update_document(
       Term::from_text("id", "bar-1"),
-      d,
+      &mut d,
       vec![NumericDocValuesField::new("soft_deletes", 1).into()],
     )?;
 
@@ -1118,9 +1119,10 @@ where
   }
 }
 
-fn do_update<D>(doc: Term, writer: &Arc<IndexWriter<D>>, fields: Vec<Fields>) -> Result<()>
+fn do_update<D, F>(doc: Term, writer: &Arc<IndexWriter<D>>, mut fields: F) -> Result<()>
 where
   D: Directory + 'static,
+  F: FnMut() -> Result<Vec<Fields>>,
 {
   let mut seq_id = -1;
   while seq_id == -1 {
@@ -1130,7 +1132,7 @@ where
       let top_docs = searcher.search(TermQuery::new(doc.clone()), 10)?;
       assert_eq!(1, top_docs.total_hits.value());
       let the_doc = top_docs.score_docs[0].doc;
-      writer.try_update_doc_value(reader.as_ref(), the_doc, fields.clone())
+      writer.try_update_doc_value(reader.as_ref(), the_doc, fields()?)
     })();
     drop(searcher);
     seq_id = IOUtils::use_or_suppress_result(body_result, reader.close())?;

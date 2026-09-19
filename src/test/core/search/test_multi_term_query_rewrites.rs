@@ -104,7 +104,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<TestMultiTermQueryRewritesC
       &mut field_to_type,
     )?);
 
-    writer.add_document(random, doc.clone())?;
+    writer.add_document(random, &mut doc)?;
 
     if i % 2 == 0 {
       swriter1.add_document(random, doc)?;

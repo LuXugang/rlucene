@@ -45,6 +45,7 @@ use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::sort_field::{SortField, SortFieldType};
 
 use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::fields::Fields;
 use crate::core::document::text_field::TextField;
 use crate::core::index::term::Term;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -548,15 +549,15 @@ fn test_compute_scores_only_once() -> Result<()> {
   let relevance = NumericDocValuesField::new("relevance", 1);
   doc.add(relevance);
 
-  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, &mut doc)?;
 
   doc.remove_field("text");
   doc.add(StringField::from_string("text", "bar", Store::No)?);
-  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, &mut doc)?;
 
   doc.remove_field("text");
   doc.add(StringField::from_string("text", "baz", Store::No)?);
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -597,41 +598,51 @@ fn test_populate_scores() -> Result<()> {
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
-  let mut field = TextField::from_string("f", "foo bar", Store::No)?;
-  doc.add(field.clone());
-  let mut sort_field = NumericDocValuesField::new("sort", 0);
-  doc.add(sort_field.clone());
-  w.add_document(&mut random, doc)?;
+  doc.add(TextField::from_string("f", "foo bar", Store::No)?);
+  doc.add(NumericDocValuesField::new("sort", 0));
+  w.add_document(&mut random, &mut doc)?;
 
+  let Some(Fields::Text(field)) = doc.get_field_mut("f") else {
+    unreachable!("f field must be Text")
+  };
   field.set_string_value("")?;
+  let Some(Fields::NumericDocValues(sort_field)) = doc.get_field_mut("sort") else {
+    unreachable!("sort field must be NumericDocValues")
+  };
   sort_field.set_long_value(3)?;
-  let mut doc = Document::new();
-  doc.add(field.clone());
-  doc.add(sort_field.clone());
-  w.add_document(&mut random, doc)?;
+  w.add_document(&mut random, &mut doc)?;
 
+  let Some(Fields::Text(field)) = doc.get_field_mut("f") else {
+    unreachable!("f field must be Text")
+  };
   field.set_string_value("foo foo bar")?;
+  let Some(Fields::NumericDocValues(sort_field)) = doc.get_field_mut("sort") else {
+    unreachable!("sort field must be NumericDocValues")
+  };
   sort_field.set_long_value(2)?;
-  let mut doc = Document::new();
-  doc.add(field.clone());
-  doc.add(sort_field.clone());
-  w.add_document(&mut random, doc)?;
+  w.add_document(&mut random, &mut doc)?;
 
   w.flush()?;
 
+  let Some(Fields::Text(field)) = doc.get_field_mut("f") else {
+    unreachable!("f field must be Text")
+  };
   field.set_string_value("foo")?;
+  let Some(Fields::NumericDocValues(sort_field)) = doc.get_field_mut("sort") else {
+    unreachable!("sort field must be NumericDocValues")
+  };
   sort_field.set_long_value(2)?;
-  let mut doc = Document::new();
-  doc.add(field.clone());
-  doc.add(sort_field.clone());
-  w.add_document(&mut random, doc)?;
+  w.add_document(&mut random, &mut doc)?;
 
+  let Some(Fields::Text(field)) = doc.get_field_mut("f") else {
+    unreachable!("f field must be Text")
+  };
   field.set_string_value("bar bar bar")?;
+  let Some(Fields::NumericDocValues(sort_field)) = doc.get_field_mut("sort") else {
+    unreachable!("sort field must be NumericDocValues")
+  };
   sort_field.set_long_value(0)?;
-  let mut doc = Document::new();
-  doc.add(field);
-  doc.add(sort_field);
-  w.add_document(&mut random, doc)?;
+  w.add_document(&mut random, &mut doc)?;
 
   let reader = w.get_reader(&mut random)?;
   w.close(&mut random)?;
@@ -679,12 +690,11 @@ fn test_concurrent_min_score() -> Result<()> {
   let mut config = IndexWriterConfig::new()?;
   config.set_merge_policy(NoMergePolicy::default());
   let w = IndexWriter::new(dir.clone(), config)?;
-  let doc = Document::new();
-  w.add_documents(vec![doc.clone(); 5])?;
+  w.add_documents((0..5).map(|_| Document::new()).collect::<Vec<_>>())?;
   w.flush()?;
-  w.add_documents(vec![doc.clone(); 6])?;
+  w.add_documents((0..6).map(|_| Document::new()).collect::<Vec<_>>())?;
   w.flush()?;
-  w.add_documents(vec![doc; 2])?;
+  w.add_documents((0..2).map(|_| Document::new()).collect::<Vec<_>>())?;
   w.flush()?;
 
   let reader = directory_reader::open_from_writer(&w)?;
@@ -890,12 +900,15 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
   config.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
-  let mut doc = Document::new();
-  doc.add(TextField::from_string("f", "foo bar", Store::No)?);
+  let make_doc = || -> Result<Document> {
+    let mut doc = Document::new();
+    doc.add(TextField::from_string("f", "foo bar", Store::No)?);
+    Ok(doc)
+  };
 
-  writer.add_documents(vec![doc.clone(); 5])?;
+  writer.add_documents((0..5).map(|_| make_doc()).collect::<Result<Vec<_>>>()?)?;
   writer.flush()?;
-  writer.add_documents(vec![doc; 5])?;
+  writer.add_documents((0..5).map(|_| make_doc()).collect::<Result<Vec<_>>>()?)?;
   writer.flush()?;
 
   let reader = writer.get_reader(false, false)?;

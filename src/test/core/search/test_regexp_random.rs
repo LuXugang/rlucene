@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -65,18 +66,25 @@ where
   let writer = RandomIndexWriter::with_config(random, dir.clone(), config);
   let mut field_to_type = HashMap::new();
 
-  let mut doc = Document::new();
-
   let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   custom_type.set_omit_norms(true)?;
 
+  let mut doc = Document::new();
+  doc.add(new_field(
+    random,
+    "field",
+    "",
+    &custom_type,
+    &mut field_to_type,
+  )?);
+
   for i in 0..1000 {
-    let mut field = new_field(random, "field", "", &custom_type, &mut field_to_type)?;
     let s = format!("{:03}", i);
+    let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+      unreachable!("field must exist")
+    };
     field.set_string_value(s)?;
-    doc.add(field);
-    writer.add_document(random, doc)?;
-    doc = Document::new();
+    writer.add_document(random, &mut doc)?;
   }
 
   let reader = writer.get_reader(random)?;

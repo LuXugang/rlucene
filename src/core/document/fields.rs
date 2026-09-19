@@ -326,12 +326,6 @@ impl IndexableField for Fields {
   }
 }
 
-#[cfg(test)]
-impl Clone for Fields {
-  fn clone(&self) -> Self {
-    dispatch_fields!(self, |field| field.clone().into())
-  }
-}
 pub type CustomTokenStream = Box<dyn TokenStream + Send + Sync>;
 pub enum FieldTokenStreamEnum {
   Dummy(DummyTokenStream),

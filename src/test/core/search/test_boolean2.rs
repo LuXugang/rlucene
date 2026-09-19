@@ -118,7 +118,7 @@ where
 
   let mut doc = Document::new();
   for _ in 0..pre_filler_docs {
-    writer.add_document(random, doc.clone())?;
+    writer.add_document(random, &mut doc)?;
   }
   for doc_field in &DOC_FIELDS {
     doc.add(Field::new(FIELD, *doc_field, ft.clone()));
@@ -126,7 +126,7 @@ where
 
     doc = Document::new();
     for _ in 0..num_filler_docs {
-      writer.add_document(random, doc.clone())?;
+      writer.add_document(random, &mut doc)?;
     }
   }
 
@@ -212,13 +212,13 @@ where
   doc = Document::new();
   doc.add(Field::new("field2", "xxx", ft.clone()));
   for _ in 0..(NUM_EXTRA_DOCS / 2) {
-    w.add_document(random, doc.clone())?;
+    w.add_document(random, &mut doc)?;
   }
 
   doc = Document::new();
   doc.add(Field::new("field2", "big bad bug", ft.clone()));
   for _ in 0..(NUM_EXTRA_DOCS / 2) {
-    w.add_document(random, doc.clone())?;
+    w.add_document(random, &mut doc)?;
   }
 
   let reader = w.get_reader(random)?;

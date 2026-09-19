@@ -27,6 +27,7 @@ use rand::{Rng, RngExt};
 
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::stored_fields::StoredFields;
@@ -419,17 +420,34 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
     let mut field_to_type = HashMap::new();
-    let mut docid = new_string_field(random, "docid", "0", Store::Yes, &mut field_to_type)?;
-    let mut junk = new_string_field(random, "junk", "", Store::Yes, &mut field_to_type)?;
 
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      random,
+      "docid",
+      "0",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
+    doc.add(new_string_field(
+      random,
+      "junk",
+      "",
+      Store::Yes,
+      &mut field_to_type,
+    )?);
     let num_docs = 100;
     for i in 0..num_docs {
+      let Some(Fields::Field(docid)) = doc.get_field_mut("docid") else {
+        unreachable!("docid field must exist")
+      };
       docid.set_string_value(i.to_string())?;
+
+      let Some(Fields::Field(junk)) = doc.get_field_mut("junk") else {
+        unreachable!("junk field must exist")
+      };
       junk.set_string_value(TestUtil::random_unicode_string(random))?;
-      let mut doc = Document::new();
-      doc.add(docid.clone());
-      doc.add(junk.clone());
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
     }
     let reader = writer.get_reader(random)?;
     writer.close(random)?;

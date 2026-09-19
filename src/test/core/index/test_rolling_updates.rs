@@ -78,7 +78,7 @@ fn test_rolling_updates() -> Result<()> {
   let mut update_count = 0;
 
   for doc_iter in 0..num_updates {
-    let mut doc = docs.next_doc()?;
+    let doc = docs.next_doc()?;
     let my_id = id.to_string();
     if id == size - 1 {
       id = 0;

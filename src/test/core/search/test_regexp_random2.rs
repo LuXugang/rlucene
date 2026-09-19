@@ -168,9 +168,10 @@ where
   let writer = RandomIndexWriter::with_config(random, dir, config);
   let mut field_to_type = HashMap::new();
 
+  let mut doc = Document::new();
   let num = at_least(random, 200);
   for _ in 0..num {
-    let mut doc = Document::new();
+    doc.clear();
     let value = TestUtil::random_unicode_string(random);
     doc.add(new_string_field(
       random,
@@ -183,7 +184,7 @@ where
       field_name,
       new_bytes_ref_from_string(random, &value)?,
     ));
-    writer.add_document(random, doc)?;
+    writer.add_document(random, &mut doc)?;
   }
 
   let reader = Arc::new(writer.get_reader(random)?);

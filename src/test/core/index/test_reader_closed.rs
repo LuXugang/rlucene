@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -72,17 +73,21 @@ where
 
   let num = at_least(random, 10);
   let mut field_to_type = HashMap::new();
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    random,
+    "field",
+    "",
+    Store::No,
+    &mut field_to_type,
+  )?);
   for _ in 0..num {
-    let mut doc = Document::new();
     let field_value = TestUtil::random_unicode_string_with_len(random, 10);
-    doc.add(new_string_field(
-      random,
-      "field",
-      field_value,
-      Store::No,
-      &mut field_to_type,
-    )?);
-    writer.add_document(random, doc)?;
+    let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+      unreachable!("field must exist")
+    };
+    field.set_string_value(field_value)?;
+    writer.add_document(random, &mut doc)?;
   }
   writer.force_merge(random, 1)?;
   let reader = Arc::new(writer.get_reader(random)?);

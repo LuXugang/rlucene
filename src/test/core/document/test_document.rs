@@ -20,7 +20,7 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldBase, Store};
 use crate::core::document::field_type::FieldType;
-use crate::core::document::fields::FieldTokenStreamEnum;
+use crate::core::document::fields::{FieldTokenStreamEnum, Fields};
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::string_field::TYPE_STORED as STRING_TYPE_STORED;
@@ -380,26 +380,24 @@ fn test_field_set_value() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let mut field = StringField::from_string("id", "id1", Store::Yes)?;
   let mut doc = Document::new();
-  doc.add(field.clone());
-  let field2 = StringField::from_string("keyword", "test", Store::Yes)?;
-  doc.add(field2.clone());
+  doc.add(StringField::from_string("id", "id1", Store::Yes)?);
+  doc.add(StringField::from_string("keyword", "test", Store::Yes)?);
 
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
-  field.set_string_value("id2")?;
-  doc = Document::new();
-  doc.add(field.clone());
-  doc.add(field2.clone());
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("id") {
+    Some(Fields::String(field)) => field.set_string_value("id2")?,
+    _ => panic!("expected string field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
-  field.set_string_value("id3")?;
-  doc = Document::new();
-  doc.add(field.clone());
-  doc.add(field2.clone());
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("id") {
+    Some(Fields::String(field)) => field.set_string_value("id3")?,
+    _ => panic!("expected string field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
   let reader = writer.get_reader(&mut random)?;
   let searcher = index_searcher::from_reader(reader)?;

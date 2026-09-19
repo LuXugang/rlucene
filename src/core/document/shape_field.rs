@@ -152,14 +152,6 @@ impl Triangle {
     )
   }
 }
-#[cfg(test)]
-impl Clone for Triangle {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}
 impl FieldBase for Triangle {}
 
 impl Display for Triangle {

@@ -132,6 +132,7 @@ where
     let mut min_count = 0;
     let mut max_count = 0;
 
+    let mut doc = Document::new();
     for d in min_id..=max_id {
       let id = pad(d);
       let r = if index.allow_negative_random_ints {
@@ -155,7 +156,7 @@ where
         min_count += 1;
       }
 
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(new_string_field(
         random,
         "id",
@@ -204,7 +205,7 @@ where
         "body",
         BytesRef::from_bytes(b"body".to_vec()),
       ));
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
     }
 
     if min_count == 1 && max_count == 1 {

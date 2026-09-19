@@ -58,7 +58,6 @@ use std::sync::{Arc, LazyLock};
 struct TestFieldsReader;
 
 struct TestFieldsReaderContext {
-  test_doc: Document,
   dir: Arc<DirEnum>,
 }
 
@@ -108,10 +107,10 @@ fn before_class() -> Result<TestFieldsReaderContext> {
   conf.set_merge_policy(mp);
 
   let writer = IndexWriter::new(dir.clone(), conf)?;
-  writer.add_document(test_doc.clone())?;
+  writer.add_document(&mut test_doc)?;
   writer.close()?;
 
-  Ok(TestFieldsReaderContext { test_doc, dir })
+  Ok(TestFieldsReaderContext { dir })
 }
 #[test]
 fn test() -> Result<()> {
@@ -165,7 +164,6 @@ fn test() -> Result<()> {
 #[test]
 fn test_exceptions() -> Result<()> {
   let mut random = random();
-  let context = &*CONTEXT;
 
   let fs_dir = new_fs_directory(
     &mut random,
@@ -176,8 +174,10 @@ fn test_exceptions() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_open_mode(OpenMode::Create);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let mut test_doc = Document::new();
+  DocHelper::setup_doc(&mut test_doc);
   for _ in 0..2 {
-    writer.add_document(context.test_doc.clone())?;
+    writer.add_document(&mut test_doc)?;
   }
   writer.force_merge(1)?;
   writer.close()?;

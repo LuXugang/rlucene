@@ -248,7 +248,7 @@ where
     let mut iterations = 0;
     loop {
       for i in 0..27 {
-        index_writer.add_document(doc.clone())?;
+        index_writer.add_document(&mut doc)?;
         if i % 2 == 0 {
           index_writer.commit()?;
         }

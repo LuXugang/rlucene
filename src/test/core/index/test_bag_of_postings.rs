@@ -18,6 +18,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::BytesRefValue;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::index_reader::IndexReader;
@@ -88,6 +89,8 @@ fn test() -> Result<()> {
 
     handles.push(thread::spawn(move || {
       let mut thread_random = random_from_seed(seed);
+      let mut doc = Document::new();
+      doc.add(Field::new("field", "", field_type.clone()));
       let _ = barrier.wait();
 
       loop {
@@ -120,9 +123,13 @@ fn test() -> Result<()> {
           text.push_str(&token);
         }
 
-        let mut doc = Document::new();
-        doc.add(Field::new("field", text, field_type.clone()));
-        if let Err(e) = iw.add_document(&mut thread_random, doc) {
+        let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+          unreachable!("field must exist")
+        };
+        if let Err(e) = field.set_string_value(text) {
+          panic!("field value failed: {:?}", e);
+        }
+        if let Err(e) = iw.add_document(&mut thread_random, &mut doc) {
           panic!("thread indexing failed: {:?}", e);
         }
       }

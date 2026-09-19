@@ -74,7 +74,7 @@ fn test_2b_docs() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("f1", "a", No)?);
   for _ in 0..MAX_DOCS {
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
   }
 
   writer.force_merge(1)?;

@@ -756,10 +756,10 @@ fn test_norms_query_matches_count() -> Result<()> {
     "always here",
     no_norms_field_type.clone(),
   ));
-  w.add_document(&mut random, doc)?;
+  w.add_document(&mut random, &mut doc)?;
 
   for _i in 1..random_num_docs {
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(TextField::from_string("text", "some text", Store::No)?);
     doc.add(TextField::from_string("text_s", "some text", Store::No)?);
     doc.add(Field::new(
@@ -767,7 +767,7 @@ fn test_norms_query_matches_count() -> Result<()> {
       "some here",
       no_norms_field_type.clone(),
     ));
-    w.add_document(&mut random, doc)?;
+    w.add_document(&mut random, &mut doc)?;
   }
   w.force_merge(&mut random, 1)?;
 

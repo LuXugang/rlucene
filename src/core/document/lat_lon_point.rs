@@ -99,15 +99,6 @@ pub struct LatLonPoint {
   parent_field: Field,
 }
 
-#[cfg(test)]
-impl Clone for LatLonPoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}
-
 impl LatLonPoint {
   /// [`LatLonPoint`] is encoded as integer values, so the number of bytes is 4.
   pub const BYTES: usize = BitUtil::INT_BYTES;

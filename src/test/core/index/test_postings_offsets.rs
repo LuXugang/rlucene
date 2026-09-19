@@ -494,17 +494,17 @@ fn test_crazy_offset_gap() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  iw.add_document(&mut random, Document::new())?;
+  let mut doc = Document::new();
+  iw.add_document(&mut random, &mut doc)?;
 
   assert!(
     (|| -> Result<()> {
       let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
       ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
 
-      let mut doc = Document::new();
       doc.add(Field::from_string("foo", "bar", ft.clone())?);
       doc.add(Field::from_string("foo", "bar", ft)?);
-      iw.add_document(&mut random, doc)?;
+      iw.add_document(&mut random, &mut doc)?;
       Ok(())
     })()
     .is_err()

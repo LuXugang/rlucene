@@ -411,12 +411,3 @@ impl PointInSetBase for BigIntegerPointInSetQuery {
     Ok(BigIntegerPoint::decode_dimension(value, 0)?.to_string())
   }
 }
-
-#[cfg(test)]
-impl Clone for BigIntegerPoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

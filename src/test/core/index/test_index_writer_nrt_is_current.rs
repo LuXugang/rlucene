@@ -144,7 +144,7 @@ impl WriterThread {
     let result = (|| -> Result<()> {
       let mut doc = Document::new();
       doc.add(TextField::from_string("id", "1", Store::No)?);
-      self.writer.add_document(doc.clone())?;
+      self.writer.add_document(&mut doc)?;
       current_reader = Some(Arc::new(directory_reader::open_from_writer(&self.writer)?));
       *self
         .holder
@@ -159,9 +159,9 @@ impl WriterThread {
         if next_op < 0.3 {
           self
             .writer
-            .update_document_with_term(Term::from_text("id", "1"), doc.clone())?;
+            .update_document_with_term(Term::from_text("id", "1"), &mut doc)?;
         } else if next_op < 0.5 {
-          self.writer.add_document(doc.clone())?;
+          self.writer.add_document(&mut doc)?;
         } else {
           self
             .writer
@@ -198,7 +198,7 @@ impl WriterThread {
             .num_docs()?
             == 0
           {
-            self.writer.add_document(doc.clone())?;
+            self.writer.add_document(&mut doc)?;
           }
         }
       }

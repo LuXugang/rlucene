@@ -136,7 +136,7 @@ pub trait BaseTermVectorsFormatTestCase:
     for options in self.valid_options() {
       let num_docs = at_least(random, 200);
       let doc_with_vectors = random.random_range(0..num_docs);
-      let empty_doc = Document::new();
+      let mut empty_doc = Document::new();
       let dir = new_directory_shared(random)?;
       let writer = RandomIndexWriter::new(random, dir)?;
       let field_count = TestUtil::next_usize(random, 1, 3);
@@ -145,7 +145,7 @@ pub trait BaseTermVectorsFormatTestCase:
         if i == doc_with_vectors {
           writer.add_document(random, add_id(doc.to_document()?, "42")?)?;
         } else {
-          writer.add_document(random, empty_doc.clone())?;
+          writer.add_document(random, &mut empty_doc)?;
         }
       }
       let reader = Arc::new(writer.get_reader(random)?);

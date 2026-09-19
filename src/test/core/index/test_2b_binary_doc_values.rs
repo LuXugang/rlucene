@@ -91,9 +91,7 @@ fn test_fixed_binary() -> Result<()> {
       unreachable!("dv must be a BinaryDocValuesField");
     };
     field.set_bytes_value(BytesRef::from_bytes(bytes.clone()))?;
-    // Java can reuse the same Document by reference. Rust's IndexWriter consumes it, so clone the
-    // updated document while retaining the reusable instance for the next iteration.
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
     if i % 100_000 == 0 {
       println!("indexed: {i}");
     }
@@ -173,7 +171,7 @@ fn test_variable_binary() -> Result<()> {
       unreachable!("dv must be a BinaryDocValuesField");
     };
     field.set_bytes_value(BytesRef::from_slice(encoder.bytes.to_vec(), 0, length))?;
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
     if i % 100_000 == 0 {
       println!("indexed: {i}");
     }

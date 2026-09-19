@@ -64,15 +64,6 @@ static INDEXED_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 pub struct NumericDocValuesField {
   pub(crate) parent_field: Field,
 }
-#[cfg(test)]
-impl Clone for NumericDocValuesField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}
-
 impl NumericDocValuesField {
   /// Creates a new [`NumericDocValuesField`] with the specified `i64` value that also
   /// creates a skip index.

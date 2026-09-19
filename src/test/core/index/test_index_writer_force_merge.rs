@@ -71,7 +71,7 @@ fn test_partial_merge() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
     for _ in 0..num_docs {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
     writer.close()?;
     drop(writer);
@@ -125,7 +125,7 @@ fn test_max_num_segments2() -> Result<()> {
 
   for _ in 0..10 {
     for _ in 0..19 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
 
     writer.commit()?;
@@ -273,7 +273,7 @@ fn test_background_force_merge() -> Result<()> {
     doc.add(StringField::from_string("field", "aaa", Store::No)?);
 
     for _ in 0..100 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
 
     writer.force_merge_with_wait(1, false)?;
@@ -284,8 +284,8 @@ fn test_background_force_merge() -> Result<()> {
       assert_eq!(1, reader.leaves()?.len());
     } else {
       // Get another segment to flush so we can verify it is NOT included in the merging.
-      writer.add_document(doc.clone())?;
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
+      writer.add_document(&mut doc)?;
       writer.close()?;
 
       let reader = (directory_reader::open(dir.clone())?).get_context()?;

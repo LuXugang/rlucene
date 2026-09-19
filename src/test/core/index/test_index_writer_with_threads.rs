@@ -97,8 +97,7 @@ where
   loop {
     let id = id_upto;
     id_upto += 1;
-    match writer.update_document_with_term(Term::from_text("id", id.to_string()), document.clone())
-    {
+    match writer.update_document_with_term(Term::from_text("id", id.to_string()), &mut document) {
       Ok(_) => {
         add_count.fetch_add(1, Ordering::SeqCst);
       },
@@ -399,14 +398,14 @@ where
   ));
 
   for _ in 0..6 {
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
   }
 
   dir.fail_on(Box::new(failure.clone()));
   failure.set_do_fail();
   let result = (|| -> Result<()> {
-    writer.add_document(doc.clone())?;
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
+    writer.add_document(&mut doc)?;
     writer.commit()?;
     Ok(())
   })();
@@ -705,7 +704,8 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
             },
             2 => {
               let writer = writer_ref.lock().clone();
-              let doc = docs.lock().next_doc()?;
+              let mut docs = docs.lock();
+              let doc = docs.next_doc()?;
               match writer.add_document(doc) {
                 Ok(_) | Err(LuceneError::AlreadyClosed(_)) => Ok(()),
                 Err(error) => Err(error),

@@ -16,6 +16,7 @@
  */
 
 use crate::core::document::document::Document;
+use crate::core::document::fields::Fields;
 use crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField;
 use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
@@ -79,47 +80,55 @@ fn test_basics() -> Result<()> {
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut doc = Document::new();
-  let mut point = LatLonPoint::new("foo", 0.0, 0.0)?;
-  doc.add(point.clone());
-  let mut doc_value = LatLonDocValuesField::new("foo", 0.0, 0.0)?;
-  doc.add(doc_value.clone());
+  doc.add(LatLonPoint::new("foo", 0.0, 0.0)?);
+  doc.add(LatLonDocValuesField::new("foo", 0.0, 0.0)?);
 
   let pivot_distance = 5000f64;
 
-  doc = Document::new();
-  point.set_location_value(-7.0, -7.0)?;
-  doc_value.set_location_value(-7.0, -7.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(-7.0, -7.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(-7.0, -7.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  doc = Document::new();
-  point.set_location_value(9.0, 9.0)?;
-  doc_value.set_location_value(9.0, 9.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(9.0, 9.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(9.0, 9.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  doc = Document::new();
-  point.set_location_value(8.0, 8.0)?;
-  doc_value.set_location_value(8.0, 8.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(8.0, 8.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(8.0, 8.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  doc = Document::new();
-  point.set_location_value(4.0, 4.0)?;
-  doc_value.set_location_value(4.0, 4.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(4.0, 4.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(4.0, 4.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  doc = Document::new();
-  point.set_location_value(-1.0, -1.0)?;
-  doc_value.set_location_value(-1.0, -1.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(-1.0, -1.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(-1.0, -1.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
   let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -204,45 +213,56 @@ fn test_crosses_date_line() -> Result<()> {
   iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  let mut point = LatLonPoint::new("foo", 0.0, 0.0)?;
-  let mut doc_value = LatLonDocValuesField::new("foo", 0.0, 0.0)?;
+  let mut doc = Document::new();
+  doc.add(LatLonPoint::new("foo", 0.0, 0.0)?);
+  doc.add(LatLonDocValuesField::new("foo", 0.0, 0.0)?);
 
   let pivot_distance = 5000f64;
 
-  let mut doc = Document::new();
-  point.set_location_value(0.0, -179.0)?;
-  doc_value.set_location_value(0.0, -179.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(0.0, -179.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(0.0, -179.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
-  point.set_location_value(0.0, 176.0)?;
-  doc_value.set_location_value(0.0, 176.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(0.0, 176.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(0.0, 176.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
-  point.set_location_value(0.0, -150.0)?;
-  doc_value.set_location_value(0.0, -150.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(0.0, -150.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(0.0, -150.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
-  point.set_location_value(0.0, -140.0)?;
-  doc_value.set_location_value(0.0, -140.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(0.0, -140.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(0.0, -140.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
-  point.set_location_value(0.0, 140.0)?;
-  doc_value.set_location_value(1.0, 140.0)?;
-  doc.add(point);
-  doc.add(doc_value);
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(0.0, 140.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(1.0, 140.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
   let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -305,24 +325,29 @@ fn test_missing_value() -> Result<()> {
   iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  let mut point = LatLonPoint::new("foo", 0.0, 0.0)?;
-  let mut doc_value = LatLonDocValuesField::new("foo", 0.0, 0.0)?;
-
   let mut doc = Document::new();
-  point.set_location_value(3.0, 3.0)?;
-  doc_value.set_location_value(3.0, 3.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
-  w.add_document(&mut random, doc)?;
+  doc.add(LatLonPoint::new("foo", 0.0, 0.0)?);
+  doc.add(LatLonDocValuesField::new("foo", 0.0, 0.0)?);
+
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(3.0, 3.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(3.0, 3.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
   w.add_document(&mut random, Document::new())?;
 
-  let mut doc = Document::new();
-  point.set_location_value(7.0, 7.0)?;
-  doc_value.set_location_value(7.0, 7.0)?;
-  doc.add(point);
-  doc.add(doc_value);
-  w.add_document(&mut random, doc)?;
+  for field in &mut doc {
+    match field {
+      Fields::LatLonPoint(point) => point.set_location_value(7.0, 7.0)?,
+      Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(7.0, 7.0)?,
+      _ => {},
+    }
+  }
+  w.add_document(&mut random, &mut doc)?;
 
   let reader = w.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -477,20 +502,23 @@ fn test_random() -> Result<()> {
   iwc.set_merge_policy(new_log_merge_policy_with_cfs(&mut random, use_cfs)?);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut point = LatLonPoint::new("foo", 0.0, 0.0)?;
-  let mut doc_value = LatLonDocValuesField::new("foo", 0.0, 0.0)?;
+  let mut doc = Document::new();
+  doc.add(LatLonPoint::new("foo", 0.0, 0.0)?);
+  doc.add(LatLonDocValuesField::new("foo", 0.0, 0.0)?);
 
   let num_docs = at_least(&mut random, 1000);
   for _ in 0..num_docs {
     let lat = random.random::<f64>() * 180.0 - 90.0;
     let lon = random.random::<f64>() * 360.0 - 180.0;
 
-    let mut doc = Document::new();
-    point.set_location_value(lat, lon)?;
-    doc_value.set_location_value(lat, lon)?;
-    doc.add(point.clone());
-    doc.add(doc_value.clone());
-    w.add_document(doc)?;
+    for field in &mut doc {
+      match field {
+        Fields::LatLonPoint(point) => point.set_location_value(lat, lon)?,
+        Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(lat, lon)?,
+        _ => {},
+      }
+    }
+    w.add_document(&mut doc)?;
   }
 
   let reader = directory_reader::open_from_writer(&w)?;
@@ -525,14 +553,21 @@ fn test_compare_sorting() -> Result<()> {
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let num_docs = at_least(&mut random, 10000);
+  let mut doc = Document::new();
+  doc.add(LatLonPoint::new("foo", 0.0, 0.0)?);
+  doc.add(LatLonDocValuesField::new("foo", 0.0, 0.0)?);
   for _ in 0..num_docs {
     let lat = random.random::<f64>() * 180.0 - 90.0;
     let lon = random.random::<f64>() * 360.0 - 180.0;
 
-    let mut doc = Document::new();
-    doc.add(LatLonPoint::new("foo", lat, lon)?);
-    doc.add(LatLonDocValuesField::new("foo", lat, lon)?);
-    w.add_document(&mut random, doc)?;
+    for field in &mut doc {
+      match field {
+        Fields::LatLonPoint(point) => point.set_location_value(lat, lon)?,
+        Fields::LatLonDocValues(doc_value) => doc_value.set_location_value(lat, lon)?,
+        _ => {},
+      }
+    }
+    w.add_document(&mut random, &mut doc)?;
   }
 
   let reader = w.get_reader(&mut random)?;

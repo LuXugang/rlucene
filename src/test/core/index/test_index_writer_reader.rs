@@ -1030,9 +1030,7 @@ fn test_force_merge_deletes() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  let mut id = StringField::from_string("id", "", Store::No)?;
-  doc.add(id.clone());
-  id.set_string_value("0")?;
+  doc.add(StringField::from_string("id", "", Store::No)?);
   let mut doc0 = Document::new();
   doc0.add(new_text_field(
     &mut random,
@@ -1041,9 +1039,8 @@ fn test_force_merge_deletes() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  doc0.add(id.clone());
+  doc0.add(StringField::from_string("id", "0", Store::No)?);
   w.add_document(doc0)?;
-  id.set_string_value("1")?;
   let mut doc1 = Document::new();
   doc1.add(new_text_field(
     &mut random,
@@ -1052,7 +1049,7 @@ fn test_force_merge_deletes() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  doc1.add(id);
+  doc1.add(StringField::from_string("id", "1", Store::No)?);
   w.add_document(doc1)?;
   w.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
 
@@ -1075,8 +1072,6 @@ fn test_deletes_num_docs() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
   let mut field_to_type = HashMap::new();
 
-  let mut id = StringField::from_string("id", "", Store::No)?;
-  id.set_string_value("0")?;
   let mut doc0 = Document::new();
   doc0.add(new_text_field(
     &mut random,
@@ -1085,9 +1080,8 @@ fn test_deletes_num_docs() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  doc0.add(id.clone());
+  doc0.add(StringField::from_string("id", "0", Store::No)?);
   w.add_document(doc0)?;
-  id.set_string_value("1")?;
   let mut doc1 = Document::new();
   doc1.add(new_text_field(
     &mut random,
@@ -1096,7 +1090,7 @@ fn test_deletes_num_docs() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  doc1.add(id);
+  doc1.add(StringField::from_string("id", "1", Store::No)?);
   w.add_document(doc1)?;
   let mut r = directory_reader::open_from_writer(&w)?;
   assert_eq!(2, r.num_docs()?);
@@ -1155,7 +1149,7 @@ fn test_segment_warmer() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
   for _ in 0..20 {
-    w.add_document(doc.clone())?;
+    w.add_document(&mut doc)?;
   }
   cms.sync()?;
   w.close()?;
@@ -1192,7 +1186,7 @@ fn test_simple_merged_segment_warmer() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
   for _ in 0..20 {
-    w.add_document(doc.clone())?;
+    w.add_document(&mut doc)?;
   }
   cms.sync()?;
   w.close()?;

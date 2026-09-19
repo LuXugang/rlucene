@@ -71,14 +71,15 @@ fn test() -> Result<()> {
   field_type.set_omit_norms(true)?;
 
   let num_docs = (i32::MAX / 26) + 1;
+  let mut doc = Document::new();
   for _ in 0..num_docs {
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(Field::from_token_stream(
       "field",
       FieldTokenStreamEnum::custom(MyTokenStream::new()),
       field_type.clone(),
     )?);
-    writer.add_document(doc)?;
+    writer.add_document(&mut doc)?;
   }
   writer.force_merge(1)?;
   writer.close()?;

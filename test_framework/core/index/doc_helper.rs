@@ -55,9 +55,6 @@ pub static CUSTOM_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   ft
 });
 
-pub static TEXT_FIELD_1: LazyLock<Field> =
-  LazyLock::new(|| Field::new(TEXT_FIELD_1_KEY, FIELD_1_TEXT, CUSTOM_TYPE.clone()));
-
 pub static TEXT_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft =
     FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED).expect("should not fail");
@@ -68,14 +65,6 @@ pub static TEXT_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
     .expect("should not fail");
   ft.freeze();
   ft
-});
-
-pub static TEXT_FIELD_2: LazyLock<Field> = LazyLock::new(|| {
-  Field::new(
-    TEXT_FIELD_2_KEY,
-    FIELD_2_TEXT,
-    TEXT_TYPE_STORED_WITH_TVS.clone(),
-  )
 });
 
 pub static FIELD_3_TEXT: &str = "aaaNoNorms aaaNoNorms bbbNoNorms";
@@ -89,15 +78,8 @@ pub static CUSTOM_TYPE3: LazyLock<FieldType> = LazyLock::new(|| {
   ft
 });
 
-pub static TEXT_FIELD_3: LazyLock<Field> =
-  LazyLock::new(|| Field::new(TEXT_FIELD_3_KEY, FIELD_3_TEXT, CUSTOM_TYPE3.clone()));
-
 pub static KEYWORD_TEXT: &str = "Keyword";
 pub static KEYWORD_FIELD_KEY: &str = "keyField";
-
-pub static KEY_FIELD: LazyLock<StringField> = LazyLock::new(|| {
-  StringField::from_string(KEYWORD_FIELD_KEY, KEYWORD_TEXT, Yes).expect("should not fail")
-});
 
 pub static NO_NORMS_TEXT: &str = "omitNormsText";
 pub static NO_NORMS_KEY: &str = "omitNorms";
@@ -111,9 +93,6 @@ pub static CUSTOM_TYPE5: LazyLock<FieldType> = LazyLock::new(|| {
   ft
 });
 
-pub static NO_NORMS_FIELD: LazyLock<Field> =
-  LazyLock::new(|| Field::new(NO_NORMS_KEY, NO_NORMS_TEXT, CUSTOM_TYPE5.clone()));
-
 pub static NO_TF_TEXT: &str = "analyzed with no tf and positions";
 pub static NO_TF_KEY: &str = "omitTermFreqAndPositions";
 
@@ -126,9 +105,6 @@ pub static CUSTOM_TYPE6: LazyLock<FieldType> = LazyLock::new(|| {
   ft
 });
 
-pub static NO_TF_FIELD: LazyLock<Field> =
-  LazyLock::new(|| Field::new(NO_TF_KEY, NO_TF_TEXT, CUSTOM_TYPE6.clone()));
-
 pub static UNINDEXED_FIELD_TEXT: &str = "unindexed field text";
 pub static UNINDEXED_FIELD_KEY: &str = "unIndField";
 
@@ -137,14 +113,6 @@ pub static CUSTOM_TYPE7: LazyLock<FieldType> = LazyLock::new(|| {
   ft.set_stored(true).expect("should not fail");
   ft.freeze();
   ft
-});
-
-pub static UNINDEXED_FIELD: LazyLock<Field> = LazyLock::new(|| {
-  Field::new(
-    UNINDEXED_FIELD_KEY,
-    UNINDEXED_FIELD_TEXT,
-    CUSTOM_TYPE7.clone(),
-  )
 });
 
 pub static STRING_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
@@ -162,10 +130,6 @@ pub static STRING_TYPE_STORED_WITH_TVS: LazyLock<FieldType> = LazyLock::new(|| {
 pub static UNSTORED_1_FIELD_TEXT: &str = "unstored field text";
 pub static UNSTORED_FIELD_1_KEY: &str = "unStoredField1";
 
-pub static UNSTORED_FIELD_1: LazyLock<TextField> = LazyLock::new(|| {
-  TextField::from_string(UNSTORED_FIELD_1_KEY, UNSTORED_1_FIELD_TEXT, No).expect("should not fail")
-});
-
 pub static UNSTORED_2_FIELD_TEXT: &str = "unstored field text";
 pub static UNSTORED_FIELD_2_KEY: &str = "unStoredField2";
 
@@ -177,28 +141,12 @@ pub static CUSTOM_TYPE8: LazyLock<FieldType> = LazyLock::new(|| {
   ft
 });
 
-pub static UNSTORED_FIELD_2: LazyLock<Field> = LazyLock::new(|| {
-  Field::new(
-    UNSTORED_FIELD_2_KEY,
-    UNSTORED_2_FIELD_TEXT,
-    CUSTOM_TYPE8.clone(),
-  )
-});
-
 pub static LAZY_FIELD_BINARY_KEY: &str = "lazyFieldBinary";
 pub static LAZY_FIELD_BINARY_BYTES: LazyLock<Vec<u8>> =
   LazyLock::new(|| "These are some binary field bytes".as_bytes().to_vec());
 
-pub static LAZY_FIELD_BINARY: LazyLock<StoredField> = LazyLock::new(|| {
-  StoredField::from_binary(LAZY_FIELD_BINARY_KEY, LAZY_FIELD_BINARY_BYTES.clone())
-    .expect("should not fail")
-});
-
 pub static LAZY_FIELD_KEY: &str = "lazyField";
 pub static LAZY_FIELD_TEXT: &str = "These are some field bytes";
-
-pub static LAZY_FIELD: LazyLock<Field> =
-  LazyLock::new(|| Field::new(LAZY_FIELD_KEY, LAZY_FIELD_TEXT, CUSTOM_TYPE.clone()));
 
 pub static LARGE_LAZY_FIELD_KEY: &str = "largeLazyField";
 
@@ -210,32 +158,14 @@ pub static LARGE_LAZY_FIELD_TEXT: LazyLock<String> = LazyLock::new(|| {
   s
 });
 
-pub static LARGE_LAZY_FIELD: LazyLock<Field> = LazyLock::new(|| {
-  Field::new(
-    LARGE_LAZY_FIELD_KEY,
-    LARGE_LAZY_FIELD_TEXT.clone(),
-    CUSTOM_TYPE.clone(),
-  )
-});
-
 pub static FIELD_UTF1_TEXT: &str = "field one 一text";
 pub static TEXT_FIELD_UTF1_KEY: &str = "textField1Utf8";
-
-pub static TEXT_UTF_FIELD_1: LazyLock<Field> =
-  LazyLock::new(|| Field::new(TEXT_FIELD_UTF1_KEY, FIELD_UTF1_TEXT, CUSTOM_TYPE.clone()));
 
 pub static FIELD_UTF2_TEXT: &str = "field field field 一two text";
 #[allow(dead_code)]
 pub static FIELD_UTF2_FREQS: [i32; 3] = [3, 1, 1];
 pub static TEXT_FIELD_UTF2_KEY: &str = "textField2Utf8";
 
-pub static TEXT_UTF_FIELD_2: LazyLock<Field> = LazyLock::new(|| {
-  Field::new(
-    TEXT_FIELD_UTF2_KEY,
-    FIELD_UTF2_TEXT,
-    TEXT_TYPE_STORED_WITH_TVS.clone(),
-  )
-});
 #[derive(Clone, Debug)]
 pub enum NameValue {
   Str(&'static str),
@@ -284,55 +214,102 @@ pub static NAME_VALUES: LazyLock<HashMap<String, NameValue>> = LazyLock::new(|| 
 
   m
 });
-pub static FIELDS: LazyLock<Vec<Fields>> = LazyLock::new(|| {
+pub static FIELDS: LazyLock<Vec<fn() -> Fields>> = LazyLock::new(|| {
   vec![
-    TEXT_FIELD_1.clone().into(),
-    TEXT_FIELD_2.clone().into(),
-    TEXT_FIELD_3.clone().into(),
-    KEY_FIELD.clone().into(),
-    NO_NORMS_FIELD.clone().into(),
-    NO_TF_FIELD.clone().into(),
-    UNINDEXED_FIELD.clone().into(),
-    UNSTORED_FIELD_1.clone().into(),
-    UNSTORED_FIELD_2.clone().into(),
-    TEXT_UTF_FIELD_1.clone().into(),
-    TEXT_UTF_FIELD_2.clone().into(),
-    LAZY_FIELD.clone().into(),
-    LAZY_FIELD_BINARY.clone().into(),
-    LARGE_LAZY_FIELD.clone().into(),
+    || Field::new(TEXT_FIELD_1_KEY, FIELD_1_TEXT, CUSTOM_TYPE.clone()).into(),
+    || {
+      Field::new(
+        TEXT_FIELD_2_KEY,
+        FIELD_2_TEXT,
+        TEXT_TYPE_STORED_WITH_TVS.clone(),
+      )
+      .into()
+    },
+    || Field::new(TEXT_FIELD_3_KEY, FIELD_3_TEXT, CUSTOM_TYPE3.clone()).into(),
+    || {
+      StringField::from_string(KEYWORD_FIELD_KEY, KEYWORD_TEXT, Yes)
+        .expect("should not fail")
+        .into()
+    },
+    || Field::new(NO_NORMS_KEY, NO_NORMS_TEXT, CUSTOM_TYPE5.clone()).into(),
+    || Field::new(NO_TF_KEY, NO_TF_TEXT, CUSTOM_TYPE6.clone()).into(),
+    || {
+      Field::new(
+        UNINDEXED_FIELD_KEY,
+        UNINDEXED_FIELD_TEXT,
+        CUSTOM_TYPE7.clone(),
+      )
+      .into()
+    },
+    || {
+      TextField::from_string(UNSTORED_FIELD_1_KEY, UNSTORED_1_FIELD_TEXT, No)
+        .expect("should not fail")
+        .into()
+    },
+    || {
+      Field::new(
+        UNSTORED_FIELD_2_KEY,
+        UNSTORED_2_FIELD_TEXT,
+        CUSTOM_TYPE8.clone(),
+      )
+      .into()
+    },
+    || Field::new(TEXT_FIELD_UTF1_KEY, FIELD_UTF1_TEXT, CUSTOM_TYPE.clone()).into(),
+    || {
+      Field::new(
+        TEXT_FIELD_UTF2_KEY,
+        FIELD_UTF2_TEXT,
+        TEXT_TYPE_STORED_WITH_TVS.clone(),
+      )
+      .into()
+    },
+    || Field::new(LAZY_FIELD_KEY, LAZY_FIELD_TEXT, CUSTOM_TYPE.clone()).into(),
+    || {
+      StoredField::from_binary(LAZY_FIELD_BINARY_KEY, LAZY_FIELD_BINARY_BYTES.clone())
+        .expect("should not fail")
+        .into()
+    },
+    || {
+      Field::new(
+        LARGE_LAZY_FIELD_KEY,
+        LARGE_LAZY_FIELD_TEXT.clone(),
+        CUSTOM_TYPE.clone(),
+      )
+      .into()
+    },
   ]
 });
 pub static DATA: LazyLock<Data> = LazyLock::new(|| {
   let mut data = Data::default();
 
   for f in FIELDS.iter() {
-    let f = f.clone();
-    add(&mut data.all, f.clone());
+    let f = f();
+    add(&mut data.all, f.name());
     let ft = f.field_type();
     if *ft.index_options() != IndexOptions::None {
-      add(&mut data.indexed, f.clone());
+      add(&mut data.indexed, f.name());
     } else {
-      add(&mut data.unindexed, f.clone());
+      add(&mut data.unindexed, f.name());
     }
     if ft.store_term_vectors() {
-      add(&mut data.term_vector, f.clone());
+      add(&mut data.term_vector, f.name());
     }
     if *ft.index_options() != IndexOptions::None && !ft.store_term_vectors() {
-      add(&mut data.no_term_vector, f.clone());
+      add(&mut data.no_term_vector, f.name());
     }
     if ft.stored() {
-      add(&mut data.stored, f.clone());
+      add(&mut data.stored, f.name());
     } else {
-      add(&mut data.unstored, f.clone());
+      add(&mut data.unstored, f.name());
     }
     if *ft.index_options() == IndexOptions::Docs {
-      add(&mut data.no_tf, f.clone());
+      add(&mut data.no_tf, f.name());
     }
     if ft.omit_norms() {
-      add(&mut data.no_norms, f.clone());
+      add(&mut data.no_norms, f.name());
     }
     if *ft.index_options() == IndexOptions::Docs {
-      add(&mut data.no_tf, f.clone());
+      add(&mut data.no_tf, f.name());
     }
   }
 
@@ -340,22 +317,21 @@ pub static DATA: LazyLock<Data> = LazyLock::new(|| {
 });
 #[derive(Default)]
 pub struct Data {
-  pub(crate) all: HashMap<String, Fields>,
-  pub(crate) indexed: HashMap<String, Fields>,
-  pub(crate) stored: HashMap<String, Fields>,
-  pub(crate) unstored: HashMap<String, Fields>,
-  pub(crate) unindexed: HashMap<String, Fields>,
-  pub(crate) term_vector: HashMap<String, Fields>,
-  pub(crate) no_term_vector: HashMap<String, Fields>,
+  pub(crate) all: HashMap<String, ()>,
+  pub(crate) indexed: HashMap<String, ()>,
+  pub(crate) stored: HashMap<String, ()>,
+  pub(crate) unstored: HashMap<String, ()>,
+  pub(crate) unindexed: HashMap<String, ()>,
+  pub(crate) term_vector: HashMap<String, ()>,
+  pub(crate) no_term_vector: HashMap<String, ()>,
   #[allow(dead_code)]
-  pub(crate) lazy: HashMap<String, Fields>,
-  pub(crate) no_norms: HashMap<String, Fields>,
-  pub(crate) no_tf: HashMap<String, Fields>,
+  pub(crate) lazy: HashMap<String, ()>,
+  pub(crate) no_norms: HashMap<String, ()>,
+  pub(crate) no_tf: HashMap<String, ()>,
 }
 
-fn add(map: &mut HashMap<String, Fields>, f: Fields) {
-  let name = f.name().to_string();
-  map.insert(name, f);
+fn add(map: &mut HashMap<String, ()>, name: &str) {
+  map.insert(name.to_string(), ());
 }
 /// Helper functions for tests that handles documents
 pub struct DocHelper;
@@ -363,10 +339,14 @@ impl DocHelper {
   /// Adds the fields above to a document
   pub fn setup_doc(doc: &mut Document) {
     for f in FIELDS.iter() {
-      doc.add(f.clone());
+      doc.add(f());
     }
   }
-  pub fn write_doc<D, R>(random: &mut R, dir: Arc<D>, doc: Document) -> Result<SegmentCommitInfo<D>>
+  pub fn write_doc<D, R>(
+    random: &mut R,
+    dir: Arc<D>,
+    doc: &mut Document,
+  ) -> Result<SegmentCommitInfo<D>>
   where
     D: Directory + 'static,
     R: Rng + ?Sized,
@@ -379,7 +359,7 @@ impl DocHelper {
     dir: Arc<D>,
     analyzer: A,
     similarity: Option<S>,
-    doc: Document,
+    doc: &mut Document,
   ) -> Result<SegmentCommitInfo<D>>
   where
     D: Directory + 'static,

@@ -87,8 +87,8 @@ fn test_document() -> Result<()> {
   DocHelper::setup_doc(&mut doc1);
   DocHelper::setup_doc(&mut doc2);
 
-  DocHelper::write_doc(&mut random, dir.clone(), doc1.clone())?;
-  DocHelper::write_doc(&mut random, dir.clone(), doc2.clone())?;
+  DocHelper::write_doc(&mut random, dir.clone(), &mut doc1)?;
+  DocHelper::write_doc(&mut random, dir.clone(), &mut doc2)?;
 
   let reader = directory_reader::open(dir.clone())?;
   let mut stored_fields = reader.stored_fields()?;
@@ -1007,15 +1007,15 @@ fn test_unique_term_count() -> Result<()> {
     "0 1 2 3 4 5 6 7 8 9",
     Store::No,
   )?);
-  writer.add_document(doc.clone())?;
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
 
   let r = directory_reader::open(dir.clone())?;
   let r1 = get_only_leaf_reader(&r)?;
   assert_eq!(26, r1.terms("field")?.unwrap().size()?);
   assert_eq!(10, r1.terms("number")?.unwrap().size()?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
   let r2 = directory_reader::open_if_changed(&r)?.unwrap();
   r.close()?;
@@ -1040,11 +1040,11 @@ fn test_prepare_commit_is_current() -> Result<()> {
     new_index_writer_config_with_analyzer(&mut random, mock)?,
   )?;
   writer.commit()?;
-  let doc = Document::new();
-  writer.add_document(doc.clone())?;
+  let mut doc = Document::new();
+  writer.add_document(&mut doc)?;
   let r = directory_reader::open(dir.clone())?;
   assert!(r.is_current()?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
   writer.prepare_commit()?;
   assert!(r.is_current()?);
   let r2 = directory_reader::open_if_changed(&r)?;

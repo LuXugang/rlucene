@@ -410,7 +410,7 @@ fn test_prior_broken_commit_point() -> Result<()> {
           crate::core::document::field::Store::No,
         )?,
       );
-      iw.add_document(doc.clone())?;
+      iw.add_document(&mut doc)?;
       iw.commit()?;
 
       // NOTE: we are (illegally) relying on precise file naming here -- if Codec or IW's
@@ -425,7 +425,7 @@ fn test_prior_broken_commit_point() -> Result<()> {
           crate::core::document::field::Store::No,
         )?,
       );
-      iw.update_document_with_term(Term::from_text("id", "a"), doc)?;
+      iw.update_document_with_term(Term::from_text("id", "a"), &mut doc)?;
       iw.commit()?;
 
       // NOTE: we are (illegally) relying on precise file naming here -- if Codec or IW's

@@ -84,34 +84,75 @@ where
   let writer = RandomIndexWriter::new(random, directory.clone())?;
 
   let mut doc = Document::new();
-  let title_field = new_text_field(random, "title", "some title", Store::No, &mut field_to_type)?;
-  let mut field = new_text_field(
+  doc.add(new_text_field(
+    random,
+    "title",
+    "some title",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
     random,
     FN,
     "this is document one 2345",
     Store::No,
     &mut field_to_type,
-  )?;
-  let footer_field = new_text_field(random, "footer", "a footer", Store::No, &mut field_to_type)?;
-
-  doc.add(title_field.clone());
-  doc.add(field.clone());
-  doc.add(footer_field.clone());
+  )?);
+  doc.add(new_text_field(
+    random,
+    "footer",
+    "a footer",
+    Store::No,
+    &mut field_to_type,
+  )?);
   writer.add_document(random, doc)?;
 
-  doc = Document::new();
-  field.set_string_value("some text from doc two a short piece 5678.91")?;
-  doc.add(title_field.clone());
-  doc.add(field.clone());
-  doc.add(footer_field.clone());
+  let mut doc = Document::new();
+  doc.add(new_text_field(
+    random,
+    "title",
+    "some title",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    random,
+    FN,
+    "some text from doc two a short piece 5678.91",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    random,
+    "footer",
+    "a footer",
+    Store::No,
+    &mut field_to_type,
+  )?);
   writer.add_document(random, doc)?;
 
-  doc = Document::new();
-  field
-    .set_string_value("doc three has some different stuff with numbers 1234 5678.9 and letter b")?;
-  doc.add(title_field);
-  doc.add(field);
-  doc.add(footer_field);
+  let mut doc = Document::new();
+  doc.add(new_text_field(
+    random,
+    "title",
+    "some title",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    random,
+    FN,
+    "doc three has some different stuff with numbers 1234 5678.9 and letter b",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    random,
+    "footer",
+    "a footer",
+    Store::No,
+    &mut field_to_type,
+  )?);
   writer.add_document(random, doc)?;
 
   let reader = writer.get_reader(random)?;

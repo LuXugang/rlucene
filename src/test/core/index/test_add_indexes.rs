@@ -918,7 +918,7 @@ fn test_hang_on_close() -> Result<()> {
     &mut field_types,
   )?);
   for _ in 0..60 {
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
   }
 
   let mut doc2 = Document::new();
@@ -954,7 +954,7 @@ fn test_hang_on_close() -> Result<()> {
   )?);
 
   for _ in 0..10 {
-    writer.add_document(doc2.clone())?;
+    writer.add_document(&mut doc2)?;
   }
   writer.close()?;
   drop(writer);

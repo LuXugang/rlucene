@@ -273,13 +273,3 @@ impl Display for KeywordField {
     self.parent_field.fmt(f)
   }
 }
-
-#[cfg(test)]
-impl Clone for KeywordField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-      has_stored_value: self.has_stored_value,
-    }
-  }
-}

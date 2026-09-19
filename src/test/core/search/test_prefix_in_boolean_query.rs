@@ -59,7 +59,7 @@ where
   )?);
 
   for _ in 0..5137 {
-    writer.add_document(random, doc.clone())?;
+    writer.add_document(random, &mut doc)?;
   }
 
   let mut doc = Document::new();
@@ -82,7 +82,7 @@ where
   )?);
 
   for _ in 5138..11377 {
-    writer.add_document(random, doc.clone())?;
+    writer.add_document(random, &mut doc)?;
   }
 
   let mut doc = Document::new();

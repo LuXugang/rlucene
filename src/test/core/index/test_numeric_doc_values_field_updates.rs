@@ -713,7 +713,7 @@ fn test_different_dv_format_per_field() -> Result<()> {
     BytesRef::from_string("value"),
   ));
 
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
   writer.add_document(doc)?;
 
@@ -749,7 +749,7 @@ fn test_update_same_doc_multiple_times() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("key", "doc", Store::No)?);
   doc.add(NumericDocValuesField::new("ndv", 5));
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
   writer.add_document(doc)?;
 
@@ -806,7 +806,7 @@ fn test_segment_merges() -> Result<()> {
       if cfg!(feature = "test_log_verbose") {
         println!("TEST: add doc id={}", docid);
       }
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
       docid += 1;
     }
 
@@ -918,7 +918,7 @@ fn test_update_document_by_multiple_terms() -> Result<()> {
   doc.add(StringField::from_string("k1", "v1", Store::No)?);
   doc.add(StringField::from_string("k2", "v2", Store::No)?);
   doc.add(NumericDocValuesField::new("ndv", 5));
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
   writer.add_document(doc)?;
 

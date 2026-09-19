@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::field::FieldBase;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::document::string_field::StringField;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -155,16 +157,20 @@ fn test_force_merge_deletes() -> Result<()> {
   term_vector_type.set_store_term_vector_positions(true)?;
   term_vector_type.set_store_term_vector_offsets(true)?;
 
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("id", "", Store::No)?);
+  doc.add(Field::new("stored", "stored", stored_type.clone()));
+  doc.add(Field::new(
+    "termVector",
+    "termVector",
+    term_vector_type.clone(),
+  ));
   for i in 0..10 {
-    let mut document = Document::new();
-    document.add(StringField::from_string("id", i.to_string(), Store::No)?);
-    document.add(Field::new("stored", "stored", stored_type.clone()));
-    document.add(Field::new(
-      "termVector",
-      "termVector",
-      term_vector_type.clone(),
-    ));
-    writer.add_document(document)?;
+    let Some(Fields::String(id_field)) = doc.get_field_mut("id") else {
+      unreachable!("id field must exist")
+    };
+    id_field.set_string_value(i.to_string())?;
+    writer.add_document(&mut doc)?;
   }
   writer.close()?;
   drop(writer);
@@ -226,16 +232,20 @@ fn test_force_merge_deletes2() -> Result<()> {
   term_vector_type.set_store_term_vector_positions(true)?;
   term_vector_type.set_store_term_vector_offsets(true)?;
 
+  let mut doc = Document::new();
+  doc.add(Field::new("stored", "stored", stored_type.clone()));
+  doc.add(Field::new(
+    "termVector",
+    "termVector",
+    term_vector_type.clone(),
+  ));
+  doc.add(StringField::from_string("id", "", Store::No)?);
   for i in 0..98 {
-    let mut document = Document::new();
-    document.add(Field::new("stored", "stored", stored_type.clone()));
-    document.add(Field::new(
-      "termVector",
-      "termVector",
-      term_vector_type.clone(),
-    ));
-    document.add(StringField::from_string("id", i.to_string(), Store::No)?);
-    writer.add_document(document)?;
+    let Some(Fields::String(id_field)) = doc.get_field_mut("id") else {
+      unreachable!("id field must exist")
+    };
+    id_field.set_string_value(i.to_string())?;
+    writer.add_document(&mut doc)?;
   }
   writer.close()?;
   drop(writer);
@@ -296,16 +306,20 @@ fn test_force_merge_deletes3() -> Result<()> {
   term_vector_type.set_store_term_vector_positions(true)?;
   term_vector_type.set_store_term_vector_offsets(true)?;
 
+  let mut doc = Document::new();
+  doc.add(Field::new("stored", "stored", stored_type.clone()));
+  doc.add(Field::new(
+    "termVector",
+    "termVector",
+    term_vector_type.clone(),
+  ));
+  doc.add(StringField::from_string("id", "", Store::No)?);
   for i in 0..98 {
-    let mut document = Document::new();
-    document.add(Field::new("stored", "stored", stored_type.clone()));
-    document.add(Field::new(
-      "termVector",
-      "termVector",
-      term_vector_type.clone(),
-    ));
-    document.add(StringField::from_string("id", i.to_string(), Store::No)?);
-    writer.add_document(document)?;
+    let Some(Fields::String(id_field)) = doc.get_field_mut("id") else {
+      unreachable!("id field must exist")
+    };
+    id_field.set_string_value(i.to_string())?;
+    writer.add_document(&mut doc)?;
   }
   writer.close()?;
   drop(writer);
@@ -374,10 +388,10 @@ fn test_set_max_merge_docs() -> Result<()> {
   custom_type.set_tokenized(false)?;
   custom_type.set_store_term_vectors(true)?;
 
+  let mut doc = Document::new();
+  doc.add(Field::new("tvtest", "a b c", custom_type.clone()));
   for _ in 0..177 {
-    let mut document = Document::new();
-    document.add(Field::new("tvtest", "a b c", custom_type.clone()));
-    writer.add_document(document)?;
+    writer.add_document(&mut doc)?;
   }
   writer.close()?;
   Ok(())
@@ -391,6 +405,8 @@ fn test_no_wait_close() -> Result<()> {
   let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_tokenized(false)?;
 
+  let mut doc = Document::new();
+  doc.add(Field::new("id", "", custom_type.clone()));
   for pass in 0..2 {
     if cfg!(feature = "test_log_verbose") {
       println!("TEST: pass={}", pass);
@@ -424,13 +440,11 @@ fn test_no_wait_close() -> Result<()> {
         println!("TEST: iter={}", iter);
       }
       for j in 0..199 {
-        let mut doc = Document::new();
-        doc.add(Field::new(
-          "id",
-          (iter * 201 + j).to_string(),
-          custom_type.clone(),
-        ));
-        writer.add_document(doc)?;
+        let Some(Fields::Field(id_field)) = doc.get_field_mut("id") else {
+          unreachable!("id field must exist")
+        };
+        id_field.set_string_value((iter * 201 + j).to_string())?;
+        writer.add_document(&mut doc)?;
       }
 
       let mut del_id = iter * 199;
@@ -455,15 +469,13 @@ fn test_no_wait_close() -> Result<()> {
       let failure = Arc::new(Mutex::new(None));
       thread::scope(|scope| {
         let writer_ref = &writer;
-        let custom_type = &custom_type;
         let failure_ref = &failure;
+        let doc_ref = &mut doc;
         let handle = scope.spawn(move || {
           let mut done = false;
           while !done {
-            for i in 0..100 {
-              let mut doc = Document::new();
-              doc.add(Field::new("id", i.to_string(), custom_type.clone()));
-              match writer_ref.add_document(doc) {
+            for _ in 0..100 {
+              match writer_ref.add_document(&mut *doc_ref) {
                 Ok(_) => {},
                 Err(LuceneError::AlreadyClosed(_)) | Err(LuceneError::IllegalState(_)) => {
                   done = true;

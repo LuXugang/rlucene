@@ -660,7 +660,7 @@ fn test_different_dv_format_per_field() -> Result<()> {
     BytesRef::from_string("value"),
   ));
 
-  writer.add_document(doc.clone())?; // flushed document
+  writer.add_document(&mut doc)?; // flushed document
   writer.commit()?;
   writer.add_document(doc)?; // in-memory document
 
@@ -705,7 +705,7 @@ fn test_update_same_doc_multiple_times() -> Result<()> {
   doc.add(StringField::from_string("key", "doc", Store::No)?);
   doc.add(BinaryDocValuesField::new("bdv", to_bytes(&mut random, 5)?));
 
-  writer.add_document(doc.clone())?; // flushed document
+  writer.add_document(&mut doc)?; // flushed document
   writer.commit()?;
   writer.add_document(doc)?; // in-memory document
 
@@ -761,7 +761,7 @@ fn test_segment_merges() -> Result<()> {
         docid.to_string(),
         Store::No,
       )?);
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
       docid += 1;
     }
 
@@ -848,7 +848,7 @@ fn test_update_document_by_multiple_terms() -> Result<()> {
   doc.add(StringField::from_string("k2", "v2", Store::No)?);
   doc.add(BinaryDocValuesField::new("bdv", to_bytes(&mut random, 5)?));
 
-  writer.add_document(doc.clone())?; // flushed document
+  writer.add_document(&mut doc)?; // flushed document
   writer.commit()?;
   writer.add_document(doc)?; // in-memory document
 

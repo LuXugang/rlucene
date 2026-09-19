@@ -306,11 +306,3 @@ impl IndexableField for KnnFloatVectorField {
     self.parent_field.vector_value()
   }
 }
-#[cfg(test)]
-impl Clone for KnnFloatVectorField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

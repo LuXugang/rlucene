@@ -761,7 +761,7 @@ fn test_tie_break_by_doc_id() -> Result<()> {
   };
 
   for _ in 0..num_docs {
-    w.add_document(doc.clone())?;
+    w.add_document(&mut doc)?;
     if random.random_range(0..1000) == 17 {
       w.commit()?;
     }

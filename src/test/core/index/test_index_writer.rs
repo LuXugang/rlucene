@@ -567,7 +567,7 @@ fn test_flush_with_no_merging() -> Result<()> {
   custom_type.set_store_term_vector_offsets(true)?;
   doc.add(Field::new("field", "aaa", custom_type));
   for _ in 0..19 {
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
   }
   writer.flush_with_apply_merge_deletes(false, true)?;
   assert_eq!(10, writer.get_segment_count());
@@ -712,7 +712,7 @@ fn test_variable_schema() -> Result<()> {
     }
 
     for _ in 0..4 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
 
     writer.close()?;
@@ -1030,9 +1030,9 @@ fn test_deadlock() -> Result<()> {
     &mut field_types,
   )?);
 
-  writer.add_document(doc.clone())?;
-  writer.add_document(doc.clone())?;
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
+  writer.add_document(&mut doc)?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
 
   let dir2 = new_directory_shared(&mut random)?;
@@ -1749,11 +1749,11 @@ fn test_delete_all_nrt_leftover_files() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let doc = Document::new();
+  let mut doc = Document::new();
 
   for _ in 0..20 {
     for _ in 0..100 {
-      w.add_document(doc.clone())?;
+      w.add_document(&mut doc)?;
     }
 
     w.commit()?;
@@ -1794,13 +1794,13 @@ fn test_nrt_reader_version() -> Result<()> {
     &mut field_types,
   )?);
 
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
 
   let r = directory_reader::open_from_writer(&w)?;
   let version = r.get_version()?;
   drop(r);
 
-  w.add_document(doc)?;
+  w.add_document(&mut doc)?;
 
   let r = directory_reader::open_from_writer(&w)?;
   let version2 = r.get_version()?;
@@ -1860,12 +1860,11 @@ fn test_has_blocks_merge_fully_del_segments() -> Result<()> {
     Ok(doc)
   };
 
-  let docs = [new_doc()?, new_doc()?];
-  writer.update_documents_with_term(Term::from_text("foo", "bar"), docs.clone())?;
+  writer.update_documents_with_term(Term::from_text("foo", "bar"), [new_doc()?, new_doc()?])?;
   writer.commit()?;
 
   if random.random_bool(0.5) {
-    writer.update_documents_with_term(Term::from_text("foo", "bar"), docs)?;
+    writer.update_documents_with_term(Term::from_text("foo", "bar"), [new_doc()?, new_doc()?])?;
     writer.commit()?;
   }
 
@@ -1923,7 +1922,9 @@ fn test_single_docs_do_not_trigger_has_blocks() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "XXX", Store::No)?);
 
-  w.add_documents([doc.clone(), doc])?;
+  let mut doc_copy = Document::new();
+  doc_copy.add(StringField::from_string("id", "XXX", Store::No)?);
+  w.add_documents([doc_copy, doc])?;
   w.commit()?;
 
   let si = w.clone_segment_infos()?;
@@ -1956,7 +1957,7 @@ fn test_carry_over_has_blocks() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut docs = vec![Document::new()];
-  w.update_documents_with_term(Term::from_text("foo", "bar"), docs.clone())?;
+  w.update_documents_with_term(Term::from_text("foo", "bar"), vec![Document::new()])?;
   w.commit()?;
 
   {
@@ -2098,11 +2099,16 @@ fn test_dont_invoke_analyzer_for_un_analyzed_fields() -> Result<()> {
     &custom_type,
     &mut field_to_type,
   )?;
-  doc.add(f.clone());
-  doc.add(f.clone());
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "abcd",
+    &custom_type,
+    &mut field_to_type,
+  )?);
+  doc.add(f);
   let f2 = new_field(&mut random, "field", "", &custom_type, &mut field_to_type)?;
   doc.add(f2);
-  doc.add(f);
   w.add_document(doc)?;
   w.close()?;
 
@@ -2743,7 +2749,7 @@ fn test_has_uncommitted_changes() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(TextField::from_string("myfield", "a b c", Store::No)?);
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   assert!(writer.has_uncommitted_changes()?);
 
   writer.commit()?;
@@ -2757,7 +2763,7 @@ fn test_has_uncommitted_changes() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "xyz", Store::Yes)?);
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   assert!(writer.has_uncommitted_changes()?);
 
   writer.commit()?;
@@ -2774,7 +2780,7 @@ fn test_has_uncommitted_changes() -> Result<()> {
   let iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   assert!(!writer.has_uncommitted_changes()?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
   assert!(writer.has_uncommitted_changes()?);
 
   writer.close()?;
@@ -3003,9 +3009,9 @@ fn test_close_while_merge_is_running() -> Result<()> {
     "dv",
     BytesRef::from_string("foo!"),
   ));
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
   writer.commit()?;
   writer.close()?;
   dir.as_ref().close()?;
@@ -3437,9 +3443,9 @@ fn test_pending_deletions_rollback_with_reader() -> Result<()> {
   let mut d = Document::new();
   d.add(StringField::from_string("id", "1", Store::Yes)?);
   d.add(NumericDocValuesField::new("numval", 1));
-  w.add_document(d.clone())?;
+  w.add_document(&mut d)?;
   w.commit()?;
-  w.add_document(d.clone())?;
+  w.add_document(&mut d)?;
   w.flush()?;
   let reader = directory_reader::open_from_writer(&w)?;
   w.rollback()?;
@@ -3738,8 +3744,8 @@ fn test_deletes_applied_on_flush() -> Result<()> {
       &STORED_TEXT_TYPE,
       &mut field_types,
     )?);
-    w.add_document(doc.clone())?;
-    w.update_document_with_term(Term::from_text("id", "1"), doc)?;
+    w.add_document(&mut doc)?;
+    w.update_document_with_term(Term::from_text("id", "1"), &mut doc)?;
     let mut delete_bytes_used = w.doc_writer.flush_control.get_delete_bytes_used()?;
     assert!(
       delete_bytes_used > 0,
@@ -4065,9 +4071,9 @@ fn test_soft_update_documents() -> Result<()> {
 
   let err = writer.soft_update_documents(
     Term::from_text("id", "1"),
-    vec![vec![
-      StringField::from_string("id", "1", Store::Yes)?.into(),
-    ]],
+    vec![vec![crate::core::document::fields::Fields::from(
+      StringField::from_string("id", "1", Store::Yes)?,
+    )]],
     Vec::<crate::core::document::fields::Fields>::new(),
   );
   match err {
@@ -4211,7 +4217,9 @@ fn soft_updates_concurrently(mix_deletes: bool) -> Result<()> {
             let mut doc = Document::new();
             doc.add(StringField::from_string("id", &id, Store::Yes)?);
             if update_several_docs {
-              let docs = vec![doc.clone(), doc];
+              let mut doc_copy = Document::new();
+              doc_copy.add(StringField::from_string("id", &id, Store::Yes)?);
+              let docs = vec![doc_copy, doc];
               if mix_deletes && random.random_bool(0.5) {
                 if random.random_bool(0.5) {
                   writer.update_documents_with_term(Term::from_text("id", &id), docs)?;
@@ -4339,7 +4347,7 @@ fn test_delete_happens_before_while_flush() -> Result<()> {
 
   let mut document = Document::new();
   document.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(document.clone())?;
+  writer.add_document(&mut document)?;
   let update_document = random.random_bool(0.5);
   thread::scope(|scope| -> Result<()> {
     let update_thread = scope.spawn(|| {
@@ -5749,9 +5757,9 @@ fn test_merge_zero_docs_merge_is_closed_once() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "1", Store::No)?);
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   writer.flush()?;
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
   writer.flush()?;
   writer.delete_documents_with_terms(vec![Term::from_text("id", "1")])?;
   writer.flush()?;
@@ -5774,9 +5782,9 @@ fn test_merge_on_commit_keep_fully_deleted_segments() -> Result<()> {
 
   let mut d = Document::new();
   d.add(StringField::from_string("id", "1", Store::Yes)?);
-  writer.add_document(d.clone())?;
+  writer.add_document(&mut d)?;
   writer.commit()?;
-  writer.update_document_with_term(Term::from_text("id", "1"), d)?;
+  writer.update_document_with_term(Term::from_text("id", "1"), &mut d)?;
   writer.commit()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
@@ -6060,9 +6068,15 @@ fn test_index_with_parent_field_is_congruent() -> Result<()> {
       child2.add(StringField::from_string("id", 1.to_string(), Store::Yes)?);
       let mut parent = Document::new();
       parent.add(StringField::from_string("id", 1.to_string(), Store::Yes)?);
-      writer.add_documents([child1.clone(), child2.clone(), parent.clone()])?;
+      writer.add_documents([child1, child2, parent])?;
       writer.flush()?;
       if random.random_bool(0.5) {
+        let mut child1 = Document::new();
+        child1.add(StringField::from_string("id", 1.to_string(), Store::Yes)?);
+        let mut child2 = Document::new();
+        child2.add(StringField::from_string("id", 1.to_string(), Store::Yes)?);
+        let mut parent = Document::new();
+        parent.add(StringField::from_string("id", 1.to_string(), Store::Yes)?);
         writer.add_documents([child1, child2, parent])?;
       }
     } else {

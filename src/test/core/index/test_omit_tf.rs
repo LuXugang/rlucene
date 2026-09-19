@@ -109,11 +109,11 @@ fn test_mixed_ram() -> Result<()> {
   d.add(f2);
 
   for _ in 0..5 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   for _ in 0..20 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   // force merge
@@ -181,7 +181,7 @@ fn test_no_prx_file() -> Result<()> {
   d.add(f1);
 
   for _ in 0..30 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   writer.commit()?;

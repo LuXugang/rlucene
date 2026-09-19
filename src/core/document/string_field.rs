@@ -241,13 +241,3 @@ impl IndexableField for StringField {
     &InvertableType::BINARY
   }
 }
-
-#[cfg(test)]
-impl Clone for StringField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-      has_stored_value: self.has_stored_value,
-    }
-  }
-}

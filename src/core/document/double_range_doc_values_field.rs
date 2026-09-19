@@ -209,15 +209,3 @@ impl Display for DoubleRangeDocValuesField {
     self.base.fmt(f)
   }
 }
-
-#[cfg(test)]
-impl Clone for DoubleRangeDocValuesField {
-  fn clone(&self) -> Self {
-    Self {
-      base: self.base.clone(),
-      field: self.field.clone(),
-      min: self.min.clone(),
-      max: self.max.clone(),
-    }
-  }
-}

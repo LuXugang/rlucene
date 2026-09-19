@@ -65,7 +65,7 @@ fn test_basic() -> Result<()> {
   doc.add(f);
 
   for _ in 0..100 {
-    w.add_document(&mut random, doc.clone())?;
+    w.add_document(&mut random, &mut doc)?;
   }
 
   let reader = w.get_reader(&mut random)?;
@@ -198,7 +198,7 @@ fn test_no_prx_file() -> Result<()> {
   d.add(f1);
 
   for _ in 0..30 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   writer.commit()?;

@@ -128,7 +128,7 @@ fn test_empty_value_vs_no_value() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   let mut field_to_type = HashMap::new();
   doc.add(new_text_field(
     &mut random,
@@ -137,7 +137,7 @@ fn test_empty_value_vs_no_value() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
 
   writer.force_merge(1)?;
 

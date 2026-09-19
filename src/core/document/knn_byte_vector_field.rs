@@ -305,11 +305,3 @@ impl IndexableField for KnnByteVectorField {
     self.parent_field.vector_value()
   }
 }
-#[cfg(test)]
-impl Clone for KnnByteVectorField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

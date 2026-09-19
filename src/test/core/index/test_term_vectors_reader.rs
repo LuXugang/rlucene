@@ -130,7 +130,7 @@ impl TestTermVectorsReader {
     }
 
     for _ in 0..5 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
     writer.commit()?;
 

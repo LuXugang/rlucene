@@ -62,8 +62,10 @@ where
   R: Rng + ?Sized,
 {
   if is_light_mode() {
-    let (dir, document, info) = &*LIGHT_CONTEXT;
-    return Ok((dir.clone(), document.clone(), info.clone()));
+    let (dir, _document, info) = &*LIGHT_CONTEXT;
+    let mut document = Document::new();
+    DocHelper::setup_doc(&mut document);
+    return Ok((dir.clone(), document, info.clone()));
   }
 
   build_set_up(random)
@@ -76,7 +78,7 @@ where
   let dir = new_directory_shared(random)?;
   let mut document = Document::new();
   DocHelper::setup_doc(&mut document);
-  let info = DocHelper::write_doc(random, dir.clone(), document.clone())?;
+  let info = DocHelper::write_doc(random, dir.clone(), &mut document)?;
   Ok((dir, document, info))
 }
 #[test]

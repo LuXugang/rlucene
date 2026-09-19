@@ -209,15 +209,3 @@ impl Display for LongRangeDocValuesField {
     self.base.fmt(f)
   }
 }
-
-#[cfg(test)]
-impl Clone for LongRangeDocValuesField {
-  fn clone(&self) -> Self {
-    Self {
-      base: self.base.clone(),
-      field: self.field.clone(),
-      min: self.min.clone(),
-      max: self.max.clone(),
-    }
-  }
-}

@@ -621,12 +621,15 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut doc = Document::new();
-  doc.add(TextField::from_string("f", "foo bar", Store::No)?);
+  let make_doc = || -> Result<Document> {
+    let mut doc = Document::new();
+    doc.add(TextField::from_string("f", "foo bar", Store::No)?);
+    Ok(doc)
+  };
 
-  writer.add_documents(vec![doc.clone(); 5])?;
+  writer.add_documents((0..5).map(|_| make_doc()).collect::<Result<Vec<_>>>()?)?;
   writer.flush()?;
-  writer.add_documents(vec![doc; 5])?;
+  writer.add_documents((0..5).map(|_| make_doc()).collect::<Result<Vec<_>>>()?)?;
   writer.flush()?;
 
   let reader = writer.get_reader(false, false)?;
@@ -662,13 +665,11 @@ fn test_concurrent_min_score() -> Result<()> {
   iwc.set_merge_policy(NoMergePolicy::default());
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let doc = Document::new();
-
-  w.add_documents(vec![doc.clone(); 5])?;
+  w.add_documents((0..5).map(|_| Document::new()).collect::<Vec<_>>())?;
   w.flush()?;
-  w.add_documents(vec![doc.clone(); 6])?;
+  w.add_documents((0..6).map(|_| Document::new()).collect::<Vec<_>>())?;
   w.flush()?;
-  w.add_documents(vec![doc.clone(); 2])?;
+  w.add_documents((0..2).map(|_| Document::new()).collect::<Vec<_>>())?;
   w.flush()?;
 
   let reader = directory_reader::open_from_writer(&w)?;

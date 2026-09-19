@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::index::BytesRef;
 use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
@@ -87,19 +88,22 @@ where
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
+  doc.add(new_string_field(
+    random,
+    "field",
+    "",
+    Store::No,
+    &mut field_to_type,
+  )?);
 
   let num = at_least(random, 1000);
   for _ in 0..num {
     let value = TestUtil::random_unicode_string_with_len(random, 10);
-    doc.add(new_string_field(
-      random,
-      "field",
-      &value,
-      Store::No,
-      &mut field_to_type,
-    )?);
-    writer.add_document(random, doc)?;
-    doc = Document::new();
+    let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+      unreachable!("field must exist")
+    };
+    field.set_string_value(&value)?;
+    writer.add_document(random, &mut doc)?;
   }
 
   let reader = writer.get_reader(random)?;

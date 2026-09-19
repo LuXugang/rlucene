@@ -355,7 +355,7 @@ fn test_exactly_at_true_limit() -> Result<()> {
   )?);
 
   for _i in 0..max_docs {
-    iw.add_document(doc.clone())?;
+    iw.add_document(&mut doc)?;
   }
 
   iw.commit()?;
@@ -612,9 +612,10 @@ fn test_multi_reader_exact_limit() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
+  let mut doc = Document::new();
   let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..100000 {
-    w.add_document(Document::new())?;
+    w.add_document(&mut doc)?;
   }
   w.close()?;
 
@@ -622,7 +623,7 @@ fn test_multi_reader_exact_limit() -> Result<()> {
   let dir2 = new_directory_shared(&mut random)?;
   let w = IndexWriter::new(dir2.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..remainder {
-    w.add_document(Document::new())?;
+    w.add_document(&mut doc)?;
   }
   w.close()?;
 
@@ -646,9 +647,10 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
   let mut random = random();
 
   let dir = new_directory_shared(&mut random)?;
+  let mut doc = Document::new();
   let w = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..100000 {
-    w.add_document(Document::new())?;
+    w.add_document(&mut doc)?;
   }
   w.close()?;
 
@@ -658,7 +660,7 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
   let dir2 = new_directory_shared(&mut random)?;
   let w = IndexWriter::new(dir2.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..remainder {
-    w.add_document(Document::new())?;
+    w.add_document(&mut doc)?;
   }
   w.close()?;
 
@@ -684,9 +686,10 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
 
   // we cheat and add the same one over again... IW wants a write lock on each
   let source = Arc::new(new_directory_with_lock_factory(&mut random, NoLockFactory)?);
+  let mut doc = Document::new();
   let w = IndexWriter::new(source.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..100000 {
-    w.add_document(Document::new())?;
+    w.add_document(&mut doc)?;
   }
   w.force_merge(1)?;
   w.commit()?;
@@ -734,9 +737,10 @@ fn test_add_too_many_indexes_codec_reader() -> Result<()> {
   let mut random = random();
 
   let source = Arc::new(new_directory_with_lock_factory(&mut random, NoLockFactory)?);
+  let mut doc = Document::new();
   let w = IndexWriter::new(source.clone(), IndexWriterConfig::new()?)?;
   for _ in 0..100000 {
-    w.add_document(Document::new())?;
+    w.add_document(&mut doc)?;
   }
   w.force_merge(1)?;
   w.commit()?;

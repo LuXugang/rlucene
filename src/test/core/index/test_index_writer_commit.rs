@@ -17,7 +17,9 @@
 use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
+use crate::core::document::field::FieldBase;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::document::string_field::StringField;
 use crate::core::index::directory_reader::{self, DirectoryReader};
 use crate::core::index::index_commit::IndexCommit;
@@ -378,6 +380,8 @@ fn test_commit_thread_safety() -> Result<()> {
     threads.push(thread::spawn(move || -> Result<()> {
       let mut thread_random = random_from_seed(seed);
       let mut reader = directory_reader::open(dir.clone())?;
+      let mut doc = Document::new();
+      doc.add(StringField::from_string("f", "", Store::No)?);
       let mut iterations = 0;
       let mut count = 0;
       loop {
@@ -387,9 +391,11 @@ fn test_commit_thread_safety() -> Result<()> {
         for _ in 0..10 {
           let s = format!("{}_{}", i, count);
           count += 1;
-          let mut doc = Document::new();
-          doc.add(StringField::from_string("f", s.clone(), Store::No)?);
-          writer.add_document(&mut thread_random, doc)?;
+          let Some(Fields::String(field)) = doc.get_field_mut("f") else {
+            return Err(LuceneError::illegal_state("f field is missing"));
+          };
+          field.set_string_value(&s)?;
+          writer.add_document(&mut thread_random, &mut doc)?;
           writer.commit(&mut thread_random)?;
 
           let reader2 = directory_reader::open_if_changed(&reader)?.unwrap();
@@ -478,8 +484,8 @@ fn test_future_commit() -> Result<()> {
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let writer = IndexWriter::new(dir.clone(), iwc)?;
-  let doc = Document::new();
-  writer.add_document(doc.clone())?;
+  let mut doc = Document::new();
+  writer.add_document(&mut doc)?;
 
   // commit to "first"
   let mut commit_data = HashMap::new();
@@ -488,7 +494,7 @@ fn test_future_commit() -> Result<()> {
   writer.commit()?;
 
   // commit to "second"
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
   commit_data.insert("tag".to_string(), "second".to_string());
   writer.set_live_commit_data(commit_data.clone());
   writer.close()?;
@@ -519,7 +525,7 @@ fn test_future_commit() -> Result<()> {
   assert_eq!(1, writer.get_doc_stats()?.num_docs);
 
   // commit IndexWriter to "third"
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
   commit_data.insert("tag".to_string(), "third".to_string());
   writer.set_live_commit_data(commit_data);
   writer.close()?;

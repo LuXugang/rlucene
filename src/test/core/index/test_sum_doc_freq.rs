@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::field::FieldBase;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::directory_reader;
 use crate::core::index::field_infos::get_indexed_fields;
 use crate::core::index::index_reader::IndexReader;
@@ -46,30 +48,53 @@ fn test_sum_doc_freq() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let mut doc = Document::new();
-  let mut id = new_string_field(&mut random, "id", "", No, &mut field_to_type)?;
-  let mut field1 = new_text_field(&mut random, "foo", "", No, &mut field_to_type)?;
-  let mut field2 = new_text_field(&mut random, "bar", "", No, &mut field_to_type)?;
-
-  doc.add(id.clone());
-  doc.add(field1.clone());
-  doc.add(field2.clone());
+  doc.add(new_string_field(
+    &mut random,
+    "id",
+    "",
+    No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    &mut random,
+    "foo",
+    "",
+    No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    &mut random,
+    "bar",
+    "",
+    No,
+    &mut field_to_type,
+  )?);
 
   for i in 0..num_docs {
+    let Some(Fields::Field(id)) = doc.get_field_mut("id") else {
+      unreachable!("id field must exist")
+    };
     id.set_string_value(i.to_string())?;
 
     let ch1 =
       char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
     let ch2 =
       char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
+    let Some(Fields::Field(field1)) = doc.get_field_mut("foo") else {
+      unreachable!("foo field must exist")
+    };
     field1.set_string_value(format!("{} {}", ch1, ch2))?;
 
     let ch1 =
       char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
     let ch2 =
       char::from_u32(TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u32).unwrap();
+    let Some(Fields::Field(field2)) = doc.get_field_mut("bar") else {
+      unreachable!("bar field must exist")
+    };
     field2.set_string_value(format!("{} {}", ch1, ch2))?;
 
-    writer.add_document(&mut random, doc.clone())?;
+    writer.add_document(&mut random, &mut doc)?;
   }
 
   {

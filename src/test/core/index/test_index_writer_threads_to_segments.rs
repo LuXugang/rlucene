@@ -82,7 +82,7 @@ fn test_segment_count_on_flush_basic() -> Result<()> {
           "here is some text",
           Store::No,
         )?);
-        w.add_document(doc.clone())?;
+        w.add_document(&mut doc)?;
         start_done.wait();
 
         middle_gun.wait();
@@ -245,7 +245,7 @@ fn test_segment_count_on_flush_random() -> Result<()> {
               Store::No,
             )?);
             for _ in 0..200 {
-              w.add_document(doc.clone())?;
+              w.add_document(&mut doc)?;
             }
           }
           if barrier.wait().is_leader() {
@@ -297,7 +297,7 @@ fn test_many_threads_close() -> Result<()> {
           Store::No,
         )?);
         for _ in 0..1000 {
-          match w.add_document(&mut thread_random, doc.clone()) {
+          match w.add_document(&mut thread_random, &mut doc) {
             Ok(_) => {},
             Err(LuceneError::AlreadyClosed(_)) => break,
             Err(e) => return Err(e),

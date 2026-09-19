@@ -82,15 +82,6 @@ pub struct XYPointField {
   parent_field: Field,
 }
 
-#[cfg(test)]
-impl Clone for XYPointField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}
-
 impl XYPointField {
   /// Change the values of this field
   ///

@@ -31,6 +31,7 @@ where
 {
   let multi_readers = MultiReader::new(vec![reader.clone()])?;
   for f in FIELDS.iter() {
+    let f = f();
     if *f.field_type().index_options() != IndexOptions::None {
       let field_name = f.name();
       let norms_opt = reader.get_norm_values(field_name)?;

@@ -63,7 +63,7 @@ fn test_float_norms() -> Result<()> {
   let num = at_least(&mut random, 100);
 
   for _i in 0..num {
-    let mut doc = docs.next_doc()?;
+    let doc = docs.next_doc()?;
     let boost = TestUtil::next_int(&mut random, 1, 10);
     let boost_text = boost.to_string();
     let value = (0..boost)
@@ -73,7 +73,7 @@ fn test_float_norms() -> Result<()> {
     let f = TextField::from_string(FLOAT_TEST_FIELD, value, Store::Yes)?;
 
     doc.add(f);
-    writer.add_document(&mut random, doc.clone())?;
+    writer.add_document(&mut random, &mut *doc)?;
     doc.remove_field(FLOAT_TEST_FIELD);
     if rarely(&mut random) {
       writer.commit(&mut random)?;

@@ -495,12 +495,15 @@ pub trait BaseNormsFormatTestCase:
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let mut norm_ord = 0usize;
+    let mut doc = Document::new();
     for i in 0..num_docs {
-      let mut doc = Document::new();
-      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
       if !docs_with_field.get(i)? {
-        writer.add_document(random, doc)?;
+        let mut doc2 = Document::new();
+        doc2.add(StringField::from_string("id", i.to_string(), Store::No)?);
+        writer.add_document(random, doc2)?;
       } else {
+        doc.clear();
+        doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
         let value = norms[norm_ord];
         norm_ord += 1;
         doc.add(NumericDocValuesField::indexed_field("dv", value));
@@ -509,7 +512,7 @@ pub trait BaseNormsFormatTestCase:
           if value == 0 { "" } else { "a" },
           Store::No,
         )?);
-        writer.add_document(random, doc)?;
+        writer.add_document(random, &mut doc)?;
       }
 
       if random.random_range(0..31) == 0 {
@@ -659,10 +662,11 @@ pub trait BaseNormsFormatTestCase:
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let mut norm_ord = 0usize;
+    let mut doc = Document::new();
     for i in 0..num_docs {
-      let mut doc = Document::new();
-      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
       if docs_with_field.get(i)? {
+        doc.clear();
+        doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
         let value = norms[norm_ord];
         norm_ord += 1;
         doc.add(TextField::from_string(
@@ -671,8 +675,12 @@ pub trait BaseNormsFormatTestCase:
           Store::No,
         )?);
         doc.add(NumericDocValuesField::indexed_field("dv", value));
+        writer.add_document(random, &mut doc)?;
+      } else {
+        let mut doc2 = Document::new();
+        doc2.add(StringField::from_string("id", i.to_string(), Store::No)?);
+        writer.add_document(random, doc2)?;
       }
-      writer.add_document(random, doc)?;
 
       if random.random_range(0..31) == 0 {
         writer.commit(random)?;
@@ -722,7 +730,7 @@ pub trait BaseNormsFormatTestCase:
     let mut doc = Document::new();
     doc.add(TextField::from_string("indexed", "a", Store::No)?);
     for _ in 0..3 {
-      writer.add_document(random, doc.clone())?;
+      writer.add_document(random, &mut doc)?;
     }
 
     writer.force_merge(random, 1)?;
@@ -770,10 +778,10 @@ pub trait BaseNormsFormatTestCase:
 
     let mut doc = Document::new();
     doc.add(TextField::from_string("indexed", "a", Store::No)?);
-    let empty_doc = Document::new();
+    let mut empty_doc = Document::new();
     for _ in 0..3 {
-      writer.add_document(random, doc.clone())?;
-      writer.add_document(random, empty_doc.clone())?;
+      writer.add_document(random, &mut doc)?;
+      writer.add_document(random, &mut empty_doc)?;
     }
 
     writer.force_merge(random, 1)?;

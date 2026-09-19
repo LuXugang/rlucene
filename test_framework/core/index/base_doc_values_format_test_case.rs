@@ -854,13 +854,13 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       "sorted_set",
       new_bytes_ref_from_string(random, "engine")?,
     ));
-    w1.add_document(doc.clone())?;
+    w1.add_document(&mut doc)?;
 
     let dir2 = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let w2 = crate::core::index::index_writer::IndexWriter::new(dir2.clone(), iwc)?;
-    w2.add_document(doc)?;
+    w2.add_document(&mut doc)?;
     w2.commit()?;
 
     let reader = crate::core::index::directory_reader::open_from_writer(&w1)?;

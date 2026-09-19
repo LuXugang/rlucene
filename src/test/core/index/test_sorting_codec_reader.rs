@@ -95,7 +95,7 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
     "foo",
     BytesRef::from_string("b"),
   ));
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
 
   doc.add(SortedSetDocValuesField::new(
     "foo",
@@ -109,7 +109,7 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
     "foo",
     BytesRef::from_string("b"),
   ));
-  w.add_document(doc)?;
+  w.add_document(&mut doc)?;
 
   w.commit()?;
 

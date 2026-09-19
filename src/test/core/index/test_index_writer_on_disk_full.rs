@@ -537,10 +537,10 @@ fn test_corruption_after_disk_full_during_merge() -> Result<()> {
     Store::No,
     &mut field_types,
   )?);
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
   w.commit()?;
   w.delete_documents_with_terms(vec![Term::from_text("f", "who")])?;
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
 
   // disk fills up!
   let ftdm = FailTwiceDuringMerge::new();

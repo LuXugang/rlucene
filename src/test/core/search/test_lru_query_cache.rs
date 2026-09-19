@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::fields::Fields;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
@@ -253,19 +254,30 @@ fn test_concurrency() -> Result<()> {
   let body_result = std::thread::scope(|scope| -> Result<()> {
     let indexer = scope.spawn(|| {
       let mut random = random_from_seed(seeds[0]);
+      let mut doc = Document::new();
+      let setup_result = (|| -> Result<()> {
+        doc.add(StringField::from_string("color", "", Store::No)?);
+        Ok(())
+      })();
+      if let Err(error_value) = setup_result {
+        let mut first_error = error.lock();
+        if first_error.is_none() {
+          *first_error = Some(error_value);
+        }
+        indexing.store(false, Ordering::SeqCst);
+        return;
+      }
       for i in 0..num_docs {
         if !indexing.load(Ordering::SeqCst) {
           break;
         }
         let result = (|| -> Result<()> {
           let values = ["blue", "red", "yellow"];
-          let mut doc = Document::new();
-          doc.add(StringField::from_string(
-            "color",
-            values[random.random_range(0..values.len())],
-            Store::No,
-          )?);
-          w.add_document(&mut random, doc)?;
+          let Some(Fields::String(field)) = doc.get_field_mut("color") else {
+            return Err(LuceneError::illegal_state("color field is missing"));
+          };
+          field.set_string_value(values[random.random_range(0..values.len())])?;
+          w.add_document(&mut random, &mut doc)?;
           if (i & 63) == 0 {
             mgr.maybe_refresh()?;
             if rarely(&mut random) {
@@ -529,8 +541,9 @@ fn test_caching_accountable_query() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
+  let mut doc = Document::new();
   for _ in 0..100 {
-    w.add_document(&mut random, Document::new())?;
+    w.add_document(&mut random, &mut doc)?;
   }
   let reader = w.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
@@ -761,13 +774,15 @@ fn test_fine_grained_stats() -> Result<()> {
 
   let colors = ["blue", "red", "green", "yellow"];
 
-  let mut field = StringField::from_string("color", "", Store::No)?;
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("color", "", Store::No)?);
   for writer in [&w_1, &w_2] {
     for _ in 0..10 {
+      let Some(Fields::String(field)) = doc.get_field_mut("color") else {
+        return Err(LuceneError::illegal_state("color field is missing"));
+      };
       field.set_string_value(colors[random.random_range(0..colors.len())])?;
-      let mut doc = Document::new();
-      doc.add(field.clone());
-      writer.add_document(&mut random, doc)?;
+      writer.add_document(&mut random, &mut doc)?;
       if random.random_bool(0.5) {
         writer.get_reader(&mut random)?.close()?;
       }
@@ -1038,9 +1053,8 @@ fn test_random() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
-  let mut f = TextField::from_string("foo", "foo", Store::No)?;
-  doc.add(f.clone());
-  w.add_document(&mut random, doc)?;
+  doc.add(TextField::from_string("foo", "foo", Store::No)?);
+  w.add_document(&mut random, &mut doc)?;
 
   let (max_size, max_ram_bytes_used, iters) = if is_night_mode() {
     (
@@ -1070,10 +1084,11 @@ fn test_random() -> Result<()> {
   for i in 0..iters {
     if i == 0 || random.random_range(0..100) == 1 {
       let values = ["foo", "bar", "bar baz"];
-      f.set_string_value(values[random.random_range(0..values.len())])?;
-      let mut doc = Document::new();
-      doc.add(f.clone());
-      w.add_document(&mut random, doc)?;
+      let Some(Fields::Text(field)) = doc.get_field_mut("foo") else {
+        return Err(LuceneError::illegal_state("foo field is missing"));
+      };
+      field.set_string_value(values[random.random_range(0..values.len())])?;
+      w.add_document(&mut random, &mut doc)?;
       if random.random_bool(0.5) {
         let query = build_random_query(&mut random, 0)?;
         w.delete_documents_with_queries(&mut random, vec![query])?;
@@ -2039,9 +2054,11 @@ fn test_query_cache_soft_update() -> Result<()> {
       tombstone.add(NumericDocValuesField::new("soft_delete", 1));
       w.soft_update_document(
         Term::from_text("id", "1"),
-        tombstone.clone(),
+        tombstone,
         vec![NumericDocValuesField::new("soft_delete", 1).into()],
       )?;
+      let mut tombstone = Document::new();
+      tombstone.add(NumericDocValuesField::new("soft_delete", 1));
       w.soft_update_document(
         Term::from_text("id", "2"),
         tombstone,
@@ -2075,11 +2092,11 @@ fn test_bulk_scorer_locking() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let num_docs = at_least(&mut random, 10);
-  let empty_doc = Document::new();
+  let mut empty_doc = Document::new();
   for _ in 0..num_docs {
     let num_empty_docs = random.random_range(0..5000);
     for _ in 0..=num_empty_docs {
-      w.add_document(empty_doc.clone())?;
+      w.add_document(&mut empty_doc)?;
     }
     let mut doc = Document::new();
     for value in ["foo", "bar", "baz"] {
@@ -2090,7 +2107,7 @@ fn test_bulk_scorer_locking() -> Result<()> {
   }
   let num_empty_docs = TestUtil::next_int(&mut random, 3000, 5000);
   for _ in 0..=num_empty_docs {
-    w.add_document(empty_doc.clone())?;
+    w.add_document(&mut empty_doc)?;
   }
   if random.random_bool(0.5) {
     w.force_merge(1)?;

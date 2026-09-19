@@ -332,12 +332,3 @@ impl RangeFieldQueryBase for InetAddressRangeFieldQuery {
     Ok(to_string(value, dimension))
   }
 }
-
-#[cfg(test)]
-impl Clone for InetAddressRange {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

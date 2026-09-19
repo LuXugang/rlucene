@@ -63,6 +63,7 @@ impl TestSegmentReader {
   {
     let multi_readers = MultiReader::new(vec![reader.clone()])?;
     for f in FIELDS.iter() {
+      let f = f();
       if *f.field_type().index_options() != IndexOptions::None {
         let field_name = f.name();
         let norms_opt = reader.get_norm_values(field_name)?;
@@ -95,8 +96,10 @@ where
   R: Rng + ?Sized,
 {
   let (dir, document, info) = if is_light_mode() {
-    let (dir, document, info) = &*LIGHT_CONTEXT;
-    (dir.clone(), document.clone(), info.clone())
+    let (dir, _document, info) = &*LIGHT_CONTEXT;
+    let mut document = Document::new();
+    DocHelper::setup_doc(&mut document);
+    (dir.clone(), document, info.clone())
   } else {
     build_set_up(random)?
   };
@@ -115,7 +118,7 @@ where
   let dir = new_directory_shared(random)?;
   let mut documnet = Document::new();
   DocHelper::setup_doc(&mut documnet);
-  let info = DocHelper::write_doc(random, dir.clone(), documnet.clone())?;
+  let info = DocHelper::write_doc(random, dir.clone(), &mut documnet)?;
   Ok((dir, documnet, info))
 }
 #[test]

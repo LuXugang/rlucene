@@ -1038,11 +1038,11 @@ fn test_open_if_changed_nrt_to_commit() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
   w.commit()?;
   let commits = directory_reader::list_commits(dir.clone())?;
   assert_eq!(1, commits.len());
-  w.add_document(doc)?;
+  w.add_document(&mut doc)?;
   let r = directory_reader::open_from_writer(&w)?;
 
   assert_eq!(2, r.num_docs()?);
@@ -1487,7 +1487,7 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
   let mut w = IndexWriter::new(dir.clone(), IndexWriterConfig::with_analyzer(analyzer)?)?;
   let mut doc = Document::new();
   doc.add(StringField::from_string("field", "value", Store::No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut doc)?;
   w.close()?;
   drop(w);
 
@@ -1503,17 +1503,17 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
   w = IndexWriter::new(dir.clone(), config)?;
   doc = Document::new();
   doc.add(StringField::from_string("field", "value", Store::No)?);
-  w.add_document(doc)?;
+  w.add_document(&mut doc)?;
 
   doc = Document::new();
   doc.add(StringField::from_string("field", "value2", Store::No)?);
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
 
   w.commit()?;
 
   w.delete_documents_with_terms(vec![Term::from_text("field", "value2")])?;
 
-  w.add_document(doc)?;
+  w.add_document(&mut doc)?;
   w.close()?;
   let err = directory_reader::open_if_changed(&r);
   assert!(matches!(

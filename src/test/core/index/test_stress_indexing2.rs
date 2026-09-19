@@ -117,7 +117,7 @@ fn test_random() -> Result<()> {
     MAX_BUFFERED_DOCS,
     SEED,
   )?;
-  index_serial(&mut r, &docs, dir2.clone())?;
+  index_serial(&mut r, docs, dir2.clone())?;
 
   verify_equals_dirs(&mut r, dir1.clone(), dir2.clone(), "id")?;
   dir1.close()?;
@@ -155,7 +155,7 @@ fn test_multi_config() -> Result<()> {
       max_buffered_docs,
       seed,
     )?;
-    index_serial(&mut r, &docs, dir2.clone())?;
+    index_serial(&mut r, docs, dir2.clone())?;
     verify_equals_dirs(&mut r, dir1.clone(), dir2.clone(), "id")?;
     dir1.close()?;
     dir2.close()?;
@@ -288,11 +288,7 @@ where
   Ok(docs)
 }
 
-fn index_serial<R>(
-  random: &mut R,
-  docs: &HashMap<String, Document>,
-  dir: Arc<DirEnum>,
-) -> Result<()>
+fn index_serial<R>(random: &mut R, docs: HashMap<String, Document>, dir: Arc<DirEnum>) -> Result<()>
 where
   R: rand::Rng + ?Sized,
 {
@@ -301,8 +297,8 @@ where
   config.set_merge_policy(new_log_merge_policy(random)?);
   let w = IndexWriter::new(dir, config)?;
 
-  for d in docs.values() {
-    let mut fields: Vec<DocumentFields> = d.get_fields().to_vec();
+  for (_, d) in docs {
+    let mut fields: Vec<DocumentFields> = d.into_iter().collect();
     fields.sort_by(|a, b| a.name().cmp(b.name()));
 
     let mut d1 = Document::new();
@@ -902,7 +898,7 @@ impl IndexingThread {
     for field in fields {
       d.add(field);
     }
-    w.update_document_with_term(Some(Term::from_text("id", id_string.clone())), d.clone())?;
+    w.update_document_with_term(Some(Term::from_text("id", id_string.clone())), &mut d)?;
     self.docs.insert(id_string, d);
     Ok(())
   }

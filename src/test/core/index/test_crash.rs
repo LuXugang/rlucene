@@ -86,7 +86,7 @@ fn init_index_with_directory(
   )?);
   doc.add(new_text_field(random, "id", "0", Store::No, field_to_type)?);
   for _ in 0..157 {
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
   }
 
   Ok(writer)

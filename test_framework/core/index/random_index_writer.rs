@@ -26,6 +26,7 @@ use crate::core::index::index_writer::{
   DefaultIndexWriter, DocStats, IndexCommitWrapper, IndexWriter, IndexWriterHooks,
   IndexWriterHooksEnum,
 };
+use crate::core::index::index_writer::{IndexingDocument, IntoFallibleIterator};
 use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{MergePolicyEnum, OneMerge};
@@ -47,6 +48,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
+use std::borrow::BorrowMut;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -250,10 +252,9 @@ where
   pub fn add_document<R, DF>(&self, r: &mut R, doc: DF) -> Result<i64>
   where
     R: Rng + ?Sized,
-    DF: IntoIterator<Item = Fields>,
+    DF: IndexingDocument,
   {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
-    let doc: Vec<Fields> = doc.into_iter().collect();
     let seq_no = if r.random_range(0..5) == 3 {
       self.w.add_documents([doc])
     } else {
@@ -340,14 +341,11 @@ where
   pub fn add_documents<R, DI>(&self, r: &mut R, docs: DI) -> Result<i64>
   where
     R: Rng + ?Sized,
-    DI: IntoIterator,
-    DI::Item: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
   {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
-    let docs: Vec<Vec<Fields>> = docs
-      .into_iter()
-      .map(|doc| doc.into_iter().collect())
-      .collect();
     let seq_no = self.w.add_documents(docs)?;
     self.maybe_flush_or_commit(r)?;
     Ok(seq_no)
@@ -362,15 +360,12 @@ where
   where
     R: Rng + ?Sized,
     T: Into<Term>,
-    DI: IntoIterator,
-    DI::Item: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
   {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let del_term = del_term.into();
-    let docs: Vec<Vec<Fields>> = docs
-      .into_iter()
-      .map(|doc| doc.into_iter().collect())
-      .collect();
     let seq_no = if self.use_soft_deletes(r) {
       let soft_deletes_field = self
         .w
@@ -409,11 +404,10 @@ where
   where
     R: Rng + ?Sized,
     T: Into<Term>,
-    DF: IntoIterator<Item = Fields>,
+    DF: IndexingDocument,
   {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let del_term = del_term.into();
-    let doc: Vec<Fields> = doc.into_iter().collect();
     let seq_no = if self.use_soft_deletes(r) {
       let soft_deletes_field = self
         .w

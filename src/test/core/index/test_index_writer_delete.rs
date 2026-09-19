@@ -566,12 +566,12 @@ fn test_delete_all_repeated() -> Result<()> {
     let modifier = modifier.clone();
     let num_fields = num_fields.clone();
     threads.push(thread::spawn(move || -> Result<()> {
+      let mut document = Document::new();
+      for i in 0..fields_per_doc {
+        document.add(StoredField::from_string(format!("field{i}"), "")?);
+      }
       while num_fields.fetch_add(fields_per_doc, Ordering::SeqCst) < breaking_field_count {
-        let mut document = Document::new();
-        for i in 0..fields_per_doc {
-          document.add(StoredField::from_string(format!("field{i}"), "")?);
-        }
-        modifier.add_document(document)?;
+        modifier.add_document(&mut document)?;
         modifier.delete_all()?;
       }
       Ok(())
@@ -1305,7 +1305,7 @@ fn test_indexing_then_deleting() -> Result<()> {
     if do_indexing {
       let start_flush_count = writer.get_flush_count();
       while writer.get_flush_count() == start_flush_count {
-        writer.add_document(doc.clone())?;
+        writer.add_document(&mut doc)?;
         count += 1;
       }
     } else {

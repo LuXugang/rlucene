@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::fields::Fields;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
@@ -234,8 +235,9 @@ impl SearchEquivalenceTestBaseMeta {
     let analyzer = MockAnalyzer::with_filter(random, WHITESPACE.clone(), false, stopset);
     let iw = RandomIndexWriter::with_analyzer(random, directory.clone(), analyzer)?;
 
-    let id = StringField::from_string("id", "", Store::No)?;
-    let field = TextField::from_string("field", "", Store::No)?;
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "", Store::No)?);
+    doc.add(TextField::from_string("field", "", Store::No)?);
 
     let num_docs = if is_night_mode() {
       at_least(random, 1000)
@@ -244,14 +246,16 @@ impl SearchEquivalenceTestBaseMeta {
     };
 
     for i in 0..num_docs {
-      let mut doc = Document::new();
-      let mut id = id.clone();
-      let mut field = field.clone();
+      let Some(Fields::String(id)) = doc.get_field_mut("id") else {
+        unreachable!("id field must exist")
+      };
       id.set_string_value(i.to_string())?;
+
+      let Some(Fields::Text(field)) = doc.get_field_mut("field") else {
+        unreachable!("field must exist")
+      };
       field.set_string_value(random_field_contents(random))?;
-      doc.add(id);
-      doc.add(field);
-      iw.add_document(random, doc)?;
+      iw.add_document(random, &mut doc)?;
     }
 
     let num_deletes = num_docs / 20;

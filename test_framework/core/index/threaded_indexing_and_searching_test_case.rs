@@ -15,8 +15,14 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::field::Field;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
+use crate::core::document::int_field::IntField;
+use crate::core::document::keyword_field::KeywordField;
+use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
+use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRefValue;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
@@ -28,6 +34,8 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{
   IndexReaderWarmer, IndexReaderWarmerEnum, IndexWriter, MAX_TERM_LENGTH,
 };
+use crate::core::index::indexable_field::IndexableField;
+use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
@@ -47,7 +55,7 @@ use crate::core::store::directory::{Directory, MockDirWrapper};
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::fail_on_non_bulk_merges_info_stream::FailOnNonBulkMergesInfoStream;
@@ -230,12 +238,12 @@ where
     Ok(())
   }
 
-  fn add_document(&self, _id: Term, document: Document) -> Result<()> {
+  fn add_document(&self, _id: Term, document: &mut Document) -> Result<()> {
     self.state().writer().add_document(document)?;
     Ok(())
   }
 
-  fn update_document(&self, term: Term, document: Document) -> Result<()> {
+  fn update_document(&self, term: Term, document: &mut Document) -> Result<()> {
     self
       .state()
       .writer()
@@ -453,6 +461,72 @@ where
         let all_sub_docs = all_sub_docs.clone();
         let field_to_type = field_to_type.clone();
         index_threads.push(scope.spawn(move || -> Result<()> {
+          let clone_document = |document: &Document| -> Result<Document> {
+            let mut clone = Document::new();
+            for field in document {
+              match field {
+                Fields::Keyword(field) => clone.add(KeywordField::from_string(
+                  field.name(),
+                  field
+                    .string_value()?
+                    .ok_or_else(|| LuceneError::illegal_state("keyword field has no string value"))?
+                    .into_owned(),
+                  if field.field_type().stored() {
+                    Store::Yes
+                  } else {
+                    Store::No
+                  },
+                )?),
+                Fields::IntField(field) => clone.add(IntField::new(
+                  field.name(),
+                  field
+                    .numeric_value()?
+                    .and_then(|value| value.to_i32())
+                    .ok_or_else(|| LuceneError::illegal_state("int field has no numeric value"))?,
+                  if field.field_type().stored() {
+                    Store::Yes
+                  } else {
+                    Store::No
+                  },
+                )?),
+                Fields::NumericDocValues(field) => clone.add(NumericDocValuesField::new(
+                  field.name(),
+                  field
+                    .numeric_value()?
+                    .and_then(|value| value.to_i64())
+                    .ok_or_else(|| {
+                      LuceneError::illegal_state("numeric doc values field has no numeric value")
+                    })?,
+                )),
+                Fields::String(field) => clone.add(StringField::from_string(
+                  field.name(),
+                  field
+                    .string_value()?
+                    .ok_or_else(|| LuceneError::illegal_state("string field has no string value"))?
+                    .into_owned(),
+                  if field.field_type().stored() {
+                    Store::Yes
+                  } else {
+                    Store::No
+                  },
+                )?),
+                Fields::Field(field) => clone.add(Field::from_string(
+                  field.name(),
+                  field
+                    .string_value()?
+                    .ok_or_else(|| LuceneError::illegal_state("field has no string value"))?
+                    .into_owned(),
+                  field.field_type().clone(),
+                )?),
+                _ => {
+                  return Err(LuceneError::illegal_state(
+                    "unsupported field in cloned document",
+                  ));
+                },
+              }
+            }
+            Ok(clone)
+          };
           let mut random = StdRng::seed_from_u64(seed);
           let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
             let mut to_delete_ids = Vec::<String>::new();
@@ -474,7 +548,10 @@ where
                 ));
               }
 
-              let mut document = docs.lock().next_doc()?;
+              let mut document = {
+                let mut docs = docs.lock();
+                clone_document(docs.next_doc()?)?
+              };
               // Maybe add a randomly named field.
               let added_field = if random.random_bool(0.5) {
                 let field_name = format!("extra{}", random.random_range(0..40));
@@ -485,8 +562,8 @@ where
                   Store::Yes,
                   &mut field_to_type.lock(),
                 )?;
-                document.add(field.clone());
-                Some((field_name, field))
+                document.add(field);
+                Some(field_name)
               } else {
                 None
               };
@@ -520,8 +597,8 @@ where
                     Store::Yes,
                     &mut field_to_type.lock(),
                   )?;
-                  document.add(pack_id_field.clone());
-                  let mut docs_list = vec![document.clone()];
+                  document.add(pack_id_field);
+                  let mut docs_list = vec![clone_document(&document)?];
                   let mut docs_ids = vec![
                     document
                       .get("docid")?
@@ -530,10 +607,25 @@ where
                   ];
                   let max_doc_count = TestUtil::next_usize(&mut random, 1, 10);
                   while docs_list.len() < max_doc_count {
-                    let mut next_document = docs.lock().next_doc()?;
-                    next_document.add(pack_id_field.clone());
-                    if let Some((_, field)) = added_field.as_ref() {
-                      next_document.add(field.clone());
+                    let mut next_document = {
+                      let mut docs = docs.lock();
+                      clone_document(docs.next_doc()?)?
+                    };
+                    next_document.add(new_string_field(
+                      &mut random,
+                      "packID",
+                      pack_id.clone(),
+                      Store::Yes,
+                      &mut field_to_type.lock(),
+                    )?);
+                    if let Some(field_name) = added_field.as_ref() {
+                      next_document.add(new_text_field(
+                        &mut random,
+                        field_name.clone(),
+                        "a random field",
+                        Store::Yes,
+                        &mut field_to_type.lock(),
+                      )?);
                     }
                     docs_ids.push(
                       next_document
@@ -578,13 +670,14 @@ where
                   let document_id = document
                     .get("docid")?
                     .expect("LineFileDocs document must have docid");
+                  let document_id = document_id.into_owned();
                   self.add_document(
                     Term::from_text("docid", document_id.as_str()),
-                    document.clone(),
+                    &mut document,
                   )?;
                   self.state().add_count.fetch_add(1, Ordering::SeqCst);
                   if random.random_range(0..5) == 3 {
-                    to_delete_ids.push(document_id.into_owned());
+                    to_delete_ids.push(document_id);
                   }
                 }
               } else {
@@ -593,13 +686,14 @@ where
                 let document_id = document
                   .get("docid")?
                   .expect("LineFileDocs document must have docid");
+                let document_id = document_id.into_owned();
                 self.update_document(
                   Term::from_text("docid", document_id.as_str()),
-                  document.clone(),
+                  &mut document,
                 )?;
                 self.state().add_count.fetch_add(1, Ordering::SeqCst);
                 if random.random_range(0..5) == 3 {
-                  to_delete_ids.push(document_id.into_owned());
+                  to_delete_ids.push(document_id);
                 }
               }
 
@@ -626,7 +720,7 @@ where
                     .fetch_add(sub_docs.sub_ids.len() as i32, Ordering::SeqCst);
                 }
               }
-              if let Some((field_name, _)) = added_field {
+              if let Some(field_name) = added_field {
                 document.remove_field(&field_name);
               }
             }

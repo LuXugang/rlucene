@@ -412,12 +412,3 @@ impl PointInSetBase for IntPointInSetQuery {
     Ok(IntPoint::decode_dimension(value, 0).to_string())
   }
 }
-
-#[cfg(test)]
-impl Clone for IntPoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

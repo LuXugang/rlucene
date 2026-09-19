@@ -442,12 +442,3 @@ impl PointInSetBase for DoublePointInSetQuery {
     Ok(DoublePoint::decode_dimension(value, 0).to_string())
   }
 }
-
-#[cfg(test)]
-impl Clone for DoublePoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

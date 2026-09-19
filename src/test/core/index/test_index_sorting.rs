@@ -2970,6 +2970,7 @@ struct PositionsTokenStream {
   attrs: Attributes,
   pos: i32,
   off: i32,
+  initial_pos: i32,
 }
 
 impl PositionsTokenStream {
@@ -2978,6 +2979,7 @@ impl PositionsTokenStream {
       attrs: Attributes::default(),
       pos: 0,
       off: 0,
+      initial_pos: 0,
     }
   }
 
@@ -2989,6 +2991,7 @@ impl PositionsTokenStream {
 
   fn set_id(&mut self, id: i32) {
     self.pos = id / 10 + 1;
+    self.initial_pos = self.pos;
     self.off = 0;
   }
 }
@@ -3014,6 +3017,12 @@ impl TokenStream for PositionsTokenStream {
 
   fn end(&mut self) -> Result<()> {
     self.default_end()
+  }
+
+  fn reset(&mut self) -> Result<()> {
+    self.pos = self.initial_pos;
+    self.off = 0;
+    self.default_reset()
   }
 
   fn get_attribute_source(&self) -> &Attributes {
@@ -3070,38 +3079,19 @@ fn test_random2() -> Result<()> {
   term_vectors_type.set_store_term_vectors(true)?;
   term_vectors_type.freeze();
 
-  let mut docs: Vec<i32> = Vec::new();
+  let mut docs = Vec::new();
   for i in 0..num_docs {
-    docs.push(i * 10);
-  }
-
-  let seed = random.random::<u64>();
-  let analyzer_seed = random.random::<u64>();
-
-  let dir1 = new_fs_directory(&mut random, create_temp_dir()?)?;
-
-  let mut random1 = StdRng::seed_from_u64(seed);
-  let mut iwc1 = new_index_writer_config_with_analyzer(
-    &mut random1,
-    Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
-  )?;
-  iwc1.set_similarity(SimilarityEnum::custom(NormsSimilarity::new(
-    get_default_similarity()?,
-  )));
-  iwc1.set_merge_policy(new_log_merge_policy(&mut random1)?);
-  let w1 = RandomIndexWriter::with_config(&mut random1, dir1.clone(), iwc1);
-  #[allow(clippy::explicit_counter_loop)]
-  for id in &docs {
+    let id = i * 10;
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
     doc.add(StringField::from_string("docs", "#all#", Store::No)?);
     doc.add(Field::from_token_stream(
       "positions",
-      FieldTokenStreamEnum::custom(PositionsTokenStream::with_id(*id)),
+      FieldTokenStreamEnum::custom(PositionsTokenStream::with_id(id)),
       positions_type.clone(),
     )?);
-    doc.add(NumericDocValuesField::new("numeric", *id as i64));
-    let value = (0..*id)
+    doc.add(NumericDocValuesField::new("numeric", id as i64));
+    let value = (0..id)
       .map(|_| id.to_string())
       .collect::<Vec<_>>()
       .join(" ");
@@ -3120,15 +3110,15 @@ fn test_random2() -> Result<()> {
     ));
     doc.add(SortedSetDocValuesField::new(
       "multi_valued_string",
-      BytesRef::from_string(&(*id + 1).to_string()),
+      BytesRef::from_string(&(id + 1).to_string()),
     ));
     doc.add(SortedNumericDocValuesField::new(
       "multi_valued_numeric",
-      *id as i64,
+      id as i64,
     ));
     doc.add(SortedNumericDocValuesField::new(
       "multi_valued_numeric",
-      (*id + 1) as i64,
+      (id + 1) as i64,
     ));
     doc.add(Field::new(
       "term_vectors",
@@ -3136,8 +3126,27 @@ fn test_random2() -> Result<()> {
       term_vectors_type.clone(),
     ));
     let mut bytes = [0u8; 4];
-    NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
+    NumericUtils::int_to_sortable_bytes(id, &mut bytes, 0);
     doc.add(BinaryPoint::new("points", [bytes])?);
+    docs.push(doc);
+  }
+
+  let seed = random.random::<u64>();
+  let analyzer_seed = random.random::<u64>();
+
+  let dir1 = new_fs_directory(&mut random, create_temp_dir()?)?;
+
+  let mut random1 = StdRng::seed_from_u64(seed);
+  let mut iwc1 = new_index_writer_config_with_analyzer(
+    &mut random1,
+    Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
+  )?;
+  iwc1.set_similarity(SimilarityEnum::custom(NormsSimilarity::new(
+    get_default_similarity()?,
+  )));
+  iwc1.set_merge_policy(new_log_merge_policy(&mut random1)?);
+  let w1 = RandomIndexWriter::with_config(&mut random1, dir1.clone(), iwc1);
+  for doc in &mut docs {
     w1.add_document(&mut random1, doc)?;
   }
 
@@ -3160,61 +3169,11 @@ fn test_random2() -> Result<()> {
 
   docs.shuffle(&mut random);
   let w2 = RandomIndexWriter::with_config(&mut random2, dir2.clone(), iwc2);
-  let mut count = 0;
   let commit_at_count = TestUtil::next_int(&mut random, 1, num_docs - 1);
-  #[allow(clippy::explicit_counter_loop)]
-  for id in &docs {
-    if count == commit_at_count {
+  for (count, doc) in docs.iter_mut().enumerate() {
+    if count as i32 == commit_at_count {
       w2.commit(&mut random2)?;
     }
-    count += 1;
-
-    let mut doc = Document::new();
-    doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
-    doc.add(StringField::from_string("docs", "#all#", Store::No)?);
-    doc.add(Field::from_token_stream(
-      "positions",
-      FieldTokenStreamEnum::custom(PositionsTokenStream::with_id(*id)),
-      positions_type.clone(),
-    )?);
-    doc.add(NumericDocValuesField::new("numeric", *id as i64));
-    let value = (0..*id)
-      .map(|_| id.to_string())
-      .collect::<Vec<_>>()
-      .join(" ");
-    doc.add(TextField::from_string("norms", value, Store::No)?);
-    doc.add(BinaryDocValuesField::new(
-      "binary",
-      BytesRef::from_string(&id.to_string()),
-    ));
-    doc.add(SortedDocValuesField::new(
-      "sorted",
-      BytesRef::from_string(&id.to_string()),
-    ));
-    doc.add(SortedSetDocValuesField::new(
-      "multi_valued_string",
-      BytesRef::from_string(&id.to_string()),
-    ));
-    doc.add(SortedSetDocValuesField::new(
-      "multi_valued_string",
-      BytesRef::from_string(&(*id + 1).to_string()),
-    ));
-    doc.add(SortedNumericDocValuesField::new(
-      "multi_valued_numeric",
-      *id as i64,
-    ));
-    doc.add(SortedNumericDocValuesField::new(
-      "multi_valued_numeric",
-      (*id + 1) as i64,
-    ));
-    doc.add(Field::new(
-      "term_vectors",
-      id.to_string(),
-      term_vectors_type.clone(),
-    ));
-    let mut bytes = [0u8; 4];
-    NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
-    doc.add(BinaryPoint::new("points", [bytes])?);
     w2.add_document(&mut random2, doc)?;
   }
   w2.force_merge(&mut random2, 1)?;
@@ -3713,11 +3672,11 @@ fn test_wrong_sort_field_type() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let dvs: [Fields; 4] = [
-    SortedDocValuesField::new("field", new_bytes_ref_from_string(&mut random, "")?).into(),
-    SortedSetDocValuesField::new("field", new_bytes_ref_from_string(&mut random, "")?).into(),
-    NumericDocValuesField::new("field", 42).into(),
-    SortedNumericDocValuesField::new("field", 42).into(),
+  let dvs: [Box<dyn Fn() -> Fields>; 4] = [
+    Box::new(|| SortedDocValuesField::new("field", BytesRef::from_string("")).into()),
+    Box::new(|| SortedSetDocValuesField::new("field", BytesRef::from_string("")).into()),
+    Box::new(|| NumericDocValuesField::new("field", 42).into()),
+    Box::new(|| SortedNumericDocValuesField::new("field", 42).into()),
   ];
 
   let sort_fields: [SortFieldEnum; 4] = [
@@ -3728,7 +3687,7 @@ fn test_wrong_sort_field_type() -> Result<()> {
   ];
 
   for (i, sort_field) in sort_fields.iter().enumerate() {
-    for (j, dv) in dvs.iter().enumerate() {
+    for (j, _) in dvs.iter().enumerate() {
       if i == j {
         continue;
       }
@@ -3740,8 +3699,9 @@ fn test_wrong_sort_field_type() -> Result<()> {
       let writer = IndexWriter::new(dir.clone(), iwc)?;
 
       let mut doc = Document::new();
-      doc.add(dv.clone());
-      let err = writer.add_document(doc.clone()).unwrap_err();
+      let mismatched_dv_type = *dvs[j]().field_type().doc_values_type();
+      doc.add(dvs[j]());
+      let err = writer.add_document(&mut doc).unwrap_err();
       match err {
         LuceneError::IllegalArgument(msg) => {
           assert!(
@@ -3755,17 +3715,17 @@ fn test_wrong_sort_field_type() -> Result<()> {
       }
 
       doc.clear();
-      doc.add(dvs[i].clone());
-      writer.add_document(doc.clone())?;
-      doc.add(dv.clone());
-      let err = writer.add_document(doc).unwrap_err();
+      let expected_dv_type = *dvs[i]().field_type().doc_values_type();
+      doc.add(dvs[i]());
+      writer.add_document(&mut doc)?;
+      doc.add(dvs[j]());
+      let err = writer.add_document(&mut doc).unwrap_err();
       match err {
         LuceneError::IllegalArgument(msg) => {
           assert_eq!(
             format!(
               "Inconsistency of field data structures across documents for field [field] of doc [2]. doc values type: expected '{}', but it has '{}'.",
-              dvs[i].field_type().doc_values_type(),
-              dv.field_type().doc_values_type()
+              expected_dv_type, mismatched_dv_type
             ),
             msg.message.as_str()
           );
@@ -3796,13 +3756,14 @@ fn test_delete_by_term_or_query() -> Result<()> {
   let num_docs = random.random_range(5..2005);
   let mut expected_values = vec![0i64; num_docs];
 
+  let mut doc = Document::new();
   for (i, item) in expected_values.iter_mut().enumerate().take(num_docs) {
     *item = random.random_range(0..i32::MAX as i64);
 
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
     doc.add(NumericDocValuesField::new("numeric", *item));
-    writer.add_document(doc)?;
+    writer.add_document(&mut doc)?;
   }
 
   let num_deleted = random.random_range(1..(num_docs + 1));
@@ -3819,7 +3780,7 @@ fn test_delete_by_term_or_query() -> Result<()> {
 
     expected_values[id_to_delete] = -(random.random_range(0..i32::MAX as i64));
 
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(StringField::from_string(
       "id",
       id_to_delete.to_string(),
@@ -3829,7 +3790,7 @@ fn test_delete_by_term_or_query() -> Result<()> {
       "numeric",
       expected_values[id_to_delete],
     ));
-    writer.add_document(doc)?;
+    writer.add_document(&mut doc)?;
   }
 
   let mut doc_count = 0;

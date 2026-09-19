@@ -17,6 +17,7 @@
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::FieldBase;
+use crate::core::document::fields::Fields;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
@@ -56,8 +57,7 @@ fn test_numerics() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut doc = Document::new();
 
-  let mut field = NumericDocValuesField::new("numbers", 0i64);
-  doc.add(field.clone());
+  doc.add(NumericDocValuesField::new("numbers", 0i64));
   let _mock = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
@@ -72,8 +72,11 @@ fn test_numerics() -> Result<()> {
 
   for _ in 0..num_docs {
     let value = random.random();
+    let Some(Fields::NumericDocValues(field)) = doc.get_field_mut("numbers") else {
+      unreachable!("numbers field must be NumericDocValues")
+    };
     field.set_long_value(value)?;
-    iw.add_document(&mut random, doc.clone())?;
+    iw.add_document(&mut random, &mut doc)?;
 
     if random.random_range(0..17) == 0 {
       iw.commit(&mut random)?;
@@ -119,8 +122,7 @@ fn test_binary() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut doc = Document::new();
 
-  let mut field = BinaryDocValuesField::new("bytes", BytesRef::new());
-  doc.add(field.clone());
+  doc.add(BinaryDocValuesField::new("bytes", BytesRef::new()));
 
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
@@ -137,8 +139,11 @@ fn test_binary() -> Result<()> {
     let s = TestUtil::random_unicode_string(&mut random);
     let bytes = BytesRef::from_string(&s);
 
+    let Some(Fields::BinaryDocValues(field)) = doc.get_field_mut("bytes") else {
+      unreachable!("bytes field must be BinaryDocValues")
+    };
     field.set_bytes_value(bytes)?;
-    iw.add_document(&mut random, doc.clone())?;
+    iw.add_document(&mut random, &mut doc)?;
 
     if random.random_range(0..17) == 0 {
       iw.commit(&mut random)?;
@@ -190,9 +195,7 @@ fn test_sorted() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let mut doc = Document::new();
-
-  let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
-  doc.add(field.clone());
+  doc.add(SortedDocValuesField::new("bytes", BytesRef::new()));
 
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
@@ -207,13 +210,16 @@ fn test_sorted() -> Result<()> {
   for _ in 0..num_docs {
     let s = TestUtil::random_unicode_string(&mut random);
     let r = BytesRef::from_string(s.as_ref());
+    let Some(Fields::SortedDocValues(field)) = doc.get_field_mut("bytes") else {
+      unreachable!("bytes field must exist")
+    };
     field.set_bytes_value(r)?;
 
     if random.random_range(0..7) == 0 {
       iw.add_document(&mut random, Document::new())?;
     }
 
-    iw.add_document(&mut random, doc.clone())?;
+    iw.add_document(&mut random, &mut doc)?;
 
     if random.random_range(0..17) == 0 {
       iw.commit(&mut random)?;
@@ -277,8 +283,7 @@ fn test_sorted_with_lots_of_dups() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut doc = Document::new();
 
-  let mut field = SortedDocValuesField::new("bytes", BytesRef::new());
-  doc.add(field.clone());
+  doc.add(SortedDocValuesField::new("bytes", BytesRef::new()));
 
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
@@ -293,8 +298,11 @@ fn test_sorted_with_lots_of_dups() -> Result<()> {
   for _ in 0..num_docs {
     let s = TestUtil::random_simple_string_with_len(&mut random, 2);
     let r = BytesRef::from_string(s.as_ref());
+    let Some(Fields::SortedDocValues(field)) = doc.get_field_mut("bytes") else {
+      unreachable!("bytes field must be SortedDocValues")
+    };
     field.set_bytes_value(r)?;
-    iw.add_document(&mut random, doc.clone())?;
+    iw.add_document(&mut random, &mut doc)?;
 
     if random.random_range(0..17) == 0 {
       iw.commit(&mut random)?;

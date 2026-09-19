@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::field::FieldBase;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::document::text_field::TextField;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_reader::IndexReader;
@@ -98,11 +100,15 @@ fn test() -> Result<()> {
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
   let mut expected = Vec::new();
+  let mut doc = Document::new();
+  doc.add(TextField::from_string("foo", "", Store::No)?);
   for _ in 0..100 {
     let value = add_value(&mut random, &mut expected);
-    let mut doc = Document::new();
-    doc.add(TextField::from_string("foo", value, Store::No)?);
-    writer.add_document(&mut random, doc)?;
+    let Some(Fields::Text(foo)) = doc.get_field_mut("foo") else {
+      unreachable!("foo field must exist")
+    };
+    foo.set_string_value(value)?;
+    writer.add_document(&mut random, &mut doc)?;
   }
 
   let reader = writer.get_reader(&mut random)?;

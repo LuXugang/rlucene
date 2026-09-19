@@ -59,9 +59,9 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
     &mut field_types,
   )?);
 
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, &mut doc)?;
   w.commit(&mut random)?;
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, &mut doc)?;
 
   let r = w.get_reader(&mut random)?;
   w.close(&mut random)?;
@@ -71,7 +71,7 @@ fn test_closing_nrt_reader_does_not_corrupt_your_index() -> Result<()> {
     dir.delete_file(&name)?;
   }
   let w = RandomIndexWriter::new(&mut random, Arc::new(dir.clone()))?;
-  w.add_document(&mut random, doc)?;
+  w.add_document(&mut random, &mut doc)?;
   w.close(&mut random)?;
   r.close()?;
   Ok(())

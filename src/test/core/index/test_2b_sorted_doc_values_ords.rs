@@ -87,7 +87,7 @@ fn test_2b_ords() -> Result<()> {
       unreachable!("dv must be a SortedDocValuesField");
     };
     field.set_bytes_value(BytesRef::from_bytes(bytes.clone()))?;
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
     if i % 100_000 == 0 {
       println!("indexed: {i}");
     }

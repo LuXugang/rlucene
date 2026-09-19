@@ -140,12 +140,11 @@ fn test_multi_valued_doc_values_field() -> Result<()> {
   let w = RandomIndexWriter::with_config(&mut random, d.clone(), config);
 
   let mut doc = Document::new();
-  let f = NumericDocValuesField::new("field", 17);
-  doc.add(f.clone());
+  doc.add(NumericDocValuesField::new("field", 17));
 
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, &mut doc)?;
 
-  doc.add(f);
+  doc.add(NumericDocValuesField::new("field", 17));
   // Index doc values are single-valued so we should not
   // be able to add same field more than once:
   let res = w.add_document(&mut random, doc);
@@ -179,7 +178,7 @@ fn test_different_typed_doc_values_field() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("field", 17));
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, &mut doc)?;
 
   // Index doc values are single-valued so we should not
   // be able to add same field more than once:
@@ -218,7 +217,7 @@ fn test_different_typed_doc_values_field2() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("field", 17));
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, &mut doc)?;
   // Index doc values are single-valued so we should not
   // be able to add same field more than once:
   doc.add(SortedDocValuesField::new(
@@ -260,7 +259,7 @@ fn test_length_prefix_across_two_pages() -> Result<()> {
   let mut bytes = vec![0u8; 32_764];
   let mut b = BytesRef::from_bytes(bytes.clone());
   doc.add(SortedDocValuesField::new("field", b));
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
 
   bytes[0] = 1;
   b = BytesRef::from_bytes(bytes.clone());
@@ -413,7 +412,7 @@ fn test_add_sorted_twice() -> Result<()> {
     "dv",
     new_bytes_ref_from_string(&mut random, "foo!")?,
   ));
-  iwriter.add_document(doc.clone())?;
+  iwriter.add_document(&mut doc)?;
 
   doc.add(SortedDocValuesField::new(
     "dv",
@@ -450,7 +449,7 @@ fn test_add_binary_twice() -> Result<()> {
     "dv",
     new_bytes_ref_from_string(&mut random, "foo!")?,
   ));
-  iwriter.add_document(doc.clone())?;
+  iwriter.add_document(&mut doc)?;
 
   doc.add(BinaryDocValuesField::new(
     "dv",
@@ -485,7 +484,7 @@ fn test_add_numeric_twice() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("dv", 1));
-  iwriter.add_document(doc.clone())?;
+  iwriter.add_document(&mut doc)?;
 
   doc.add(NumericDocValuesField::new("dv", 2));
 

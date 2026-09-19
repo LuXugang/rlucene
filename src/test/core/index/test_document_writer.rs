@@ -88,7 +88,7 @@ fn test_add_document() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut test_doc = Document::new();
   DocHelper::setup_doc(&mut test_doc);
-  let info = DocHelper::write_doc(&mut random, dir, test_doc)?;
+  let info = DocHelper::write_doc(&mut random, dir, &mut test_doc)?;
 
   let reader = SegmentReader::new(
     &info,
@@ -664,10 +664,17 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
       let mut iwc = new_index_writer_config(&mut random)?;
       iwc.set_open_mode(OpenMode::Create);
       let writer = IndexWriter::new(dir.clone(), iwc)?;
-      let field = MockIndexableField::new("field", Some(BytesRef::from_string("a")), ft.clone());
       let mut doc = Document::new();
-      doc.add(field.clone());
-      doc.add(field);
+      doc.add(MockIndexableField::new(
+        "field",
+        Some(BytesRef::from_string("a")),
+        ft.clone(),
+      ));
+      doc.add(MockIndexableField::new(
+        "field",
+        Some(BytesRef::from_string("a")),
+        ft.clone(),
+      ));
       writer.add_document(doc)?;
       writer.close()?;
     }

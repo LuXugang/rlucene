@@ -442,12 +442,3 @@ fn to_string(ranges: &[u8], dimension: usize) -> String {
     decode_max(ranges, dimension)
   )
 }
-
-#[cfg(test)]
-impl Clone for DoubleRange {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

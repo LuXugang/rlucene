@@ -975,7 +975,8 @@ where
   pub fn add_documents<DI>(&self, docs: DI) -> Result<i64>
   where
     DI: IntoFallibleIterator,
-    DI::Item: IntoFallibleIterator<Item = Fields>,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
   {
     self.update_documents(None, docs)
@@ -995,7 +996,7 @@ where
   pub fn update_document_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
   where
     T: Into<Option<Term>>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DF: IndexingDocument,
     D: 'static,
   {
     let del_node = del_term
@@ -1025,7 +1026,8 @@ where
   where
     T: Into<Option<Term>>,
     DI: IntoFallibleIterator,
-    DI::Item: IntoFallibleIterator<Item = Fields>,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
   {
     let del_node = del_term
@@ -1040,7 +1042,8 @@ where
   where
     T: Into<Option<Query>>,
     DI: IntoFallibleIterator,
-    DI::Item: IntoFallibleIterator<Item = Fields>,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
   {
     let del_node = del_query
@@ -1117,7 +1120,8 @@ where
   where
     T: Into<Arc<Term>>,
     DF: IntoFallibleIterator,
-    DF::Item: IntoFallibleIterator<Item = Fields>,
+    DF::Item: IntoFallibleIterator,
+    <DF::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
     Updates: IntoIterator<Item = Fields>,
   {
@@ -1290,7 +1294,7 @@ where
   ) -> Result<i64>
   where
     T: Into<Arc<Term>>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DF: IndexingDocument,
     D: 'static,
     Updates: IntoIterator<Item = Fields>,
   {

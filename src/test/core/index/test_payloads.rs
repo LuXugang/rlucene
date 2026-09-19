@@ -238,7 +238,7 @@ where
   for _ in 0..2 * num_docs {
     analyzer.set_payload_data(field_name, payload_data.clone(), offset, 1);
     offset += num_terms;
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   writer.commit()?;
@@ -246,7 +246,7 @@ where
   for i in 0..num_docs {
     analyzer.set_payload_data(field_name, payload_data.clone(), offset, i);
     offset += i * num_terms;
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   writer.force_merge(1)?;
@@ -805,7 +805,7 @@ fn test_across_fields() -> Result<()> {
     "here we go",
     Store::Yes,
   )?);
-  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, &mut doc)?;
   writer.add_document(&mut random, doc)?;
   writer.force_merge(&mut random, 1)?;
   writer.close(&mut random)?;

@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
+use crate::core::document::field::FieldBase;
 use crate::core::document::field::Store::No;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::BytesRef;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -63,6 +65,22 @@ fn test_random() -> Result<()> {
     let only_unique_terms = random.random_bool(0.5);
     let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
 
+    let mut doc = Document::new();
+    doc.add(new_string_field(
+      &mut random,
+      "field",
+      "",
+      No,
+      &mut field_to_type,
+    )?);
+    doc.add(new_string_field(
+      &mut random,
+      "id",
+      "",
+      No,
+      &mut field_to_type,
+    )?);
+
     for i in 0..num_docs {
       let (term, value) = if !only_unique_terms && random.random_bool(0.5) && !terms.is_empty() {
         let term = terms[random.random_range(0..terms.len())].clone();
@@ -77,22 +95,19 @@ fn test_random() -> Result<()> {
         (term, value)
       };
 
-      let mut doc = Document::new();
-      doc.add(new_string_field(
-        &mut random,
-        "field",
-        value,
-        No,
-        &mut field_to_type,
-      )?);
-      doc.add(new_string_field(
-        &mut random,
-        "id",
-        i.to_string(),
-        No,
-        &mut field_to_type,
-      )?);
-      w.add_document(doc)?;
+      let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+        return Err(
+          crate::core::util::error::lucene_error::LuceneError::illegal_state("field must exist"),
+        );
+      };
+      field.set_string_value(value)?;
+      let Some(Fields::Field(id)) = doc.get_field_mut("id") else {
+        return Err(
+          crate::core::util::error::lucene_error::LuceneError::illegal_state("id field must exist"),
+        );
+      };
+      id.set_string_value(i.to_string())?;
+      w.add_document(&mut doc)?;
 
       if random.random_range(0..4) == 1 {
         w.commit()?;
@@ -150,7 +165,7 @@ fn test_separate_enums() -> Result<()> {
     &mut field_to_type,
   )?);
 
-  iw.add_document(doc.clone())?;
+  iw.add_document(&mut doc)?;
   iw.commit()?;
   iw.add_document(doc)?;
 
@@ -199,7 +214,7 @@ fn test_term_docs_enum() -> Result<()> {
     No,
     &mut field_to_type,
   )?);
-  iw.add_document(doc.clone())?;
+  iw.add_document(&mut doc)?;
   iw.commit()?;
   iw.add_document(doc)?;
 

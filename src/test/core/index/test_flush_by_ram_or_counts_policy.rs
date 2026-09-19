@@ -370,7 +370,8 @@ where
     if remaining < 0 {
       break;
     }
-    let doc = docs.lock().next_doc()?;
+    let mut docs = docs.lock();
+    let doc = docs.next_doc()?;
     writer.add_document(doc)?;
     let new_ram_size = writer.ram_bytes_used()?;
     if new_ram_size != ram_size {

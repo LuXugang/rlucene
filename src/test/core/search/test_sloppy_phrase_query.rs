@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LRNormNumericDocValues;
@@ -447,30 +448,33 @@ fn test_slop_with_holes() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
-  let mut f = Field::new("lyrics", "", custom_type);
   let mut doc = Document::new();
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  doc.add(Field::new("lyrics", "", custom_type));
+  writer.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("drug drug")?;
-  doc = Document::new();
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("lyrics") {
+    Some(Fields::Field(field)) => field.set_string_value("drug drug")?,
+    _ => panic!("expected field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("drug druggy drug")?;
-  doc = Document::new();
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("lyrics") {
+    Some(Fields::Field(field)) => field.set_string_value("drug druggy drug")?,
+    _ => panic!("expected field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("drug druggy druggy drug")?;
-  doc = Document::new();
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("lyrics") {
+    Some(Fields::Field(field)) => field.set_string_value("drug druggy druggy drug")?,
+    _ => panic!("expected field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("drug druggy drug druggy drug")?;
-  doc = Document::new();
-  doc.add(f);
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("lyrics") {
+    Some(Fields::Field(field)) => field.set_string_value("drug druggy drug druggy drug")?,
+    _ => panic!("expected field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
   let reader = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;

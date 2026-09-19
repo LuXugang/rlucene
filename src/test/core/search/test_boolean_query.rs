@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -579,25 +580,26 @@ fn test_filter_clause_behaves_like_must() -> Result<()> {
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
-  let mut f = new_text_field(
+  doc.add(new_text_field(
     &mut random,
     "field",
     "a b c d",
     Store::No,
     &mut field_to_type,
-  )?;
-  doc.add(f.clone());
-  w.add_document(&mut random, doc)?;
+  )?);
+  w.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("b d")?;
-  let mut doc = Document::new();
-  doc.add(f.clone());
-  w.add_document(&mut random, doc)?;
+  match doc.get_field_mut("field") {
+    Some(Fields::Field(field)) => field.set_string_value("b d")?,
+    _ => panic!("expected field"),
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("d")?;
-  let mut doc = Document::new();
-  doc.add(f);
-  w.add_document(&mut random, doc)?;
+  match doc.get_field_mut("field") {
+    Some(Fields::Field(field)) => field.set_string_value("d")?,
+    _ => panic!("expected field"),
+  }
+  w.add_document(&mut random, &mut doc)?;
 
   w.commit(&mut random)?;
 
@@ -660,25 +662,26 @@ fn test_filter_clause_does_not_impact_score() -> Result<()> {
   let mut field_to_type = HashMap::new();
 
   let mut doc = Document::new();
-  let mut f = new_text_field(
+  doc.add(new_text_field(
     &mut random,
     "field",
     "a b c d",
     Store::No,
     &mut field_to_type,
-  )?;
-  doc.add(f.clone());
-  w.add_document(&mut random, doc)?;
+  )?);
+  w.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("b d")?;
-  let mut doc = Document::new();
-  doc.add(f.clone());
-  w.add_document(&mut random, doc)?;
+  match doc.get_field_mut("field") {
+    Some(Fields::Field(field)) => field.set_string_value("b d")?,
+    _ => panic!("expected field"),
+  }
+  w.add_document(&mut random, &mut doc)?;
 
-  f.set_string_value("a d")?;
-  let mut doc = Document::new();
-  doc.add(f);
-  w.add_document(&mut random, doc)?;
+  match doc.get_field_mut("field") {
+    Some(Fields::Field(field)) => field.set_string_value("a d")?,
+    _ => panic!("expected field"),
+  }
+  w.add_document(&mut random, &mut doc)?;
 
   w.commit(&mut random)?;
 
@@ -1000,18 +1003,19 @@ fn test_conjunction_matches_count() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut doc = Document::new();
-  let mut long_point = LongPoint::new("long", [3i64])?;
-  doc.add(long_point.clone());
-  let mut string_field = StringField::from_string("string", "abc", No)?;
-  doc.add(string_field.clone());
-  writer.add_document(doc)?;
+  doc.add(LongPoint::new("long", [3i64])?);
+  doc.add(StringField::from_string("string", "abc", No)?);
+  writer.add_document(&mut doc)?;
 
-  long_point.set_long_value(10)?;
-  string_field.set_string_value("xyz")?;
-  doc = Document::new();
-  doc.add(string_field);
-  doc.add(long_point);
-  writer.add_document(doc)?;
+  match doc.get_field_mut("long") {
+    Some(Fields::LongPoint(long_point)) => long_point.set_long_value(10)?,
+    _ => panic!("expected long point"),
+  }
+  match doc.get_field_mut("string") {
+    Some(Fields::String(string_field)) => string_field.set_string_value("xyz")?,
+    _ => panic!("expected string field"),
+  }
+  writer.add_document(&mut doc)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
 
@@ -1104,25 +1108,24 @@ fn test_disjunction_matches_count() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
   let mut doc = Document::new();
-  let mut long_point = LongPoint::new("long", [3i64])?;
-  let mut long_point_3dim = LongPoint::new("long3dim", [3i64, 4i64, 5i64])?;
-  doc.add(long_point.clone());
-  doc.add(long_point_3dim.clone());
+  doc.add(LongPoint::new("long", [3i64])?);
+  doc.add(LongPoint::new("long3dim", [3i64, 4i64, 5i64])?);
+  doc.add(StringField::from_string("string", "abc", No)?);
+  writer.add_document(&mut doc)?;
 
-  let mut string_field = StringField::from_string("string", "abc", No)?;
-  doc.add(string_field.clone());
-
-  writer.add_document(doc)?;
-
-  long_point.set_long_value(10)?;
-  long_point_3dim.set_long_values([10i64, 11i64, 12i64])?;
-  string_field.set_string_value("xyz")?;
-
-  doc = Document::new();
-  doc.add(string_field);
-  doc.add(long_point);
-  doc.add(long_point_3dim);
-  writer.add_document(doc)?;
+  match doc.get_field_mut("long") {
+    Some(Fields::LongPoint(long_point)) => long_point.set_long_value(10)?,
+    _ => panic!("expected long point"),
+  }
+  match doc.get_field_mut("long3dim") {
+    Some(Fields::LongPoint(long_point)) => long_point.set_long_values([10i64, 11i64, 12i64])?,
+    _ => panic!("expected long point"),
+  }
+  match doc.get_field_mut("string") {
+    Some(Fields::String(string_field)) => string_field.set_string_value("xyz")?,
+    _ => panic!("expected string field"),
+  }
+  writer.add_document(&mut doc)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
   let searcher = index_searcher::from_reader(reader)?;
@@ -1569,12 +1572,17 @@ fn test_prohibited_matches_count() -> Result<()> {
   let mut doc = Document::new();
   doc.add(LongPoint::new("long", [3])?);
   doc.add(StringField::from_string("string", "abc", No)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
 
-  let mut doc = Document::new();
-  doc.add(LongPoint::new("long", [10])?);
-  doc.add(StringField::from_string("string", "xyz", No)?);
-  writer.add_document(doc)?;
+  match doc.get_field_mut("long") {
+    Some(Fields::LongPoint(long_point)) => long_point.set_long_value(10)?,
+    _ => panic!("expected long point"),
+  }
+  match doc.get_field_mut("string") {
+    Some(Fields::String(string_field)) => string_field.set_string_value("xyz")?,
+    _ => panic!("expected string field"),
+  }
+  writer.add_document(&mut doc)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;
@@ -1657,12 +1665,17 @@ fn test_random_boolean_query_matches_count() -> Result<()> {
   let mut doc = Document::new();
   doc.add(LongPoint::new("long", [3])?);
   doc.add(StringField::from_string("string", "abc", No)?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
 
-  let mut doc = Document::new();
-  doc.add(LongPoint::new("long", [10])?);
-  doc.add(StringField::from_string("string", "xyz", No)?);
-  writer.add_document(doc)?;
+  match doc.get_field_mut("long") {
+    Some(Fields::LongPoint(long_point)) => long_point.set_long_value(10)?,
+    _ => panic!("expected long point"),
+  }
+  match doc.get_field_mut("string") {
+    Some(Fields::String(string_field)) => string_field.set_string_value("xyz")?,
+    _ => panic!("expected string field"),
+  }
+  writer.add_document(&mut doc)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
   writer.close()?;

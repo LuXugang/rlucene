@@ -23,6 +23,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 
 use crate::core::document::field::FieldBase;
+use crate::core::document::fields::Fields;
 use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
@@ -610,34 +611,38 @@ fn test_random() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
-  let mut f = TextField::from_string("body", "a b c", No)?;
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  doc.add(TextField::from_string("body", "a b c", No)?);
+  writer.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
+  let Some(Fields::Text(f)) = doc.get_field_mut("body") else {
+    unreachable!("body field must exist")
+  };
   f.set_string_value("")?;
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
+  let Some(Fields::Text(f)) = doc.get_field_mut("body") else {
+    unreachable!("body field must exist")
+  };
   f.set_string_value("a b")?;
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
+  let Some(Fields::Text(f)) = doc.get_field_mut("body") else {
+    unreachable!("body field must exist")
+  };
   f.set_string_value("b c")?;
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
+  let Some(Fields::Text(f)) = doc.get_field_mut("body") else {
+    unreachable!("body field must exist")
+  };
   f.set_string_value("a")?;
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
-  let mut doc = Document::new();
+  let Some(Fields::Text(f)) = doc.get_field_mut("body") else {
+    unreachable!("body field must exist")
+  };
   f.set_string_value("c")?;
-  doc.add(f.clone());
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
   let num_random_docs = at_least(&mut random, 3);
   for _ in 0..num_random_docs {
@@ -647,10 +652,11 @@ fn test_random() -> Result<()> {
       text.push(char::from(b'a' + random.random_range(0..4)));
       text.push(' ');
     }
-    doc = Document::new();
+    let Some(Fields::Text(f)) = doc.get_field_mut("body") else {
+      unreachable!("body field must exist")
+    };
     f.set_string_value(text)?;
-    doc.add(f.clone());
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(&mut random, &mut doc)?;
   }
 
   let reader = Arc::new(writer.get_reader(&mut random)?);

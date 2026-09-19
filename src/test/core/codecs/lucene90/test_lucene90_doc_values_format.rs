@@ -1231,6 +1231,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     R: Rng + ?Sized,
   {
     let frontier = 1 << Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT;
+    let mut doc = Document::new();
     for max_doc in (frontier - 1)..=(frontier + 1) {
       let dir = new_directory_shared(random)?;
       let analyzer =
@@ -1243,7 +1244,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       for _ in 0..max_doc {
         let s1 = TestUtil::random_simple_string_range(random, 2, 2);
         let s2 = TestUtil::random_simple_string_range(random, 2, 2);
-        let mut doc = Document::new();
+        doc.clear();
         doc.add(SortedSetDocValuesField::new(
           "sset",
           new_bytes_ref_from_string(random, &s1)?,
@@ -1252,7 +1253,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
           "sset",
           new_bytes_ref_from_string(random, &s2)?,
         ));
-        writer.add_document(doc)?;
+        writer.add_document(&mut doc)?;
 
         let mut set = BTreeSet::new();
         set.insert(s1);
@@ -1301,6 +1302,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     R: Rng + ?Sized,
   {
     let frontier = 1 << Lucene90DocValuesFormat::DIRECT_MONOTONIC_BLOCK_SHIFT;
+    let mut doc = Document::new();
     for max_doc in (frontier - 1)..=(frontier + 1) {
       let dir = new_directory_shared(random)?;
       let analyzer =
@@ -1313,10 +1315,10 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       for _ in 0..max_doc {
         let s1 = random.random_range(0..100) as i64;
         let s2 = random.random_range(0..100) as i64;
-        let mut doc = Document::new();
+        doc.clear();
         doc.add(SortedNumericDocValuesField::new("snum", s1));
         doc.add(SortedNumericDocValuesField::new("snum", s2));
-        writer.add_document(doc)?;
+        writer.add_document(&mut doc)?;
         out.write_vlong(std::cmp::min(s1, s2))?;
         out.write_vlong(std::cmp::max(s1, s2))?;
       }
@@ -1545,16 +1547,17 @@ pub(super) trait TestLucene90DocValuesFormatTests:
 
     let num_docs = at_least(random, Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE * 3);
     let longs = BlocksOfVariousBPV::new(random);
+    let mut doc = Document::new();
     for _ in 0..num_docs {
       if random.random::<f64>() > density {
         writer.add_document(Document::new())?;
         continue;
       }
       let value = longs.get_as_long();
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(StoredField::from_string("stored", value.to_string())?);
       doc.add(NumericDocValuesField::new("dv", value));
-      writer.add_document(doc)?;
+      writer.add_document(&mut doc)?;
     }
 
     writer.force_merge(1)?;
@@ -1759,13 +1762,14 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE + 1,
     );
 
+    let mut doc = Document::new();
     for i in 0..num_docs {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(SortedDocValuesField::new(
         "foo",
         new_bytes_ref_from_string(random, &i.to_string())?,
       ));
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
     }
 
     writer.force_merge(random, 1)?;
@@ -1795,13 +1799,14 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       2 * Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE + 1,
     );
 
+    let mut doc = Document::new();
     for i in 0..num_docs {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(SortedSetDocValuesField::new(
         "foo",
         new_bytes_ref_from_string(random, &i.to_string())?,
       ));
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
     }
 
     writer.force_merge(random, 1)?;
@@ -1857,13 +1862,14 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     let conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let writer = RandomIndexWriter::with_config(random, directory.clone(), conf);
 
+    let mut doc = Document::new();
     for value in ["abc0defghijkl", "abc1defghijkl", "abc2defghijkl"] {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(SortedDocValuesField::new(
         "field",
         new_bytes_ref_from_string(random, value)?,
       ));
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
     }
     writer.force_merge(random, 1)?;
     writer.close(random)?;
@@ -1911,13 +1917,14 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       chars.into_iter().collect()
     };
 
+    let mut doc = Document::new();
     for i in 0..num_terms {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(SortedDocValuesField::new(
         "field",
         new_bytes_ref_from_string(random, &string_supplier(i))?,
       ));
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
     }
     writer.force_merge(random, 1)?;
     writer.close(random)?;

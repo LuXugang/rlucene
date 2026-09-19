@@ -2292,13 +2292,14 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let num_docs = at_least(random, 300);
     let mut field_to_type = HashMap::new();
 
+    let mut doc = Document::new();
     for i in 0..num_docs {
       if random.random::<f64>() > density {
         writer.add_document(random, Document::new())?;
         continue;
       }
 
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(new_string_field(
         random,
         "id",
@@ -2314,7 +2315,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         "dv",
         BytesRef::from_slice(buffer, 0, dv_value),
       ));
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
       if random.random_range(0..31) == 0 {
         writer.commit(random)?;
       }

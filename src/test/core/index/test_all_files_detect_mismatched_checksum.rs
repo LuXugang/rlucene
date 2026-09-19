@@ -18,6 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldBase, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -69,31 +70,39 @@ fn test() -> Result<()> {
   let riw = RandomIndexWriter::with_config(&mut random, dir.clone(), conf);
   let mut text_with_term_vectors_type = FieldType::from_ref(&*TYPE_STORED)?;
   text_with_term_vectors_type.set_store_term_vectors(true)?;
-  let mut text = Field::from_string("text", "", text_with_term_vectors_type)?;
-  let mut term_string = StringField::from_string("string", "", Store::Yes)?;
-  let mut dv_string = SortedDocValuesField::new("string", BytesRef::new());
-  let mut point_number = LongPoint::new("long", [0])?;
-  let mut dv_number = NumericDocValuesField::new("long", 0);
-  let mut vector = KnnFloatVectorField::new("vector", vec![0.0; 16])?;
+  let text = Field::from_string("text", "", text_with_term_vectors_type)?;
+  let term_string = StringField::from_string("string", "", Store::Yes)?;
+  let dv_string = SortedDocValuesField::new("string", BytesRef::new());
+  let point_number = LongPoint::new("long", [0])?;
+  let dv_number = NumericDocValuesField::new("long", 0);
+  let vector = KnnFloatVectorField::new("vector", vec![0.0; 16])?;
+  let mut doc = Document::new();
+  doc.add(text);
+  doc.add(term_string);
+  doc.add(dv_string);
+  doc.add(point_number);
+  doc.add(dv_number);
+  doc.add(vector);
 
   for i in 0..100 {
-    text.set_string_value(TestUtil::random_analysis_string(&mut random, 20, true))?;
     let random_string = TestUtil::random_simple_string_with_len(&mut random, 5);
-    term_string.set_string_value(&random_string)?;
-    dv_string.set_bytes_value(BytesRef::from_string(&random_string))?;
     let number = random.random_range(0..10_i64);
-    point_number.set_long_value(number)?;
-    dv_number.set_long_value(number)?;
-    vector.set_vector_value(vec![(i % 4) as f32; 16])?;
-
-    let mut doc = Document::new();
-    doc.add(text.clone());
-    doc.add(term_string.clone());
-    doc.add(dv_string.clone());
-    doc.add(point_number.clone());
-    doc.add(dv_number.clone());
-    doc.add(vector.clone());
-    riw.add_document(&mut random, doc)?;
+    for (index, field) in (&mut doc).into_iter().enumerate() {
+      match (index, field) {
+        (0, Fields::Field(field)) => {
+          field.set_string_value(TestUtil::random_analysis_string(&mut random, 20, true))?
+        },
+        (1, Fields::String(field)) => field.set_string_value(&random_string)?,
+        (2, Fields::SortedDocValues(field)) => {
+          field.set_bytes_value(BytesRef::from_string(&random_string))?
+        },
+        (3, Fields::LongPoint(field)) => field.set_long_value(number)?,
+        (4, Fields::NumericDocValues(field)) => field.set_long_value(number)?,
+        (5, Fields::KnnFloatVector(field)) => field.set_vector_value(vec![(i % 4) as f32; 16])?,
+        _ => unreachable!("unexpected field in checksum document"),
+      }
+    }
+    riw.add_document(&mut random, &mut doc)?;
   }
   riw.delete_documents_with_queries(
     &mut random,

@@ -247,12 +247,3 @@ impl IndexableField for SortedDocValuesField {
     self.parent_field.invertable_type()
   }
 }
-
-#[cfg(test)]
-impl Clone for SortedDocValuesField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

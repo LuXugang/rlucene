@@ -64,7 +64,7 @@ fn test_mixed_merge_throws_error() -> Result<()> {
   d.add(f2);
 
   for _ in 0..30 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   let mut d2 = Document::new();
@@ -136,11 +136,11 @@ fn test_mixed_ram() -> Result<()> {
   d.add(f2);
 
   for _ in 0..5 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   for _ in 0..20 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   writer.force_merge(1)?;
@@ -195,7 +195,7 @@ fn test_no_nrm_file() -> Result<()> {
   d.add(f1);
 
   for _ in 0..30 {
-    writer.add_document(d.clone())?;
+    writer.add_document(&mut d)?;
   }
 
   writer.commit()?;

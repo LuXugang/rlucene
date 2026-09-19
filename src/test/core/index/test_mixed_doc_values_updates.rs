@@ -369,14 +369,21 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
     let doc = random.random_range(0..num_docs);
     let t = Term::from_text("id", format!("doc{doc}"));
     let value = random.random::<i64>();
-    let updates = vec![
-      BinaryDocValuesField::new("f", to_bytes(&mut random, value)?).into(),
-      NumericDocValuesField::new("cf", value.wrapping_mul(2)).into(),
-    ];
     if random.random_bool(0.5) {
-      do_update(t, &writer, updates)?;
+      do_update(t, &writer, || {
+        Ok(vec![
+          BinaryDocValuesField::new("f", to_bytes(&mut random, value)?).into(),
+          NumericDocValuesField::new("cf", value.wrapping_mul(2)).into(),
+        ])
+      })?;
     } else {
-      writer.update_doc_values(t, updates)?;
+      writer.update_doc_values(
+        t,
+        vec![
+          BinaryDocValuesField::new("f", to_bytes(&mut random, value)?).into(),
+          NumericDocValuesField::new("cf", value.wrapping_mul(2)).into(),
+        ],
+      )?;
     }
 
     let reader = directory_reader::open_from_writer(&writer)?;
@@ -505,14 +512,12 @@ fn test_try_update_doc_values() -> Result<()> {
     }
   }
   let doc = random.random_range(0..num_docs);
-  do_update(
-    Term::from_text("id", doc.to_string()),
-    &writer,
-    vec![
+  do_update(Term::from_text("id", doc.to_string()), &writer, || {
+    Ok(vec![
       NumericDocValuesField::new("numericId", (doc + 1) as i64).into(),
       BinaryDocValuesField::new("binaryId", BytesRef::from_bytes(vec![(doc + 1) as u8])).into(),
-    ],
-  )?;
+    ])
+  })?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
   let context = (&reader).get_context()?;
@@ -603,18 +608,16 @@ fn test_try_update_multi_threaded() -> Result<()> {
               }],
             )?;
           } else {
-            do_update(
-              Term::from_text("id", doc_id.to_string()),
-              writer,
-              vec![if let Some(value) = value {
+            do_update(Term::from_text("id", doc_id.to_string()), writer, || {
+              Ok(vec![if let Some(value) = value {
                 NumericDocValuesField::new("value", value).into()
               } else {
                 let mut field_type = FieldType::new();
                 field_type.set_doc_values_type(DocValuesType::Numeric)?;
                 field_type.freeze();
                 Field::new("value", FieldDataEnum::Dummy(()), field_type).into()
-              }],
-            )?;
+              }])
+            })?;
           }
           *value_guard = value;
 
@@ -667,9 +670,10 @@ fn test_try_update_multi_threaded() -> Result<()> {
   Ok(())
 }
 
-fn do_update<D>(doc: Term, writer: &Arc<IndexWriter<D>>, fields: Vec<Fields>) -> Result<()>
+fn do_update<D, F>(doc: Term, writer: &Arc<IndexWriter<D>>, mut fields: F) -> Result<()>
 where
   D: Directory + 'static + std::marker::Send + Sync,
+  F: FnMut() -> Result<Vec<Fields>>,
   <<D as Directory>::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
   <D as Directory>::IndexInput: Send + Sync,
 {
@@ -681,7 +685,7 @@ where
     assert_eq!(1, top_docs.total_hits.value());
     let the_doc = top_docs.score_docs()[0].doc;
     let reader = searcher.reader_context.reader();
-    seq_id = writer.try_update_doc_value(reader, the_doc, fields.clone())?;
+    seq_id = writer.try_update_doc_value(reader, the_doc, fields()?)?;
     reader.close()?;
   }
   Ok(())

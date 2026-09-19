@@ -986,9 +986,9 @@ fn test_set_diagnostics() -> Result<()> {
     .set_merge_policy(my_merge_policy)
     .set_max_buffered_docs(2);
   let w = IndexWriter::new(dir.clone(), config)?;
-  let doc = Document::new();
+  let mut doc = Document::new();
   for _ in 0..20 {
-    w.add_document(doc.clone())?;
+    w.add_document(&mut doc)?;
   }
   w.close()?;
   let si = SegmentInfos::read_latest_commit(dir.clone())?;

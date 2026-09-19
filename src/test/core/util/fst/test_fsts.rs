@@ -19,6 +19,7 @@ use std::borrow::Cow;
 
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::fields::Fields;
 use crate::core::document::string_field::StringField;
 use crate::core::index::{BytesRef, directory_reader};
 use crate::core::store::IO_CONTEXT_DEFAULT;
@@ -705,7 +706,8 @@ fn test_primary_keys() -> Result<()> {
     config.set_open_mode(OpenMode::Create);
     let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
-    let mut id_field = StringField::from_string("id", "", Store::No)?;
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "", Store::No)?);
 
     let num_ids = at_least_usize(&mut random, 200);
     if cfg!(feature = "test_log_verbose") {
@@ -724,11 +726,11 @@ fn test_primary_keys() -> Result<()> {
         }
       };
       all_ids.insert(id_string.clone());
+      let Some(Fields::String(id_field)) = doc.get_field_mut("id") else {
+        unreachable!("id field must exist")
+      };
       id_field.set_string_value(id_string)?;
-
-      let mut doc = Document::new();
-      doc.add(id_field.clone());
-      w.add_document(&mut random, doc)?;
+      w.add_document(&mut random, &mut doc)?;
     }
 
     // turn writer into reader:
@@ -859,8 +861,7 @@ fn test_random_term_lookup() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
 
-  let mut field = StringField::from_string("field", "", Store::No)?;
-  doc.add(field.clone());
+  doc.add(StringField::from_string("field", "", Store::No)?);
 
   // compute NUM_TERMS
   let num_terms = (1000.0 * random_multiplier() as f64 * (1.0 + random.random::<f64>())) as usize;
@@ -871,10 +872,11 @@ fn test_random_term_lookup() -> Result<()> {
   }
 
   for term in &all_terms {
+    let Some(Fields::String(field)) = doc.get_field_mut("field") else {
+      unreachable!("field must exist")
+    };
     field.set_string_value(term)?;
-    let mut d = Document::new();
-    d.add(field.clone());
-    writer.add_document(&mut random, d)?;
+    writer.add_document(&mut random, &mut doc)?;
   }
 
   let reader = writer.get_reader(&mut random)?;

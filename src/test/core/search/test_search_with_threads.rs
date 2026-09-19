@@ -56,6 +56,7 @@ fn test() -> Result<()> {
   let writer = RandomIndexWriter::with_config(&mut random, dir, config);
   let mut field_to_type = HashMap::new();
 
+  let mut doc = Document::new();
   for _ in 0..num_docs {
     let mut body = String::new();
     let num_terms = random.random_range(0..10);
@@ -68,7 +69,7 @@ fn test() -> Result<()> {
       body.push(' ');
     }
 
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(new_text_field(
       &mut random,
       "body",
@@ -76,7 +77,7 @@ fn test() -> Result<()> {
       Store::No,
       &mut field_to_type,
     )?);
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(&mut random, &mut doc)?;
   }
 
   let reader = writer.get_reader(&mut random)?;

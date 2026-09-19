@@ -758,8 +758,9 @@ fn test_collection_terminated_exception_handling() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
     let num_docs = TestUtil::next_int(&mut random, 100, 1000);
+    let mut doc = Document::new();
     for _ in 0..num_docs {
-      writer.add_document(&mut random, Document::new())?;
+      writer.add_document(&mut random, &mut doc)?;
     }
     let reader = writer.get_reader(&mut random)?;
     writer.close(&mut random)?;

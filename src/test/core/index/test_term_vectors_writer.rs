@@ -72,13 +72,25 @@ fn test_double_offset_counting() -> Result<()> {
   custom_type.set_store_term_vector_offsets(true)?;
 
   let f = new_field(&mut random, "field", "abcd", &custom_type, &mut field_types)?;
-  doc.add(f.clone());
-  doc.add(f.clone());
+  doc.add(f);
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "abcd",
+    &custom_type,
+    &mut field_types,
+  )?);
 
   let f2 = new_field(&mut random, "field", "", &custom_type, &mut field_types)?;
   doc.add(f2);
 
-  doc.add(f);
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "abcd",
+    &custom_type,
+    &mut field_types,
+  )?);
 
   w.add_document(doc)?;
   w.close()?;
@@ -153,8 +165,14 @@ fn test_double_offset_counting2() -> Result<()> {
   custom_type.set_store_term_vector_offsets(true)?;
 
   let f = new_field(&mut random, "field", "abcd", &custom_type, &mut field_types)?;
-  doc.add(f.clone());
   doc.add(f);
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "abcd",
+    &custom_type,
+    &mut field_types,
+  )?);
 
   w.add_document(doc)?;
   w.close()?;
@@ -216,8 +234,14 @@ fn test_end_offset_position_char_analyzer() -> Result<()> {
     &custom_type,
     &mut field_types,
   )?;
-  doc.add(f.clone());
   doc.add(f);
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "abcd   ",
+    &custom_type,
+    &mut field_types,
+  )?);
 
   w.add_document(doc)?;
   w.close()?;
@@ -283,8 +307,14 @@ fn test_end_offset_position_stop_filter() -> Result<()> {
     &custom_type,
     &mut field_types,
   )?;
-  doc.add(f.clone());
   doc.add(f);
+  doc.add(new_field(
+    &mut random,
+    "field",
+    "abcd the",
+    &custom_type,
+    &mut field_types,
+  )?);
 
   w.add_document(doc)?;
   w.close()?;
@@ -557,12 +587,18 @@ fn test_term_vector_corruption() -> Result<()> {
       &custom_type,
       &mut HashMap::new(),
     )?;
-    document.add(stored_field.clone());
-    writer.add_document(document.clone())?;
+    document.add(stored_field);
+    writer.add_document(&mut document)?;
     writer.add_document(document)?;
 
     let mut document = Document::new();
-    document.add(stored_field);
+    document.add(new_field(
+      &mut random,
+      "stored",
+      "stored",
+      &custom_type,
+      &mut HashMap::new(),
+    )?);
     let mut custom_type2 =
       FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
     custom_type2.set_store_term_vectors(true)?;
@@ -636,13 +672,19 @@ fn test_term_vector_corruption2() -> Result<()> {
       &custom_type,
       &mut field_types,
     )?;
-    document.add(stored_field.clone());
+    document.add(stored_field);
 
-    writer.add_document(document.clone())?;
+    writer.add_document(&mut document)?;
     writer.add_document(document)?;
 
     let mut document = Document::new();
-    document.add(stored_field);
+    document.add(new_field(
+      &mut random,
+      "stored",
+      "stored",
+      &custom_type,
+      &mut field_types,
+    )?);
 
     let mut custom_type2 =
       FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
@@ -717,7 +759,7 @@ fn test_term_vector_corruption3() -> Result<()> {
     document.add(term_vector_field);
 
     for _ in 0..10 {
-      writer.add_document(document.clone())?;
+      writer.add_document(&mut document)?;
     }
     writer.close()?;
   }
@@ -732,7 +774,7 @@ fn test_term_vector_corruption3() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc2)?;
 
   for _ in 0..6 {
-    writer.add_document(document.clone())?;
+    writer.add_document(&mut document)?;
   }
   writer.force_merge(1)?;
   writer.close()?;
@@ -969,7 +1011,7 @@ fn test_no_abort_on_bad_tv_settings() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(mock)?;
   let iw = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
-  iw.add_document(doc.clone())?;
+  iw.add_document(&mut doc)?;
 
   let mut ft = FieldType::from_ref(&*stored_field_type::TYPE)?;
   ft.set_store_term_vectors(true)?;

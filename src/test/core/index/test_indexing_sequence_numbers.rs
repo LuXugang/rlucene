@@ -127,7 +127,7 @@ fn test_stress_update_same_id() -> Result<()> {
           let mut r = random_from_seed(seed);
           starting_gun.wait();
           for _ in 0..100 {
-            let seq_no = w.update_document_with_term(&mut r, id.clone(), doc.clone())?;
+            let seq_no = w.update_document_with_term(&mut r, id.clone(), &mut doc)?;
             seq_nos.lock().unwrap()[thread_id] = seq_no;
           }
           Ok(())

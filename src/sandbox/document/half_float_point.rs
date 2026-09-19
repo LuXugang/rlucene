@@ -536,12 +536,3 @@ impl PointInSetBase for HalfFloatPointInSetQuery {
     Ok(HalfFloatPoint::decode_dimension(value, 0).to_string())
   }
 }
-
-#[cfg(test)]
-impl Clone for HalfFloatPoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

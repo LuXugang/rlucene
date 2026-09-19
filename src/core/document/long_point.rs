@@ -358,12 +358,3 @@ impl PointInSetBase for LongPointInSetQuery {
     Ok(LongPoint::decode_dimension(value, 0).to_string())
   }
 }
-
-#[cfg(test)]
-impl Clone for LongPoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

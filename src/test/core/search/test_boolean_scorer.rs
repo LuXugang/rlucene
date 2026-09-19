@@ -297,13 +297,13 @@ fn test_sparse_clause_optimization() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
-  let empty_doc = Document::new();
+  let mut empty_doc = Document::new();
   let num_docs = at_least(&mut random, 10);
   let mut num_empty_docs = at_least(&mut random, 200);
 
   for _ in 0..num_docs {
     for _ in (0..=num_empty_docs).rev() {
-      w.add_document(&mut random, empty_doc.clone())?;
+      w.add_document(&mut random, &mut empty_doc)?;
     }
 
     let mut doc = Document::new();
@@ -317,7 +317,7 @@ fn test_sparse_clause_optimization() -> Result<()> {
 
   num_empty_docs = at_least(&mut random, 200);
   for _ in (0..=num_empty_docs).rev() {
-    w.add_document(&mut random, empty_doc.clone())?;
+    w.add_document(&mut random, &mut empty_doc)?;
   }
 
   if random.random_bool(0.5) {

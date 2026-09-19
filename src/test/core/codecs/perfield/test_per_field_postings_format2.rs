@@ -338,8 +338,9 @@ fn do_test_mixed_postings(codec: AssertingCodec) -> Result<()> {
   ft.set_store_term_vector_offsets(true)?;
   ft.set_store_term_vector_positions(true)?;
   let mut field_to_type = HashMap::new();
+  let mut doc = Document::new();
   for _ in 0..100 {
-    let mut doc = Document::new();
+    doc.clear();
     let id = random.random_range(0..50).to_string();
     let date = random.random_range(0..100).to_string();
     doc.add(new_field(&mut random, "id", id, &ft, &mut field_to_type)?);
@@ -350,7 +351,7 @@ fn do_test_mixed_postings(codec: AssertingCodec) -> Result<()> {
       &ft,
       &mut field_to_type,
     )?);
-    iw.add_document(&mut random, doc)?;
+    iw.add_document(&mut random, &mut doc)?;
   }
   iw.close(&mut random)?;
   dir.close() // checkindex

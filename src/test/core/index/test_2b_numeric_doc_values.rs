@@ -76,7 +76,7 @@ fn test_numerics() -> Result<()> {
       unreachable!("dv must be a NumericDocValuesField");
     };
     field.set_long_value(i as i64)?;
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
     if i % 100_000 == 0 {
       println!("indexed: {i}");
     }

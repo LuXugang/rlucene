@@ -106,35 +106,6 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterExceptions;
 
-struct DocCopyIterator {
-  doc: Document,
-  count: usize,
-  upto: usize,
-}
-
-impl DocCopyIterator {
-  fn new(doc: Document, count: usize) -> Self {
-    Self {
-      doc,
-      count,
-      upto: 0,
-    }
-  }
-}
-
-impl Iterator for DocCopyIterator {
-  type Item = Document;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.upto < self.count {
-      self.upto += 1;
-      Some(self.doc.clone())
-    } else {
-      None
-    }
-  }
-}
-
 static CUSTOM_1: LazyLock<FieldType> = LazyLock::new(|| {
   let mut field_type =
     FieldType::from_ref(&*TEXT_NOT_STORED).expect("copying TextField type should succeed");
@@ -228,7 +199,7 @@ where
     }
   }
 
-  fn run(mut self) -> Result<()> {
+  fn create_doc(&mut self, id: &str) -> Result<Document> {
     let mut doc = Document::new();
 
     doc.add({
@@ -325,29 +296,32 @@ where
 
     doc.add({
       let mut field_types = self.field_types.lock();
-      new_field(&mut self.r, "id", "", &CUSTOM_2, &mut field_types)?
+      new_field(&mut self.r, "id", id, &CUSTOM_2, &mut field_types)?
     });
+    Ok(doc)
+  }
 
+  fn run(mut self) -> Result<()> {
     let max_iterations = 250;
     let mut iterations = 0;
     loop {
       DO_FAIL.with(|do_fail| do_fail.set(true));
       let id = self.r.random_range(0..50).to_string();
-      match doc.get_field_mut("id").expect("id field should be present") {
-        Fields::Field(id_field) => id_field.set_string_value(&id)?,
-        _ => unreachable!("id must be represented by Field"),
-      }
+      let mut doc = self.create_doc(&id)?;
       let id_term = Term::from_text("id", &id);
       let result = if self.r.random() {
         let count = TestUtil::next_usize(&mut self.r, 1, 20);
-        self.writer.update_documents_with_term(
-          Some(id_term.clone()),
-          DocCopyIterator::new(doc.clone(), count),
-        )
+        let mut docs = Vec::with_capacity(count);
+        for _ in 0..count {
+          docs.push(self.create_doc(&id)?);
+        }
+        self
+          .writer
+          .update_documents_with_term(Some(id_term.clone()), docs)
       } else {
         self
           .writer
-          .update_document_with_term(Some(id_term.clone()), doc.clone())
+          .update_document_with_term(Some(id_term.clone()), &mut doc)
       };
       if let Err(error) = result {
         if !matches!(error, LuceneError::IllegalState(_)) {
@@ -364,7 +338,7 @@ where
       // error:
       self
         .writer
-        .update_document_with_term(Some(id_term), doc.clone())?;
+        .update_document_with_term(Some(id_term), &mut doc)?;
 
       iterations += 1;
       if iterations >= max_iterations {
@@ -1331,7 +1305,7 @@ fn test_exception_documents_writer_init() -> Result<()> {
   )?;
   let mut doc = Document::new();
   doc.add(TextField::from_string("field", "a field", Store::Yes)?);
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
 
   test_point.do_fail.store(true, Ordering::SeqCst);
   assert!(matches!(
@@ -1364,7 +1338,7 @@ fn test_exception_just_before_flush() -> Result<()> {
   )?;
   let mut doc = Document::new();
   doc.add(TextField::from_string("field", "a field", Store::Yes)?);
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
 
   let mut crash_doc = Document::new();
   crash_doc.add(TextField::from_string(
@@ -1420,7 +1394,7 @@ fn test_exception_on_merge_init() -> Result<()> {
   let mut doc = Document::new();
   doc.add(TextField::from_string("field", "a field", Store::Yes)?);
   for _ in 0..10 {
-    if writer.add_document(doc.clone()).is_err() {
+    if writer.add_document(&mut doc).is_err() {
       break;
     }
   }
@@ -1518,7 +1492,7 @@ fn test_documents_writer_abort() -> Result<()> {
   let contents = "aa bb cc dd ee ff gg hh ii jj kk";
   doc.add(TextField::from_string("content", contents, Store::No)?);
   let mut hit_error = false;
-  writer.add_document(doc.clone())?;
+  writer.add_document(&mut doc)?;
 
   writer
     .add_document(doc)
@@ -1563,8 +1537,8 @@ fn test_documents_writer_exceptions() -> Result<()> {
       "here are some contents",
       CUSTOM_5.clone(),
     ));
-    writer.add_document(doc.clone())?;
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
+    writer.add_document(&mut doc)?;
     doc.add(Field::new(
       "crash",
       "this should crash after 4 terms",
@@ -1587,8 +1561,8 @@ fn test_documents_writer_exceptions() -> Result<()> {
         "here are some contents",
         CUSTOM_5.clone(),
       ));
-      writer.add_document(doc.clone())?;
-      writer.add_document(doc)?;
+      writer.add_document(&mut doc)?;
+      writer.add_document(&mut doc)?;
     }
     writer.close()?;
 
@@ -1627,7 +1601,7 @@ fn test_documents_writer_exceptions() -> Result<()> {
       CUSTOM_5.clone(),
     ));
     for _ in 0..17 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
     writer.force_merge(1)?;
     writer.close()?;
@@ -1678,7 +1652,7 @@ fn test_documents_writer_exception_fail_one_doc() -> Result<()> {
       "here are some contents",
       CUSTOM_5.clone(),
     ));
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
     doc.add(Field::new(
       "crash",
       "this should crash after 4 terms",
@@ -1736,8 +1710,8 @@ fn test_documents_writer_exception_threads() -> Result<()> {
               "here are some contents",
               CUSTOM_5.clone(),
             ));
-            writer.add_document(doc.clone())?;
-            writer.add_document(doc.clone())?;
+            writer.add_document(&mut doc)?;
+            writer.add_document(&mut doc)?;
             doc.add(Field::new(
               "crash",
               "this should crash after 4 terms",
@@ -1760,7 +1734,7 @@ fn test_documents_writer_exception_threads() -> Result<()> {
                 "here are some contents",
                 CUSTOM_5.clone(),
               ));
-              writer.add_document(extra_doc.clone())?;
+              writer.add_document(&mut extra_doc)?;
               writer.add_document(extra_doc)?;
             }
           }
@@ -1810,7 +1784,7 @@ fn test_documents_writer_exception_threads() -> Result<()> {
       CUSTOM_5.clone(),
     ));
     for _ in 0..17 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
     writer.force_merge(1)?;
     writer.close()?;
@@ -2671,9 +2645,9 @@ fn test_exception_during_rollback() -> Result<()> {
     Some(IndexWriterHooksEnum::custom(EnableTestPoints)),
   )?;
 
-  let doc = Document::new();
+  let mut doc = Document::new();
   for _ in 0..10 {
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
   }
   writer.commit()?;
 
@@ -2719,9 +2693,9 @@ fn test_random_exception_during_rollback() -> Result<()> {
 
     let config = IndexWriterConfig::new()?;
     let writer = IndexWriter::new(dir.clone(), config)?;
-    let doc = Document::new();
+    let mut doc = Document::new();
     for _ in 0..10 {
-      writer.add_document(doc.clone())?;
+      writer.add_document(&mut doc)?;
     }
     writer.commit()?;
 

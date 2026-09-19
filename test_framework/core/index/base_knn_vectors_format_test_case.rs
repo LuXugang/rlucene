@@ -646,7 +646,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     {
       let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
-      w.add_document(doc.clone())?;
+      w.add_document(&mut doc)?;
       w.close()?;
     }
 
@@ -659,7 +659,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     {
       let iwc = new_index_writer_config(random)?;
       let w2 = IndexWriter::new(dir2.clone(), iwc)?;
-      w2.add_document(doc)?;
+      w2.add_document(&mut doc)?;
       w2.add_indexes_from_directory(std::slice::from_ref(&dir))?;
       w2.force_merge(1)?;
 
@@ -2553,14 +2553,14 @@ pub trait BaseKnnVectorsFormatTestCase:
           Self::random_normalized_vector(random, 4)?,
           VectorSimilarityFunction::Euclidean,
         )?);
-        w.add_document(doc.clone())?;
+        w.add_document(&mut doc)?;
 
         doc.add(KnnFloatVectorField::with_similarity_function(
           "v2",
           Self::random_normalized_vector(random, 4)?,
           VectorSimilarityFunction::Euclidean,
         )?);
-        w.add_document(doc)?;
+        w.add_document(&mut doc)?;
         Ok(())
       }));
       let close_result = catch_unwind(AssertUnwindSafe(|| w.close()));
@@ -2851,13 +2851,13 @@ pub trait BaseKnnVectorsFormatTestCase:
     let mut doc = Document::new();
     doc.add(KnnFloatVectorField::new("float", vec![1.0, 2.0])?);
     doc.add(KnnByteVectorField::new("byte", vec![42])?);
-    w1.add_document(doc.clone())?;
+    w1.add_document(&mut doc)?;
 
     let dir2 = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let w2 = IndexWriter::new(dir2.clone(), iwc)?;
-    w2.add_document(doc)?;
+    w2.add_document(&mut doc)?;
     w2.commit()?;
 
     let reader = directory_reader::open_from_writer(&w1)?;

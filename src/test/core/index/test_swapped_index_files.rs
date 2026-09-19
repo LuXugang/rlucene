@@ -57,7 +57,7 @@ fn test() -> Result<()> {
   let doc = docs.next_doc()?;
   let seed = random.random::<u64>();
 
-  index_one_doc(seed, dir1.clone(), doc.clone(), use_cfs)?;
+  index_one_doc(seed, dir1.clone(), doc, use_cfs)?;
   index_one_doc(seed, dir2.clone(), doc, use_cfs)?;
 
   swap_files(&mut random, &dir1, &dir2)?;
@@ -65,7 +65,7 @@ fn test() -> Result<()> {
   dir2.as_ref().close()
 }
 
-fn index_one_doc(seed: u64, dir: Arc<DirEnum>, doc: Document, use_cfs: bool) -> Result<()> {
+fn index_one_doc(seed: u64, dir: Arc<DirEnum>, doc: &mut Document, use_cfs: bool) -> Result<()> {
   let mut random = StdRng::seed_from_u64(seed);
   let analyzer = MockAnalyzer::new(&mut random);
   let mut conf = new_index_writer_config_with_analyzer(&mut random, analyzer)?;

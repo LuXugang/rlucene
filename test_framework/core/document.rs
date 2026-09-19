@@ -37,7 +37,6 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-#[derive(Clone)]
 pub struct FieldImpl {
   parent_field: Field,
 }
@@ -124,7 +123,6 @@ impl IndexableField for FieldImpl {
   }
 }
 
-#[derive(Clone)]
 pub struct MockIndexableField {
   field: String,
   value: Option<BytesRef<Vec<u8>>>,
@@ -218,14 +216,12 @@ impl IndexableField for MockIndexableField {
   }
 }
 
-#[derive(Clone)]
 pub struct MyField {
   counter: usize,
   name: String,
   field_type: MyFieldType,
 }
 
-#[derive(Clone)]
 pub struct MyFieldType {
   counter: usize,
 }
@@ -444,7 +440,6 @@ impl IndexableField for MyField {
   }
 }
 
-#[derive(Clone)]
 pub struct CustomField {
   field_type: FieldType,
 }

@@ -745,8 +745,8 @@ pub trait BasePostingsFormatTestCase:
       No,
       &mut field_types,
     )?);
-    iw.add_document(random, doc.clone())?;
-    iw.add_document(random, doc)?;
+    iw.add_document(random, &mut doc)?;
+    iw.add_document(random, &mut doc)?;
     let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     let mut terms_enum = ar.terms("field")?.unwrap().iterator()?;
@@ -776,8 +776,8 @@ pub trait BasePostingsFormatTestCase:
       No,
       &mut field_types,
     )?);
-    iw.add_document(random, doc.clone())?;
-    iw.add_document(random, doc)?;
+    iw.add_document(random, &mut doc)?;
+    iw.add_document(random, &mut doc)?;
     let ir = iw.get_reader(random)?;
     let ar = get_only_leaf_reader(ir)?;
     let mut terms_enum = ar.terms("field")?.unwrap().iterator()?;
@@ -2155,13 +2155,13 @@ pub trait BasePostingsFormatTestCase:
     let mut doc = Document::new();
     doc.add(StringField::from_string("f", "a", No)?);
     doc.add(StringField::from_string("g", "b", No)?);
-    w1.add_document(doc.clone())?;
+    w1.add_document(&mut doc)?;
 
     let dir2 = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let w2 = IndexWriter::new(dir2.clone(), iwc)?;
-    w2.add_document(doc)?;
+    w2.add_document(&mut doc)?;
     w2.commit()?;
 
     let reader = directory_reader::open_from_writer(&w1)?;

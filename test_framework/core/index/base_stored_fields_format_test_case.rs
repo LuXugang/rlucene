@@ -153,8 +153,8 @@ pub trait BaseStoredFieldsFormatTestCase:
         }
       }
 
-      docs.insert(id.clone(), doc.clone());
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
+      docs.insert(id.clone(), doc);
 
       if random.random_range(0..50) == 17 {
         field_ids.shuffle(random);
@@ -495,8 +495,9 @@ pub trait BaseStoredFieldsFormatTestCase:
       at_least(random, 1000)
     };
 
+    let mut empty_doc = Document::new();
     for _ in 0..num_docs {
-      writer.add_document(random, Document::new())?;
+      writer.add_document(random, &mut empty_doc)?;
     }
     writer.commit(random)?;
 
@@ -522,10 +523,11 @@ pub trait BaseStoredFieldsFormatTestCase:
     let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
 
     let num_docs = at_least(random, 1000);
+    let mut doc = Document::new();
     for i in 0..num_docs {
-      let mut doc = Document::new();
+      doc.clear();
       doc.add(StringField::from_string("fld", i.to_string(), Store::Yes)?);
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
     }
     writer.commit(random)?;
 
@@ -647,16 +649,12 @@ pub trait BaseStoredFieldsFormatTestCase:
     type_.set_stored(true)?;
     type_.freeze();
 
-    let mut id = IntPoint::new("id", [0])?;
-    let mut id_stored = StoredField::from_i32("id", 0)?;
     #[allow(clippy::needless_range_loop)]
     for i in 0..data.len() {
       let doc_id = i as i32;
-      id.set_int_value(doc_id)?;
-      id_stored.set_int_value(doc_id)?;
       let mut doc = Document::new();
-      doc.add(id.clone());
-      doc.add(id_stored.clone());
+      doc.add(IntPoint::new("id", [doc_id])?);
+      doc.add(StoredField::from_i32("id", doc_id)?);
       for (j, bytes) in data[i].iter().enumerate() {
         doc.add(Field::from_binary(
           format!("bytes{j}"),
@@ -758,8 +756,8 @@ pub trait BaseStoredFieldsFormatTestCase:
         "b",
         BytesRef::from_string(binary_value),
       )?);
-      docs.push(doc.clone());
-      writer.add_document(random, doc)?;
+      writer.add_document(random, &mut doc)?;
+      docs.push(doc);
     }
     if random.random_bool(0.5) {
       writer.delete_documents_with_terms(random, vec![Term::from_text("to_delete", "yes")])?;
@@ -833,10 +831,9 @@ pub trait BaseStoredFieldsFormatTestCase:
     let mut big_doc1 = Document::new();
     let mut big_doc2 = Document::new();
 
-    let id_field = StringField::from_string("id", "", Store::No)?;
-    empty_doc.add(id_field.clone());
-    big_doc1.add(id_field.clone());
-    big_doc2.add(id_field);
+    empty_doc.add(StringField::from_string("id", "", Store::No)?);
+    big_doc1.add(StringField::from_string("id", "", Store::No)?);
+    big_doc2.add(StringField::from_string("id", "", Store::No)?);
 
     let mut only_stored = FieldType::new();
     only_stored.set_stored(true)?;
@@ -844,14 +841,14 @@ pub trait BaseStoredFieldsFormatTestCase:
     only_stored.freeze();
 
     let small_length = TestUtil::next_usize(random, 0, 9);
-    let small_field = Field::from_binary(
-      "fld",
-      self.random_byte_array(random, small_length, 256),
-      only_stored.clone(),
-    )?;
+    let small_bytes = self.random_byte_array(random, small_length, 256);
     let num_fields = TestUtil::next_int(random, 500_000, 1_000_000);
     for _ in 0..num_fields {
-      big_doc1.add(small_field.clone());
+      big_doc1.add(Field::from_binary(
+        "fld",
+        small_bytes.clone(),
+        only_stored.clone(),
+      )?);
     }
 
     let big_length = TestUtil::next_usize(random, 1_000_000, 5_000_000);
@@ -863,15 +860,18 @@ pub trait BaseStoredFieldsFormatTestCase:
     big_doc2.add(big_field);
 
     let num_docs = at_least_usize(random, 5);
-    let docs = [empty_doc, big_doc1, big_doc2];
+    let mut docs = [empty_doc, big_doc1, big_doc2];
     let mut doc_templates = Vec::with_capacity(num_docs);
     for i in 0..num_docs {
       let template_idx = TestUtil::next_usize(random, 0, docs.len() - 1);
       doc_templates.push(template_idx);
-      let mut doc = docs[template_idx].clone();
-      doc.remove_field("id");
-      doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
-      writer.add_document(random, doc)?;
+      let Some(crate::core::document::fields::Fields::String(id_field)) =
+        docs[template_idx].get_field_mut("id")
+      else {
+        unreachable!("id should be a StringField");
+      };
+      id_field.set_string_value(i.to_string())?;
+      writer.add_document(random, &mut docs[template_idx])?;
       if random.random_bool(0.1) {
         writer.commit(random)?;
       }
@@ -969,7 +969,7 @@ pub trait BaseStoredFieldsFormatTestCase:
         )?);
       }
       for _ in 0..10 {
-        iw.add_document(doc.clone())?;
+        iw.add_document(&mut doc)?;
       }
 
       let reader = self.maybe_wrap_with_merging_reader(directory_reader::open_from_writer(&iw)?)?;
@@ -1149,7 +1149,7 @@ pub trait BaseStoredFieldsFormatTestCase:
         let mut other_iwc = new_index_writer_config(random)?;
         other_iwc.set_index_sort(Sort::with_fields(sort_fields.clone())?)?;
         let other_iw = RandomIndexWriter::with_config(random, other_dir.clone(), other_iwc);
-        other_iw.add_document(random, docs[&id].clone())?;
+        other_iw.add_document(random, docs.get_mut(&id).unwrap())?;
         let other_reader = other_iw.get_reader(random)?;
         let body_result = TestUtil::add_indexes_slowly(&iw.w, std::slice::from_ref(&other_reader));
         let close_result = IOUtils::use_or_suppress_result(body_result, other_reader.close());
@@ -1157,7 +1157,7 @@ pub trait BaseStoredFieldsFormatTestCase:
         IOUtils::use_or_suppress_result(close_result, other_dir.close())?;
       } else {
         // Add normally.
-        iw.add_document(random, docs[&id].clone())?;
+        iw.add_document(random, docs.get_mut(&id).unwrap())?;
       }
       added_ids.push(id);
       if random.random_range(0..100) < 5 {
@@ -1168,10 +1168,10 @@ pub trait BaseStoredFieldsFormatTestCase:
             vec![TermQuery::new(Term::from_text("id", &deleting_id)).into()],
           )?;
         } else {
-          let new_doc =
+          let mut new_doc =
             document_factory(random, &mut stored_fields, &mut field_types, &deleting_id)?;
-          docs.insert(deleting_id.clone(), new_doc.clone());
-          iw.update_document_with_term(random, Term::from_text("id", deleting_id), new_doc)?;
+          iw.update_document_with_term(random, Term::from_text("id", &deleting_id), &mut new_doc)?;
+          docs.insert(deleting_id.clone(), new_doc);
         }
       }
       if random.random_range(0..100) < 5 {
@@ -1213,8 +1213,14 @@ pub trait BaseStoredFieldsFormatTestCase:
             if let Some(value) = field.string_value()? {
               // Disable indexing
               stored_doc.add(StoredField::from_string(field.name(), value.into_owned())?);
-            } else {
-              stored_doc.add(field.clone());
+            } else if let Some(value) = field.binary_value()? {
+              let value = value.into_owned();
+              stored_doc.add(StoredField::from_binary_with_range(
+                field.name(),
+                value.bytes,
+                value.offset,
+                value.length,
+              )?);
             }
           }
         }

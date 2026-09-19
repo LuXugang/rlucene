@@ -82,9 +82,7 @@ fn test() -> Result<()> {
 
   let num_docs = (((1u64 << 32) / value_length as u64) + 100) as i32;
   for i in 0..num_docs {
-    // Java passes the reusable document by reference. Rust's IndexWriter consumes the document,
-    // so retain the reusable instance and pass a clone containing the same stored value.
-    writer.add_document(doc.clone())?;
+    writer.add_document(&mut doc)?;
     if cfg!(feature = "test_log_verbose") && i % (num_docs / 10) == 0 {
       println!("{i} of {num_docs}...");
     }

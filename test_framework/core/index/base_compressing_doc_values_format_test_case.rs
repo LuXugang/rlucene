@@ -57,8 +57,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     let mut values = Vec::with_capacity(unique_value_count);
 
     let mut doc = Document::new();
-    let mut dvf = NumericDocValuesField::new("dv", 0);
-    doc.add(dvf.clone());
+    doc.add(NumericDocValuesField::new("dv", 0));
     for _ in 0..300 {
       let value = if values.len() < unique_value_count {
         let value = random.random::<i64>();
@@ -67,14 +66,20 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
       } else {
         *values.choose(random).unwrap()
       };
+      let Some(Fields::NumericDocValues(dvf)) = doc.get_field_mut("dv") else {
+        unreachable!("dv should be a NumericDocValuesField");
+      };
       dvf.set_long_value(value)?;
-      iwriter.add_document(doc.clone())?;
+      iwriter.add_document(&mut doc)?;
     }
     iwriter.force_merge(1)?;
     let size1 = self.dir_size(dir.as_ref())?;
     for _ in 0..20 {
+      let Some(Fields::NumericDocValues(dvf)) = doc.get_field_mut("dv") else {
+        unreachable!("dv should be a NumericDocValuesField");
+      };
       dvf.set_long_value(*values.choose(random).unwrap())?;
-      iwriter.add_document(doc.clone())?;
+      iwriter.add_document(&mut doc)?;
     }
     iwriter.force_merge(1)?;
     let size2 = self.dir_size(dir.as_ref())?;
@@ -103,7 +108,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
         unreachable!("dv should be a NumericDocValuesField");
       };
       dvf.set_long_value(base + random.random_range(0..1000) * day)?;
-      iwriter.add_document(doc.clone())?;
+      iwriter.add_document(&mut doc)?;
     }
     iwriter.force_merge(1)?;
     let size1 = self.dir_size(dir.as_ref())?;
@@ -112,7 +117,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
         unreachable!("dv should be a NumericDocValuesField");
       };
       dvf.set_long_value(base + random.random_range(0..1000) * day)?;
-      iwriter.add_document(doc.clone())?;
+      iwriter.add_document(&mut doc)?;
     }
     iwriter.force_merge(1)?;
     let size2 = self.dir_size(dir.as_ref())?;
@@ -133,14 +138,19 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    let mut dvf = NumericDocValuesField::new("dv", 0);
-    doc.add(dvf.clone());
+    doc.add(NumericDocValuesField::new("dv", 0));
     for i in 0..20000 {
+      let Some(Fields::NumericDocValues(dvf)) = doc.get_field_mut("dv") else {
+        unreachable!("dv should be a NumericDocValuesField");
+      };
       dvf.set_long_value((i & 1023) as i64)?;
-      iwriter.add_document(doc.clone())?;
+      iwriter.add_document(&mut doc)?;
     }
     iwriter.force_merge(1)?;
     let size1 = self.dir_size(dir.as_ref())?;
+    let Some(Fields::NumericDocValues(dvf)) = doc.get_field_mut("dv") else {
+      unreachable!("dv should be a NumericDocValuesField");
+    };
     dvf.set_long_value(i64::MAX)?;
     iwriter.add_document(doc)?;
     iwriter.force_merge(1)?;

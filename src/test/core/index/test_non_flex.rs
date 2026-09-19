@@ -84,7 +84,7 @@ fn test_non_flex() -> Result<()> {
       )?);
 
       for _ in 0..DOC_COUNT {
-        writer.add_document(doc.clone())?;
+        writer.add_document(&mut doc)?;
       }
     } else {
       writer.force_merge(1)?;

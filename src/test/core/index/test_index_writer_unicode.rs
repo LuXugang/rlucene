@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::fields::Fields;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::BytesRef;
@@ -300,9 +301,10 @@ fn test_term_utf16_sort_order() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir)?;
 
-  let mut f = StringField::from_string("f", "", Store::No)?;
   let mut all_terms = HashSet::new();
 
+  let mut doc = Document::new();
+  doc.add(StringField::from_string("f", "", Store::No)?);
   let num = at_least(&mut random, 200);
   for i in 0..num {
     let s = if random.random_bool(0.5) {
@@ -321,11 +323,12 @@ fn test_term_utf16_sort_order() -> Result<()> {
         .to_string()
     };
     all_terms.insert(s.clone());
+    let Some(Fields::String(f)) = doc.get_field_mut("f") else {
+      unreachable!("f field must exist")
+    };
     f.set_string_value(s)?;
 
-    let mut doc = Document::new();
-    doc.add(f.clone());
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(&mut random, &mut doc)?;
 
     if (1 + i) % 42 == 0 {
       writer.commit(&mut random)?;

@@ -125,10 +125,15 @@ fn test_long_postings() -> Result<()> {
   for idx in 0..num_docs {
     let mut doc = Document::new();
     let s = if is_s1.get(idx)? { &s1 } else { &s2 };
-    let f = new_text_field(&mut random, "field", s, No, &mut field_types)?;
     let count = TestUtil::next_int(&mut random, 1, 4);
     for _ in 0..count {
-      doc.add(f.clone());
+      doc.add(new_text_field(
+        &mut random,
+        "field",
+        s.as_str(),
+        No,
+        &mut field_types,
+      )?);
     }
     riw.add_document(&mut random, doc)?;
   }
@@ -274,10 +279,15 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
   for idx in 0..num_docs {
     let mut doc = Document::new();
     let s = if is_s1.get(idx)? { &s1 } else { &s2 };
-    let f = new_field(&mut random, "field", s.as_str(), &ft, &mut field_types)?;
     let count = TestUtil::next_int(&mut random, 1, 4);
     for _ in 0..count {
-      doc.add(f.clone());
+      doc.add(new_field(
+        &mut random,
+        "field",
+        s.as_str(),
+        &ft,
+        &mut field_types,
+      )?);
     }
     riw.add_document(&mut random, doc)?;
   }

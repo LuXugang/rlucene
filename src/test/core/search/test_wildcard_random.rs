@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::core::document::document::Document;
-use crate::core::document::field::Store;
+use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::fields::Fields;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
@@ -81,13 +82,21 @@ fn test_wildcards() -> Result<()> {
 
   let writer = RandomIndexWriter::with_config(&mut random, dir, iwc);
   let mut field_to_type = HashMap::new();
-  let mut field = new_string_field(&mut random, "field", "", Store::No, &mut field_to_type)?;
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    &mut random,
+    "field",
+    "",
+    Store::No,
+    &mut field_to_type,
+  )?);
 
   for i in 0..1000 {
+    let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+      unreachable!("field must exist")
+    };
     field.set_string_value(format!("{:03}", i))?;
-    let mut doc = Document::new();
-    doc.add(field.clone());
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(&mut random, &mut doc)?;
   }
 
   let reader = writer.get_reader(&mut random)?;

@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::multi_doc_values::MultiDocValues;
@@ -76,30 +77,31 @@ fn build_set_up() -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)> {
 
   let mut doc = Document::new();
   let mut field_to_type = HashMap::new();
-  let mut field = new_text_field(
+  doc.add(new_text_field(
     &mut random,
     "foo",
     "quick brown fox",
     Store::No,
     &mut field_to_type,
-  )?;
-  let mut field2 = new_text_field(
+  )?);
+  doc.add(new_text_field(
     &mut random,
     "bar",
     "quick brown fox",
     Store::No,
     &mut field_to_type,
-  )?;
-  doc.add(field.clone());
-  doc.add(field2.clone());
-  iw.add_document(&mut random, doc)?;
+  )?);
+  iw.add_document(&mut random, &mut doc)?;
 
-  doc = Document::new();
-  field.set_string_value("jumps over lazy brown dog")?;
-  field2.set_string_value("jumps over lazy brown dog")?;
-  doc.add(field);
-  doc.add(field2);
-  iw.add_document(&mut random, doc)?;
+  match doc.get_field_mut("foo") {
+    Some(Fields::Field(field)) => field.set_string_value("jumps over lazy brown dog")?,
+    _ => panic!("expected field"),
+  }
+  match doc.get_field_mut("bar") {
+    Some(Fields::Field(field)) => field.set_string_value("jumps over lazy brown dog")?,
+    _ => panic!("expected field"),
+  }
+  iw.add_document(&mut random, &mut doc)?;
 
   let reader = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;

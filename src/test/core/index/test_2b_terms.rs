@@ -180,15 +180,16 @@ fn test_2b_terms() -> Result<()> {
   let mut custom_type = FieldType::from_ref(&*TYPE_NOT_STORED)?;
   custom_type.set_index_options(IndexOptions::Docs)?;
   custom_type.set_omit_norms(true)?;
-  // `Document` is consumed by Rust's `IndexWriter::add_document`, so each document gets a
-  // token-stream wrapper over the same Java-equivalent stream state.
+  // Each iteration installs a fresh token-stream wrapper over the same Java-equivalent stream
+  // state while the surrounding `Document` is reused.
   let num_docs = (term_count / i64::from(terms_per_doc)) as i32;
 
   println!("TERMS_PER_DOC={terms_per_doc}");
   println!("numDocs={num_docs}");
 
+  let mut doc = Document::new();
   for i in 0..num_docs {
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(Field::from_token_stream(
       "field",
       FieldTokenStreamEnum::custom(MyTokenStream::new(
@@ -199,7 +200,7 @@ fn test_2b_terms() -> Result<()> {
       custom_type.clone(),
     )?);
     let t0 = Instant::now();
-    writer.add_document(doc)?;
+    writer.add_document(&mut doc)?;
     println!("{i} of {num_docs} {} ms", t0.elapsed().as_millis());
   }
   let mut saved_terms = Some(state.lock().saved_terms.clone());

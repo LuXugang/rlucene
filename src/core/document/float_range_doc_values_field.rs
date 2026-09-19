@@ -219,16 +219,3 @@ impl Display for FloatRangeDocValuesField {
     self.base.fmt(f)
   }
 }
-
-#[cfg(test)]
-impl Clone for FloatRangeDocValuesField {
-  fn clone(&self) -> Self {
-    Self {
-      base: self.base.clone(),
-      field: self.field.clone(),
-      min: self.min,
-      max: self.max,
-      num_dims: self.num_dims,
-    }
-  }
-}

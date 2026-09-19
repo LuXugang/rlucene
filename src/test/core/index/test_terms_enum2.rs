@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::Yes;
+use crate::core::document::fields::Fields;
 use crate::core::index::BytesRef;
 use crate::core::index::BytesRefValue;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
@@ -118,18 +119,25 @@ where
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
   let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
-  let mut field = new_string_field(random, "field", "", Yes, &mut HashMap::new())?;
-
   let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
 
+  let mut doc = Document::new();
+  doc.add(new_string_field(
+    random,
+    "field",
+    "",
+    Yes,
+    &mut HashMap::new(),
+  )?);
   let num = at_least(random, 200);
   for _i in 0..num {
     let s = TestUtil::random_unicode_string(random);
+    let Some(Fields::Field(field)) = doc.get_field_mut("field") else {
+      unreachable!("field must exist")
+    };
     field.set_string_value(&s)?;
     terms.insert(BytesRef::from_string(&s));
-    let mut doc = Document::new();
-    doc.add(field.clone());
-    writer.add_document(random, doc)?;
+    writer.add_document(random, &mut doc)?;
   }
   let v: Vec<&BytesRef<Vec<u8>>> = terms.iter().collect();
   let terms_automaton = Automata::make_string_union(v.as_slice())?;

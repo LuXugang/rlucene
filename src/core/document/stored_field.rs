@@ -315,12 +315,3 @@ impl IndexableField for StoredField {
     self.parent_field.invertable_type()
   }
 }
-
-#[cfg(test)]
-impl Clone for StoredField {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

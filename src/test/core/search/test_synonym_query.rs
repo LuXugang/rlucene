@@ -172,12 +172,12 @@ fn do_test_scores(total_hits_threshold: usize) -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("f", "a", Store::No)?);
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
+  doc.clear();
+  doc.add(StringField::from_string("f", "b", Store::No)?);
   for _ in 0..10 {
-    let mut doc = Document::new();
-    doc.add(StringField::from_string("f", "b", Store::No)?);
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(&mut random, &mut doc)?;
   }
 
   let boost = if random.random_bool(0.5) {
@@ -237,23 +237,23 @@ fn do_test_boosts(total_hits_threshold: usize) -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(Field::new("f", "c", field_type.clone()));
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
   for i in 0..10 {
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(Field::new("f", "a a a a", field_type.clone()));
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(&mut random, &mut doc)?;
 
-    let mut doc = Document::new();
+    doc.clear();
     doc.add(Field::new(
       "f",
       if i % 2 == 0 { "b b" } else { "a a b" },
       field_type.clone(),
     ));
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(&mut random, &mut doc)?;
   }
-  let mut doc = Document::new();
+  doc.clear();
   doc.add(Field::new("f", "c", field_type));
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;

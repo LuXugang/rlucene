@@ -27,6 +27,7 @@ use rand::{Rng, RngExt, SeedableRng};
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldBase, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::Fields;
 use crate::core::document::int_field::IntField;
 use crate::core::document::int_point::IntPoint;
 use crate::core::document::keyword_field::KeywordField;
@@ -153,7 +154,7 @@ impl LineFileDocs {
 
   /// Note: Document instance is re-used per-thread in Java. This Rust port keeps the same DocState
   /// shape and refreshes the stored Document from the current field values.
-  pub fn next_doc(&mut self) -> Result<Document> {
+  pub fn next_doc(&mut self) -> Result<&mut Document> {
     let mut line = String::new();
     {
       let reader = self
@@ -190,25 +191,43 @@ impl LineFileDocs {
         LuceneError::illegal_argument(format!("line: [{}] is in an invalid format !", line))
       })?;
 
-    doc_state.body.set_string_value(&line[spot2 + 1..])?;
+    let Some(Fields::Field(body)) = doc_state.doc.get_field_mut("body") else {
+      return Err(LuceneError::illegal_state("body field is missing"));
+    };
+    body.set_string_value(&line[spot2 + 1..])?;
     let title = &line[..spot];
-    doc_state.title.set_string_value(title)?;
-    doc_state.title_tokenized.set_string_value(title)?;
-    doc_state.date.set_string_value(&line[spot + 1..spot2])?;
+    let Some(Fields::Keyword(title_field)) = doc_state.doc.get_field_mut("title") else {
+      return Err(LuceneError::illegal_state("title field is missing"));
+    };
+    title_field.set_string_value(title)?;
+    let Some(Fields::Field(title_tokenized)) = doc_state.doc.get_field_mut("titleTokenized") else {
+      return Err(LuceneError::illegal_state(
+        "titleTokenized field is missing",
+      ));
+    };
+    title_tokenized.set_string_value(title)?;
+    let Some(Fields::String(date)) = doc_state.doc.get_field_mut("date") else {
+      return Err(LuceneError::illegal_state("date field is missing"));
+    };
+    date.set_string_value(&line[spot + 1..spot2])?;
     let i = self.id;
     self.id += 1;
-    doc_state.id.set_string_value(i.to_string())?;
-    doc_state.id_num.set_int_value(i)?;
-    doc_state
-      .page_views
-      .set_long_value(self.random.random_range(0..10_000))?;
-    doc_state.set_doc();
+    let Some(Fields::String(id)) = doc_state.doc.get_field_mut("docid") else {
+      return Err(LuceneError::illegal_state("docid field is missing"));
+    };
+    id.set_string_value(i.to_string())?;
+    let Some(Fields::IntField(id_num)) = doc_state.doc.get_field_mut("docid_int") else {
+      return Err(LuceneError::illegal_state("docid_int field is missing"));
+    };
+    id_num.set_int_value(i)?;
+    let Some(Fields::NumericDocValues(page_views)) = doc_state.doc.get_field_mut("page_views")
+    else {
+      return Err(LuceneError::illegal_state("page_views field is missing"));
+    };
+    page_views.set_long_value(self.random.random_range(0..10_000))?;
 
     if self.random.random_range(0..5) == 4 {
       let mut doc = Document::new();
-      for field in doc_state.doc.get_fields() {
-        doc.add(field.clone());
-      }
 
       if self.random.random_range(0..3) == 1 {
         let x = self.random.random_range(0..4);
@@ -235,7 +254,7 @@ impl LineFileDocs {
       }
     }
 
-    Ok(std::mem::take(&mut doc_state.doc))
+    Ok(&mut doc_state.doc)
   }
 }
 
@@ -280,13 +299,6 @@ pub fn date_field_value_to_local_date_time(s: &str) -> Result<NaiveDateTime> {
 
 struct DocState {
   doc: Document,
-  title_tokenized: Field,
-  title: KeywordField,
-  body: Field,
-  id: StringField,
-  id_num: IntField,
-  date: StringField,
-  page_views: NumericDocValuesField,
 }
 
 impl DocState {
@@ -306,30 +318,15 @@ impl DocState {
     let date = StringField::from_string("date", "", Store::Yes)?;
     let page_views = NumericDocValuesField::new("page_views", 0);
 
-    let mut doc_state = Self {
-      doc: Document::new(),
-      title_tokenized,
-      title,
-      body,
-      id,
-      id_num,
-      date,
-      page_views,
-    };
-    doc_state.set_doc();
-    Ok(doc_state)
-  }
-
-  fn set_doc(&mut self) {
     let mut doc = Document::new();
-    doc.add(self.title.clone());
-    doc.add(self.title_tokenized.clone());
-    doc.add(self.body.clone());
-    doc.add(self.id.clone());
-    doc.add(self.id_num.clone());
-    doc.add(self.date.clone());
-    doc.add(self.page_views.clone());
-    self.doc = doc;
+    doc.add(title);
+    doc.add(title_tokenized);
+    doc.add(body);
+    doc.add(id);
+    doc.add(id_num);
+    doc.add(date);
+    doc.add(page_views);
+    Ok(Self { doc })
   }
 }
 

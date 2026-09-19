@@ -76,7 +76,7 @@ fn test_mixup_docs() -> Result<()> {
     custom_type.clone(),
   )?;
   doc.add(field);
-  writer.add_document(&mut random, doc)?;
+  writer.add_document(&mut random, &mut doc)?;
 
   let mut with_payload = token::with_range(Some("withPayload"), 0, 11)?;
   with_payload
@@ -88,14 +88,15 @@ fn test_mixup_docs() -> Result<()> {
       .get_attribute_name()?
       .contains(payload_attribute::NAME)
   );
-  let mut doc = Document::new();
-  let field = Field::from_token_stream(
-    "field",
-    FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![with_payload])),
-    custom_type.clone(),
-  )?;
-  doc.add(field);
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("field") {
+    Some(crate::core::document::fields::Fields::Field(field)) => {
+      field.set_token_stream(FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![
+        with_payload,
+      ])))?
+    },
+    _ => panic!("expected field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
   let mut ts = MockTokenizer::with_default_max_token_length(
     random_from_seed(random.random()),
@@ -103,10 +104,13 @@ fn test_mixup_docs() -> Result<()> {
     true,
   );
   ts.set_reader(StringReader::new("another").into())?;
-  let mut doc = Document::new();
-  let field = Field::from_token_stream("field", FieldTokenStreamEnum::custom(ts), custom_type)?;
-  doc.add(field);
-  writer.add_document(&mut random, doc)?;
+  match doc.get_field_mut("field") {
+    Some(crate::core::document::fields::Fields::Field(field)) => {
+      field.set_token_stream(FieldTokenStreamEnum::custom(ts))?
+    },
+    _ => panic!("expected field"),
+  }
+  writer.add_document(&mut random, &mut doc)?;
 
   let reader = writer.get_reader(&mut random)?;
   let mut term_vectors = reader.term_vectors()?;

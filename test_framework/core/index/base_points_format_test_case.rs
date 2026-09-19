@@ -1299,13 +1299,13 @@ pub trait BasePointsFormatTestCase:
     let mut doc = Document::new();
     doc.add(LongPoint::new("f", [1_i64])?);
     doc.add(LongPoint::new("g", [42_i64, 43_i64])?);
-    w1.add_document(doc.clone())?;
+    w1.add_document(&mut doc)?;
 
     let dir2 = new_directory_shared(random)?;
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(MergeSchedulerEnum::from(SerialMergeScheduler::new()));
     let w2 = IndexWriter::new(dir2.clone(), iwc)?;
-    w2.add_document(doc)?;
+    w2.add_document(&mut doc)?;
     w2.commit()?;
 
     let reader = directory_reader::open_from_writer(&w1)?;

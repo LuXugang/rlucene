@@ -490,12 +490,3 @@ impl PointInSetBase for BinaryPointInSetQuery {
     )
   }
 }
-
-#[cfg(test)]
-impl Clone for BinaryPoint {
-  fn clone(&self) -> Self {
-    Self {
-      parent_field: self.parent_field.clone(),
-    }
-  }
-}

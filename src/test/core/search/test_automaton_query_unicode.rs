@@ -23,7 +23,9 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 use crate::core::document::document::Document;
+use crate::core::document::field::FieldBase;
 use crate::core::document::field::Store;
+use crate::core::document::fields::Fields;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -77,9 +79,28 @@ where
   let mut field_to_type = HashMap::new();
   let writer = RandomIndexWriter::new(random, directory.clone())?;
 
-  let title_field = new_text_field(random, "title", "some title", Store::No, &mut field_to_type)?;
-  let mut field = new_text_field(random, FN, "", Store::No, &mut field_to_type)?;
-  let footer_field = new_text_field(random, "footer", "a footer", Store::No, &mut field_to_type)?;
+  let mut doc = Document::new();
+  doc.add(new_text_field(
+    random,
+    "title",
+    "some title",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    random,
+    FN,
+    "",
+    Store::No,
+    &mut field_to_type,
+  )?);
+  doc.add(new_text_field(
+    random,
+    "footer",
+    "a footer",
+    Store::No,
+    &mut field_to_type,
+  )?);
 
   let values = [
     "\u{29B05}abcdef",
@@ -97,12 +118,11 @@ where
   ];
 
   for value in values {
-    let mut doc = Document::new();
+    let Some(Fields::Field(field)) = doc.get_field_mut(FN) else {
+      unreachable!("field must exist")
+    };
     field.set_string_value(value)?;
-    doc.add(title_field.clone());
-    doc.add(field.clone());
-    doc.add(footer_field.clone());
-    writer.add_document(random, doc)?;
+    writer.add_document(random, &mut doc)?;
   }
 
   let reader = writer.get_reader(random)?;

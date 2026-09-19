@@ -30,6 +30,7 @@ use crate::core::codecs::lucene90_compound_reader::Lucene90CompoundReader;
 use crate::core::codecs::{Codec, CodecUtil, CompoundFormat, codec};
 use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
+use crate::core::document::fields::Fields;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
@@ -268,16 +269,21 @@ pub trait BaseCompoundFormatTestCase:
     let riw = RandomIndexWriter::new(random, dir.clone())?;
 
     // these fields should sometimes get term vectors, etc
-    let mut id_field = StringField::from_string("id", "", Store::No)?;
-    let mut body_field = TextField::from_string("body", "", Store::No)?;
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", "", Store::No)?);
+    doc.add(TextField::from_string("body", "", Store::No)?);
 
     for i in 0..100 {
+      let Some(Fields::String(id_field)) = doc.get_field_mut("id") else {
+        unreachable!("id field must exist")
+      };
       id_field.set_string_value(i.to_string())?;
+
+      let Some(Fields::Text(body_field)) = doc.get_field_mut("body") else {
+        unreachable!("body field must exist")
+      };
       body_field.set_string_value(TestUtil::random_unicode_string(random))?;
-      let mut doc = Document::new();
-      doc.add(id_field.clone());
-      doc.add(body_field.clone());
-      riw.add_document(random, doc)?;
+      riw.add_document(random, &mut doc)?;
 
       if random.random_range(0..7) == 0 {
         riw.commit(random)?;

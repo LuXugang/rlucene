@@ -126,12 +126,12 @@ fn test_blended_scores() -> Result<()> {
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("f", "a", Store::No)?);
-  w.add_document(&mut random, doc)?;
+  w.add_document(&mut random, &mut doc)?;
 
+  doc.clear();
+  doc.add(StringField::from_string("f", "b", Store::No)?);
   for _ in 0..10 {
-    let mut doc = Document::new();
-    doc.add(StringField::from_string("f", "b", Store::No)?);
-    w.add_document(&mut random, doc)?;
+    w.add_document(&mut random, &mut doc)?;
   }
 
   let reader = w.get_reader(&mut random)?;

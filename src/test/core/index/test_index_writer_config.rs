@@ -159,7 +159,7 @@ fn test_live_change_to_cfs() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
   w.commit()?;
   assert!(w.newest_segment().unwrap().info.get_use_compound_file());
 
@@ -170,7 +170,7 @@ fn test_live_change_to_cfs() -> Result<()> {
     Store::No,
     &mut field_to_type,
   )?);
-  w.add_document(doc.clone())?;
+  w.add_document(&mut doc)?;
   w.commit()?;
   w.force_merge(1)?;
   w.commit()?;
@@ -184,7 +184,7 @@ fn test_live_change_to_cfs() -> Result<()> {
     .get_base_mut()
     .set_max_cfs_segment_size_mb(f64::INFINITY)?;
 
-  w.add_document(doc)?;
+  w.add_document(&mut doc)?;
   w.force_merge(1)?;
   w.commit()?;
   assert!(w.newest_segment().unwrap().info.get_use_compound_file());

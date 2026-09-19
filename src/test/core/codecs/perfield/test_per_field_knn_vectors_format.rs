@@ -170,9 +170,9 @@ fn test_two_fields_two_formats() -> Result<()> {
     &mut field_to_type,
   )?);
   doc.add(KnnFloatVectorField::new("field1", vec![1.0, 2.0, 3.0])?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
 
-  let mut doc = Document::new();
+  doc.clear();
   doc.add(new_text_field(
     &mut random,
     "id",
@@ -181,7 +181,7 @@ fn test_two_fields_two_formats() -> Result<()> {
     &mut field_to_type,
   )?);
   doc.add(KnnFloatVectorField::new("field2", vec![4.0, 5.0, 6.0])?);
-  writer.add_document(doc)?;
+  writer.add_document(&mut doc)?;
   writer.close()?;
 
   // Check that each format was used to write the expected field
