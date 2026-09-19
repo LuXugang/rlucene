@@ -456,6 +456,19 @@ impl DataOutput for ByteBuffersDataOutput {
     Ok(last_block.write_u8(b)?)
   }
 
+  fn write_vint(&mut self, i: i32) -> Result<()> {
+    let mut bytes = [0u8; 5];
+    let mut value = i as u32;
+    let mut length = 0;
+    while (value & !0x7F) != 0 {
+      bytes[length] = ((value & 0x7F) | 0x80) as u8;
+      length += 1;
+      value >>= 7;
+    }
+    bytes[length] = value as u8;
+    self.write_bytes_range(&bytes, 0, length + 1)
+  }
+
   fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
     self.write_bytes_range(b, 0, len)
   }
