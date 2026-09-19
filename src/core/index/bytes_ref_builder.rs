@@ -225,14 +225,19 @@ where
     let source = &s[off..off + len];
     self.bytes_ref.length = self.bytes_ref.bytes.access_mut(|bytes| {
       bytes.clear();
+      let ascii = source.iter().all(|c| c.is_ascii());
       if bytes.capacity() < source.len() {
         let encoded_len: usize = source.iter().map(|c| c.len_utf8()).sum();
         bytes.reserve_exact(encoded_len);
       }
-      for &c in source {
-        let mut buf = [0u8; 4];
-        let encoded_str = c.encode_utf8(&mut buf);
-        bytes.extend_from_slice(encoded_str.as_bytes());
+      if ascii {
+        bytes.extend(source.iter().map(|c| *c as u8));
+      } else {
+        for &c in source {
+          let mut buf = [0u8; 4];
+          let encoded_str = c.encode_utf8(&mut buf);
+          bytes.extend_from_slice(encoded_str.as_bytes());
+        }
       }
       bytes.len()
     });
