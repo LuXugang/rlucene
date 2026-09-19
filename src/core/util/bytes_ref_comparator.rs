@@ -80,12 +80,11 @@ impl<AV: ByteSource> BytesRefComparator<AV> for Natural {
     let slice1 = &o1.bytes.as_slice()[start1..(o1.offset + o1.length)];
     let slice2 = &o2.bytes.as_slice()[start2..(o2.offset + o2.length)];
 
-    for (byte_a, byte_b) in slice1.iter().zip(slice2.iter()) {
-      if byte_a != byte_b {
-        return Ok(*byte_a as i32 - *byte_b as i32);
-      }
-    }
-    Ok((slice1.len() as i32) - (slice2.len() as i32))
+    Ok(match slice1.cmp(slice2) {
+      std::cmp::Ordering::Less => -1,
+      std::cmp::Ordering::Equal => 0,
+      std::cmp::Ordering::Greater => 1,
+    })
   }
 
   fn compared_bytes_count(&self) -> usize {
