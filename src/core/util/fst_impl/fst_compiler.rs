@@ -1341,17 +1341,9 @@ where
   ///   LUCENE-2934 (node expansion based on conditions other than the fanout
   ///   size).
   pub(crate) fn new(no_output: T, depth: usize) -> Self {
-    let mut arcs = SmallVec::new();
-    arcs.push(Arc {
-      label: 0,
-      target: NodeEnum::CompiledNode(CompiledNode::default()),
-      is_final: false,
-      output: no_output.clone(),
-      next_final_output: no_output.clone(),
-    });
     Self {
       num_arcs: 0,
-      arcs,
+      arcs: SmallVec::new(),
       output: no_output,
       is_final: false,
       depth: depth as i32,
