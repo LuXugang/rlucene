@@ -771,12 +771,7 @@ where
   /// `scratch_bytes.get_position()`.
   fn reverse_scratch_bytes(&mut self) {
     let pos = self.scratch_bytes.get_position();
-    let bytes = self.scratch_bytes.get_bytes();
-    let limit = pos / 2;
-    for i in 0..limit {
-      let j = pos - 1 - i;
-      bytes.swap(i, j);
-    }
+    self.scratch_bytes.get_bytes()[..pos].reverse();
   }
   /// Write bytes from a source slice to the scratch bytes. The written
   /// bytes must fit within what was already written in the scratch bytes.
