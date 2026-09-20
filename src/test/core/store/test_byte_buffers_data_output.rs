@@ -145,14 +145,11 @@ fn test_sanity() -> Result<()> {
 
   assert_eq!(o.size(), 0);
   assert_eq!(o.get_array_copy().len(), 0);
-  // Java allocates its first block lazily and therefore reports zero here.
-  // Rust eagerly retains the first reusable block, so it must be accounted for.
-  let initial_ram_bytes_used = o.ram_bytes_used()?;
-  assert!(initial_ram_bytes_used > 0);
+  assert_eq!(0, o.ram_bytes_used()?);
 
   o.write_byte(1)?;
   assert_eq!(o.size(), 1);
-  assert_eq!(initial_ram_bytes_used, o.ram_bytes_used()?);
+  assert!(o.ram_bytes_used()? > 0);
   assert_eq!(o.get_array_copy(), [1]);
 
   o.write_bytes_with_len(&[2, 3, 4], 3)?;
@@ -268,15 +265,11 @@ fn test_to_writeable_buffer_list_returns_original_buffers() -> Result<()> {
 #[test]
 fn test_ram_bytes_used() -> Result<()> {
   let mut out = ByteBuffersDataOutput::new();
-  // Java allocates lazily and expects no retained RAM for an empty output.
-  // Rust eagerly allocates its first block, so the empty output retains RAM.
   let empty_ram_bytes_used = out.ram_bytes_used()?;
-  assert!(empty_ram_bytes_used >= compute_ram_bytes_used(&out));
+  assert_eq!(0, empty_ram_bytes_used);
 
-  // A non-empty buffer requires RAM, but writing into the eagerly allocated
-  // first block does not require another allocation.
   out.write_int(4)?;
-  assert_eq!(empty_ram_bytes_used, out.ram_bytes_used()?);
+  assert!(out.ram_bytes_used()? > empty_ram_bytes_used);
   assert!(out.ram_bytes_used()? >= compute_ram_bytes_used(&out));
 
   // Make sure this keeps working with multiple backing buffers.

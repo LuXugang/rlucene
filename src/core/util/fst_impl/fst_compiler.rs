@@ -16,6 +16,8 @@
  */
 use std::fmt::{Display, Formatter};
 
+use smallvec::SmallVec;
+
 use crate::core::store::{ByteArrayDataOutput, DataOutput, IndexOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
@@ -134,7 +136,7 @@ where
     let no_output = outputs.get_no_output();
     let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
     let fst = FST::new(fst_meta, NullFSTReader);
-    let mut frontier = Vec::with_capacity(10);
+    let mut frontier = Vec::with_capacity(16);
     for i in 0..10 {
       frontier.push(UnCompiledNode::new(no_output.clone(), i));
     }
@@ -343,9 +345,8 @@ where
     if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
       // same input more than 1 time in a row,
       // mapping to multiple outputs
-      let output = &self.frontier[input.offset].output;
       let last_node = &self.frontier[input.length];
-      let v = self.fst.outputs.merge(&last_node.output, output)?;
+      let v = self.fst.outputs.merge(&last_node.output, &output)?;
       self.frontier[input.length].output = v;
     } else {
       // this new arc is private to this new input; set its
@@ -642,7 +643,7 @@ where
   /// lookup by arc label.
   fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<O::V>) -> bool {
     self.allow_fixed_length_arcs
-      && ((node.depth <= FIXED_LENGTH_ARC_SHALLOW_DEPTH
+      && (((node.depth as usize) <= FIXED_LENGTH_ARC_SHALLOW_DEPTH
         && node.num_arcs >= FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
         || node.num_arcs >= FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
   }
@@ -1151,7 +1152,7 @@ where
   }
   ///  Expert: Set the codec version.
   pub fn with_version(&mut self, version: i32) -> Result<()> {
-    if (VERSION_90..=VERSION_CURRENT).contains(&version) {
+    if !(VERSION_90..=VERSION_CURRENT).contains(&version) {
       return Err(LuceneError::illegal_argument(format!(
         "Version must be in range [{} - {}]; got: {}",
         VERSION_90, VERSION_CURRENT, version
@@ -1322,12 +1323,12 @@ impl Node for CompiledNode {
 /// Expert: holds a pending (seen but not yet serialized) Node.
 pub(crate) struct UnCompiledNode<T> {
   pub(crate) num_arcs: usize,
-  pub(crate) arcs: Vec<Arc<T>>,
+  pub(crate) arcs: SmallVec<[Arc<T>; 1]>,
   pub(crate) output: T,
   pub(crate) is_final: bool,
 
   /// This node's depth, starting from the automaton root.
-  pub depth: usize,
+  pub depth: i32,
 }
 impl<T> UnCompiledNode<T>
 where
@@ -1340,20 +1341,20 @@ where
   ///   LUCENE-2934 (node expansion based on conditions other than the fanout
   ///   size).
   pub(crate) fn new(no_output: T, depth: usize) -> Self {
-    let arcs = vec![Arc {
+    let mut arcs = SmallVec::new();
+    arcs.push(Arc {
       label: 0,
       target: NodeEnum::CompiledNode(CompiledNode::default()),
       is_final: false,
       output: no_output.clone(),
       next_final_output: no_output.clone(),
-    }];
-
+    });
     Self {
       num_arcs: 0,
       arcs,
       output: no_output,
       is_final: false,
-      depth,
+      depth: depth as i32,
     }
   }
 
@@ -1382,7 +1383,16 @@ where
     );
 
     if self.num_arcs == self.arcs.len() {
-      ArrayUtil::grow(&mut self.arcs)?;
+      let next_final_output = no_outputs.clone();
+      self.arcs.push(Arc {
+        label,
+        target,
+        is_final: false,
+        output: no_outputs,
+        next_final_output,
+      });
+      self.num_arcs += 1;
+      return Ok(());
     }
 
     let arc = &mut self.arcs[self.num_arcs];
@@ -1485,7 +1495,7 @@ impl FixedLengthArcsBuffer {
     // Initial capacity is the max length required for the header of a node
     // with fixed length arcs: header(byte) + numArcs(vint) +
     // numBytes(vint)
-    let bytes = vec![0u8; 11];
+    let bytes = Vec::new();
     let bado = ByteArrayDataOutput::with_bytes(bytes);
     Self { bado }
   }
@@ -1499,6 +1509,10 @@ impl FixedLengthArcsBuffer {
   }
 
   pub(crate) fn reset_position(&mut self) -> Result<()> {
+    if self.bado.bytes.is_empty() {
+      self.ensure_capacity(11)?;
+      return Ok(());
+    }
     self.bado.reset()
   }
 

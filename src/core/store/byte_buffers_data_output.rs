@@ -112,13 +112,10 @@ impl ByteBuffersDataOutput {
   }
 
   fn with_validated_bits(min_bits_per_block: i32, max_bits_per_block: i32, reuse: bool) -> Self {
-    let block = Cursor::new(vec![0u8; 1 << min_bits_per_block]);
-    let mut blocks = VecDeque::new();
-    blocks.push_back(block);
     Self {
       max_bits_per_block,
       block_bits: min_bits_per_block,
-      blocks,
+      blocks: VecDeque::new(),
       current_block_index: 0,
       reuse,
       cached_ram_bytes: AtomicI64::new(-1),
@@ -399,6 +396,7 @@ impl ByteBuffersDataOutput {
   fn append_block_if_needed(&mut self) -> Result<usize> {
     if self.blocks.is_empty() {
       self.cached_ram_bytes.store(-1, Ordering::Relaxed);
+      self.blocks.reserve_exact(1);
       self
         .blocks
         .push_back(Cursor::new(vec![0u8; 1 << self.block_bits]));

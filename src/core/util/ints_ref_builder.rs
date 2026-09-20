@@ -144,13 +144,13 @@ where
   where
     AV: WritableVec<i32>,
   {
-    self.grow_no_copy(other_length)?;
-    CoreHelper::check_from_index_size(other_offset, other_length, other.len())?;
     self.ints_ref.ints.access_mut(|ints_bytes| {
+      ArrayUtil::grow_no_copy(ints_bytes, other_length)?;
+      CoreHelper::check_from_index_size(other_offset, other_length, other.len())?;
       ints_bytes.copy_from(&other[other_offset..(other_offset + other_length)], 0);
       self.ints_ref.length = other_length;
-    });
-    Ok(())
+      Ok(())
+    })
   }
   /// Copies the given [`IntsRef`] into this instance.
   pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) -> Result<()>

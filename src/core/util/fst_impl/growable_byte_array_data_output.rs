@@ -75,7 +75,9 @@ impl GrowableByteArrayDataOutput {
 
 impl DataOutput for GrowableByteArrayDataOutput {
   fn write_byte(&mut self, b: u8) -> Result<()> {
-    self.ensure_capacity(1)?;
+    if self.next_write == self.bytes.len() {
+      self.ensure_capacity(1)?;
+    }
     self.bytes[self.next_write] = b;
     self.next_write += 1;
     Ok(())
