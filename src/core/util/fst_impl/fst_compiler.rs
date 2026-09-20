@@ -457,7 +457,10 @@ where
             flags |= BIT_STOP_NODE;
           }
 
-          if !self.no_output.is_same_reference(&arc.output) {
+          // `arc.output` is not mutated while this arc is serialized, so the reference
+          // check only needs to be evaluated once.
+          let arc_has_output = !self.no_output.is_same_reference(&arc.output);
+          if arc_has_output {
             flags |= BIT_ARC_HAS_OUTPUT;
           }
 
@@ -485,7 +488,7 @@ where
           let label_end = self.scratch_bytes.get_position();
           let num_label_bytes = (label_end - label_start) as i32;
 
-          if !self.no_output.is_same_reference(&arc.output) {
+          if arc_has_output {
             self
               .fst
               .outputs
