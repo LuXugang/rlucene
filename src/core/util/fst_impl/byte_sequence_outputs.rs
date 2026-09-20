@@ -48,6 +48,7 @@ impl Clone for ByteSequenceOutputs {
 impl Outputs for ByteSequenceOutputs {
   type V = BytesRef<Arc<Vec<u8>>>;
 
+  #[inline]
   fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
     let a = &output1.bytes[output1.offset..output1.offset + output1.length];
     let b = &output2.bytes[output2.offset..output2.offset + output2.length];
@@ -67,6 +68,7 @@ impl Outputs for ByteSequenceOutputs {
     }
   }
 
+  #[inline]
   fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
     if BytesRef::equals(inc, &NO_OUTPUT) {
       // no prefix removed
@@ -99,6 +101,7 @@ impl Outputs for ByteSequenceOutputs {
     }
   }
 
+  #[inline]
   fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
     let no_output = &*NO_OUTPUT;
     if BytesRef::equals(prefix, no_output) {
@@ -115,6 +118,7 @@ impl Outputs for ByteSequenceOutputs {
     BytesRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
   }
 
+  #[inline]
   fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>
   where
     DO: DataOutput,

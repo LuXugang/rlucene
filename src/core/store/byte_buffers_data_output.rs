@@ -445,6 +445,7 @@ impl ByteBuffersDataOutput {
 }
 
 impl DataOutput for ByteBuffersDataOutput {
+  #[inline]
   fn write_byte(&mut self, b: u8) -> Result<()> {
     self.append_block_if_needed()?;
     let last_block = self
@@ -467,10 +468,12 @@ impl DataOutput for ByteBuffersDataOutput {
     self.write_bytes_range(&bytes, 0, length + 1)
   }
 
+  #[inline]
   fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
     self.write_bytes_range(b, 0, len)
   }
 
+  #[inline]
   fn write_bytes_range(&mut self, b: &[u8], mut offset: usize, mut length: usize) -> Result<()> {
     while length > 0 {
       let available_space = self.append_block_if_needed()?;

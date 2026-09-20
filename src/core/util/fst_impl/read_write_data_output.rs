@@ -159,11 +159,13 @@ impl FstReader for ReadWriteDataOutput {
 }
 
 impl DataOutput for ReadWriteDataOutput {
+  #[inline]
   fn write_byte(&mut self, b: u8) -> Result<()> {
     debug_assert!(!self.frozen);
     DataOutput::write_byte(&mut self.data_output, b)
   }
 
+  #[inline]
   fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
     debug_assert!(!self.frozen);
     self.data_output.write_bytes_range(b, offset, length)

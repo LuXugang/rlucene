@@ -141,6 +141,7 @@ impl ArrayUtil {
   /// Returns [`LuceneError::IllegalArgument`] when `min_target_size` exceeds
   /// either Lucene's maximum supported vector length or Rust's maximum
   /// allocation size for the given element size.
+  #[inline]
   pub fn oversize(min_target_size: usize, bytes_per_element: usize) -> Result<usize> {
     if min_target_size == 0 {
       // Wait until at least one element is requested.
