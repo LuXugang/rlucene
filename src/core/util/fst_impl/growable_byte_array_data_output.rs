@@ -37,15 +37,18 @@ impl GrowableByteArrayDataOutput {
       next_write: 0,
     }
   }
+  #[inline]
   pub fn get_position(&self) -> usize {
     self.next_write
   }
   /// Returns the full byte buffer.
+  #[inline]
   pub fn get_bytes(&mut self) -> &mut [u8] {
     &mut self.bytes
   }
 
   /// Set the position of the byte array, increasing the capacity if needed.
+  #[inline]
   pub fn set_position(&mut self, new_len: usize) -> Result<()> {
     if new_len > self.next_write {
       self.ensure_capacity(new_len - self.next_write)?;
@@ -55,6 +58,7 @@ impl GrowableByteArrayDataOutput {
   }
 
   /// Ensure we can write additional `capacity_to_write` bytes.
+  #[inline]
   fn ensure_capacity(&mut self, capacity_to_write: usize) -> Result<()> {
     ArrayUtil::grow_with_len(&mut self.bytes, self.next_write + capacity_to_write)
   }
@@ -74,6 +78,7 @@ impl GrowableByteArrayDataOutput {
 }
 
 impl DataOutput for GrowableByteArrayDataOutput {
+  #[inline]
   fn write_byte(&mut self, b: u8) -> Result<()> {
     if self.next_write == self.bytes.len() {
       self.ensure_capacity(1)?;
@@ -83,11 +88,14 @@ impl DataOutput for GrowableByteArrayDataOutput {
     Ok(())
   }
 
+  #[inline]
   fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
     if length == 0 {
       return Ok(());
     }
-    self.ensure_capacity(length)?;
+    if self.next_write + length > self.bytes.len() {
+      self.ensure_capacity(length)?;
+    }
     let start = offset;
     let end = start + length;
     self.bytes.copy_from(&b[start..end], self.next_write);
