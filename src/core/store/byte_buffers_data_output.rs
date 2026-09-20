@@ -278,7 +278,7 @@ impl ByteBuffersDataOutput {
   /// Returns a list of read-only views of [`Cursor<Vec<u8>>`](Cursor) blocks
   /// over the current content written to the output.
   pub fn to_buffer_list_ref(&self) -> (usize, Vec<Cursor<&[u8]>>) {
-    let data = self
+    let mut data: Vec<_> = self
       .blocks
       .iter()
       .map(|cursor| {
@@ -288,6 +288,9 @@ impl ByteBuffersDataOutput {
         new_cursor
       })
       .collect();
+    if data.is_empty() {
+      data.push(Cursor::new(&[]));
+    }
     (self.size(), data)
   }
   /// Moves the blocks out of the current object, transferring ownership.
@@ -313,6 +316,9 @@ impl ByteBuffersDataOutput {
     };
 
     let mut data: Vec<_> = old_blocks.into();
+    if data.is_empty() {
+      data.push(Cursor::new(Vec::new()));
+    }
     for cursor in &mut data {
       cursor.set_position(0);
     }
