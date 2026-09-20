@@ -308,6 +308,10 @@ fn compute_ram_bytes_used(out: &ByteBuffersDataOutput) -> i64 {
     .iter()
     .map(|buffer| buffer.get_ref().len())
     .sum::<usize>();
-  let initialized_cursor_bytes = buffers.len().saturating_mul(size_of::<Cursor<Vec<u8>>>());
+  let initialized_cursor_bytes = buffers
+    .iter()
+    .filter(|buffer| !buffer.get_ref().is_empty())
+    .count()
+    .saturating_mul(size_of::<Cursor<Vec<u8>>>());
   buffer_bytes.saturating_add(initialized_cursor_bytes) as i64
 }
