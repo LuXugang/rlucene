@@ -192,8 +192,7 @@ where
       self.last_frozen_node = node;
     }
 
-    let v = self.no_output.clone();
-    self.frontier[node_in_idx].clear(v);
+    self.frontier[node_in_idx].clear(&self.no_output);
 
     Ok((CompiledNode { node }, node_in_idx))
   }
@@ -202,10 +201,14 @@ where
 
     for idx in (down_to..=len).rev() {
       let (label, next_final_output, is_final, prev_idx) = {
-        let node = &self.frontier[idx];
+        let node = &mut self.frontier[idx];
         let prev_idx = idx - 1;
 
-        let next_final_output = node.output.clone();
+        let next_final_output = if self.dedup_hash.is_none() {
+          std::mem::replace(&mut node.output, self.no_output.clone())
+        } else {
+          node.output.clone()
+        };
         // We "fake" the node as being final if it has no
         // outgoing arcs; in theory we could leave it
         // as non-final (the FST can represent this), but
@@ -243,7 +246,7 @@ where
     let ints = &input.ints;
 
     // De-dup NO_OUTPUT since it must be a singleton:
-    if output == self.no_output {
+    if output == self.no_output && !output.is_same_reference(&self.no_output) {
       output = self.no_output.clone();
     }
 
@@ -295,21 +298,21 @@ where
     // minimize/compile states from previous input's
     // orphan'd suffix
     self.freeze_tail(prefix_len_plus1)?;
-    let no_output = self.no_output.clone();
     // init tail states for current input
     let offset = input.offset;
     for idx in prefix_len_plus1..=input.length {
       let label = ints[offset + idx - 1];
       let un_compiled = NodeEnum::UnCompiledNode;
-      let v = self.no_output.clone();
-      self.frontier[idx - 1].add_arc(label, un_compiled, v)?;
+      self.frontier[idx - 1].add_arc(label, un_compiled, &self.no_output)?;
     }
 
     let last_input_len = self.last_input.length();
     let last_node = &mut self.frontier[input.length];
     if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
       last_node.is_final = true;
-      last_node.output = no_output;
+      if !last_node.output.is_same_reference(&self.no_output) {
+        last_node.output = self.no_output.clone();
+      }
     }
     // push conflicting outputs forward, only as far as
     // needed
@@ -322,7 +325,7 @@ where
 
       debug_assert!(self.valid_output(last_output));
 
-      let common_output_prefix = if !self.no_output.is_same_reference(last_output) {
+      if !self.no_output.is_same_reference(last_output) {
         let common_output_prefix = self.fst.outputs.common(&output, last_output);
         debug_assert!(self.valid_output(&common_output_prefix));
 
@@ -332,14 +335,12 @@ where
           .subtract(last_output, &common_output_prefix);
         debug_assert!(self.valid_output(&word_suffix));
 
+        output = self.fst.outputs.subtract(&output, &common_output_prefix);
         UnCompiledNode::set_last_output(label, common_output_prefix, self, idx - 1)?;
         UnCompiledNode::prepend_output(&word_suffix, self, idx)?;
-        self.frontier[idx - 1].get_last_output(label)
       } else {
-        &self.no_output
-      };
-
-      output = self.fst.outputs.subtract(&output, common_output_prefix);
+        output = self.fst.outputs.subtract(&output, &self.no_output);
+      }
       debug_assert!(self.valid_output(&output));
     }
     if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
@@ -1350,10 +1351,12 @@ where
     }
   }
 
-  pub(crate) fn clear(&mut self, no_outputs: T) {
+  pub(crate) fn clear(&mut self, no_outputs: &T) {
     self.num_arcs = 0;
     self.is_final = false;
-    self.output = no_outputs;
+    if !self.output.is_same_reference(no_outputs) {
+      self.output = no_outputs.clone();
+    }
     // We don't clear the depth here because it never changes
     // for nodes on the frontier (even when reused).
   }
@@ -1364,7 +1367,7 @@ where
     &self.arcs[self.num_arcs - 1].output
   }
 
-  pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum, no_outputs: T) -> Result<()> {
+  pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum, no_outputs: &T) -> Result<()> {
     debug_assert!(label >= 0);
     debug_assert!(
       self.num_arcs == 0 || label > self.arcs[self.num_arcs - 1].label,
@@ -1375,13 +1378,12 @@ where
     );
 
     if self.num_arcs == self.arcs.len() {
-      let next_final_output = no_outputs.clone();
       self.arcs.push(Arc {
         label,
         target,
         is_final: false,
-        output: no_outputs,
-        next_final_output,
+        output: no_outputs.clone(),
+        next_final_output: no_outputs.clone(),
       });
       self.num_arcs += 1;
       return Ok(());
@@ -1391,8 +1393,10 @@ where
     self.num_arcs += 1;
     arc.label = label;
     arc.target = target;
-    arc.output = no_outputs;
-    arc.next_final_output = arc.output.clone();
+    arc.output = no_outputs.clone();
+    if !arc.next_final_output.is_same_reference(no_outputs) {
+      arc.next_final_output = no_outputs.clone();
+    }
     arc.is_final = false;
     Ok(())
   }

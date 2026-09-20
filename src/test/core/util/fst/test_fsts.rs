@@ -1127,7 +1127,7 @@ fn test_non_final_stop_node() -> Result<()> {
     let mut node = UnCompiledNode::new(no_output.clone(), 0);
     node.is_final = true;
     fst_compiler.frontier[0] = node;
-    root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode, no_output.clone())?;
+    root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode, &no_output)?;
     let fronze = CompiledNode {
       node: fst_compiler.add_node(0)?,
     };
@@ -1143,7 +1143,7 @@ fn test_non_final_stop_node() -> Result<()> {
     let no_output = fst_compiler.no_output.clone();
     let node = UnCompiledNode::new(no_output.clone(), 0);
     fst_compiler.frontier[1] = node;
-    root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode, no_output.clone())?;
+    root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode, &no_output)?;
     let fronze = CompiledNode {
       node: fst_compiler.add_node(1)?,
     };
