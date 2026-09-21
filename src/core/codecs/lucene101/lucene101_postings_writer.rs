@@ -526,7 +526,7 @@ where
     Err(LuceneError::unreachable("should not be called"))
   }
 
-  fn set_field(&mut self, field_info: Arc<FieldInfo>) {
+  fn set_field(&mut self, field_info: &Arc<FieldInfo>) {
     self.last_state = IntBlockTermState::new();
     self.field_has_norms = field_info.has_norms();
   }

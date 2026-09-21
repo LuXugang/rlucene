@@ -223,7 +223,7 @@ where
   /// Sets the current field for writing, and returns the fixed length of
   /// `&[i64]` metadata (which is fixed per field), called when the
   /// writing switches to another field.
-  fn set_field(&mut self, field_info: Arc<FieldInfo>) {
+  fn set_field(&mut self, field_info: &Arc<FieldInfo>) {
     self.index_options = *field_info.get_index_options();
     let options = &mut self.options;
     options.write_freqs = self.index_options >= IndexOptions::DocsAndFreqs;

@@ -771,7 +771,7 @@ where
   ) -> Result<Self> {
     debug_assert_ne!(*field_info.get_index_options(), IndexOptions::None);
 
-    postings_writer.set_field(field_info.clone());
+    postings_writer.set_field(field_info);
 
     let v = Self {
       field_info: field_info.as_ref(),

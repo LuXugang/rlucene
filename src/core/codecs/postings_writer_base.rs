@@ -85,5 +85,5 @@ pub trait PostingsWriterBase: Closeable {
     DO: DataOutput;
 
   /// Sets the current field for writing.
-  fn set_field(&mut self, field_info: Arc<FieldInfo>);
+  fn set_field(&mut self, field_info: &Arc<FieldInfo>);
 }
