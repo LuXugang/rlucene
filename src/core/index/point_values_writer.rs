@@ -122,7 +122,7 @@ impl PointValuesWriter {
   ) -> Result<()>
   where
     D1: Directory,
-    DM: DocMap + Clone,
+    DM: DocMap,
     PW: PointsWriter,
   {
     let bytes_reader = self.bytes_out.paged_bytes.freeze(false)?;
@@ -133,9 +133,7 @@ impl PointValuesWriter {
       self.packed_bytes_length,
     );
     let values = match sort_map {
-      Some(doc_map) => {
-        MutablePointTreeEnum2::B(MutableSortingPointValues::new(points, doc_map.clone()))
-      },
+      Some(doc_map) => MutablePointTreeEnum2::B(MutableSortingPointValues::new(points, doc_map)),
       None => MutablePointTreeEnum2::A(points),
     };
     let mut reader = PointsReaderImpl::new(values, self.field_info.as_ref());
