@@ -25,10 +25,29 @@ use crate::core::util::fst_impl::outputs::Outputs;
 
 static NO_OUTPUT: LazyLock<Arc<i64>> = LazyLock::new(|| Arc::new(0));
 
-pub static SINGLETON: LazyLock<PositiveIntOutputs> = LazyLock::new(|| PositiveIntOutputs);
+pub static SINGLETON: LazyLock<PositiveIntOutputs> = LazyLock::new(|| PositiveIntOutputs {
+  no_output: &NO_OUTPUT,
+});
 /// An FST [`Outputs`] implementation where each output is a non-negative `i64`.
-#[derive(Clone, Default)]
-pub struct PositiveIntOutputs;
+pub struct PositiveIntOutputs {
+  no_output: &'static Arc<i64>,
+}
+
+impl Clone for PositiveIntOutputs {
+  fn clone(&self) -> Self {
+    Self {
+      no_output: self.no_output,
+    }
+  }
+}
+
+impl Default for PositiveIntOutputs {
+  fn default() -> Self {
+    Self {
+      no_output: &NO_OUTPUT,
+    }
+  }
+}
 
 impl PositiveIntOutputs {
   pub fn get_singleton() -> &'static PositiveIntOutputs {
@@ -37,7 +56,7 @@ impl PositiveIntOutputs {
 
   #[cfg(debug_assertions)]
   fn valid(&self, o: &Arc<i64>) -> bool {
-    debug_assert!(Arc::ptr_eq(o, &NO_OUTPUT) || **o > 0, "o= {o}");
+    debug_assert!(Arc::ptr_eq(o, self.no_output) || **o > 0, "o= {o}");
     true
   }
 }
@@ -52,8 +71,8 @@ impl Outputs for PositiveIntOutputs {
       debug_assert!(self.valid(output2));
     }
 
-    if Arc::ptr_eq(output1, &NO_OUTPUT) || Arc::ptr_eq(output2, &NO_OUTPUT) {
-      self.get_no_output().clone()
+    if Arc::ptr_eq(output1, self.no_output) || Arc::ptr_eq(output2, self.no_output) {
+      self.no_output.clone()
     } else {
       debug_assert!(**output1 > 0);
       debug_assert!(**output2 > 0);
@@ -73,10 +92,10 @@ impl Outputs for PositiveIntOutputs {
     }
     debug_assert!(**output >= **inc);
 
-    if Arc::ptr_eq(inc, self.get_no_output()) {
+    if Arc::ptr_eq(inc, self.no_output) {
       std::borrow::Cow::Borrowed(output)
     } else if **output == **inc {
-      std::borrow::Cow::Owned(self.get_no_output().clone())
+      std::borrow::Cow::Owned(self.no_output.clone())
     } else {
       std::borrow::Cow::Owned(Arc::new(**output - **inc))
     }
@@ -89,9 +108,9 @@ impl Outputs for PositiveIntOutputs {
       debug_assert!(self.valid(output));
     }
 
-    if Arc::ptr_eq(prefix, self.get_no_output()) {
+    if Arc::ptr_eq(prefix, self.no_output) {
       std::borrow::Cow::Borrowed(output)
-    } else if Arc::ptr_eq(output, self.get_no_output()) {
+    } else if Arc::ptr_eq(output, self.no_output) {
       std::borrow::Cow::Borrowed(prefix)
     } else {
       std::borrow::Cow::Owned(Arc::new(**prefix + **output))
@@ -113,14 +132,14 @@ impl Outputs for PositiveIntOutputs {
   {
     let v = input.read_vlong()?;
     if v == 0 {
-      Ok(std::borrow::Cow::Borrowed(self.get_no_output()))
+      Ok(std::borrow::Cow::Borrowed(self.no_output))
     } else {
       Ok(std::borrow::Cow::Owned(Arc::new(v)))
     }
   }
 
   fn get_no_output(&self) -> &Self::V {
-    &NO_OUTPUT
+    self.no_output
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {

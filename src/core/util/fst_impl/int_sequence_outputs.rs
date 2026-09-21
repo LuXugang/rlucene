@@ -29,11 +29,30 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 /// `private static final IntsRef NO_OUTPUT = new IntsRef()` semantics.
 static NO_OUTPUT: LazyLock<IntsRef<Arc<Vec<i32>>>> = LazyLock::new(IntsRef::new);
 
-pub static SINGLETON: LazyLock<IntSequenceOutputs> = LazyLock::new(|| IntSequenceOutputs);
+pub static SINGLETON: LazyLock<IntSequenceOutputs> = LazyLock::new(|| IntSequenceOutputs {
+  no_output: &NO_OUTPUT,
+});
 
 /// An FST [`Outputs`] implementation where each output is a sequence of ints.
-#[derive(Clone, Default)]
-pub struct IntSequenceOutputs;
+pub struct IntSequenceOutputs {
+  no_output: &'static IntsRef<Arc<Vec<i32>>>,
+}
+
+impl Clone for IntSequenceOutputs {
+  fn clone(&self) -> Self {
+    Self {
+      no_output: self.no_output,
+    }
+  }
+}
+
+impl Default for IntSequenceOutputs {
+  fn default() -> Self {
+    Self {
+      no_output: &NO_OUTPUT,
+    }
+  }
+}
 
 impl IntSequenceOutputs {
   pub fn get_singleton() -> &'static IntSequenceOutputs {
@@ -49,8 +68,8 @@ impl Outputs for IntSequenceOutputs {
     let b = &output2.ints[output2.offset..output2.offset + output2.length];
 
     let mismatch = match CoreHelper::miss_match_i32(a, b) {
-      -1 => return output1.clone(),             // exactly equals
-      0 => return self.get_no_output().clone(), // no common prefix
+      -1 => return output1.clone(),       // exactly equals
+      0 => return self.no_output.clone(), // no common prefix
       n => n as usize,
     };
 
@@ -64,10 +83,10 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V> {
-    if IntsRef::equals(inc, &NO_OUTPUT) {
+    if IntsRef::equals(inc, self.no_output) {
       return std::borrow::Cow::Borrowed(output);
     } else if inc.length == output.length {
-      return std::borrow::Cow::Owned(self.get_no_output().clone());
+      return std::borrow::Cow::Owned(self.no_output.clone());
     }
 
     debug_assert!(inc.length < output.length);
@@ -80,7 +99,7 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
-    let no_output = &*NO_OUTPUT;
+    let no_output = self.no_output;
     if IntsRef::equals(prefix, no_output) {
       return std::borrow::Cow::Borrowed(output);
     } else if IntsRef::equals(output, no_output) {
@@ -115,7 +134,7 @@ impl Outputs for IntSequenceOutputs {
   {
     let len = input.read_vint()? as usize;
     if len == 0 {
-      Ok(std::borrow::Cow::Borrowed(self.get_no_output()))
+      Ok(std::borrow::Cow::Borrowed(self.no_output))
     } else {
       let mut buf = vec![0; len];
       for item in buf.iter_mut().take(len) {
@@ -144,7 +163,7 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn get_no_output(&self) -> &Self::V {
-    &NO_OUTPUT
+    self.no_output
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {
