@@ -210,6 +210,22 @@ pub trait DocMap {
   /// This must equal the number of documents in the sorted [`LeafReader`].
   fn size(&self) -> i32;
 }
+impl<T> DocMap for &T
+where
+  T: DocMap + ?Sized,
+{
+  fn old_to_new(&self, doc_id: i32) -> Result<i32> {
+    (**self).old_to_new(doc_id)
+  }
+
+  fn new_to_old(&self, doc_id: i32) -> Result<i32> {
+    (**self).new_to_old(doc_id)
+  }
+
+  fn size(&self) -> i32 {
+    (**self).size()
+  }
+}
 impl<T> DocMap for Arc<T>
 where
   T: DocMap,

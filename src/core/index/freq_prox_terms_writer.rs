@@ -185,8 +185,7 @@ where
     let mut consumer = codec.postings_format().fields_consumer(state, info)?;
     let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       if let Some(doc_map) = sort_map {
-        let mut filter_fields =
-          FilterFieldsImpl::new(fields, state.field_infos.as_ref(), doc_map.clone());
+        let mut filter_fields = FilterFieldsImpl::new(fields, state.field_infos.as_ref(), doc_map);
         consumer.write(state, info, &mut filter_fields, norms)?;
       } else {
         consumer.write(state, info, &mut fields, norms)?;
@@ -225,10 +224,10 @@ where
 pub(crate) struct FilterFieldsImpl<'a, F, DM> {
   inner: F,
   field_infos: &'a FieldInfos,
-  doc_map: DM,
+  doc_map: &'a DM,
 }
 impl<'a, F, DM> FilterFieldsImpl<'a, F, DM> {
-  pub(crate) fn new(base: F, field_infos: &'a FieldInfos, doc_map: DM) -> Self {
+  pub(crate) fn new(base: F, field_infos: &'a FieldInfos, doc_map: &'a DM) -> Self {
     Self {
       inner: base,
       field_infos,
@@ -236,10 +235,10 @@ impl<'a, F, DM> FilterFieldsImpl<'a, F, DM> {
     }
   }
 }
-impl<F, DM> Fields for FilterFieldsImpl<'_, F, DM>
+impl<'dm, F, DM> Fields for FilterFieldsImpl<'dm, F, DM>
 where
   F: Fields,
-  DM: DocMap + Clone,
+  DM: DocMap,
 {
   type FieldIter<'a>
     = F::FieldIter<'a>
@@ -250,7 +249,7 @@ where
     self.inner.iterator()
   }
 
-  type Terms = SortingTerms<F::Terms, DM>;
+  type Terms = SortingTerms<F::Terms, &'dm DM>;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match self.inner.terms(field)? {
@@ -263,7 +262,7 @@ where
         Ok(Some(SortingTerms::new(
           terms,
           *index_options.get_index_options(),
-          self.doc_map.clone(),
+          self.doc_map,
         )))
       },
       None => Ok(None),
