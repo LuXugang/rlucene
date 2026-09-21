@@ -35,10 +35,10 @@ pub trait Outputs: Display + Clone + Default {
   fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V;
 
   /// Eg. `subtract("foobar", "foo") -> "bar"`
-  fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V;
+  fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V>;
 
   /// Eg. `add("foo", "bar") -> "foobar"`
-  fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V;
+  fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V>;
 
   /// Encode an output value into a `Write` stream.
   fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>

@@ -63,35 +63,39 @@ impl Outputs for IntSequenceOutputs {
     }
   }
 
-  fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
+  fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V> {
     if IntsRef::equals(inc, &NO_OUTPUT) {
-      return output.clone();
+      return std::borrow::Cow::Borrowed(output);
     } else if inc.length == output.length {
-      return self.get_no_output();
+      return std::borrow::Cow::Owned(self.get_no_output());
     }
 
     debug_assert!(inc.length < output.length);
 
-    IntsRef::from_slice(
+    std::borrow::Cow::Owned(IntsRef::from_slice(
       output.ints.clone(),
       output.offset + inc.length,
       output.length - inc.length,
-    )
+    ))
   }
 
-  fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
+  fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
     let no_output = &*NO_OUTPUT;
     if IntsRef::equals(prefix, no_output) {
-      return output.clone();
+      return std::borrow::Cow::Borrowed(output);
     } else if IntsRef::equals(output, no_output) {
-      return prefix.clone();
+      return std::borrow::Cow::Borrowed(prefix);
     }
     debug_assert!(prefix.length > 0);
     debug_assert!(output.length > 0);
     let mut buf = Vec::with_capacity(prefix.length + output.length);
     buf.extend_from_slice(&prefix.ints[prefix.offset..prefix.offset + prefix.length]);
     buf.extend_from_slice(&output.ints[output.offset..output.offset + output.length]);
-    IntsRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
+    std::borrow::Cow::Owned(IntsRef::from_slice(
+      Arc::new(buf),
+      0,
+      prefix.length + output.length,
+    ))
   }
 
   fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>

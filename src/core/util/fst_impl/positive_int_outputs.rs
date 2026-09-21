@@ -65,7 +65,7 @@ impl Outputs for PositiveIntOutputs {
     }
   }
 
-  fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
+  fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V> {
     #[cfg(debug_assertions)]
     {
       debug_assert!(self.valid(output));
@@ -74,15 +74,15 @@ impl Outputs for PositiveIntOutputs {
     debug_assert!(**output >= **inc);
 
     if Arc::ptr_eq(inc, &self.get_no_output()) {
-      output.clone()
+      std::borrow::Cow::Borrowed(output)
     } else if **output == **inc {
-      self.get_no_output()
+      std::borrow::Cow::Owned(self.get_no_output())
     } else {
-      Arc::new(**output - **inc)
+      std::borrow::Cow::Owned(Arc::new(**output - **inc))
     }
   }
 
-  fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
+  fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
     #[cfg(debug_assertions)]
     {
       debug_assert!(self.valid(prefix));
@@ -90,11 +90,11 @@ impl Outputs for PositiveIntOutputs {
     }
 
     if Arc::ptr_eq(prefix, &self.get_no_output()) {
-      output.clone()
+      std::borrow::Cow::Borrowed(output)
     } else if Arc::ptr_eq(output, &self.get_no_output()) {
-      prefix.clone()
+      std::borrow::Cow::Borrowed(prefix)
     } else {
-      Arc::new(**prefix + **output)
+      std::borrow::Cow::Owned(Arc::new(**prefix + **output))
     }
   }
 

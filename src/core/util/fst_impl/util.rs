@@ -50,20 +50,29 @@ impl Util {
   {
     let mut arc = Arc::default();
     fst.get_first_arc(&mut arc);
+    let mut follow = arc.clone();
     let mut fst_reader = fst.get_bytes_reader()?;
     let mut output = fst.outputs.get_no_output();
 
     for i in 0..input.length {
       let label = input.ints.access(|ints| ints[input.offset + i]);
-      let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
+      std::mem::swap(&mut arc, &mut follow);
+      let found = fst.find_target_arc(label, &follow, &mut arc, &mut fst_reader)?;
       if found.is_none() {
         return Ok(None);
       }
-      output = fst.outputs.add(&output, &arc.output);
+      match fst.outputs.add(&output, &arc.output) {
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {},
+        std::borrow::Cow::Borrowed(existing) => output = existing.clone(),
+        std::borrow::Cow::Owned(next_output) => output = next_output,
+      }
     }
 
     if arc.is_final() {
-      let final_output = fst.outputs.add(&output, &arc.next_final_output);
+      let final_output = fst
+        .outputs
+        .add(&output, &arc.next_final_output)
+        .into_owned();
       Ok(Some(final_output))
     } else {
       Ok(None)
@@ -82,19 +91,28 @@ impl Util {
     let mut fst_reader = fst.get_bytes_reader()?;
     let mut arc = Arc::default();
     fst.get_first_arc(&mut arc);
+    let mut follow = arc.clone();
     let mut output = fst.outputs.get_no_output();
 
     for i in 0..input.length {
       let label = input.bytes.access(|bytes| bytes[input.offset + i] as i32);
-      let found = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut fst_reader)?;
+      std::mem::swap(&mut arc, &mut follow);
+      let found = fst.find_target_arc(label, &follow, &mut arc, &mut fst_reader)?;
       if found.is_none() {
         return Ok(None);
       }
-      output = fst.outputs.add(&output, &arc.output);
+      match fst.outputs.add(&output, &arc.output) {
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {},
+        std::borrow::Cow::Borrowed(existing) => output = existing.clone(),
+        std::borrow::Cow::Owned(next_output) => output = next_output,
+      }
     }
 
     if arc.is_final() {
-      let final_output = fst.outputs.add(&output, &arc.next_final_output);
+      let final_output = fst
+        .outputs
+        .add(&output, &arc.next_final_output)
+        .into_owned();
       Ok(Some(final_output))
     } else {
       Ok(None)
@@ -807,7 +825,11 @@ where
   pub fn add_if_competitive(&mut self, path: &mut FSTPath<O::V>) -> Result<()> {
     debug_assert!(self.queue.is_some());
 
-    let output = self.fst.outputs.add(&path.output, &path.arc.output());
+    let output = self
+      .fst
+      .outputs
+      .add(&path.output, &path.arc.output())
+      .into_owned();
 
     if let Some(queue) = self.queue.as_ref()
       && queue.len() == self.max_queue_depth
@@ -974,7 +996,11 @@ where
         }
 
         if path.arc.label() == END_LABEL {
-          path.output = self.fst.outputs.add(&path.output, &path.arc.output());
+          path.output = self
+            .fst
+            .outputs
+            .add(&path.output, &path.arc.output())
+            .into_owned();
           if self.base.accept_result_path(&path) {
             let mut input = path.input.get_owner();
             input.ints.truncate(input.length);
@@ -985,7 +1011,11 @@ where
           break;
         } else {
           path.input.append(path.arc.label())?;
-          path.output = self.fst.outputs.add(&path.output, &path.arc.output());
+          path.output = self
+            .fst
+            .outputs
+            .add(&path.output, &path.arc.output())
+            .into_owned();
           if !self.base.accept_partial_path(&path) {
             break;
           }

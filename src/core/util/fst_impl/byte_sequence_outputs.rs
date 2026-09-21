@@ -69,10 +69,10 @@ impl Outputs for ByteSequenceOutputs {
   }
 
   #[inline]
-  fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
+  fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V> {
     if BytesRef::equals(inc, &NO_OUTPUT) {
       // no prefix removed
-      return output.clone();
+      return std::borrow::Cow::Borrowed(output);
     }
 
     debug_assert!(StringHelper::starts_with(
@@ -84,7 +84,7 @@ impl Outputs for ByteSequenceOutputs {
       inc.length
     ));
     if inc.length == output.length {
-      NO_OUTPUT.clone()
+      std::borrow::Cow::Owned(NO_OUTPUT.clone())
     } else {
       debug_assert!(
         inc.length < output.length,
@@ -93,29 +93,33 @@ impl Outputs for ByteSequenceOutputs {
         output.length
       );
       debug_assert!(inc.length > 0);
-      BytesRef::from_slice(
+      std::borrow::Cow::Owned(BytesRef::from_slice(
         output.bytes.clone(),
         output.offset + inc.length,
         output.length - inc.length,
-      )
+      ))
     }
   }
 
   #[inline]
-  fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
+  fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
     let no_output = &*NO_OUTPUT;
     if BytesRef::equals(prefix, no_output) {
-      return output.clone();
+      return std::borrow::Cow::Borrowed(output);
     }
     if BytesRef::equals(output, no_output) {
-      return prefix.clone();
+      return std::borrow::Cow::Borrowed(prefix);
     }
     debug_assert!(prefix.length > 0);
     debug_assert!(output.length > 0);
     let mut buf = Vec::with_capacity(prefix.length + output.length);
     buf.extend_from_slice(&prefix.bytes[prefix.offset..prefix.offset + prefix.length]);
     buf.extend_from_slice(&output.bytes[output.offset..output.offset + output.length]);
-    BytesRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
+    std::borrow::Cow::Owned(BytesRef::from_slice(
+      Arc::new(buf),
+      0,
+      prefix.length + output.length,
+    ))
   }
 
   #[inline]

@@ -52,16 +52,16 @@ impl Outputs for NoOutputs {
     NO_OUTPUT.clone()
   }
 
-  fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
+  fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V> {
     debug_assert!(Arc::ptr_eq(output, &NO_OUTPUT));
     debug_assert!(Arc::ptr_eq(inc, &NO_OUTPUT));
-    NO_OUTPUT.clone()
+    std::borrow::Cow::Borrowed(output)
   }
 
-  fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
+  fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
     debug_assert!(Arc::ptr_eq(prefix, &NO_OUTPUT), "got {prefix}");
     debug_assert!(Arc::ptr_eq(output, &NO_OUTPUT));
-    NO_OUTPUT.clone()
+    std::borrow::Cow::Borrowed(prefix)
   }
 
   fn write<DO>(&self, _output: &Self::V, _out: &mut DO) -> Result<()>
