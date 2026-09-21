@@ -229,7 +229,7 @@ where
     length: usize,
   ) -> Result<usize> {
     self.output_accumulator.reset();
-    self.output_accumulator.push(frame_data);
+    self.output_accumulator.push(&frame_data);
     self.push_frame_with_length(arc, length)
   }
   pub(crate) fn push_frame_with_length(
@@ -340,7 +340,7 @@ where
       arc_index = 0;
       arc = &mut self.arcs[arc_index];
       debug_assert!(arc.is_final());
-      self.output_accumulator.push(arc.output());
+      self.output_accumulator.push(&arc.output);
 
       target_upto = 0;
       let mut last_frame: usize = 1;
@@ -360,7 +360,7 @@ where
         arc_index = 1 + target_upto;
         arc = &mut self.arcs[arc_index];
         debug_assert_eq!(arc.label(), target.as_byte_slice()[target_upto] as i32);
-        self.output_accumulator.push(arc.output());
+        self.output_accumulator.push(&arc.output);
 
         if arc.is_final() {
           last_frame = (self.stack[last_frame].ord + 2) as usize;
@@ -410,13 +410,13 @@ where
           .get_first_arc(arc);
         debug_assert!(arc.is_final());
 
-        self.output_accumulator.push(arc.output());
+        self.output_accumulator.push(&arc.output);
 
         self.current_frame_idx = STATIC_FRAME_IDX;
 
         target_upto = 0;
         let next_final_output = arc.next_final_output();
-        self.output_accumulator.push(next_final_output.clone());
+        self.output_accumulator.push(&next_final_output);
         next_final_output
       };
       self.current_frame_idx = self.push_frame_with_length(Some(0), 0)?;
@@ -476,10 +476,10 @@ where
 
         let arc = &mut self.arcs[next_arc_idx];
         self.term.set_byte_at(target_upto, target_label as u8);
-        self.output_accumulator.push(arc.output());
+        self.output_accumulator.push(&arc.output);
         target_upto += 1;
         if arc.is_final() {
-          self.output_accumulator.push(arc.next_final_output());
+          self.output_accumulator.push(&arc.next_final_output);
           let v = arc.next_final_output();
           self.current_frame_idx = self.push_frame_with_length(Some(next_arc_idx), target_upto)?;
           self.output_accumulator.pop(&v);
@@ -693,8 +693,7 @@ where
       arc_index = 0;
       arc = &self.arcs[arc_index];
       debug_assert!(arc.is_final());
-      let v = arc.output();
-      self.output_accumulator.push(v);
+      self.output_accumulator.push(&arc.output);
       target_upto = 0;
 
       let mut last_frame_index: usize = 1;
@@ -713,7 +712,7 @@ where
         arc_index = 1 + target_upto;
         arc = &self.arcs[arc_index];
         debug_assert_eq!(arc.label(), target.as_byte_slice()[target_upto] as i32);
-        self.output_accumulator.push(arc.output());
+        self.output_accumulator.push(&arc.output);
 
         if arc.is_final() {
           last_frame_index = (self.stack[last_frame_index].ord + 2) as usize;
@@ -753,12 +752,12 @@ where
 
       debug_assert!(arc.is_final());
 
-      self.output_accumulator.push(arc.output());
+      self.output_accumulator.push(&arc.output);
 
       self.current_frame_idx = STATIC_FRAME_IDX;
 
       target_upto = 0;
-      self.output_accumulator.push(arc.next_final_output());
+      self.output_accumulator.push(&arc.next_final_output);
       let v = arc.next_final_output();
       self.current_frame_idx = self.push_frame_with_length(Some(0), 0)?;
       self.output_accumulator.pop(&v);
@@ -818,11 +817,11 @@ where
         arc_index = next_arc_idx;
         let arc = &self.arcs[arc_index];
         self.term.set_byte_at(target_upto, target_label as u8);
-        self.output_accumulator.push(arc.output());
+        self.output_accumulator.push(&arc.output);
 
         target_upto += 1;
         if arc.is_final() {
-          self.output_accumulator.push(arc.next_final_output());
+          self.output_accumulator.push(&arc.next_final_output);
           let v = arc.next_final_output();
           self.current_frame_idx = self.push_frame_with_length(Some(arc_index), target_upto)?;
           self.output_accumulator.pop(&v);
@@ -966,28 +965,26 @@ where
 
 pub struct OutputAccumulator {
   pub(crate) outputs: Vec<BytesRef<std::sync::Arc<Vec<u8>>>>,
-  pub(crate) current: BytesRef<std::sync::Arc<Vec<u8>>>,
   pub(crate) num: usize,
-  pub(crate) output_index: usize,
+  pub(crate) current_index: usize,
   pub(crate) index: usize,
 }
 impl OutputAccumulator {
   pub(crate) fn new() -> Self {
     Self {
       outputs: Vec::with_capacity(16),
-      current: NO_OUTPUT.clone(),
       num: 0,
-      output_index: 0,
+      current_index: 0,
       index: 0,
     }
   }
-  pub(crate) fn push(&mut self, output: BytesRef<std::sync::Arc<Vec<u8>>>) {
-    if !BytesRef::equals(&output, &NO_OUTPUT) {
+  pub(crate) fn push(&mut self, output: &BytesRef<std::sync::Arc<Vec<u8>>>) {
+    if !BytesRef::equals(output, &NO_OUTPUT) {
       debug_assert!(output.length > 0);
       if self.outputs.len() == self.num {
-        self.outputs.push(output);
+        self.outputs.push(output.clone());
       } else {
-        self.outputs[self.num] = output;
+        self.outputs[self.num] = output.clone();
       }
       self.num += 1;
     }
@@ -1015,8 +1012,7 @@ impl OutputAccumulator {
 
   pub(crate) fn prepare_read(&mut self) {
     self.index = 0;
-    self.output_index = 0;
-    self.current = self.outputs[0].clone();
+    self.current_index = 0;
   }
   /// Set the last arc as the source of the floorData.  
   /// This won't change the reading position of this [`OutputAccumulator`].
@@ -1025,13 +1021,13 @@ impl OutputAccumulator {
     floor_data: &mut ByteArrayDataInput<std::sync::Arc<Vec<u8>>>,
   ) {
     debug_assert!(
-      self.output_index == self.num - 1,
-      "floor data should be stored in last arc, got output_index={}, num={}",
-      self.output_index,
+      self.current_index == self.num - 1,
+      "floor data should be stored in last arc, got current_index={}, num={}",
+      self.current_index,
       self.num
     );
 
-    let output = self.outputs[self.output_index].clone();
+    let output = self.outputs[self.current_index].clone();
     let start = output.offset + self.index;
     let length = output.length - self.index;
 
@@ -1049,12 +1045,13 @@ impl crate::core::util::close::Closeable for OutputAccumulator {}
 
 impl DataInput for OutputAccumulator {
   fn read_byte(&mut self) -> Result<u8> {
-    if self.index >= self.current.length {
-      self.output_index += 1;
-      self.current = self.outputs[self.output_index].clone();
+    let mut current = &self.outputs[self.current_index];
+    if self.index >= current.length {
+      self.current_index += 1;
       self.index = 0;
+      current = &self.outputs[self.current_index];
     }
-    let byte = self.current.bytes[self.current.offset + self.index];
+    let byte = current.bytes[current.offset + self.index];
     self.index += 1;
     Ok(byte)
   }

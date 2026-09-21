@@ -137,7 +137,7 @@ where
     // push initial output
     {
       let arc = &ite.arcs[ite.stack[0].arc];
-      ite.output_accumulator.push(arc.output());
+      ite.output_accumulator.push(&arc.output);
     }
 
     if let Some(st) = start_term.as_ref() {
@@ -222,8 +222,7 @@ where
       let v = fr_index.find_target_arc(target, &follow_arcs[arc_idx], &mut next_arcs[0], reader)?;
       debug_assert!(v.is_some());
       arc_idx = next_idx;
-      let v = self.arcs[arc_idx].output();
-      self.output_accumulator.push(v);
+      self.output_accumulator.push(&self.arcs[arc_idx].output);
       idx += 1;
     }
 
@@ -234,7 +233,7 @@ where
     {
       let arc = &self.arcs[f.arc];
       debug_assert!(arc.is_final());
-      self.output_accumulator.push(arc.next_final_output());
+      self.output_accumulator.push(&arc.next_final_output);
     }
 
     IntersectTermsEnumFrame::load_from_output_accumulator(self, new_ord)?;
