@@ -41,7 +41,7 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
   /// Return the maximum size of the priority queue (for boolean rewrites this is
   /// [`BooleanQuery::get_max_clause_count`]).
   fn get_max_size(&self) -> usize;
-  fn default_rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn default_rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery,
     IRC: IndexReaderContext,

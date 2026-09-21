@@ -42,7 +42,7 @@ use std::sync::Arc;
 /// Base rewrite method that translates each term into a query, and keeps the scores as computed by
 /// the query.
 pub trait ScoringRewrite: TermCollectingRewrite {
-  fn default_rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn default_rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -127,7 +127,7 @@ impl TermCollectingRewrite for ScoringBooleanRewrite {
 }
 
 impl RewriteMethod for ScoringBooleanRewrite {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -153,7 +153,7 @@ impl ScoringRewrite for ScoringBooleanRewrite {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBooleanRewrite;
 impl RewriteMethod for ConstantScoreBooleanRewrite {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,

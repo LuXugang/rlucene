@@ -75,7 +75,7 @@ use std::sync::Arc;
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DocValuesRewriteMethod;
 impl RewriteMethod for DocValuesRewriteMethod {
-  fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,

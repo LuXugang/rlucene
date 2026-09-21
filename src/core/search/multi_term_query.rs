@@ -90,7 +90,7 @@ pub trait MultiTermQuery: QueryBase + Clone {
 }
 /// Trait defining how the query is rewritten.
 pub trait RewriteMethod {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext;
@@ -120,7 +120,7 @@ pub trait RewriteMethod {
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBlendedRewrite;
 impl RewriteMethod for ConstantScoreBlendedRewrite {
-  fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -138,7 +138,7 @@ impl RewriteMethod for ConstantScoreBlendedRewrite {
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreRewrite;
 impl RewriteMethod for ConstantScoreRewrite {
-  fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -161,7 +161,7 @@ pub enum RewriteMethodEnum {
   TopTermsScoringBoolean(TopTermsScoringBooleanQueryRewrite),
 }
 impl RewriteMethod for RewriteMethodEnum {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -272,7 +272,7 @@ impl TermCollectingRewrite for TopTermsScoringBooleanQueryRewrite {
 }
 
 impl RewriteMethod for TopTermsScoringBooleanQueryRewrite {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -339,7 +339,7 @@ impl TermCollectingRewrite for TopTermsBlendedFreqScoringRewrite {
 }
 
 impl RewriteMethod for TopTermsBlendedFreqScoringRewrite {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -404,7 +404,7 @@ impl TermCollectingRewrite for TopTermsBoostOnlyBooleanQueryRewrite {
 }
 
 impl RewriteMethod for TopTermsBoostOnlyBooleanQueryRewrite {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,

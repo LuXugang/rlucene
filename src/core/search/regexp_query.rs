@@ -288,8 +288,7 @@ impl QueryBase for RegexpQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    let rewrite_method = self.base.rewrite_method.clone();
-    rewrite_method.rewrite(searcher, self).map(Some)
+    self.base.rewrite_method.rewrite(searcher, self).map(Some)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

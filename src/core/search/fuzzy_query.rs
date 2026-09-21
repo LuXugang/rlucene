@@ -298,8 +298,7 @@ impl QueryBase for FuzzyQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    let rewrite_method = self.rewrite_method.clone();
-    rewrite_method.rewrite(searcher, self).map(Some)
+    self.rewrite_method.rewrite(searcher, self).map(Some)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
