@@ -1027,11 +1027,15 @@ impl OutputAccumulator {
       self.num
     );
 
-    let output = self.outputs[self.current_index].clone();
+    let output = &self.outputs[self.current_index];
     let start = output.offset + self.index;
     let length = output.length - self.index;
 
-    floor_data.reset_with_range(output.bytes, start, length);
+    if std::sync::Arc::ptr_eq(&floor_data.bytes, &output.bytes) {
+      floor_data.reset_meta(start, length);
+    } else {
+      floor_data.reset_with_range(output.bytes.clone(), start, length);
+    }
   }
 }
 
