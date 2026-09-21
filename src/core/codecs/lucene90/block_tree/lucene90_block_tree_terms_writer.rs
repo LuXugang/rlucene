@@ -406,7 +406,7 @@ where
             .field_info_by_name(field)?
             .ok_or_else(|| LuceneError::illegal_state(format!("Missing fields:{field}")))?;
           let mut terms_writer = TermsWriter::new(
-            field_info.clone(),
+            field_info,
             self.max_doc,
             &mut self.postings_writer,
             self.min_items_in_block,
@@ -715,7 +715,7 @@ where
   O: IndexOutput,
   PW: PostingsWriterBase,
 {
-  field_info: Arc<FieldInfo>,
+  field_info: &'a FieldInfo,
   num_terms: i64,
   docs_seen: FixedBitSet,
   sum_total_term_freq: i64,
@@ -757,7 +757,7 @@ where
   PW: PostingsWriterBase,
 {
   fn new(
-    field_info: Arc<FieldInfo>,
+    field_info: &'a Arc<FieldInfo>,
     max_doc: i32,
     postings_writer: &'a mut PW,
     min_items_in_block: i32,
@@ -770,7 +770,7 @@ where
     postings_writer.set_field(field_info.clone());
 
     let v = Self {
-      field_info,
+      field_info: field_info.as_ref(),
       num_terms: 0,
       docs_seen: FixedBitSet::new(max_doc.try_convert()?),
       sum_total_term_freq: 0,
@@ -1002,7 +1002,7 @@ where
 
         self.postings_writer.encode_term(
           &mut self.meta_writer,
-          &self.field_info,
+          self.field_info,
           Cow::Borrowed(state),
           absolute,
         )?;
@@ -1044,7 +1044,7 @@ where
             // meta
             self.postings_writer.encode_term(
               &mut self.meta_writer,
-              &self.field_info,
+              self.field_info,
               Cow::Borrowed(state),
               absolute,
             )?;
