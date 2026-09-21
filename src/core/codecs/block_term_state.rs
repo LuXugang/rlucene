@@ -81,6 +81,7 @@ impl_from_for_enum!(
 );
 
 impl TermStateEnum {
+  #[inline]
   pub fn get_block_term_state_mut(&mut self) -> Result<&mut BlockTermState> {
     match self {
       TermStateEnum::Int(int) => Ok(&mut int.base),
