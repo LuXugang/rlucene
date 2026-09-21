@@ -675,17 +675,21 @@ impl Hash for DocAndScoreQuery {
 
 pub struct DocAndScoreQueryWeight {
   parent_query: Arc<Query>,
-  query: DocAndScoreQuery,
   boost: f32,
 }
 impl DocAndScoreQueryWeight {
   pub fn new(query: DocAndScoreQuery, boost: f32) -> Self {
-    let parent_query = Arc::new(query.clone().into());
     Self {
-      parent_query,
-      query,
+      parent_query: Arc::new(query.into()),
       boost,
     }
+  }
+
+  fn query(&self) -> Result<&DocAndScoreQuery> {
+    let Query::DocAndScore(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state("expected DocAndScoreQuery"));
+    };
+    Ok(query)
   }
 }
 
@@ -710,15 +714,16 @@ where
   ) -> Result<Explanation> {
     let target = doc + context.doc_base as i32;
 
-    match self.query.docs.binary_search(&target) {
+    let query = self.query()?;
+    match query.docs.binary_search(&target) {
       Ok(found) => Ok(Explanation::match_(
-        self.query.scores[found] * self.boost,
-        format!("within top {} docs", self.query.docs.len()),
+        query.scores[found] * self.boost,
+        format!("within top {} docs", query.docs.len()),
         vec![],
       )),
       Err(_) => Ok(Explanation::no_match_no_details(format!(
         "not in top {} docs",
-        self.query.docs.len()
+        query.docs.len()
       ))),
     }
   }
@@ -734,21 +739,17 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    if self.query.segment_starts[context.ord] == self.query.segment_starts[context.ord + 1] {
+    let query = self.query()?;
+    if query.segment_starts[context.ord] == query.segment_starts[context.ord + 1] {
       return Ok(None);
     }
     let disi = DocIdSetIteratorImpl::new(
-      self.query.segment_starts[context.ord],
-      self.query.segment_starts[context.ord + 1],
-      self.query.docs.clone(),
+      query.segment_starts[context.ord],
+      query.segment_starts[context.ord + 1],
+      query.docs.clone(),
       context.doc_base,
     );
-    let scorer = ScorerImpl::new(
-      disi,
-      self.query.max_score,
-      self.boost,
-      self.query.scores.clone(),
-    );
+    let scorer = ScorerImpl::new(disi, query.max_score, self.boost, query.scores.clone());
     Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
   }
 
@@ -757,7 +758,8 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<i32> {
-    Ok((self.query.segment_starts[context.ord + 1] - self.query.segment_starts[context.ord]) as i32)
+    let query = self.query()?;
+    Ok((query.segment_starts[context.ord + 1] - query.segment_starts[context.ord]) as i32)
   }
 }
 
