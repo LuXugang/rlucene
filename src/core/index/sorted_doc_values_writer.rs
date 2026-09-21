@@ -493,7 +493,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
         "must be finished before getting doc values",
       ));
     }
-    let Some(frozen_hash) = self.frozen_hash.clone() else {
+    let Some(frozen_hash) = self.frozen_hash.as_ref() else {
       return Err(LuceneError::illegal_state(
         "must be finished before getting doc values",
       ));
@@ -515,9 +515,9 @@ impl DocValuesWriter for SortedDocValuesWriter {
       &get_doc_values_producer(
         &self.field_info,
         frozen_hash,
-        self.pool.clone(),
+        &self.pool,
         final_ords,
-        final_ord_map.clone(),
+        final_ord_map,
         &self.docs_with_field,
         sort_map,
       )?,
@@ -584,10 +584,10 @@ impl DocValuesWriter for SortedDocValuesWriter {
 }
 
 pub(crate) struct DocValuesProducerImpl<'a> {
-  hash: Arc<DirectBytesRefHash>,
-  pool: Arc<ByteBlockPool>,
+  hash: &'a Arc<DirectBytesRefHash>,
+  pool: &'a Arc<ByteBlockPool>,
   ords: &'a PackedLongValues,
-  ord_map: Arc<Vec<i32>>,
+  ord_map: &'a Arc<Vec<i32>>,
   docs_with_field: &'a DocsWithFieldSet,
   writer_field_info: &'a Arc<FieldInfo>,
   sorted: Option<Arc<Vec<i32>>>,
@@ -601,10 +601,10 @@ impl CloseableRef for DocValuesProducerImpl<'_> {
 
 impl<'a> DocValuesProducerImpl<'a> {
   pub(crate) fn new(
-    hash: Arc<DirectBytesRefHash>,
-    pool: Arc<ByteBlockPool>,
+    hash: &'a Arc<DirectBytesRefHash>,
+    pool: &'a Arc<ByteBlockPool>,
     ords: &'a PackedLongValues,
-    ord_map: Arc<Vec<i32>>,
+    ord_map: &'a Arc<Vec<i32>>,
     docs_with_field: &'a DocsWithFieldSet,
     writer_field_info: &'a Arc<FieldInfo>,
     sorted: Option<Arc<Vec<i32>>>,
@@ -877,10 +877,10 @@ where
 
 pub(crate) fn get_doc_values_producer<'a, DM>(
   writer_field_info: &'a Arc<FieldInfo>,
-  hash: Arc<DirectBytesRefHash>,
-  pool: Arc<ByteBlockPool>,
+  hash: &'a Arc<DirectBytesRefHash>,
+  pool: &'a Arc<ByteBlockPool>,
   ords: &'a PackedLongValues,
-  ord_map: Arc<Vec<i32>>,
+  ord_map: &'a Arc<Vec<i32>>,
   docs_with_field: &'a DocsWithFieldSet,
   sort_map: Option<&DM>,
 ) -> Result<DocValuesProducerImpl<'a>>

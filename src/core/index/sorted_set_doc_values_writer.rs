@@ -529,10 +529,10 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     if ord_counts.is_none() {
       let single_value_producer = get_doc_values_producer(
         &self.field_info,
-        frozen_hash,
-        self.pool.clone(),
+        &frozen_hash,
+        &self.pool,
         ords,
-        ord_map,
+        &ord_map,
         &self.docs_with_field,
         sort_map,
       )?;
