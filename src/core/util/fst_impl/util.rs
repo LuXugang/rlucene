@@ -52,7 +52,7 @@ impl Util {
     fst.get_first_arc(&mut arc);
     let mut follow = arc.clone();
     let mut fst_reader = fst.get_bytes_reader()?;
-    let mut output = fst.outputs.get_no_output();
+    let mut output = fst.outputs.get_no_output().clone();
 
     for i in 0..input.length {
       let label = input.ints.access(|ints| ints[input.offset + i]);
@@ -61,19 +61,45 @@ impl Util {
       if found.is_none() {
         return Ok(None);
       }
-      match fst.outputs.add(&output, &arc.output) {
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {},
-        std::borrow::Cow::Borrowed(existing) => output = existing.clone(),
-        std::borrow::Cow::Owned(next_output) => output = next_output,
+      let take_arc_output = match fst.outputs.add(&output, &arc.output) {
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => false,
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.output) => true,
+        std::borrow::Cow::Borrowed(existing) => {
+          output = existing.clone();
+          false
+        },
+        std::borrow::Cow::Owned(next_output) => {
+          output = next_output;
+          false
+        },
+      };
+      if take_arc_output {
+        std::mem::swap(&mut output, &mut arc.output);
       }
     }
 
     if arc.is_final() {
-      let final_output = fst
-        .outputs
-        .add(&output, &arc.next_final_output)
-        .into_owned();
-      Ok(Some(final_output))
+      let mut take_output = false;
+      let mut take_final_output = false;
+      let mut owned_output = None;
+      match fst.outputs.add(&output, &arc.next_final_output) {
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {
+          take_output = true;
+        },
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.next_final_output) => {
+          take_final_output = true;
+        },
+        std::borrow::Cow::Borrowed(existing) => owned_output = Some(existing.clone()),
+        std::borrow::Cow::Owned(final_output) => owned_output = Some(final_output),
+      }
+      if take_output {
+        Ok(Some(output))
+      } else if take_final_output {
+        std::mem::swap(&mut output, &mut arc.next_final_output);
+        Ok(Some(output))
+      } else {
+        Ok(owned_output)
+      }
     } else {
       Ok(None)
     }
@@ -92,7 +118,7 @@ impl Util {
     let mut arc = Arc::default();
     fst.get_first_arc(&mut arc);
     let mut follow = arc.clone();
-    let mut output = fst.outputs.get_no_output();
+    let mut output = fst.outputs.get_no_output().clone();
 
     for i in 0..input.length {
       let label = input.bytes.access(|bytes| bytes[input.offset + i] as i32);
@@ -101,19 +127,45 @@ impl Util {
       if found.is_none() {
         return Ok(None);
       }
-      match fst.outputs.add(&output, &arc.output) {
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {},
-        std::borrow::Cow::Borrowed(existing) => output = existing.clone(),
-        std::borrow::Cow::Owned(next_output) => output = next_output,
+      let take_arc_output = match fst.outputs.add(&output, &arc.output) {
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => false,
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.output) => true,
+        std::borrow::Cow::Borrowed(existing) => {
+          output = existing.clone();
+          false
+        },
+        std::borrow::Cow::Owned(next_output) => {
+          output = next_output;
+          false
+        },
+      };
+      if take_arc_output {
+        std::mem::swap(&mut output, &mut arc.output);
       }
     }
 
     if arc.is_final() {
-      let final_output = fst
-        .outputs
-        .add(&output, &arc.next_final_output)
-        .into_owned();
-      Ok(Some(final_output))
+      let mut take_output = false;
+      let mut take_final_output = false;
+      let mut owned_output = None;
+      match fst.outputs.add(&output, &arc.next_final_output) {
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {
+          take_output = true;
+        },
+        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.next_final_output) => {
+          take_final_output = true;
+        },
+        std::borrow::Cow::Borrowed(existing) => owned_output = Some(existing.clone()),
+        std::borrow::Cow::Owned(final_output) => owned_output = Some(final_output),
+      }
+      if take_output {
+        Ok(Some(output))
+      } else if take_final_output {
+        std::mem::swap(&mut output, &mut arc.next_final_output);
+        Ok(Some(output))
+      } else {
+        Ok(owned_output)
+      }
     } else {
       Ok(None)
     }
@@ -215,7 +267,7 @@ impl Util {
 
       let (is_final, final_output) = if start_arc.is_final() {
         let next_final_output = start_arc.next_final_output();
-        if next_final_output == no_output {
+        if &next_final_output == no_output {
           (true, String::new())
         } else {
           (true, fst.outputs.output_to_string(&next_final_output))
@@ -261,7 +313,7 @@ impl Util {
               };
 
               let next_final_output = arc.next_final_output();
-              let final_output = if next_final_output != no_output {
+              let final_output = if &next_final_output != no_output {
                 fst.outputs.output_to_string(&next_final_output)
               } else {
                 String::new()
@@ -279,13 +331,13 @@ impl Util {
               same_level_states.push(arc.target());
             }
 
-            let mut outs = if arc.output() != no_output {
+            let mut outs = if &arc.output() != no_output {
               format!("/{}", fst.outputs.output_to_string(&arc.output()))
             } else {
               String::new()
             };
 
-            if !target_has_arcs(&arc) && arc.is_final() && arc.next_final_output() != no_output {
+            if !target_has_arcs(&arc) && arc.is_final() && &arc.next_final_output() != no_output {
               write!(
                 outs,
                 "/[{}]",
@@ -897,8 +949,8 @@ where
   where
     T: Into<String>,
   {
-    if start_output == self.fst.outputs.get_no_output() {
-      start_output = self.fst.outputs.get_no_output();
+    if &start_output == self.fst.outputs.get_no_output() {
+      start_output = self.fst.outputs.get_no_output().clone();
     }
 
     let mut path = FSTPath::new(start_output, node, input, boost, context, payload);
@@ -966,7 +1018,7 @@ where
         let mut found_zero = false;
         let mut arc_copy_is_pending = false;
         loop {
-          if self.comparator.compare(&no_output, &path.arc.output())? == 0 {
+          if self.comparator.compare(no_output, &path.arc.output())? == 0 {
             if self.queue.is_none() {
               found_zero = true;
               break;
