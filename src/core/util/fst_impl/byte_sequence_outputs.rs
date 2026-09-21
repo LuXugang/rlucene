@@ -27,12 +27,15 @@ use crate::core::util::{CoreHelper, StringHelper, TryIntoInt};
 
 static NO_OUTPUT: LazyLock<BytesRef<Arc<Vec<u8>>>> = LazyLock::new(BytesRef::default);
 
-pub static SINGLETON: LazyLock<ByteSequenceOutputs> = LazyLock::new(|| ByteSequenceOutputs);
+pub static SINGLETON: LazyLock<ByteSequenceOutputs> = LazyLock::new(|| ByteSequenceOutputs {
+  no_output: &NO_OUTPUT,
+});
 /// An FST Outputs implementation where each output is a sequence of bytes.
 ///
 /// lucene.experimental
-#[derive(Default)]
-pub struct ByteSequenceOutputs;
+pub struct ByteSequenceOutputs {
+  no_output: &'static BytesRef<Arc<Vec<u8>>>,
+}
 impl ByteSequenceOutputs {
   pub fn get_singleton() -> &'static ByteSequenceOutputs {
     &SINGLETON
@@ -41,7 +44,17 @@ impl ByteSequenceOutputs {
 
 impl Clone for ByteSequenceOutputs {
   fn clone(&self) -> Self {
-    ByteSequenceOutputs
+    Self {
+      no_output: self.no_output,
+    }
+  }
+}
+
+impl Default for ByteSequenceOutputs {
+  fn default() -> Self {
+    Self {
+      no_output: &NO_OUTPUT,
+    }
   }
 }
 
@@ -55,7 +68,7 @@ impl Outputs for ByteSequenceOutputs {
 
     let mismatch_pos = match CoreHelper::miss_match_u8(a, b) {
       -1 => return output1.clone(),
-      0 => return NO_OUTPUT.clone(),
+      0 => return self.no_output.clone(),
       n => n as usize,
     };
 
@@ -70,7 +83,7 @@ impl Outputs for ByteSequenceOutputs {
 
   #[inline]
   fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V> {
-    if BytesRef::equals(inc, &NO_OUTPUT) {
+    if BytesRef::equals(inc, self.no_output) {
       // no prefix removed
       return std::borrow::Cow::Borrowed(output);
     }
@@ -84,7 +97,7 @@ impl Outputs for ByteSequenceOutputs {
       inc.length
     ));
     if inc.length == output.length {
-      std::borrow::Cow::Owned(NO_OUTPUT.clone())
+      std::borrow::Cow::Owned(self.no_output.clone())
     } else {
       debug_assert!(
         inc.length < output.length,
@@ -103,7 +116,7 @@ impl Outputs for ByteSequenceOutputs {
 
   #[inline]
   fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
-    let no_output = &*NO_OUTPUT;
+    let no_output = self.no_output;
     if BytesRef::equals(prefix, no_output) {
       return std::borrow::Cow::Borrowed(output);
     }
@@ -137,7 +150,7 @@ impl Outputs for ByteSequenceOutputs {
   {
     let len = input.read_vint()?.try_convert()?;
     if len == 0 {
-      Ok(std::borrow::Cow::Borrowed(&NO_OUTPUT))
+      Ok(std::borrow::Cow::Borrowed(self.no_output))
     } else {
       let mut output = vec![0u8; len];
       input.read_bytes(&mut output, 0, len)?;
@@ -161,7 +174,7 @@ impl Outputs for ByteSequenceOutputs {
   }
 
   fn get_no_output(&self) -> &Self::V {
-    &NO_OUTPUT
+    self.no_output
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {

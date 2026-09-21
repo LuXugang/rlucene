@@ -86,7 +86,7 @@ where
   {
     debug_assert!(num_terms > 0);
     // Read FST metadata and build the index
-    let metadata = read_metadata(meta_in, ByteSequenceOutputs)?;
+    let metadata = read_metadata(meta_in, ByteSequenceOutputs::get_singleton().clone())?;
     let tmp = {
       TmpData {
         metadata,
