@@ -23,13 +23,32 @@ use std::sync::LazyLock;
 
 static NO_OUTPUT: LazyLock<Arc<i64>> = LazyLock::new(|| Arc::new(0));
 
-pub static SINGLETON: LazyLock<NoOutputs> = LazyLock::new(|| NoOutputs);
+pub static SINGLETON: LazyLock<NoOutputs> = LazyLock::new(|| NoOutputs {
+  no_output: &NO_OUTPUT,
+});
 
 /// FST outputs implementation for automata that do not store output values.
 ///
 /// lucene.experimental
-#[derive(Default, Clone)]
-pub struct NoOutputs;
+pub struct NoOutputs {
+  no_output: &'static Arc<i64>,
+}
+
+impl Clone for NoOutputs {
+  fn clone(&self) -> Self {
+    Self {
+      no_output: self.no_output,
+    }
+  }
+}
+
+impl Default for NoOutputs {
+  fn default() -> Self {
+    Self {
+      no_output: &NO_OUTPUT,
+    }
+  }
+}
 
 impl NoOutputs {
   pub fn get_singleton() -> &'static NoOutputs {
@@ -47,20 +66,20 @@ impl Outputs for NoOutputs {
   type V = Arc<i64>;
 
   fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
-    debug_assert!(Arc::ptr_eq(output1, &NO_OUTPUT));
-    debug_assert!(Arc::ptr_eq(output2, &NO_OUTPUT));
-    NO_OUTPUT.clone()
+    debug_assert!(Arc::ptr_eq(output1, self.no_output));
+    debug_assert!(Arc::ptr_eq(output2, self.no_output));
+    self.no_output.clone()
   }
 
   fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V> {
-    debug_assert!(Arc::ptr_eq(output, &NO_OUTPUT));
-    debug_assert!(Arc::ptr_eq(inc, &NO_OUTPUT));
+    debug_assert!(Arc::ptr_eq(output, self.no_output));
+    debug_assert!(Arc::ptr_eq(inc, self.no_output));
     std::borrow::Cow::Borrowed(output)
   }
 
   fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
-    debug_assert!(Arc::ptr_eq(prefix, &NO_OUTPUT), "got {prefix}");
-    debug_assert!(Arc::ptr_eq(output, &NO_OUTPUT));
+    debug_assert!(Arc::ptr_eq(prefix, self.no_output), "got {prefix}");
+    debug_assert!(Arc::ptr_eq(output, self.no_output));
     std::borrow::Cow::Borrowed(prefix)
   }
 
@@ -75,11 +94,11 @@ impl Outputs for NoOutputs {
   where
     DI: DataInput,
   {
-    Ok(std::borrow::Cow::Borrowed(&NO_OUTPUT))
+    Ok(std::borrow::Cow::Borrowed(self.no_output))
   }
 
   fn get_no_output(&self) -> &Self::V {
-    &NO_OUTPUT
+    self.no_output
   }
 
   fn output_to_string(&self, _output: &Self::V) -> String {
@@ -87,9 +106,9 @@ impl Outputs for NoOutputs {
   }
 
   fn merge(&self, first: &Self::V, second: &Self::V) -> Result<Self::V> {
-    debug_assert!(Arc::ptr_eq(first, &NO_OUTPUT));
-    debug_assert!(Arc::ptr_eq(second, &NO_OUTPUT));
-    Ok(NO_OUTPUT.clone())
+    debug_assert!(Arc::ptr_eq(first, self.no_output));
+    debug_assert!(Arc::ptr_eq(second, self.no_output));
+    Ok(self.no_output.clone())
   }
 
   fn ram_bytes_used(&self, _output: &Self::V) -> i64 {
