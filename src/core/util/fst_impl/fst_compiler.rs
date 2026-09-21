@@ -316,32 +316,41 @@ where
     }
     // push conflicting outputs forward, only as far as
     // needed
+    let outputs = &self.fst.outputs;
+    let no_output = &self.no_output;
     for idx in 1..prefix_len_plus1 {
-      let (last_output, label) = {
-        let parent = &self.frontier[idx - 1];
-        let label = ints[offset + idx - 1];
-        (parent.get_last_output(label), label)
-      };
+      let (parents, nodes) = self.frontier.split_at_mut(idx);
+      let parent = &mut parents[idx - 1];
+      let node = &mut nodes[0];
+      let label = ints[offset + idx - 1];
+      let last_output = parent.get_last_output(label);
 
-      debug_assert!(self.valid_output(last_output));
+      debug_assert!(no_output.is_same_reference(last_output) || *last_output != *no_output);
 
-      if !self.no_output.is_same_reference(last_output) {
-        let common_output_prefix = self.fst.outputs.common(&output, last_output);
-        debug_assert!(self.valid_output(&common_output_prefix));
+      if !no_output.is_same_reference(last_output) {
+        let common_output_prefix = outputs.common(&output, last_output);
+        debug_assert!(
+          no_output.is_same_reference(&common_output_prefix) || common_output_prefix != *no_output
+        );
 
-        let word_suffix = self
-          .fst
-          .outputs
-          .subtract(last_output, &common_output_prefix);
-        debug_assert!(self.valid_output(&word_suffix));
+        let word_suffix = outputs
+          .subtract(last_output, &common_output_prefix)
+          .into_owned();
+        debug_assert!(no_output.is_same_reference(&word_suffix) || word_suffix != *no_output);
 
-        output = self.fst.outputs.subtract(&output, &common_output_prefix);
-        UnCompiledNode::set_last_output(label, common_output_prefix, self, idx - 1)?;
-        UnCompiledNode::prepend_output(&word_suffix, self, idx)?;
+        let common_output_prefix = parent.set_last_output(label, common_output_prefix, no_output);
+        node.prepend_output(&word_suffix, outputs, no_output);
+        let next_output = outputs.subtract(&output, common_output_prefix);
+        if let std::borrow::Cow::Owned(next_output) = next_output {
+          output = next_output;
+        }
       } else {
-        output = self.fst.outputs.subtract(&output, &self.no_output);
+        let next_output = outputs.subtract(&output, no_output);
+        if let std::borrow::Cow::Owned(next_output) = next_output {
+          output = next_output;
+        }
       }
-      debug_assert!(self.valid_output(&output));
+      debug_assert!(no_output.is_same_reference(&output) || output != *no_output);
     }
     if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
       // same input more than 1 time in a row,
@@ -353,7 +362,7 @@ where
       // this new arc is private to this new input; set its
       // arc output to the leftover output:
       let label = ints[input.offset + prefix_len_plus1 - 1];
-      UnCompiledNode::set_last_output(label, output, self, prefix_len_plus1 - 1)?;
+      let _ = self.frontier[prefix_len_plus1 - 1].set_last_output(label, output, &self.no_output);
     }
 
     // Save last input
@@ -1417,57 +1426,41 @@ where
     arc.is_final = is_final;
   }
 
-  pub(crate) fn set_last_output<O, DO>(
+  pub(crate) fn set_last_output(
+    &mut self,
     label_to_match: i32,
-    new_output: O::V,
-    compiler: &mut FSTCompiler<O, DO>,
-    node_idx: usize,
-  ) -> Result<()>
-  where
-    O: Outputs<V = T>,
-    DO: IndexOutput,
-  {
-    debug_assert!(compiler.valid_output(&new_output));
-    let un_compile_node = &mut compiler.frontier[node_idx];
-    debug_assert!(un_compile_node.num_arcs > 0);
-    let arc = &mut un_compile_node.arcs[un_compile_node.num_arcs - 1];
+    new_output: T,
+    no_output: &T,
+  ) -> &T {
+    debug_assert!(no_output.is_same_reference(&new_output) || new_output != *no_output);
+    debug_assert!(self.num_arcs > 0);
+    let arc = &mut self.arcs[self.num_arcs - 1];
     debug_assert_eq!(arc.label, label_to_match);
     arc.output = new_output;
-    Ok(())
+    &arc.output
   }
 
   /// Pushes an output prefix forward onto all arcs.
-  pub(crate) fn prepend_output<O, DO>(
-    output_prefix: &O::V,
-    compiler: &mut FSTCompiler<O, DO>,
-    node_index: usize,
-  ) -> Result<()>
+  pub(crate) fn prepend_output<O>(&mut self, output_prefix: &O::V, outputs: &O, no_output: &O::V)
   where
     O: Outputs<V = T>,
-    DO: IndexOutput,
   {
-    debug_assert!(compiler.valid_output(output_prefix));
-    let un_compiled_node = &mut compiler.frontier[node_index];
-    for i in 0..un_compiled_node.num_arcs {
-      let new_output = compiler
-        .fst
-        .outputs
-        .add(output_prefix, &un_compiled_node.arcs[i].output);
-      un_compiled_node.arcs[i].output = new_output;
+    debug_assert!(no_output.is_same_reference(output_prefix) || *output_prefix != *no_output);
+    for i in 0..self.num_arcs {
+      let new_output = outputs
+        .add(output_prefix, &self.arcs[i].output)
+        .into_owned();
+      self.arcs[i].output = new_output;
       // TODO:
       // debug_assert!(compiler.valid_output(&new_output));
     }
 
-    if un_compiled_node.is_final {
-      let new_output = compiler
-        .fst
-        .outputs
-        .add(output_prefix, &un_compiled_node.output);
-      un_compiled_node.output = new_output;
+    if self.is_final {
+      let new_output = outputs.add(output_prefix, &self.output).into_owned();
+      self.output = new_output;
       // TODO:
       // debug_assert!(compiler.valid_output(&new_output));
     }
-    Ok(())
   }
 }
 impl<T> Node for UnCompiledNode<T>
