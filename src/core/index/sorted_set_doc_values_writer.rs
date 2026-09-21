@@ -519,20 +519,20 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     let ord_counts = self.final_ord_counts.as_ref();
     let ord_map = self
       .final_ord_map
-      .clone()
+      .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("missing final ordinal map while flushing"))?;
     let frozen_hash = self
       .frozen_hash
-      .clone()
+      .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("missing frozen hash while flushing"))?;
 
     if ord_counts.is_none() {
       let single_value_producer = get_doc_values_producer(
         &self.field_info,
-        &frozen_hash,
+        frozen_hash,
         &self.pool,
         ords,
-        &ord_map,
+        ord_map,
         &self.docs_with_field,
         sort_map,
       )?;
@@ -568,7 +568,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       &self.field_info,
       ord_map,
       frozen_hash,
-      self.pool.clone(),
+      &self.pool,
       ords,
       ord_counts,
       self.max_count,
@@ -636,9 +636,9 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
 }
 pub(crate) struct DocValuesProducerImpl1<'a> {
   field_info: &'a Arc<FieldInfo>,
-  ord_map: Arc<Vec<i32>>,
-  hash: Arc<DirectBytesRefHash>,
-  pool: Arc<ByteBlockPool>,
+  ord_map: &'a Arc<Vec<i32>>,
+  hash: &'a Arc<DirectBytesRefHash>,
+  pool: &'a Arc<ByteBlockPool>,
   ords: &'a PackedLongValues,
   ord_counts: &'a PackedLongValues,
   max_count: usize,
@@ -656,9 +656,9 @@ impl<'a> DocValuesProducerImpl1<'a> {
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new(
     field_info: &'a Arc<FieldInfo>,
-    ord_map: Arc<Vec<i32>>,
-    hash: Arc<DirectBytesRefHash>,
-    pool: Arc<ByteBlockPool>,
+    ord_map: &'a Arc<Vec<i32>>,
+    hash: &'a Arc<DirectBytesRefHash>,
+    pool: &'a Arc<ByteBlockPool>,
     ords: &'a PackedLongValues,
     ord_counts: &'a PackedLongValues,
     max_count: usize,
