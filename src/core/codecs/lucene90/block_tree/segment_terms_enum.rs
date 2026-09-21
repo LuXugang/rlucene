@@ -983,7 +983,7 @@ impl OutputAccumulator {
       debug_assert!(output.length > 0);
       if self.outputs.len() == self.num {
         self.outputs.push(output.clone());
-      } else {
+      } else if !BytesRef::equals(&self.outputs[self.num], output) {
         self.outputs[self.num] = output.clone();
       }
       self.num += 1;
