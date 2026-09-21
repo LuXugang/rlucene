@@ -852,7 +852,7 @@ where
         self.outputs.skip_final_output(reader)?;
       }
 
-      if flag_mod(flags, BIT_STOP_NODE) && flag_mod(flags, BIT_TARGET_NEXT) {
+      if !flag_mod(flags, BIT_STOP_NODE) && !flag_mod(flags, BIT_TARGET_NEXT) {
         self.read_unpacked_node_target(reader)?;
       }
 
