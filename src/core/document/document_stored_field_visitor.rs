@@ -22,7 +22,6 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
-use std::sync::Arc;
 
 /// A [`StoredFieldVisitor`] that creates a [`Document`] from stored fields.
 ///
@@ -74,7 +73,7 @@ impl<'a> DocumentStoredFieldVisitor<'a> {
 impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
   fn binary_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: Vec<u8>,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -89,7 +88,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
   fn string_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: String,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -110,7 +109,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
   fn int_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i32,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -125,7 +124,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
   fn long_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i64,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -140,7 +139,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
   fn float_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f32,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -155,7 +154,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
 
   fn double_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f64,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -168,11 +167,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
     Ok(())
   }
 
-  fn needs_field<S>(
-    &mut self,
-    field_info: Arc<FieldInfo>,
-    _writer: Option<&mut S>,
-  ) -> Result<Status>
+  fn needs_field<S>(&mut self, field_info: &FieldInfo, _writer: Option<&mut S>) -> Result<Status>
   where
     S: StoredFieldsWriter,
   {

@@ -18,7 +18,6 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::store::DataInput;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 
 /// Expert: provides a low-level means of accessing the stored field values in
 /// an index.
@@ -38,7 +37,7 @@ pub trait StoredFieldVisitor {
   /// delegates to `binary_field`.
   fn binary_field_with_input<S, DI>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     input: &mut DI,
     length: usize,
     writer: Option<&mut S>,
@@ -55,7 +54,7 @@ pub trait StoredFieldVisitor {
   /// Process a binary field.
   fn binary_field<S>(
     &mut self,
-    _field_info: Arc<FieldInfo>,
+    _field_info: &FieldInfo,
     _value: Vec<u8>,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -68,7 +67,7 @@ pub trait StoredFieldVisitor {
   /// Process a string field.
   fn string_field<S>(
     &mut self,
-    _field_info: Arc<FieldInfo>,
+    _field_info: &FieldInfo,
     _value: String,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -81,7 +80,7 @@ pub trait StoredFieldVisitor {
   /// Process an int numeric field.
   fn int_field<S>(
     &mut self,
-    _field_info: Arc<FieldInfo>,
+    _field_info: &FieldInfo,
     _value: i32,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -94,7 +93,7 @@ pub trait StoredFieldVisitor {
   /// Process a long numeric field.
   fn long_field<S>(
     &mut self,
-    _field_info: Arc<FieldInfo>,
+    _field_info: &FieldInfo,
     _value: i64,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -107,7 +106,7 @@ pub trait StoredFieldVisitor {
   /// Process a float numeric field.
   fn float_field<S>(
     &mut self,
-    _field_info: Arc<FieldInfo>,
+    _field_info: &FieldInfo,
     _value: f32,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -120,7 +119,7 @@ pub trait StoredFieldVisitor {
   /// Process a double numeric field.
   fn double_field<S>(
     &mut self,
-    _field_info: Arc<FieldInfo>,
+    _field_info: &FieldInfo,
     _value: f64,
     _writer: Option<&mut S>,
   ) -> Result<()>
@@ -132,11 +131,7 @@ pub trait StoredFieldVisitor {
 
   /// Hook before processing a field.
   /// Returns a [`Status`] representing whether to visit, skip, or stop.
-  fn needs_field<S>(
-    &mut self,
-    field_info: Arc<FieldInfo>,
-    _writer: Option<&mut S>,
-  ) -> Result<Status>
+  fn needs_field<S>(&mut self, field_info: &FieldInfo, _writer: Option<&mut S>) -> Result<Status>
   where
     S: StoredFieldsWriter;
 }

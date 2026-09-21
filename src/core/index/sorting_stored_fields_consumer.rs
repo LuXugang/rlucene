@@ -45,7 +45,6 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 pub(crate) struct SortingStoredFieldsConsumer<D>
 where
@@ -203,7 +202,7 @@ where
 {
   fn binary_field_with_input<S1, DI>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     input: &mut DI,
     length: usize,
     _writer: Option<&mut S1>,
@@ -214,12 +213,12 @@ where
   {
     self
       .writer
-      .write_field_with_input(&field_info, input, length)
+      .write_field_with_input(field_info, input, length)
   }
 
   fn binary_field<S1>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: Vec<u8>,
     _writer: Option<&mut S1>,
   ) -> Result<()>
@@ -228,74 +227,70 @@ where
   {
     self
       .writer
-      .write_field_bytes(&field_info, &BytesRef::from_bytes(value))
+      .write_field_bytes(field_info, &BytesRef::from_bytes(value))
   }
 
   fn string_field<S1>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: String,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
     S1: StoredFieldsWriter,
   {
-    self.writer.write_field_str(&field_info, &value)
+    self.writer.write_field_str(field_info, &value)
   }
 
   fn int_field<S1>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i32,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
     S1: StoredFieldsWriter,
   {
-    self.writer.write_field_i32(&field_info, value)
+    self.writer.write_field_i32(field_info, value)
   }
 
   fn long_field<S1>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i64,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
     S1: StoredFieldsWriter,
   {
-    self.writer.write_field_i64(&field_info, value)
+    self.writer.write_field_i64(field_info, value)
   }
 
   fn float_field<S1>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f32,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
     S1: StoredFieldsWriter,
   {
-    self.writer.write_field_f32(&field_info, value)
+    self.writer.write_field_f32(field_info, value)
   }
 
   fn double_field<S1>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f64,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
     S1: StoredFieldsWriter,
   {
-    self.writer.write_field_f64(&field_info, value)
+    self.writer.write_field_f64(field_info, value)
   }
 
-  fn needs_field<S1>(
-    &mut self,
-    _field_info: Arc<FieldInfo>,
-    _writer: Option<&mut S1>,
-  ) -> Result<Status>
+  fn needs_field<S1>(&mut self, _field_info: &FieldInfo, _writer: Option<&mut S1>) -> Result<Status>
   where
     S1: StoredFieldsWriter,
   {

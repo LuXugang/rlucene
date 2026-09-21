@@ -1247,10 +1247,11 @@ where
       field_infos,
     }
   }
-  fn remap(&self, field_info: &FieldInfo) -> Result<Arc<FieldInfo>> {
-    let fi = self.field_infos.field_info_by_name(&field_info.name)?;
+  fn remap(&self, field_info: &FieldInfo) -> Result<&'a FieldInfo> {
+    let field_infos: &'a FieldInfos = self.field_infos;
+    let fi = field_infos.field_info_by_name(&field_info.name)?;
     match fi {
-      Some(fi) => Ok(fi.clone()),
+      Some(fi) => Ok(fi),
       None => Err(LuceneError::illegal_state(format!(
         "FieldInfo not found by {}",
         field_info.name
@@ -1265,93 +1266,88 @@ where
 {
   fn binary_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: Vec<u8>,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
-    self
-      .visitor
-      .binary_field(self.remap(&field_info)?, value, writer)
+    let field_info = self.remap(field_info)?;
+    self.visitor.binary_field(field_info, value, writer)
   }
 
   fn string_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: String,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
-    self
-      .visitor
-      .string_field(self.remap(&field_info)?, value, writer)
+    let field_info = self.remap(field_info)?;
+    self.visitor.string_field(field_info, value, writer)
   }
 
   fn int_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i32,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
-    self
-      .visitor
-      .int_field(self.remap(&field_info)?, value, writer)
+    let field_info = self.remap(field_info)?;
+    self.visitor.int_field(field_info, value, writer)
   }
 
   fn long_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i64,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
-    self
-      .visitor
-      .long_field(self.remap(&field_info)?, value, writer)
+    let field_info = self.remap(field_info)?;
+    self.visitor.long_field(field_info, value, writer)
   }
 
   fn float_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f32,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
-    self
-      .visitor
-      .float_field(self.remap(&field_info)?, value, writer)
+    let field_info = self.remap(field_info)?;
+    self.visitor.float_field(field_info, value, writer)
   }
 
   fn double_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f64,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
-    self
-      .visitor
-      .double_field(self.remap(&field_info)?, value, writer)
+    let field_info = self.remap(field_info)?;
+    self.visitor.double_field(field_info, value, writer)
   }
 
-  fn needs_field<S>(&mut self, field_info: Arc<FieldInfo>, writer: Option<&mut S>) -> Result<Status>
+  fn needs_field<S>(&mut self, field_info: &FieldInfo, writer: Option<&mut S>) -> Result<Status>
   where
     S: StoredFieldsWriter,
   {
-    self.visitor.needs_field(self.remap(&field_info)?, writer)
+    let field_info = self.remap(field_info)?;
+    self.visitor.needs_field(field_info, writer)
   }
 }
 

@@ -296,7 +296,7 @@ where
   pub fn read_field<S, DI, V>(
     input: &mut DI,
     visitor: &mut V,
-    info: Arc<FieldInfo>,
+    info: &FieldInfo,
     bits: i32,
     writer: Option<&mut S>,
   ) -> Result<()>
@@ -513,12 +513,12 @@ where
       );
       match field_info {
         Some(field_info) => {
-          match visitor.needs_field(field_info.clone(), writer.as_deref_mut())? {
+          match visitor.needs_field(field_info, writer.as_deref_mut())? {
             Status::Yes => {
               Self::read_field(
                 &mut doc.input,
                 visitor,
-                field_info.clone(),
+                field_info,
                 bits,
                 writer.as_deref_mut(),
               )?;

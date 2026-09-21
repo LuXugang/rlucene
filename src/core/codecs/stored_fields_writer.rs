@@ -31,7 +31,6 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
-use std::sync::Arc;
 
 /// Codec API for writing stored fields:
 ///
@@ -242,12 +241,12 @@ impl<'a> MergeVisitor<'a> {
     }
     Ok(Self { remapper: None })
   }
-  fn remap(&self, field: Arc<FieldInfo>) -> Result<Arc<FieldInfo>> {
+  fn remap<'b>(&'b self, field: &'b FieldInfo) -> Result<&'b FieldInfo> {
     if let Some(remapper) = self.remapper {
       // field numbers are not aligned, we need to remap to the new field
       // number
       match remapper.field_info_by_name(&field.name)? {
-        Some(new_field) => Ok(new_field.clone()),
+        Some(new_field) => Ok(new_field),
         None => Err(LuceneError::illegal_state(format!(
           "FieldInfo not found in remapper with filed_name: {}",
           field.name
@@ -261,7 +260,7 @@ impl<'a> MergeVisitor<'a> {
 impl StoredFieldVisitor for MergeVisitor<'_> {
   fn binary_field_with_input<S, DI>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     input: &mut DI,
     length: usize,
     writer: Option<&mut S>,
@@ -272,12 +271,12 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_with_input(self.remap(field_info)?.as_ref(), input, length)
+    writer.write_field_with_input(self.remap(field_info)?, input, length)
   }
 
   fn binary_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: Vec<u8>,
     writer: Option<&mut S>,
   ) -> Result<()>
@@ -286,15 +285,12 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_bytes(
-      self.remap(field_info)?.as_ref(),
-      &BytesRef::from_bytes(value),
-    )
+    writer.write_field_bytes(self.remap(field_info)?, &BytesRef::from_bytes(value))
   }
 
   fn string_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: String,
     writer: Option<&mut S>,
   ) -> Result<()>
@@ -303,12 +299,12 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_str(self.remap(field_info)?.as_ref(), &value)
+    writer.write_field_str(self.remap(field_info)?, &value)
   }
 
   fn int_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i32,
     writer: Option<&mut S>,
   ) -> Result<()>
@@ -317,12 +313,12 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_i32(self.remap(field_info)?.as_ref(), value)
+    writer.write_field_i32(self.remap(field_info)?, value)
   }
 
   fn long_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: i64,
     writer: Option<&mut S>,
   ) -> Result<()>
@@ -331,12 +327,12 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_i64(self.remap(field_info)?.as_ref(), value)
+    writer.write_field_i64(self.remap(field_info)?, value)
   }
 
   fn float_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f32,
     writer: Option<&mut S>,
   ) -> Result<()>
@@ -345,12 +341,12 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_f32(self.remap(field_info)?.as_ref(), value)
+    writer.write_field_f32(self.remap(field_info)?, value)
   }
 
   fn double_field<S>(
     &mut self,
-    field_info: Arc<FieldInfo>,
+    field_info: &FieldInfo,
     value: f64,
     writer: Option<&mut S>,
   ) -> Result<()>
@@ -359,14 +355,10 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_f64(self.remap(field_info)?.as_ref(), value)
+    writer.write_field_f64(self.remap(field_info)?, value)
   }
 
-  fn needs_field<S>(
-    &mut self,
-    _field_info: Arc<FieldInfo>,
-    _writer: Option<&mut S>,
-  ) -> Result<Status>
+  fn needs_field<S>(&mut self, _field_info: &FieldInfo, _writer: Option<&mut S>) -> Result<Status>
   where
     S: StoredFieldsWriter,
   {
