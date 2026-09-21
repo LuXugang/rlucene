@@ -509,7 +509,7 @@ where
     Ok(())
   }
 
-  fn get_numeric(&self, entry: Arc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
+  fn get_numeric(&self, entry: &Arc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
     if entry.docs_with_field_offset == -2 {
       // empty
       Ok(Lucene90NumericDocValuesEnum::C(DocValues::empty_numeric()))
@@ -529,7 +529,8 @@ where
           slice.prefetch(0, 1)?
         }
         if entry.block_shift >= 0 {
-          let vbpv_reader = VaryingBPVReader::new(entry, slice, self.data.as_ref(), self.merging)?;
+          let vbpv_reader =
+            VaryingBPVReader::new(entry.clone(), slice, self.data.as_ref(), self.merging)?;
           DenseNumericDocValuesSubEnum::Dense1(DenseNumericDocValuesBaseImpl1 { vbpv_reader })
         } else {
           let values = get_direct_reader_instance(
@@ -588,7 +589,12 @@ where
         }
         if entry.block_shift >= 0 {
           SparseNumericDocValuesSubEnum::Sparse1(SparseNumericDocValuesBaseImpl1 {
-            vbpv_reader: VaryingBPVReader::new(entry, slice, self.data.as_ref(), self.merging)?,
+            vbpv_reader: VaryingBPVReader::new(
+              entry.clone(),
+              slice,
+              self.data.as_ref(),
+              self.merging,
+            )?,
           })
         } else {
           let values = get_direct_reader_instance(
@@ -742,13 +748,13 @@ where
         )?;
         BaseSortedDocValuesEnum::Sparse(SparseBaseSortedDocValues::new(disi, values))
       } else {
-        let ords = self.get_numeric(ords_entry.clone())?;
+        let ords = self.get_numeric(ords_entry)?;
         BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesOrdinals::new(ords))
       };
       return BaseSortedDocValues::new(entry, self.data.clone(), sub, self.merging);
     }
 
-    let ords = self.get_numeric(ords_entry.clone())?;
+    let ords = self.get_numeric(ords_entry)?;
     let sub = BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesOrdinals::new(ords));
     BaseSortedDocValues::new(entry, self.data.clone(), sub, self.merging)
   }
@@ -762,7 +768,7 @@ where
   {
     if entry.base.num_values == entry.num_docs_with_field as usize {
       return Ok(Lucene90SortedNumericDocValuesEnum::C(
-        DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?)?,
+        DocValues::singleton_numeric(self.get_numeric(&entry.base)?)?,
       ));
     }
 
@@ -826,7 +832,7 @@ where
     let entry = self.numerics.get(&field.number).ok_or_else(|| {
       LuceneError::illegal_state(format!("Missing numeric entry for field {}", field.number))
     })?;
-    self.get_numeric(entry.clone())
+    self.get_numeric(entry)
   }
 
   type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
