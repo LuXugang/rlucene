@@ -35,8 +35,8 @@ use std::rc::Rc;
 /// [`Scorer`](crate::core::search::scorer::Scorer) reference and could otherwise end up computing
 /// the score of the same
 /// document more than once.
-pub struct ScoreCachingWrappingScorer<S> {
-  cache: Rc<ScoreCachingWrappingScorerCache>,
+pub struct ScoreCachingWrappingScorer<'a, S> {
+  cache: &'a ScoreCachingWrappingScorerCache,
   in_: S,
 }
 
@@ -59,13 +59,13 @@ impl ScoreCachingWrappingScorerCache {
 }
 
 /// Creates a new instance by wrapping the given scorer.
-impl<S> ScoreCachingWrappingScorer<S> {
-  fn new_with_cache(in_: S, cache: Rc<ScoreCachingWrappingScorerCache>) -> Self {
+impl<'a, S> ScoreCachingWrappingScorer<'a, S> {
+  fn new_with_cache(in_: S, cache: &'a ScoreCachingWrappingScorerCache) -> Self {
     Self { cache, in_ }
   }
 }
 
-impl<S> Scorable for ScoreCachingWrappingScorer<S>
+impl<S> Scorable for ScoreCachingWrappingScorer<'_, S>
 where
   S: Scorable,
 {
@@ -95,7 +95,7 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for ScoreCachingWrappingScorer<S> {}
+impl<S> crate::core::search::scorable::FixedScore for ScoreCachingWrappingScorer<'_, S> {}
 pub struct ScoreCachingWrappingLeafCollector<LC> {
   inner: LC,
   cache: Rc<ScoreCachingWrappingScorerCache>,
@@ -124,12 +124,12 @@ where
 {
   fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
     self.cache.init();
-    let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, self.cache.clone());
+    let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, &self.cache);
     self.inner.set_scorer(&mut wrapper)
   }
 
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-    let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, self.cache.clone());
+    let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, &self.cache);
     self.cache.init();
     self.inner.collect(doc, &mut wrapper)
   }
