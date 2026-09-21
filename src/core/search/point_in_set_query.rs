@@ -72,7 +72,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct PointInSetQuery {
   id: Identity,
-  sorted_packed_points: PrefixCodedTermsArc,
+  sorted_packed_points: Arc<PrefixCodedTermsArc>,
   sorted_packed_points_hash_code: u64,
   field: Arc<str>,
   num_dims: usize,
@@ -150,7 +150,7 @@ impl PointInSetQuery {
 
     Ok(Self {
       id: Identity::new(),
-      sorted_packed_points,
+      sorted_packed_points: Arc::new(sorted_packed_points),
       sorted_packed_points_hash_code,
       field: Arc::from(field),
       num_dims,
@@ -385,7 +385,7 @@ pub struct MergePointScorerSupplier<PV> {
   values: PV,
   max_doc: i32,
   field: Arc<str>,
-  sorted_packed_points: PrefixCodedTermsArc,
+  sorted_packed_points: Arc<PrefixCodedTermsArc>,
   bytes_per_dim: usize,
   cost: i64,
 }
@@ -397,7 +397,7 @@ impl<PV> MergePointScorerSupplier<PV> {
     values: PV,
     max_doc: i32,
     field: FName,
-    sorted_packed_points: PrefixCodedTermsArc,
+    sorted_packed_points: Arc<PrefixCodedTermsArc>,
     bytes_per_dim: usize,
   ) -> Self
   where
@@ -478,7 +478,7 @@ pub struct SinglePointScorerSupplier<PV> {
   values: PV,
   max_doc: i32,
   field: Arc<str>,
-  sorted_packed_points: PrefixCodedTermsArc,
+  sorted_packed_points: Arc<PrefixCodedTermsArc>,
   num_dims: usize,
   bytes_per_dim: usize,
   cost: i64,
@@ -492,7 +492,7 @@ impl<PV> SinglePointScorerSupplier<PV> {
     values: PV,
     max_doc: i32,
     field: FName,
-    sorted_packed_points: PrefixCodedTermsArc,
+    sorted_packed_points: Arc<PrefixCodedTermsArc>,
     num_dims: usize,
     bytes_per_dim: usize,
   ) -> Self
