@@ -33,6 +33,7 @@ use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 pub trait TopTermsRewrite: TermCollectingRewrite {
   /// return the maximum priority queue size
@@ -68,6 +69,7 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
     }
 
     for (bytes, st) in score_terms {
+      let bytes = Arc::try_unwrap(bytes).unwrap_or_else(|shared| shared.as_ref().clone());
       let term = Term::new(query.get_field(), bytes);
 
       self.add_clause_with_states(
@@ -94,8 +96,10 @@ impl ScoreTerm {
     }
   }
 }
+type ScoreTermKey = Arc<BytesRef<Vec<u8>>>;
+type ScoreTermQueueEntry = (ScoreTermKey, f32);
 struct ScoreTermCmp {
-  visited_terms: HashMap<BytesRef<Vec<u8>>, ScoreTerm>,
+  visited_terms: HashMap<ScoreTermKey, ScoreTerm>,
 }
 impl ScoreTermCmp {
   pub fn new() -> Self {
@@ -104,8 +108,8 @@ impl ScoreTermCmp {
     }
   }
 }
-impl Compare<(BytesRef<Vec<u8>>, f32)> for ScoreTermCmp {
-  fn less_than(&self, a: &(BytesRef<Vec<u8>>, f32), b: &(BytesRef<Vec<u8>>, f32)) -> Result<bool> {
+impl Compare<ScoreTermQueueEntry> for ScoreTermCmp {
+  fn less_than(&self, a: &ScoreTermQueueEntry, b: &ScoreTermQueueEntry) -> Result<bool> {
     if a.1 == b.1 {
       Ok(b.0 < a.0)
     } else {
@@ -117,7 +121,7 @@ impl Compare<(BytesRef<Vec<u8>>, f32)> for ScoreTermCmp {
 pub(crate) struct TermCollectorImpl {
   #[cfg(debug_assertions)]
   last_term: Option<BytesRefBuilder<Vec<u8>>>,
-  st_queue: PriorityQueue<(BytesRef<Vec<u8>>, f32), ScoreTermCmp>,
+  st_queue: PriorityQueue<ScoreTermQueueEntry, ScoreTermCmp>,
   max_size: usize,
   ord: usize,
 }
@@ -225,12 +229,12 @@ impl TermCollector for TermCollectorImpl {
         terms_enum.doc_freq()?,
         terms_enum.total_term_freq()?,
       );
-      let owned = bytes.clone();
+      let owned = Arc::new(bytes.clone());
       self
         .st_queue
         .compare
         .visited_terms
-        .insert(owned.clone(), st);
+        .insert(Arc::clone(&owned), st);
       self.st_queue.add((owned, boost))?;
 
       if self.st_queue.size() > self.max_size {
@@ -257,7 +261,7 @@ impl TermCollector for TermCollectorImpl {
         let result: Result<()> = (|| {
           let mut attr = terms_enum.attributes_mut()?;
           attr.set_max_non_competitive_boost(t.boost)?;
-          attr.set_competitive_term(Some(key.clone()))?;
+          attr.set_competitive_term(Some(key.as_ref().clone()))?;
           Ok(())
         })();
         match result {
