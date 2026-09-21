@@ -39,6 +39,7 @@ pub struct ReadWriteDataOutput {
   pub byte_buffers: Option<Rc<Vec<Vec<u8>>>>,
   pub byte_buffer: Option<Rc<Vec<u8>>>,
   pub frozen: bool,
+  pub contiguous_reader: bool,
   /// Indicates whether the byte_buffer/byte_buffers have been initialized.
   pub finish: bool,
 }
@@ -54,13 +55,14 @@ impl Default for ReadWriteDataOutput {
       byte_buffers: None,
       byte_buffer: None,
       frozen: true,
+      contiguous_reader: false,
       finish: true,
     }
   }
 }
 
 impl ReadWriteDataOutput {
-  pub(crate) fn new(block_bits: i32) -> Result<Self> {
+  pub(crate) fn new(block_bits: i32, contiguous_reader: bool) -> Result<Self> {
     let block_size = 1 << block_bits;
     let block_mask = block_size - 1;
     let data_output = ByteBuffersDataOutput::with_reuse(block_bits, block_bits, false)?;
@@ -72,6 +74,7 @@ impl ReadWriteDataOutput {
       byte_buffers: None,
       byte_buffer: None,
       frozen: false,
+      contiguous_reader,
       finish: false,
     })
   }
@@ -114,19 +117,15 @@ impl FstReader for ReadWriteDataOutput {
       ));
     }
     match (self.byte_buffers.as_ref(), self.byte_buffer.as_ref()) {
-      (Some(byte_buffers), None) => {
-        let buffers = byte_buffers.clone();
-        Ok(BytesReaderEnum2::A(BytesReaderImpl::new(
-          buffers,
-          self.block_bits,
-          self.block_size,
-          self.block_mask,
-        )))
-      },
-      (None, Some(byte_buffer)) => {
-        let buffer = byte_buffer.clone();
-        Ok(BytesReaderEnum2::B(ReverseBytesReader::new(buffer)))
-      },
+      (Some(byte_buffers), None) => Ok(BytesReaderEnum2::A(BytesReaderImpl::new(
+        byte_buffers.clone(),
+        self.block_bits,
+        self.block_size,
+        self.block_mask,
+      ))),
+      (None, Some(byte_buffer)) => Ok(BytesReaderEnum2::B(ReverseBytesReader::new(
+        byte_buffer.clone(),
+      ))),
       _ => Err(LuceneError::illegal_state("Only one buffer is some")),
     }
   }
@@ -144,15 +143,19 @@ impl FstReader for ReadWriteDataOutput {
   fn init_reader(&mut self) {
     self.finish = true;
     if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
-      let (_, mut byte_buffers_raw) = self.data_output.to_buffer_list_owner(false);
-      if byte_buffers_raw.len() == 1 {
-        self.byte_buffer = Some(Rc::new(byte_buffers_raw.remove(0).into_inner()));
+      if self.contiguous_reader {
+        self.byte_buffer = Some(Rc::new(self.data_output.try_get_array_ownership()));
       } else {
-        let data = byte_buffers_raw
-          .into_iter()
-          .map(|b| b.into_inner())
-          .collect();
-        self.byte_buffers = Some(Rc::new(data));
+        let (_, mut byte_buffers_raw) = self.data_output.to_buffer_list_owner(false);
+        if byte_buffers_raw.len() == 1 {
+          self.byte_buffer = Some(Rc::new(byte_buffers_raw.remove(0).into_inner()));
+        } else {
+          let data = byte_buffers_raw
+            .into_iter()
+            .map(|b| b.into_inner())
+            .collect();
+          self.byte_buffers = Some(Rc::new(data));
+        }
       }
     }
   }

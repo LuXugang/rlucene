@@ -34,7 +34,7 @@ use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
 use crate::core::util::fst_impl::node_hash::NodeHash;
 use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
-use crate::core::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadWriteDataOutput};
+use crate::core::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
@@ -133,7 +133,7 @@ where
     let num_bytes_written = 1; // pad 1 byte, written lazily
     let padding_byte_pending = true;
 
-    let no_output = outputs.get_no_output();
+    let no_output = outputs.get_no_output().clone();
     let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
     let fst = FST::new(fst_meta, NullFSTReader);
     let mut frontier = Vec::with_capacity(16);
@@ -1228,14 +1228,16 @@ where
 }
 
 impl<O> FstReader for DataOutputEnum<O> {
-  type FstBytesReader = BytesReaderEnum2<BytesReaderImpl, ReverseBytesReader>;
+  type FstBytesReader = ReverseBytesReader;
 
   fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
     match self {
       DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("")),
-      DataOutputEnum::ReadWriter(rw) => {
-        let reader = rw.get_reverse_bytes_reader()?;
-        Ok(reader)
+      DataOutputEnum::ReadWriter(rw) => match rw.get_reverse_bytes_reader()? {
+        BytesReaderEnum2::A(_) => Err(LuceneError::illegal_state(
+          "FSTCompiler reader must use a contiguous byte buffer",
+        )),
+        BytesReaderEnum2::B(reader) => Ok(reader),
       },
     }
   }
@@ -1550,5 +1552,5 @@ pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: usize = 10;
 /// See [`FSTCompiler::should_expand_node_with_direct_addressing`](FSTCompiler::should_expand_node_with_direct_addressing).
 const DIRECT_ADDRESSING_MAX_OVERSIZE_WITH_CREDIT_FACTOR: f32 = 1.66;
 pub fn get_on_heap_reader_writer(block_bits: i32) -> Result<ReadWriteDataOutput> {
-  ReadWriteDataOutput::new(block_bits)
+  ReadWriteDataOutput::new(block_bits, true)
 }
