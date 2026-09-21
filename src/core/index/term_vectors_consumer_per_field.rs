@@ -431,10 +431,7 @@ impl TermVectorsConsumerPerField {
     if !self.do_vectors || self.base.get_num_terms() == 0 {
       return Ok(());
     }
-    term_vectors_consumer.add_field_to_flush(PerFieldMeta {
-      idx: field_index,
-      field_info: Some(Arc::clone(&self.field_info)),
-    })
+    term_vectors_consumer.add_field_to_flush(PerFieldMeta { idx: field_index })
   }
 }
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {

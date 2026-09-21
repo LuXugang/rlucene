@@ -34,6 +34,7 @@ use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::comparator::Comparator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, IOUtils, TryIntoInt};
@@ -73,38 +74,33 @@ pub(crate) struct TermVectorsConsumerDefaults;
 /// Parameter `idx` is the index of the [`PerField`] where the [`TermVectorsConsumerPerField`] resides.
 /// [`PerField`] itself is located in the [`IndexingChain`](crate::core::index::indexing_chain::IndexingChain)'s `doc_fields` array.
 ///
-/// Parameter `field_info` provides the field name; `None` is an empty padding entry.
-#[derive(Clone, Default)]
+/// The field name is read from the corresponding [`PerField`] while sorting.
+#[derive(Clone, Copy, Default)]
 pub(crate) struct PerFieldMeta {
   pub(crate) idx: usize,
-  pub(crate) field_info: Option<Arc<FieldInfo>>,
 }
 
-impl Eq for PerFieldMeta {}
-
-impl PartialEq for PerFieldMeta {
-  fn eq(&self, other: &Self) -> bool {
-    self.cmp(other) == Ordering::Equal
-  }
+struct PerFieldMetaComparator<'a> {
+  per_fields: &'a [PerField],
 }
 
-impl PartialOrd<Self> for PerFieldMeta {
-  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    Some(self.cmp(other))
-  }
-}
+impl Comparator<PerFieldMeta> for PerFieldMetaComparator<'_> {
+  const TYPE: &'static str = "PerFieldMetaComparator";
 
-impl Ord for PerFieldMeta {
-  fn cmp(&self, other: &Self) -> Ordering {
-    let name = self
+  fn compare(&self, a: &PerFieldMeta, b: &PerFieldMeta) -> Result<i32> {
+    let name = self.per_fields[a.idx]
       .field_info
       .as_ref()
       .map_or("", |info| info.name.as_str());
-    let other_name = other
+    let other_name = self.per_fields[b.idx]
       .field_info
       .as_ref()
       .map_or("", |info| info.name.as_str());
-    name.cmp(other_name)
+    Ok(match name.cmp(other_name) {
+      Ordering::Less => -1,
+      Ordering::Equal => 0,
+      Ordering::Greater => 1,
+    })
   }
 }
 
@@ -252,7 +248,12 @@ where
       return Ok(());
     }
 
-    ArrayUtil::intro_sort_with_range(&mut self.per_fields_idxs, 0, self.num_vector_fields)?;
+    ArrayUtil::do_intro_sort(
+      &mut self.per_fields_idxs,
+      0,
+      self.num_vector_fields,
+      PerFieldMetaComparator { per_fields },
+    )?;
 
     self.init_term_vectors_writer(info)?;
     self.fill(doc_id)?;
