@@ -227,7 +227,6 @@ impl QueryBase for FieldExistsQuery {
 }
 
 pub struct FieldExistsWeight {
-  query: FieldExistsQuery,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -235,14 +234,19 @@ pub struct FieldExistsWeight {
 }
 impl FieldExistsWeight {
   fn new(score: f32, query: FieldExistsQuery, score_mode: ScoreMode) -> Self {
-    let query_clone = query.clone();
-    let parent_query = Arc::new(query_clone.into());
+    let parent_query = Arc::new(query.into());
     Self {
       base: ConstantScoreWeight::new(score),
-      query,
       parent_query,
       score_mode,
       score,
+    }
+  }
+
+  fn query(&self) -> Result<&FieldExistsQuery> {
+    match self.parent_query.as_ref() {
+      Query::FieldExists(query) => Ok(query),
+      _ => Err(LuceneError::illegal_state("expected FieldExistsQuery")),
     }
   }
 }
@@ -253,12 +257,13 @@ where
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field_infos = ctx.reader().get_field_infos()?;
-    let field_info = field_infos.field_info_by_name(&self.query.field)?;
+    let query = self.query()?;
+    let field_info = field_infos.field_info_by_name(&query.field)?;
 
     if let Some(fi) = field_info
       && *fi.get_doc_values_type() != DocValuesType::None
     {
-      let field = [self.query.field.as_str()];
+      let field = [query.field.as_str()];
       return DocValues::is_cacheable(ctx, field);
     }
     Ok(true)
@@ -298,7 +303,8 @@ where
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
     let reader = context.reader();
-    let field = self.query.get_field();
+    let query = self.query()?;
+    let field = query.get_field();
     let field_infos = reader.get_field_infos()?;
     let field_info = field_infos.field_info_by_name(field)?;
 
@@ -350,7 +356,7 @@ where
       }
     } else {
       return Err(LuceneError::illegal_argument(
-        self.query.build_error_msg(fi.as_ref()),
+        query.build_error_msg(fi.as_ref()),
       ));
     };
     match disi_opt {
@@ -369,7 +375,8 @@ where
     let reader = ctx.reader();
 
     let field_infos = reader.get_field_infos()?;
-    let field_info = field_infos.field_info_by_name(self.query.get_field())?;
+    let query = self.query()?;
+    let field_info = field_infos.field_info_by_name(query.get_field())?;
 
     let Some(fi) = field_info else {
       return Ok(0);
@@ -378,7 +385,7 @@ where
     if fi.has_norms() {
       // the field indexes norms
       // If every field has a value then we can shortcut
-      let doc_count = LeafReader::get_doc_count(reader, self.query.get_field())?;
+      let doc_count = LeafReader::get_doc_count(reader, query.get_field())?;
       if doc_count == reader.max_doc()? {
         return reader.num_docs();
       }
@@ -388,8 +395,7 @@ where
     if fi.has_vector_values() {
       // the field indexes vectors
       if !reader.has_deletions()? {
-        return self
-          .query
+        return query
           .get_vector_values_size(fi.as_ref(), reader)?
           .try_convert();
       }
@@ -400,7 +406,7 @@ where
       // the field indexes doc values
       if !reader.has_deletions()? {
         if fi.get_point_dimension_count() > 0 {
-          if let Some(point_values) = reader.get_point_values(self.query.get_field())? {
+          if let Some(point_values) = reader.get_point_values(query.get_field())? {
             return point_values.get_doc_count();
           } else {
             return Ok(0);
@@ -408,7 +414,7 @@ where
         }
 
         if *fi.get_index_options() != IndexOptions::None {
-          if let Some(terms) = reader.terms(self.query.get_field())? {
+          if let Some(terms) = reader.terms(query.get_field())? {
             return terms.get_doc_count();
           } else {
             return Ok(0);
@@ -420,7 +426,7 @@ where
     }
 
     Err(LuceneError::illegal_argument(
-      self.query.build_error_msg(fi.as_ref()),
+      query.build_error_msg(fi.as_ref()),
     ))
   }
 }
