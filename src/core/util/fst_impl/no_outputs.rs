@@ -71,15 +71,15 @@ impl Outputs for NoOutputs {
     Ok(())
   }
 
-  fn read<DI>(&self, _input: &mut DI) -> Result<Self::V>
+  fn read<DI>(&self, _input: &mut DI) -> Result<std::borrow::Cow<'_, Self::V>>
   where
     DI: DataInput,
   {
-    Ok(NO_OUTPUT.clone())
+    Ok(std::borrow::Cow::Borrowed(&NO_OUTPUT))
   }
 
-  fn get_no_output(&self) -> Self::V {
-    NO_OUTPUT.clone()
+  fn get_no_output(&self) -> &Self::V {
+    &NO_OUTPUT
   }
 
   fn output_to_string(&self, _output: &Self::V) -> String {

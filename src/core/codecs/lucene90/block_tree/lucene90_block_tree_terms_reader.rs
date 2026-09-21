@@ -454,7 +454,7 @@ pub(crate) const TERMS_INDEX_CODEC_NAME: &str = "BlockTreeTermsIndex";
 pub(crate) const TERMS_META_EXTENSION: &str = "tmd";
 pub(crate) const TERMS_META_CODEC_NAME: &str = "BlockTreeTermsMeta";
 pub(crate) static NO_OUTPUT: LazyLock<BytesRef<Arc<Vec<u8>>>> =
-  LazyLock::new(|| ByteSequenceOutputs::get_singleton().get_no_output());
+  LazyLock::new(|| ByteSequenceOutputs::get_singleton().get_no_output().clone());
 fn read_bytes_ref<I>(input: &mut I) -> Result<BytesRef<Vec<u8>>>
 where
   I: IndexInput,

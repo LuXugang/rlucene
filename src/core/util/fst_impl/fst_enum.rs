@@ -47,7 +47,7 @@ where
 {
   pub(crate) fn new(fst: FST<O, F>) -> Result<Self> {
     let fst_reader = fst.get_bytes_reader()?;
-    let no_output = fst.outputs.get_no_output();
+    let no_output = fst.outputs.get_no_output().clone();
     let mut arcs = vec![Arc::default(); 10];
     fst.get_first_arc(&mut arcs[0]);
 

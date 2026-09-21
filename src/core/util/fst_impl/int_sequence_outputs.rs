@@ -49,8 +49,8 @@ impl Outputs for IntSequenceOutputs {
     let b = &output2.ints[output2.offset..output2.offset + output2.length];
 
     let mismatch = match CoreHelper::miss_match_i32(a, b) {
-      -1 => return output1.clone(),     // exactly equals
-      0 => return self.get_no_output(), // no common prefix
+      -1 => return output1.clone(),             // exactly equals
+      0 => return self.get_no_output().clone(), // no common prefix
       n => n as usize,
     };
 
@@ -67,7 +67,7 @@ impl Outputs for IntSequenceOutputs {
     if IntsRef::equals(inc, &NO_OUTPUT) {
       return std::borrow::Cow::Borrowed(output);
     } else if inc.length == output.length {
-      return std::borrow::Cow::Owned(self.get_no_output());
+      return std::borrow::Cow::Owned(self.get_no_output().clone());
     }
 
     debug_assert!(inc.length < output.length);
@@ -109,19 +109,23 @@ impl Outputs for IntSequenceOutputs {
     Ok(())
   }
 
-  fn read<DI>(&self, input: &mut DI) -> Result<Self::V>
+  fn read<DI>(&self, input: &mut DI) -> Result<std::borrow::Cow<'_, Self::V>>
   where
     DI: DataInput,
   {
     let len = input.read_vint()? as usize;
     if len == 0 {
-      Ok(self.get_no_output())
+      Ok(std::borrow::Cow::Borrowed(self.get_no_output()))
     } else {
       let mut buf = vec![0; len];
       for item in buf.iter_mut().take(len) {
         *item = input.read_vint()?;
       }
-      Ok(IntsRef::from_slice(Arc::new(buf), 0, len))
+      Ok(std::borrow::Cow::Owned(IntsRef::from_slice(
+        Arc::new(buf),
+        0,
+        len,
+      )))
     }
   }
 
@@ -139,8 +143,8 @@ impl Outputs for IntSequenceOutputs {
     Ok(())
   }
 
-  fn get_no_output(&self) -> Self::V {
-    NO_OUTPUT.clone()
+  fn get_no_output(&self) -> &Self::V {
+    &NO_OUTPUT
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {

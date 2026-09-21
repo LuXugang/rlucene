@@ -55,7 +55,7 @@ pub trait Outputs: Display + Clone + Default {
   }
 
   /// Decode an output value previously written with [`Self::write`].
-  fn read<DI>(&self, input: &mut DI) -> Result<Self::V>
+  fn read<DI>(&self, input: &mut DI) -> Result<std::borrow::Cow<'_, Self::V>>
   where
     DI: DataInput;
 
@@ -71,7 +71,7 @@ pub trait Outputs: Display + Clone + Default {
 
   /// Decode an output value previously written with [`Self::write_final_output`].
   /// By default this just calls [`Self::read`].
-  fn read_final_output<DI>(&self, input: &mut DI) -> Result<Self::V>
+  fn read_final_output<DI>(&self, input: &mut DI) -> Result<std::borrow::Cow<'_, Self::V>>
   where
     DI: DataInput,
   {
@@ -92,7 +92,7 @@ pub trait Outputs: Display + Clone + Default {
   /// NOTE: this output is compared with pointer equality (`==`), so you must
   /// ensure that all methods return the same SINGLETON object if it's
   /// really no output.
-  fn get_no_output(&self) -> Self::V;
+  fn get_no_output(&self) -> &Self::V;
 
   fn output_to_string(&self, output: &Self::V) -> String;
 

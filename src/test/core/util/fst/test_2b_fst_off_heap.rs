@@ -131,7 +131,7 @@ fn test() -> Result<()> {
             *value = r.random_range(0..256);
           }
           assert_eq!(
-            Some(&no_output),
+            Some(no_output),
             Util::get_from_ints(&fst, &input2)?.as_ref()
           );
           next_input(&mut r, &mut input2.ints);
@@ -147,7 +147,7 @@ fn test() -> Result<()> {
             *value = r.random_range(0..256);
           }
           assert_eq!(input2, pair.input);
-          assert_eq!(no_output, pair.output);
+          assert_eq!(no_output, &pair.output);
           upto += 1;
           next_input(&mut r, &mut input2.ints);
         }

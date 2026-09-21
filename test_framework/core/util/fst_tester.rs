@@ -431,7 +431,7 @@ where
           let mut ir_builder = IntsRefBuilder::default();
           let term = to_ints_ref_from_string_with_builder(&term_str, input_mode, &mut ir_builder);
 
-          let target = InputOutput::new(term, self.outputs.get_no_output());
+          let target = InputOutput::new(term, self.outputs.get_no_output().clone());
           let term = &target.input;
           let pos = self.pairs.binary_search_by(|p| p.input.cmp(&target.input));
 
@@ -867,7 +867,7 @@ where
   assert!(prefix_length.is_none() || prefix_length.as_ref().unwrap().len() == 1);
   let mut arc = Arc::default();
   fst.get_first_arc(&mut arc);
-  let mut output = fst.outputs.get_no_output();
+  let mut output = fst.outputs.get_no_output().clone();
   let mut reader = fst.get_bytes_reader()?;
 
   for i in 0..=term.length {
@@ -886,7 +886,7 @@ where
         return Ok(None);
       }
     }
-    output = fst.outputs.add(&output, &arc.output());
+    output = fst.outputs.add(&output, &arc.output()).into_owned();
   }
   if let Some(prefix) = prefix_length.as_mut() {
     prefix[0] = term.length as i32;
@@ -909,7 +909,7 @@ where
   fst.get_first_arc(&mut arc);
   let mut arcs = Vec::new();
   in_builder.clear();
-  let mut output = fst.outputs.get_no_output();
+  let mut output = fst.outputs.get_no_output().clone();
   let mut reader = fst.get_bytes_reader()?;
 
   loop {
@@ -926,7 +926,7 @@ where
     let idx = random.random_range(0..arcs.len());
     arc = arcs[idx].clone();
     arcs.clear();
-    output = fst.outputs.add(&output, &arc.output());
+    output = fst.outputs.add(&output, &arc.output()).into_owned();
 
     if arc.label() == END_LABEL {
       break;

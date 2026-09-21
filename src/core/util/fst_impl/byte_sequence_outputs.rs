@@ -131,17 +131,21 @@ impl Outputs for ByteSequenceOutputs {
     out.write_bytes_range(&output.bytes, output.offset, output.length)
   }
 
-  fn read<DI>(&self, input: &mut DI) -> Result<Self::V>
+  fn read<DI>(&self, input: &mut DI) -> Result<std::borrow::Cow<'_, Self::V>>
   where
     DI: DataInput,
   {
     let len = input.read_vint()?.try_convert()?;
     if len == 0 {
-      Ok(NO_OUTPUT.clone())
+      Ok(std::borrow::Cow::Borrowed(&NO_OUTPUT))
     } else {
       let mut output = vec![0u8; len];
       input.read_bytes(&mut output, 0, len)?;
-      Ok(BytesRef::from_slice(Arc::new(output), 0, len))
+      Ok(std::borrow::Cow::Owned(BytesRef::from_slice(
+        Arc::new(output),
+        0,
+        len,
+      )))
     }
   }
 
@@ -156,8 +160,8 @@ impl Outputs for ByteSequenceOutputs {
     Ok(())
   }
 
-  fn get_no_output(&self) -> Self::V {
-    NO_OUTPUT.clone()
+  fn get_no_output(&self) -> &Self::V {
+    &NO_OUTPUT
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {

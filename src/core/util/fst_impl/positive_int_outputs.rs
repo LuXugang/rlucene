@@ -53,7 +53,7 @@ impl Outputs for PositiveIntOutputs {
     }
 
     if Arc::ptr_eq(output1, &NO_OUTPUT) || Arc::ptr_eq(output2, &NO_OUTPUT) {
-      self.get_no_output()
+      self.get_no_output().clone()
     } else {
       debug_assert!(**output1 > 0);
       debug_assert!(**output2 > 0);
@@ -73,10 +73,10 @@ impl Outputs for PositiveIntOutputs {
     }
     debug_assert!(**output >= **inc);
 
-    if Arc::ptr_eq(inc, &self.get_no_output()) {
+    if Arc::ptr_eq(inc, self.get_no_output()) {
       std::borrow::Cow::Borrowed(output)
     } else if **output == **inc {
-      std::borrow::Cow::Owned(self.get_no_output())
+      std::borrow::Cow::Owned(self.get_no_output().clone())
     } else {
       std::borrow::Cow::Owned(Arc::new(**output - **inc))
     }
@@ -89,9 +89,9 @@ impl Outputs for PositiveIntOutputs {
       debug_assert!(self.valid(output));
     }
 
-    if Arc::ptr_eq(prefix, &self.get_no_output()) {
+    if Arc::ptr_eq(prefix, self.get_no_output()) {
       std::borrow::Cow::Borrowed(output)
-    } else if Arc::ptr_eq(output, &self.get_no_output()) {
+    } else if Arc::ptr_eq(output, self.get_no_output()) {
       std::borrow::Cow::Borrowed(prefix)
     } else {
       std::borrow::Cow::Owned(Arc::new(**prefix + **output))
@@ -107,20 +107,20 @@ impl Outputs for PositiveIntOutputs {
     out.write_vlong(**output)
   }
 
-  fn read<DI>(&self, input: &mut DI) -> Result<Arc<i64>>
+  fn read<DI>(&self, input: &mut DI) -> Result<std::borrow::Cow<'_, Self::V>>
   where
     DI: DataInput,
   {
     let v = input.read_vlong()?;
     if v == 0 {
-      Ok(self.get_no_output())
+      Ok(std::borrow::Cow::Borrowed(self.get_no_output()))
     } else {
-      Ok(Arc::new(v))
+      Ok(std::borrow::Cow::Owned(Arc::new(v)))
     }
   }
 
-  fn get_no_output(&self) -> Self::V {
-    NO_OUTPUT.clone()
+  fn get_no_output(&self) -> &Self::V {
+    &NO_OUTPUT
   }
 
   fn output_to_string(&self, output: &Self::V) -> String {

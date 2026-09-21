@@ -19,13 +19,13 @@ use crate::core::codecs::CodecUtil;
 use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
-use crate::core::util::IOUtils;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::core::util::fst_impl::outputs::Outputs;
+use crate::core::util::{IOUtils, OutputIdentity};
 use core::fmt;
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -181,7 +181,7 @@ where
     if let Some(ref empty_output) = self.metadata.empty_output {
       arc.flags = BIT_FINAL_ARC | BIT_LAST_ARC;
       arc.next_final_output = empty_output.clone();
-      if *empty_output != no_output {
+      if empty_output != no_output {
         arc.flags |= BIT_ARC_HAS_FINAL_OUTPUT;
       }
     } else {
@@ -189,7 +189,7 @@ where
       arc.next_final_output = no_output.clone();
     }
 
-    arc.output = no_output;
+    arc.output = no_output.clone();
     // If there are no nodes, ie, the FST only accepts the
     // empty string, then startNode is 0
     arc.target = self.metadata.start_node;
@@ -642,15 +642,35 @@ where
     }
 
     if arc.flag(BIT_ARC_HAS_OUTPUT) {
-      arc.output = self.outputs.read(reader)?;
+      match self.outputs.read(reader)? {
+        std::borrow::Cow::Borrowed(output) => {
+          if !arc.output.is_same_reference(output) {
+            arc.output = output.clone();
+          }
+        },
+        std::borrow::Cow::Owned(output) => arc.output = output,
+      }
     } else {
-      arc.output = self.outputs.get_no_output();
+      let no_output = self.outputs.get_no_output();
+      if !arc.output.is_same_reference(no_output) {
+        arc.output = no_output.clone();
+      }
     }
 
     if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT) {
-      arc.next_final_output = self.outputs.read_final_output(reader)?;
+      match self.outputs.read_final_output(reader)? {
+        std::borrow::Cow::Borrowed(output) => {
+          if !arc.next_final_output.is_same_reference(output) {
+            arc.next_final_output = output.clone();
+          }
+        },
+        std::borrow::Cow::Owned(output) => arc.next_final_output = output,
+      }
     } else {
-      arc.next_final_output = self.outputs.get_no_output();
+      let no_output = self.outputs.get_no_output();
+      if !arc.next_final_output.is_same_reference(no_output) {
+        arc.next_final_output = no_output.clone();
+      }
     }
 
     if arc.flag(BIT_STOP_NODE) {
@@ -1429,7 +1449,7 @@ where
     if num_bytes > 0 {
       reader.set_position((num_bytes - 1) as i64);
     }
-    empty_output = Some(outputs.read_final_output(&mut reader)?);
+    empty_output = Some(outputs.read_final_output(&mut reader)?.into_owned());
   }
   let input_type = match meta_in.read_byte()? {
     0 => InputType::Byte1,

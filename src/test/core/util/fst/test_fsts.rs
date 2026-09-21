@@ -580,7 +580,7 @@ fn test_single_string() -> Result<()> {
   let mut builder = IntsRefBuilder::new();
   let key: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
   Util::to_ints_ref(&key, &mut builder)?;
-  fst_compiler.add(builder.get(), outputs.get_no_output())?;
+  fst_compiler.add(builder.get(), outputs.get_no_output().clone())?;
 
   let metadata = fst_compiler.compile()?.unwrap();
   let reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
@@ -607,7 +607,7 @@ fn test_duplicate_fsa_string() -> Result<()> {
   let key: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, str_key)?;
   for _ in 0..10 {
     Util::to_ints_ref(&key, &mut builder)?;
-    fst_compiler.add(builder.get(), outputs.get_no_output())?;
+    fst_compiler.add(builder.get(), outputs.get_no_output().clone())?;
   }
 
   let metadata = fst_compiler.compile()?.unwrap();
@@ -920,7 +920,7 @@ fn test_expanded_close_to_root() -> Result<()> {
 
   fn compile(lines: &[String]) -> Result<FST<NoOutputs, DataOutputEnum<DummyIndexOutput>>> {
     let outputs = NoOutputs::get_singleton().clone();
-    let nothing = outputs.get_no_output();
+    let nothing = outputs.get_no_output().clone();
     let mut fst_compiler = Builder::new(InputType::Byte1, outputs).build()?;
 
     for w in lines.iter() {
@@ -1190,8 +1190,8 @@ where
   let nothing = outputs.get_no_output();
   let mut start_arc = crate::core::util::fst_impl::fst::Arc::default();
   fst.get_first_arc(&mut start_arc);
-  assert!(Arc::ptr_eq(&start_arc.output, &nothing));
-  assert!(Arc::ptr_eq(&start_arc.next_final_output, &nothing));
+  assert!(Arc::ptr_eq(&start_arc.output, nothing));
+  assert!(Arc::ptr_eq(&start_arc.next_final_output, nothing));
 
   let mut reader = fst.get_bytes_reader()?;
   let mut arc = crate::core::util::fst_impl::fst::Arc::default();
@@ -1259,7 +1259,7 @@ fn test_shortest_paths() -> Result<()> {
   let res = Util::shortest_paths(
     &fst,
     &first_arc,
-    outputs.get_no_output(),
+    outputs.get_no_output().clone(),
     MinLongComparator,
     3,
     true,
@@ -1311,7 +1311,7 @@ fn test_reject_no_limits() -> Result<()> {
   fst.get_first_arc(&mut first_arc);
   searcher.add_start_paths(
     &first_arc,
-    outputs.get_no_output(),
+    outputs.get_no_output().clone(),
     true,
     IntsRefBuilder::new(),
   )?;
@@ -1331,7 +1331,7 @@ fn test_reject_no_limits() -> Result<()> {
   });
   searcher.add_start_paths(
     &first_arc,
-    outputs.get_no_output(),
+    outputs.get_no_output().clone(),
     true,
     IntsRefBuilder::new(),
   )?;
@@ -1401,7 +1401,7 @@ fn test_shortest_paths_random() -> Result<()> {
     let r = Util::shortest_paths(
       &fst,
       &arc,
-      fst.outputs.get_no_output(),
+      fst.outputs.get_no_output().clone(),
       MinLongComparator,
       top_n,
       true,
