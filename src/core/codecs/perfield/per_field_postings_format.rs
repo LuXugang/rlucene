@@ -358,7 +358,7 @@ where
     for (format, group) in groups.into_values() {
       let mut consumer = format.fields_consumer(&group.state, segment_info)?;
       let merge_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let restricted = PerFieldMergeState::restrict_fields(merge_state, group.fields)?;
+        let restricted = PerFieldMergeState::restrict_fields(merge_state, &group.fields)?;
         consumer.merge(&group.state, segment_info, &restricted, norms)
       }));
       let close_result =

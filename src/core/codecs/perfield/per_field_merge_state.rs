@@ -24,30 +24,37 @@ use crate::core::index::merge_state::{MergeStateAccess, MergeStateMeta};
 use crate::core::search::task_executor::TaskExecutor;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::iterator::{VecIter, VecIteratorExt};
+use crate::core::util::iterator::IteratorExt;
+use std::borrow::Borrow;
 use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
 /// Utility creating a merge-state view restricted to a set of fields.
-pub(crate) struct PerFieldMergeState<'a, MS>
+pub(crate) struct PerFieldMergeState<'a, MS, N>
 where
   MS: MergeStateAccess,
+  N: Borrow<String>,
 {
   in_: &'a MS,
   merge_field_infos: Arc<FieldInfos>,
   field_infos: Rc<Vec<Arc<FieldInfos>>>,
-  fields_producers: Vec<Option<FilterFieldsProducer<'a, MS::FieldsProducer>>>,
+  fields_producers: Vec<Option<FilterFieldsProducer<'a, MS::FieldsProducer, N>>>,
 }
 
-impl<'a, MS> PerFieldMergeState<'a, MS>
+impl<'a, MS, N> PerFieldMergeState<'a, MS, N>
 where
   MS: MergeStateAccess,
+  N: Borrow<String>,
 {
   /// Creates a new merge-state view from `in_` that only exposes `fields`.
-  pub(crate) fn restrict_fields(in_: &'a MS, fields: Vec<String>) -> Result<Self> {
-    let fields = Arc::new(fields);
-    let filtered_names = Arc::new(fields.iter().cloned().collect::<HashSet<_>>());
+  pub(crate) fn restrict_fields(in_: &'a MS, fields: &'a [N]) -> Result<Self> {
+    let filtered_names = Arc::new(
+      fields
+        .iter()
+        .map(|field| field.borrow().clone())
+        .collect::<HashSet<_>>(),
+    );
     let mut field_infos = Vec::with_capacity(in_.field_infos().len());
     for info in in_.field_infos() {
       field_infos.push(Self::new_filter(info, &filtered_names)?);
@@ -55,7 +62,7 @@ where
     let mut fields_producers = Vec::with_capacity(in_.fields_producers().len());
     for producer in in_.fields_producers() {
       fields_producers.push(match producer {
-        Some(producer) => Some(FilterFieldsProducer::new(producer, fields.clone())),
+        Some(producer) => Some(FilterFieldsProducer::new(producer, fields)),
         None => None,
       });
     }
@@ -118,11 +125,12 @@ where
   }
 }
 
-impl<'a, MS> MergeStateAccess for PerFieldMergeState<'a, MS>
+impl<'a, MS, N> MergeStateAccess for PerFieldMergeState<'a, MS, N>
 where
   MS: MergeStateAccess,
+  N: Borrow<String>,
 {
-  type FieldsProducer = FilterFieldsProducer<'a, MS::FieldsProducer>;
+  type FieldsProducer = FilterFieldsProducer<'a, MS::FieldsProducer, N>;
   type DocValuesProducer = MS::DocValuesProducer;
   type LiveDocs = MS::LiveDocs;
   type DocMap = MS::DocMap;
@@ -172,35 +180,66 @@ where
   }
 }
 
-pub(crate) struct FilterFieldsProducer<'a, P> {
+pub(crate) struct FilterFieldsProducer<'a, P, N> {
   in_: &'a P,
-  filtered: Arc<Vec<String>>,
+  filtered: &'a [N],
 }
 
-impl<'a, P> FilterFieldsProducer<'a, P> {
-  fn new(in_: &'a P, filtered: Arc<Vec<String>>) -> Self {
+impl<'a, P, N> FilterFieldsProducer<'a, P, N> {
+  fn new(in_: &'a P, filtered: &'a [N]) -> Self {
     Self { in_, filtered }
   }
 }
 
-impl<P> Fields for FilterFieldsProducer<'_, P>
+pub(crate) struct FilterFieldsIterator<'a, N> {
+  fields: std::slice::Iter<'a, N>,
+}
+
+impl<'a, N> IteratorExt for FilterFieldsIterator<'a, N>
+where
+  N: Borrow<String>,
+{
+  type Item = &'a String;
+
+  fn next(&mut self) -> Result<Option<Self::Item>> {
+    Ok(self.fields.next().map(Borrow::borrow))
+  }
+
+  fn has_next(&self) -> Result<bool> {
+    Ok(!self.fields.as_slice().is_empty())
+  }
+}
+
+impl<P, N> Fields for FilterFieldsProducer<'_, P, N>
 where
   P: FieldsProducer,
+  N: Borrow<String>,
 {
   type FieldIter<'a>
-    = VecIter<'a, String>
+    = FilterFieldsIterator<'a, N>
   where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(self.filtered.iter_ext())
+    Ok(FilterFieldsIterator {
+      fields: self.filtered.iter(),
+    })
   }
 
   type Terms = P::Terms;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-    if !self.filtered.iter().any(|filtered| filtered == field) {
-      let available_fields = self.filtered.join(", ");
+    if !self
+      .filtered
+      .iter()
+      .any(|filtered| filtered.borrow() == field)
+    {
+      let available_fields = self
+        .filtered
+        .iter()
+        .map(|field| field.borrow().as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
       return Err(LuceneError::illegal_argument(format!(
         "The field named '{field}' is not accessible in the current merge context, available ones are: [{available_fields}]"
       )));
@@ -213,18 +252,20 @@ where
   }
 }
 
-impl<P> CloseableRef for FilterFieldsProducer<'_, P>
+impl<P, N> CloseableRef for FilterFieldsProducer<'_, P, N>
 where
   P: FieldsProducer,
+  N: Borrow<String>,
 {
   fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
 
-impl<P> FieldsProducer for FilterFieldsProducer<'_, P>
+impl<P, N> FieldsProducer for FilterFieldsProducer<'_, P, N>
 where
   P: FieldsProducer,
+  N: Borrow<String>,
 {
   fn check_integrity(&self) -> Result<()> {
     self.in_.check_integrity()

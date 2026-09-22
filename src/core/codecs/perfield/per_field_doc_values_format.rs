@@ -365,7 +365,7 @@ where
     D1: Directory<IndexOutput = Self::IndexOutput>,
     MS: MergeStateAccess,
   {
-    let mut consumers_to_fields: HashMap<Identity, (String, Vec<String>)> = HashMap::new();
+    let mut consumers_to_fields: HashMap<Identity, (String, Vec<&String>)> = HashMap::new();
 
     // Group each consumer by the fields it handles.
     for field_info in merge_state.merge_field_infos().iter() {
@@ -383,12 +383,12 @@ where
         .entry(identity)
         .or_insert_with(|| (segment_suffix, Vec::new()))
         .1
-        .push(field_info.name.clone());
+        .push(&field_info.name);
     }
 
     // Delegate the merge to the appropriate consumer.
     for (identity, (segment_suffix, fields)) in consumers_to_fields {
-      let restricted = PerFieldMergeState::restrict_fields(merge_state, fields)?;
+      let restricted = PerFieldMergeState::restrict_fields(merge_state, &fields)?;
       let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
       let consumer = self
         .formats
