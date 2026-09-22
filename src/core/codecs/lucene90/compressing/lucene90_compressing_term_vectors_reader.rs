@@ -1580,6 +1580,11 @@ pub struct TVPostingsEnum {
   payload_length: usize,
   payload_offset: usize,
 }
+struct EmptyTVBuffers {
+  positions: Rc<Vec<i32>>,
+  payload: Rc<Vec<u8>>,
+  payload_index: Rc<Vec<usize>>,
+}
 impl Default for TVPostingsEnum {
   fn default() -> Self {
     Self::new()
@@ -1588,7 +1593,20 @@ impl Default for TVPostingsEnum {
 
 impl TVPostingsEnum {
   pub fn new() -> Self {
-    let empty_positions = Rc::new(Vec::new());
+    thread_local! {
+      static EMPTY_BUFFERS: EmptyTVBuffers = EmptyTVBuffers {
+        positions: Rc::new(Vec::new()),
+        payload: Rc::new(Vec::new()),
+        payload_index: Rc::new(Vec::new()),
+      };
+    }
+    let (empty_positions, empty_payload, empty_payload_index) = EMPTY_BUFFERS.with(|buffers| {
+      (
+        Rc::clone(&buffers.positions),
+        Rc::clone(&buffers.payload),
+        Rc::clone(&buffers.payload_index),
+      )
+    });
     TVPostingsEnum {
       doc: -1,
       term_freq: 0,
@@ -1597,11 +1615,11 @@ impl TVPostingsEnum {
       start_offsets: Rc::clone(&empty_positions),
       lengths: empty_positions,
       payload: BytesRef {
-        bytes: Rc::new(Vec::new()),
+        bytes: empty_payload,
         offset: 0,
         length: 0,
       },
-      payload_index: Rc::new(Vec::new()),
+      payload_index: empty_payload_index,
       base_payload_offset: 0,
       i: None,
       payload_length: 0,
