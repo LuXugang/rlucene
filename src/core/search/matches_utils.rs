@@ -106,7 +106,7 @@ pub fn from_sub_matches<'a>(
 }
 
 pub struct FieldMatches<'a, F> {
-  field: String,
+  field: FieldName<'a>,
   supplier: F,
   cached: RefCell<Option<QueryWeightMatchesIterator<'a>>>,
 }
@@ -116,7 +116,7 @@ where
   F: Fn() -> Result<Option<QueryWeightMatchesIterator<'a>>>,
 {
   fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
-    if field != self.field {
+    if field != self.field.as_ref().as_str() {
       return Ok(None);
     }
     if let Some(iterator) = self.cached.borrow_mut().take() {
@@ -131,14 +131,40 @@ where
   }
 
   fn field(&self) -> &[String] {
-    std::slice::from_ref(&self.field)
+    std::slice::from_ref(self.field.as_ref())
+  }
+}
+
+pub enum FieldName<'a> {
+  Borrowed(&'a String),
+  Owned(String),
+}
+
+impl AsRef<String> for FieldName<'_> {
+  fn as_ref(&self) -> &String {
+    match self {
+      Self::Borrowed(field) => field,
+      Self::Owned(field) => field,
+    }
+  }
+}
+
+impl<'a> From<&'a String> for FieldName<'a> {
+  fn from(field: &'a String) -> Self {
+    Self::Borrowed(field)
+  }
+}
+
+impl From<String> for FieldName<'_> {
+  fn from(field: String) -> Self {
+    Self::Owned(field)
   }
 }
 
 pub fn for_field<'a, F, FName>(field: FName, supplier: F) -> Result<Option<QueryWeightMatches<'a>>>
 where
   F: Fn() -> Result<Option<QueryWeightMatchesIterator<'a>>> + 'a,
-  FName: Into<String>,
+  FName: Into<FieldName<'a>>,
 {
   let field = field.into();
   let first = supplier()?;

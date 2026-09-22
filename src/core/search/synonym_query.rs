@@ -365,7 +365,7 @@ where
     }
     let field = query.get_field();
     let terms: Arc<[Term]> = query.get_terms().into();
-    for_field(field, move || {
+    for_field(field.to_owned(), move || {
       from_terms(
         context,
         doc,

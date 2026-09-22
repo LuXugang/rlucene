@@ -321,7 +321,7 @@ where
     } else {
       return Err(LuceneError::illegal_state(""));
     };
-    for_field(parent_query.term.field.clone(), move || {
+    for_field(&parent_query.term.field, move || {
       let Some(mut terms_enum) = self.get_terms_enum(context)? else {
         return Ok(None);
       };

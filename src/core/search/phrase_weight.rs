@@ -133,7 +133,7 @@ where
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
   ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
-    for_field(self.sub.base().field.clone(), move || {
+    for_field(&self.sub.base().field, move || {
       let Some(mut matcher) = self
         .sub
         .get_phrase_matcher(context, self.stats.clone(), true)?

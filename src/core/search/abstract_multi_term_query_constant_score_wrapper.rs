@@ -154,7 +154,7 @@ where
       return Ok(None);
     };
     let terms = Rc::new(terms);
-    for_field(field, move || {
+    for_field(field.to_owned(), move || {
       let terms_enum = self.q.get_terms_enum(terms.clone())?;
       from_terms_enum(context, doc, self.query.clone(), field, terms_enum)
     })

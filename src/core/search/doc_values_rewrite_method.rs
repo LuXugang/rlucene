@@ -225,7 +225,7 @@ where
     };
     let query = &wrapper.query;
     let field = dispatch_multi_term_query!(query, |query| query.get_field());
-    for_field(field, move || {
+    for_field(field.to_owned(), move || {
       let values = DocValues::get_sorted_set(context.reader(), field)?;
       let terms_enum = get_terms_enum(query, values)?;
       from_terms_enum(context, doc, self.matches_query.clone(), field, terms_enum)
