@@ -321,7 +321,7 @@ pub(crate) struct SortedSetDocValuesWriter {
   // we can simply define an `is_sorted` field to indicate whether the BytesRefHash::sort method has been called.
   is_sorted: bool,
   final_ord_map: Option<Arc<Vec<i32>>>,
-  pool: Arc<ByteBlockPool>,
+  pool: Option<Arc<ByteBlockPool>>,
 }
 
 impl SortedSetDocValuesWriter {
@@ -352,7 +352,7 @@ impl SortedSetDocValuesWriter {
       final_ord_counts: None,
       is_sorted: false,
       final_ord_map: None,
-      pool: Arc::new(ByteBlockPool::default()),
+      pool: None,
     })
   }
 
@@ -525,12 +525,16 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       .frozen_hash
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("missing frozen hash while flushing"))?;
+    let pool = self
+      .pool
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("must be finished before flushing"))?;
 
     if ord_counts.is_none() {
       let single_value_producer = get_doc_values_producer(
         &self.field_info,
         frozen_hash,
-        &self.pool,
+        pool,
         ords,
         ord_map,
         &self.docs_with_field,
@@ -548,7 +552,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       let mut values = BufferedSortedSetDocValues::new(
         ord_map.clone(),
         frozen_hash.clone(),
-        self.pool.clone(),
+        pool.clone(),
         || ords,
         || ord_counts,
         self.max_count,
@@ -568,7 +572,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       &self.field_info,
       ord_map,
       frozen_hash,
-      &self.pool,
+      pool,
       ords,
       ord_counts,
       self.max_count,
@@ -593,10 +597,14 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     let final_ords = self.final_ords.as_ref().ok_or_else(|| {
       LuceneError::illegal_state("missing final ordinals while getting doc values")
     })?;
+    let pool = self
+      .pool
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("must be finished before getting doc values"))?;
     SortedSetDocValuesWriter::get_values(
       final_ord_map.clone(),
       frozen_hash.clone(),
-      self.pool.clone(),
+      pool.clone(),
       final_ords,
       self.final_ord_counts.as_ref(),
       self.max_count,
@@ -605,7 +613,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
   }
 
   fn finish(&mut self, pool: &Arc<ByteBlockPool>) -> Result<()> {
-    self.pool = pool.clone();
+    self.pool = Some(pool.clone());
     if self.final_ords.is_none() {
       debug_assert!(
         self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()
@@ -617,7 +625,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         Some(mut pc) => Some(pc.build()?),
         None => None,
       };
-      self.hash.sort(self.pool.as_ref())?;
+      self.hash.sort(pool.as_ref())?;
       self.is_sorted = true;
       let mut ord_map = vec![0; value_count];
       for ord in 0..value_count {

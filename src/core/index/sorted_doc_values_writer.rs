@@ -363,7 +363,7 @@ pub(crate) struct SortedDocValuesWriter {
   // we can simply define an `is_sorted` field to indicate whether the BytesRefHash::sort method has been called.
   is_sorted: bool,
   final_ord_map: Option<Arc<Vec<i32>>>,
-  pool: Arc<ByteBlockPool>,
+  pool: Option<Arc<ByteBlockPool>>,
 }
 
 impl SortedDocValuesWriter {
@@ -388,7 +388,7 @@ impl SortedDocValuesWriter {
       final_ords: None,
       is_sorted: false,
       final_ord_map: None,
-      pool: Arc::new(ByteBlockPool::default()),
+      pool: None,
     })
   }
 
@@ -508,6 +508,10 @@ impl DocValuesWriter for SortedDocValuesWriter {
         "must be finished before getting doc values",
       ));
     };
+    let pool = self
+      .pool
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("must be finished before getting doc values"))?;
     dv_consumer.add_sorted_field(
       write_state,
       segment_info,
@@ -515,7 +519,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
       &get_doc_values_producer(
         &self.field_info,
         frozen_hash,
-        &self.pool,
+        pool,
         final_ords,
         final_ord_map,
         &self.docs_with_field,
@@ -548,9 +552,13 @@ impl DocValuesWriter for SortedDocValuesWriter {
         "must be finished before getting doc values",
       ));
     };
+    let pool = self
+      .pool
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("must be finished before getting doc values"))?;
     BufferedSortedDocValues::new(
       frozen_hash.clone(),
-      self.pool.clone(),
+      pool.clone(),
       || final_ords.clone(),
       final_ord_map.clone(),
       self.docs_with_field.iterator()?,
@@ -558,14 +566,14 @@ impl DocValuesWriter for SortedDocValuesWriter {
   }
 
   fn finish(&mut self, pool: &Arc<ByteBlockPool>) -> Result<()> {
-    self.pool = pool.clone();
+    self.pool = Some(pool.clone());
     self.docs_with_field.finish();
     if !self.is_sorted {
       let value_count = self.hash.size();
       self.update_bytes_used()?;
       debug_assert!(self.final_ord_map.is_none() && self.final_ords.is_none());
 
-      self.hash.sort(self.pool.as_ref())?;
+      self.hash.sort(pool.as_ref())?;
       self.is_sorted = true;
       let ords = self.pending.build()?;
 
