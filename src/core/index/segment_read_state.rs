@@ -16,6 +16,7 @@
  */
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::store::IOContext;
+use std::borrow::Cow;
 use std::sync::Arc;
 
 /// Holder struct for common parameters used during read.
@@ -30,7 +31,7 @@ pub struct SegmentReadState<'a, D> {
   pub context: &'a IOContext,
 
   /// Unique suffix for any postings files read for this segment.
-  pub segment_suffix: String,
+  pub segment_suffix: Cow<'a, str>,
 }
 
 impl<'a, D> SegmentReadState<'a, D> {
@@ -47,7 +48,7 @@ impl<'a, D> SegmentReadState<'a, D> {
     segment_suffix: S,
   ) -> Self
   where
-    S: Into<String>,
+    S: Into<Cow<'a, str>>,
   {
     Self {
       directory,
@@ -59,12 +60,12 @@ impl<'a, D> SegmentReadState<'a, D> {
 
   /// Creates a copy of an existing SegmentReadState with a different segment
   /// suffix.
-  pub fn copy_with_suffix(other: &SegmentReadState<'a, D>, segment_suffix: &str) -> Self {
+  pub fn copy_with_suffix(other: &SegmentReadState<'a, D>, segment_suffix: &'a str) -> Self {
     Self {
       directory: other.directory,
       field_infos: other.field_infos.clone(),
       context: other.context,
-      segment_suffix: segment_suffix.to_string(),
+      segment_suffix: Cow::Borrowed(segment_suffix),
     }
   }
 }

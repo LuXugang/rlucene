@@ -375,7 +375,8 @@ where
             Entry::Vacant(entry) => {
               let format = PF::for_name(&format_name)?;
               let state = SegmentReadState::copy_with_suffix(read_state, entry.key());
-              Arc::clone(entry.insert(Arc::new(format.fields_reader(&state, segment_info)?)))
+              let producer = Arc::new(format.fields_reader(&state, segment_info)?);
+              Arc::clone(entry.insert(producer))
             },
           };
           fields.insert(field_info.number, reader);
