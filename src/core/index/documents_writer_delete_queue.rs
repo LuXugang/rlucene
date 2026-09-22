@@ -278,14 +278,17 @@ impl DocumentsWriterDeleteQueue {
     match self.global_buffer_lock.try_lock() {
       Some(mut global_state) => {
         self.ensure_open()?;
-        let current_tail = self.tail.lock().clone();
         // The global buffer must be locked, but we don't need to update
         // them if there is an update going on right
         // now. It is sufficient to apply the
         // deletes that have been added after the current in-flight
         // global slices tail the next time we can get
         // the lock!
-        if Self::update_slice_no_seq_no(&mut global_state, current_tail) {
+        let updated = {
+          let current_tail = self.tail.lock();
+          Self::update_slice_no_seq_no(&mut global_state, &current_tail)
+        };
+        if updated {
           global_state.apply(MAX_INT)?;
         }
       },
@@ -387,10 +390,13 @@ impl DocumentsWriterDeleteQueue {
   }
 
   /// Just like updateSlice, but does not assign a sequence number.
-  fn update_slice_no_seq_no(global_state: &mut GlobalBufferState, current_tail: Arc<Node>) -> bool {
-    if !Arc::ptr_eq(&global_state.global_slice.slice_tail, &current_tail) {
+  fn update_slice_no_seq_no(
+    global_state: &mut GlobalBufferState,
+    current_tail: &Arc<Node>,
+  ) -> bool {
+    if !Arc::ptr_eq(&global_state.global_slice.slice_tail, current_tail) {
       // New deletes arrived since the last check
-      global_state.global_slice.slice_tail = current_tail;
+      global_state.global_slice.slice_tail = Arc::clone(current_tail);
       true
     } else {
       false
