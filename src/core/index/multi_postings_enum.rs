@@ -36,10 +36,13 @@ pub struct MultiPostingsEnum<PE> {
 }
 impl<PE> MultiPostingsEnum<PE> {
   pub fn new(parent: Identity, sub_reader_count: usize) -> Self {
-    let mut subs = Vec::with_capacity(sub_reader_count);
+    let subs = if sub_reader_count == 0 {
+      Vec::new()
+    } else {
+      vec![EnumWithSlice::new(); sub_reader_count]
+    };
     let mut sub_postings_enums = Vec::with_capacity(sub_reader_count);
     for _ in 0..sub_reader_count {
-      subs.push(EnumWithSlice::new());
       sub_postings_enums.push(None);
     }
     Self {
