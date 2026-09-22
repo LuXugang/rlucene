@@ -81,6 +81,7 @@ impl TermVectorsConsumerPerField {
     term_vectors_consumer: &mut TermVectorsConsumer<D>,
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
+    term_byte_pool: &ByteBlockPool,
   ) -> Result<()>
   where
     D: Directory + Clone,
@@ -90,7 +91,7 @@ impl TermVectorsConsumerPerField {
     }
     self.do_vectors = false;
 
-    term_vectors_consumer.write_per_field(self, int_pool, byte_pool)
+    term_vectors_consumer.write_per_field(self, int_pool, byte_pool, term_byte_pool)
   }
 
   pub(crate) fn write_to_writer<TW>(
@@ -98,13 +99,14 @@ impl TermVectorsConsumerPerField {
     tv: &mut TW,
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
+    term_byte_pool: &ByteBlockPool,
   ) -> Result<()>
   where
     TW: TermVectorsWriter,
   {
     let num_postings = self.base.get_num_terms();
 
-    self.base.sort_terms(byte_pool)?;
+    self.base.sort_terms(term_byte_pool)?;
     let term_ids = self.base.get_sorted_term_ids();
 
     tv.start_field(
@@ -127,8 +129,8 @@ impl TermVectorsConsumerPerField {
           let freq = postings.freqs[term_id];
           let position = self
             .term_byte_pool
-            .fill_bytes_ref(postings.parent.text_starts[term_id], byte_pool);
-          let block = byte_pool.get_buffer(position.block_index);
+            .fill_bytes_ref(postings.parent.text_starts[term_id], term_byte_pool);
+          let block = term_byte_pool.get_buffer(position.block_index);
           let flush_term = BytesRef {
             bytes: &block[position.offset..position.offset + position.length],
             offset: 0,
@@ -173,6 +175,7 @@ impl TermVectorsConsumerPerField {
   // because token text has already been "interned" into
   // textStart, so we hash by textStart.  term vectors use
   // this API.
+  #[allow(clippy::too_many_arguments)]
   pub(crate) fn add_with_text_start<AS>(
     &mut self,
     text_start: i32,
@@ -181,6 +184,7 @@ impl TermVectorsConsumerPerField {
     attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
+    term_byte_pool: &mut ByteBlockPool,
   ) -> Result<()>
   where
     AS: AttributeSource,
@@ -188,7 +192,7 @@ impl TermVectorsConsumerPerField {
     let term_id = self
       .base
       .bytes_hash
-      .add_by_pool_offset(text_start, byte_pool)?;
+      .add_by_pool_offset(text_start, term_byte_pool)?;
     if term_id >= 0 {
       let term_id = term_id as usize;
       // First time we are seeing this token since we last

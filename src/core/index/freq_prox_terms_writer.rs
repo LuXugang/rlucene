@@ -134,6 +134,7 @@ where
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
     next_int_pool: &mut IntBlockPool,
+    next_byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
     let reset_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       int_pool.reset(false, false);
@@ -141,7 +142,7 @@ where
       Ok(())
     }));
     let next_abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      self.next_terms_hash.abort(next_int_pool)
+      self.next_terms_hash.abort(next_int_pool, next_byte_pool)
     }));
     IOUtils::finally_caught_result(reset_result, next_abort_result)
   }
@@ -201,11 +202,17 @@ where
     info: &SegmentInfo<D1>,
     per_fields: &mut [PerField],
     int_pool: &mut IntBlockPool,
+    next_byte_pool: &mut ByteBlockPool,
     byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
-    self
-      .next_terms_hash
-      .finish_document(doc_id, info, per_fields, int_pool, byte_pool)?;
+    self.next_terms_hash.finish_document(
+      doc_id,
+      info,
+      per_fields,
+      int_pool,
+      next_byte_pool,
+      byte_pool,
+    )?;
     Ok(())
   }
   pub(crate) fn start_document(&mut self) -> Result<()> {

@@ -168,6 +168,7 @@ where
 pub(crate) struct IndexContext {
   pub(crate) term_vectors_int_pool: IntBlockPool,
   pub(crate) freq_prox_term_int_pool: IntBlockPool,
+  pub(crate) term_vectors_byte_pool: ByteBlockPool,
   pub(crate) byte_pool: ByteBlockPool,
 }
 
@@ -226,11 +227,15 @@ where
       IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
     let freq_prox_term_int_pool =
       IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
+    let term_vectors_byte_pool = ByteBlockPool::new(DirectTrackingAllocatorByte::allocator_enum(
+      bytes_used.clone(),
+    ));
     let allocator = DirectTrackingAllocatorByte::allocator_enum(bytes_used.clone());
     let byte_pool = ByteBlockPool::new(allocator);
     let context = IndexContext {
       term_vectors_int_pool,
       freq_prox_term_int_pool,
+      term_vectors_byte_pool,
       byte_pool,
     };
     let vector_values_consumer = VectorValuesConsumer::new(codec, directory, info_stream.clone())?;
@@ -718,6 +723,7 @@ where
         &mut self.context.freq_prox_term_int_pool,
         &mut self.context.byte_pool,
         &mut self.context.term_vectors_int_pool,
+        &mut self.context.term_vectors_byte_pool,
       )
     }));
     self.field_hash.fill(None);
@@ -915,6 +921,7 @@ where
           info,
           &mut self.per_fields,
           &mut self.context.term_vectors_int_pool,
+          &mut self.context.term_vectors_byte_pool,
           &mut self.context.byte_pool,
         )
       )?;

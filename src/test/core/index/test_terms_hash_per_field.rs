@@ -111,6 +111,7 @@ fn test_add_and_update_term() -> Result<()> {
     dummy_value.as_bytes().to_vec(),
   )?);
   let mut byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
+  let mut next_byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
   let mut base = hash.base.take().unwrap();
   base.start(&dummy_filed, true, &mut byte_pool)?;
   // Pass `None` for the field as in the Java version (None)
@@ -126,6 +127,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "foo")?,
@@ -134,6 +136,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "bar")?,
@@ -142,6 +145,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   // base.finish();
   base.add_with_bytes_ref_with_test(
@@ -151,6 +155,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "foobar")?,
@@ -159,6 +164,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "bar")?,
@@ -167,6 +173,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "bar")?,
@@ -175,6 +182,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "foobar")?,
@@ -183,6 +191,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "verylongfoobarbaz")?,
@@ -191,6 +200,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   // base.finish();
   base.add_with_bytes_ref_with_test(
@@ -200,6 +210,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "boom")?,
@@ -208,6 +219,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   // base.finish();
   base.add_with_bytes_ref_with_test(
@@ -217,6 +229,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   base.add_with_bytes_ref_with_test(
     &new_bytes_ref_from_string(&mut random, "end")?,
@@ -225,6 +238,7 @@ fn test_add_and_update_term() -> Result<()> {
     &attribute_source,
     &mut int_pool,
     &mut byte_pool,
+    &mut next_byte_pool,
   )?;
   // base.finish();
 
@@ -340,6 +354,7 @@ fn test_add_and_update_random() -> Result<()> {
     dummy_value.as_bytes().to_vec(),
   )?);
   let mut byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
+  let mut next_byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
   hash
     .base
     .as_mut()
@@ -403,6 +418,7 @@ fn test_add_and_update_random() -> Result<()> {
         &EmptyAttributeSource,
         &mut int_pool,
         &mut byte_pool,
+        &mut next_byte_pool,
       )?;
     }
     // base.finish();
@@ -460,6 +476,7 @@ fn test_write_bytes() -> Result<()> {
       dummy_value.as_bytes().to_vec(),
     )?);
     let mut byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
+    let mut next_byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
     let mut base = hash.base.take().unwrap();
     base.start(&dummy_field, true, &mut byte_pool)?;
     let mut int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(Arc::new(
@@ -473,6 +490,7 @@ fn test_write_bytes() -> Result<()> {
       &attribute_source,
       &mut int_pool,
       &mut byte_pool,
+      &mut next_byte_pool,
     )?; // tid = 0
 
     let size = random.random_range(50_000..=100_000);

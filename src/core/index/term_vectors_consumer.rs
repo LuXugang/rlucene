@@ -171,20 +171,21 @@ where
     per_field: &mut TermVectorsConsumerPerField,
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
+    term_byte_pool: &ByteBlockPool,
   ) -> Result<()> {
     match self {
       Self::Default { writer } => {
         let writer = writer
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-        per_field.write_to_writer(writer, int_pool, byte_pool)
+        per_field.write_to_writer(writer, int_pool, byte_pool, term_byte_pool)
       },
       Self::Sorting(hook) => {
         let writer = hook
           .writer
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
-        per_field.write_to_writer(writer, int_pool, byte_pool)
+        per_field.write_to_writer(writer, int_pool, byte_pool, term_byte_pool)
       },
     }
   }
@@ -238,6 +239,7 @@ where
     per_fields: &mut [PerField],
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
+    term_byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
     #[cfg(test)]
     let _execution_scope = ExecutionScope::enter(
@@ -272,8 +274,8 @@ where
         .next_per_field
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("next_per_field not initialized"))?;
-      next_per_field.finish_document(self, int_pool, byte_pool)?;
-      next_per_field.reset(byte_pool)
+      next_per_field.finish_document(self, int_pool, byte_pool, term_byte_pool)?;
+      next_per_field.reset(term_byte_pool)
     }
 
     self.hook.finish_document()?;
@@ -285,6 +287,7 @@ where
 
     self.last_doc_id += 1;
     int_pool.reset(false, false);
+    byte_pool.reset(false, false);
     self.reset_fields();
     self.per_fields_idxs = idxs;
     Ok(())
@@ -305,8 +308,11 @@ where
     per_field: &mut TermVectorsConsumerPerField,
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
+    term_byte_pool: &ByteBlockPool,
   ) -> Result<()> {
-    self.hook.write_per_field(per_field, int_pool, byte_pool)
+    self
+      .hook
+      .write_per_field(per_field, int_pool, byte_pool, term_byte_pool)
   }
   pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) -> Result<()> {
     let num_vector_fields = self.num_vector_fields;
@@ -347,15 +353,21 @@ where
     )
   }
 
-  pub(crate) fn abort(&mut self, int_pool: &mut IntBlockPool) -> Result<()> {
+  pub(crate) fn abort(
+    &mut self,
+    int_pool: &mut IntBlockPool,
+    byte_pool: &mut ByteBlockPool,
+  ) -> Result<()> {
     let reset_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       int_pool.reset(false, false);
+      byte_pool.reset(false, false);
       Ok(())
     }));
     let finally_result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         self.hook.abort()?;
         int_pool.reset(false, false);
+        byte_pool.reset(false, false);
         Ok(())
       }));
     IOUtils::finally_caught_result(reset_result, finally_result)

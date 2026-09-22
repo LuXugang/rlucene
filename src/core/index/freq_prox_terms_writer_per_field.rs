@@ -326,12 +326,14 @@ impl FreqProxTermsWriterPerField {
         field_state,
         attribute_source,
         &mut context.term_vectors_int_pool,
+        &mut context.term_vectors_byte_pool,
         &mut context.byte_pool,
       )?;
     }
     Ok(())
   }
   #[cfg(test)]
+  #[allow(clippy::too_many_arguments)]
   pub(crate) fn add_with_bytes_ref_with_test<AS>(
     &mut self,
     term_bytes: &BytesRef<Vec<u8>>,
@@ -340,6 +342,7 @@ impl FreqProxTermsWriterPerField {
     attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
+    next_byte_pool: &mut ByteBlockPool,
   ) -> Result<()>
   where
     AS: AttributeSource,
@@ -376,6 +379,7 @@ impl FreqProxTermsWriterPerField {
         &mut sub.field_state,
         attribute_source,
         int_pool,
+        next_byte_pool,
         byte_pool,
       )?;
     }
