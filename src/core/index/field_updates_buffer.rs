@@ -62,7 +62,7 @@ pub(crate) struct FieldUpdatesBuffer {
   // a stable sort to sort to apply the terms in order
   // since by definition we store them in order.
   term_values: BytesRefArray,
-  term_sort_state: Arc<SortState>,
+  term_sort_state: Option<Arc<SortState>>,
   // `None` when buffering numeric values.
   byte_values: Option<BytesRefArray>,
   docs_upto: Vec<i32>,
@@ -97,7 +97,7 @@ impl FieldUpdatesBuffer {
       bytes_used: bytes_used.clone(),
       num_updates: 1,
       term_values: BytesRefArray::new(bytes_used.clone())?,
-      term_sort_state: Arc::new(SortState::new(None)),
+      term_sort_state: None,
       byte_values: if is_numeric {
         None
       } else {
@@ -345,20 +345,25 @@ impl FieldUpdatesBuffer {
     let sorted_terms =
       self.has_single_value() && self.has_values.is_none() && self.fields.len() == 1;
     if sorted_terms {
-      self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder, true)?);
+      self.term_sort_state = Some(Arc::new(self.term_values.sort(NaturalOrder, true)?));
       debug_assert!(self.assert_term_and_doc_in_order()?);
-      self
-        .bytes_used
-        .add_and_get(self.term_sort_state.ram_bytes_used()?);
+      self.bytes_used.add_and_get(
+        self
+          .term_sort_state
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("sorted term state is missing"))?
+          .ram_bytes_used()?,
+      );
     }
 
     Ok(())
   }
   fn assert_term_and_doc_in_order(&mut self) -> Result<bool> {
     // it's used for debug_assert! , so we roughly copy data
-    let mut iterator = self
-      .term_values
-      .iterator_with_state(self.term_sort_state.clone());
+    let mut iterator = match &self.term_sort_state {
+      Some(state) => self.term_values.iterator_with_state(state.clone()),
+      None => self.term_values.iterator(),
+    };
     let mut last = None;
     let mut last_ord = 0;
 
@@ -443,18 +448,17 @@ pub struct BufferedUpdateIterator<'a> {
 
 impl<'a> BufferedUpdateIterator<'a> {
   pub fn new(field_updates_buffer: &'a FieldUpdatesBuffer) -> Result<Self> {
-    let term_values_iterator = field_updates_buffer
-      .term_values
-      .iterator_with_state(field_updates_buffer.term_sort_state.clone());
-    let look_ahead_term_iterator = if field_updates_buffer.term_sort_state.indices.is_some() {
-      Some(
-        field_updates_buffer
-          .term_values
-          .iterator_with_state(field_updates_buffer.term_sort_state.clone()),
-      )
-    } else {
-      None
+    let term_values_iterator = match &field_updates_buffer.term_sort_state {
+      Some(state) => field_updates_buffer
+        .term_values
+        .iterator_with_state(state.clone()),
+      None => field_updates_buffer.term_values.iterator(),
     };
+    let look_ahead_term_iterator = field_updates_buffer.term_sort_state.as_ref().map(|state| {
+      field_updates_buffer
+        .term_values
+        .iterator_with_state(state.clone())
+    });
     let byte_values_iterator = if field_updates_buffer.is_numeric {
       None
     } else {
@@ -500,7 +504,7 @@ impl<'a> BufferedUpdateIterator<'a> {
   /// as both will yield the same result. This optimization allows us to
   /// iterate the term dictionary faster and de-duplicate updates.
   pub(crate) fn is_sorted_terms(&self) -> bool {
-    self.field_updates_buffer.term_sort_state.indices.is_some()
+    self.field_updates_buffer.term_sort_state.is_some()
   }
   /// Moves to the next BufferedUpdate or return None if all updates are
   /// consumed. The returned instance is a shared instance and must be
