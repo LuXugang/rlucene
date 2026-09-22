@@ -21,7 +21,6 @@ use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
@@ -410,9 +409,10 @@ impl Operations {
     let mut worklist = VecDeque::new();
     let mut newstates = HashMap::new();
 
-    let p = Rc::new(StatePair::with_s(0, 0, 0));
+    let p = StatePair::with_s(0, 0, 0);
     worklist.push_back(p.clone());
-    newstates.insert(p.clone(), p.s);
+    let state = p.s;
+    newstates.insert(p, state);
 
     while let Some(p) = worklist.pop_front() {
       c.set_accept(p.s, a1.is_accept(p.s1) && a2.is_accept(p.s2));
@@ -435,10 +435,10 @@ impl Operations {
               Some(&r) => r,
               None => {
                 q.s = c.create_state()?;
-                let q = Rc::new(q);
                 worklist.push_back(q.clone());
-                newstates.insert(q.clone(), q.s);
-                q.s
+                let state = q.s;
+                newstates.insert(q, state);
+                state
               },
             };
 
