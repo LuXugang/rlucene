@@ -18,7 +18,7 @@ use crate::core::search::disjunction_matches_iterator::from_sub_iterators;
 use crate::core::search::matches::Matches;
 use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
@@ -42,19 +42,14 @@ impl Matches for MatchWithNoTerms {
 
 pub struct CombinedMatch<'a> {
   sub: Vec<QueryWeightMatches<'a>>,
-  fields: Vec<String>,
+  fields: OnceCell<Vec<String>>,
 }
 impl<'a> CombinedMatch<'a> {
   pub fn new(sub: Vec<QueryWeightMatches<'a>>) -> Self {
-    let mut fields = Vec::new();
-    for matches in &sub {
-      for field in matches.field() {
-        if !fields.contains(field) {
-          fields.push(field.clone());
-        }
-      }
+    CombinedMatch {
+      sub,
+      fields: OnceCell::new(),
     }
-    CombinedMatch { sub, fields }
   }
 }
 
@@ -74,7 +69,17 @@ impl Matches for CombinedMatch<'_> {
   }
 
   fn field(&self) -> &[String] {
-    &self.fields
+    self.fields.get_or_init(|| {
+      let mut fields = Vec::new();
+      for matches in &self.sub {
+        for field in matches.field() {
+          if !fields.contains(field) {
+            fields.push(field.clone());
+          }
+        }
+      }
+      fields
+    })
   }
 }
 
