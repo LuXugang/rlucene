@@ -2088,8 +2088,13 @@ where
   D: Directory,
   CR: CodecReader,
 {
-  pub fn new(segments: Vec<SegmentDocAndID>) -> Result<Self> {
-    if segments.is_empty() {
+  pub fn new<I>(segments: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = SegmentDocAndID>,
+    I::IntoIter: ExactSizeIterator,
+  {
+    let segments = segments.into_iter();
+    if segments.len() == 0 {
       return Err(LuceneError::illegal_state(
         "segments must include at least one segment",
       ));
@@ -2097,8 +2102,10 @@ where
     let mut v = Vec::with_capacity(segments.len());
     let mut total_max_doc = 0;
     #[cfg(test)]
-    let original_segments = segments.clone();
-    for s in segments.into_iter() {
+    let mut original_segments = Vec::with_capacity(segments.len());
+    for s in segments {
+      #[cfg(test)]
+      original_segments.push(s.clone());
       v.push(s.seg_id);
       total_max_doc += s.max_doc
     }
@@ -2128,14 +2135,11 @@ where
     })
   }
   pub fn from_meta(segments: &[SegmentCommitInfoMeta<'_, D>]) -> Result<Self> {
-    let mut segments_meta = Vec::with_capacity(segments.len());
-    for v in segments {
-      segments_meta.push(SegmentDocAndID::new(
-        v.seg_info.info.id_key.clone(),
-        v.max_doc,
-      ))
-    }
-    Self::new(segments_meta)
+    Self::new(
+      segments
+        .iter()
+        .map(|v| SegmentDocAndID::new(v.seg_info.info.id_key.clone(), v.max_doc)),
+    )
   }
   /// Create a OneMerge directly from CodecReaders. Used to merge incoming readers in
   /// IndexWriter::add_indexes(reader...). This OneMerge works directly on readers and has an
