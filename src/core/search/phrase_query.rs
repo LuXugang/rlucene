@@ -46,7 +46,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -691,24 +691,24 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
   }
 }
 
-pub struct PostingsAndFreq<IE> {
+pub struct PostingsAndFreq<'a, IE> {
   pub(crate) postings: IE,
   pub(crate) position: i32,
-  pub(crate) terms: Option<Vec<Term>>,
+  pub(crate) terms: Option<Cow<'a, [Term]>>,
   pub(crate) n_terms: usize, // for faster comparisons
 }
-impl<IE> PostingsAndFreq<IE> {
-  pub fn new(postings: IE, position: i32, terms: &[Term]) -> Self {
+impl<'a, IE> PostingsAndFreq<'a, IE> {
+  pub fn new(postings: IE, position: i32, terms: &'a [Term]) -> Self {
     let n_terms = terms.len();
 
     let terms_vec = if n_terms == 0 {
       None
     } else if n_terms == 1 {
-      Some(vec![terms[0].clone()])
+      Some(Cow::Borrowed(terms))
     } else {
       let mut v = terms.to_vec();
       v.sort_unstable();
-      Some(v)
+      Some(Cow::Owned(v))
     };
 
     Self {
@@ -719,7 +719,7 @@ impl<IE> PostingsAndFreq<IE> {
     }
   }
 }
-impl<IE> Ord for PostingsAndFreq<IE> {
+impl<IE> Ord for PostingsAndFreq<'_, IE> {
   fn cmp(&self, other: &Self) -> Ordering {
     match self.position.cmp(&other.position) {
       Ordering::Equal => {},
@@ -739,12 +739,12 @@ impl<IE> Ord for PostingsAndFreq<IE> {
   }
 }
 
-impl<IE> PartialOrd for PostingsAndFreq<IE> {
+impl<IE> PartialOrd for PostingsAndFreq<'_, IE> {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(other))
   }
 }
-impl<IE> PartialEq for PostingsAndFreq<IE> {
+impl<IE> PartialEq for PostingsAndFreq<'_, IE> {
   fn eq(&self, other: &Self) -> bool {
     if self.position != other.position {
       return false;
@@ -758,7 +758,7 @@ impl<IE> PartialEq for PostingsAndFreq<IE> {
   }
 }
 
-impl<IE> Eq for PostingsAndFreq<IE> {}
+impl<IE> Eq for PostingsAndFreq<'_, IE> {}
 
 impl crate::core::util::accountable::Accountable for PhraseQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {

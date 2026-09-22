@@ -430,7 +430,7 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
     let mut te = field_terms.iterator()?;
     let mut total_match_cost: f32 = 0.0;
 
-    let mut postings_freqs: Vec<PostingsAndFreq<Self::IE<LR>>> =
+    let mut postings_freqs: Vec<PostingsAndFreq<'_, Self::IE<LR>>> =
       Vec::with_capacity(self.query.term_arrays.len());
 
     let postings_flags = if expose_offsets {

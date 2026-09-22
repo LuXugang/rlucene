@@ -91,7 +91,7 @@ where
   SS: SimScorer,
 {
   pub(crate) fn new(
-    postings: Vec<PostingsAndFreq<IE>>,
+    postings: Vec<PostingsAndFreq<'_, IE>>,
     slop: usize,
     scorer: SS,
     match_cost: f32,
@@ -107,7 +107,7 @@ where
         .terms
         .take()
         .ok_or_else(|| LuceneError::illegal_state("term is None"))?;
-      phrase_positions.push(PhrasePositions::new(i, p.position, i, terms)?);
+      phrase_positions.push(PhrasePositions::new(i, p.position, i, terms.into_owned())?);
     }
     let cmp = PhraseQueueCmp::new(phrase_positions);
     let pq = PriorityQueue::new(num_postings, cmp)?;

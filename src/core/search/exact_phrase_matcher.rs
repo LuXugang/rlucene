@@ -42,7 +42,7 @@ where
   SS: SimScorer,
 {
   pub fn new(
-    postings: Vec<PostingsAndFreq<IE>>,
+    postings: Vec<PostingsAndFreq<'_, IE>>,
     score_mode: ScoreMode,
     scorer: SS,
     match_cost: f32,
