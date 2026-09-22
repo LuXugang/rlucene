@@ -201,20 +201,16 @@ where
     // In this case, we do not want to return a not-found I/O error.
     let mut exc = None;
     match self.primary_dir.list_all() {
-      Ok(primary_files) => {
-        files.reserve(primary_files.len());
-        for file in primary_files {
-          let ext = get_extension(&file);
-          // we should respect the extension here as well to ensure that we
-          // don't list a file that is already deleted or rather in the one of
-          // the directories pending deletions if both directories point to the
-          // same filesystem path. This is quite common for instance to use
-          // NIOFS as a primary and MMap as a secondary to only mmap files like
-          // docvalues or term dictionaries.
-          if self.primary_extensions.contains(ext) {
-            files.push(file);
-          }
-        }
+      Ok(mut primary_files) => {
+        // we should respect the extension here as well to ensure that we
+        // don't list a file that is already deleted or rather in the one of
+        // the directories pending deletions if both directories point to the
+        // same filesystem path. This is quite common for instance to use
+        // NIOFS as a primary and MMap as a secondary to only mmap files like
+        // docvalues or term dictionaries.
+        // Retain the primary result's allocation for the combined listing.
+        primary_files.retain(|file| self.primary_extensions.contains(get_extension(file)));
+        files = primary_files;
       },
       Err(err) if Self::is_no_such_file(&err) => {
         exc = Some(err);
