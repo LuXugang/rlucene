@@ -382,8 +382,10 @@ impl TieredMergePolicy {
       let mut best_too_large = false;
       let mut best_merge_bytes = 0;
 
+      let mut candidate = Vec::new();
       for start_idx in 0..sorted_eligible.len() {
-        let mut candidate = Vec::with_capacity(std::cmp::min(
+        candidate.clear();
+        candidate.reserve_exact(std::cmp::min(
           self.max_merge_at_once as usize,
           sorted_eligible.len() - start_idx,
         ));
@@ -504,7 +506,7 @@ impl TieredMergePolicy {
           .is_none_or(|best_score| score.score() < best_score.score())
           && (!hit_too_large || !max_merge_is_running)
         {
-          best = Some(candidate);
+          candidate = best.replace(candidate).unwrap_or_default();
           best_score = Some(score);
           best_too_large = hit_too_large;
           best_merge_bytes = bytes_this_merge;
