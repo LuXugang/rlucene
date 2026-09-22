@@ -89,7 +89,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct SynonymQuery {
   id: Identity,
-  terms: Vec<TermAndBoost>,
+  terms: Arc<Vec<TermAndBoost>>,
   field: String,
 }
 
@@ -97,7 +97,7 @@ impl SynonymQuery {
   fn new(terms: Vec<TermAndBoost>, field: String) -> Self {
     Self {
       id: Identity::new(),
-      terms,
+      terms: Arc::new(terms),
       field,
     }
   }
@@ -202,7 +202,7 @@ impl QueryBase for SynonymQuery {
     } else {
       // If scores are not needed, let BooleanWeight deal with optimizing that case.
       let mut builder = boolean_query::Builder::new();
-      for term in self.terms {
+      for term in Arc::unwrap_or_clone(self.terms) {
         builder.add(
           TermQuery::new(Term::new(self.field.clone(), term.term)),
           Occur::Should,
@@ -294,7 +294,7 @@ impl SynonymWeight {
     let mut total_term_freq = 0;
     let mut term_states = Vec::with_capacity(query.terms.len());
 
-    for term_and_boost in &query.terms {
+    for term_and_boost in query.terms.iter() {
       let term = Arc::new(Term::new(query.field.clone(), term_and_boost.term.clone()));
       let ts = term_states::build(searcher, term.clone(), true)?;
 
