@@ -62,7 +62,7 @@ use std::sync::Arc;
 pub struct DisjunctionMaxQuery {
   disjuncts: HashMap<Query, usize>,
   tie_breaker_multiplier: f32,
-  ordered_queries: Vec<Query>,
+  ordered_queries: Arc<Vec<Query>>,
   id: Identity,
 }
 impl DisjunctionMaxQuery {
@@ -103,7 +103,7 @@ impl DisjunctionMaxQuery {
     Ok(Self {
       disjuncts: multiset,
       tie_breaker_multiplier,
-      ordered_queries: disjuncts,
+      ordered_queries: Arc::new(disjuncts),
       id: Identity::new(),
     })
   }
@@ -187,7 +187,7 @@ impl QueryBase for DisjunctionMaxQuery {
 
     if self.tie_breaker_multiplier == 1.0 {
       let mut builder = Builder::new();
-      for sub in &self.ordered_queries {
+      for sub in self.ordered_queries.iter() {
         builder.add(sub.clone(), Occur::Should)?;
       }
       return Ok(Some(builder.build().into()));
@@ -195,7 +195,7 @@ impl QueryBase for DisjunctionMaxQuery {
 
     let mut actually_rewritten = false;
     let mut rewritten_disjuncts = Vec::with_capacity(self.ordered_queries.len());
-    for sub in &self.ordered_queries {
+    for sub in self.ordered_queries.iter() {
       let rewritten_sub = sub.rewrite(index_searcher)?;
       actually_rewritten |= rewritten_sub.is_some();
       rewritten_disjuncts.push(rewritten_sub);
@@ -206,7 +206,7 @@ impl QueryBase for DisjunctionMaxQuery {
         DisjunctionMaxQuery::new(
           rewritten_disjuncts
             .into_iter()
-            .zip(&self.ordered_queries)
+            .zip(self.ordered_queries.iter())
             .map(|(rewritten, original)| rewritten.unwrap_or_else(|| original.clone())),
           self.tie_breaker_multiplier,
         )?
