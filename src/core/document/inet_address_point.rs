@@ -342,7 +342,6 @@ impl InetAddressPoint {
 struct InetAddressPointSetBytesRefIterator {
   sorted_values: Vec<[u8; InetAddressPoint::BYTES]>,
   upto: usize,
-  encoded: BytesRef<Vec<u8>>,
 }
 
 impl InetAddressPointSetBytesRefIterator {
@@ -350,14 +349,13 @@ impl InetAddressPointSetBytesRefIterator {
     Self {
       sorted_values,
       upto: 0,
-      encoded: BytesRef::from_bytes(vec![0u8; InetAddressPoint::BYTES]),
     }
   }
 }
 
 impl BytesRefIterator for InetAddressPointSetBytesRefIterator {
   type Value<'a>
-    = &'a BytesRef<Vec<u8>>
+    = BytesRef<&'a [u8]>
   where
     Self: 'a;
 
@@ -365,12 +363,13 @@ impl BytesRefIterator for InetAddressPointSetBytesRefIterator {
     if self.upto == self.sorted_values.len() {
       Ok(None)
     } else {
-      self
-        .encoded
-        .bytes
-        .copy_from_slice(&self.sorted_values[self.upto]);
+      let bytes = self.sorted_values[self.upto].as_slice();
       self.upto += 1;
-      Ok(Some(&self.encoded))
+      Ok(Some(BytesRef {
+        bytes,
+        offset: 0,
+        length: bytes.len(),
+      }))
     }
   }
 }

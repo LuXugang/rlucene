@@ -342,7 +342,6 @@ impl BinaryPoint {
 struct BinaryPointSetBytesRefIterator<'a> {
   sorted_values: Vec<&'a [u8]>,
   upto: usize,
-  encoded: BytesRef<Vec<u8>>,
 }
 
 impl<'a> BinaryPointSetBytesRefIterator<'a> {
@@ -350,14 +349,13 @@ impl<'a> BinaryPointSetBytesRefIterator<'a> {
     Self {
       sorted_values,
       upto: 0,
-      encoded: BytesRef::default(),
     }
   }
 }
 
 impl BytesRefIterator for BinaryPointSetBytesRefIterator<'_> {
   type Value<'a>
-    = &'a BytesRef<Vec<u8>>
+    = BytesRef<&'a [u8]>
   where
     Self: 'a;
 
@@ -365,9 +363,13 @@ impl BytesRefIterator for BinaryPointSetBytesRefIterator<'_> {
     if self.upto == self.sorted_values.len() {
       Ok(None)
     } else {
-      self.encoded.copy_from_slice(self.sorted_values[self.upto]);
+      let bytes = self.sorted_values[self.upto];
       self.upto += 1;
-      Ok(Some(&self.encoded))
+      Ok(Some(BytesRef {
+        bytes,
+        offset: 0,
+        length: bytes.len(),
+      }))
     }
   }
 }
