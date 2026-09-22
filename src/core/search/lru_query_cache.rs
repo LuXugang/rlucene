@@ -669,16 +669,14 @@ where
 
       let singleton = {
         let mut unique_queries = guard.unique_queries.lock();
-        let size = unique_queries.len();
-        let (query, singleton) = {
+        let query = {
           let mut iterator = unique_queries.entries();
           match iterator.next() {
-            Some(entry) => (entry.key().clone(), entry.get().clone()),
+            Some(entry) => entry.key().clone(),
             None => break,
           }
         };
-        let _ = unique_queries.remove(query.as_ref());
-        if size == unique_queries.len() {
+        let Some(singleton) = unique_queries.remove(query.as_ref()) else {
           // Defensive parity with Java Lucene: production Rust query keys are expected to keep
           // their Hash/Eq state stable after entering the cache. If a future interior-mutable
           // query violates that invariant, fail fast instead of silently leaving cache state
@@ -692,7 +690,7 @@ where
             query.name(),
             query.to_string("").unwrap_or_else(|_| format!("{query:?}"))
           )));
-        }
+        };
         singleton
       };
       self.on_eviction(singleton.as_ref(), guard)?;
