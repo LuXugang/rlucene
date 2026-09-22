@@ -557,8 +557,8 @@ impl DocValuesWriter for SortedDocValuesWriter {
     )
   }
 
-  fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
-    self.pool = pool;
+  fn finish(&mut self, pool: &Arc<ByteBlockPool>) -> Result<()> {
+    self.pool = pool.clone();
     self.docs_with_field.finish();
     if !self.is_sorted {
       let value_count = self.hash.size();

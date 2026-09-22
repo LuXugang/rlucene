@@ -57,7 +57,7 @@ pub(crate) trait DocValuesWriter: Display {
 
   type DocIdSetIterator: DocIdSetIterator;
   fn get_doc_values(&self) -> Result<Self::DocIdSetIterator>;
-  fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()>;
+  fn finish(&mut self, pool: &Arc<ByteBlockPool>) -> Result<()>;
 }
 
 pub(crate) enum DocValuesWriterEnum {
@@ -128,7 +128,7 @@ impl DocValuesWriter for DocValuesWriterEnum {
     }
   }
 
-  fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
+  fn finish(&mut self, pool: &Arc<ByteBlockPool>) -> Result<()> {
     match self {
       DocValuesWriterEnum::Binary(writer) => writer.finish(pool),
       DocValuesWriterEnum::Numeric(writer) => writer.finish(pool),

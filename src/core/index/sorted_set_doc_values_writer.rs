@@ -604,8 +604,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     )
   }
 
-  fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
-    self.pool = pool;
+  fn finish(&mut self, pool: &Arc<ByteBlockPool>) -> Result<()> {
+    self.pool = pool.clone();
     if self.final_ords.is_none() {
       debug_assert!(
         self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()

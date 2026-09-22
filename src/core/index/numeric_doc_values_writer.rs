@@ -152,7 +152,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
     BufferedNumericDocValues::new(final_values.clone(), iter)
   }
 
-  fn finish(&mut self, _pool: Arc<ByteBlockPool>) -> Result<()> {
+  fn finish(&mut self, _pool: &Arc<ByteBlockPool>) -> Result<()> {
     self.docs_with_field.finish();
     if self.final_values.is_none() {
       self.final_values = Some(std::mem::take(&mut self.pending).build()?)

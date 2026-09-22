@@ -559,7 +559,7 @@ where
       while let Some(index) = per_field_index {
         let per_field = &mut self.per_fields[index];
         if let Some(ref mut writer) = per_field.doc_values_writer {
-          writer.finish(pool.clone())?;
+          writer.finish(&pool)?;
         }
         per_field_index = per_field.next;
       }

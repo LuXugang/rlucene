@@ -208,7 +208,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
     )
   }
 
-  fn finish(&mut self, _pool: Arc<ByteBlockPool>) -> Result<()> {
+  fn finish(&mut self, _pool: &Arc<ByteBlockPool>) -> Result<()> {
     self.docs_with_field.finish();
     if self.final_lengths.is_none() {
       self.final_lengths = Some(self.lengths.build()?);
