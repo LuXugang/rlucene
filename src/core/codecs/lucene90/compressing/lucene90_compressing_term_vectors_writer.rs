@@ -49,7 +49,6 @@ use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{SliceCopyOps, StringHelper, TryIntoInt};
-use std::collections::VecDeque;
 use std::rc::Rc;
 use std::sync::LazyLock;
 
@@ -81,7 +80,7 @@ where
   // total number of docs seen
   num_docs: i32,
   // pending docs
-  pending_docs: VecDeque<DocData>,
+  pending_docs: Vec<DocData>,
   // current document
   cur_doc: usize,
   // current field
@@ -238,7 +237,7 @@ where
       num_dirty_chunks: 0,
       num_dirty_docs: 0,
       num_docs: 0,
-      pending_docs: VecDeque::new(),
+      pending_docs: Vec::new(),
       cur_doc: 0,
       cur_field: 0,
       last_term,
@@ -258,7 +257,7 @@ where
     let mut last: Option<&FieldData> = None;
 
     for doc in self.pending_docs.iter().rev() {
-      if let Some(field) = doc.fields.back() {
+      if let Some(field) = doc.fields.last() {
         last = Some(field);
         break;
       }
@@ -277,7 +276,7 @@ where
     let doc = DocData::new(num_vector_fields, pos_start, off_start, pay_start);
 
     let index = self.pending_docs.len();
-    self.pending_docs.push_back(doc);
+    self.pending_docs.push(doc);
     index
   }
   fn trigger_flush(&self) -> bool {
@@ -360,7 +359,7 @@ where
     if chunk_docs == 1 {
       let num_fields = self
         .pending_docs
-        .front()
+        .first()
         .ok_or_else(|| LuceneError::illegal_state("pending term-vector document is missing"))?
         .num_fields;
       self.vectors_stream.write_vint(num_fields)?;
@@ -382,7 +381,7 @@ where
   pub(crate) fn flush_field_nums(&mut self, field_nums: &mut Vec<i32>) -> Result<()> {
     // 1. Collect unique field numbers
     field_nums.clear();
-    field_nums.reserve(self.pending_docs.front().map_or(0, |doc| doc.fields.len()));
+    field_nums.reserve(self.pending_docs.first().map_or(0, |doc| doc.fields.len()));
     for doc in &self.pending_docs {
       for field in &doc.fields {
         if let Err(index) = field_nums.binary_search(&field.field_num) {
@@ -1370,7 +1369,7 @@ where
 /// a pending doc
 pub(crate) struct DocData {
   pub num_fields: i32,
-  pub fields: VecDeque<FieldData>,
+  pub fields: Vec<FieldData>,
   pub pos_start: usize,
   pub off_start: usize,
   pub pay_start: usize,
@@ -1379,7 +1378,7 @@ impl DocData {
   pub(crate) fn new(num_fields: i32, pos_start: usize, off_start: usize, pay_start: usize) -> Self {
     Self {
       num_fields,
-      fields: VecDeque::with_capacity(num_fields as usize),
+      fields: Vec::with_capacity(num_fields as usize),
       pos_start,
       off_start,
       pay_start,
@@ -1393,7 +1392,7 @@ impl DocData {
     offsets: bool,
     payloads: bool,
   ) -> usize {
-    let (pos_start, off_start, pay_start) = if let Some(last) = self.fields.back() {
+    let (pos_start, off_start, pay_start) = if let Some(last) = self.fields.last() {
       let total = last.total_positions;
       let pos_start = last.pos_start + if last.has_positions { total } else { 0 };
       let off_start = last.off_start + if last.has_offsets { total } else { 0 };
@@ -1407,7 +1406,7 @@ impl DocData {
       field_num, num_terms, positions, offsets, payloads, pos_start, off_start, pay_start,
     );
     let index = self.fields.len();
-    self.fields.push_back(field);
+    self.fields.push(field);
     index
   }
 }

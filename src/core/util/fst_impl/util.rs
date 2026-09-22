@@ -51,13 +51,14 @@ impl Util {
     let mut arc = Arc::default();
     fst.get_first_arc(&mut arc);
     let mut follow = arc.clone();
+    let (mut arc, mut follow) = (&mut arc, &mut follow);
     let mut fst_reader = fst.get_bytes_reader()?;
     let mut output = fst.outputs.get_no_output().clone();
 
     for i in 0..input.length {
       let label = input.ints.access(|ints| ints[input.offset + i]);
       std::mem::swap(&mut arc, &mut follow);
-      let found = fst.find_target_arc(label, &follow, &mut arc, &mut fst_reader)?;
+      let found = fst.find_target_arc(label, follow, arc, &mut fst_reader)?;
       if found.is_none() {
         return Ok(None);
       }
@@ -118,12 +119,13 @@ impl Util {
     let mut arc = Arc::default();
     fst.get_first_arc(&mut arc);
     let mut follow = arc.clone();
+    let (mut arc, mut follow) = (&mut arc, &mut follow);
     let mut output = fst.outputs.get_no_output().clone();
 
     for i in 0..input.length {
       let label = input.bytes.access(|bytes| bytes[input.offset + i] as i32);
       std::mem::swap(&mut arc, &mut follow);
-      let found = fst.find_target_arc(label, &follow, &mut arc, &mut fst_reader)?;
+      let found = fst.find_target_arc(label, follow, arc, &mut fst_reader)?;
       if found.is_none() {
         return Ok(None);
       }
