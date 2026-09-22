@@ -133,7 +133,7 @@ pub struct Inner {
   // we try to cache the last used DV or Norms instance since during merge
   // this instance is used more than once. We could in addition to this single instance
   // also cache the fields that are used for sorting since we do the work twice for these fields
-  cached_field: Option<String>,
+  cached_field: Option<Arc<FieldInfo>>,
   cache_is_norms: bool,
   cached_object: Option<CachedObject>,
   cache_stats: HashMap<String, i32>,
@@ -697,7 +697,7 @@ where
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     let v = get_or_create_norms(
-      &field.name,
+      field,
       || {
         let numeric = get_numeric_doc_values(
           &mut self.delegate.get_norms(field)?,
@@ -811,7 +811,7 @@ where
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     let v = get_or_create_dv(
-      &field.name,
+      field,
       || {
         let v = get_numeric_doc_values(
           &mut self.delegate.get_numeric(field)?,
@@ -837,7 +837,7 @@ where
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     let v = get_or_create_dv(
-      &field.name,
+      field,
       || {
         let binary = BinaryDVs::new(
           self.max_doc as usize,
@@ -867,7 +867,7 @@ where
     let mut old_doc_values = self.delegate.get_sorted(field)?;
 
     let v = get_or_create_dv(
-      &field.name,
+      field,
       || {
         let max_doc = self.max_doc as usize;
 
@@ -906,7 +906,7 @@ where
     let mut old_doc_values = self.delegate.get_sorted_numeric(field)?;
 
     let v = get_or_create_dv(
-      &field.name,
+      field,
       || {
         let long_values = LongValues::new(
           self.max_doc as usize,
@@ -940,7 +940,7 @@ where
     let mut old_doc_values = self.delegate.get_sorted_set(field)?;
 
     let v = get_or_create_dv(
-      &field.name,
+      field,
       || {
         let doc_ords = DocOrds::new(
           self.max_doc,
@@ -1987,14 +1987,18 @@ where
   }
 }
 
-fn get_or_create_dv<F>(field: &str, supplier: F, inner: &Arc<Mutex<Inner>>) -> Result<CachedObject>
+fn get_or_create_dv<F>(
+  field: &Arc<FieldInfo>,
+  supplier: F,
+  inner: &Arc<Mutex<Inner>>,
+) -> Result<CachedObject>
 where
   F: FnOnce() -> Result<CachedObject>,
 {
   get_or_create(field, false, supplier, inner)
 }
 fn get_or_create_norms<F>(
-  field: &str,
+  field: &Arc<FieldInfo>,
   supplier: F,
   inner: &Arc<Mutex<Inner>>,
 ) -> Result<CachedObject>
@@ -2005,7 +2009,7 @@ where
 }
 
 fn get_or_create<F>(
-  field: &str,
+  field: &Arc<FieldInfo>,
   norms: bool,
   supplier: F,
   inner: &Arc<Mutex<Inner>>,
@@ -2014,13 +2018,16 @@ where
   F: FnOnce() -> Result<CachedObject>,
 {
   let mut inner = inner.lock();
-  if inner.cached_field.as_deref() != Some(field) || inner.cache_is_norms != norms {
-    debug_assert!(assert_created_only_once(field, norms, &mut inner));
+  if inner
+    .cached_field
+    .as_ref()
+    .map(|cached| cached.name.as_str())
+    != Some(field.name.as_str())
+    || inner.cache_is_norms != norms
+  {
+    debug_assert!(assert_created_only_once(&field.name, norms, &mut inner));
     let new_object = supplier()?;
-    match inner.cached_field.as_mut() {
-      Some(cached_field) => field.clone_into(cached_field),
-      None => inner.cached_field = Some(field.to_string()),
-    }
+    inner.cached_field = Some(Arc::clone(field));
     inner.cache_is_norms = norms;
     inner.cached_object = Some(new_object.clone());
     return Ok(new_object);
