@@ -742,13 +742,12 @@ where
   }
 
   type Impacts<'a>
-    = SynonymImpacts<'a, IE::Impacts<'a>>
+    = SynonymImpacts<'a, IE::Impacts<'a>, IE>
   where
     Self: 'a;
 
   fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
     let mut impacts = Vec::with_capacity(self.impacts_enums.len());
-    let mut doc_ids = Vec::with_capacity(self.impacts_enums.len());
     let mut lead = 0;
     let mut lead_doc_id_up_to = None;
 
@@ -760,26 +759,25 @@ where
         lead_doc_id_up_to = Some(doc_id_up_to);
       }
       impacts.push(impact_values);
-      doc_ids.push(impacts_enum.doc_id());
     }
 
     Ok(SynonymImpacts {
       impacts,
-      doc_ids,
+      impacts_enums: &self.impacts_enums,
       boosts: &self.boosts,
       lead,
     })
   }
 }
 
-pub(crate) struct SynonymImpacts<'a, I> {
+pub(crate) struct SynonymImpacts<'a, I, IE> {
   impacts: Vec<I>,
-  doc_ids: Vec<i32>,
+  impacts_enums: &'a [IE],
   boosts: &'a [f32],
   lead: usize,
 }
 
-impl<I: Impacts> SynonymImpacts<'_, I> {
+impl<I: Impacts, IE> SynonymImpacts<'_, I, IE> {
   fn get_level(impacts: &I, doc_id_up_to: i32) -> Option<usize> {
     (0..impacts.num_levels()).find(|&level| impacts.get_doc_id_upto(level) >= doc_id_up_to)
   }
@@ -834,7 +832,7 @@ impl<I: Impacts> SynonymImpacts<'_, I> {
   }
 }
 
-impl<I: Impacts> Impacts for SynonymImpacts<'_, I> {
+impl<I: Impacts, IE: ImpactsEnum> Impacts for SynonymImpacts<'_, I, IE> {
   fn num_levels(&self) -> usize {
     self.impacts[self.lead].num_levels()
   }
@@ -848,7 +846,7 @@ impl<I: Impacts> Impacts for SynonymImpacts<'_, I> {
     let mut to_merge = Vec::with_capacity(self.impacts.len());
 
     for i in 0..self.impacts.len() {
-      if self.doc_ids[i] <= doc_id_up_to {
+      if self.impacts_enums[i].doc_id() <= doc_id_up_to {
         let Some(impacts_level) = Self::get_level(&self.impacts[i], doc_id_up_to) else {
           // One instance doesn't have impacts that cover up to docIdUpTo.
           // Return impacts that trigger the maximum score.
