@@ -18,7 +18,7 @@ use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::{Codec, CodecKnnVectorsWriter, Codecs};
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::field_infos::EMPTY;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -41,7 +41,6 @@ where
   codec: Codecs,
   info_stream: InfoStreamMT,
   dir: D,
-  field_infos: Arc<FieldInfos>,
   context: &'static IOContext,
 }
 impl<D> VectorValuesConsumer<D>
@@ -54,7 +53,6 @@ where
       codec,
       info_stream,
       dir,
-      field_infos: Arc::new(FieldInfos::default()),
       context: IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     })
   }
@@ -64,7 +62,7 @@ where
       let initial_write_state = SegmentWriteState::new(
         self.info_stream.clone(),
         &self.dir,
-        Arc::clone(&self.field_infos),
+        Arc::clone(&EMPTY),
         self.context,
       );
       self.writer = Some(fmt.fields_writer(&initial_write_state, segment_info)?);
@@ -80,7 +78,7 @@ where
     let write_state = SegmentWriteState::new(
       self.info_stream.clone(),
       &self.dir,
-      Arc::clone(&self.field_infos),
+      Arc::clone(&EMPTY),
       self.context,
     );
     let writer = self
@@ -122,11 +120,9 @@ where
   D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let writer_bytes = self
+    self
       .writer
       .as_ref()
-      .map_or(Ok(0), Accountable::ram_bytes_used)?;
-    // This consumer is the accounting root for its always-empty FieldInfos allocation.
-    Ok(writer_bytes.saturating_add(std::mem::size_of_val(self.field_infos.as_ref()) as i64))
+      .map_or(Ok(0), Accountable::ram_bytes_used)
   }
 }
