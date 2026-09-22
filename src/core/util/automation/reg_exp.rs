@@ -288,7 +288,9 @@ impl RegExp {
   /// Constructs a new [`Automaton`] from this [`RegExp`].
   /// Same as calling `to_automaton_with_map` (with an empty automaton map).
   pub fn to_automaton(&self) -> Result<Automaton> {
-    self.to_automaton_impl(&HashMap::new(), &DefaultProvider)
+    self
+      .to_automaton_impl(&HashMap::new(), &DefaultProvider)
+      .map(Cow::into_owned)
   }
   /// Constructs a new [`Automaton`] from this [`RegExp`].
   ///
@@ -300,7 +302,9 @@ impl RegExp {
   /// - Returns an error if this regular expression uses a named identifier
   ///   that does not exist in the automaton map.
   pub fn to_automaton_from_map(&self, automata: &HashMap<String, Automaton>) -> Result<Automaton> {
-    self.to_automaton_impl(automata, &DefaultProvider)
+    self
+      .to_automaton_impl(automata, &DefaultProvider)
+      .map(Cow::into_owned)
   }
   /// Constructs a new [`Automaton`] from this [`RegExp`].
   ///
@@ -314,13 +318,15 @@ impl RegExp {
   where
     T: AutomatonProvider,
   {
-    self.to_automaton_impl(&HashMap::new(), provider)
+    self
+      .to_automaton_impl(&HashMap::new(), provider)
+      .map(Cow::into_owned)
   }
-  fn to_automaton_impl<T>(
+  fn to_automaton_impl<'a, T>(
     &self,
-    automata: &HashMap<String, Automaton>,
+    automata: &'a HashMap<String, Automaton>,
     provider: &T,
-  ) -> Result<Automaton>
+  ) -> Result<Cow<'a, Automaton>>
   where
     T: AutomatonProvider,
   {
@@ -338,7 +344,7 @@ impl RegExp {
         if let Some(e2) = &self.exp2 {
           e2.find_leaves(Union, &mut list, automata, provider)?;
         }
-        Operations::union_list(&list)?
+        Cow::Owned(Operations::union_list(&list)?)
       },
 
       Concatenation => {
@@ -349,7 +355,7 @@ impl RegExp {
         if let Some(e2) = &self.exp2 {
           e2.find_leaves(Concatenation, &mut list, automata, provider)?;
         }
-        Operations::concatenate_with_list(&list)?
+        Cow::Owned(Operations::concatenate_with_list(&list)?)
       },
 
       Intersection => {
@@ -366,13 +372,13 @@ impl RegExp {
 
         match Operations::intersection(&a1, &a2)? {
           Cow::Borrowed(v) => {
-            if std::ptr::eq(v, &a1) {
+            if std::ptr::eq(v, a1.as_ref()) {
               a1
             } else {
               a2
             }
           },
-          Cow::Owned(o) => o,
+          Cow::Owned(o) => Cow::Owned(o),
         }
       },
 
@@ -384,7 +390,7 @@ impl RegExp {
           .to_automaton_impl(automata, provider)?;
         match Operations::optional(&a1)? {
           Cow::Borrowed(_) => a1,
-          Cow::Owned(o) => o,
+          Cow::Owned(o) => Cow::Owned(o),
         }
       },
 
@@ -396,7 +402,7 @@ impl RegExp {
           .to_automaton_impl(automata, provider)?;
         match Operations::repeat(&a1)? {
           Cow::Borrowed(_) => a1,
-          Cow::Owned(o) => o,
+          Cow::Owned(o) => Cow::Owned(o),
         }
       },
 
@@ -408,7 +414,7 @@ impl RegExp {
           .to_automaton_impl(automata, provider)?;
         match Operations::repeat_count(&a1, self.min)? {
           Cow::Borrowed(_) => a1,
-          Cow::Owned(o) => o,
+          Cow::Owned(o) => Cow::Owned(o),
         }
       },
 
@@ -418,7 +424,7 @@ impl RegExp {
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("bounded repeat expression is missing"))?
           .to_automaton_impl(automata, provider)?;
-        Operations::repeat_min_max(&a1, self.min, self.max)?
+        Cow::Owned(Operations::repeat_min_max(&a1, self.min, self.max)?)
       },
 
       Complement => {
@@ -429,7 +435,7 @@ impl RegExp {
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("complement expression is missing"))?
           .to_automaton_impl(automata, provider)?;
-        Operations::complement(&a1, i32::MAX as usize)?
+        Cow::Owned(Operations::complement(&a1, i32::MAX as usize)?)
       },
 
       DeprecatedComplement => {
@@ -440,35 +446,38 @@ impl RegExp {
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("complement expression is missing"))?
           .to_automaton_impl(automata, provider)?;
-        Operations::complement(&a1, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
+        Cow::Owned(Operations::complement(
+          &a1,
+          Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
+        )?)
       },
 
       Char => {
         if self.check(Self::ASCII_CASE_INSENSITIVE) {
-          Self::to_case_insensitive_char(self.c)?
+          Cow::Owned(Self::to_case_insensitive_char(self.c)?)
         } else {
-          Automata::make_char(self.c)?
+          Cow::Owned(Automata::make_char(self.c)?)
         }
       },
 
-      CharRange => Automata::make_char_range(self.from, self.to)?,
-      AnyChar => Automata::make_any_char()?,
-      Empty => Automata::make_empty()?,
+      CharRange => Cow::Owned(Automata::make_char_range(self.from, self.to)?),
+      AnyChar => Cow::Owned(Automata::make_any_char()?),
+      Empty => Cow::Owned(Automata::make_empty()?),
       String => {
         if self.check(Self::ASCII_CASE_INSENSITIVE) {
-          self.to_case_insensitive_string()?
+          Cow::Owned(self.to_case_insensitive_string()?)
         } else {
-          Automata::make_string(&self.s)?
+          Cow::Owned(Automata::make_string(&self.s)?)
         }
       },
-      AnyString => Automata::make_any_string()?,
+      AnyString => Cow::Owned(Automata::make_any_string()?),
 
       Automaton => {
         if let Some(a) = automata.get(&self.s) {
-          a.clone()
+          Cow::Borrowed(a)
         } else {
           match provider.get_automaton(&self.s)? {
-            Some(a) => a,
+            Some(a) => Cow::Owned(a),
             None => {
               return Err(LuceneError::illegal_argument(format!(
                 "'{}' not found ",
@@ -479,7 +488,11 @@ impl RegExp {
         }
       },
 
-      Interval => Automata::make_decimal_interval(self.min, self.max, self.digits)?,
+      Interval => Cow::Owned(Automata::make_decimal_interval(
+        self.min,
+        self.max,
+        self.digits,
+      )?),
     };
 
     Ok(a)
@@ -515,11 +528,11 @@ impl RegExp {
     Operations::concatenate_with_list(&automata)
   }
 
-  fn find_leaves<T>(
+  fn find_leaves<'a, T>(
     &self,
     kind: RegExpKind,
-    list: &mut Vec<Automaton>,
-    automata: &HashMap<String, Automaton>,
+    list: &mut Vec<Cow<'a, Automaton>>,
+    automata: &'a HashMap<String, Automaton>,
     provider: &T,
   ) -> Result<()>
   where
