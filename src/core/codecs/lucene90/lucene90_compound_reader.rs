@@ -211,7 +211,12 @@ where
       self
         .entries
         .keys()
-        .map(|entry| format!("{}{}", self.segment_name, entry))
+        .map(|entry| {
+          let mut name = String::with_capacity(self.segment_name.len() + entry.len());
+          name.push_str(&self.segment_name);
+          name.push_str(entry);
+          name
+        })
         .collect(),
     )
   }
