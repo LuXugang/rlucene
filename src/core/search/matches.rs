@@ -33,7 +33,7 @@ pub trait Matches {
 
   /// Returns a collection of [`Matches`] that make up this instance;
   /// if it is not a composite, then this returns an empty list.
-  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>>;
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>];
 
   fn field(&self) -> &[String];
 }
@@ -46,7 +46,7 @@ where
     (**self).get_matches(field)
   }
 
-  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
     (**self).get_sub_matches()
   }
 

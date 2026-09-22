@@ -37,8 +37,8 @@ impl Matches for AssertingMatches<'_> {
     }))
   }
 
-  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
-    vec![&self.in_]
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+    std::slice::from_ref(&self.in_)
   }
 
   fn field(&self) -> &[String] {

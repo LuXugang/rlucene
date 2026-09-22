@@ -25,7 +25,7 @@ impl Matches for DummyMatches {
     dummy_unreachable!()
   }
 
-  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
     dummy_unreachable!()
   }
 

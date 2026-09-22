@@ -129,7 +129,7 @@ impl Matches for QueryWeightMatches<'_> {
     }
   }
 
-  fn get_sub_matches(&self) -> Vec<&QueryWeightMatches<'_>> {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
     match self {
       QueryWeightMatches::MatchWithNoTerms(matches) => matches.get_sub_matches(),
       QueryWeightMatches::NamedMatches(matches) => matches.get_sub_matches(),
