@@ -30,7 +30,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, LazyLock, OnceLock};
+
+static EMPTY_TERM_STATE: LazyLock<Arc<TermStateEnum>> =
+  LazyLock::new(|| Arc::new(EmptyTermState.into()));
 
 /// Maintains an [`IndexReader`](crate::core::index::index_reader::IndexReader) [`TermState`] view over [`IndexReader`](crate::core::index::index_reader::IndexReader) instances
 /// containing a single term. The [`TermStates`] doesn't track if the given [`TermState`]
@@ -183,7 +186,7 @@ impl TermStates {
     if self.states[ctx_ord].get().is_none() {
       let Some(terms) = ctx.reader().terms(term.field())? else {
         // Another reader may have published the same immutable leaf result.
-        let _ = self.states[ctx_ord].set(Arc::new(EmptyTermState.into()));
+        let _ = self.states[ctx_ord].set(Arc::clone(&EMPTY_TERM_STATE));
         return Ok(None);
       };
 
@@ -191,7 +194,7 @@ impl TermStates {
       let io_boolean_supplier = te.prepare_seek_exact(term.bytes())?;
       if io_boolean_supplier.is_none() {
         // Another reader may have published the same immutable leaf result.
-        let _ = self.states[ctx_ord].set(Arc::new(EmptyTermState.into()));
+        let _ = self.states[ctx_ord].set(Arc::clone(&EMPTY_TERM_STATE));
         return Ok(None);
       }
       return Ok(Some(PrepareState::Pending(term.clone(), ctx_ord, te)));
@@ -230,13 +233,13 @@ impl TermStates {
         })?;
         if state_slot.get().is_none() {
           let state = if te.get_prepare_seek_exact_status(term.bytes())? {
-            te.term_state()?
+            Arc::new(te.term_state()?)
           } else {
-            EmptyTermState.into()
+            Arc::clone(&EMPTY_TERM_STATE)
           };
           // Publish only after successful I/O. A competing lookup may finish first;
           // all callers below use the state retained in this leaf's shared slot.
-          let _ = state_slot.set(Arc::new(state));
+          let _ = state_slot.set(state);
         }
         let state = state_slot
           .get()
