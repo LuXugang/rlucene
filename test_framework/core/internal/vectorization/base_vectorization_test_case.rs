@@ -14,9 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod default_vector_util_support;
-pub mod default_vectorization_provider;
-pub mod panama_vector_util_support;
-pub mod posting_decoding_util;
-pub mod vector_util_support;
-pub mod vectorization_provider;
+use crate::core::internal::vectorization::default_vectorization_provider::DefaultVectorizationProvider;
+use crate::core::internal::vectorization::panama_vector_util_support::PanamaVectorUtilSupport;
+
+/// Shared base for tests comparing the default and explicit vector implementations.
+///
+/// Unlike Java's runtime provider lookup, both implementations are selected
+/// explicitly, so absence of a JVM vector module cannot skip these tests.
+/// The complete Panama provider is not assembled yet; only its mathematical
+/// support is selected here, without changing the production provider.
+pub trait BaseVectorizationTestCase {
+  const LUCENE_PROVIDER: DefaultVectorizationProvider = DefaultVectorizationProvider;
+  const PANAMA_SUPPORT: PanamaVectorUtilSupport = PanamaVectorUtilSupport;
+}

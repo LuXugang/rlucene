@@ -15,4 +15,5 @@
  * limitations under the License.
  */
 mod test_posting_decoding_util;
+mod test_vector_util_support;
 mod test_vectorization_provider;

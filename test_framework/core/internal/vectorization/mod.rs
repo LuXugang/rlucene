@@ -14,9 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod default_vector_util_support;
-pub mod default_vectorization_provider;
-pub mod panama_vector_util_support;
-pub mod posting_decoding_util;
-pub mod vector_util_support;
-pub mod vectorization_provider;
+pub mod base_vectorization_test_case;
