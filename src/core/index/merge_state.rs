@@ -26,7 +26,7 @@ use crate::core::index::codec_reader::{
   CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
 };
 
-use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::field_infos::{EMPTY, FieldInfos};
 use crate::core::index::index_writer::is_congruent_sort;
 use crate::core::index::multi_sorter::MultiSorter;
 use crate::core::index::segment_info::SegmentInfo;
@@ -290,7 +290,7 @@ where
     let mut merge_state = Self {
       segment_info,
       doc_maps,
-      merge_field_infos: Arc::new(FieldInfos::default()),
+      merge_field_infos: Arc::clone(&EMPTY),
       stored_fields_readers,
       term_vectors_readers,
       norms_producers,
