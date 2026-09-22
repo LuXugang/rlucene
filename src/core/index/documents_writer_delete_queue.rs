@@ -832,7 +832,10 @@ impl Display for DocValuesUpdatesNode {
     let mut sb = String::new();
     sb.push_str("docValuesUpdates: ");
     if !self.item.is_empty() {
-      sb.push_str(&format!("term={}; updates: [", self.item[0].term));
+      match &self.item[0].term {
+        Some(term) => write!(sb, "term={term}; updates: [")?,
+        None => sb.push_str("term=null; updates: ["),
+      }
       for update in &self.item {
         write!(
           sb,

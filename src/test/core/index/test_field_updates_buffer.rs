@@ -301,12 +301,12 @@ pub fn test_binary_random() -> Result<()> {
 
     if random_update.has_value {
       buffer.add_update_with_bytes_ref(
-        &random_update.term,
+        random_update.buffered_term()?,
         random_update.sub_update.get_binary().unwrap().get_value()?,
         doc_id_upto,
       )?;
     } else {
-      buffer.add_no_value(&random_update.term, doc_id_upto)?;
+      buffer.add_no_value(random_update.buffered_term()?, doc_id_upto)?;
     }
     updates.push(random_update);
   }
@@ -319,10 +319,10 @@ pub fn test_binary_random() -> Result<()> {
     let random_update = &updates[count];
     count += 1;
     assert_eq!(
-      random_update.term.bytes.utf8_to_string()?,
+      random_update.buffered_term()?.bytes.utf8_to_string()?,
       value.term_value.as_ref().unwrap().utf8_to_string()?
     );
-    assert_eq!(random_update.term.field, value.term_field);
+    assert_eq!(random_update.buffered_term()?.field, value.term_field);
     assert_eq!(random_update.has_value, value.has_value, "count: {}", count);
 
     if random_update.has_value {
@@ -358,7 +358,7 @@ pub fn test_numeric_random() -> Result<()> {
 
     if random_update.has_value {
       buffer.add_update_with_long(
-        &random_update.term,
+        random_update.buffered_term()?,
         random_update
           .sub_update
           .get_numeric()
@@ -367,7 +367,7 @@ pub fn test_numeric_random() -> Result<()> {
         doc_id_upto,
       )?;
     } else {
-      buffer.add_no_value(&random_update.term, doc_id_upto)?;
+      buffer.add_no_value(random_update.buffered_term()?, doc_id_upto)?;
     }
     updates.push(random_update);
   }
@@ -454,7 +454,11 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<()> {
     if let Some(v) = random_update.prepare_for_apply(i + 1) {
       random_update = v
     }
-    buffer.add_update_with_long(&random_update.term, doc_value, random_update.doc_id_upto)?;
+    buffer.add_update_with_long(
+      random_update.buffered_term()?,
+      doc_value,
+      random_update.doc_id_upto,
+    )?;
     updates.push(random_update);
   }
 
@@ -473,12 +477,17 @@ fn assert_buffer_updates(
   term_sorted: bool,
 ) -> Result<()> {
   let updates: Vec<_> = if term_sorted {
-    updates.sort_by(|a, b| a.term.bytes.cmp(&b.term.bytes));
+    updates.sort_by(|a, b| {
+      a.buffered_term()
+        .unwrap()
+        .bytes
+        .cmp(&b.buffered_term().unwrap().bytes)
+    });
 
     let mut by_terms: BTreeMap<&BytesRef<Vec<u8>>, &DocValuesUpdate> = BTreeMap::new();
     for update in &updates {
       by_terms
-        .entry(&update.term.bytes)
+        .entry(&update.buffered_term()?.bytes)
         .and_modify(|v| {
           if v.doc_id_upto < update.doc_id_upto {
             *v = update;
@@ -503,10 +512,10 @@ fn assert_buffer_updates(
     let expected_update = &updates[count];
     count += 1;
     assert_eq!(
-      expected_update.term.bytes.utf8_to_string()?,
+      expected_update.buffered_term()?.bytes.utf8_to_string()?,
       value.term_value.as_ref().unwrap().utf8_to_string()?
     );
-    assert_eq!(expected_update.term.field, value.term_field);
+    assert_eq!(expected_update.buffered_term()?.field, value.term_field);
     assert_eq!(expected_update.has_value, value.has_value);
 
     if expected_update.has_value {

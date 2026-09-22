@@ -105,9 +105,13 @@ impl BufferedUpdates {
           .sub_update
           .get_binary()
           .ok_or_else(|| LuceneError::illegal_state("binary update has no binary value"))?;
-        buffer.add_update_with_bytes_ref(&update.term, binary_update.get_value()?, doc_id_upto)?;
+        buffer.add_update_with_bytes_ref(
+          update.buffered_term()?,
+          binary_update.get_value()?,
+          doc_id_upto,
+        )?;
       } else {
-        buffer.add_no_value(&update.term, doc_id_upto)?;
+        buffer.add_no_value(update.buffered_term()?, doc_id_upto)?;
       }
 
       self
@@ -154,9 +158,13 @@ impl BufferedUpdates {
           .sub_update
           .get_numeric()
           .ok_or_else(|| LuceneError::illegal_state("numeric update has no numeric value"))?;
-        buffer.add_update_with_long(&update.term, numeric_update.get_value()?, doc_id_upto)?;
+        buffer.add_update_with_long(
+          update.buffered_term()?,
+          numeric_update.get_value()?,
+          doc_id_upto,
+        )?;
       } else {
-        buffer.add_no_value(&update.term, doc_id_upto)?;
+        buffer.add_no_value(update.buffered_term()?, doc_id_upto)?;
       }
 
       self

@@ -1487,10 +1487,7 @@ where
     T: Into<Arc<Term>>,
     Updates: IntoIterator<Item = Fields>,
   {
-    let term: Arc<Term> = match term {
-      Some(t) => t.into(),
-      None => Arc::new(Term::new("", BytesRef::new())),
-    };
+    let term = term.map(Into::into);
     let updates = updates.into_iter();
     let mut dv_updates = Vec::with_capacity(updates.size_hint().0);
 
@@ -1537,7 +1534,7 @@ where
             None => None,
           };
           let sub_update = DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(value));
-          DocValuesUpdate::new(
+          DocValuesUpdate::new_with_optional_term(
             DocValuesType::Numeric,
             term.clone(),
             name,
@@ -1548,7 +1545,7 @@ where
         DocValuesType::Binary => {
           let bytes = f.take_binary_value()?;
           let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(bytes));
-          DocValuesUpdate::new(
+          DocValuesUpdate::new_with_optional_term(
             DocValuesType::Binary,
             term.clone(),
             name,

@@ -84,13 +84,14 @@ impl FieldUpdatesBuffer {
     doc_upto: i32,
     is_numeric: bool,
   ) -> Result<Self> {
+    let term = initial_value.buffered_term()?;
     let mut has_values = None;
     if !initial_value.has_value {
       let bs = FixedBitSet::new(1);
       bytes_used.add_and_get(bs.ram_bytes_used()?);
       has_values = Some(bs);
     }
-    bytes_used.add_and_get(Self::size_of_string(&initial_value.term.field));
+    bytes_used.add_and_get(Self::size_of_string(&term.field));
 
     let mut buffer = FieldUpdatesBuffer {
       bytes_used: bytes_used.clone(),
@@ -109,11 +110,11 @@ impl FieldUpdatesBuffer {
       min_numeric: i64::MAX,
       // TODO: we should estimate the size of the fields array
       fields: vec![0],
-      field_names: vec![initial_value.term.field.clone()],
+      field_names: vec![term.field.clone()],
       is_numeric,
       finished: false,
     };
-    buffer.term_values.append(&initial_value.term.bytes)?;
+    buffer.term_values.append(&term.bytes)?;
     Ok(buffer)
   }
   pub(crate) fn from_numeric_update(

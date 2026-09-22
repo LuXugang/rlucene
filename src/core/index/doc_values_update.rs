@@ -24,7 +24,7 @@ use std::sync::Arc;
 /// An in-place update to a DocValues field.
 pub struct DocValuesUpdate {
   pub(crate) doc_values_type: DocValuesType,
-  pub term: Arc<Term>,
+  pub term: Option<Arc<Term>>,
   pub field: String,
   // used in BufferedDeletes to apply this update only to a slice of docs.
   // It's initialized to BufferedUpdates.MAX_INT
@@ -45,8 +45,23 @@ impl DocValuesUpdate {
     T: Into<String>,
     F: Into<Arc<Term>>,
   {
+    Self::new_with_optional_term(
+      doc_values_type,
+      Some(term.into()),
+      field,
+      doc_id_upto,
+      sub_update,
+    )
+  }
+
+  pub(crate) fn new_with_optional_term<T: Into<String>>(
+    doc_values_type: DocValuesType,
+    term: Option<Arc<Term>>,
+    field: T,
+    doc_id_upto: i32,
+    sub_update: DocValuesUpdateEnum,
+  ) -> Self {
     let field = field.into();
-    let term = term.into();
     debug_assert!(doc_id_upto >= 0, "{doc_id_upto} must be >= 0");
     let has_value = sub_update.has_value();
     DocValuesUpdate {
@@ -59,6 +74,13 @@ impl DocValuesUpdate {
     }
   }
 
+  pub(crate) fn buffered_term(&self) -> Result<&Term> {
+    self
+      .term
+      .as_deref()
+      .ok_or_else(|| LuceneError::illegal_state("buffered DocValues update requires a term"))
+  }
+
   pub(crate) fn has_value(&self) -> bool {
     self.has_value
   }
@@ -68,7 +90,7 @@ impl DocValuesUpdate {
       return None;
     }
     let sub_update = self.sub_update.prepare_for_apply();
-    Some(DocValuesUpdate::new(
+    Some(DocValuesUpdate::new_with_optional_term(
       self.doc_values_type,
       self.term.clone(),
       self.field.clone(),
@@ -79,10 +101,13 @@ impl DocValuesUpdate {
 }
 impl Display for DocValuesUpdate {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match &self.term {
+      Some(term) => write!(f, "term={term}")?,
+      None => write!(f, "term=null")?,
+    }
     write!(
       f,
-      "term={}, field={}, value={}, docIDUpTo={}",
-      self.term,
+      ", field={}, value={}, docIDUpTo={}",
       self.field,
       self.sub_update.value_to_string(),
       self.doc_id_upto
