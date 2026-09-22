@@ -426,14 +426,10 @@ pub(crate) fn create_tree(x: &[f64], y: &[f64]) -> Result<EdgeTree> {
   let high = edges.len() - 1;
   let root = create_tree_from_edges(&mut edges, 0, high)
     .ok_or_else(|| LuceneError::illegal_state("edge tree root is missing"))?;
-  Ok(*root)
+  Ok(root)
 }
 /// Creates tree from sorted edges (with range low and high inclusive)
-fn create_tree_from_edges(
-  edges: &mut [EdgeTree],
-  low: usize,
-  high: usize,
-) -> Option<Box<EdgeTree>> {
+fn create_tree_from_edges(edges: &mut [EdgeTree], low: usize, high: usize) -> Option<EdgeTree> {
   if low > high {
     return None;
   }
@@ -442,12 +438,12 @@ fn create_tree_from_edges(
   let mut new_node = std::mem::take(&mut edges[mid]);
 
   new_node.left = if low < mid {
-    create_tree_from_edges(edges, low, mid - 1)
+    create_tree_from_edges(edges, low, mid - 1).map(Box::new)
   } else {
     None
   };
   new_node.right = if mid < high {
-    create_tree_from_edges(edges, mid + 1, high)
+    create_tree_from_edges(edges, mid + 1, high).map(Box::new)
   } else {
     None
   };
@@ -459,5 +455,5 @@ fn create_tree_from_edges(
     new_node.max = CoreHelper::max_f64(new_node.max, right.max);
   }
 
-  Some(Box::new(new_node))
+  Some(new_node)
 }
