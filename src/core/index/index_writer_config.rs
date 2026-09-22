@@ -361,8 +361,8 @@ where
     &self.base.codec
   }
 
-  fn get_index_sort(&self) -> Option<Arc<Sort>> {
-    self.base.index_sort.clone()
+  fn get_index_sort(&self) -> Option<&Arc<Sort>> {
+    self.base.index_sort.as_ref()
   }
 
   fn get_index_sort_fields(&self) -> &HashSet<String> {

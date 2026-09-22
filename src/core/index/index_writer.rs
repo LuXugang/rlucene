@@ -3416,7 +3416,7 @@ where
             );
 
             let segment_index_sort = info.info.get_index_sort();
-            if let Some(index_sort) = index_sort.as_ref()
+            if let Some(index_sort) = index_sort
               && segment_index_sort
                 .as_ref()
                 .map(|sort| !is_congruent_sort(index_sort, sort))
@@ -3537,7 +3537,7 @@ where
     if let Some(index_sort) = self.config.get_index_sort()
       && leaf_index_sort
         .as_ref()
-        .map(|s| !is_congruent_sort(&index_sort, s))
+        .map(|s| !is_congruent_sort(index_sort, s))
         .unwrap_or(true)
     {
       let old_sort = leaf_index_sort
@@ -3836,7 +3836,7 @@ where
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
-      self.config.get_index_sort(),
+      self.config.get_index_sort().cloned(),
     )?;
     let readers = {
       let merge_reader = merge.get_merge_reader();
@@ -5731,7 +5731,7 @@ where
       HashMap::new(),
       StringHelper::random_id(),
       HashMap::new(),
-      self.config.get_index_sort(),
+      self.config.get_index_sort().cloned(),
     )?;
 
     let mut details = HashMap::new();

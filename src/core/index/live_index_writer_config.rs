@@ -67,7 +67,7 @@ pub trait LiveIndexWriterConfig: Display {
 
   /// Gets the index-time [`Sort`] order applied to all flushed and merged
   /// segments.
-  fn get_index_sort(&self) -> Option<Arc<Sort>>;
+  fn get_index_sort(&self) -> Option<&Arc<Sort>>;
   /// Returns the field names involved in the index sort.
   fn get_index_sort_fields(&self) -> &HashSet<String>;
   /// Returns `true` iff newly written segments are packed in a compound file.

@@ -949,7 +949,7 @@ where
     let s = &mut pf.schema;
 
     // validate sort DV type
-    if let Some(index_sort) = &index_writer_config.get_index_sort()
+    if let Some(index_sort) = index_writer_config.get_index_sort()
       && s.doc_values_type != DocValuesType::None
     {
       Self::validate_index_sort_dv_type(index_sort, &s.name, &s.doc_values_type)?;

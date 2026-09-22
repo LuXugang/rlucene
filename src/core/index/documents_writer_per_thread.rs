@@ -297,7 +297,7 @@ where
       HashMap::new(),
       random_id,
       HashMap::new(),
-      index_writer_config.get_index_sort(),
+      index_writer_config.get_index_sort().cloned(),
     )?;
 
     if INFO_VERBOSE && info_stream.is_enabled("DWPT") {
