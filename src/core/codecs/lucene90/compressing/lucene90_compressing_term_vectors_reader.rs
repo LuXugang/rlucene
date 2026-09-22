@@ -60,7 +60,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::iterator::{VecIter, VecIteratorExt};
+use crate::core::util::iterator::IteratorExt;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::Format::Packed;
 use crate::core::util::packed::block_packed_reader_iterator::BlockPackedReaderIterator;
@@ -1107,7 +1107,6 @@ pub struct TVFields {
   payload_index: Vec<Rc<Vec<usize>>>,
   suffix_bytes: BytesRef<Rc<Vec<u8>>>,
 
-  names: Vec<String>,
   field_infos: Arc<FieldInfos>,
 }
 impl TVFields {
@@ -1127,14 +1126,11 @@ impl TVFields {
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
     field_infos: Arc<FieldInfos>,
   ) -> Result<Self> {
-    let mut names = Vec::with_capacity(field_num_offs.len());
     for i in 0..field_num_offs.len() {
       let field_num = field_nums[field_num_offs[i]];
       let field_info = field_infos.field_info_by_number(field_num)?;
       match field_info {
-        Some(fi) => {
-          names.push(fi.name.clone());
-        },
+        Some(_) => {},
         None => {
           return Err(LuceneError::illegal_state(format!(
             "Field number {field_num} not found in field infos"
@@ -1157,16 +1153,46 @@ impl TVFields {
       payload_bytes,
       payload_index,
       suffix_bytes,
-      names,
       field_infos,
     })
   }
 }
+pub struct TVFieldsIterator<'a> {
+  fields: &'a TVFields,
+  index: usize,
+}
+
+impl<'a> IteratorExt for TVFieldsIterator<'a> {
+  type Item = &'a String;
+
+  fn next(&mut self) -> Result<Option<Self::Item>> {
+    if !self.has_next()? {
+      return Ok(None);
+    }
+    let field_num = self.fields.field_nums[self.fields.field_num_offs[self.index]];
+    self.index += 1;
+    let field_info = self.fields.field_infos.field_info_by_number(field_num)?;
+    match field_info {
+      Some(info) => Ok(Some(&info.name)),
+      None => Err(LuceneError::illegal_state(format!(
+        "Field number {field_num} not found in field infos"
+      ))),
+    }
+  }
+
+  fn has_next(&self) -> Result<bool> {
+    Ok(self.index < self.fields.field_num_offs.len())
+  }
+}
+
 impl Fields for TVFields {
-  type FieldIter<'a> = VecIter<'a, String>;
+  type FieldIter<'a> = TVFieldsIterator<'a>;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(self.names.iter_ext())
+    Ok(TVFieldsIterator {
+      fields: self,
+      index: 0,
+    })
   }
 
   type Terms = TVTerms;

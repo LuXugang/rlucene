@@ -89,7 +89,7 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 #[cfg(test)]
-use crate::core::index::fields::Fields;
+use crate::core::index::fields::{FieldIterEnum2, Fields};
 use crate::core::index::index_reader::Identity;
 #[cfg(test)]
 use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
@@ -140,9 +140,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 #[cfg(test)]
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
-#[cfg(test)]
-#[cfg(test)]
-use crate::core::util::iterator::VecIter;
 #[cfg(test)]
 use crate::core::{
   index::byte_vector_values::ByteVectorValues, index::float_vector_values::FloatVectorValues,
@@ -1537,14 +1534,17 @@ pub enum CodecTermVectorsFields<I: IndexInput> {
 #[cfg(test)]
 impl<I: IndexInput> Fields for CodecTermVectorsFields<I> {
   type FieldIter<'a>
-    = VecIter<'a, String>
+    = FieldIterEnum2<
+    <Lucene90CodecTermVectorsFields<I> as Fields>::FieldIter<'a>,
+    <AssertingCodecTermVectorsFields<I> as Fields>::FieldIter<'a>,
+  >
   where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
     match self {
-      Self::Lucene90(fields) => fields.iterator(),
-      Self::Asserting(fields) => fields.iterator(),
+      Self::Lucene90(fields) => fields.iterator().map(FieldIterEnum2::A),
+      Self::Asserting(fields) => fields.iterator().map(FieldIterEnum2::B),
     }
   }
 
