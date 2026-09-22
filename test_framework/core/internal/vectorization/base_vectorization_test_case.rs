@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 use crate::core::internal::vectorization::default_vectorization_provider::DefaultVectorizationProvider;
-use crate::core::internal::vectorization::panama_vector_util_support::PanamaVectorUtilSupport;
+use crate::test_framework::core::internal::vectorization::reference_vector_util_support::ReferenceVectorUtilSupport;
 
-/// Shared base for tests comparing the default and explicit vector implementations.
+/// Shared base for comparing the production provider with independent reference calculations.
 ///
-/// Unlike Java's runtime provider lookup, both implementations are selected
-/// explicitly, so absence of a JVM vector module cannot skip these tests.
-/// The complete Panama provider is not assembled yet; only its mathematical
-/// support is selected here, without changing the production provider.
+/// The scalar reference is test-only. Floating-point reference calculations use
+/// f64 intermediates, and the concrete tests retain their absolute tolerance.
 pub trait BaseVectorizationTestCase {
   const LUCENE_PROVIDER: DefaultVectorizationProvider = DefaultVectorizationProvider;
-  const PANAMA_SUPPORT: PanamaVectorUtilSupport = PanamaVectorUtilSupport;
+  const REFERENCE_SUPPORT: ReferenceVectorUtilSupport = ReferenceVectorUtilSupport;
 }

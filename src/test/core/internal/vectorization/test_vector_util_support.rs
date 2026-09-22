@@ -46,17 +46,17 @@ impl TestVectorUtilSupport {
       a[i] = random.random::<f32>();
       b[i] = random.random::<f32>();
     }
-    let lucene = Self::LUCENE_PROVIDER.get_vector_util_support();
-    let panama = Self::PANAMA_SUPPORT;
+    let reference = Self::REFERENCE_SUPPORT;
+    let actual = Self::LUCENE_PROVIDER.get_vector_util_support();
     self.assert_float_returning_providers(
-      lucene.dot_product_f32(&a, &b),
-      panama.dot_product_f32(&a, &b),
+      reference.dot_product_f32(&a, &b),
+      actual.dot_product_f32(&a, &b),
     );
     self.assert_float_returning_providers(
-      lucene.square_distance_f32(&a, &b),
-      panama.square_distance_f32(&a, &b),
+      reference.square_distance_f32(&a, &b),
+      actual.square_distance_f32(&a, &b),
     );
-    self.assert_float_returning_providers(lucene.cosine_f32(&a, &b), panama.cosine_f32(&a, &b));
+    self.assert_float_returning_providers(reference.cosine_f32(&a, &b), actual.cosine_f32(&a, &b));
   }
 
   fn test_binary_vectors(&self, random: &mut StdRng) {
@@ -64,62 +64,72 @@ impl TestVectorUtilSupport {
     let mut b = vec![0; self.size];
     random.fill_bytes(&mut a);
     random.fill_bytes(&mut b);
-    let lucene = Self::LUCENE_PROVIDER.get_vector_util_support();
-    let panama = Self::PANAMA_SUPPORT;
-    self
-      .assert_int_returning_providers(lucene.dot_product_u8(&a, &b), panama.dot_product_u8(&a, &b));
+    let reference = Self::REFERENCE_SUPPORT;
+    let actual = Self::LUCENE_PROVIDER.get_vector_util_support();
     self.assert_int_returning_providers(
-      lucene.square_distance_u8(&a, &b),
-      panama.square_distance_u8(&a, &b),
+      reference.dot_product_u8(&a, &b),
+      actual.dot_product_u8(&a, &b),
     );
-    self.assert_float_returning_providers(lucene.cosine_u8(&a, &b), panama.cosine_u8(&a, &b));
+    self.assert_int_returning_providers(
+      reference.square_distance_u8(&a, &b),
+      actual.square_distance_u8(&a, &b),
+    );
+    self.assert_float_returning_providers(reference.cosine_u8(&a, &b), actual.cosine_u8(&a, &b));
   }
 
   fn test_binary_vectors_boundaries(&self) {
     let mut a = vec![0; self.size];
     let mut b = vec![0; self.size];
-    let lucene = Self::LUCENE_PROVIDER.get_vector_util_support();
-    let panama = Self::PANAMA_SUPPORT;
+    let reference = Self::REFERENCE_SUPPORT;
+    let actual = Self::LUCENE_PROVIDER.get_vector_util_support();
 
     a.fill(i8::MIN as u8);
     b.fill(i8::MIN as u8);
-    self
-      .assert_int_returning_providers(lucene.dot_product_u8(&a, &b), panama.dot_product_u8(&a, &b));
     self.assert_int_returning_providers(
-      lucene.square_distance_u8(&a, &b),
-      panama.square_distance_u8(&a, &b),
+      reference.dot_product_u8(&a, &b),
+      actual.dot_product_u8(&a, &b),
     );
-    self.assert_float_returning_providers(lucene.cosine_u8(&a, &b), panama.cosine_u8(&a, &b));
+    self.assert_int_returning_providers(
+      reference.square_distance_u8(&a, &b),
+      actual.square_distance_u8(&a, &b),
+    );
+    self.assert_float_returning_providers(reference.cosine_u8(&a, &b), actual.cosine_u8(&a, &b));
 
     a.fill(i8::MAX as u8);
     b.fill(i8::MAX as u8);
-    self
-      .assert_int_returning_providers(lucene.dot_product_u8(&a, &b), panama.dot_product_u8(&a, &b));
     self.assert_int_returning_providers(
-      lucene.square_distance_u8(&a, &b),
-      panama.square_distance_u8(&a, &b),
+      reference.dot_product_u8(&a, &b),
+      actual.dot_product_u8(&a, &b),
     );
-    self.assert_float_returning_providers(lucene.cosine_u8(&a, &b), panama.cosine_u8(&a, &b));
+    self.assert_int_returning_providers(
+      reference.square_distance_u8(&a, &b),
+      actual.square_distance_u8(&a, &b),
+    );
+    self.assert_float_returning_providers(reference.cosine_u8(&a, &b), actual.cosine_u8(&a, &b));
 
     a.fill(i8::MIN as u8);
     b.fill(i8::MAX as u8);
-    self
-      .assert_int_returning_providers(lucene.dot_product_u8(&a, &b), panama.dot_product_u8(&a, &b));
     self.assert_int_returning_providers(
-      lucene.square_distance_u8(&a, &b),
-      panama.square_distance_u8(&a, &b),
+      reference.dot_product_u8(&a, &b),
+      actual.dot_product_u8(&a, &b),
     );
-    self.assert_float_returning_providers(lucene.cosine_u8(&a, &b), panama.cosine_u8(&a, &b));
+    self.assert_int_returning_providers(
+      reference.square_distance_u8(&a, &b),
+      actual.square_distance_u8(&a, &b),
+    );
+    self.assert_float_returning_providers(reference.cosine_u8(&a, &b), actual.cosine_u8(&a, &b));
 
     a.fill(i8::MAX as u8);
     b.fill(i8::MIN as u8);
-    self
-      .assert_int_returning_providers(lucene.dot_product_u8(&a, &b), panama.dot_product_u8(&a, &b));
     self.assert_int_returning_providers(
-      lucene.square_distance_u8(&a, &b),
-      panama.square_distance_u8(&a, &b),
+      reference.dot_product_u8(&a, &b),
+      actual.dot_product_u8(&a, &b),
     );
-    self.assert_float_returning_providers(lucene.cosine_u8(&a, &b), panama.cosine_u8(&a, &b));
+    self.assert_int_returning_providers(
+      reference.square_distance_u8(&a, &b),
+      actual.square_distance_u8(&a, &b),
+    );
+    self.assert_float_returning_providers(reference.cosine_u8(&a, &b), actual.cosine_u8(&a, &b));
   }
 
   fn test_int4_dot_product(&self, random: &mut StdRng) {
@@ -129,19 +139,19 @@ impl TestVectorUtilSupport {
       a[i] = random.random_range(0..16);
       b[i] = random.random_range(0..16);
     }
-    let lucene = Self::LUCENE_PROVIDER.get_vector_util_support();
-    let panama = Self::PANAMA_SUPPORT;
+    let reference = Self::REFERENCE_SUPPORT;
+    let actual = Self::LUCENE_PROVIDER.get_vector_util_support();
     self.assert_int_returning_providers(
-      lucene.int4_dot_product(&a, false, &Self::pack(&b), true),
-      panama.int4_dot_product(&a, false, &Self::pack(&b), true),
+      reference.int4_dot_product(&a, false, &Self::pack(&b), true),
+      actual.int4_dot_product(&a, false, &Self::pack(&b), true),
     );
     self.assert_int_returning_providers(
-      lucene.int4_dot_product(&Self::pack(&a), true, &b, false),
-      panama.int4_dot_product(&Self::pack(&a), true, &b, false),
+      reference.int4_dot_product(&Self::pack(&a), true, &b, false),
+      actual.int4_dot_product(&Self::pack(&a), true, &b, false),
     );
     assert_eq!(
-      lucene.dot_product_u8(&a, &b),
-      panama.int4_dot_product(&a, false, &Self::pack(&b), true),
+      reference.dot_product_u8(&a, &b),
+      actual.int4_dot_product(&a, false, &Self::pack(&b), true),
       "size={}",
       self.size,
     );
@@ -151,22 +161,22 @@ impl TestVectorUtilSupport {
     let max_value = 15;
     let mut a = vec![0; self.size];
     let mut b = vec![0; self.size];
-    let lucene = Self::LUCENE_PROVIDER.get_vector_util_support();
-    let panama = Self::PANAMA_SUPPORT;
+    let reference = Self::REFERENCE_SUPPORT;
+    let actual = Self::LUCENE_PROVIDER.get_vector_util_support();
 
     a.fill(max_value);
     b.fill(max_value);
     self.assert_int_returning_providers(
-      lucene.int4_dot_product(&a, false, &Self::pack(&b), true),
-      panama.int4_dot_product(&a, false, &Self::pack(&b), true),
+      reference.int4_dot_product(&a, false, &Self::pack(&b), true),
+      actual.int4_dot_product(&a, false, &Self::pack(&b), true),
     );
     self.assert_int_returning_providers(
-      lucene.int4_dot_product(&Self::pack(&a), true, &b, false),
-      panama.int4_dot_product(&Self::pack(&a), true, &b, false),
+      reference.int4_dot_product(&Self::pack(&a), true, &b, false),
+      actual.int4_dot_product(&Self::pack(&a), true, &b, false),
     );
     assert_eq!(
-      lucene.dot_product_u8(&a, &b),
-      panama.int4_dot_product(&a, false, &Self::pack(&b), true),
+      reference.dot_product_u8(&a, &b),
+      actual.int4_dot_product(&a, false, &Self::pack(&b), true),
       "size={}",
       self.size,
     );
@@ -175,16 +185,16 @@ impl TestVectorUtilSupport {
     a.fill(min_value);
     b.fill(min_value);
     self.assert_int_returning_providers(
-      lucene.int4_dot_product(&a, false, &Self::pack(&b), true),
-      panama.int4_dot_product(&a, false, &Self::pack(&b), true),
+      reference.int4_dot_product(&a, false, &Self::pack(&b), true),
+      actual.int4_dot_product(&a, false, &Self::pack(&b), true),
     );
     self.assert_int_returning_providers(
-      lucene.int4_dot_product(&Self::pack(&a), true, &b, false),
-      panama.int4_dot_product(&Self::pack(&a), true, &b, false),
+      reference.int4_dot_product(&Self::pack(&a), true, &b, false),
+      actual.int4_dot_product(&Self::pack(&a), true, &b, false),
     );
     assert_eq!(
-      lucene.dot_product_u8(&a, &b),
-      panama.int4_dot_product(&a, false, &Self::pack(&b), true),
+      reference.dot_product_u8(&a, &b),
+      actual.int4_dot_product(&a, false, &Self::pack(&b), true),
       "size={}",
       self.size,
     );
@@ -199,12 +209,11 @@ impl TestVectorUtilSupport {
     packed
   }
 
-  // Evaluate the same operation on the two concrete support types at the call
-  // site, keeping static dispatch instead of a Java-style interface closure.
+  // Compare independent reference results with the actual production provider.
   fn assert_float_returning_providers(&self, expected: f32, actual: f32) {
     assert!(
       f64_equals(f64::from(expected), f64::from(actual), DELTA),
-      "size={}, default={expected:?}, panama={actual:?}",
+      "size={}, reference={expected:?}, actual={actual:?}",
       self.size,
     );
   }

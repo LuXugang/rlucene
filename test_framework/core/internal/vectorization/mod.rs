@@ -15,3 +15,4 @@
  * limitations under the License.
  */
 pub mod base_vectorization_test_case;
+pub mod reference_vector_util_support;

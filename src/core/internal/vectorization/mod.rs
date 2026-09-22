@@ -16,7 +16,6 @@
  */
 pub mod default_vector_util_support;
 pub mod default_vectorization_provider;
-pub mod panama_vector_util_support;
 pub mod posting_decoding_util;
 pub mod vector_util_support;
 pub mod vectorization_provider;
