@@ -561,12 +561,12 @@ where
     size as i32 > self.max_size
       || self.ram_bytes_used.load(Ordering::SeqCst) > self.max_ram_bytes_used
   }
-  pub(crate) fn get<C>(
+  pub(crate) fn get<'a, C>(
     &self,
     key: &Query,
     cache_helper: &C,
-    inner: &RwLockReadGuard<Inner>,
-  ) -> Option<Arc<CacheAndCountEnum>>
+    inner: &'a RwLockReadGuard<Inner>,
+  ) -> Option<&'a Arc<CacheAndCountEnum>>
   where
     C: CacheHelper,
   {
@@ -961,10 +961,10 @@ impl LeafCache {
     parent.on_doc_id_set_eviction(&self.key, 1, ram_bytes_used);
   }
 
-  pub(crate) fn get(&self, query: &Query) -> Option<Arc<CacheAndCountEnum>> {
+  pub(crate) fn get(&self, query: &Query) -> Option<&Arc<CacheAndCountEnum>> {
     debug_assert!({ !matches!(query, Query::Boost(_)) });
     debug_assert!({ !matches!(query, Query::ConstantScore(_)) });
-    self.cache.get(query.identity()).cloned()
+    self.cache.get(query.identity())
   }
 
   pub(crate) fn put_if_absent<P>(
@@ -1140,6 +1140,7 @@ where
       self
         .lru_cache
         .get(self.get_query().as_ref(), &cache_helper, &inner_read)
+        .cloned()
     };
     match cached {
       None => {
