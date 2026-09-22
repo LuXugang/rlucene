@@ -629,7 +629,7 @@ where
           wrap_required_scoring.push(ScorerEnum2::B(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::Complete,
-            Box::new(filter_scorer).take_iterator(),
+            filter_scorer.take_iterator(),
           )));
         }
         return Ok(Some(Box::new(BlockMaxConjunctionBulkScorer::new(
@@ -875,7 +875,7 @@ where
         // no scoring clauses but scores are needed so we wrap the scorer in
         // a constant score in order to allow early termination
         if scorer.two_phase_iterator().is_some() {
-          let tpi = match Box::new(scorer).take_two_phase_iterator() {
+          let tpi = match scorer.take_two_phase_iterator() {
             Some(v) => v,
             None => return Err(LuceneError::illegal_state("already taken?")),
           };
@@ -885,7 +885,7 @@ where
             tpi,
           )));
         } else {
-          let disi = Box::new(scorer).take_iterator();
+          let disi = scorer.take_iterator();
           return Ok(Box::new(ConstantScoreScorer::from_disi(
             0.0,
             self.score_mode,
@@ -903,7 +903,7 @@ where
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::BulkScorer>> {
     if let Some(bs) = self.boolean_scorer(context, searcher)? {
-      return Ok(Some(Box::new(bs)));
+      return Ok(Some(bs));
     }
 
     // use a Scorer-based impl (BS2)
