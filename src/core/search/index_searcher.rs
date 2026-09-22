@@ -83,7 +83,7 @@ use rayon::ThreadPool;
 use std::borrow::Borrow;
 #[cfg(test)]
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
@@ -831,14 +831,11 @@ pub fn do_slices<LR>(
 where
   LR: LeafReader,
 {
-  let mut ctx_map: HashMap<usize, usize> = HashMap::with_capacity(leaves.len());
-  let mut sorted_leaves: Vec<(usize, i32)> = Vec::with_capacity(leaves.len());
+  let mut sorted_leaves = Vec::with_capacity(leaves.len());
 
-  for (idx, ctx) in leaves.iter().enumerate() {
-    let ord = ctx.ord;
+  for ctx in leaves {
     let max_doc = ctx.reader().max_doc()?;
-    ctx_map.insert(ord, idx);
-    sorted_leaves.push((ord, max_doc));
+    sorted_leaves.push((ctx, max_doc));
   }
   sorted_leaves.sort_by_key(|leaf| std::cmp::Reverse(leaf.1));
 
@@ -847,9 +844,8 @@ where
     let mut current_slice_num_docs = 0;
     let mut group: Option<Vec<LeafReaderContextPartition>> = None;
 
-    for (ord, _) in sorted_leaves {
-      let ctx_idx = ctx_map[&ord];
-      let ctx_max_doc = leaves[ctx_idx].reader().max_doc()?;
+    for (ctx, _) in sorted_leaves {
+      let ctx_max_doc = ctx.reader().max_doc()?;
       if ctx_max_doc > max_docs_per_slice {
         debug_assert!(group.is_none());
         // if the segment does not fit in a single slice, we split it into maximum 5 partitions of equal size
@@ -863,24 +859,20 @@ where
 
         for _ in 0..(num_slices - 1) {
           grouped_leaf_partitions.push(vec![LeafReaderContextPartition::create_from_and_to(
-            &leaves[ctx_idx],
-            min_doc_id,
-            max_doc_id,
+            ctx, min_doc_id, max_doc_id,
           )?]);
           min_doc_id = max_doc_id;
           max_doc_id += num_docs;
         }
         // the last slice gets all the remaining docs
         grouped_leaf_partitions.push(vec![LeafReaderContextPartition::create_from_and_to(
-          &leaves[ctx_idx],
+          ctx,
           min_doc_id,
           ctx_max_doc,
         )?]);
       } else {
         let group_ref = group.get_or_insert_default();
-        group_ref.push(LeafReaderContextPartition::create_for_entire_segment(
-          &leaves[ctx_idx],
-        )?);
+        group_ref.push(LeafReaderContextPartition::create_for_entire_segment(ctx)?);
         current_slice_num_docs += ctx_max_doc;
         // We only split a segment when it does not fit entirely in a slice. We don't partition
         // the
@@ -908,20 +900,19 @@ where
     );
   }
 
-  let mut grouped_leaves: Vec<Vec<usize>> = Vec::new();
+  let mut grouped_leaves: Vec<Vec<&LeafReaderContext<LR>>> = Vec::new();
   let mut doc_sum: i64 = 0;
-  let mut group: Option<Vec<usize>> = None;
+  let mut group: Option<Vec<&LeafReaderContext<LR>>> = None;
 
-  for (ord, _) in sorted_leaves {
-    let ctx_idx = ctx_map[&ord];
-    let ctx_max_doc = leaves[ctx_idx].reader().max_doc()?;
+  for (ctx, _) in sorted_leaves {
+    let ctx_max_doc = ctx.reader().max_doc()?;
 
     if ctx_max_doc > max_docs_per_slice {
       debug_assert!(group.is_none());
-      grouped_leaves.push(vec![ord]);
+      grouped_leaves.push(vec![ctx]);
     } else {
       let group_ref = group.get_or_insert_default();
-      group_ref.push(ord);
+      group_ref.push(ctx);
       doc_sum += ctx_max_doc as i64;
 
       if group_ref.len() >= max_segments_per_slice || doc_sum > max_docs_per_slice as i64 {
@@ -938,11 +929,10 @@ where
 
   let mut slices = Vec::with_capacity(grouped_leaves.len());
 
-  for ords in grouped_leaves {
-    let mut partitions = Vec::with_capacity(ords.len());
-    for ord in ords {
-      let ctx_idx = ctx_map[&ord];
-      let partition = LeafReaderContextPartition::create_for_entire_segment(&leaves[ctx_idx])?;
+  for contexts in grouped_leaves {
+    let mut partitions = Vec::with_capacity(contexts.len());
+    for ctx in contexts {
+      let partition = LeafReaderContextPartition::create_for_entire_segment(ctx)?;
       partitions.push(partition);
     }
     slices.push(LeafSlice::new(partitions));
