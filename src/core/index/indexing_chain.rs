@@ -988,7 +988,7 @@ where
     pf.set_field_info(fi.clone());
 
     if *fi.get_index_options() != IndexOptions::None {
-      pf.set_invert_state(&mut self.terms_hash, self.bytes_used.clone())?;
+      pf.set_invert_state(&mut self.terms_hash, &self.bytes_used)?;
     }
 
     match fi.get_doc_values_type() {
@@ -1519,7 +1519,7 @@ impl PerField {
   pub(crate) fn set_invert_state<D>(
     &mut self,
     terms_hash: &mut FreqProxTermsWriter<D>,
-    bytes_used: SharedCounter,
+    bytes_used: &SharedCounter,
   ) -> Result<()>
   where
     D: Directory + Clone,
@@ -1540,7 +1540,7 @@ impl PerField {
       // Even if no documents actually succeed in setting a norm, we still write norms for this
       // segment
       debug_assert!(self.norms.is_none());
-      self.norms = Some(NormValuesWriter::new(fi.clone(), bytes_used)?);
+      self.norms = Some(NormValuesWriter::new(fi.clone(), bytes_used.clone())?);
     }
 
     if fi.has_term_vectors() {
