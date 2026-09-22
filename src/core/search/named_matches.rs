@@ -85,7 +85,7 @@ impl NamedMatches<'_> {
     N: Into<String>,
     Q: IntoBoxQuery,
   {
-    NamedQuery::new(name.into(), in_.into_box_query()).into()
+    NamedQuery::new(Arc::new(name.into()), in_.into_box_query()).into()
   }
 
   /// Finds all [`NamedMatches`] in a [`Matches`] tree.
@@ -111,12 +111,12 @@ impl NamedMatches<'_> {
 #[derive(Clone, Debug)]
 pub struct NamedQuery {
   id: Identity,
-  name: String,
+  name: Arc<String>,
   in_: Box<Query>,
 }
 
 impl NamedQuery {
-  fn new(name: String, in_: Box<Query>) -> Self {
+  fn new(name: Arc<String>, in_: Box<Query>) -> Self {
     Self {
       id: Identity::new(),
       name,
@@ -208,7 +208,7 @@ impl Accountable for NamedQuery {
 
 struct NamedWeight<IRC> {
   in_: QueryWeight<IRC>,
-  name: String,
+  name: Arc<String>,
 }
 
 impl<IRC> SegmentCacheable<IRC> for NamedWeight<IRC>
