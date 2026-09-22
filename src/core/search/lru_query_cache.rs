@@ -62,8 +62,8 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::fmt::{Display, Formatter};
 use std::mem;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+use std::sync::{Arc, LazyLock};
 
 pub(crate) const HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
   mem::size_of::<(CacheKey, LeafCache)>() as i64;
@@ -980,7 +980,10 @@ impl LeafCache {
     debug_assert!({ !matches!(query, Query::ConstantScore(_)) });
     if !self.cache.contains_key(query.identity()) {
       let key = query.identity().clone();
-      let cached = Arc::new(cached);
+      let cached = match cached {
+        CacheAndCountEnum::Empty(_) => Arc::clone(&EMPTY_CACHE_AND_COUNT),
+        cached => Arc::new(cached),
+      };
       let ram_bytes_used = Self::ram_bytes_used_for_cache_entry(cached.as_ref())?;
       self.cache.insert(key, cached);
       self.on_doc_id_set_cache(ram_bytes_used, parent);
@@ -1495,6 +1498,9 @@ impl LeafCollector for RoaringCollectorImpl {
     Ok(())
   }
 }
+static EMPTY_CACHE_AND_COUNT: LazyLock<Arc<CacheAndCountEnum>> =
+  LazyLock::new(|| Arc::new(CacheAndCountEnum::Empty(CacheAndCount::empty())));
+
 pub(crate) enum CacheAndCountEnum {
   BitSet(CacheAndCount<BitDocIdSet<FixedBitSet>>),
   Roaring(CacheAndCount<RoaringDocIdSet>),
