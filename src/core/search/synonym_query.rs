@@ -742,7 +742,7 @@ where
   }
 
   type Impacts<'a>
-    = SynonymImpacts<'a>
+    = SynonymImpacts<'a, IE::Impacts<'a>>
   where
     Self: 'a;
 
@@ -754,7 +754,6 @@ where
 
     for (i, impacts_enum) in self.impacts_enums.iter().enumerate() {
       let impact_values = impacts_enum.get_impacts()?;
-      let impact_values = OwnedImpacts::from_impacts(&impact_values)?;
       let doc_id_up_to = impact_values.get_doc_id_upto(0);
       if lead_doc_id_up_to.is_none_or(|lead_doc_id| doc_id_up_to < lead_doc_id) {
         lead = i;
@@ -773,15 +772,15 @@ where
   }
 }
 
-pub(crate) struct SynonymImpacts<'a> {
-  impacts: Vec<OwnedImpacts>,
+pub(crate) struct SynonymImpacts<'a, I> {
+  impacts: Vec<I>,
   doc_ids: Vec<i32>,
   boosts: &'a [f32],
   lead: usize,
 }
 
-impl SynonymImpacts<'_> {
-  fn get_level(impacts: &OwnedImpacts, doc_id_up_to: i32) -> Option<usize> {
+impl<I: Impacts> SynonymImpacts<'_, I> {
+  fn get_level(impacts: &I, doc_id_up_to: i32) -> Option<usize> {
     (0..impacts.num_levels()).find(|&level| impacts.get_doc_id_upto(level) >= doc_id_up_to)
   }
 
@@ -835,7 +834,7 @@ impl SynonymImpacts<'_> {
   }
 }
 
-impl Impacts for SynonymImpacts<'_> {
+impl<I: Impacts> Impacts for SynonymImpacts<'_, I> {
   fn num_levels(&self) -> usize {
     self.impacts[self.lead].num_levels()
   }
