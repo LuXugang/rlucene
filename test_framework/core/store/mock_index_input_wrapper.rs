@@ -471,10 +471,10 @@ where
     RandomAccessInput::read_byte(&mut self.in_, pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     self.ensure_open()?;
     self.ensure_accessible()?;
-    RandomAccessInput::read_bytes(&mut self.in_, pos, buf, offset, len)
+    RandomAccessInput::read_bytes(&mut self.in_, pos, len)
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {

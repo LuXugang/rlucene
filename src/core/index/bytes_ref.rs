@@ -505,6 +505,36 @@ impl<'a> BytesRefValue<'a> for BytesRef<&'a [u8]> {
   }
 }
 
+#[derive(Debug)]
+pub struct BytesRefCow<'a>(pub Cow<'a, [u8]>);
+
+impl Display for BytesRefCow<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    Display::fmt(&self.as_bytes_ref(), f)
+  }
+}
+
+impl<'a> BytesRefValue<'a> for BytesRefCow<'a> {
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: self.0.as_ref(),
+      offset: 0,
+      length: self.0.len(),
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    match self.0 {
+      Cow::Borrowed(bytes) => BytesRefValueEnum::Slice(BytesRef {
+        bytes,
+        offset: 0,
+        length: bytes.len(),
+      }),
+      Cow::Owned(bytes) => BytesRefValueEnum::Buffer(Cow::Owned(BytesRef::from(bytes))),
+    }
+  }
+}
+
 impl<'a> BytesRefValue<'a> for BytesRefValueEnum<'a> {
   #[inline(always)]
   fn as_bytes_ref(&self) -> BytesRef<&[u8]> {

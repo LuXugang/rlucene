@@ -687,7 +687,12 @@ where
   B: BinaryDocValues,
   DM: DocMap,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = B::Value<'a>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     match self.current {
       Some(ref current) => {
         let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;

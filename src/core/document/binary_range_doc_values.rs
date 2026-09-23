@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
@@ -54,7 +54,7 @@ impl<T: BinaryDocValues> BinaryRangeDocValues<T> {
   fn decode_ranges(&mut self) -> Result<()> {
     let bytes_ref = self.in_.binary_value()?;
     let len = 2 * self.num_dims * self.num_bytes_per_dimension;
-    let src = &bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len];
+    let src = &bytes_ref.as_bytes()[..len];
     self.packed_value[..len].copy_from_slice(src);
     Ok(())
   }
@@ -110,7 +110,12 @@ impl<T: BinaryDocValues> DocValuesIterator for BinaryRangeDocValues<T> {
 }
 
 impl<T: BinaryDocValues> BinaryDocValues for BinaryRangeDocValues<T> {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = T::Value<'a>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     self.in_.binary_value()
   }
 }

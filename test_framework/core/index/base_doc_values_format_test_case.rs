@@ -879,9 +879,9 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
       .get_binary_doc_values("binary")?
       .expect("binary doc values should exist");
     assert_eq!(0, binary.next_doc()?);
-    assert_eq!(&BytesRef::from_string("lucene"), binary.binary_value()?);
+    assert_eq!(b"lucene", binary.binary_value()?.as_bytes());
     assert_eq!(1, binary.next_doc()?);
-    assert_eq!(&BytesRef::from_string("lucene"), binary.binary_value()?);
+    assert_eq!(b"lucene", binary.binary_value()?.as_bytes());
     assert_eq!(NO_MORE_DOCS, binary.next_doc()?);
 
     let mut numeric = leaf

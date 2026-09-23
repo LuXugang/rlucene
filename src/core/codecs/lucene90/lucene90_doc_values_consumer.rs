@@ -1022,11 +1022,12 @@ where
       let mut doc = values.next_doc()?;
       while doc != NO_MORE_DOCS {
         num_docs_with_field += 1;
-        let value = values.binary_value()?;
-        let length = value.length;
-        self
-          .data
-          .write_bytes_range(&value.bytes, value.offset, length)?;
+        let length = {
+          let value = values.binary_value()?;
+          let bytes = value.as_bytes();
+          self.data.write_bytes_range(bytes, 0, bytes.len())?;
+          bytes.len()
+        };
         min_length = min_length.min(length);
         max_length = max_length.max(length);
         doc = values.next_doc()?;
@@ -1086,8 +1087,10 @@ where
       let mut values = values_producer.get_binary(field)?;
       let mut doc = values.next_doc()?;
       while doc != NO_MORE_DOCS {
-        let value = values.binary_value()?;
-        addr += value.length as i64;
+        addr += {
+          let value = values.binary_value()?;
+          value.as_bytes().len() as i64
+        };
         writer.add(addr)?;
         doc = values.next_doc()?;
       }

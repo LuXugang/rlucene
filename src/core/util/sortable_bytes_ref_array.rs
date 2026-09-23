@@ -16,12 +16,13 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::util::BytesRefComparator;
+use crate::core::util::access::ByteSource;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 pub trait SortableBytesRefArray<'a> {
   /// Append a new value
-  fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<usize>;
+  fn append<AV: ByteSource>(&mut self, bytes: &BytesRef<AV>) -> Result<usize>;
   /// Clear all previously stored values
   fn clear(&mut self);
   /// Returns the number of values appended so far

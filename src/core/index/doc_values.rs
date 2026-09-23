@@ -327,7 +327,9 @@ impl DocValuesIterator for EmptyBinary {
   }
 }
 impl BinaryDocValues for EmptyBinary {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a> = &'a BytesRef<Vec<u8>>;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     debug_assert!(
       false,
       "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
@@ -410,10 +412,19 @@ impl<A> BinaryDocValues for BinaryDocValuesWithEmpty<A>
 where
   A: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = crate::core::index::BytesRefValueEnum2<A::Value<'a>, &'a BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     match self {
-      Self::A(inner) => inner.binary_value(),
-      Self::B(inner) => inner.binary_value(),
+      Self::A(inner) => inner
+        .binary_value()
+        .map(crate::core::index::BytesRefValueEnum2::A),
+      Self::B(inner) => inner
+        .binary_value()
+        .map(crate::core::index::BytesRefValueEnum2::B),
     }
   }
 }

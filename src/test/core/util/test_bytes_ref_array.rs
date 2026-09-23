@@ -46,7 +46,7 @@ fn test_append() -> Result<()> {
     }
 
     let entries = at_least_usize(&mut random, 500);
-    let mut spare = BytesRefBuilder::new();
+    let mut spare = BytesRefBuilder::<Vec<u8>>::new();
     let init_size = list.size();
     for i in 0..entries {
       let random_realistic_unicode_string = TestUtil::random_realistic_unicode_string(&mut random);
@@ -55,10 +55,10 @@ fn test_append() -> Result<()> {
       string_list.push(random_realistic_unicode_string);
     }
     for (i, expected) in string_list.iter().take(entries).enumerate() {
-      list.get(&mut spare, i)?;
+      let value = list.get(i)?;
       assert_eq!(
         *expected,
-        spare.get_bytes_ref().utf8_to_string()?,
+        value.utf8_to_string()?,
         "entry {} doesn't match",
         i
       );
@@ -67,10 +67,10 @@ fn test_append() -> Result<()> {
     // Check random access
     for _i in 0..entries {
       let e = random.random_range(0..entries);
-      list.get(&mut spare, e)?;
+      let value = list.get(e)?;
       assert_eq!(
         string_list[e],
-        spare.get_bytes_ref().utf8_to_string()?,
+        value.utf8_to_string()?,
         "entry {} doesn't match",
         e
       );
@@ -102,7 +102,7 @@ fn test_sort() -> Result<()> {
     }
 
     let entries = at_least_usize(&mut random, 200);
-    let mut spare = BytesRefBuilder::new();
+    let mut spare = BytesRefBuilder::<Vec<u8>>::new();
     let init_size = list.size();
 
     for i in 0..entries {
@@ -179,7 +179,7 @@ fn test_stable_sort() -> Result<()> {
       )));
     }
 
-    let mut spare = BytesRefBuilder::new();
+    let mut spare = BytesRefBuilder::<Vec<u8>>::new();
     let init_size = list.size();
     for i in 0..entries {
       let random_realistic_unicode_string = values[random.random_range(0..values.len())].clone();

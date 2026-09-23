@@ -275,7 +275,7 @@ where
   fn binary_value(
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
-  ) -> Result<&BytesRef<Vec<u8>>> {
+  ) -> Result<Cow<'_, [u8]>> {
     match self {
       SparseBinaryDocValuesBaseEnum::Sparse(sub) => <SparseBinaryDocValuesBaseImpl<
         I::RandomAccessSlice,
@@ -300,7 +300,7 @@ impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>> {
     match self {
       DenseBinaryDocValuesBaseEnum::Dense(sub) => sub.binary_value(doc),
       DenseBinaryDocValuesBaseEnum::Dense1(sub) => sub.binary_value(doc),

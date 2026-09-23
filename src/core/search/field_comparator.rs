@@ -16,12 +16,12 @@
  */
 use crate::core::document::lat_lon_point_distance_comparator::LatLonPointDistanceComparator;
 use crate::core::document::xy_point_distance_comparator::XYPointDistanceComparator;
-use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values::{Binary, DocValues};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::comparators::doc_comparator::DocComparator;
 use crate::core::search::comparators::double_comparator::DoubleComparator;
 use crate::core::search::comparators::float_comparator::FloatComparator;
@@ -978,6 +978,15 @@ impl TermValComparator {
       (Some(v1), Some(v2)) => v1.cmp(v2).to_int(),
     }
   }
+
+  fn compare_value_bytes(&self, val1: Option<&[u8]>, val2: Option<&[u8]>) -> i32 {
+    match (val1, val2) {
+      (None, None) => 0,
+      (None, Some(_)) => self.missing_sort_cmp,
+      (Some(_), None) => -self.missing_sort_cmp,
+      (Some(v1), Some(v2)) => v1.cmp(v2).to_int(),
+    }
+  }
 }
 
 impl FieldComparator for TermValComparator {
@@ -1037,7 +1046,7 @@ impl<B> TermValLeafComparator<B>
 where
   B: BinaryDocValues,
 {
-  fn get_value_for_doc(doc_terms: &mut B, doc: i32) -> Result<Option<&BytesRef<Vec<u8>>>> {
+  fn get_value_for_doc(doc_terms: &mut B, doc: i32) -> Result<Option<B::Value<'_>>> {
     if doc_terms.advance_exact(doc)? {
       Ok(Some(doc_terms.binary_value()?))
     } else {
@@ -1067,14 +1076,10 @@ where
   {
     let (comparator, doc_terms) = (&comparator, &mut self.doc_terms);
     let val = Self::get_value_for_doc(doc_terms, doc)?;
-    let bottom_value = match &comparator.values[comparator.bottom] {
-      Some(v) => Some(v),
-      None => None,
-    };
-    match val {
-      Some(v) => Ok(comparator.compare_values(bottom_value, Some(v))),
-      None => Ok(comparator.compare_values(bottom_value, None)),
-    }
+    let bottom_value = comparator.values[comparator.bottom]
+      .as_ref()
+      .map(BytesRefValue::as_bytes);
+    Ok(comparator.compare_value_bytes(bottom_value, val.as_ref().map(BytesRefValue::as_bytes)))
   }
 
   fn compare_top<S>(
@@ -1093,10 +1098,10 @@ where
       .as_ref()
       .map(TermTopValue::as_ref)
       .transpose()?;
-    match doc_value {
-      None => Ok(comparator.compare_values(top_value, None)),
-      Some(val) => Ok(comparator.compare_values(top_value, Some(val))),
-    }
+    Ok(comparator.compare_value_bytes(
+      top_value.map(BytesRefValue::as_bytes),
+      doc_value.as_ref().map(BytesRefValue::as_bytes),
+    ))
   }
 
   fn copy<S>(
@@ -1113,9 +1118,9 @@ where
       None => comparator.values[slot] = None,
       Some(value) => match comparator.values[slot].as_mut() {
         Some(buffer) => {
-          buffer.copy_from_slice(&value.bytes[value.offset..value.offset + value.length]);
+          buffer.copy_from_slice(value.as_bytes());
         },
-        None => comparator.values[slot] = Some(value.to_owned()),
+        None => comparator.values[slot] = Some(value.into_owned()),
       },
     }
     Ok(())

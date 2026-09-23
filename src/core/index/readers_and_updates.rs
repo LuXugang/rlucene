@@ -1183,11 +1183,17 @@ impl<DI> BinaryDocValues for BinaryDocValuesImpl<DI>
 where
   DI: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = crate::core::index::BytesRefValueEnum2<DI::Value<'a>, &'a BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     match self.merged_doc_values.current_values_supplier {
       Some(CurrentSource::OnDisk) => {
         if let Some(dv) = &mut self.merged_doc_values.on_disk_doc_values {
           dv.binary_value()
+            .map(crate::core::index::BytesRefValueEnum2::A)
         } else {
           Err(LuceneError::illegal_state(
             "no on-disk doc values available",
@@ -1195,7 +1201,9 @@ where
         }
       },
       Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-        DocIdSetIteratorEnum2::A(ref mut dv) => dv.binary_value(),
+        DocIdSetIteratorEnum2::A(ref mut dv) => dv
+          .binary_value()
+          .map(crate::core::index::BytesRefValueEnum2::B),
         DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
           "update doc values should be BinaryDocValuesDVFU",
         )),

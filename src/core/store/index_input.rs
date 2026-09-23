@@ -713,15 +713,9 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn read_bytes(
-                &mut self,
-                pos: usize,
-                buf: &mut [u8],
-                offset: usize,
-                len: usize,
-            ) -> Result<()> {
+            fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
                 match self {
-                    $( Self::$Variant(inner) => RandomAccessInput::read_bytes(inner, pos, buf, offset, len), )+
+                    $( Self::$Variant(inner) => RandomAccessInput::read_bytes(inner, pos, len), )+
                 }
             }
 

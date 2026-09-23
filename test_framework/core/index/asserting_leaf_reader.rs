@@ -1590,7 +1590,12 @@ impl<DV> BinaryDocValues for AssertingBinaryDocValues<DV>
 where
   DV: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = DV::Value<'a>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     if self.asserting {
       assert_thread("Binary doc values", self.creation_thread);
       assert!(self.exists);

@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValueEnum};
-use crate::core::util::access::WritableVec;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
@@ -65,22 +65,19 @@ impl BytesRefArray {
   }
   /// Returns the nth element of this [`BytesRefArray`].
   ///
+  /// The returned bytes borrow the pool when the value is contained in one
+  /// block. Values spanning blocks own a copy.
+  ///
   /// # Parameters
-  /// - `spare`: A mutable reference to a [`BytesRefBuilder`] instance used as
-  ///   a buffer.
   /// - `index`: The index of the element to retrieve.
   ///
   /// # Returns
-  /// The nth element of this [`BytesRefArray`] as a [`BytesRef`].
+  /// The nth element of this [`BytesRefArray`] as a [`BytesRefValueEnum`].
   ///
   /// # Errors
   /// Returns [`LuceneError::array_index_out_of_bounds`] if the index is
   /// invalid.
-  pub fn get<'a>(
-    &self,
-    spare: &'a mut BytesRefBuilder<Vec<u8>>,
-    index: usize,
-  ) -> Result<&'a BytesRef<Vec<u8>>> {
+  pub fn get(&self, index: usize) -> Result<BytesRefValueEnum<'_>> {
     if index >= self.last_element {
       return Err(LuceneError::array_index_out_of_bounds(format!(
         "index: {}, last_element: {}",
@@ -95,16 +92,30 @@ impl BytesRefArray {
       self.offsets[index + 1] - offset
     };
 
-    spare.grow_no_copy(length)?;
-    spare.set_length(length);
-
-    spare.bytes_mut().bytes.access_mut(|bytes| {
-      self.pool.read_bytes(offset as i64, bytes, 0, length)?;
-      // Help the compiler infer types.
-      Ok::<(), LuceneError>(())
-    })?;
-
-    Ok(spare.get_bytes_ref())
+    if length == 0 {
+      return Ok(BytesRefValueEnum::Slice(BytesRef {
+        bytes: &[],
+        offset: 0,
+        length: 0,
+      }));
+    }
+    let block_index = offset >> BYTE_BLOCK_SHIFT;
+    let block_offset = offset & BYTE_BLOCK_MASK as usize;
+    if length <= BYTE_BLOCK_SIZE as usize - block_offset {
+      return Ok(BytesRefValueEnum::Slice(BytesRef {
+        bytes: &self.pool.get_buffer(block_index)[block_offset..block_offset + length],
+        offset: 0,
+        length,
+      }));
+    }
+    let mut bytes = Vec::new();
+    ArrayUtil::grow_no_copy(&mut bytes, length)?;
+    self.pool.read_bytes(offset as i64, &mut bytes, 0, length)?;
+    Ok(BytesRefValueEnum::Buffer(Cow::Owned(BytesRef {
+      bytes,
+      offset: 0,
+      length,
+    })))
   }
 
   /// Used only by the sorting function below to set a [`BytesRef`] with the
@@ -213,7 +224,8 @@ impl BytesRefArray {
 ///
 /// [`BytesRefArray`]
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
-  fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<usize> {
+  fn append<AV: ByteSource>(&mut self, bytes: &BytesRef<AV>) -> Result<usize> {
+    let view = bytes.as_byte_slice();
     if self.last_element >= self.offsets.len() {
       let old_size = size_of_vec(&self.offsets);
       let min_size = self.offsets.len() + 1;
@@ -222,10 +234,10 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
         .byte_used
         .add_and_get(size_of_vec(&self.offsets) - old_size);
     }
-    self.pool.append_bytes_ref(bytes)?;
+    self.pool.append(view)?;
     self.offsets[self.last_element] = self.current_offset;
     self.last_element += 1;
-    self.current_offset += bytes.length;
+    self.current_offset += view.len();
     Ok(self.last_element - 1)
   }
 

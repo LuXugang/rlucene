@@ -1165,7 +1165,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
           );
           assert_eq!(
             &new_bytes_ref_from_string(random, &value.to_string())?,
-            binary.binary_value()?
+            &binary.binary_value()?.into_owned()
           );
         } else {
           assert!(numeric.doc_id() < doc_id);

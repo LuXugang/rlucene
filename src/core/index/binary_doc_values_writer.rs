@@ -29,7 +29,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
-use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue, BytesRefValueEnum};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -307,9 +307,16 @@ impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingBinaryDocV
 }
 
 impl<V: Borrow<PackedLongValues>> BinaryDocValues for BufferedSortingBinaryDocValues<V> {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = BytesRefValueEnum<'a>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Buffered(inner) => inner.binary_value(),
+      Self::Buffered(inner) => inner
+        .binary_value()
+        .map(|value| BytesRefValueEnum::Buffer(std::borrow::Cow::Borrowed(value))),
       Self::Sorting(inner) => inner.binary_value(),
     }
   }
@@ -433,24 +440,24 @@ where
   D: DocIdSetIterator,
   DI: DataInput,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     Ok(self.value.get_bytes_ref())
   }
 }
 
 pub struct SortingBinaryDocValues {
   dvs: Arc<BinaryDVs>,
-  spare: BytesRefBuilder<Vec<u8>>,
   doc_id: i32,
 }
 
 impl SortingBinaryDocValues {
   pub(crate) fn new(dvs: Arc<BinaryDVs>) -> Self {
-    Self {
-      dvs,
-      spare: BytesRefBuilder::new(),
-      doc_id: -1,
-    }
+    Self { dvs, doc_id: -1 }
   }
 }
 
@@ -496,10 +503,11 @@ impl DocValuesIterator for SortingBinaryDocValues {
 }
 
 impl BinaryDocValues for SortingBinaryDocValues {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a> = crate::core::index::BytesRefValueEnum<'a>;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     let idx = self.dvs.offsets[self.doc_id as usize] - 1;
-    let v = self.dvs.values.get(&mut self.spare, idx)?;
-    Ok(v)
+    self.dvs.values.get(idx)
   }
 }
 
@@ -526,7 +534,7 @@ impl BinaryDVs {
       }
       let new_doc = sort_map.old_to_new(doc_id)?.try_convert()?;
       let val = old_values.binary_value()?;
-      values.append(val)?;
+      values.append(&val.as_bytes_ref())?;
       offsets[new_doc] = offset;
       offset += 1;
     }

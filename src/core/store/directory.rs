@@ -1569,8 +1569,8 @@ impl RandomAccessInput for DirRandomAccessInput {
     self.0.read_byte(pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    self.0.read_bytes(pos, buf, offset, len)
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    self.0.read_bytes(pos, len)
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {

@@ -48,7 +48,7 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
-use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum, IndexFileNames};
+use crate::core::index::{BytesRef, BytesRefCow, BytesRefValue, BytesRefValueEnum, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::Directory;
@@ -860,11 +860,9 @@ where
     if entry.docs_with_field_offset == -1 {
       let dense = if entry.min_length == entry.max_length {
         // fixed length
-        let vec = vec![0u8; max_length];
         let base = DenseBinaryDocValuesBaseImpl {
           bytes_slice,
           length: max_length,
-          bytes: BytesRef::from_slice(vec, 0, max_length),
         };
         DenseBinaryDocValuesBaseEnum::Dense(base)
       } else {
@@ -881,10 +879,8 @@ where
           return Err(LuceneError::illegal_state("addresses_meta is None"))?;
         };
         let addresses = DirectMonotonicReader::get_instance(meta, addresses_data)?;
-        let vec = vec![0u8; max_length];
         let base = DenseBinaryDocValuesBaseImpl1 {
           bytes_slice,
-          bytes: BytesRef::from_slice(vec, 0, max_length),
           addresses,
         };
         DenseBinaryDocValuesBaseEnum::Dense1(base)
@@ -906,7 +902,6 @@ where
         // fixed-length
         SparseBinaryDocValuesBaseEnum::Sparse(SparseBinaryDocValuesBaseImpl {
           bytes_slice,
-          bytes: BytesRef::from_slice(vec![0u8; max_length], 0, max_length),
           length: max_length,
         })
       } else {
@@ -924,7 +919,6 @@ where
         let addresses = DirectMonotonicReader::get_instance(meta, addresses_data)?;
         SparseBinaryDocValuesBaseEnum::Sparse1(SparseBinaryDocValuesBaseImpl1 {
           bytes_slice,
-          bytes: BytesRef::from_slice(vec![0u8; max_length], 0, max_length),
           addresses,
         })
       };
@@ -1368,8 +1362,13 @@ impl<R> BinaryDocValues for DenseBinaryDocValues<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-    self.sub.binary_value(self.doc)
+  type Value<'a>
+    = BytesRefCow<'a>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+    self.sub.binary_value(self.doc).map(BytesRefCow)
   }
 }
 
@@ -1438,11 +1437,16 @@ impl<I> BinaryDocValues for SparseBinaryDocValues<I>
 where
   I: IndexInput,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = BytesRefCow<'a>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     <SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(
       &mut self.sub,
       &mut self.disi,
-    )
+    ).map(BytesRefCow)
   }
 }
 
@@ -1922,47 +1926,35 @@ where
 }
 
 pub trait DenseBinaryDocValuesBase {
-  fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>>;
+  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>>;
 }
 
 pub struct DenseBinaryDocValuesBaseImpl<R> {
   bytes_slice: R,
   length: usize,
-  bytes: BytesRef<Vec<u8>>,
 }
 impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
-    self.bytes_slice.read_bytes(
-      doc as usize * self.length,
-      &mut self.bytes.bytes,
-      0,
-      self.length,
-    )?;
-    Ok(&self.bytes)
+  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>> {
+    self
+      .bytes_slice
+      .read_bytes(doc as usize * self.length, self.length)
   }
 }
 pub struct DenseBinaryDocValuesBaseImpl1<R> {
   bytes_slice: R,
-  bytes: BytesRef<Vec<u8>>,
   addresses: DirectMonotonicReader<R>,
 }
 impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>> {
     let start_offset = self.addresses.get_mut(doc as usize)?;
-    self.bytes.length = (self.addresses.get_mut((doc + 1) as usize)? - start_offset) as usize;
-    self.bytes_slice.read_bytes(
-      start_offset as usize,
-      &mut self.bytes.bytes,
-      0,
-      self.bytes.length,
-    )?;
-    Ok(&self.bytes)
+    let length = (self.addresses.get_mut((doc + 1) as usize)? - start_offset) as usize;
+    self.bytes_slice.read_bytes(start_offset as usize, length)
   }
 }
 
@@ -1973,11 +1965,10 @@ where
   fn binary_value(
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
-  ) -> Result<&BytesRef<Vec<u8>>>;
+  ) -> Result<Cow<'_, [u8]>>;
 }
 pub struct SparseBinaryDocValuesBaseImpl<R> {
   bytes_slice: R,
-  bytes: BytesRef<Vec<u8>>,
   length: usize,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I::RandomAccessSlice>
@@ -1987,18 +1978,14 @@ where
   fn binary_value(
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
-  ) -> Result<&BytesRef<Vec<u8>>> {
+  ) -> Result<Cow<'_, [u8]>> {
     let length = self.length;
     let pos = disi.index_u() * length;
-    self
-      .bytes_slice
-      .read_bytes(pos, &mut self.bytes.bytes, 0, length)?;
-    Ok(&self.bytes)
+    self.bytes_slice.read_bytes(pos, length)
   }
 }
 pub struct SparseBinaryDocValuesBaseImpl1<R> {
   bytes_slice: R,
-  bytes: BytesRef<Vec<u8>>,
   addresses: DirectMonotonicReader<R>,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I::RandomAccessSlice>
@@ -2008,17 +1995,11 @@ where
   fn binary_value(
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
-  ) -> Result<&BytesRef<Vec<u8>>> {
+  ) -> Result<Cow<'_, [u8]>> {
     let index = disi.index() as usize;
     let start_offset = self.addresses.get_mut(index)?;
-    self.bytes.length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
-    self.bytes_slice.read_bytes(
-      start_offset as usize,
-      &mut self.bytes.bytes,
-      0,
-      self.bytes.length,
-    )?;
-    Ok(&self.bytes)
+    let length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
+    self.bytes_slice.read_bytes(start_offset as usize, length)
   }
 }
 
@@ -2954,7 +2935,7 @@ where
     self.term.length = len;
 
     self.term.bytes.access_mut(|bytes| {
-      self.index_bytes.read_bytes(start, bytes, 0, len)?;
+      bytes[..len].copy_from_slice(&self.index_bytes.read_bytes(start, len)?);
       // Help the compiler infer types.
       Ok::<(), LuceneError>(())
     })?;
@@ -3836,11 +3817,22 @@ impl<I> BinaryDocValues for Lucene90BinaryDocValuesEnum<I>
 where
   I: IndexInput,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = crate::core::index::BytesRefValueEnum2<BytesRefCow<'a>, &'a BytesRef<Vec<u8>>>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Dense(values) => values.binary_value(),
-      Self::Sparse(values) => values.binary_value(),
-      Self::Empty(values) => values.binary_value(),
+      Self::Dense(values) => values
+        .binary_value()
+        .map(crate::core::index::BytesRefValueEnum2::A),
+      Self::Sparse(values) => values
+        .binary_value()
+        .map(crate::core::index::BytesRefValueEnum2::A),
+      Self::Empty(values) => values
+        .binary_value()
+        .map(crate::core::index::BytesRefValueEnum2::B),
     }
   }
 }

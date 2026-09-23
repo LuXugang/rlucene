@@ -417,7 +417,7 @@ fn test_sort_on_add_indices_random() -> Result<()> {
     assert!(binary_sorted_dv.advance_exact(id_next)?);
     assert_eq!(id_next, values_iterator.advance(id_next)?);
     let expected = BytesRef::from_string(&ids.long_value()?.to_string());
-    assert_eq!(&expected, binary_dv.binary_value()?);
+    assert_eq!(&expected, &binary_dv.binary_value()?.into_owned());
     let ord = binary_sorted_dv.ord_value()?;
     assert_eq!(
       expected.as_bytes(),

@@ -168,8 +168,8 @@ fn test_binary() -> Result<()> {
     assert_eq!(i, multi.next_doc()?);
     assert_eq!(i, single.next_doc()?);
 
-    let expected = single.binary_value()?.clone();
-    let actual = multi.binary_value()?.clone();
+    let expected = single.binary_value()?.into_owned();
+    let actual = multi.binary_value()?.into_owned();
 
     assert_eq!(expected, actual);
   }

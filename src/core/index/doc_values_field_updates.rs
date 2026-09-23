@@ -814,7 +814,12 @@ impl<T> BinaryDocValues for BinaryDocValuesDVFU<T>
 where
   T: DocValuesFieldIterator,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     self.iterator.binary_value()
   }
 }

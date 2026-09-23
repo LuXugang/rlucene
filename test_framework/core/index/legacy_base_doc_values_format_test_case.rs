@@ -356,14 +356,14 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, long_term)?,
-        dv.binary_value()?
+        &dv.binary_value()?.into_owned()
       );
 
       let mut dv = leaf.reader().get_binary_doc_values("dv2")?.unwrap();
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, &text)?,
-        dv.binary_value()?
+        &dv.binary_value()?.into_owned()
       );
     }
     isearcher.get_index_reader().close()?;
@@ -427,7 +427,10 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let leaf = &isearcher.get_leaf_contexts()?[0];
       let mut dv = leaf.reader().get_binary_doc_values("dv1")?.unwrap();
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
-      assert_eq!(written_values.get(&{ i }).unwrap(), dv.binary_value()?);
+      assert_eq!(
+        written_values.get(&{ i }).unwrap(),
+        &dv.binary_value()?.into_owned()
+      );
     }
     Ok(())
   }
@@ -492,7 +495,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv2.advance(doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv2.binary_value()?
+        &dv2.binary_value()?.into_owned()
       );
     }
     Ok(())
@@ -569,7 +572,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv3.advance(doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv3.binary_value()?
+        &dv3.binary_value()?.into_owned()
       );
     }
     Ok(())
@@ -646,7 +649,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(doc_id, dv3.advance(doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv3.binary_value()?
+        &dv3.binary_value()?.into_owned()
       );
     }
     Ok(())
@@ -868,7 +871,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(hit_doc_id, dv.advance(hit_doc_id)?);
       assert_eq!(
         &new_bytes_ref_from_string(random, "hello world")?,
-        dv.binary_value()?
+        &dv.binary_value()?.into_owned()
       );
     }
     Ok(())
@@ -1309,7 +1312,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_doc()?);
     assert_eq!(
       &new_bytes_ref_from_string(random, "hello\nworld\r1")?,
-      dv.binary_value()?
+      &dv.binary_value()?.into_owned()
     );
     Ok(())
   }
@@ -1578,7 +1581,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let leaves = top_reader_context.leaves()?;
     let mut dv = leaves[0].reader().get_binary_doc_values("dv")?.unwrap();
     assert_eq!(0, dv.next_doc()?);
-    assert_eq!(&b, dv.binary_value()?);
+    assert_eq!(&b, &dv.binary_value()?.into_owned());
     Ok(())
   }
 
@@ -2343,7 +2346,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
           assert_eq!(i, doc_values.doc_id());
           assert_eq!(
             binary_value.as_bytes_ref().as_byte_slice(),
-            doc_values.binary_value()?.as_byte_slice()
+            doc_values.binary_value()?.as_bytes()
           );
           doc_values.next_doc()?;
         } else {
@@ -2372,7 +2375,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
           assert_eq!(i, doc_values.doc_id());
           assert_eq!(
             binary_value.as_bytes_ref().as_byte_slice(),
-            doc_values.binary_value()?.as_byte_slice()
+            doc_values.binary_value()?.as_bytes()
           );
           doc_values.next_doc()?;
         } else {
@@ -4220,7 +4223,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
                 assert_eq!(j, binaries.next_doc()?);
                 assert_eq!(
                   binary_value.as_bytes_ref().as_byte_slice(),
-                  binaries.binary_value()?.as_byte_slice()
+                  binaries.binary_value()?.as_bytes()
                 );
                 let sorted = sorted.as_mut().expect("dvSorted should exist");
                 assert_eq!(j, sorted.next_doc()?);
@@ -4401,7 +4404,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       for j in 0..5 {
         assert_eq!(j, values.next_doc()?);
         let result = values.binary_value()?;
-        assert!(result.length == 0 || result.length == (1usize << i));
+        let length = result.as_bytes().len();
+        assert!(length == 0 || length == (1usize << i));
       }
       reader.close()?;
       directory.close()?;

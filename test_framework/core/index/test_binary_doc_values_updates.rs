@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::index::BytesRefValue;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::test_framework::core::util::lucene_test_case::new_bytes_ref_with_length;
 
@@ -25,15 +26,16 @@ where
   T: BinaryDocValues,
 {
   let term = bdv.binary_value()?;
-  let mut idx = term.offset;
-  assert!(term.length > 0);
-  let mut b = term.bytes[idx];
+  let bytes = term.as_bytes();
+  let mut idx = 0;
+  assert!(!bytes.is_empty());
+  let mut b = bytes[idx];
   idx += 1;
 
   let mut value = (b & 0x7F) as i64;
   let mut shift = 7;
   while (b as i64 & 0x80) != 0 {
-    b = term.bytes[idx];
+    b = bytes[idx];
     idx += 1;
     value |= ((b & 0x7F) as i64) << shift;
     shift += 7;

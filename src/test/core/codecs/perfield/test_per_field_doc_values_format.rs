@@ -156,7 +156,7 @@ fn test_two_fields_two_formats() -> Result<()> {
     assert_eq!(hit_doc_id, dv2.advance(hit_doc_id)?);
     assert_eq!(
       &new_bytes_ref_from_string(&mut random, "hello world")?,
-      dv2.binary_value()?
+      &crate::core::index::BytesRefValue::into_owned(dv2.binary_value()?)
     );
   }
 

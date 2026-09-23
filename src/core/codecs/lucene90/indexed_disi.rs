@@ -921,8 +921,10 @@ where
     self.lock().read_byte(pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    self.lock().read_bytes(pos, buf, offset, len)
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    Ok(std::borrow::Cow::Owned(
+      self.lock().read_bytes(pos, len)?.into_owned(),
+    ))
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {

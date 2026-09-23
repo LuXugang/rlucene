@@ -16,7 +16,6 @@
  */
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
-use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum2};
 use crate::core::index::doc_values::SortedDocValuesWithEmpty;
 use crate::core::index::doc_values::{DocValues, EmptyNumeric};
@@ -1324,7 +1323,12 @@ impl<IRC> BinaryDocValues for BinaryDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = <LRBinaryDocValues<IRC::LeafReader> as BinaryDocValues>::Value<'a>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     match self.current_values {
       Some(ref mut values) => values.binary_value(),
       None => Err(LuceneError::illegal_state("current_values is none")),

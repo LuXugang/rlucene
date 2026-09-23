@@ -4052,7 +4052,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         )));
       }
       let value_2 = binary_doc_values_2.binary_value()?;
-      if *value != *value_2 {
+      if value.as_bytes() != value_2.as_bytes() {
         return Err(LuceneError::corrupt_index(format!(
           "nextDoc and advanceExact report different values: {value} != {value_2}"
         )));

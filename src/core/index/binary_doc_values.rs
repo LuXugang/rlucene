@@ -14,19 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::{BytesRefValue, BytesRefValueEnum2};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait BinaryDocValues: DocValuesIterator {
+  type Value<'a>: BytesRefValue<'a>
+  where
+    Self: 'a;
   /// Returns the binary value for the current document ID.
   /// It is illegal to call this method after
   /// [`DocValuesIterator::advance_exact`] returned `false`.
   ///
   /// # Returns
   /// The binary value for the current document ID.
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     Err(LuceneError::not_implemented("this method need implement"))
   }
 }
@@ -93,10 +96,12 @@ macro_rules! either_binary_docvalues {
         where
             $( $T: BinaryDocValues ),+
         {
+            type Value<'a> = BytesRefValueEnum2<$( <$T as BinaryDocValues>::Value<'a> ),+>
+            where Self: 'a;
 
-            fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+            fn binary_value(&mut self) -> Result<Self::Value<'_>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.binary_value(), )+
+                    $( Self::$Variant(inner) => inner.binary_value().map(BytesRefValueEnum2::$Variant), )+
                 }
             }
         }

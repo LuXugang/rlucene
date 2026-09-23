@@ -1665,7 +1665,7 @@ pub trait BaseDirectoryTestCase {
     slice: &mut T,
     bytes: &[u8],
     bytes_offset: usize,
-    random: &mut R,
+    _random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1673,27 +1673,15 @@ pub trait BaseDirectoryTestCase {
   {
     let to_read = bytes.len() - bytes_offset;
 
-    let mut sub1 = Vec::new();
-    let mut sub2 = Vec::new();
     for i in 0..to_read {
       assert_eq!(bytes[bytes_offset + i], slice.read_byte(i)?);
-
-      let offset = random.random_range(0..1000);
-
-      sub1.clear();
-      sub1.resize(offset + i, 0u8);
-      slice.read_bytes(0, &mut sub1, offset, i)?;
       assert_eq!(
         &bytes[bytes_offset..bytes_offset + i],
-        &sub1[offset..offset + i]
+        slice.read_bytes(0, i)?.as_ref()
       );
-
-      sub2.clear();
-      sub2.resize(offset + to_read - i, 0u8);
-      slice.read_bytes(i, &mut sub2, offset, to_read - i)?;
       assert_eq!(
         &bytes[bytes_offset + i..],
-        &sub2[offset..offset + to_read - i]
+        slice.read_bytes(i, to_read - i)?.as_ref()
       );
     }
 

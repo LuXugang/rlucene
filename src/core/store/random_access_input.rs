@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::core::store::IndexInput;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::fmt::Display;
 
 /// Random Access Index API. Unlike [`IndexInput`],
@@ -26,13 +27,23 @@ pub trait RandomAccessInput {
   fn length(&self) -> Result<usize>;
   /// Reads a byte at the given position in the file
   fn read_byte(&mut self, pos: usize) -> Result<u8>;
-  /// Reads a specified number of bytes starting at a given position into an
-  /// array at the specified offset.
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    for i in 0..len {
-      buf[offset + i] = self.read_byte(pos + i)?;
+  /// Returns bytes borrowed from the input or owned by the result.
+  /// Implementations may assemble non-contiguous bytes in an internal buffer;
+  /// a borrowed result is valid until the next mutable access.
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<Cow<'_, [u8]>> {
+    let end = pos
+      .checked_add(len)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF at {pos} length {len}")))?;
+    if end > self.length()? {
+      return Err(LuceneError::eof(format!(
+        "read past EOF at {pos} length {len}"
+      )));
     }
-    Ok(())
+    let mut bytes = vec![0; len];
+    for (i, byte) in bytes.iter_mut().enumerate() {
+      *byte = self.read_byte(pos + i)?;
+    }
+    Ok(Cow::Owned(bytes))
   }
   /// Reads an `i16` (little-endian byte order) at the given file position.
   fn read_short(&mut self, pos: usize) -> Result<i16>;
@@ -74,9 +85,11 @@ where
     self.slice.read_byte()
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<Cow<'_, [u8]>> {
     self.slice.seek(pos)?;
-    self.slice.read_bytes(buf, offset, len)
+    let mut bytes = vec![0; len];
+    self.slice.read_bytes(&mut bytes, 0, len)?;
+    Ok(Cow::Owned(bytes))
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {
@@ -136,15 +149,9 @@ macro_rules! either_random_access_input {
                 }
             }
 
-            fn read_bytes(
-                &mut self,
-                pos: usize,
-                buf: &mut [u8],
-                offset: usize,
-                len: usize,
-            ) -> Result<()> {
+            fn read_bytes(&mut self, pos: usize, len: usize) -> Result<Cow<'_, [u8]>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.read_bytes(pos, buf, offset, len), )+
+                    $( Self::$Variant(inner) => inner.read_bytes(pos, len), )+
                 }
             }
 
@@ -191,8 +198,8 @@ impl<T: ?Sized + RandomAccessInput> RandomAccessInput for Box<T> {
     (**self).read_byte(pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    (**self).read_bytes(pos, buf, offset, len)
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<Cow<'_, [u8]>> {
+    (**self).read_bytes(pos, len)
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {

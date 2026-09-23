@@ -678,13 +678,6 @@ impl MemorySegmentIndexInput {
     Ok(())
   }
 
-  fn read_bytes_at(&self, pos: usize, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    CoreHelper::check_from_index_size(offset, len, b.len())?;
-    self.read_buffer(pos, len, |bytes| {
-      b[offset..offset + len].copy_from_slice(bytes);
-    })
-  }
-
   #[cfg(unix)]
   fn advise<F>(&self, offset: usize, length: usize, mut advice: F) -> Result<()>
   where
@@ -819,8 +812,14 @@ impl DataInput for MemorySegmentIndexInput {
       b[offset] = DataInput::read_byte(self)?;
       return Ok(());
     }
-    if let Some(bytes) = self.current_segment_slice(len)? {
-      b[offset..offset + len].copy_from_slice(bytes);
+    self.ensure_current_read(len)?;
+    if len == 0 {
+      return Ok(());
+    }
+    if let Some(segment) = self.cur_segment.as_deref()
+      && segment.len().saturating_sub(self.cur_position) >= len
+    {
+      b[offset..offset + len].copy_from_slice(&segment[self.cur_position..self.cur_position + len]);
       self.cur_position += len;
       self.position += len;
       return Ok(());
@@ -1210,9 +1209,14 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     self.read_byte_at(pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     self.ensure_open()?;
-    self.read_bytes_at(pos, buf, offset, len)
+    if let Some(bytes) = self.segment_slice_at(pos, len)? {
+      return Ok(std::borrow::Cow::Borrowed(bytes));
+    }
+    let mut bytes = vec![0; len];
+    self.read_bytes_boundary(pos, &mut bytes, 0, len)?;
+    Ok(std::borrow::Cow::Owned(bytes))
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {
@@ -1255,12 +1259,14 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
     self.read_buffer(pos, BitUtil::BYTE_BYTES, |bytes| bytes[0])
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     self.ensure_open()?;
-    CoreHelper::check_from_index_size(offset, len, buf.len())?;
-    self.read_buffer(pos, len, |bytes| {
-      buf[offset..offset + len].copy_from_slice(bytes);
-    })
+    if let Some(bytes) = self.segment_slice_at(pos, len)? {
+      return Ok(std::borrow::Cow::Borrowed(bytes));
+    }
+    let mut bytes = vec![0; len];
+    self.read_bytes_boundary(pos, &mut bytes, 0, len);
+    Ok(std::borrow::Cow::Owned(bytes))
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {

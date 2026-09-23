@@ -1758,10 +1758,19 @@ impl<B> BinaryDocValues for SortingCodecReaderBinaryDocValues<B>
 where
   B: BinaryDocValues,
 {
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  type Value<'a>
+    = crate::core::index::BytesRefValueEnum2<B::Value<'a>, BytesRefValueEnum<'a>>
+  where
+    Self: 'a;
+
+  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     match self {
-      Self::Original(values) => values.binary_value(),
-      Self::Sorting(values) => values.binary_value(),
+      Self::Original(values) => values
+        .binary_value()
+        .map(crate::core::index::BytesRefValueEnum2::A),
+      Self::Sorting(values) => values
+        .binary_value()
+        .map(crate::core::index::BytesRefValueEnum2::B),
     }
   }
 }

@@ -192,8 +192,8 @@ fn test_variable_binary() -> Result<()> {
     for i in 0..leaf.max_doc()? {
       assert_eq!(i, values.next_doc()?);
       let term = values.binary_value()?;
-      let mut input =
-        ByteArrayDataInput::with_range(term.bytes.as_slice(), term.offset, term.length);
+      let bytes = term.as_bytes();
+      let mut input = ByteArrayDataInput::with_range(bytes, 0, bytes.len());
       assert_eq!(expected_value % 65535, input.read_vint()?);
       assert!(input.eof());
       expected_value += 1;

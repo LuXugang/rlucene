@@ -983,7 +983,7 @@ fn test_sorted_index() -> Result<()> {
           }
 
           assert!(!sort_doc.deleted);
-          assert_eq!(&sort_doc.value, values.binary_value()?);
+          assert_eq!(&sort_doc.value, &values.binary_value()?.into_owned());
 
           let sort_value = sort_values.long_value()?;
           assert_eq!(sort_doc.sort_value, sort_value);

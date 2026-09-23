@@ -40,6 +40,7 @@ pub struct BufferedIndexInput<T> {
   pos: usize,
   /// valid data length in the buffer
   length: usize,
+  random_scratch: Vec<u8>,
 }
 
 impl<T> BufferedIndexInput<T> {
@@ -58,6 +59,7 @@ impl<T> BufferedIndexInput<T> {
       buffer_start: 0,
       pos: 0,
       length: 0,
+      random_scratch: Vec::new(),
     })
   }
   pub fn with_resource_desc(
@@ -675,6 +677,7 @@ where
       buffer_start: file_pointer,
       pos: file_pointer,
       length: 0,
+      random_scratch: Vec::new(),
     })
   }
 }
@@ -738,13 +741,27 @@ where
     Ok(bytes[0])
   }
 
-  fn read_bytes(&mut self, pos: usize, buf: &mut [u8], offset: usize, len: usize) -> Result<()> {
+  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     if len == 0 {
-      return Ok(());
+      return Ok(std::borrow::Cow::Borrowed(&[]));
     }
     self.resolve_position_in_buffer(pos, len)?;
-    self.read_bytes(pos, len, &mut buf[offset..(offset + len)], true)?;
-    Ok(())
+    if let Some(offset) = pos.checked_sub(self.buffer_start)
+      && self
+        .length
+        .checked_sub(len)
+        .is_some_and(|max| offset <= max)
+    {
+      return Ok(std::borrow::Cow::Borrowed(
+        &self.buffer.get_ref()[offset..offset + len],
+      ));
+    }
+    let mut scratch = std::mem::take(&mut self.random_scratch);
+    scratch.resize(len, 0);
+    let result = self.read_bytes(pos, len, &mut scratch, true);
+    self.random_scratch = scratch;
+    result?;
+    Ok(std::borrow::Cow::Borrowed(&self.random_scratch[..len]))
   }
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {
