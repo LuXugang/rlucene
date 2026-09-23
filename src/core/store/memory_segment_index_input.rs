@@ -815,6 +815,10 @@ impl DataInput for MemorySegmentIndexInput {
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.ensure_open()?;
     CoreHelper::check_from_index_size(offset, len, b.len())?;
+    if len == BitUtil::BYTE_BYTES {
+      b[offset] = DataInput::read_byte(self)?;
+      return Ok(());
+    }
     if let Some(bytes) = self.current_segment_slice(len)? {
       b[offset..offset + len].copy_from_slice(bytes);
       self.cur_position += len;
