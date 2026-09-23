@@ -66,6 +66,27 @@ impl LZ4 {
     )
   }
 
+  /// Copies the non-incremental match using the rounded-up `fast_len`.
+  #[inline]
+  fn copy_fast_match(dest: &mut [u8], d_off: i32, match_dec: i32, fast_len: i32) {
+    let start = (d_off - match_dec) as usize;
+    let end = d_off as usize;
+    let fast_len = fast_len as usize;
+
+    // match_dec >= match_len does not rule out overlap after rounding to fast_len.
+    // Use the fixed-size copy only for disjoint, valid 16-byte ranges.
+    if fast_len == 16
+      && match_dec >= 16
+      && d_off >= match_dec
+      && end <= dest.len().saturating_sub(16)
+    {
+      let (before, after) = dest.split_at_mut(end);
+      after[..16].copy_from_slice(&before[start..start + 16]);
+    } else {
+      dest.copy_within(start..start + fast_len, end);
+    }
+  }
+
   /// Decompress at least `decompressed_len` bytes into `dest[d_off..]`.
   /// Please note that `dest` must be large enough to hold **all**
   /// decompressed data (meaning that you need to know the total
@@ -137,10 +158,7 @@ impl LZ4 {
           d_off += 1;
         }
       } else {
-        let start = (d_off - match_dec) as usize;
-        let end = d_off as usize;
-        let fast_len = fast_len as usize;
-        dest.copy_within(start..start + fast_len, end);
+        Self::copy_fast_match(dest, d_off, match_dec, fast_len);
         d_off += match_len;
       }
 
