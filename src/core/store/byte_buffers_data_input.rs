@@ -359,7 +359,12 @@ where
     Ok(value)
   }
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    self.do_read_bytes(self.pos, len, &mut b[offset..(offset + len)])?;
+    let output = &mut b[offset..(offset + len)];
+    if len == 1 {
+      output[0] = DataInput::read_byte(self)?;
+      return Ok(());
+    }
+    self.do_read_bytes(self.pos, len, output)?;
     self.pos += len;
     Ok(())
   }
