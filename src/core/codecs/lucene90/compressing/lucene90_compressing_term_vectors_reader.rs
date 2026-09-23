@@ -360,24 +360,21 @@ where
     let doc_base = bs.doc_base.unwrap_or(-1);
     doc_base <= doc_id && doc_id < doc_base + bs.chunk_docs
   }
-  fn position_index<T>(
+  fn position_index(
     skip: usize,
     num_fields: usize,
-    num_terms: &mut T,
+    num_terms: &[usize],
     term_freqs: &[usize],
-  ) -> Result<Vec<Vec<usize>>>
-  where
-    T: LongValues,
-  {
+  ) -> Vec<Vec<usize>> {
     let mut position_index = vec![Vec::new(); num_fields];
     let mut term_index = 0;
+    #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
     for i in 0..skip {
-      let term_count = num_terms.get_mut(i)?;
+      let term_count = num_terms[i];
       term_index += term_count;
     }
-    let mut term_index = term_index as usize;
     for (i, slot) in position_index.iter_mut().enumerate().take(num_fields) {
-      let term_count = num_terms.get_mut(skip + i)? as usize;
+      let term_count = num_terms[skip + i];
       let mut arr = Vec::with_capacity(term_count + 1);
       arr.push(0);
       for j in 0..term_count {
@@ -387,25 +384,21 @@ where
       term_index += term_count;
       *slot = arr;
     }
-    Ok(position_index)
+    position_index
   }
 
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn read_positions<T, T2>(
+  pub(crate) fn read_positions(
     &mut self,
     skip: usize,
     num_fields: usize,
-    flags: &mut T,
-    num_terms: &mut T2,
+    flags: &[i32],
+    num_terms: &[usize],
     term_freqs: &[usize],
     flag: i32,
     total_positions: usize,
     position_index: &[Vec<usize>],
-  ) -> Result<Vec<Vec<i32>>>
-  where
-    T: LongValues,
-    T2: LongValues,
-  {
+  ) -> Result<Vec<Vec<i32>>> {
     let mut positions = vec![Vec::new(); num_fields];
     // reset reader
     self.reader.reset(total_positions);
@@ -414,8 +407,8 @@ where
     let mut to_skip = 0;
     let mut term_index = 0;
     for i in 0..skip {
-      let f = flags.get_mut(i)? as i32;
-      let term_count = num_terms.get_mut(i)? as usize;
+      let f = flags[i];
+      let term_count = num_terms[i];
       if (f & flag) != 0 {
         for j in 0..term_count {
           to_skip += term_freqs[term_index + j];
@@ -426,8 +419,8 @@ where
     self.reader.skip(to_skip, &mut self.vectors_stream)?;
     // read doc positions
     for i in 0..num_fields {
-      let f = flags.get_mut(skip + i)? as i32;
-      let term_count = num_terms.get_mut(skip + i)? as usize;
+      let f = flags[skip + i];
+      let term_count = num_terms[skip + i];
 
       if (f & flag) != 0 {
         let total_freq = position_index[i][term_count];
@@ -597,13 +590,16 @@ where
     };
 
     // number of terms per field for all fields
-    let (mut num_terms, total_terms) = {
+    let (num_terms, total_terms) = {
       let bits_required = self.vectors_stream.read_vint()?;
-      let mut num_terms =
+      let mut packed_num_terms =
         DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, bits_required)?;
       let mut sum = 0;
+      let mut num_terms = Vec::with_capacity(total_fields);
       for i in 0..total_fields {
-        sum += num_terms.get_mut(i)?;
+        let count = packed_num_terms.get_mut(i)?;
+        sum += count;
+        num_terms.push(count as usize);
       }
       (num_terms, sum as usize)
     };
@@ -621,14 +617,15 @@ where
 
       // skip
       let mut to_skip = 0;
+      #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
       for i in 0..skip {
-        to_skip += num_terms.get_mut(i)? as usize;
+        to_skip += num_terms[i];
       }
       self.reader.skip(to_skip, &mut self.vectors_stream)?;
 
       // read prefix lengths
       for (i, slot) in prefix_lengths.iter_mut().enumerate().take(num_fields) {
-        let term_count = num_terms.get_mut(skip + i)? as usize;
+        let term_count = num_terms[skip + i];
         let mut field_prefix_lengths = vec![0; term_count];
         let mut j = 0;
 
@@ -652,15 +649,16 @@ where
 
       self.reader.reset(total_terms);
 
+      #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
       for i in 0..skip {
-        let term_count = num_terms.get_mut(i)? as usize;
+        let term_count = num_terms[i];
         for _ in 0..term_count {
           doc_off += self.reader.next_value(&mut self.vectors_stream)? as usize;
         }
       }
 
       for i in 0..num_fields {
-        let term_count = num_terms.get_mut(skip + i)? as usize;
+        let term_count = num_terms[skip + i];
         let mut field_suffix_lengths = vec![0; term_count];
         let mut j = 0;
         while j < term_count {
@@ -678,8 +676,9 @@ where
       }
 
       total_len = doc_off + doc_len;
+      #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
       for i in (skip + num_fields)..total_fields {
-        let term_count = num_terms.get_mut(i)? as usize;
+        let term_count = num_terms[i];
         for _ in 0..term_count {
           total_len += self.reader.next_value(&mut self.vectors_stream)? as usize;
         }
@@ -709,9 +708,12 @@ where
     let mut total_offsets = 0;
     let mut total_payloads = 0;
     let mut term_index = 0;
+    let mut all_flags = Vec::with_capacity(total_fields);
+    #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
     for i in 0..total_fields {
       let f = flags.get_mut(i)? as i32;
-      let term_count = num_terms.get_mut(i)? as usize;
+      all_flags.push(f);
+      let term_count = num_terms[i];
       for _ in 0..term_count {
         let freq = term_freqs[term_index];
         term_index += 1;
@@ -729,15 +731,15 @@ where
     }
 
     // position index
-    let position_index = Self::position_index(skip, num_fields, &mut num_terms, &term_freqs)?;
+    let position_index = Self::position_index(skip, num_fields, &num_terms, &term_freqs);
 
     // positions
     let mut positions = if total_positions > 0 {
       self.read_positions(
         skip,
         num_fields,
-        &mut flags,
-        &mut num_terms,
+        &all_flags,
+        &num_terms,
         &term_freqs,
         POSITIONS,
         total_positions,
@@ -756,8 +758,8 @@ where
       let mut start_offsets = self.read_positions(
         skip,
         num_fields,
-        &mut flags,
-        &mut num_terms,
+        &all_flags,
+        &num_terms,
         &term_freqs,
         OFFSETS,
         total_offsets,
@@ -767,8 +769,8 @@ where
       let mut lengths = self.read_positions(
         skip,
         num_fields,
-        &mut flags,
-        &mut num_terms,
+        &all_flags,
+        &num_terms,
         &term_freqs,
         OFFSETS,
         total_offsets,
@@ -792,7 +794,7 @@ where
           let f_prefix_lengths = &prefix_lengths[i];
           let f_suffix_lengths = &suffix_lengths[i];
           let f_lengths = &mut lengths[i];
-          let term_count = num_terms.get_mut(skip + i)? as usize;
+          let term_count = num_terms[skip + i];
           for j in 0..term_count {
             // delta-decode start offsets and  patch lengths using term lengths
             let term_length = (f_prefix_lengths[j] + f_suffix_lengths[j]) as i32;
@@ -818,7 +820,7 @@ where
         let f_positions = &mut positions[i];
         let f_position_index = &position_index[i];
         if !f_positions.is_empty() {
-          let term_count = num_terms.get_mut(skip + i)? as usize;
+          let term_count = num_terms[skip + i];
           for j in 0..term_count {
             // delta-decode start offsets
             for k in (f_position_index[j] + 1)..f_position_index[j + 1] {
@@ -838,8 +840,8 @@ where
       // skip
       let mut term_index = 0;
       for i in 0..skip {
-        let f = flags.get_mut(i)? as i32;
-        let term_count = num_terms.get_mut(i)? as usize;
+        let f = all_flags[i];
+        let term_count = num_terms[i];
         if (f & PAYLOADS) != 0 {
           for j in 0..term_count {
             let freq = term_freqs[term_index + j];
@@ -855,8 +857,8 @@ where
 
       // read doc payload lengths
       for i in 0..num_fields {
-        let f = flags.get_mut(skip + i)? as i32;
-        let term_count = num_terms.get_mut(skip + i)? as usize;
+        let f = all_flags[skip + i];
+        let term_count = num_terms[skip + i];
         if (f & PAYLOADS) != 0 {
           let total_freq = position_index[i][term_count];
           let mut field_payload_index = vec![0; total_freq + 1];
@@ -878,8 +880,8 @@ where
       }
       total_payload_length += payload_len;
       for i in (skip + num_fields)..total_fields {
-        let f = flags.get_mut(i)? as i32;
-        let term_count = num_terms.get_mut(i)? as usize;
+        let f = all_flags[i];
+        let term_count = num_terms[i];
         if (f & PAYLOADS) != 0 {
           for j in 0..term_count {
             let freq = term_freqs[term_index + j];
@@ -922,19 +924,20 @@ where
       .zip(field_num_terms.iter_mut())
       .enumerate()
     {
-      *flag_slot = flags.get_mut(skip + i)? as i32;
-      *term_slot = num_terms.get_mut(skip + i)? as usize;
+      *flag_slot = all_flags[skip + i];
+      *term_slot = num_terms[skip + i];
     }
 
     let mut field_term_freqs = vec![Vec::new(); num_fields];
     {
       let mut term_idx = 0;
+      #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
       for n in 0..skip {
-        term_idx += num_terms.get_mut(n)? as usize;
+        term_idx += num_terms[n];
       }
 
       for (i, slot) in field_term_freqs.iter_mut().enumerate().take(num_fields) {
-        let term_count = num_terms.get_mut(skip + i)? as usize;
+        let term_count = num_terms[skip + i];
         let mut v = Vec::with_capacity(term_count);
         for _ in 0..term_count {
           v.push(term_freqs[term_idx]);
