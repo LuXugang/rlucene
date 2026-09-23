@@ -1246,6 +1246,12 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
 
   fn read_byte(&mut self, pos: usize) -> Result<u8> {
     self.ensure_open()?;
+    if let Some(segment) = self.single_segment.as_deref() {
+      if pos >= self.length {
+        return Err(LuceneError::eof(format!("read past EOF: {self}")));
+      }
+      return Ok(segment[self.offset + pos]);
+    }
     self.read_buffer(pos, BitUtil::BYTE_BYTES, |bytes| bytes[0])
   }
 
