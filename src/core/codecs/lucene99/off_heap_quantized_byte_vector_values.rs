@@ -53,7 +53,6 @@ use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Read the quantized vector values and their score correction values from the index input. This
@@ -488,7 +487,7 @@ where
   I: IndexInput,
 {
   base: OffHeapQuantizedByteVectorValues<I::IndexInput, F>,
-  ord_to_doc: Rc<RefCell<DirectMonotonicReader<I::RandomAccessSlice>>>,
+  ord_to_doc: Box<DirectMonotonicReader<I::RandomAccessSlice>>,
   data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
   disi: RefCell<Option<DocIndexIteratorImpl<I>>>,
@@ -541,7 +540,7 @@ where
 
     Ok(Self {
       base,
-      ord_to_doc: Rc::new(RefCell::new(ord_to_doc)),
+      ord_to_doc: Box::new(ord_to_doc),
       data_in,
       configuration,
       disi: RefCell::new(disi),
@@ -576,7 +575,7 @@ where
   }
 
   fn ord_to_doc(&self, ord: usize) -> Result<usize> {
-    Ok(self.ord_to_doc.borrow_mut().get_mut(ord)? as usize)
+    Ok(self.ord_to_doc.get(ord)? as usize)
   }
 
   type KnnVectorValues = Self;
@@ -604,7 +603,7 @@ where
   }
 
   type Bits<'a, B>
-    = SparseOffHeapVectorValueBits<B, I::RandomAccessSlice>
+    = SparseOffHeapVectorValueBits<'a, B, I::RandomAccessSlice>
   where
     B: Bits,
     Self: 'a;
@@ -614,7 +613,7 @@ where
     B: Bits,
   {
     accept_docs
-      .map(|bits| SparseOffHeapVectorValueBits::new(bits, self.base.size, self.ord_to_doc.clone()))
+      .map(|bits| SparseOffHeapVectorValueBits::new(bits, self.base.size, &self.ord_to_doc))
   }
 
   type DocIndexIterator = DocIndexIteratorImpl<I>;
@@ -932,7 +931,7 @@ where
   }
 
   type Bits<'a, B>
-    = OffHeapVectorValueBits<I::RandomAccessSlice, B>
+    = OffHeapVectorValueBits<'a, I::RandomAccessSlice, B>
   where
     B: Bits,
     Self: 'a;
@@ -1105,7 +1104,7 @@ where
   }
 
   type Bits<'a, B>
-    = OffHeapVectorValueBits<I::RandomAccessSlice, B>
+    = OffHeapVectorValueBits<'a, I::RandomAccessSlice, B>
   where
     B: Bits,
     Self: 'a;

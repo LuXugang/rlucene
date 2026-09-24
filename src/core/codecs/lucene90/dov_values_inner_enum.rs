@@ -273,8 +273,8 @@ where
   I: IndexInput,
 {
   fn binary_value(
-    &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    &self,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, [u8]>> {
     match self {
       SparseBinaryDocValuesBaseEnum::Sparse(sub) => <SparseBinaryDocValuesBaseImpl<
@@ -300,7 +300,7 @@ impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseEnum<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>> {
+  fn binary_value(&self, doc: i32) -> Result<Cow<'_, [u8]>> {
     match self {
       DenseBinaryDocValuesBaseEnum::Dense(sub) => sub.binary_value(doc),
       DenseBinaryDocValuesBaseEnum::Dense1(sub) => sub.binary_value(doc),
@@ -337,27 +337,27 @@ where
 {
   fn get_mut(&mut self, index: usize) -> Result<i64> {
     match self {
-      Self::Constant(values) => values.get_mut(index),
+      Self::Constant(values) => values.get(index),
       Self::Block(values) => values.get_mut(index),
       Self::Table(values) => values.get_mut(index),
       Self::Gcd(values) => values.get_mut(index),
       Self::Delta(values) => values.get_mut(index),
-      Self::Direct1(values) => values.get_mut(index),
-      Self::Direct2(values) => values.get_mut(index),
-      Self::Direct4(values) => values.get_mut(index),
-      Self::Direct8(values) => values.get_mut(index),
-      Self::Direct12(values) => values.get_mut(index),
-      Self::Direct16(values) => values.get_mut(index),
-      Self::Direct20(values) => values.get_mut(index),
-      Self::Direct24(values) => values.get_mut(index),
-      Self::Direct28(values) => values.get_mut(index),
-      Self::Direct32(values) => values.get_mut(index),
-      Self::Direct40(values) => values.get_mut(index),
-      Self::Direct48(values) => values.get_mut(index),
-      Self::Direct56(values) => values.get_mut(index),
-      Self::Direct64(values) => values.get_mut(index),
+      Self::Direct1(values) => values.get(index),
+      Self::Direct2(values) => values.get(index),
+      Self::Direct4(values) => values.get(index),
+      Self::Direct8(values) => values.get(index),
+      Self::Direct12(values) => values.get(index),
+      Self::Direct16(values) => values.get(index),
+      Self::Direct20(values) => values.get(index),
+      Self::Direct24(values) => values.get(index),
+      Self::Direct28(values) => values.get(index),
+      Self::Direct32(values) => values.get(index),
+      Self::Direct40(values) => values.get(index),
+      Self::Direct48(values) => values.get(index),
+      Self::Direct56(values) => values.get(index),
+      Self::Direct64(values) => values.get(index),
       Self::Merge(values) => values.get_mut(index),
-      Self::Zeroes(values) => values.get_mut(index),
+      Self::Zeroes(values) => values.get(index),
     }
   }
 

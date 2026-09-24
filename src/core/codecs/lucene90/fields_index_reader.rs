@@ -195,7 +195,7 @@ impl<I> FieldsIndex for FieldsIndexReader<I>
 where
   I: IndexInput,
 {
-  fn get_block_id(&mut self, doc_id: i32) -> Result<i64> {
+  fn get_block_id(&self, doc_id: i32) -> Result<i64> {
     CoreHelper::check_index(doc_id, self.max_doc)?;
     let block_index = self
       .docs
@@ -208,15 +208,15 @@ where
     Ok(block_index)
   }
 
-  fn get_block_start_pointer(&mut self, block_id: i64) -> Result<usize> {
-    Ok(self.start_pointers.get_mut(block_id as usize)? as usize)
+  fn get_block_start_pointer(&self, block_id: i64) -> Result<usize> {
+    Ok(self.start_pointers.get(block_id as usize)? as usize)
   }
 
-  fn get_block_length(&mut self, block_id: i64) -> Result<usize> {
+  fn get_block_length(&self, block_id: i64) -> Result<usize> {
     let end_pointer = if block_id == (self.num_chunks - 1) as i64 {
       self.max_pointer
     } else {
-      self.start_pointers.get_mut((block_id + 1) as usize)? as usize
+      self.start_pointers.get((block_id + 1) as usize)? as usize
     };
     Ok(end_pointer - self.get_block_start_pointer(block_id)?)
   }

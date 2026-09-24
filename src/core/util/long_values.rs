@@ -60,7 +60,7 @@ impl<R> FromSlice<R> for Zeroes
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, _index: usize, _slice: Option<&mut R>) -> Result<i64> {
+  fn read_from_slice(&mut self, _index: usize, _slice: Option<&R>) -> Result<i64> {
     Ok(0)
   }
 }

@@ -557,21 +557,21 @@ where
 
     // read field numbers and flags
     let mut field_num_offs = vec![0; num_fields];
-    let mut flags = {
+    let flags = {
       let bits_per_off = bits_required((field_nums.len() - 1) as i64)?;
-      let mut all_field_num_offs =
+      let all_field_num_offs =
         DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, bits_per_off)?;
       let v = self.vectors_stream.read_vint()?;
       let flags = match v {
         0 => {
-          let mut field_flags =
+          let field_flags =
             DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, *FLAGS_BITS)?;
           let mut out = ByteBuffersDataOutput::new();
           let mut writer = DirectWriter::get_instance(&mut out, total_fields as i64, *FLAGS_BITS)?;
           for i in 0..total_fields {
-            let field_num_off = all_field_num_offs.get_mut(i)? as usize;
+            let field_num_off = all_field_num_offs.get(i)? as usize;
             debug_assert!(field_num_off < field_nums.len());
-            writer.add(field_flags.get_mut(field_num_off)?)?;
+            writer.add(field_flags.get(field_num_off)?)?;
           }
           writer.finish()?;
           DirectReader::get_instance(out.get_data_input_owner(false)?, *FLAGS_BITS)?
@@ -584,7 +584,7 @@ where
         },
       };
       for (slot, off) in field_num_offs.iter_mut().zip((skip..).take(num_fields)) {
-        *slot = all_field_num_offs.get_mut(off)? as usize;
+        *slot = all_field_num_offs.get(off)? as usize;
       }
       flags
     };
@@ -592,12 +592,12 @@ where
     // number of terms per field for all fields
     let (num_terms, total_terms) = {
       let bits_required = self.vectors_stream.read_vint()?;
-      let mut packed_num_terms =
+      let packed_num_terms =
         DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, bits_required)?;
       let mut sum = 0;
       let mut num_terms = Vec::with_capacity(total_fields);
       for i in 0..total_fields {
-        let count = packed_num_terms.get_mut(i)?;
+        let count = packed_num_terms.get(i)?;
         sum += count;
         num_terms.push(count as usize);
       }
@@ -711,7 +711,7 @@ where
     let mut all_flags = Vec::with_capacity(total_fields);
     #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
     for i in 0..total_fields {
-      let f = flags.get_mut(i)? as i32;
+      let f = flags.get(i)? as i32;
       all_flags.push(f);
       let term_count = num_terms[i];
       for _ in 0..term_count {

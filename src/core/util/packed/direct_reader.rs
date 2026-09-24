@@ -134,13 +134,13 @@ impl<R> LongValuesImpl<R>
 where
   R: RandomAccessInput,
 {
-  fn fill_buffer(&mut self, index: usize, slice: Option<&mut R>) -> Result<()> {
+  fn fill_buffer(&mut self, index: usize, slice: Option<&R>) -> Result<()> {
     // NOTE: we're not allowed to read more than 3 bytes past the last value
     let slice = match slice {
       Some(slice) => slice,
       None => self
         .slice
-        .as_mut()
+        .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
     };
     let buffer = &mut self.buffer[..DirectReader::MERGE_BUFFER_SIZE];
@@ -219,7 +219,7 @@ impl<R> FromSlice<R> for LongValuesImpl<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
     debug_assert!(index < self.num_values);
     let block_index = index >> DirectReader::MERGE_BUFFER_SHIFT;
     let do_fill = match self.block_index {
@@ -247,25 +247,33 @@ impl<R> LongValues for DirectPackedReader1<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader1<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let shift = index & 7;
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
+    Ok(result as i64)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader1<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let shift = index & 7;
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let result = (slice.read_byte(self.offset + (index >> 3))? >> shift) & 0x1;
-    Ok(result as i64)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -284,26 +292,34 @@ impl<R> LongValues for DirectPackedReader2<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader2<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let shift = (index & 3) << 1;
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let byte = slice.read_byte(self.offset + (index >> 2))?;
+    let result = (byte >> shift) & 0x3;
+    Ok(result as i64)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader2<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let shift = (index & 3) << 1;
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let byte = slice.read_byte(self.offset + (index >> 2))?;
-    let result = (byte >> shift) & 0x3;
-    Ok(result as i64)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -322,26 +338,34 @@ impl<R> LongValues for DirectPackedReader4<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader4<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let shift = (index & 1) << 2;
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let byte = slice.read_byte(self.offset + (index >> 1))?;
+    let result = (byte >> shift) & 0xF;
+    Ok(result as i64)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader4<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let shift = (index & 1) << 2;
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let byte = slice.read_byte(self.offset + (index >> 1))?;
-    let result = (byte >> shift) & 0xF;
-    Ok(result as i64)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -360,25 +384,33 @@ impl<R> LongValues for DirectPackedReader8<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader8<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let byte = slice.read_byte(self.offset + index)?;
+    let result = byte;
+    Ok(result as i64)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader8<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let byte = slice.read_byte(self.offset + index)?;
-    let result = byte;
-    Ok(result as i64)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -397,27 +429,35 @@ impl<R> LongValues for DirectPackedReader12<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
   }
 }
-impl<R> FromSlice<R> for DirectPackedReader12<R>
+impl<R> FromSliceShared<R> for DirectPackedReader12<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
     let off = (index * 12) >> 3;
     let shift = (index & 1) << 2;
     let slice = match slice {
       Some(slice) => slice,
       None => self
         .input
-        .as_mut()
+        .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
     };
     let short_val = slice.read_short(self.offset + off)?;
     let result = ((short_val as u16) >> shift) & 0xFFF;
     Ok(result as i64)
+  }
+}
+impl<R> FromSlice<R> for DirectPackedReader12<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -436,24 +476,32 @@ impl<R> LongValues for DirectPackedReader16<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader16<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let result = slice.read_short(self.offset + (index << 1))? as u16;
+    Ok(result as i64)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader16<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let result = slice.read_short(self.offset + (index << 1))? as u16;
-    Ok(result as i64)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 pub struct DirectPackedReader20<R> {
@@ -471,27 +519,35 @@ impl<R> LongValues for DirectPackedReader20<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
   }
 }
-impl<R> FromSlice<R> for DirectPackedReader20<R>
+impl<R> FromSliceShared<R> for DirectPackedReader20<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
     let off = (index * 20) >> 3;
     let shift = (index & 1) << 2;
     let slice = match slice {
       Some(slice) => slice,
       None => self
         .input
-        .as_mut()
+        .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
     };
     let int_val = slice.read_int(self.offset + off)?;
     let result = (int_val >> shift) & 0xFFFFF;
     Ok(result as i64)
+  }
+}
+impl<R> FromSlice<R> for DirectPackedReader20<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -510,25 +566,33 @@ impl<R> LongValues for DirectPackedReader24<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader24<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let int_val = slice.read_int(self.offset + index * 3)?;
+    let result = int_val & 0xFFFFFF;
+    Ok(result as i64)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader24<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let int_val = slice.read_int(self.offset + index * 3)?;
-    let result = int_val & 0xFFFFFF;
-    Ok(result as i64)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -547,27 +611,35 @@ impl<R> LongValues for DirectPackedReader28<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
   }
 }
-impl<R> FromSlice<R> for DirectPackedReader28<R>
+impl<R> FromSliceShared<R> for DirectPackedReader28<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
     let off = (index * 28) >> 3;
     let shift = (index & 1) << 2;
     let slice = match slice {
       Some(slice) => slice,
       None => self
         .input
-        .as_mut()
+        .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
     };
     let int_val = slice.read_int(self.offset + off)?;
     let result = (int_val >> shift) & 0xFFFFFFF;
     Ok(result as i64)
+  }
+}
+impl<R> FromSlice<R> for DirectPackedReader28<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -586,25 +658,33 @@ impl<R> LongValues for DirectPackedReader32<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader32<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let int_val = slice.read_int(self.offset + (index << 2))?;
+    let result = int_val as u32;
+    Ok(result as i64)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader32<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let int_val = slice.read_int(self.offset + (index << 2))?;
-    let result = int_val as u32;
-    Ok(result as i64)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -623,25 +703,33 @@ impl<R> LongValues for DirectPackedReader40<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader40<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let long_val = slice.read_long(self.offset + index * 5)?;
+    let result = long_val & 0xFFFFFFFFFF;
+    Ok(result)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader40<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let long_val = slice.read_long(self.offset + index * 5)?;
-    let result = long_val & 0xFFFFFFFFFF;
-    Ok(result)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -660,25 +748,33 @@ impl<R> LongValues for DirectPackedReader48<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader48<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let long_val = slice.read_long(self.offset + index * 6)?;
+    let result = long_val & 0xFFFFFFFFFFFF;
+    Ok(result)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader48<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let long_val = slice.read_long(self.offset + index * 6)?;
-    let result = long_val & 0xFFFFFFFFFFFF;
-    Ok(result)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -697,25 +793,33 @@ impl<R> LongValues for DirectPackedReader56<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader56<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let long_val = slice.read_long(self.offset + index * 7)?;
+    let result = long_val & 0xFFFFFFFFFFFFFF;
+    Ok(result)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader56<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let long_val = slice.read_long(self.offset + index * 7)?;
-    let result = long_val & 0xFFFFFFFFFFFFFF;
-    Ok(result)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -734,24 +838,32 @@ impl<R> LongValues for DirectPackedReader64<R>
 where
   R: RandomAccessInput,
 {
-  fn get_mut(&mut self, index: usize) -> Result<i64> {
-    self.read_from_slice(index, None)
+  fn get(&self, index: usize) -> Result<i64> {
+    self.read_from_slice_shared(index, None)
+  }
+}
+impl<R> FromSliceShared<R> for DirectPackedReader64<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    let slice = match slice {
+      Some(slice) => slice,
+      None => self
+        .input
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
+    };
+    let result = slice.read_long(self.offset + (index << 3))?;
+    Ok(result)
   }
 }
 impl<R> FromSlice<R> for DirectPackedReader64<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let slice = match slice {
-      Some(slice) => slice,
-      None => self
-        .input
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
-    };
-    let result = slice.read_long(self.offset + (index << 3))?;
-    Ok(result)
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
+    self.read_from_slice_shared(index, slice)
   }
 }
 
@@ -780,22 +892,22 @@ where
 {
   fn get_mut(&mut self, index: usize) -> Result<i64> {
     match self {
-      Self::Direct1(reader) => reader.get_mut(index),
-      Self::Direct2(reader) => reader.get_mut(index),
-      Self::Direct4(reader) => reader.get_mut(index),
-      Self::Direct8(reader) => reader.get_mut(index),
-      Self::Direct12(reader) => reader.get_mut(index),
-      Self::Direct16(reader) => reader.get_mut(index),
-      Self::Direct20(reader) => reader.get_mut(index),
-      Self::Direct24(reader) => reader.get_mut(index),
-      Self::Direct28(reader) => reader.get_mut(index),
-      Self::Direct32(reader) => reader.get_mut(index),
-      Self::Direct40(reader) => reader.get_mut(index),
-      Self::Direct48(reader) => reader.get_mut(index),
-      Self::Direct56(reader) => reader.get_mut(index),
-      Self::Direct64(reader) => reader.get_mut(index),
+      Self::Direct1(reader) => reader.get(index),
+      Self::Direct2(reader) => reader.get(index),
+      Self::Direct4(reader) => reader.get(index),
+      Self::Direct8(reader) => reader.get(index),
+      Self::Direct12(reader) => reader.get(index),
+      Self::Direct16(reader) => reader.get(index),
+      Self::Direct20(reader) => reader.get(index),
+      Self::Direct24(reader) => reader.get(index),
+      Self::Direct28(reader) => reader.get(index),
+      Self::Direct32(reader) => reader.get(index),
+      Self::Direct40(reader) => reader.get(index),
+      Self::Direct48(reader) => reader.get(index),
+      Self::Direct56(reader) => reader.get(index),
+      Self::Direct64(reader) => reader.get(index),
       Self::Merge(reader) => reader.get_mut(index),
-      Self::Zeroes(reader) => reader.get_mut(index),
+      Self::Zeroes(reader) => reader.get(index),
     }
   }
 
@@ -821,17 +933,26 @@ where
   }
 }
 
+/// Absolute reads for direct packed readers that do not update decoder state.
+/// Merge readers require the mutable cache path.
+pub trait FromSliceShared<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64>;
+}
+
 pub trait FromSlice<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64>;
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64>;
 }
 impl<R> FromSlice<R> for DirectPackedEnum<R>
 where
   R: RandomAccessInput,
 {
-  fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
+  fn read_from_slice(&mut self, index: usize, slice: Option<&R>) -> Result<i64> {
     match self {
       DirectPackedEnum::Direct1(reader) => reader.read_from_slice(index, slice),
       DirectPackedEnum::Direct2(reader) => reader.read_from_slice(index, slice),
@@ -849,6 +970,32 @@ where
       DirectPackedEnum::Direct64(reader) => reader.read_from_slice(index, slice),
       DirectPackedEnum::Merge(reader) => reader.read_from_slice(index, slice),
       DirectPackedEnum::Zeroes(reader) => reader.read_from_slice(index, slice),
+    }
+  }
+}
+
+impl<R> FromSliceShared<R> for DirectPackedEnum<R>
+where
+  R: RandomAccessInput,
+{
+  fn read_from_slice_shared(&self, index: usize, slice: Option<&R>) -> Result<i64> {
+    match self {
+      DirectPackedEnum::Direct1(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct2(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct4(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct8(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct12(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct16(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct20(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct24(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct28(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct32(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct40(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct48(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct56(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Direct64(reader) => reader.read_from_slice_shared(index, slice),
+      DirectPackedEnum::Merge(reader) => reader.get(index),
+      DirectPackedEnum::Zeroes(reader) => reader.get(index),
     }
   }
 }

@@ -23,22 +23,15 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
-use std::cell::RefCell;
-use std::rc::Rc;
-
-pub struct SparseOffHeapVectorValueBits<B, R> {
+pub struct SparseOffHeapVectorValueBits<'a, B, R> {
   accept_docs: B,
   size: usize,
-  map: Rc<RefCell<DirectMonotonicReader<R>>>,
+  map: &'a DirectMonotonicReader<R>,
   id: Identity,
 }
 
-impl<B, R> SparseOffHeapVectorValueBits<B, R> {
-  pub(crate) fn new(
-    accept_docs: B,
-    size: usize,
-    map: Rc<RefCell<DirectMonotonicReader<R>>>,
-  ) -> Self {
+impl<'a, B, R> SparseOffHeapVectorValueBits<'a, B, R> {
+  pub(crate) fn new(accept_docs: B, size: usize, map: &'a DirectMonotonicReader<R>) -> Self {
     Self {
       accept_docs,
       size,
@@ -48,19 +41,19 @@ impl<B, R> SparseOffHeapVectorValueBits<B, R> {
   }
 }
 
-impl<B, R> HasIdentity for SparseOffHeapVectorValueBits<B, R> {
+impl<B, R> HasIdentity for SparseOffHeapVectorValueBits<'_, B, R> {
   fn identity(&self) -> &Identity {
     &self.id
   }
 }
 
-impl<B, R> Bits for SparseOffHeapVectorValueBits<B, R>
+impl<B, R> Bits for SparseOffHeapVectorValueBits<'_, B, R>
 where
   B: Bits,
   R: RandomAccessInput,
 {
   fn get(&self, index: usize) -> Result<bool> {
-    let index = self.map.borrow_mut().get_mut(index)? as usize;
+    let index = self.map.get(index)? as usize;
     self.accept_docs.get(index)
   }
 
@@ -69,12 +62,12 @@ where
   }
 }
 
-pub enum OffHeapVectorValueBits<R, B> {
+pub enum OffHeapVectorValueBits<'a, R, B> {
   Dense(B),
-  Sparse(SparseOffHeapVectorValueBits<B, R>),
+  Sparse(SparseOffHeapVectorValueBits<'a, B, R>),
 }
 
-impl<R, B> HasIdentity for OffHeapVectorValueBits<R, B>
+impl<R, B> HasIdentity for OffHeapVectorValueBits<'_, R, B>
 where
   B: HasIdentity,
 {
@@ -86,7 +79,7 @@ where
   }
 }
 
-impl<R, B> Bits for OffHeapVectorValueBits<R, B>
+impl<R, B> Bits for OffHeapVectorValueBits<'_, R, B>
 where
   R: RandomAccessInput,
   B: Bits,

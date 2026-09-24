@@ -1444,8 +1444,8 @@ where
 
   fn binary_value(&mut self) -> Result<Self::Value<'_>> {
     <SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(
-      &mut self.sub,
-      &mut self.disi,
+      &self.sub,
+      &self.disi,
     ).map(BytesRefCow)
   }
 }
@@ -1580,7 +1580,7 @@ where
     Ok(
       self
         .mul
-        .wrapping_mul(v.read_from_slice(index & self.mask, Some(&mut self.slice))?)
+        .wrapping_mul(v.read_from_slice(index & self.mask, Some(&self.slice))?)
         .wrapping_add(self.delta),
     )
   }
@@ -1926,7 +1926,7 @@ where
 }
 
 pub trait DenseBinaryDocValuesBase {
-  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>>;
+  fn binary_value(&self, doc: i32) -> Result<Cow<'_, [u8]>>;
 }
 
 pub struct DenseBinaryDocValuesBaseImpl<R> {
@@ -1937,7 +1937,7 @@ impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>> {
+  fn binary_value(&self, doc: i32) -> Result<Cow<'_, [u8]>> {
     self
       .bytes_slice
       .read_bytes(doc as usize * self.length, self.length)
@@ -1951,9 +1951,9 @@ impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl1<R>
 where
   R: RandomAccessInput,
 {
-  fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, [u8]>> {
-    let start_offset = self.addresses.get_mut(doc as usize)?;
-    let length = (self.addresses.get_mut((doc + 1) as usize)? - start_offset) as usize;
+  fn binary_value(&self, doc: i32) -> Result<Cow<'_, [u8]>> {
+    let start_offset = self.addresses.get(doc as usize)?;
+    let length = (self.addresses.get((doc + 1) as usize)? - start_offset) as usize;
     self.bytes_slice.read_bytes(start_offset as usize, length)
   }
 }
@@ -1963,8 +1963,8 @@ where
   I: IndexInput,
 {
   fn binary_value(
-    &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    &self,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, [u8]>>;
 }
 pub struct SparseBinaryDocValuesBaseImpl<R> {
@@ -1976,8 +1976,8 @@ where
   I: IndexInput,
 {
   fn binary_value(
-    &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    &self,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, [u8]>> {
     let length = self.length;
     let pos = disi.index_u() * length;
@@ -1993,12 +1993,12 @@ where
   I: IndexInput,
 {
   fn binary_value(
-    &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    &self,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, [u8]>> {
     let index = disi.index() as usize;
-    let start_offset = self.addresses.get_mut(index)?;
-    let length = (self.addresses.get_mut(index + 1)? - start_offset) as usize;
+    let start_offset = self.addresses.get(index)?;
+    let length = (self.addresses.get(index + 1)? - start_offset) as usize;
     self.bytes_slice.read_bytes(start_offset as usize, length)
   }
 }
@@ -2405,8 +2405,8 @@ where
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     let target_index = target as usize;
-    self.curr = self.addresses.get_mut(target_index)?;
-    let end = self.addresses.get_mut(target_index + 1)?;
+    self.curr = self.addresses.get(target_index)?;
+    let end = self.addresses.get(target_index + 1)?;
     self.count = (end - self.curr) as i32;
     self.doc = target;
     Ok(true)
@@ -2444,8 +2444,8 @@ where
       return Ok(NO_MORE_DOCS);
     }
     let target_u = target as usize;
-    self.curr = self.addresses.get_mut(target_u)?;
-    let end = self.addresses.get_mut((target_u) + 1)?;
+    self.curr = self.addresses.get(target_u)?;
+    let end = self.addresses.get((target_u) + 1)?;
     self.count = (end - self.curr) as i32;
     self.doc = target;
 
@@ -2467,7 +2467,7 @@ where
     Self: 'a;
 
   fn next_ord(&mut self) -> Result<i64> {
-    let ord = self.value.get_mut(self.curr as usize)?;
+    let ord = self.value.get(self.curr as usize)?;
     self.curr += 1;
     Ok(ord)
   }
@@ -2521,8 +2521,8 @@ where
   fn set(&mut self) -> Result<()> {
     if !self.set {
       let index = self.disi.index_u();
-      self.curr = self.addresses.get_mut(index)?;
-      let end = self.addresses.get_mut(index + 1)?;
+      self.curr = self.addresses.get(index)?;
+      let end = self.addresses.get(index + 1)?;
       self.count = (end - self.curr) as i32;
       self.set = true;
     }
@@ -2587,7 +2587,7 @@ where
 
   fn next_ord(&mut self) -> Result<i64> {
     self.set()?;
-    let ord = self.value.get_mut(self.curr as usize)?;
+    let ord = self.value.get(self.curr as usize)?;
     self.curr += 1;
     Ok(ord)
   }

@@ -18,7 +18,9 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::{LongValues, Zeroes};
-use crate::core::util::packed::direct_reader::{DirectPackedEnum, DirectReader, FromSlice};
+use crate::core::util::packed::direct_reader::{
+  DirectPackedEnum, DirectReader, FromSlice, FromSliceShared,
+};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// Retrieves an instance previously written by
@@ -31,6 +33,7 @@ pub struct DirectMonotonicReader<R> {
   block_shift: i32,
   block_mask: usize,
   readers: Vec<DirectPackedEnum<R>>,
+  has_merge_reader: bool,
   mins: Vec<i64>,
   avgs: Vec<f32>,
   bpvs: Vec<u8>,
@@ -53,10 +56,14 @@ impl<R> DirectMonotonicReader<R> {
       )));
     }
     let block_mask = (1 << block_shift) - 1;
+    let has_merge_reader = readers
+      .iter()
+      .any(|reader| matches!(reader, DirectPackedEnum::Merge(_)));
     Ok(DirectMonotonicReader {
       block_shift,
       block_mask,
       readers,
+      has_merge_reader,
       mins,
       avgs,
       bpvs,
@@ -86,11 +93,16 @@ where
     }
   }
 
-  pub fn binary_search(&mut self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
+  pub fn binary_search(&self, from_index: i64, to_index: i64, key: i64) -> Result<i64> {
     if from_index < 0 || from_index > to_index {
       return Err(LuceneError::illegal_argument(format!(
         "fromIndex={from_index}, toIndex={to_index}"
       )));
+    }
+    if self.has_merge_reader {
+      return Err(LuceneError::unsupported_operation(
+        "binary_search requires a non-merge reader",
+      ));
     }
     let mut lo = from_index;
     let mut hi = to_index - 1;
@@ -106,7 +118,7 @@ where
       } else if bounds[0] > key {
         hi = mid - 1;
       } else {
-        let mid_val = self.get_mut(mid_index)?;
+        let mid_val = self.get(mid_index)?;
         match mid_val.cmp(&key) {
           std::cmp::Ordering::Less => lo = mid + 1,
           std::cmp::Ordering::Greater => hi = mid - 1,
@@ -116,6 +128,7 @@ where
     }
     Ok(-1 - lo)
   }
+
   /// Retrieves a non-merging instance from the specified slice.
   pub fn get_instance(meta: &Meta, data: R) -> Result<Self> {
     Self::get_instance_with_merging(meta, data, false)
@@ -163,7 +176,19 @@ where
   fn get_mut(&mut self, index: usize) -> Result<i64> {
     let block = index >> self.block_shift;
     let block_index = index & self.block_mask;
-    let delta = self.readers[block].read_from_slice(block_index, Some(&mut self.slice))?;
+    let delta = self.readers[block].read_from_slice(block_index, Some(&self.slice))?;
+    Ok(
+      self.mins[block]
+        .wrapping_add((self.avgs[block] * (block_index as f32)) as i64)
+        .wrapping_add(delta),
+    )
+  }
+
+  fn get(&self, index: usize) -> Result<i64> {
+    // Merge blocks require get_mut to update their cache.
+    let block = index >> self.block_shift;
+    let block_index = index & self.block_mask;
+    let delta = self.readers[block].read_from_slice_shared(block_index, Some(&self.slice))?;
     Ok(
       self.mins[block]
         .wrapping_add((self.avgs[block] * (block_index as f32)) as i64)
