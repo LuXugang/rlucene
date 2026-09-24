@@ -98,6 +98,8 @@ where
   jump_table: Option<R>,
   jump_table_entry_count: i32,
   dense_rank_power: i8,
+  // Derived from the immutable rank power; the rank checks keep their original order.
+  dense_rank_words: i32,
   dense_rank_table: Option<Vec<u8>>,
   cost: i64,
   block: i32,
@@ -236,6 +238,11 @@ where
       jump_table,
       jump_table_entry_count,
       dense_rank_power,
+      dense_rank_words: if dense_rank_power == -1 {
+        0
+      } else {
+        1 << (dense_rank_power - 6)
+      },
       dense_rank_table,
       cost,
       block: -1,
@@ -505,7 +512,8 @@ impl MethodBehavior for SparseMethod {
   {
     let target_in_block = target & 0xFFFF;
 
-    while disi.index < disi.next_block_index {
+    let next_block_index = disi.next_block_index;
+    while disi.index < next_block_index {
       let doc = disi.slice.read_short()? as u16 as i32;
       disi.index += 1;
 
@@ -537,7 +545,8 @@ impl MethodBehavior for SparseMethod {
     if disi.doc == target {
       return Ok(disi.exists);
     }
-    while disi.index < disi.next_block_index {
+    let next_block_index = disi.next_block_index;
+    while disi.index < next_block_index {
       let doc = disi.slice.read_short()? as u16 as i32;
       disi.index += 1;
 
@@ -575,9 +584,7 @@ impl MethodBehavior for DenseMethod {
     // If possible, skip ahead using the rank cache
     // If the distance between the current position and the target is <
     // rank-longs there is no sense in using rank
-    if disi.dense_rank_power != -1
-      && target_word_index - disi.word_index >= (1 << (disi.dense_rank_power - 6))
-    {
+    if disi.dense_rank_power != -1 && target_word_index - disi.word_index >= disi.dense_rank_words {
       rank_skip(disi, target_in_block)?;
     }
 
@@ -623,9 +630,7 @@ impl MethodBehavior for DenseMethod {
     // If possible, skip ahead using the rank cache
     // If the distance between the current position and the target is <
     // rank-longs there is no sense in using rank
-    if disi.dense_rank_power != -1
-      && target_word_index - disi.word_index >= (1 << (disi.dense_rank_power - 6))
-    {
+    if disi.dense_rank_power != -1 && target_word_index - disi.word_index >= disi.dense_rank_words {
       rank_skip(disi, target_in_block)?;
     }
 
@@ -845,6 +850,13 @@ where
     input.seek(self.offset)?;
     self.offset += BitUtil::SHORT_BYTES;
     input.read_short()
+  }
+
+  fn read_long(&mut self) -> Result<i64> {
+    let mut input = self.input.lock();
+    input.seek(self.offset)?;
+    self.offset += BitUtil::LONG_BYTES;
+    input.read_long()
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
@@ -1350,6 +1362,7 @@ where
       Err::<(), LuceneError>(LuceneError::unreachable(""))?;
     },
     Some(rank_table) => {
+      let rank_table: &[u8] = rank_table;
       let high = rank_table[byte_index] as u16;
       let low = rank_table[byte_index + 1] as u16;
       rank = ((high << 8) | low) as i32;
