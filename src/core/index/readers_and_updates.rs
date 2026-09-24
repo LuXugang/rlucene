@@ -196,7 +196,7 @@ where
   {
     let update = update.into();
     let mut inner = self.inner.lock();
-    if !update.get_finished()? {
+    if !update.get_finished() {
       return Err(LuceneError::illegal_argument("call finish first"));
     }
 

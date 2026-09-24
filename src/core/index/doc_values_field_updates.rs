@@ -127,8 +127,8 @@ where
     })
   }
 
-  pub(crate) fn get_finished(&self) -> Result<bool> {
-    Ok(self.finished)
+  pub(crate) fn get_finished(&self) -> bool {
+    self.finished
   }
   /// The exclusive receiver covers both document and value updates.
   pub(crate) fn add_value(&mut self, doc: i32, value: i64) -> Result<()> {
@@ -873,8 +873,8 @@ pub(crate) struct MergedIterator<T> {
   doc: i32,
 }
 impl<T> MergedIterator<T> {
-  pub fn new(queue: PriorityQueue<T, IteratorPQCmp>) -> Result<Self> {
-    Ok(Self { queue, doc: -1 })
+  pub fn new(queue: PriorityQueue<T, IteratorPQCmp>) -> Self {
+    Self { queue, doc: -1 }
   }
 }
 
@@ -1328,6 +1328,6 @@ where
   if queue.size() == 0 {
     return Ok(None);
   }
-  let value = MergedIterator::new(queue)?;
+  let value = MergedIterator::new(queue);
   Ok(Some(value))
 }
