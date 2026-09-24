@@ -371,11 +371,13 @@ pub fn test_numeric_random() -> Result<()> {
     }
     updates.push(random_update);
   }
-  let last_update = (num_updates - 1) as usize;
   buffer.finish()?;
-  let terms_sorted = updates[last_update].has_value
+  let last_update = updates.last().unwrap();
+  let last_term_field = &last_update.buffered_term()?.field;
+  let terms_sorted = last_update.has_value
     && updates.iter().all(|update| {
-      update.field == updates[last_update].field
+      // The target DocValues field can match even when update term fields differ.
+      update.buffered_term().unwrap().field.as_str() == last_term_field.as_str()
         && update.has_value
         && update
           .sub_update
@@ -383,7 +385,7 @@ pub fn test_numeric_random() -> Result<()> {
           .unwrap()
           .get_value()
           .unwrap()
-          == updates[last_update]
+          == last_update
             .sub_update
             .get_numeric()
             .unwrap()
