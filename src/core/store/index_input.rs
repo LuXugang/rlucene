@@ -707,37 +707,37 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn read_byte(&mut self, pos: usize) -> Result<u8> {
+            fn read_byte(&self, pos: usize) -> Result<u8> {
                 match self {
                     $( Self::$Variant(inner) => RandomAccessInput::read_byte(inner, pos), )+
                 }
             }
 
-            fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+            fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
                 match self {
                     $( Self::$Variant(inner) => RandomAccessInput::read_bytes(inner, pos, len), )+
                 }
             }
 
-            fn read_short(&mut self, pos: usize) -> Result<i16> {
+            fn read_short(&self, pos: usize) -> Result<i16> {
                 match self {
                     $( Self::$Variant(inner) => RandomAccessInput::read_short(inner, pos), )+
                 }
             }
 
-            fn read_int(&mut self, pos: usize) -> Result<i32> {
+            fn read_int(&self, pos: usize) -> Result<i32> {
                 match self {
                     $( Self::$Variant(inner) => RandomAccessInput::read_int(inner, pos), )+
                 }
             }
 
-            fn read_long(&mut self, pos: usize) -> Result<i64> {
+            fn read_long(&self, pos: usize) -> Result<i64> {
                 match self {
                     $( Self::$Variant(inner) => RandomAccessInput::read_long(inner, pos), )+
                 }
             }
 
-            fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+            fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => RandomAccessInput::prefetch(inner, pos, len), )+
                 }

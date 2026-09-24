@@ -16,6 +16,7 @@
  */
 
 use crate::core::store::data_input_ext::DataInputExt;
+use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 use std::sync::Arc;
@@ -33,14 +34,45 @@ use crate::core::util::{ReadableCursorExt, SliceCopyOps, TryIntoInt};
 pub struct BufferedIndexInput<T> {
   buffer_size: usize,
   resource_desc: Arc<str>,
-  buffer: Cursor<Vec<u8>>,
   sub_index_input: T,
+  state: Mutex<BufferedIndexInputState>,
+}
+
+// These fields describe one cache snapshot and must change together.
+struct BufferedIndexInputState {
+  buffer: Cursor<Vec<u8>>,
   buffer_start: usize,
-  /// global pos in the file, used for sequential read
+  /// File pointer for sequential reads; random cache repositioning also updates it.
   pos: usize,
   /// valid data length in the buffer
   length: usize,
-  random_scratch: Vec<u8>,
+}
+
+struct BufferedIndexInputAccess<'a, T> {
+  buffer_size: usize,
+  resource_desc: &'a Arc<str>,
+  sub_index_input: &'a T,
+  state: &'a mut BufferedIndexInputState,
+}
+
+impl<T> std::ops::Deref for BufferedIndexInputAccess<'_, T> {
+  type Target = BufferedIndexInputState;
+
+  fn deref(&self) -> &Self::Target {
+    self.state
+  }
+}
+
+impl<T> std::ops::DerefMut for BufferedIndexInputAccess<'_, T> {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    self.state
+  }
+}
+
+impl<T> Display for BufferedIndexInputAccess<'_, T> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "BufferedIndexInput({})", self.resource_desc)
+  }
 }
 
 impl<T> BufferedIndexInput<T> {
@@ -54,12 +86,13 @@ impl<T> BufferedIndexInput<T> {
     Ok(BufferedIndexInput {
       buffer_size,
       resource_desc: Arc::from(resource_desc),
-      buffer,
       sub_index_input,
-      buffer_start: 0,
-      pos: 0,
-      length: 0,
-      random_scratch: Vec::new(),
+      state: Mutex::new(BufferedIndexInputState {
+        buffer,
+        buffer_start: 0,
+        pos: 0,
+        length: 0,
+      }),
     })
   }
   pub fn with_resource_desc(
@@ -75,6 +108,27 @@ impl<T> BufferedIndexInput<T> {
     context: &IOContext,
   ) -> Result<BufferedIndexInput<T>> {
     Self::with_buffer_size(sub_index_input, resource_desc, buffer_size(context))
+  }
+
+  fn access_mut(&mut self) -> BufferedIndexInputAccess<'_, T> {
+    BufferedIndexInputAccess {
+      buffer_size: self.buffer_size,
+      resource_desc: &self.resource_desc,
+      sub_index_input: &self.sub_index_input,
+      state: self.state.get_mut(),
+    }
+  }
+
+  fn access_state<'a>(
+    &'a self,
+    state: &'a mut BufferedIndexInputState,
+  ) -> BufferedIndexInputAccess<'a, T> {
+    BufferedIndexInputAccess {
+      buffer_size: self.buffer_size,
+      resource_desc: &self.resource_desc,
+      sub_index_input: &self.sub_index_input,
+      state,
+    }
   }
 }
 
@@ -95,7 +149,7 @@ fn check_buffer_size(buffer_size: usize) -> Result<()> {
   Ok(())
 }
 
-impl<T> BufferedIndexInput<T>
+impl<T> BufferedIndexInputAccess<'_, T>
 where
   T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
@@ -152,7 +206,8 @@ where
     }
 
     if self.buffer.get_ref().is_empty() {
-      self.buffer.get_mut().resize(self.buffer_size, 0);
+      let buffer_size = self.buffer_size;
+      self.buffer.get_mut().resize(buffer_size, 0);
     }
     // valid data length in buffer
     self.length = new_length + remain_unaligned_bytes;
@@ -555,10 +610,6 @@ where
     self.refill(0, self.buffer_start)?;
     Ok(())
   }
-  #[cfg(test)]
-  pub fn get_sub_index_input(&self) -> &T {
-    &self.sub_index_input
-  }
 }
 
 impl<T> crate::core::util::close::CloseableRef for BufferedIndexInput<T>
@@ -566,6 +617,7 @@ where
   T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
   fn close(&self) -> Result<()> {
+    let _state = self.state.lock();
     self.sub_index_input.close()
   }
 }
@@ -575,9 +627,10 @@ where
   T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
   fn read_byte(&mut self) -> Result<u8> {
+    let mut access = self.access_mut();
     let mut bytes = [0; 1];
-    self.read_bytes(self.pos, 1, &mut bytes, true)?;
-    self.pos += 1;
+    access.read_bytes(access.pos, 1, &mut bytes, true)?;
+    access.pos += 1;
     Ok(bytes[0])
   }
 
@@ -590,56 +643,69 @@ where
     b: &mut [u8],
     offset: usize,
     len: usize,
-    _use_buffer: bool,
+    use_buffer: bool,
   ) -> Result<()> {
-    self.read_bytes(self.pos, len, &mut b[offset..(offset + len)], _use_buffer)?;
-    self.pos += len;
+    let mut access = self.access_mut();
+    access.read_bytes(access.pos, len, &mut b[offset..(offset + len)], use_buffer)?;
+    access.pos += len;
     Ok(())
   }
 
   fn read_short(&mut self) -> Result<i16> {
+    let mut access = self.access_mut();
     let mut output = [0; 1];
-    self.read_shorts(self.pos, 1, &mut output, true)?;
-    self.pos += BitUtil::SHORT_BYTES;
+    access.read_shorts(access.pos, 1, &mut output, true)?;
+    access.pos += BitUtil::SHORT_BYTES;
     Ok(output[0])
   }
 
   fn read_int(&mut self) -> Result<i32> {
+    let mut access = self.access_mut();
     let mut output = [0; 1];
-    self.read_ints(self.pos, 1, &mut output, true)?;
-    self.pos += BitUtil::INT_BYTES;
+    access.read_ints(access.pos, 1, &mut output, true)?;
+    access.pos += BitUtil::INT_BYTES;
     Ok(output[0])
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-    let pos = self.buffer.position().try_convert()?;
-    let remain = self.buffer.remain_between(pos, self.length);
-    debug_assert!(self.buffer.position() <= i64::MAX as u64);
+    let (pos, remain) = {
+      let state = self.state.get_mut();
+      let pos = state.buffer.position().try_convert()?;
+      let remain = state.buffer.remain_between(pos, state.length);
+      debug_assert!(state.buffer.position() <= i64::MAX as u64);
+      (pos, remain)
+    };
     let len = GroupVIntUtil::read_group_vint_i32_with_reader(self, remain, pos, dst, offset)?;
-    self.pos += len;
+    self.state.get_mut().pos += len;
     Ok(())
   }
 
   fn read_long(&mut self) -> Result<i64> {
+    let mut access = self.access_mut();
     let mut output = [0; 1];
-    self.read_longs(self.pos, 1, &mut output, true)?;
-    self.pos += BitUtil::LONG_BYTES;
+    access.read_longs(access.pos, 1, &mut output, true)?;
+    access.pos += BitUtil::LONG_BYTES;
     Ok(output[0])
   }
-  fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
-    self.read_longs(self.pos, len, &mut dst[offset..(offset + len)], true)?;
-    self.pos += len * BitUtil::LONG_BYTES;
-    Ok(())
-  }
-  fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
-    self.read_ints(self.pos, len, &mut dst[offset..(offset + len)], true)?;
 
-    self.pos += len * BitUtil::INT_BYTES;
+  fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
+    let mut access = self.access_mut();
+    access.read_longs(access.pos, len, &mut dst[offset..(offset + len)], true)?;
+    access.pos += len * BitUtil::LONG_BYTES;
     Ok(())
   }
+
+  fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
+    let mut access = self.access_mut();
+    access.read_ints(access.pos, len, &mut dst[offset..(offset + len)], true)?;
+    access.pos += len * BitUtil::INT_BYTES;
+    Ok(())
+  }
+
   fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
-    self.read_floats(self.pos, len, &mut dst[offset..(offset + len)], true)?;
-    self.pos += len * BitUtil::FLOAT_BYTES;
+    let mut access = self.access_mut();
+    access.read_floats(access.pos, len, &mut dst[offset..(offset + len)], true)?;
+    access.pos += len * BitUtil::FLOAT_BYTES;
     Ok(())
   }
 
@@ -660,24 +726,25 @@ impl<T> Display for BufferedIndexInput<T> {
     write!(f, "BufferedIndexInput({})", self.resource_desc)
   }
 }
+
 impl<T> crate::core::util::clone::TryClone for BufferedIndexInput<T>
 where
   T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-  fn try_clone(&self) -> Result<Self>
-  where
-    Self: Sized,
-  {
-    let file_pointer = self.get_file_pointer()?;
+  fn try_clone(&self) -> Result<Self> {
+    let state = self.state.lock();
+    let file_pointer = state.pos;
+    let sub_index_input = self.sub_index_input.try_clone()?;
     Ok(Self {
       buffer_size: self.buffer_size,
       resource_desc: self.resource_desc.clone(),
-      buffer: Cursor::new(Vec::new()),
-      sub_index_input: self.sub_index_input.try_clone()?,
-      buffer_start: file_pointer,
-      pos: file_pointer,
-      length: 0,
-      random_scratch: Vec::new(),
+      sub_index_input,
+      state: Mutex::new(BufferedIndexInputState {
+        buffer: Cursor::new(Vec::new()),
+        buffer_start: file_pointer,
+        pos: file_pointer,
+        length: 0,
+      }),
     })
   }
 }
@@ -686,19 +753,20 @@ impl<T> IndexInput for BufferedIndexInput<T>
 where
   T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
-  type IndexInput = BufferedIndexInput<T>;
+  type IndexInput = Self;
 
   fn get_file_pointer(&self) -> Result<usize> {
-    Ok(self.pos)
+    Ok(self.state.lock().pos)
   }
 
   fn seek(&mut self, pos: usize) -> Result<()> {
-    if pos >= self.buffer_start && pos < (self.buffer_start + self.length) {
-      self.pos = pos;
+    let state = self.state.get_mut();
+    if pos >= state.buffer_start && pos < (state.buffer_start + state.length) {
+      state.pos = pos;
     } else {
-      self.pos = pos;
-      self.buffer_start = pos;
-      self.length = 0;
+      state.pos = pos;
+      state.buffer_start = pos;
+      state.length = 0;
       self.sub_index_input.seek_internal(pos)?;
     }
     Ok(())
@@ -708,20 +776,16 @@ where
     Ok(self.sub_index_input.length())
   }
 
-  fn slice(
-    &self,
-    slice_description: &str,
-    offset: usize,
-    length: usize,
-  ) -> Result<Self::IndexInput> {
+  fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self> {
+    let _state = self.state.lock();
     self
       .sub_index_input
       .slice(slice_description, offset, length)
   }
 
-  type RandomAccessSlice = BufferedIndexInput<T>;
+  type RandomAccessSlice = Self;
 
-  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
+  fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self> {
     self.slice("random_access_slice", offset, length)
   }
 }
@@ -734,58 +798,65 @@ where
     Ok(self.sub_index_input.length())
   }
 
-  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+  fn read_byte(&self, pos: usize) -> Result<u8> {
+    let mut guard = self.state.lock();
+    let mut state = self.access_state(&mut guard);
     let mut bytes = [0; 1];
-    self.resolve_position_in_buffer(pos, 1)?;
-    self.read_bytes(pos, 1, &mut bytes, true)?;
+    state.resolve_position_in_buffer(pos, 1)?;
+    state.read_bytes(pos, 1, &mut bytes, true)?;
     Ok(bytes[0])
   }
 
-  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    let mut guard = self.state.lock();
+    let mut state = self.access_state(&mut guard);
     if len == 0 {
       return Ok(std::borrow::Cow::Borrowed(&[]));
     }
-    self.resolve_position_in_buffer(pos, len)?;
-    if let Some(offset) = pos.checked_sub(self.buffer_start)
-      && self
+    state.resolve_position_in_buffer(pos, len)?;
+    if let Some(offset) = pos.checked_sub(state.buffer_start)
+      && state
         .length
         .checked_sub(len)
         .is_some_and(|max| offset <= max)
     {
-      return Ok(std::borrow::Cow::Borrowed(
-        &self.buffer.get_ref()[offset..offset + len],
+      return Ok(std::borrow::Cow::Owned(
+        state.buffer.get_ref()[offset..offset + len].to_vec(),
       ));
     }
-    let mut scratch = std::mem::take(&mut self.random_scratch);
-    scratch.resize(len, 0);
-    let result = self.read_bytes(pos, len, &mut scratch, true);
-    self.random_scratch = scratch;
-    result?;
-    Ok(std::borrow::Cow::Borrowed(&self.random_scratch[..len]))
+    let mut bytes = vec![0; len];
+    state.read_bytes(pos, len, &mut bytes, true)?;
+    Ok(std::borrow::Cow::Owned(bytes))
   }
 
-  fn read_short(&mut self, pos: usize) -> Result<i16> {
+  fn read_short(&self, pos: usize) -> Result<i16> {
+    let mut guard = self.state.lock();
+    let mut state = self.access_state(&mut guard);
     let mut bytes = [0; BitUtil::SHORT_BYTES];
-    self.resolve_position_in_buffer(pos, BitUtil::SHORT_BYTES)?;
-    self.read_shorts(pos, 1, &mut bytes, true)?;
+    state.resolve_position_in_buffer(pos, BitUtil::SHORT_BYTES)?;
+    state.read_shorts(pos, 1, &mut bytes, true)?;
     Ok(bytes[0])
   }
 
-  fn read_int(&mut self, pos: usize) -> Result<i32> {
+  fn read_int(&self, pos: usize) -> Result<i32> {
+    let mut guard = self.state.lock();
+    let mut state = self.access_state(&mut guard);
     let mut bytes = [0; BitUtil::INT_BYTES];
-    self.resolve_position_in_buffer(pos, BitUtil::INT_BYTES)?;
-    self.read_ints(pos, 1, &mut bytes, true)?;
+    state.resolve_position_in_buffer(pos, BitUtil::INT_BYTES)?;
+    state.read_ints(pos, 1, &mut bytes, true)?;
     Ok(bytes[0])
   }
 
-  fn read_long(&mut self, pos: usize) -> Result<i64> {
+  fn read_long(&self, pos: usize) -> Result<i64> {
+    let mut guard = self.state.lock();
+    let mut state = self.access_state(&mut guard);
     let mut bytes = [0; BitUtil::LONG_BYTES];
-    self.resolve_position_in_buffer(pos, BitUtil::LONG_BYTES)?;
-    self.read_longs(pos, 1, &mut bytes, true)?;
+    state.resolve_position_in_buffer(pos, BitUtil::LONG_BYTES)?;
+    state.read_longs(pos, 1, &mut bytes, true)?;
     Ok(bytes[0])
   }
 
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+  fn prefetch(&self, _pos: usize, _len: usize) -> Result<()> {
     Ok(())
   }
 }
@@ -795,7 +866,11 @@ where
   T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
 {
   fn read(&mut self, pos: usize) -> Result<i32> {
-    RandomAccessInput::read_int(self, pos)
+    let mut access = self.access_mut();
+    let mut bytes = [0; BitUtil::INT_BYTES];
+    access.resolve_position_in_buffer(pos, BitUtil::INT_BYTES)?;
+    access.read_ints(pos, 1, &mut bytes, true)?;
+    Ok(bytes[0])
   }
 }
 
@@ -812,3 +887,13 @@ pub const MIN_BUFFER_SIZE: usize = 8;
 /// BufferedIndexInputs created during merging.  See
 /// LUCENE-888 for details.
 pub const MERGE_BUFFER_SIZE: usize = 4096;
+
+#[cfg(test)]
+impl<T> BufferedIndexInput<T>
+where
+  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
+{
+  pub fn get_sub_index_input(&self) -> &T {
+    &self.sub_index_input
+  }
+}

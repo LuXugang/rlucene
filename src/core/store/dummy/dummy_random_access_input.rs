@@ -23,23 +23,23 @@ impl RandomAccessInput for DummyRandomAccessInput {
     dummy_unreachable!()
   }
 
-  fn read_byte(&mut self, _pos: usize) -> Result<u8> {
+  fn read_byte(&self, _pos: usize) -> Result<u8> {
     dummy_unreachable!()
   }
 
-  fn read_short(&mut self, _pos: usize) -> Result<i16> {
+  fn read_short(&self, _pos: usize) -> Result<i16> {
     dummy_unreachable!()
   }
 
-  fn read_int(&mut self, _pos: usize) -> Result<i32> {
+  fn read_int(&self, _pos: usize) -> Result<i32> {
     dummy_unreachable!()
   }
 
-  fn read_long(&mut self, _pos: usize) -> Result<i64> {
+  fn read_long(&self, _pos: usize) -> Result<i64> {
     dummy_unreachable!()
   }
 
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+  fn prefetch(&self, _pos: usize, _len: usize) -> Result<()> {
     dummy_unreachable!()
   }
 }

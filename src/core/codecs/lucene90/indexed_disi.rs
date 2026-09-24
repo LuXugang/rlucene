@@ -921,38 +921,36 @@ where
   }
 }
 
-impl<R> RandomAccessInput for Arc<Mutex<R>>
+impl<R> RandomAccessInput for Arc<R>
 where
   R: RandomAccessInput,
 {
   fn length(&self) -> Result<usize> {
-    self.lock().length()
+    self.as_ref().length()
   }
 
-  fn read_byte(&mut self, pos: usize) -> Result<u8> {
-    self.lock().read_byte(pos)
+  fn read_byte(&self, pos: usize) -> Result<u8> {
+    self.as_ref().read_byte(pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
-    Ok(std::borrow::Cow::Owned(
-      self.lock().read_bytes(pos, len)?.into_owned(),
-    ))
+  fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    self.as_ref().read_bytes(pos, len)
   }
 
-  fn read_short(&mut self, pos: usize) -> Result<i16> {
-    self.lock().read_short(pos)
+  fn read_short(&self, pos: usize) -> Result<i16> {
+    self.as_ref().read_short(pos)
   }
 
-  fn read_int(&mut self, pos: usize) -> Result<i32> {
-    self.lock().read_int(pos)
+  fn read_int(&self, pos: usize) -> Result<i32> {
+    self.as_ref().read_int(pos)
   }
 
-  fn read_long(&mut self, pos: usize) -> Result<i64> {
-    self.lock().read_long(pos)
+  fn read_long(&self, pos: usize) -> Result<i64> {
+    self.as_ref().read_long(pos)
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
-    self.lock().prefetch(pos, len)
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
+    self.as_ref().prefetch(pos, len)
   }
 }
 impl<I> IndexedDISIPolicy<I> for Owned
@@ -968,7 +966,7 @@ where
   I: IndexInput,
 {
   type Slice = IndexInputImpl<I::IndexInput>;
-  type JumpTable = Arc<Mutex<I::RandomAccessSlice>>;
+  type JumpTable = Arc<I::RandomAccessSlice>;
 }
 
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -1400,7 +1398,7 @@ where
   I: IndexInput,
 {
   Owned(IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>),
-  Shared(IndexedDISIImpl<IndexInputImpl<I::IndexInput>, Arc<Mutex<I::RandomAccessSlice>>>),
+  Shared(IndexedDISIImpl<IndexInputImpl<I::IndexInput>, Arc<I::RandomAccessSlice>>),
 }
 
 impl<I> IndexedDISIEnum<I>

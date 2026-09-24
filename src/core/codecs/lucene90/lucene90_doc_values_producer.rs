@@ -520,7 +520,7 @@ where
           min_values: entry.min_value,
         })
       } else {
-        let mut slice = self
+        let slice = self
           .data
           .random_access_slice(entry.values_offset, entry.values_length)?;
         // Prefetch the first page of data. Following pages are expected
@@ -579,7 +579,7 @@ where
           min_values: entry.min_value,
         })
       } else {
-        let mut slice = self
+        let slice = self
           .data
           .random_access_slice(entry.values_offset, entry.values_length)?;
         // Prefetch the first page of data. Following pages are expected
@@ -642,7 +642,7 @@ where
         min_values: entry.min_value,
       })
     } else {
-      let mut slice = self
+      let slice = self
         .data
         .random_access_slice(entry.values_offset, entry.values_length)?;
       if slice.length()? > 0 {
@@ -719,7 +719,7 @@ where
         ));
       }
 
-      let mut slice = self
+      let slice = self
         .data
         .random_access_slice(ords_entry.values_offset, ords_entry.values_length)?;
       if slice.length()? > 0 {
@@ -772,7 +772,7 @@ where
       ));
     }
 
-    let mut addresses_input = self
+    let addresses_input = self
       .data
       .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
     // Prefetch the first page of data. Following pages are expected to get
@@ -848,7 +848,7 @@ where
     if entry.docs_with_field_offset == -2 {
       return Ok(Lucene90BinaryDocValuesEnum::Empty(DocValues::empty_binary()));
     }
-    let mut bytes_slice = self
+    let bytes_slice = self
       .data
       .random_access_slice(entry.data_offset, entry.data_length)?;
     // Prefetch the first page of data. Following pages are expected
@@ -866,7 +866,7 @@ where
         };
         DenseBinaryDocValuesBaseEnum::Dense(base)
       } else {
-        let mut addresses_data = self
+        let addresses_data = self
           .data
           .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
         // Prefetch the first page of data. Following pages are
@@ -906,7 +906,7 @@ where
         })
       } else {
         // variable-length
-        let mut addresses_data = self
+        let addresses_data = self
           .data
           .random_access_slice(entry.addresses_offset, entry.addresses_length)?;
         if addresses_data.length()? > 0 {
@@ -978,7 +978,7 @@ where
         ));
       }
 
-      let mut addresses_input = self
+      let addresses_input = self
         .data
         .random_access_slice(ords_entry.addresses_offset, ords_entry.addresses_length)?;
       if addresses_input.length()? > 0 {
@@ -990,7 +990,7 @@ where
 
       let addresses = DirectMonotonicReader::get_instance(meta, addresses_input)?;
 
-      let mut slice = self
+      let slice = self
         .data
         .random_access_slice(ords_entry.base.values_offset, ords_entry.base.values_length)?;
       if slice.length()? > 0 {
@@ -1494,7 +1494,7 @@ where
       None
     } else {
       let offset = entry.value_jump_table_offset as usize;
-      let mut slice = data.random_access_slice(offset, data.length()? - offset)?;
+      let slice = data.random_access_slice(offset, data.length()? - offset)?;
       if slice.length()? > 0 {
         slice.prefetch(0, 1)?;
       }

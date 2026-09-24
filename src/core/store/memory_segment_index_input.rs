@@ -23,7 +23,7 @@ use std::hint::black_box;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
 #[cfg(unix)]
 use crate::core::store::native_access::NativeAccess;
@@ -54,7 +54,7 @@ pub struct MemorySegmentIndexInput {
   cur_segment: Option<Arc<Mmap>>,
   cur_position: usize,
   position: usize,
-  consecutive_prefetch_hit_count: i32,
+  consecutive_prefetch_hit_count: AtomicI32,
   closed: AtomicBool,
   owns_shared: bool,
   #[cfg(unix)]
@@ -75,7 +75,7 @@ pub struct MemorySegmentRandomAccessInput {
   chunk_size_power: u32,
   chunk_size_mask: usize,
   single_segment: Option<Arc<Mmap>>,
-  consecutive_prefetch_hit_count: i32,
+  consecutive_prefetch_hit_count: AtomicI32,
   #[cfg(unix)]
   native_access: PosixNativeAccess,
 }
@@ -258,14 +258,15 @@ impl MemorySegmentRandomAccessInput {
     advice(segment, segment_offset, advised_length).map_err(LuceneError::io)
   }
 
-  fn prefetch_impl(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch_impl(&self, pos: usize, len: usize) -> Result<()> {
     #[cfg(unix)]
     {
       self.ensure_open()?;
       CoreHelper::check_from_index_size(pos, len, self.length)?;
 
-      let hit_count = self.consecutive_prefetch_hit_count;
-      self.consecutive_prefetch_hit_count = hit_count.wrapping_add(1);
+      let hit_count = self
+        .consecutive_prefetch_hit_count
+        .fetch_add(1, Ordering::Relaxed);
       if !BitUtil::is_zero_or_power_of_two(hit_count) {
         return Ok(());
       }
@@ -279,7 +280,9 @@ impl MemorySegmentRandomAccessInput {
         Ok(())
       });
       if cache_miss {
-        self.consecutive_prefetch_hit_count = 0;
+        self
+          .consecutive_prefetch_hit_count
+          .store(0, Ordering::Relaxed);
       }
       result
     }
@@ -408,7 +411,7 @@ impl MemorySegmentIndexInput {
       cur_segment,
       cur_position: 0,
       position: 0,
-      consecutive_prefetch_hit_count: 0,
+      consecutive_prefetch_hit_count: AtomicI32::new(0),
       closed: AtomicBool::new(false),
       owns_shared: true,
       #[cfg(unix)]
@@ -455,7 +458,7 @@ impl MemorySegmentIndexInput {
       cur_segment,
       cur_position,
       position: 0,
-      consecutive_prefetch_hit_count: 0,
+      consecutive_prefetch_hit_count: AtomicI32::new(0),
       closed: AtomicBool::new(false),
       owns_shared: false,
       #[cfg(unix)]
@@ -754,14 +757,15 @@ impl MemorySegmentIndexInput {
     advice(segment, segment_offset, advised_length).map_err(LuceneError::io)
   }
 
-  fn prefetch_impl(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch_impl(&self, pos: usize, len: usize) -> Result<()> {
     #[cfg(unix)]
     {
       self.ensure_open()?;
       CoreHelper::check_from_index_size(pos, len, self.length)?;
 
-      let hit_count = self.consecutive_prefetch_hit_count;
-      self.consecutive_prefetch_hit_count = hit_count.wrapping_add(1);
+      let hit_count = self
+        .consecutive_prefetch_hit_count
+        .fetch_add(1, Ordering::Relaxed);
       if !BitUtil::is_zero_or_power_of_two(hit_count) {
         return Ok(());
       }
@@ -775,7 +779,9 @@ impl MemorySegmentIndexInput {
         Ok(())
       });
       if cache_miss {
-        self.consecutive_prefetch_hit_count = 0;
+        self
+          .consecutive_prefetch_hit_count
+          .store(0, Ordering::Relaxed);
       }
       result
     }
@@ -1026,7 +1032,7 @@ impl TryClone for MemorySegmentIndexInput {
       cur_segment: self.cur_segment.clone(),
       cur_position: self.cur_position,
       position: self.position,
-      consecutive_prefetch_hit_count: 0,
+      consecutive_prefetch_hit_count: AtomicI32::new(0),
       closed: AtomicBool::new(false),
       owns_shared: false,
       #[cfg(unix)]
@@ -1147,7 +1153,7 @@ impl IndexInput for MemorySegmentIndexInput {
       } else {
         None
       },
-      consecutive_prefetch_hit_count: 0,
+      consecutive_prefetch_hit_count: AtomicI32::new(0),
       #[cfg(unix)]
       native_access: self.native_access,
     })
@@ -1204,12 +1210,12 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     Ok(self.length)
   }
 
-  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+  fn read_byte(&self, pos: usize) -> Result<u8> {
     self.ensure_open()?;
     self.read_byte_at(pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     self.ensure_open()?;
     if let Some(bytes) = self.segment_slice_at(pos, len)? {
       return Ok(std::borrow::Cow::Borrowed(bytes));
@@ -1219,22 +1225,22 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     Ok(std::borrow::Cow::Owned(bytes))
   }
 
-  fn read_short(&mut self, pos: usize) -> Result<i16> {
+  fn read_short(&self, pos: usize) -> Result<i16> {
     self.ensure_open()?;
     self.read_buffer(pos, BitUtil::SHORT_BYTES, Self::decode_short)
   }
 
-  fn read_int(&mut self, pos: usize) -> Result<i32> {
+  fn read_int(&self, pos: usize) -> Result<i32> {
     self.ensure_open()?;
     self.read_buffer(pos, BitUtil::INT_BYTES, Self::decode_int)
   }
 
-  fn read_long(&mut self, pos: usize) -> Result<i64> {
+  fn read_long(&self, pos: usize) -> Result<i64> {
     self.ensure_open()?;
     self.read_buffer(pos, BitUtil::LONG_BYTES, Self::decode_long)
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
     self.prefetch_impl(pos, len)
   }
 
@@ -1248,7 +1254,7 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
     Ok(self.length)
   }
 
-  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+  fn read_byte(&self, pos: usize) -> Result<u8> {
     self.ensure_open()?;
     if let Some(segment) = self.single_segment.as_deref() {
       if pos >= self.length {
@@ -1259,7 +1265,7 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
     self.read_buffer(pos, BitUtil::BYTE_BYTES, |bytes| bytes[0])
   }
 
-  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     self.ensure_open()?;
     if let Some(bytes) = self.segment_slice_at(pos, len)? {
       return Ok(std::borrow::Cow::Borrowed(bytes));
@@ -1269,7 +1275,7 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
     Ok(std::borrow::Cow::Owned(bytes))
   }
 
-  fn read_short(&mut self, pos: usize) -> Result<i16> {
+  fn read_short(&self, pos: usize) -> Result<i16> {
     self.ensure_open()?;
     self.read_buffer(
       pos,
@@ -1278,7 +1284,7 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
     )
   }
 
-  fn read_int(&mut self, pos: usize) -> Result<i32> {
+  fn read_int(&self, pos: usize) -> Result<i32> {
     self.ensure_open()?;
     if let Some(segment) = &self.single_segment {
       if self.length < BitUtil::INT_BYTES || pos > self.length - BitUtil::INT_BYTES {
@@ -1289,7 +1295,7 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
     self.read_buffer(pos, BitUtil::INT_BYTES, MemorySegmentIndexInput::decode_int)
   }
 
-  fn read_long(&mut self, pos: usize) -> Result<i64> {
+  fn read_long(&self, pos: usize) -> Result<i64> {
     self.ensure_open()?;
     self.read_buffer(
       pos,
@@ -1298,7 +1304,7 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
     )
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
     self.prefetch_impl(pos, len)
   }
 

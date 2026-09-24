@@ -58,8 +58,8 @@ where
   // reused slice while merging
   disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::IndexInput>>>>,
   #[allow(clippy::type_complexity)]
-  disi_jump_tables: Mutex<HashMap<i32, Option<Arc<Mutex<I::RandomAccessSlice>>>>>,
-  data_inputs: Mutex<HashMap<i32, Arc<Mutex<I::RandomAccessSlice>>>>,
+  disi_jump_tables: Mutex<HashMap<i32, Option<Arc<I::RandomAccessSlice>>>>,
+  data_inputs: Mutex<HashMap<i32, Arc<I::RandomAccessSlice>>>,
 }
 
 impl<I> Lucene90NormsProducer<I>
@@ -239,7 +239,7 @@ where
     }
 
     let length = entry.num_docs_with_field * entry.bytes_per_norm as usize;
-    let mut slice = self
+    let slice = self
       .data
       .random_access_slice(entry.norms_offset.try_convert()?, length)?;
     // Prefetch the first page of data. Following pages are expected to get
@@ -249,7 +249,7 @@ where
     }
 
     if self.merging {
-      let slice_rc = Arc::new(Mutex::new(slice));
+      let slice_rc = Arc::new(slice);
       if self.merging {
         self
           .data_inputs
@@ -289,7 +289,7 @@ where
         let mut map = self.disi_jump_tables.lock();
         map
           .entry(field.number)
-          .or_insert_with(|| created.map(|jt| Arc::new(Mutex::new(jt))))
+          .or_insert_with(|| created.map(Arc::new))
           .clone()
       };
 
@@ -306,7 +306,7 @@ where
   }
 }
 pub enum RandomAccessSliceEnum<R> {
-  Shared(Arc<Mutex<R>>),
+  Shared(Arc<R>),
   Owned(R),
 }
 impl<I> Lucene90NormsProducer<I>
@@ -672,9 +672,7 @@ where
       RandomAccessSliceEnum::Owned(ref mut v) => {
         Ok((v.read_byte(doc.try_convert()?)? as i8) as i64)
       },
-      RandomAccessSliceEnum::Shared(ref v) => {
-        Ok((v.lock().read_byte(doc.try_convert()?)? as i8) as i64)
-      },
+      RandomAccessSliceEnum::Shared(ref v) => Ok((v.read_byte(doc.try_convert()?)? as i8) as i64),
     }
   }
 }
@@ -691,9 +689,7 @@ where
       RandomAccessSliceEnum::Owned(ref mut v) => {
         Ok(v.read_short((doc.try_convert()?) << 1)? as i64)
       },
-      RandomAccessSliceEnum::Shared(ref v) => {
-        Ok(v.lock().read_short((doc.try_convert()?) << 1)? as i64)
-      },
+      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_short((doc.try_convert()?) << 1)? as i64),
     }
   }
 }
@@ -708,9 +704,7 @@ where
   fn long_value(&mut self, doc: i32) -> Result<i64> {
     match self.slice {
       RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => {
-        Ok(v.lock().read_int((doc.try_convert()?) << 2)? as i64)
-      },
+      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
     }
   }
 }
@@ -725,7 +719,7 @@ where
   fn long_value(&mut self, doc: i32) -> Result<i64> {
     match self.slice {
       RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_long((doc.try_convert()?) << 3)?),
+      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
     }
   }
 }
@@ -848,7 +842,7 @@ where
   fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
       RandomAccessSliceEnum::Owned(ref mut v) => Ok((v.read_byte(index)? as i8) as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok((v.lock().read_byte(index)? as i8) as i64),
+      RandomAccessSliceEnum::Shared(ref v) => Ok((v.read_byte(index)? as i8) as i64),
     }
   }
 }
@@ -863,7 +857,7 @@ where
   fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
       RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_short(index << 1)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_short(index << 1)? as i64),
+      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_short(index << 1)? as i64),
     }
   }
 }
@@ -878,7 +872,7 @@ where
   fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
       RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_int(index << 2)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.lock().read_int(index << 2)? as i64),
+      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_int(index << 2)? as i64),
     }
   }
 }
@@ -893,7 +887,7 @@ where
   fn long_value(&mut self, index: usize) -> Result<i64> {
     match self.slice {
       RandomAccessSliceEnum::Owned(ref mut v) => v.read_long(index << 3),
-      RandomAccessSliceEnum::Shared(ref v) => v.lock().read_long(index << 3),
+      RandomAccessSliceEnum::Shared(ref v) => v.read_long(index << 3),
     }
   }
 }

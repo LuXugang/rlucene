@@ -203,12 +203,12 @@ fn test_backwards_byte_reads() -> Result<()> {
   let mut random = random();
   let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
   let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-  let mut input =
+  let input =
     BufferedIndexInput::with_buffer_size(sub_index_input, &resource_description, BUFFER_SIZE)?;
 
   let mut i = 2048;
   while i > 0 {
-    assert_eq!(byten(i), RandomAccessInput::read_byte(&mut input, i)?);
+    assert_eq!(byten(i), RandomAccessInput::read_byte(&input, i)?);
     let v = TestUtil::next_usize(&mut random, 1, 15);
     let next = i.saturating_sub(v);
     if next == 0 {
@@ -227,17 +227,14 @@ fn test_backwards_short_reads() -> Result<()> {
   let mut random = random();
   let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
   let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-  let mut input =
+  let input =
     BufferedIndexInput::with_buffer_size(sub_index_input, &resource_description, BUFFER_SIZE)?;
 
   let mut i = 2048;
   while i > 0 {
     let bb = [byten(i), byten(i + 1)];
     let expected_value = i16::from_le_bytes(bb);
-    assert_eq!(
-      expected_value,
-      RandomAccessInput::read_short(&mut input, i)?
-    );
+    assert_eq!(expected_value, RandomAccessInput::read_short(&input, i)?);
     let v = TestUtil::next_usize(&mut random, 1, 16);
     let next = i.saturating_sub(v);
     if next == 0 {
@@ -261,7 +258,7 @@ fn test_backwards_int_reads() -> Result<()> {
   let mut random = random();
   let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
   let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-  let mut input =
+  let input =
     BufferedIndexInput::with_buffer_size(sub_index_input, &resource_description, BUFFER_SIZE)?;
 
   let mut i = 2048;
@@ -273,7 +270,7 @@ fn test_backwards_int_reads() -> Result<()> {
     bb[3] = byten(i + 3);
 
     let expected_value = i32::from_le_bytes(bb);
-    assert_eq!(expected_value, RandomAccessInput::read_int(&mut input, i)?);
+    assert_eq!(expected_value, RandomAccessInput::read_int(&input, i)?);
     let v = TestUtil::next_usize(&mut random, 3, 18);
     let next = i.saturating_sub(v);
     if next == 0 {
@@ -297,7 +294,7 @@ fn test_backwards_long_reads() -> Result<()> {
   let mut random = random();
   let sub_index_input = MyBufferedIndexInput::with_len(1024 * 8);
   let resource_description = format!("MyBufferedIndexInput(len= {})", sub_index_input.len);
-  let mut input =
+  let input =
     BufferedIndexInput::with_buffer_size(sub_index_input, &resource_description, BUFFER_SIZE)?;
 
   let mut i = 2048;
@@ -313,7 +310,7 @@ fn test_backwards_long_reads() -> Result<()> {
     bb[7] = byten(i + 7);
 
     let expected_value = i64::from_le_bytes(bb);
-    assert_eq!(expected_value, RandomAccessInput::read_long(&mut input, i)?);
+    assert_eq!(expected_value, RandomAccessInput::read_long(&input, i)?);
 
     let v = TestUtil::next_usize(&mut random, 7, 22);
     let next = i.saturating_sub(v);

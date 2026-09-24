@@ -50,7 +50,7 @@ fn test_sanity() -> Result<()> {
   assert!(o2.ram_bytes_used()? > 0);
   assert_eq!(1, DataInput::read_byte(&mut o2)? as i32);
   assert_eq!(1, o2.position()?);
-  assert_eq!(1, RandomAccessInput::read_byte(&mut o2, 0)? as i32);
+  assert_eq!(1, RandomAccessInput::read_byte(&o2, 0)? as i32);
 
   result = DataInput::read_byte(&mut o2);
   assert!(result.is_err());
@@ -249,13 +249,13 @@ fn test_slicing_large_buffers() -> Result<()> {
     assert_eq!(1, data_input.slice(offset, 1)?.length());
 
     let window = (max - offset).min(1024);
-    let mut slice = data_input.slice(offset, window)?;
+    let slice = data_input.slice(offset, window)?;
     assert_eq!(window, slice.length());
     // Sanity check of the content against original pages.
     for i in 0..window {
       let index = (shift + offset + i) % page_bytes.len();
       let expected = page_bytes[index];
-      assert_eq!(expected, RandomAccessInput::read_byte(&mut slice, i)?);
+      assert_eq!(expected, RandomAccessInput::read_byte(&slice, i)?);
     }
     offset += random.random_range(mb..4 * mb);
   }

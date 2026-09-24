@@ -178,32 +178,32 @@ where
     RandomAccessInput::length(&self.in_)
   }
 
-  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+  fn read_byte(&self, pos: usize) -> Result<u8> {
     self.ensure_open()?;
-    RandomAccessInput::read_byte(&mut self.in_, pos)
+    RandomAccessInput::read_byte(&self.in_, pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     self.ensure_open()?;
-    RandomAccessInput::read_bytes(&mut self.in_, pos, len)
+    RandomAccessInput::read_bytes(&self.in_, pos, len)
   }
 
-  fn read_short(&mut self, pos: usize) -> Result<i16> {
+  fn read_short(&self, pos: usize) -> Result<i16> {
     self.ensure_open()?;
-    RandomAccessInput::read_short(&mut self.in_, pos)
+    RandomAccessInput::read_short(&self.in_, pos)
   }
 
-  fn read_int(&mut self, pos: usize) -> Result<i32> {
+  fn read_int(&self, pos: usize) -> Result<i32> {
     self.ensure_open()?;
-    RandomAccessInput::read_int(&mut self.in_, pos)
+    RandomAccessInput::read_int(&self.in_, pos)
   }
 
-  fn read_long(&mut self, pos: usize) -> Result<i64> {
+  fn read_long(&self, pos: usize) -> Result<i64> {
     self.ensure_open()?;
-    RandomAccessInput::read_long(&mut self.in_, pos)
+    RandomAccessInput::read_long(&self.in_, pos)
   }
 
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+  fn prefetch(&self, _pos: usize, _len: usize) -> Result<()> {
     self.ensure_open()?;
     Ok(())
   }

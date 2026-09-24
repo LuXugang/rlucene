@@ -1390,23 +1390,20 @@ pub trait BaseDirectoryTestCase {
       let mut input = dir.open_input("longs", &io_context)?;
       let length = IndexInput::length(&input)?;
       {
-        let mut slice = input.random_access_slice(0, length)?;
+        let slice = input.random_access_slice(0, length)?;
         assert_eq!(length, RandomAccessInput::length(&slice)?);
         for (i, &expected) in longs.iter().enumerate() {
-          assert_eq!(expected, RandomAccessInput::read_long(&mut slice, i * 8)?);
+          assert_eq!(expected, RandomAccessInput::read_long(&slice, i * 8)?);
         }
       }
 
       // Subslices
       for i in 1..longs.len() {
         let offset = i * 8;
-        let mut subslice = input.random_access_slice(offset, length - offset)?;
+        let subslice = input.random_access_slice(offset, length - offset)?;
         assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
         for (j, &expected) in longs.iter().skip(i).enumerate() {
-          assert_eq!(
-            expected,
-            RandomAccessInput::read_long(&mut subslice, j * 8)?
-          );
+          assert_eq!(expected, RandomAccessInput::read_long(&subslice, j * 8)?);
         }
       }
 
@@ -1429,10 +1426,10 @@ pub trait BaseDirectoryTestCase {
 
         let padded = dir.open_input(&name, &io_context)?;
         let padded_length = IndexInput::length(&padded)?;
-        let mut whole = padded.random_access_slice(i, padded_length - i)?;
+        let whole = padded.random_access_slice(i, padded_length - i)?;
         assert_eq!(padded_length - i, RandomAccessInput::length(&whole)?);
         for (j, &expected) in longs.iter().enumerate() {
-          assert_eq!(expected, RandomAccessInput::read_long(&mut whole, j * 8)?);
+          assert_eq!(expected, RandomAccessInput::read_long(&whole, j * 8)?);
         }
         CloseableRef::close(&padded)?;
       }
@@ -1465,20 +1462,20 @@ pub trait BaseDirectoryTestCase {
       let mut input = dir.open_input("ints", &io_context)?;
       let length = IndexInput::length(&input)?;
       {
-        let mut slice = input.random_access_slice(0, length)?;
+        let slice = input.random_access_slice(0, length)?;
         assert_eq!(length, RandomAccessInput::length(&slice)?);
         for (i, &expected) in ints.iter().enumerate() {
-          assert_eq!(expected, RandomAccessInput::read_int(&mut slice, i * 4)?);
+          assert_eq!(expected, RandomAccessInput::read_int(&slice, i * 4)?);
         }
       }
 
       // Subslices
       for i in 1..ints.len() {
         let offset = i * 4;
-        let mut subslice = input.random_access_slice(offset, length - offset)?;
+        let subslice = input.random_access_slice(offset, length - offset)?;
         assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
         for (j, &expected) in ints.iter().skip(i).enumerate() {
-          assert_eq!(expected, RandomAccessInput::read_int(&mut subslice, j * 4)?);
+          assert_eq!(expected, RandomAccessInput::read_int(&subslice, j * 4)?);
         }
       }
 
@@ -1501,10 +1498,10 @@ pub trait BaseDirectoryTestCase {
 
         let padded = dir.open_input(&name, &io_context)?;
         let padded_length = IndexInput::length(&padded)?;
-        let mut whole = padded.random_access_slice(i, padded_length - i)?;
+        let whole = padded.random_access_slice(i, padded_length - i)?;
         assert_eq!(padded_length - i, RandomAccessInput::length(&whole)?);
         for (j, &expected) in ints.iter().enumerate() {
-          assert_eq!(expected, RandomAccessInput::read_int(&mut whole, j * 4)?);
+          assert_eq!(expected, RandomAccessInput::read_int(&whole, j * 4)?);
         }
         CloseableRef::close(&padded)?;
       }
@@ -1538,23 +1535,20 @@ pub trait BaseDirectoryTestCase {
       let mut input = dir.open_input("shorts", &io_context)?;
       let length = IndexInput::length(&input)?;
       {
-        let mut slice = input.random_access_slice(0, length)?;
+        let slice = input.random_access_slice(0, length)?;
         assert_eq!(length, RandomAccessInput::length(&slice)?);
         for (i, &expected) in shorts.iter().enumerate() {
-          assert_eq!(expected, RandomAccessInput::read_short(&mut slice, i * 2)?);
+          assert_eq!(expected, RandomAccessInput::read_short(&slice, i * 2)?);
         }
       }
 
       // Subslices
       for i in 1..shorts.len() {
         let offset = i * 2;
-        let mut subslice = input.random_access_slice(offset, length - offset)?;
+        let subslice = input.random_access_slice(offset, length - offset)?;
         assert_eq!(length - offset, RandomAccessInput::length(&subslice)?);
         for (j, &expected) in shorts.iter().skip(i).enumerate() {
-          assert_eq!(
-            expected,
-            RandomAccessInput::read_short(&mut subslice, j * 2)?
-          );
+          assert_eq!(expected, RandomAccessInput::read_short(&subslice, j * 2)?);
         }
       }
 
@@ -1577,10 +1571,10 @@ pub trait BaseDirectoryTestCase {
 
         let padded = dir.open_input(&name, &io_context)?;
         let padded_length = IndexInput::length(&padded)?;
-        let mut whole = padded.random_access_slice(i, padded_length - i)?;
+        let whole = padded.random_access_slice(i, padded_length - i)?;
         assert_eq!(padded_length - i, RandomAccessInput::length(&whole)?);
         for (j, &expected) in shorts.iter().enumerate() {
-          assert_eq!(expected, RandomAccessInput::read_short(&mut whole, j * 2)?);
+          assert_eq!(expected, RandomAccessInput::read_short(&whole, j * 2)?);
         }
         CloseableRef::close(&padded)?;
       }

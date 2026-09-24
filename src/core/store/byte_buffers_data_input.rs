@@ -72,7 +72,6 @@ pub struct ByteBuffersDataInput<B> {
   length: usize,
   offset: usize,
   pos: usize,
-  scratch: Vec<u8>,
 }
 /// Reads data from a set of contiguous buffers.
 /// All data buffers except for the last one must have an identical number of
@@ -104,7 +103,6 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
       length,
       offset,
       pos: offset,
-      scratch: Vec::new(),
     })
   }
   fn block_index(&self, pos: usize) -> usize {
@@ -228,11 +226,6 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
     Ok(())
   }
 
-  #[cold]
-  fn fill_random_scratch(&self, pos: usize, len: usize, scratch: &mut Vec<u8>) -> Result<()> {
-    scratch.resize(len, 0);
-    self.do_read_bytes(pos, len, scratch)
-  }
   fn do_read_floats(&self, pos: usize, len: usize, output: &mut [f32]) -> Result<()> {
     self.read_buffer(pos, len, output, BitUtil::FLOAT_BYTES, LE::read_f32)
   }
@@ -511,7 +504,7 @@ where
   }
 
   #[inline]
-  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+  fn read_byte(&self, pos: usize) -> Result<u8> {
     let pos = pos + self.offset;
     if pos >= self.length + self.offset {
       return Err(LuceneError::eof(format!("{pos}")));
@@ -529,7 +522,7 @@ where
   }
 
   #[inline]
-  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     let end = pos
       .checked_add(len)
       .ok_or_else(|| LuceneError::eof(format!("{pos}")))?;
@@ -552,14 +545,12 @@ where
     {
       return Ok(std::borrow::Cow::Borrowed(bytes));
     }
-    let mut scratch = std::mem::take(&mut self.scratch);
-    let result = self.fill_random_scratch(absolute_pos, len, &mut scratch);
-    self.scratch = scratch;
-    result?;
-    Ok(std::borrow::Cow::Borrowed(&self.scratch[..len]))
+    let mut bytes = vec![0; len];
+    self.do_read_bytes(absolute_pos, len, &mut bytes)?;
+    Ok(std::borrow::Cow::Owned(bytes))
   }
 
-  fn read_short(&mut self, pos: usize) -> Result<i16> {
+  fn read_short(&self, pos: usize) -> Result<i16> {
     let pos = pos + self.offset;
     let block_offset = self.block_offset(pos);
     if pos + BitUtil::SHORT_BYTES <= self.length + self.offset
@@ -579,7 +570,7 @@ where
     Ok(LE::read_i16(&bytes))
   }
 
-  fn read_int(&mut self, pos: usize) -> Result<i32> {
+  fn read_int(&self, pos: usize) -> Result<i32> {
     let pos = pos + self.offset;
     let block_offset = self.block_offset(pos);
     if pos + BitUtil::INT_BYTES <= self.length + self.offset
@@ -599,7 +590,7 @@ where
     Ok(LE::read_i32(&bytes))
   }
 
-  fn read_long(&mut self, pos: usize) -> Result<i64> {
+  fn read_long(&self, pos: usize) -> Result<i64> {
     let pos = pos + self.offset;
     let block_offset = self.block_offset(pos);
     if pos + BitUtil::LONG_BYTES <= self.length + self.offset
@@ -619,7 +610,7 @@ where
     Ok(LE::read_i64(&bytes))
   }
 
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+  fn prefetch(&self, _pos: usize, _len: usize) -> Result<()> {
     Ok(())
   }
 }
@@ -635,7 +626,7 @@ where
 
 impl Accountable for ByteBuffersDataInput<Vec<u8>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch));
+    let mut size = size_of_vec(&self.blocks);
     for block in &self.blocks {
       size = size.saturating_add(size_of_vec(block.get_ref()));
     }
@@ -645,13 +636,13 @@ impl Accountable for ByteBuffersDataInput<Vec<u8>> {
 
 impl Accountable for ByteBuffersDataInput<&[u8]> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch)))
+    Ok(size_of_vec(&self.blocks))
   }
 }
 
 impl Accountable for ByteBuffersDataInput<Rc<Vec<u8>>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch));
+    let mut size = size_of_vec(&self.blocks);
     for block in &self.blocks {
       size = size
         .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)
@@ -663,7 +654,7 @@ impl Accountable for ByteBuffersDataInput<Rc<Vec<u8>>> {
 
 impl Accountable for ByteBuffersDataInput<Arc<Vec<u8>>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch));
+    let mut size = size_of_vec(&self.blocks);
     for block in &self.blocks {
       size = size
         .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)

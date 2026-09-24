@@ -1565,28 +1565,28 @@ impl RandomAccessInput for DirRandomAccessInput {
     self.0.length()
   }
 
-  fn read_byte(&mut self, pos: usize) -> Result<u8> {
+  fn read_byte(&self, pos: usize) -> Result<u8> {
     self.0.read_byte(pos)
   }
 
-  fn read_bytes(&mut self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     self.0.read_bytes(pos, len)
   }
 
-  fn read_short(&mut self, pos: usize) -> Result<i16> {
+  fn read_short(&self, pos: usize) -> Result<i16> {
     self.0.read_short(pos)
   }
 
-  fn read_int(&mut self, pos: usize) -> Result<i32> {
+  fn read_int(&self, pos: usize) -> Result<i32> {
     self.0.read_int(pos)
   }
 
-  fn read_long(&mut self, pos: usize) -> Result<i64> {
+  fn read_long(&self, pos: usize) -> Result<i64> {
     self.0.read_long(pos)
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
-    RandomAccessInput::prefetch(&mut self.0, pos, len)
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
+    RandomAccessInput::prefetch(&self.0, pos, len)
   }
 
   fn is_loaded(&self) -> Result<Option<bool>> {
