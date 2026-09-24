@@ -71,7 +71,7 @@ impl DocValuesFieldUpdatesBase for TestSingleUpdateDocValuesFieldUpdates {
   fn add_iterator<T>(
     &mut self,
     _doc_id: i32,
-    _iterator: &mut T,
+    _iterator: &T,
     _index: usize,
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
@@ -162,7 +162,7 @@ impl DocValuesFieldIterator for TestSingleUpdateDocValuesFieldIterator {
     Ok(1)
   }
 
-  fn binary_value(&mut self) -> crate::core::util::error::lucene_error::Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&self) -> crate::core::util::error::lucene_error::Result<&BytesRef<Vec<u8>>> {
     Err(LuceneError::unsupported_operation("binary_value"))
   }
 

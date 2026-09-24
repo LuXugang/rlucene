@@ -5097,7 +5097,7 @@ where
             let mapped_doc = seg_doc_map.get(doc)?;
             if mapped_doc != -1 {
               if it.has_value()? {
-                mapped_updates.add_iterator(mapped_doc, &mut it)?;
+                mapped_updates.add_iterator(mapped_doc, &it)?;
               } else {
                 mapped_updates.reset(mapped_doc)?;
               }

@@ -1595,7 +1595,7 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     if self.asserting {
       assert_thread("Binary doc values", self.creation_thread);
       assert!(self.exists);

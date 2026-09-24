@@ -312,7 +312,7 @@ impl<V: Borrow<PackedLongValues>> BinaryDocValues for BufferedSortingBinaryDocVa
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     match self {
       Self::Buffered(inner) => inner
         .binary_value()
@@ -445,7 +445,7 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     Ok(self.value.get_bytes_ref())
   }
 }
@@ -505,7 +505,7 @@ impl DocValuesIterator for SortingBinaryDocValues {
 impl BinaryDocValues for SortingBinaryDocValues {
   type Value<'a> = crate::core::index::BytesRefValueEnum<'a>;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     let idx = self.dvs.offsets[self.doc_id as usize] - 1;
     self.dvs.values.get(idx)
   }

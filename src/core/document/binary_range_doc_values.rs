@@ -115,7 +115,7 @@ impl<T: BinaryDocValues> BinaryDocValues for BinaryRangeDocValues<T> {
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     self.in_.binary_value()
   }
 }

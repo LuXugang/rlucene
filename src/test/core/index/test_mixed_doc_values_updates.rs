@@ -328,7 +328,7 @@ fn test_stress_multi_threading() -> Result<()> {
           assert_eq!(j, control.advance(j)?);
           let ctrl_value = control.long_value()?;
           assert_eq!(j, bdv.advance(j)?);
-          let bdv_value = get_value(&mut bdv)?.wrapping_mul(2);
+          let bdv_value = get_value(&bdv)?.wrapping_mul(2);
           assert_eq!(ctrl_value, bdv_value);
         }
       }
@@ -395,7 +395,7 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       for j in 0..r.max_doc()? {
         assert_eq!(j, cfndv.next_doc()?);
         assert_eq!(j, fbdv.next_doc()?);
-        assert_eq!(cfndv.long_value()?, get_value(&mut fbdv)?.wrapping_mul(2));
+        assert_eq!(cfndv.long_value()?, get_value(&fbdv)?.wrapping_mul(2));
       }
     }
   }
@@ -484,7 +484,7 @@ fn test_tons_of_updates() -> Result<()> {
       for j in 0..r.max_doc()? {
         assert_eq!(j, cf.next_doc()?);
         assert_eq!(j, f.next_doc()?);
-        assert_eq!(cf.long_value()?, get_value(&mut f)?.wrapping_mul(2));
+        assert_eq!(cf.long_value()?, get_value(&f)?.wrapping_mul(2));
       }
     }
   }

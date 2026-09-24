@@ -85,7 +85,7 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     ))
   }
 
-  fn add_iterator<I>(&mut self, doc_id: i32, iterator: &mut I, index: usize) -> Result<()>
+  fn add_iterator<I>(&mut self, doc_id: i32, iterator: &I, index: usize) -> Result<()>
   where
     I: DocValuesFieldIterator,
   {
@@ -170,7 +170,7 @@ impl AbstractIteratorBase for AbstractIteratorNumeric {
     Ok(self.value)
   }
 
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
     Err(LuceneError::unsupported_operation(
       "NumericDocValuesFieldUpdatesIterator does not support binary_value",
     ))

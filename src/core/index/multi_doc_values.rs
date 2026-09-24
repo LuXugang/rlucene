@@ -1328,9 +1328,9 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     match self.current_values {
-      Some(ref mut values) => values.binary_value(),
+      Some(ref values) => values.binary_value(),
       None => Err(LuceneError::illegal_state("current_values is none")),
     }
   }

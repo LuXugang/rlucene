@@ -56,7 +56,7 @@ impl DocIdSetIterator for DummyBinaryDocValues {
 impl BinaryDocValues for DummyBinaryDocValues {
   type Value<'a> = &'a BytesRef<Vec<u8>>;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     dummy_unreachable!()
   }
 }

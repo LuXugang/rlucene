@@ -100,7 +100,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T, index: usize) -> Result<()>
+  fn add_iterator<T>(&mut self, doc_id: i32, iterator: &T, index: usize) -> Result<()>
   where
     T: DocValuesFieldIterator,
   {
@@ -169,8 +169,6 @@ pub struct AbstractIteratorBinary {
     AbstractPagedMutable<PagedGrowableWriter>,
     AbstractPagedMutable<PagedGrowableWriter>,
   )>,
-  offset: usize,
-  length: usize,
   values: BytesRef<Vec<u8>>,
 }
 
@@ -182,20 +180,15 @@ impl AbstractIteratorBinary {
     )>,
     values: BytesRef<Vec<u8>>,
   ) -> AbstractIteratorBinary {
-    AbstractIteratorBinary {
-      ranges,
-      offset: 0,
-      length: 0,
-      values,
-    }
+    AbstractIteratorBinary { ranges, values }
   }
 }
 impl AbstractIteratorBase for AbstractIteratorBinary {
   fn set(&mut self, idx: usize) -> Result<()> {
     debug_assert!(self.ranges.0.get(idx)? <= i32::MAX as i64);
-    self.offset = self.ranges.0.get(idx)? as usize;
+    self.values.offset = self.ranges.0.get(idx)? as usize;
     debug_assert!(self.ranges.1.get(idx)? <= i32::MAX as i64);
-    self.length = self.ranges.1.get(idx)? as usize;
+    self.values.length = self.ranges.1.get(idx)? as usize;
     Ok(())
   }
 
@@ -205,9 +198,7 @@ impl AbstractIteratorBase for AbstractIteratorBinary {
     ))
   }
 
-  fn binary_value(&mut self) -> Result<&BytesRef<Vec<u8>>> {
-    self.values.offset = self.offset;
-    self.values.length = self.length;
+  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
     Ok(&self.values)
   }
 }

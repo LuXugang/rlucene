@@ -402,7 +402,7 @@ where
 {
   fn long_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<i64> {
     match self {
       SparseNumericDocValuesSubEnum::Sparse(sub) => {

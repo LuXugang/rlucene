@@ -29,7 +29,7 @@ pub trait BinaryDocValues: DocValuesIterator {
   ///
   /// # Returns
   /// The binary value for the current document ID.
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     Err(LuceneError::not_implemented("this method need implement"))
   }
 }
@@ -99,7 +99,7 @@ macro_rules! either_binary_docvalues {
             type Value<'a> = BytesRefValueEnum2<$( <$T as BinaryDocValues>::Value<'a> ),+>
             where Self: 'a;
 
-            fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+            fn binary_value(&self) -> Result<Self::Value<'_>> {
                 match self {
                     $( Self::$Variant(inner) => inner.binary_value().map(BytesRefValueEnum2::$Variant), )+
                 }

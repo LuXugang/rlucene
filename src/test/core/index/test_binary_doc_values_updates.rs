@@ -183,10 +183,10 @@ fn test_simple() -> Result<()> {
 
   let mut bdv = r.get_binary_doc_values("val")?.unwrap();
   assert_eq!(0, bdv.next_doc()?);
-  assert_eq!(2, get_value(&mut bdv)?);
+  assert_eq!(2, get_value(&bdv)?);
 
   assert_eq!(1, bdv.next_doc()?);
-  assert_eq!(2, get_value(&mut bdv)?);
+  assert_eq!(2, get_value(&bdv)?);
 
   Ok(())
 }
@@ -240,7 +240,7 @@ fn test_update_few_segments() -> Result<()> {
     for i in 0..max_doc {
       assert_eq!(i, bdv.next_doc()?);
       let expected = expected_values[i.try_convert()? + context.doc_base];
-      let actual = get_value(&mut bdv)?;
+      let actual = get_value(&bdv)?;
       assert_eq!(expected, actual);
     }
   }
@@ -293,10 +293,10 @@ fn test_reopen() -> Result<()> {
   let mut bdv2 = leaves2[0].reader().get_binary_doc_values("val")?.unwrap();
 
   assert_eq!(0, bdv1.next_doc()?);
-  assert_eq!(1, get_value(&mut bdv1)?);
+  assert_eq!(1, get_value(&bdv1)?);
 
   assert_eq!(0, bdv2.next_doc()?);
-  assert_eq!(10, get_value(&mut bdv2)?);
+  assert_eq!(10, get_value(&bdv2)?);
 
   writer.close()?;
   Ok(())
@@ -359,7 +359,7 @@ fn test_updates_and_deletes() -> Result<()> {
 
   for (i, expected) in expected_values.iter().enumerate() {
     assert_eq!(i as i32, bdv.next_doc()?);
-    assert_eq!(*expected, get_value(&mut bdv)?);
+    assert_eq!(*expected, get_value(&bdv)?);
   }
 
   reader.close()?;
@@ -410,7 +410,7 @@ fn test_updates_with_deletes() -> Result<()> {
 
   let mut bdv = r.get_binary_doc_values("val")?.unwrap();
   assert_eq!(1, bdv.advance(1)?);
-  assert_eq!(17_i64, get_value(&mut bdv)?);
+  assert_eq!(17_i64, get_value(&bdv)?);
 
   Ok(())
 }
@@ -474,7 +474,7 @@ fn test_multiple_doc_values_types() -> Result<()> {
 
     // BinaryDocValues
     assert_eq!(i, bdv.next_doc()?);
-    assert_eq!(17_i64, get_value(&mut bdv)?);
+    assert_eq!(17_i64, get_value(&bdv)?);
 
     // SortedDocValues
     assert_eq!(i, sdv.next_doc()?);
@@ -549,10 +549,10 @@ fn test_multiple_binary_doc_values() -> Result<()> {
   let max_doc = r.max_doc()?;
   for i in 0..max_doc {
     assert_eq!(i, bdv1.next_doc()?);
-    assert_eq!(17_i64, get_value(&mut bdv1)?);
+    assert_eq!(17_i64, get_value(&bdv1)?);
 
     assert_eq!(i, bdv2.next_doc()?);
-    assert_eq!(i as i64, get_value(&mut bdv2)?);
+    assert_eq!(i as i64, get_value(&bdv2)?);
   }
 
   Ok(())
@@ -599,7 +599,7 @@ fn test_document_with_no_value() -> Result<()> {
   let max_doc = r.max_doc()?;
   for i in 0..max_doc {
     assert_eq!(i, bdv.next_doc()?);
-    assert_eq!(17_i64, get_value(&mut bdv)?);
+    assert_eq!(17_i64, get_value(&bdv)?);
   }
 
   Ok(())
@@ -679,7 +679,7 @@ fn test_different_dv_format_per_field() -> Result<()> {
 
   for i in 0..reader.max_doc()? {
     assert_eq!(i, bdv.next_doc()?);
-    assert_eq!(17, get_value(&mut bdv)?);
+    assert_eq!(17, get_value(&bdv)?);
 
     assert_eq!(i, sdv.next_doc()?);
     let ord_value = sdv.ord_value()?;
@@ -729,7 +729,7 @@ fn test_update_same_doc_multiple_times() -> Result<()> {
 
   for i in 0..reader.max_doc()? {
     assert_eq!(i, bdv.next_doc()?);
-    assert_eq!(3, get_value(&mut bdv)?);
+    assert_eq!(3, get_value(&bdv)?);
   }
 
   reader.close()?;
@@ -827,7 +827,7 @@ fn test_segment_merges() -> Result<()> {
 
     for i in 0..r.max_doc()? {
       assert_eq!(i, bdv.next_doc()?);
-      assert_eq!(value, get_value(&mut bdv)?);
+      assert_eq!(value, get_value(&bdv)?);
     }
   }
   writer.close()?;
@@ -872,7 +872,7 @@ fn test_update_document_by_multiple_terms() -> Result<()> {
 
   for i in 0..reader.max_doc()? {
     assert_eq!(i, bdv.next_doc()?);
-    assert_eq!(3, get_value(&mut bdv)?);
+    assert_eq!(3, get_value(&bdv)?);
   }
 
   reader.close()?;
@@ -1203,7 +1203,7 @@ fn test_update_segment_with_no_doc_values() -> Result<()> {
     let r = ctx.reader();
     let mut bdv = r.get_binary_doc_values("bdv")?.unwrap();
     assert_eq!(bdv.next_doc()?, 0);
-    assert_eq!(get_value(&mut bdv)?, 5);
+    assert_eq!(get_value(&bdv)?, 5);
     assert_eq!(bdv.next_doc()?, NO_MORE_DOCS);
   }
 
@@ -1269,12 +1269,12 @@ fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
   let r1 = leaves[0].reader();
   let mut bdv1 = r1.get_binary_doc_values("bdv")?.unwrap();
   assert_eq!(bdv1.next_doc()?, 0);
-  assert_eq!(get_value(&mut bdv1)?, 5);
+  assert_eq!(get_value(&bdv1)?, 5);
 
   let r2 = leaves[1].reader();
   let mut bdv2 = r2.get_binary_doc_values("bdv")?.unwrap();
   assert_eq!(bdv2.next_doc()?, 1);
-  assert_eq!(get_value(&mut bdv2)?, 10);
+  assert_eq!(get_value(&bdv2)?, 10);
 
   Ok(())
 }
@@ -1316,7 +1316,7 @@ fn test_update_binary_dv_field_with_same_name_as_posting_field() -> Result<()> {
     .get_binary_doc_values("f")?
     .unwrap();
   assert_eq!(bdv.next_doc()?, 0);
-  assert_eq!(get_value(&mut bdv)?, 5);
+  assert_eq!(get_value(&bdv)?, 5);
   Ok(())
 }
 #[test]
@@ -1480,8 +1480,8 @@ fn test_stress_multi_threading() -> Result<()> {
           assert_eq!(j, bdv.advance(j)?);
           assert_eq!(j, control.advance(j)?);
 
-          let value = get_value(&mut bdv)?;
-          let control_value = get_value(&mut control)?;
+          let value = get_value(&bdv)?;
+          let control_value = get_value(&control)?;
           assert_eq!(control_value, value.wrapping_mul(2));
         }
       }
@@ -1546,8 +1546,8 @@ fn test_update_different_docs_in_different_gens() -> Result<()> {
       for j in 0..max_doc {
         assert_eq!(j, fbdv.next_doc()?);
         assert_eq!(j, cfbdv.next_doc()?);
-        let f = get_value(&mut fbdv)?;
-        let cf = get_value(&mut cfbdv)?;
+        let f = get_value(&fbdv)?;
+        let cf = get_value(&cfbdv)?;
         assert_eq!(cf, f.wrapping_mul(2));
       }
     }
@@ -1600,12 +1600,12 @@ fn test_change_codec() -> Result<()> {
   let mut f2 = MultiDocValues::get_binary_values(&reader, "f2")?.unwrap();
   assert_eq!(0, f1.next_doc()?);
   assert_eq!(0, f2.next_doc()?);
-  assert_eq!(12, get_value(&mut f1)?);
-  assert_eq!(13, get_value(&mut f2)?);
+  assert_eq!(12, get_value(&f1)?);
+  assert_eq!(13, get_value(&f2)?);
   assert_eq!(1, f1.next_doc()?);
   assert_eq!(1, f2.next_doc()?);
-  assert_eq!(17, get_value(&mut f1)?);
-  assert_eq!(2, get_value(&mut f2)?);
+  assert_eq!(17, get_value(&f1)?);
+  assert_eq!(2, get_value(&f2)?);
   reader.close()?;
   dir.close()
 }
@@ -1684,10 +1684,7 @@ fn test_add_indexes() -> Result<()> {
     for i in 0..leaf.max_doc()? {
       assert_eq!(i, bdv.next_doc()?);
       assert_eq!(i, control.next_doc()?);
-      assert_eq!(
-        get_value(&mut bdv)?.wrapping_mul(2),
-        get_value(&mut control)?
-      );
+      assert_eq!(get_value(&bdv)?.wrapping_mul(2), get_value(&control)?);
     }
   }
   reader.close()?;
@@ -1834,8 +1831,8 @@ fn test_tons_of_updates() -> Result<()> {
         assert_eq!(j, f.next_doc()?);
         assert_eq!(j, cf.next_doc()?);
 
-        let v_f = get_value(&mut f)?;
-        let v_cf = get_value(&mut cf)?;
+        let v_f = get_value(&f)?;
+        let v_cf = get_value(&cf)?;
         assert_eq!(
           v_cf,
           v_f.wrapping_mul(2),
@@ -1907,11 +1904,11 @@ fn test_updates_order() -> Result<()> {
 
   let mut bdv = r.get_binary_doc_values("f1")?.unwrap();
   assert_eq!(0, bdv.next_doc()?);
-  assert_eq!(4_i64, get_value(&mut bdv)?);
+  assert_eq!(4_i64, get_value(&bdv)?);
 
   let mut bdv = r.get_binary_doc_values("f2")?.unwrap();
   assert_eq!(0, bdv.next_doc()?);
-  assert_eq!(3_i64, get_value(&mut bdv)?);
+  assert_eq!(3_i64, get_value(&bdv)?);
 
   Ok(())
 }
@@ -1969,7 +1966,7 @@ fn test_update_all_deleted_segment() -> Result<()> {
   let mut bdv = r.get_binary_doc_values("f1")?.unwrap();
 
   assert_eq!(0, bdv.next_doc()?);
-  assert_eq!(2_i64, get_value(&mut bdv)?);
+  assert_eq!(2_i64, get_value(&bdv)?);
 
   Ok(())
 }
@@ -2013,7 +2010,7 @@ fn test_update_two_nonexisting_terms() -> Result<()> {
   let mut bdv = r.get_binary_doc_values("f1")?.unwrap();
 
   assert_eq!(0, bdv.next_doc()?);
-  assert_eq!(1_i64, get_value(&mut bdv)?);
+  assert_eq!(1_i64, get_value(&bdv)?);
 
   Ok(())
 }

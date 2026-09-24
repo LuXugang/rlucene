@@ -329,7 +329,7 @@ impl DocValuesIterator for EmptyBinary {
 impl BinaryDocValues for EmptyBinary {
   type Value<'a> = &'a BytesRef<Vec<u8>>;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     debug_assert!(
       false,
       "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
@@ -417,7 +417,7 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     match self {
       Self::A(inner) => inner
         .binary_value()

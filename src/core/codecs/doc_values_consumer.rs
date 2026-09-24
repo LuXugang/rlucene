@@ -692,10 +692,10 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     match self.current {
       Some(ref current) => {
-        let v = &mut self.doc_id_merger.get_subs_mut()[*current].sub;
+        let v = &self.doc_id_merger.get_subs()[*current].sub;
         v.values.binary_value()
       },
       None => Err(LuceneError::unreachable("")),

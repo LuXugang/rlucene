@@ -1763,7 +1763,7 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     match self {
       Self::Original(values) => values
         .binary_value()

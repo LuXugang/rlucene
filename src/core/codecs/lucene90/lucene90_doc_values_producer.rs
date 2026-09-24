@@ -1291,7 +1291,7 @@ where
   fn long_value(&mut self) -> Result<i64> {
     <SparseNumericDocValuesSubEnum<I::RandomAccessSlice> as SparseNumericDocValuesBase<I>>::long_value(
       &mut self.sub,
-      &mut self.disi,
+      &self.disi,
     )
   }
 }
@@ -1367,7 +1367,7 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     self.sub.binary_value(self.doc).map(BytesRefCow)
   }
 }
@@ -1442,7 +1442,7 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     <SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(
       &self.sub,
       &self.disi,
@@ -1776,7 +1776,7 @@ where
 {
   fn long_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<i64>;
 }
 pub struct SparseNumericDocValuesBaseImpl {
@@ -1788,7 +1788,7 @@ where
 {
   fn long_value(
     &mut self,
-    _disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    _disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<i64> {
     Ok(self.min_values)
   }
@@ -1802,7 +1802,7 @@ where
 {
   fn long_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<i64> {
     let index = disi.index_u();
     self.vbpv_reader.get_long_value(index)
@@ -1818,7 +1818,7 @@ where
 {
   fn long_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<i64> {
     Ok(self.table[self.values.get_mut(disi.index_u())? as usize])
   }
@@ -1832,7 +1832,7 @@ where
 {
   fn long_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<i64> {
     self.values.get_mut(disi.index_u())
   }
@@ -1848,7 +1848,7 @@ where
 {
   fn long_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    disi: &IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<i64> {
     Ok(
       self
@@ -3822,7 +3822,7 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     match self {
       Self::Dense(values) => values
         .binary_value()

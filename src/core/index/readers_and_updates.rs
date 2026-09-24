@@ -1188,10 +1188,10 @@ where
   where
     Self: 'a;
 
-  fn binary_value(&mut self) -> Result<Self::Value<'_>> {
+  fn binary_value(&self) -> Result<Self::Value<'_>> {
     match self.merged_doc_values.current_values_supplier {
       Some(CurrentSource::OnDisk) => {
-        if let Some(dv) = &mut self.merged_doc_values.on_disk_doc_values {
+        if let Some(dv) = &self.merged_doc_values.on_disk_doc_values {
           dv.binary_value()
             .map(crate::core::index::BytesRefValueEnum2::A)
         } else {
@@ -1201,7 +1201,7 @@ where
         }
       },
       Some(CurrentSource::Update) => match self.merged_doc_values.update_doc_values {
-        DocIdSetIteratorEnum2::A(ref mut dv) => dv
+        DocIdSetIteratorEnum2::A(ref dv) => dv
           .binary_value()
           .map(crate::core::index::BytesRefValueEnum2::B),
         DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
