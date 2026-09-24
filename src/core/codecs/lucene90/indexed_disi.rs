@@ -201,8 +201,8 @@ where
   ///   the value used in `write_bit_set`.
   /// - `cost`: Typically the number of logical doc IDs.
   pub fn from_components(
-    mut block_slice: I,
-    mut jump_table: Option<R>,
+    block_slice: I,
+    jump_table: Option<R>,
     jump_table_entry_count: i32,
     dense_rank_power: i8,
     cost: i64,
@@ -220,7 +220,7 @@ where
       block_slice.prefetch(0, 1)?;
     }
 
-    if let Some(jump_table) = &mut jump_table
+    if let Some(jump_table) = &jump_table
       && jump_table.length()? > 0
     {
       jump_table.prefetch(0, 1)?;
@@ -915,7 +915,7 @@ where
     Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
   }
 
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+  fn prefetch(&self, _pos: usize, _len: usize) -> Result<()> {
     // Not delegating to the wrapped instance on purpose. This is only used for merging.
     Ok(())
   }

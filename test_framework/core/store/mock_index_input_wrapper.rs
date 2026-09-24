@@ -434,7 +434,7 @@ where
     self.in_.random_access_slice(offset, length)
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
     self.ensure_open()?;
     self.ensure_accessible()?;
     self.in_.prefetch(pos, len)

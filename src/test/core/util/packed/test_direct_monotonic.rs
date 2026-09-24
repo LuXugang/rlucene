@@ -356,7 +356,7 @@ where
     let data_in = dir.open_input("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let meta = load_meta(&mut meta_in, array.len() as i64, block_shift)?;
     let slice = data_in.random_access_slice(0, dir.file_length("data")?)?;
-    let mut reader = DirectMonotonicReader::get_instance(&meta, slice)?;
+    let reader = DirectMonotonicReader::get_instance(&meta, slice)?;
 
     if array.is_empty() {
       assert_eq!(-1, reader.binary_search(0, array.len() as i64, 42)?);

@@ -1040,7 +1040,7 @@ where
       LuceneError::illegal_state(format!("Missing skipper entry for field {}", field.number))
     })?;
 
-    let mut input = self.data.slice(
+    let input = self.data.slice(
       "doc value skipper",
       entry.offset as usize,
       entry.length as usize,

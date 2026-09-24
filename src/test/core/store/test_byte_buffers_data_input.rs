@@ -110,7 +110,7 @@ fn test_random_reads_on_slices() -> Result<()> {
 }
 #[test]
 fn test_seek_empty() -> Result<()> {
-  let mut dst = ByteBuffersDataOutput::new();
+  let dst = ByteBuffersDataOutput::new();
   let mut data_input = dst.get_data_input_ref()?;
   let mut result = data_input.seek(0);
   assert!(result.is_ok());

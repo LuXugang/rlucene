@@ -380,7 +380,7 @@ impl ByteBuffersDataOutput {
   /// and constructs a read-only view over the current written content.
   ///
   /// The returned input is only valid as long as `self` is not mutated.
-  pub fn get_data_input_ref(&mut self) -> Result<ByteBuffersDataInput<&[u8]>> {
+  pub fn get_data_input_ref(&self) -> Result<ByteBuffersDataInput<&[u8]>> {
     let (length, data) = self.to_buffer_list_ref();
     ByteBuffersDataInput::new(data, length)
   }

@@ -1646,8 +1646,8 @@ impl IndexInput for DirIndexInput {
     ))
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
-    IndexInput::prefetch(&mut self.0, pos, len)
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
+    IndexInput::prefetch(&self.0, pos, len)
   }
 
   fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {

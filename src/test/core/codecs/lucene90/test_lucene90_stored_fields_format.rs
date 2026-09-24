@@ -433,7 +433,7 @@ where
     )?))
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
     self.in_.prefetch(pos, len)?;
     self.count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     Ok(())

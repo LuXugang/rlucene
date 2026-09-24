@@ -142,7 +142,7 @@ pub trait IndexInput: DataInput + TryClone + CloseableRef {
   ///
   /// # Note
   /// The default implementation is a no-op.
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+  fn prefetch(&self, _pos: usize, _len: usize) -> Result<()> {
     Ok(())
   }
 
@@ -436,9 +436,9 @@ impl IndexInput for IndexInputEnum {
     }
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
     match self {
-      IndexInputEnum::Fs(inner) => IndexInput::prefetch(inner, len, pos),
+      IndexInputEnum::Fs(inner) => IndexInput::prefetch(inner, pos, len),
       IndexInputEnum::Custom(inner) => inner.prefetch(pos, len),
     }
   }
@@ -814,7 +814,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+            fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => IndexInput::prefetch(inner, pos, len), )+
                 }
@@ -997,7 +997,7 @@ where
     (**self).random_access_slice(offset, length)
   }
 
-  fn prefetch(&mut self, _pos: usize, _len: usize) -> Result<()> {
+  fn prefetch(&self, _pos: usize, _len: usize) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 

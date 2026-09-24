@@ -1159,7 +1159,7 @@ impl IndexInput for MemorySegmentIndexInput {
     })
   }
 
-  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+  fn prefetch(&self, pos: usize, len: usize) -> Result<()> {
     self.prefetch_impl(pos, len)
   }
 

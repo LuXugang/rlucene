@@ -28,6 +28,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
+use parking_lot::Mutex;
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
@@ -210,9 +211,14 @@ pub struct SerializedIOCountingIndexInput<I> {
   slice_offset: usize,
   slice_length: usize,
   read_advice: ReadAdvice,
+  page_state: Mutex<PageState>,
+  state: Arc<SerialIOState>,
+}
+
+#[derive(Default)]
+struct PageState {
   pending_pages: HashSet<usize>,
   current_page: Option<usize>,
-  state: Arc<SerialIOState>,
 }
 
 impl<I> SerializedIOCountingIndexInput<I>
@@ -236,8 +242,7 @@ where
       slice_offset,
       slice_length,
       read_advice,
-      pending_pages: HashSet::new(),
-      current_page: None,
+      page_state: Mutex::new(PageState::default()),
       state,
     }
   }
@@ -248,9 +253,10 @@ where
     }
     let first_page = (self.slice_offset + offset) >> PAGE_SHIFT;
     let last_page = (self.slice_offset + offset + len - 1) >> PAGE_SHIFT;
+    let page_state = self.page_state.get_mut();
 
     for page in first_page..=last_page {
-      let outside_read_ahead = self.current_page.is_none_or(|current_page| {
+      let outside_read_ahead = page_state.current_page.is_none_or(|current_page| {
         let read_ahead_upto = if self.read_advice == ReadAdvice::Random {
           current_page
         } else {
@@ -260,10 +266,10 @@ where
         page < current_page || page > read_ahead_upto
       });
 
-      if !self.pending_pages.contains(&page) && outside_read_ahead {
+      if !page_state.pending_pages.contains(&page) && outside_read_ahead {
         self.state.counter.fetch_add(1, Ordering::Relaxed);
       }
-      self.current_page = Some(page);
+      page_state.current_page = Some(page);
     }
     self
       .state
@@ -301,8 +307,7 @@ where
       slice_offset: self.slice_offset,
       slice_length: self.slice_length,
       read_advice: self.read_advice,
-      pending_pages: HashSet::new(),
-      current_page: None,
+      page_state: Mutex::new(PageState::default()),
       state: self.state.clone(),
     })
   }
@@ -382,8 +387,7 @@ where
       slice_offset: self.slice_offset + offset,
       slice_length: length,
       read_advice: *read_advice,
-      pending_pages: HashSet::new(),
-      current_page: None,
+      page_state: Mutex::new(PageState::default()),
       state: self.state.clone(),
     })
   }
@@ -398,11 +402,12 @@ where
     )?))
   }
 
-  fn prefetch(&mut self, offset: usize, length: usize) -> Result<()> {
+  fn prefetch(&self, offset: usize, length: usize) -> Result<()> {
     let first_page = (self.slice_offset + offset) >> PAGE_SHIFT;
     let last_page = (self.slice_offset + offset + length - 1) >> PAGE_SHIFT;
+    let mut page_state = self.page_state.lock();
 
-    let within_read_ahead = self.current_page.is_some_and(|current_page| {
+    let within_read_ahead = page_state.current_page.is_some_and(|current_page| {
       let read_ahead_upto = if self.read_advice == ReadAdvice::Random {
         current_page
       } else {
@@ -419,7 +424,7 @@ where
       // If multiple prefetch calls are performed without a readXXX() call in-between, count a
       // single increment as these I/O requests can be performed in parallel.
       self.state.counter.fetch_add(1, Ordering::Relaxed);
-      self.pending_pages.clear();
+      page_state.pending_pages.clear();
       self
         .state
         .pending_fetch
@@ -428,7 +433,7 @@ where
     }
 
     for page in first_page..=last_page {
-      self.pending_pages.insert(page);
+      page_state.pending_pages.insert(page);
     }
     Ok(())
   }
