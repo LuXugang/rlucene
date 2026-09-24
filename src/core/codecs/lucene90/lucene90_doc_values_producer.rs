@@ -1527,7 +1527,7 @@ where
     if self.block != Some(block) {
       let mut bits_per_value;
       loop {
-        if let Some(ref mut rank_slice) = self.rank_slice
+        if let Some(ref rank_slice) = self.rank_slice
           && block != self.block.map_or(0, |block| block + 1)
         {
           self.block_end_offset = (rank_slice.read_long(block * BitUtil::LONG_BYTES)? as usize)

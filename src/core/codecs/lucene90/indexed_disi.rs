@@ -266,7 +266,7 @@ where
     let block_index = target_block >> 16;
     // If the destination block is 2 blocks or more ahead, we use the
     // jump-table.
-    if let Some(jump_table) = &mut self.jump_table
+    if let Some(jump_table) = &self.jump_table
       && block_index >= (self.block >> 16) + 2
     {
       // If the jumpTableEntryCount is exceeded, there are no further
