@@ -399,8 +399,8 @@ where
   pub(crate) fn get_compression_mode(&self) -> &CompressionModeEnum {
     &self.compression_mode
   }
-  pub(crate) fn get_index_reader(&mut self) -> &mut FieldsIndexReader<I> {
-    &mut self.index_reader
+  pub(crate) fn get_index_reader(&self) -> &FieldsIndexReader<I> {
+    &self.index_reader
   }
   pub(crate) fn get_max_pointer(&self) -> usize {
     self.max_pointer

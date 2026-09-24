@@ -649,13 +649,13 @@ where
   }
 }
 trait DenseNormsIteratorBase {
-  fn long_value(&mut self, doc: i32) -> Result<i64>;
+  fn long_value(&self, doc: i32) -> Result<i64>;
 }
 struct DenseNormsIteratorBaseImpl {
   norms_offset: i64,
 }
 impl DenseNormsIteratorBase for DenseNormsIteratorBaseImpl {
-  fn long_value(&mut self, _doc: i32) -> Result<i64> {
+  fn long_value(&self, _doc: i32) -> Result<i64> {
     Ok(self.norms_offset)
   }
 }
@@ -667,12 +667,10 @@ impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl1<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, doc: i32) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => {
-        Ok((v.read_byte(doc.try_convert()?)? as i8) as i64)
-      },
-      RandomAccessSliceEnum::Shared(ref v) => Ok((v.read_byte(doc.try_convert()?)? as i8) as i64),
+  fn long_value(&self, doc: i32) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => Ok((v.read_byte(doc.try_convert()?)? as i8) as i64),
+      RandomAccessSliceEnum::Shared(v) => Ok((v.read_byte(doc.try_convert()?)? as i8) as i64),
     }
   }
 }
@@ -684,12 +682,10 @@ impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl2<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, doc: i32) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => {
-        Ok(v.read_short((doc.try_convert()?) << 1)? as i64)
-      },
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_short((doc.try_convert()?) << 1)? as i64),
+  fn long_value(&self, doc: i32) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => Ok(v.read_short((doc.try_convert()?) << 1)? as i64),
+      RandomAccessSliceEnum::Shared(v) => Ok(v.read_short((doc.try_convert()?) << 1)? as i64),
     }
   }
 }
@@ -701,10 +697,10 @@ impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl4<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, doc: i32) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
+  fn long_value(&self, doc: i32) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
+      RandomAccessSliceEnum::Shared(v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
     }
   }
 }
@@ -716,10 +712,10 @@ impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl8<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, doc: i32) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
+  fn long_value(&self, doc: i32) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
+      RandomAccessSliceEnum::Shared(v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
     }
   }
 }
@@ -734,7 +730,7 @@ impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseEnum<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, doc: i32) -> Result<i64> {
+  fn long_value(&self, doc: i32) -> Result<i64> {
     match self {
       DenseNormsIteratorBaseEnum::Dense(inner) => inner.long_value(doc),
       DenseNormsIteratorBaseEnum::Dense1(inner) => inner.long_value(doc),
@@ -821,13 +817,13 @@ where
 }
 
 trait SparseNormsIteratorBase {
-  fn long_value(&mut self, index: usize) -> Result<i64>;
+  fn long_value(&self, index: usize) -> Result<i64>;
 }
 struct SparseNormsIteratorBaseImpl {
   norms_offset: i64,
 }
 impl SparseNormsIteratorBase for SparseNormsIteratorBaseImpl {
-  fn long_value(&mut self, _index: usize) -> Result<i64> {
+  fn long_value(&self, _index: usize) -> Result<i64> {
     Ok(self.norms_offset)
   }
 }
@@ -839,10 +835,10 @@ impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl1<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, index: usize) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok((v.read_byte(index)? as i8) as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok((v.read_byte(index)? as i8) as i64),
+  fn long_value(&self, index: usize) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => Ok((v.read_byte(index)? as i8) as i64),
+      RandomAccessSliceEnum::Shared(v) => Ok((v.read_byte(index)? as i8) as i64),
     }
   }
 }
@@ -854,10 +850,10 @@ impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl2<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, index: usize) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_short(index << 1)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_short(index << 1)? as i64),
+  fn long_value(&self, index: usize) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => Ok(v.read_short(index << 1)? as i64),
+      RandomAccessSliceEnum::Shared(v) => Ok(v.read_short(index << 1)? as i64),
     }
   }
 }
@@ -869,10 +865,10 @@ impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl4<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, index: usize) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => Ok(v.read_int(index << 2)? as i64),
-      RandomAccessSliceEnum::Shared(ref v) => Ok(v.read_int(index << 2)? as i64),
+  fn long_value(&self, index: usize) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => Ok(v.read_int(index << 2)? as i64),
+      RandomAccessSliceEnum::Shared(v) => Ok(v.read_int(index << 2)? as i64),
     }
   }
 }
@@ -884,10 +880,10 @@ impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl8<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, index: usize) -> Result<i64> {
-    match self.slice {
-      RandomAccessSliceEnum::Owned(ref mut v) => v.read_long(index << 3),
-      RandomAccessSliceEnum::Shared(ref v) => v.read_long(index << 3),
+  fn long_value(&self, index: usize) -> Result<i64> {
+    match &self.slice {
+      RandomAccessSliceEnum::Owned(v) => v.read_long(index << 3),
+      RandomAccessSliceEnum::Shared(v) => v.read_long(index << 3),
     }
   }
 }
@@ -902,7 +898,7 @@ impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseEnum<R>
 where
   R: RandomAccessInput,
 {
-  fn long_value(&mut self, index: usize) -> Result<i64> {
+  fn long_value(&self, index: usize) -> Result<i64> {
     match self {
       SparseNormsIteratorBaseEnum::Sparse(inner) => inner.long_value(index),
       SparseNormsIteratorBaseEnum::Sparse1(inner) => inner.long_value(index),

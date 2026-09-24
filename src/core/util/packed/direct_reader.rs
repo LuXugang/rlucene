@@ -147,11 +147,11 @@ where
     let bits_per_value_usize = self.bits_per_value as usize;
     if index + DirectReader::MERGE_BUFFER_SIZE >= self.num_values {
       // 128 values left or less
-      let mut slow_instance =
+      let slow_instance =
         DirectReader::get_instance_with_offset(None, self.bits_per_value, self.base_offset)?;
       let num_values_last_block = self.num_values - index;
       for (i, value) in buffer[..num_values_last_block].iter_mut().enumerate() {
-        *value = slow_instance.read_from_slice(index + i, Some(slice))?;
+        *value = slow_instance.read_from_slice_shared(index + i, Some(slice))?;
       }
     } else if (self.bits_per_value & 0x07) == 0 {
       // bitsPerValue is a multiple of 8
