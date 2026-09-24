@@ -319,8 +319,8 @@ where
 
 struct FaultyIndexInput<I> {
   do_fail: Arc<AtomicBool>,
-  delegate: I,
-  count: i32,
+  delegate: Mutex<I>,
+  count: Mutex<i32>,
 }
 impl<I> FaultyIndexInput<I>
 where
@@ -329,14 +329,15 @@ where
   fn new(do_fail: Arc<AtomicBool>, delegate: I) -> Self {
     Self {
       do_fail,
-      delegate,
-      count: 0,
+      delegate: Mutex::new(delegate),
+      count: Mutex::new(0),
     }
   }
-  fn sim_outage(&mut self) -> Result<()> {
+  fn sim_outage(&self) -> Result<()> {
     if self.do_fail.load(Ordering::SeqCst) {
-      let count = self.count;
-      self.count += 1;
+      let mut counter = self.count.lock();
+      let count = *counter;
+      *counter += 1;
 
       if count % 2 == 1 {
         return Err(LuceneError::io(std::io::Error::other(
@@ -358,7 +359,7 @@ where
   {
     Ok(FaultyIndexInput::new(
       self.do_fail.clone(),
-      self.delegate.try_clone()?,
+      self.delegate.lock().try_clone()?,
     ))
   }
 }
@@ -368,7 +369,7 @@ where
   I: IndexInput<IndexInput = I>,
 {
   fn close(&self) -> Result<()> {
-    self.delegate.close()
+    self.delegate.lock().close()
   }
 }
 
@@ -376,20 +377,16 @@ impl<I> BufferedIndexInputBase for FaultyIndexInput<I>
 where
   I: IndexInput<IndexInput = I>,
 {
-  fn seek_internal(&mut self, _pos: usize) -> Result<()> {
+  fn seek_internal(&self, _pos: usize) -> Result<()> {
     Ok(())
   }
 
-  fn read_internal(
-    &mut self,
-    b: &mut Cursor<Vec<u8>>,
-    len: usize,
-    file_pointer: usize,
-  ) -> Result<()> {
+  fn read_internal(&self, b: &mut Cursor<Vec<u8>>, len: usize, file_pointer: usize) -> Result<()> {
     self.sim_outage()?;
-    self.delegate.seek(file_pointer)?;
+    let mut delegate = self.delegate.lock();
+    delegate.seek(file_pointer)?;
     let offset = b.position() as usize;
-    self.delegate.read_bytes(b.get_mut(), offset, len)?;
+    delegate.read_bytes(b.get_mut(), offset, len)?;
 
     b.set_position((offset + len) as u64);
     Ok(())
@@ -398,13 +395,14 @@ where
   type Slice = BufferedIndexInput<FaultyIndexInput<I>>;
 
   fn slice(&self, slice_description: &str, offset: usize, length: usize) -> Result<Self::Slice> {
-    let slice = self.delegate.slice(slice_description, offset, length)?;
+    let delegate = self.delegate.lock();
+    let slice = delegate.slice(slice_description, offset, length)?;
     let fii = FaultyIndexInput::new(self.do_fail.clone(), slice);
-    let d = format!("FaultyIndexInput({})", self.delegate);
+    let d = format!("FaultyIndexInput({})", *delegate);
     BufferedIndexInput::with_buffer_size(fii, &d, 1024)
   }
 
   fn length(&self) -> usize {
-    self.delegate.length().expect("input length")
+    self.delegate.lock().length().expect("input length")
   }
 }

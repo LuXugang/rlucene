@@ -16,6 +16,7 @@
  */
 use crate::test_framework::core::util::lucene_test_case::random;
 use crate::test_framework::core::util::test_util::TestUtil;
+use std::cell::Cell;
 use std::clone::Clone;
 use std::io::Cursor;
 
@@ -216,7 +217,7 @@ fn test_backwards_byte_reads() -> Result<()> {
     i = next;
   }
 
-  assert_eq!(3, input.get_sub_index_input().read_count);
+  assert_eq!(3, input.get_sub_index_input().read_count.get());
 
   Ok(())
 }
@@ -245,7 +246,7 @@ fn test_backwards_short_reads() -> Result<()> {
     i = next;
   }
 
-  let actual_read_count = input.get_sub_index_input().read_count;
+  let actual_read_count = input.get_sub_index_input().read_count.get();
   assert!(
     actual_read_count == 3 || actual_read_count == 4,
     "Expected 3 or 4, got {}",
@@ -281,7 +282,7 @@ fn test_backwards_int_reads() -> Result<()> {
     i = next;
   }
 
-  let actual_read_count = input.get_sub_index_input().read_count;
+  let actual_read_count = input.get_sub_index_input().read_count.get();
   assert!(
     actual_read_count == 3 || actual_read_count == 4,
     "Expected 3 or 4, got {}",
@@ -322,7 +323,7 @@ fn test_backwards_long_reads() -> Result<()> {
     i = next;
   }
 
-  let actual_read_count = input.get_sub_index_input().read_count;
+  let actual_read_count = input.get_sub_index_input().read_count.get();
   assert!(
     actual_read_count == 3 || actual_read_count == 4,
     "Expected 3 or 4, got {}",
@@ -516,17 +517,17 @@ fn test_read_longs() -> Result<()> {
   Ok(())
 }
 struct MyBufferedIndexInput {
-  pos: usize,
+  pos: Cell<usize>,
   len: usize,
-  read_count: usize,
+  read_count: Cell<usize>,
 }
 
 impl MyBufferedIndexInput {
   fn with_len(len: usize) -> Self {
     Self {
-      pos: 0,
+      pos: Cell::new(0),
       len,
-      read_count: 0,
+      read_count: Cell::new(0),
     }
   }
   fn new() -> Self {
@@ -558,22 +559,17 @@ impl crate::core::util::clone::TryClone for MyBufferedIndexInput {
 impl crate::core::util::close::CloseableRef for MyBufferedIndexInput {}
 
 impl BufferedIndexInputBase for MyBufferedIndexInput {
-  fn seek_internal(&mut self, pos: usize) -> Result<()> {
-    self.pos = pos;
+  fn seek_internal(&self, pos: usize) -> Result<()> {
+    self.pos.set(pos);
     Ok(())
   }
 
-  fn read_internal(
-    &mut self,
-    b: &mut Cursor<Vec<u8>>,
-    len: usize,
-    _file_pointer: usize,
-  ) -> Result<()> {
+  fn read_internal(&self, b: &mut Cursor<Vec<u8>>, len: usize, _file_pointer: usize) -> Result<()> {
     let mut i = 0;
-    self.read_count += 1;
+    self.read_count.set(self.read_count.get() + 1);
     while b.remain()? > 0 && i < len {
-      b.write_u8(byten(self.pos))?;
-      self.pos += 1;
+      b.write_u8(byten(self.pos.get()))?;
+      self.pos.set(self.pos.get() + 1);
       i += 1;
     }
     Ok(())

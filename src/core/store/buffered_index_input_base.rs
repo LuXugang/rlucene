@@ -28,18 +28,13 @@ pub trait BufferedIndexInputBase: crate::core::util::clone::TryClone + Closeable
   ///
   /// # See Also
   /// [`read_internal`](BufferedIndexInputBase::read_internal)
-  fn seek_internal(&mut self, pos: usize) -> Result<()>;
+  fn seek_internal(&self, pos: usize) -> Result<()>;
   /// Expert: Implements buffer refill. Reads bytes from the current position
   /// in the input.
   ///
   /// # Arguments
   /// * `b` - The buffer to read bytes into.
-  fn read_internal(
-    &mut self,
-    b: &mut Cursor<Vec<u8>>,
-    len: usize,
-    file_pointer: usize,
-  ) -> Result<()>;
+  fn read_internal(&self, b: &mut Cursor<Vec<u8>>, len: usize, file_pointer: usize) -> Result<()>;
 
   /// Creates a slice of this index input, with the given description, offset,
   /// and length. The slice is positioned at the beginning.

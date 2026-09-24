@@ -195,7 +195,7 @@ impl CloseableRef for NIOFSIndexInput {
 }
 
 impl BufferedIndexInputBase for NIOFSIndexInput {
-  fn seek_internal(&mut self, pos: usize) -> Result<()> {
+  fn seek_internal(&self, pos: usize) -> Result<()> {
     if pos > self.length() {
       return Err(LuceneError::eof(format!(
         "read past EOF: pos={} vs length={} in {}",
@@ -248,7 +248,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
   /// Each chunk is read with positional I/O so cloned inputs do not share a
   /// mutable OS file cursor.
   fn read_internal(
-    &mut self,
+    &self,
     buffer: &mut Cursor<Vec<u8>>,
     len: usize,
     file_pointer: usize,

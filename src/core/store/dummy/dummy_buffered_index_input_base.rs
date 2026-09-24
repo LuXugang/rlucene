@@ -33,12 +33,12 @@ impl crate::core::util::clone::TryClone for DummyBufferedIndexInputBase {
 impl crate::core::util::close::CloseableRef for DummyBufferedIndexInputBase {}
 
 impl BufferedIndexInputBase for DummyBufferedIndexInputBase {
-  fn seek_internal(&mut self, _pos: usize) -> Result<()> {
+  fn seek_internal(&self, _pos: usize) -> Result<()> {
     dummy_unreachable!()
   }
 
   fn read_internal(
-    &mut self,
+    &self,
     _b: &mut Cursor<Vec<u8>>,
     _len: usize,
     _file_pointer: usize,
