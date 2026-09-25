@@ -205,7 +205,6 @@ where
   segment: Option<FlushedSegment<D>>,
   failed: bool,
   published: bool,
-  lock: Mutex<()>,
 }
 impl<D> FlushTicket<D>
 where
@@ -218,7 +217,6 @@ where
       segment: None,
       failed: false,
       published: false,
-      lock: Mutex::new(()),
     }
   }
   pub(crate) fn can_publish(&self) -> bool {
@@ -226,7 +224,6 @@ where
   }
 
   pub(crate) fn mark_published(&mut self) {
-    let _guard = self.lock.lock();
     debug_assert!(
       !self.published,
       "ticket was already published - can not publish twice"

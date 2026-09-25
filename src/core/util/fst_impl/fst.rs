@@ -109,7 +109,7 @@ where
     DO2: DataOutput,
   {
     self.metadata.save(meta_out)?;
-    self.fst_reader.lock().write_to(out)
+    self.fst_reader.get_mut().write_to(out)
   }
   pub fn save_with_same_data_out<DO>(&self, out: &mut DO) -> Result<()>
   where
