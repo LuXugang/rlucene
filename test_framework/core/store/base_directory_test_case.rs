@@ -1290,7 +1290,6 @@ pub trait BaseDirectoryTestCase {
           let src_length = IndexInput::length(&src).expect("source length");
           dst.copy_bytes(&mut src, src_length - header_len)?;
           dst.close()?;
-          CloseableRef::close(&src)?;
           Ok(())
         });
         handles.push(handle);

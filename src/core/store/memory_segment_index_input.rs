@@ -631,10 +631,15 @@ impl MappedView {
 impl MemorySegmentIndexInput {
   #[cold]
   fn seek_outside_current(&mut self, pos: usize) -> Result<()> {
-    if matches!(self.view.range, SegmentRange::Single { .. }) {
-      return Err(MappedView::eof());
-    }
-    self.view.seek(&mut self.cursor.get_mut(), pos)
+    let result = if matches!(self.view.range, SegmentRange::Single { .. }) {
+      Err(MappedView::eof())
+    } else {
+      self.view.seek(&mut self.cursor.get_mut(), pos)
+    };
+    result.map_err(|error| match error {
+      LuceneError::Eof(_) => LuceneError::eof(format!("seek past EOF (pos={pos}): {self}")),
+      error => error,
+    })
   }
 
   pub fn new<S>(
@@ -1162,7 +1167,15 @@ impl IndexInput for MemorySegmentIndexInput {
     Ok(self.view.length)
   }
   fn slice(&self, description: &str, offset: usize, length: usize) -> Result<Self> {
-    CoreHelper::check_from_index_size(offset, length, self.view.length)?;
+    if offset
+      .checked_add(length)
+      .is_none_or(|end| end > self.view.length)
+    {
+      return Err(LuceneError::illegal_argument(format!(
+        "slice() {description} out of bounds: offset={offset},length={length},fileLength={}: {self}",
+        self.view.length
+      )));
+    }
     if self.is_closed() {
       return Err(self.closed_error());
     }
