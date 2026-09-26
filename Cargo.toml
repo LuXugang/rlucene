@@ -1,8 +1,20 @@
 [package]
-edition = "2024"
-license = "Apache-2.0"
 name = "rlucene"
 version = "0.1.0"
+edition = "2024"
+rust-version = "1.98.1"
+license = "Apache-2.0"
+description = "A Rust port of Apache Lucene, a full-text search engine library"
+repository = "https://github.com/Rustify-All/rlucene"
+documentation = "https://docs.rs/rlucene"
+readme = "README.md"
+categories = ["database-implementations", "data-structures", "text-processing"]
+keywords = ["lucene", "search", "full-text", "indexing", "retrieval"]
+exclude = [
+    "/resources/",
+    "/ci/",
+    "/.github/",
+]
 
 [lib]
 doctest = false

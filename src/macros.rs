@@ -17,8 +17,9 @@
 /// Creates a vector by converting each element with [`Into::into`].
 ///
 /// The target element type must be known from a type annotation or the receiving API.
-/// For Lucene fields, queries and sort fields, prefer [`fields!`], [`queries!`] and
-/// [`sort_fields!`], which also infer the target type for empty lists.
+/// For Lucene fields, queries and sort fields, prefer [`fields!`](crate::fields!),
+/// [`queries!`](crate::queries!) and [`sort_fields!`](crate::sort_fields!), which also
+/// infer the target type for empty lists.
 ///
 /// ```
 /// let values: Vec<String> = rlucene::into_vec!["first", String::from("second")];

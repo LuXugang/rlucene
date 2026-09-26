@@ -869,7 +869,7 @@ where
     unwrap_caught_result!(res)
   }
   /// Deletes the document(s) matching any of the provided queries.
-  /// Accepts an array, vector or iterator of queries. Use [`queries!`](crate::queries)
+  /// Accepts an array, vector or iterator of queries. Use [`queries!`](crate::queries!)
   /// to combine different concrete query types.
   /// All given deletes are applied and flushed atomically at the same time.
   ///
