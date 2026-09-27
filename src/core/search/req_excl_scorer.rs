@@ -284,9 +284,10 @@ where
 
     // check if doc is excluded
     {
-      let mut excl_doc = ScorerUtil::doc_id(&self.excl_scorer);
+      let excl_approximation = self.excl_scorer.approximation_mut();
+      let mut excl_doc = excl_approximation.doc_id();
       if excl_doc < doc {
-        excl_doc = ScorerUtil::advance(&mut self.excl_scorer, doc)?;
+        excl_doc = excl_approximation.advance(doc)?;
       }
 
       if excl_doc != doc {
