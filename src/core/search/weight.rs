@@ -553,9 +553,8 @@ where
         debug_assert!(competitive_iterator.doc_id() <= doc);
         let mut competitive_doc = competitive_iterator.doc_id();
         if competitive_doc < doc {
-          competitive_iterator.advance(doc)?;
+          competitive_doc = competitive_iterator.advance(doc)?;
         }
-        competitive_doc = competitive_iterator.doc_id();
         if competitive_doc != doc {
           doc = ScorerUtil::advance(scorer, competitive_doc)?;
           continue;
