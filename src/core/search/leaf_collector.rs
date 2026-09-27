@@ -88,8 +88,9 @@ pub trait LeafCollector: Display {
   /// Collectors should delegate this method to their comparators if their
   /// comparators provide skipping functionality over non-competitive docs.
   ///
+  /// The returned iterator borrows the collector; its cursor persists across calls.
   /// The default is `None`, meaning no competitive iterator is provided.
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     Ok(None)
   }
 
@@ -132,7 +133,7 @@ where
     (**self).collect_stream(stream, scorer)
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     (**self).competitive_iterator()
   }
 
@@ -183,7 +184,7 @@ macro_rules! either_leaf_collector {
                 }
             }
 
-            fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+            fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
                 match self {
                     $( Self::$Variant(inner) => inner.competitive_iterator(), )+
                 }

@@ -268,7 +268,7 @@ where
     }
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     match self {
       Self::One(collector) | Self::MultiSingle(collector) => collector.competitive_iterator(),
       Self::Multi(collector) => collector.competitive_iterator(),

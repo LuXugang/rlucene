@@ -89,60 +89,16 @@ where
       .collect_stream(&mut asserting_stream, &mut asserting_scorable)
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-    Ok(self.in_.competitive_iterator()?.map(|in_| {
-      Box::new(AssertingCompetitiveIterator { in_, max: self.max }) as Box<dyn DocIdSetIterator>
-    }))
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+    // Forward once; re-fetching the iterator on next_doc/advance would change
+    // accessor calls and error ordering.
+    self.in_.competitive_iterator()
   }
 
   fn finish(&mut self) -> Result<()> {
     assert!(!self.finish_called);
     self.finish_called = true;
     self.in_.finish()
-  }
-}
-
-struct AssertingCompetitiveIterator<'a> {
-  in_: Box<dyn DocIdSetIterator + 'a>,
-  max: i32,
-}
-
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for AssertingCompetitiveIterator<'_>
-{
-}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for AssertingCompetitiveIterator<'_>
-{
-}
-
-impl DocIdSetIterator for AssertingCompetitiveIterator<'_> {
-  fn doc_id(&self) -> i32 {
-    self.in_.doc_id()
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    assert!(
-      self.in_.doc_id() < self.max,
-      "advancing beyond the end of the scored window: docID={}, max={}",
-      self.in_.doc_id(),
-      self.max
-    );
-    self.in_.next_doc()
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    assert!(
-      target <= self.max,
-      "advancing beyond the end of the scored window: target={}, max={}",
-      target,
-      self.max
-    );
-    self.in_.advance(target)
-  }
-
-  fn cost(&self) -> Result<i64> {
-    self.in_.cost()
   }
 }
 

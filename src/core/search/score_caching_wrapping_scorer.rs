@@ -133,7 +133,7 @@ where
     self.cache.init();
     self.inner.collect(doc, &mut wrapper)
   }
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     self.inner.competitive_iterator()
   }
 

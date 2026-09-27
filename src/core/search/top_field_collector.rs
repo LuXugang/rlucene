@@ -627,13 +627,19 @@ where
     Err(LuceneError::unsupported_operation("should not here"))
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     let comparators = self.base.comparators_mut();
     Ok(
       self
         .comparator
         .competitive_iterator(comparators)?
-        .map(|it| Box::new(it) as Box<dyn DocIdSetIterator>),
+        .map(|it| -> &mut dyn DocIdSetIterator {
+          match it {
+            LeafFieldComparatorDocIdSetIteratorRef::A(it) => it,
+            LeafFieldComparatorDocIdSetIteratorRef::B(it) => it,
+            LeafFieldComparatorDocIdSetIteratorRef::C(it) => it,
+          }
+        }),
     )
   }
 }
@@ -816,7 +822,7 @@ where
     Ok(())
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     self.base.competitive_iterator()
   }
 
@@ -1028,7 +1034,7 @@ where
     Ok(())
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     self.base.competitive_iterator()
   }
 
@@ -1109,7 +1115,7 @@ where
     }
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     match self {
       Self::Simple(inner) => inner.competitive_iterator(),
       Self::Paging(inner) => inner.competitive_iterator(),

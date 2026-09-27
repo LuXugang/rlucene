@@ -36,7 +36,7 @@ impl LeafCollector for DummyLeafCollector {
   fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
     dummy_unreachable!()
   }
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     dummy_unreachable!()
   }
 

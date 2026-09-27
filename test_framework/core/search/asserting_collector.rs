@@ -157,7 +157,7 @@ where
     self.default_collect_stream(stream, scorer)
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
     self.in_.competitive_iterator()
   }
 

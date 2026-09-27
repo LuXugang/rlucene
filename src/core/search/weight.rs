@@ -549,7 +549,7 @@ where
   } else {
     while doc < max {
       // competitive_iterator may be updated by collector.collect
-      if let Some(mut competitive_iterator) = collector.competitive_iterator()? {
+      if let Some(competitive_iterator) = collector.competitive_iterator()? {
         debug_assert!(competitive_iterator.doc_id() <= doc);
         let mut competitive_doc = competitive_iterator.doc_id();
         if competitive_doc < doc {
