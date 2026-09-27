@@ -151,12 +151,62 @@ where
 
 impl<S, T> crate::core::search::scorable::FixedScore for DisjunctionScorer<S, T> {}
 
+impl<S, T> DocIdSetIterator for DisjunctionScorer<S, T>
+where
+  S: Scorer + 'static,
+  T: DisjunctionScorerBase,
+{
+  fn doc_id(&self) -> i32 {
+    match &self.disi {
+      Disi::A(v) => DocIdSetIterator::doc_id(v),
+      Disi::B(v) => DocIdSetIterator::doc_id(v),
+    }
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    match &mut self.disi {
+      Disi::A(v) => DocIdSetIterator::next_doc(v),
+      Disi::B(v) => DocIdSetIterator::next_doc(v),
+    }
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      Disi::A(v) => DocIdSetIterator::advance(v, target),
+      Disi::B(v) => DocIdSetIterator::advance(v, target),
+    }
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      Disi::A(v) => DocIdSetIterator::slow_advance(v, target),
+      Disi::B(v) => DocIdSetIterator::slow_advance(v, target),
+    }
+  }
+  fn cost(&self) -> Result<i64> {
+    match &self.disi {
+      Disi::A(v) => DocIdSetIterator::cost(v),
+      Disi::B(v) => DocIdSetIterator::cost(v),
+    }
+  }
+}
+impl<S, T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DisjunctionScorer<S, T>
+where
+  S: Scorer + 'static,
+  T: DisjunctionScorerBase,
+{
+}
+impl<S, T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DisjunctionScorer<S, T>
+where
+  S: Scorer + 'static,
+  T: DisjunctionScorerBase,
+{
+}
 impl<S, T> Scorer for DisjunctionScorer<S, T>
 where
   S: Scorer + 'static,
   T: DisjunctionScorerBase,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     match self.disi {
       Disi::A(ref v) => Ok(v.doc_id()),
       Disi::B(ref v) => {
@@ -167,20 +217,6 @@ where
           .approximation;
         Ok(approximation.doc_id())
       },
-    }
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    match &self.disi {
-      Disi::A(v) => v,
-      Disi::B(v) => v,
-    }
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    match &mut self.disi {
-      Disi::A(v) => v,
-      Disi::B(v) => v,
     }
   }
 
@@ -282,9 +318,9 @@ where
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.tpi_state {
-      TwoPhaseState::No => self.iterator_mut(),
+      TwoPhaseState::No => self,
       _ => match self.disi {
-        Disi::A(_) => self.iterator_mut(),
+        Disi::A(_) => self,
         Disi::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
       },
     }
@@ -292,9 +328,9 @@ where
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.tpi_state {
-      TwoPhaseState::No => self.iterator(),
+      TwoPhaseState::No => self,
       _ => match self.disi {
-        Disi::A(_) => self.iterator(),
+        Disi::A(_) => self,
         Disi::B(ref v) => v.two_phase_iterator.approximation(),
       },
     }

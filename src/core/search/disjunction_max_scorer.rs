@@ -113,7 +113,7 @@ impl DisjunctionScorerBase for DisjunctionMaxScorer {
     let mut other_score_sum: f64 = 0.0;
 
     for scorer in disi_wrapper.iter_mut() {
-      if scorer.scorer.doc_id()? <= upto {
+      if (scorer.scorer).scoring_doc_id()? <= upto {
         let sub_score = scorer.scorer.get_max_score(upto)?;
 
         if sub_score >= score_max {

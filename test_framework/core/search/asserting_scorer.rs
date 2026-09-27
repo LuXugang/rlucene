@@ -71,7 +71,9 @@ impl AssertingScorer {
     score_mode: ScoreMode,
     can_call_min_competitive_score: bool,
   ) -> Self {
-    let doc = in_.doc_id().expect("doc_id should be available");
+    let doc = in_
+      .scoring_doc_id()
+      .expect("scoring_doc_id should be available");
     let in_ = Rc::new(RefCell::new(in_));
     let state = Rc::new(RefCell::new(AssertingScorerState::new(doc)));
     Self {
@@ -87,7 +89,7 @@ impl AssertingScorer {
   }
 
   fn iterating(&mut self) -> Result<bool> {
-    match self.doc_id()? {
+    match (self).scoring_doc_id()? {
       -1 | NO_MORE_DOCS => Ok(false),
       _ => Ok(self.state.borrow().state == IteratorState::Iterating),
     }
@@ -107,7 +109,7 @@ impl Scorable for AssertingScorer {
     let score = self.in_.borrow_mut().score()?;
     assert!(!score.is_nan(), "NaN score");
     if self.state.borrow().last_shallow_target != -1 {
-      let doc = self.doc_id()?;
+      let doc = (self).scoring_doc_id()?;
       assert!(score <= self.get_max_score(doc)?);
     }
     assert!(CoreHelper::compare_f32(score, 0.0).is_ge(), "{}", score);
@@ -129,21 +131,32 @@ impl Scorable for AssertingScorer {
   }
 
   fn cost(&self) -> Result<i64> {
-    self.in_.borrow().cost()
+    Scorable::cost(&*self.in_.borrow())
   }
 }
 
+impl DocIdSetIterator for AssertingScorer {
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.iterator_view)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.iterator_view)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.iterator_view, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.iterator_view, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.iterator_view)
+  }
+}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for AssertingScorer {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for AssertingScorer {}
 impl Scorer for AssertingScorer {
-  fn doc_id(&mut self) -> Result<i32> {
-    self.in_.borrow_mut().doc_id()
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.iterator_view
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.iterator_view
+  fn scoring_doc_id(&mut self) -> Result<i32> {
+    (**self.in_.borrow_mut()).scoring_doc_id()
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -194,7 +207,7 @@ impl Scorer for AssertingScorer {
         state.last_shallow_target
       );
     }
-    let doc_id = self.doc_id()?;
+    let doc_id = (self).scoring_doc_id()?;
     assert!(target >= doc_id, "target = {} < docID = {}", target, doc_id);
     let up_to = self.in_.borrow_mut().advance_shallow(target)?;
     assert!(up_to >= target, "upTo = {} < target = {}", up_to, target);
@@ -208,7 +221,7 @@ impl Scorer for AssertingScorer {
 
   fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
     assert!(self.score_mode.needs_scores());
-    let doc_id = self.in_.borrow_mut().doc_id()?;
+    let doc_id = (**self.in_.borrow_mut()).scoring_doc_id()?;
     {
       let state = self.state.borrow();
       assert!(
@@ -279,12 +292,12 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
     let scorer_doc = self
       .scorer
       .borrow_mut()
-      .doc_id()
-      .expect("doc_id should be available");
+      .scoring_doc_id()
+      .expect("scoring_doc_id should be available");
     let iterator_doc = if self.approximation {
       self.scorer.borrow().approximation().doc_id()
     } else {
-      self.scorer.borrow().iterator().doc_id()
+      self.scorer.borrow().doc_id()
     };
     assert_eq!(scorer_doc, iterator_doc);
     iterator_doc
@@ -303,7 +316,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
     let next_doc = if self.approximation {
       self.scorer.borrow_mut().approximation_mut().next_doc()?
     } else {
-      self.scorer.borrow_mut().iterator_mut().next_doc()?
+      self.scorer.borrow_mut().next_doc()?
     };
     {
       let mut state = self.state.borrow_mut();
@@ -320,7 +333,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
       } else {
         IteratorState::Iterating
       };
-      assert_eq!(self.scorer.borrow_mut().doc_id()?, next_doc);
+      assert_eq!((**self.scorer.borrow_mut()).scoring_doc_id()?, next_doc);
       state.doc = next_doc;
     }
     Ok(next_doc)
@@ -349,7 +362,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
         .approximation_mut()
         .advance(target)?
     } else {
-      self.scorer.borrow_mut().iterator_mut().advance(target)?
+      self.scorer.borrow_mut().advance(target)?
     };
     {
       let mut state = self.state.borrow_mut();
@@ -366,7 +379,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
       } else {
         IteratorState::Iterating
       };
-      assert_eq!(self.scorer.borrow_mut().doc_id()?, advanced);
+      assert_eq!((**self.scorer.borrow_mut()).scoring_doc_id()?, advanced);
       state.doc = advanced;
     }
     Ok(advanced)
@@ -376,7 +389,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
     if self.approximation {
       self.scorer.borrow().approximation().cost()
     } else {
-      self.scorer.borrow().iterator().cost()
+      crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&**self.scorer.borrow())
     }
   }
 }
@@ -403,8 +416,8 @@ impl AssertingTwoPhaseIterator {
     let scorer_doc = self
       .scorer
       .borrow_mut()
-      .doc_id()
-      .expect("doc_id should be available");
+      .scoring_doc_id()
+      .expect("scoring_doc_id should be available");
     let approximation_doc = self
       .scorer
       .borrow()
@@ -455,7 +468,7 @@ impl TwoPhaseIterator for AssertingTwoPhaseIterator {
         .expect("two_phase_iterator should be available")
         .approximation()
         .doc_id();
-      assert_eq!(self.scorer.borrow_mut().doc_id()?, doc);
+      assert_eq!((**self.scorer.borrow_mut()).scoring_doc_id()?, doc);
       let mut state = self.state.borrow_mut();
       state.doc = doc;
       state.state = IteratorState::Iterating;

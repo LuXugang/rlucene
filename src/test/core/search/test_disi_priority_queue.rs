@@ -88,7 +88,7 @@ fn test_random() -> Result<()> {
     let top = all.get_mut(*pq.top().as_ref().unwrap()).unwrap();
     assert_eq!(sorted_docs[0], top.doc);
 
-    let next = top.scorer.iterator_mut().next_doc()?;
+    let next = top.scorer.next_doc()?;
     top.doc = next;
     if next == NO_MORE_DOCS {
       pq.pop(&all);

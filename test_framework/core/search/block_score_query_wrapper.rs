@@ -198,7 +198,7 @@ where
     let mut i = 1usize;
 
     loop {
-      let doc = in_scorer.iterator_mut().next_doc()?;
+      let doc = in_scorer.next_doc()?;
 
       ArrayUtil::grow_with_len(&mut tmp_docs, i + 1)?;
       ArrayUtil::grow_with_len(&mut tmp_scores, i + 1)?;
@@ -270,16 +270,8 @@ impl Scorable for BlockScoreScorer {
 impl FixedScore for BlockScoreScorer {}
 
 impl Scorer for BlockScoreScorer {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.docs[self.i.get()])
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    self
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

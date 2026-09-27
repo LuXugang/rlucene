@@ -470,13 +470,13 @@ impl CheckHits {
 
       if s1.is_none() {
         if let Some(s2) = s2.as_mut() {
-          assert_eq!(NO_MORE_DOCS, s2.iterator_mut().next_doc()?);
+          assert_eq!(NO_MORE_DOCS, s2.next_doc()?);
         }
         continue;
       }
       if s2.is_none() {
         let s1 = s1.as_mut().unwrap();
-        assert_eq!(NO_MORE_DOCS, s1.iterator_mut().next_doc()?);
+        assert_eq!(NO_MORE_DOCS, s1.next_doc()?);
         continue;
       }
 
@@ -541,13 +541,13 @@ impl CheckHits {
 
       if s1.is_none() {
         if let Some(s2) = s2.as_mut() {
-          assert_eq!(NO_MORE_DOCS, s2.iterator_mut().next_doc()?);
+          assert_eq!(NO_MORE_DOCS, s2.next_doc()?);
         }
         continue;
       }
       if s2.is_none() {
         let s1 = s1.as_mut().unwrap();
-        assert_eq!(NO_MORE_DOCS, s1.iterator_mut().next_doc()?);
+        assert_eq!(NO_MORE_DOCS, s1.next_doc()?);
         continue;
       }
 
@@ -559,7 +559,7 @@ impl CheckHits {
       let mut max_score: f32 = 0.0;
 
       loop {
-        let doc_id = s2.doc_id()?;
+        let doc_id = (s2).scoring_doc_id()?;
         let (advance, target) = if random.random_bool(0.5) {
           (false, doc_id.wrapping_add(1))
         } else {
@@ -567,7 +567,7 @@ impl CheckHits {
             1 + random.random_range(0..512),
             NO_MORE_DOCS.wrapping_sub(doc_id),
           );
-          (true, s2.doc_id()?.wrapping_add(delta))
+          (true, (s2).scoring_doc_id()?.wrapping_add(delta))
         };
 
         if target > upto && random.random_bool(0.5) {
@@ -633,7 +633,7 @@ impl CheckHits {
       let v = tp.approximation_mut();
       v.advance(target)
     } else {
-      let v = s.iterator_mut();
+      let v = &mut *s;
       v.advance(target)
     }
   }
@@ -643,7 +643,7 @@ impl CheckHits {
       let v = tp.approximation_mut();
       v.next_doc()
     } else {
-      let v = s.iterator_mut();
+      let v = &mut *s;
       v.next_doc()
     }
   }

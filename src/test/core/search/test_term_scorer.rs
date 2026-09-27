@@ -165,18 +165,10 @@ fn test_next() -> Result<()> {
   let top_reader_context = index_searcher.get_top_reader_context();
 
   let mut ts = weight.scorer(top_reader_context, &index_searcher)?.unwrap();
-  assert_ne!(
-    ts.iterator_mut().next_doc()?,
-    NO_MORE_DOCS,
-    "next did not return a doc"
-  );
-  assert_ne!(
-    ts.iterator_mut().next_doc()?,
-    NO_MORE_DOCS,
-    "next did not return a doc"
-  );
+  assert_ne!(ts.next_doc()?, NO_MORE_DOCS, "next did not return a doc");
+  assert_ne!(ts.next_doc()?, NO_MORE_DOCS, "next did not return a doc");
   assert_eq!(
-    ts.iterator_mut().next_doc()?,
+    ts.next_doc()?,
     NO_MORE_DOCS,
     "next returned a doc and it should not have"
   );
@@ -196,8 +188,8 @@ fn test_advance() -> Result<()> {
   let top_reader_context = index_searcher.get_top_reader_context();
 
   let mut ts = weight.scorer(top_reader_context, &index_searcher)?.unwrap();
-  assert_ne!(ts.iterator_mut().advance(3)?, NO_MORE_DOCS, "Didn't skip");
-  assert_eq!(5, ts.doc_id()?, "doc should be number 5");
+  assert_ne!(ts.advance(3)?, NO_MORE_DOCS, "Didn't skip");
+  assert_eq!(5, (ts).scoring_doc_id()?, "doc should be number 5");
 
   Ok(())
 }
@@ -238,7 +230,7 @@ fn test_does_not_load_norms() -> Result<()> {
 
   let weight2 = index_searcher.create_weight(term_query, ScoreMode::CompleteNoScores, 1.0)?;
   let mut scorer = weight2.scorer(&ctx[0], &index_searcher)?.unwrap();
-  scorer.iterator_mut().next_doc()?;
+  scorer.next_doc()?;
 
   Ok(())
 }

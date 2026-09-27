@@ -90,24 +90,51 @@ where
 
 impl<S1, S2> crate::core::search::scorable::FixedScore for ReqExclScorer<S1, S2> {}
 
+impl<S1, S2> DocIdSetIterator for ReqExclScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl<S1, S2> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ReqExclScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+}
+impl<S1, S2> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for ReqExclScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+}
 impl<S1, S2> Scorer for ReqExclScorer<S1, S2>
 where
   S1: Scorer + 'static,
   S2: Scorer + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     match self.disi.two_phase_iterator {
-      TwoPhaseIteratorEnum2::A(ref mut tpi) => tpi.req_scorer.doc_id(),
-      TwoPhaseIteratorEnum2::B(ref mut tpi) => tpi.req_scorer.doc_id(),
+      TwoPhaseIteratorEnum2::A(ref mut tpi) => (tpi.req_scorer).scoring_doc_id(),
+      TwoPhaseIteratorEnum2::B(ref mut tpi) => (tpi.req_scorer).scoring_doc_id(),
     }
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

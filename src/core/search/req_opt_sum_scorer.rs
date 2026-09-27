@@ -118,31 +118,67 @@ where
 
 impl<S1, S2> crate::core::search::scorable::FixedScore for ReqOptSumScorer<S1, S2> {}
 
+impl<S1, S2> DocIdSetIterator for ReqOptSumScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    match &self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::doc_id(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::doc_id(v),
+    }
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::next_doc(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::next_doc(v),
+    }
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::advance(v, target),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::advance(v, target),
+    }
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::slow_advance(v, target),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::slow_advance(v, target),
+    }
+  }
+  fn cost(&self) -> Result<i64> {
+    match &self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::cost(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::cost(v),
+    }
+  }
+}
+impl<S1, S2> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ReqOptSumScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+}
+impl<S1, S2> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for ReqOptSumScorer<S1, S2>
+where
+  S1: Scorer + 'static,
+  S2: Scorer + 'static,
+{
+}
 impl<S1, S2> Scorer for ReqOptSumScorer<S1, S2>
 where
   S1: Scorer + 'static,
   S2: Scorer + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     match self.disi {
-      DocIdSetIteratorEnum2::A(ref mut disi) => disi.req_scorer.doc_id(),
+      DocIdSetIteratorEnum2::A(ref mut disi) => (disi.req_scorer).scoring_doc_id(),
       DocIdSetIteratorEnum2::B(ref mut wrapper) => {
-        wrapper.two_phase_iterator.disi.req_scorer.doc_id()
+        (wrapper.two_phase_iterator.disi.req_scorer).scoring_doc_id()
       },
-    }
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => v,
-      DocIdSetIteratorEnum2::B(v) => v,
-    }
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => v,
-      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
@@ -223,9 +259,9 @@ where
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.tpi_state {
-      TwoPhaseState::No => self.iterator_mut(),
+      TwoPhaseState::No => self,
       _ => match self.disi {
-        DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
+        DocIdSetIteratorEnum2::A(_) => self,
         DocIdSetIteratorEnum2::B(ref mut wrapper) => wrapper.two_phase_iterator.approximation_mut(),
       },
     }
@@ -233,9 +269,9 @@ where
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.tpi_state {
-      TwoPhaseState::No => self.iterator(),
+      TwoPhaseState::No => self,
       _ => match self.disi {
-        DocIdSetIteratorEnum2::A(_) => self.iterator(),
+        DocIdSetIteratorEnum2::A(_) => self,
         DocIdSetIteratorEnum2::B(ref wrapper) => wrapper.two_phase_iterator.approximation(),
       },
     }
@@ -288,7 +324,7 @@ where
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     let mut upto = self.req_scorer.advance_shallow(target)?;
 
-    let opt_doc = self.opt_scorer.doc_id()?;
+    let opt_doc = (self.opt_scorer).scoring_doc_id()?;
 
     if opt_doc <= target {
       let v = self.opt_scorer.advance_shallow(target)?;
@@ -308,7 +344,7 @@ where
     }
     let mut max_score = self.req_scorer.get_max_score(upto)?;
 
-    if self.opt_scorer.doc_id()? <= upto {
+    if (self.opt_scorer).scoring_doc_id()? <= upto {
       max_score += self.opt_scorer.get_max_score(upto)?;
     }
 
@@ -410,7 +446,7 @@ where
     Ok(())
   }
   fn score(&mut self) -> Result<f32> {
-    let cur_doc = self.req_scorer.doc_id()?;
+    let cur_doc = (self.req_scorer).scoring_doc_id()?;
     let mut score = self.req_scorer.score()?;
     let mut opt_scorer_doc = ScorerUtil::doc_id(&self.opt_scorer);
 
@@ -513,7 +549,7 @@ where
       // The below condition is rare and can only happen if we transitioned to
       // optIsRequired=true
       // after the opt approximation was advanced and before it was confirmed.
-      let req_doc = self.disi.req_scorer.doc_id()?;
+      let req_doc = (self.disi.req_scorer).scoring_doc_id()?;
       let opt_doc = ScorerUtil::doc_id(&self.disi.opt_scorer);
       if self.disi.opt_is_required {
         if req_doc != opt_doc {

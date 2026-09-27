@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 
 use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -22,7 +23,6 @@ use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::{IndexSearcher, IndexSearcherBase, IndexSearcherHook};
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorer::Scorer;
 use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -88,7 +88,7 @@ where
 
     let live_docs = ctx.reader().get_live_docs()?;
 
-    let mut doc = scorer.iterator_mut().next_doc()?;
+    let mut doc = scorer.next_doc()?;
     while doc != NO_MORE_DOCS {
       let accepted = match live_docs.as_ref() {
         None => true,
@@ -99,7 +99,7 @@ where
         leaf_collector.collect(doc, &mut scorer)?;
       }
 
-      doc = scorer.iterator_mut().next_doc()?;
+      doc = scorer.next_doc()?;
     }
 
     Ok(())

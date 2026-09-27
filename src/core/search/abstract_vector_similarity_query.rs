@@ -283,7 +283,7 @@ where
           ));
         },
       };
-      if filter_scorer.iterator_mut().advance(doc)? > doc {
+      if filter_scorer.advance(doc)? > doc {
         return Ok(Explanation::no_match_no_details(
           "Doc does not match the filter",
         ));
@@ -498,20 +498,76 @@ where
 
 impl<I> FixedScore for ScorerImpl<I> {}
 
+impl<I> DocIdSetIterator for ScorerImpl<I>
+where
+  I: DocIdSetIterator + CachedScoreHelper + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.iterator)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.iterator)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.iterator, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.iterator, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.iterator)
+  }
+}
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ScorerImpl<I>
+where
+  I: DocIdSetIterator + CachedScoreHelper + 'static,
+{
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
+      &self.iterator,
+    )
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
+      &self.iterator,
+    )
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
+      &self.iterator,
+    )
+  }
+}
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerImpl<I>
+where
+  I: DocIdSetIterator + CachedScoreHelper + 'static,
+{
+  fn is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(&self.iterator)
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(&self.iterator, index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(
+      &mut self.iterator,
+      doc,
+    )
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.iterator)
+  }
+}
 impl<I> Scorer for ScorerImpl<I>
 where
   I: DocIdSetIterator + CachedScoreHelper + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.iterator.doc_id())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.iterator
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.iterator
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

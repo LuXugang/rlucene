@@ -178,6 +178,209 @@ where
 
 impl<PE, SS, N, IE> crate::core::search::scorable::FixedScore for TermScorer<PE, SS, N, IE> {}
 
+impl<PE, SS, N, IE> DocIdSetIterator for TermScorer<PE, SS, N, IE>
+where
+  PE: PostingsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues,
+  IE: ImpactsEnum + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    match &self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => DocIdSetIterator::doc_id(impacts_disi),
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref impacts_enum) => DocIdSetIterator::doc_id(impacts_enum),
+        ImpactsEnumEnum2::B(ref slow_impacts) => DocIdSetIterator::doc_id(&slow_impacts.delegate),
+      },
+    }
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => DocIdSetIterator::next_doc(impacts_disi),
+      TermScorerState::MaxScoreCache(inner) => match &mut inner.impacts_source {
+        ImpactsEnumEnum2::A(impacts_enum) => DocIdSetIterator::next_doc(impacts_enum),
+        ImpactsEnumEnum2::B(slow_impacts) => DocIdSetIterator::next_doc(&mut slow_impacts.delegate),
+      },
+    }
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => DocIdSetIterator::advance(impacts_disi, target),
+      TermScorerState::MaxScoreCache(inner) => match &mut inner.impacts_source {
+        ImpactsEnumEnum2::A(impacts_enum) => DocIdSetIterator::advance(impacts_enum, target),
+        ImpactsEnumEnum2::B(slow_impacts) => {
+          DocIdSetIterator::advance(&mut slow_impacts.delegate, target)
+        },
+      },
+    }
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        DocIdSetIterator::slow_advance(impacts_disi, target)
+      },
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref mut impacts_enum) => {
+          DocIdSetIterator::slow_advance(impacts_enum, target)
+        },
+        ImpactsEnumEnum2::B(ref mut slow_impacts) => {
+          DocIdSetIterator::slow_advance(&mut slow_impacts.delegate, target)
+        },
+      },
+    }
+  }
+  fn cost(&self) -> Result<i64> {
+    match &self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => DocIdSetIterator::cost(impacts_disi),
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref impacts_enum) => DocIdSetIterator::cost(impacts_enum),
+        ImpactsEnumEnum2::B(ref slow_impacts) => DocIdSetIterator::cost(&slow_impacts.delegate),
+      },
+    }
+  }
+}
+impl<PE, SS, N, IE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for TermScorer<PE, SS, N, IE>
+where
+  PE: PostingsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues,
+  IE: ImpactsEnum + 'static,
+{
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = {
+      match &self.state {
+        TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
+        TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+          ImpactsEnumEnum2::A(ref impacts_enum) => impacts_enum,
+          ImpactsEnumEnum2::B(ref slow_impacts) => &slow_impacts.delegate,
+        },
+      }
+    };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = {
+      match &self.state {
+        TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
+        TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+          ImpactsEnumEnum2::A(ref impacts_enum) => impacts_enum,
+          ImpactsEnumEnum2::B(ref slow_impacts) => &slow_impacts.delegate,
+        },
+      }
+    };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    let iterator: &dyn DocIdSetIterator = {
+      match &self.state {
+        TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
+        TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+          ImpactsEnumEnum2::A(ref impacts_enum) => impacts_enum,
+          ImpactsEnumEnum2::B(ref slow_impacts) => &slow_impacts.delegate,
+        },
+      }
+    };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
+      iterator,
+    )
+  }
+}
+impl<PE, SS, N, IE> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for TermScorer<PE, SS, N, IE>
+where
+  PE: PostingsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues,
+  IE: ImpactsEnum + 'static,
+{
+  fn is_bit_iter(&self) -> bool {
+    match &self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(impacts_disi)
+      },
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref impacts_enum) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(impacts_enum)
+        },
+        ImpactsEnumEnum2::B(ref slow_impacts) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(
+            &slow_impacts.delegate,
+          )
+        },
+      },
+    }
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    match &self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(impacts_disi, index)
+      },
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref impacts_enum) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(impacts_enum, index)
+        },
+        ImpactsEnumEnum2::B(ref slow_impacts) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(
+            &slow_impacts.delegate,
+            index,
+          )
+        },
+      },
+    }
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(
+          impacts_disi,
+          doc,
+        )
+      },
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref mut impacts_enum) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(
+            impacts_enum,
+            doc,
+          )
+        },
+        ImpactsEnumEnum2::B(ref mut slow_impacts) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(
+            &mut slow_impacts.delegate,
+            doc,
+          )
+        },
+      },
+    }
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    match &self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(impacts_disi)
+      },
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref impacts_enum) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(
+            impacts_enum,
+          )
+        },
+        ImpactsEnumEnum2::B(ref slow_impacts) => {
+          crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(
+            &slow_impacts.delegate,
+          )
+        },
+      },
+    }
+  }
+}
 impl<PE, SS, N, IE> Scorer for TermScorer<PE, SS, N, IE>
 where
   PE: PostingsEnum + 'static,
@@ -185,29 +388,9 @@ where
   N: NumericDocValues,
   IE: ImpactsEnum + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     let mut postings = self.postings();
     postings.doc_id()
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    match &self.state {
-      TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
-      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
-        ImpactsEnumEnum2::A(ref impacts_enum) => impacts_enum,
-        ImpactsEnumEnum2::B(ref slow_impacts) => &slow_impacts.delegate,
-      },
-    }
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    match &mut self.state {
-      TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
-      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
-        ImpactsEnumEnum2::A(ref mut impacts_enum) => impacts_enum,
-        ImpactsEnumEnum2::B(ref mut slow_impacts) => &mut slow_impacts.delegate,
-      },
-    }
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -244,11 +427,11 @@ where
   }
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.iterator()
+    self
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.iterator_mut()
+    self
   }
 }
 pub type ImpactsEnums<IE, PE> = ImpactsEnumEnum2<IE, SlowImpactsEnum<PE>>;

@@ -401,7 +401,7 @@ where
       self.score_mode,
     );
     let mut scorer = supplier.get_scorer(context)?;
-    if scorer.iterator_mut().advance(doc)? != doc {
+    if scorer.advance(doc)? != doc {
       return Ok(Explanation::no_match_no_details("no matching term"));
     }
 
@@ -997,30 +997,121 @@ where
 
   fn cost(&self) -> Result<i64> {
     match self {
-      SynonymSubScorer::Term { scorer, .. } => scorer.cost(),
+      SynonymSubScorer::Term { scorer, .. } => Scorable::cost(scorer),
     }
   }
 }
 
+impl<LR> DocIdSetIterator for SynonymSubScorer<LR>
+where
+  LR: LeafReader + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => DocIdSetIterator::doc_id(scorer),
+    }
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => DocIdSetIterator::next_doc(scorer),
+    }
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => DocIdSetIterator::advance(scorer, target),
+    }
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => DocIdSetIterator::slow_advance(scorer, target),
+    }
+  }
+  fn cost(&self) -> Result<i64> {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => DocIdSetIterator::cost(scorer),
+    }
+  }
+}
+impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SynonymSubScorer<LR>
+where
+  LR: LeafReader + 'static,
+{
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = {
+      match self {
+        SynonymSubScorer::Term { scorer, .. } => scorer,
+      }
+    };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = {
+      match self {
+        SynonymSubScorer::Term { scorer, .. } => scorer,
+      }
+    };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    let iterator: &dyn DocIdSetIterator = {
+      match self {
+        SynonymSubScorer::Term { scorer, .. } => scorer,
+      }
+    };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
+      iterator,
+    )
+  }
+}
+impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymSubScorer<LR>
+where
+  LR: LeafReader + 'static,
+{
+  fn is_bit_iter(&self) -> bool {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(scorer)
+      },
+    }
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(scorer, index)
+      },
+    }
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(scorer, doc)
+      },
+    }
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => {
+        crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(scorer)
+      },
+    }
+  }
+}
 impl<LR> Scorer for SynonymSubScorer<LR>
 where
   LR: LeafReader + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     match self {
-      SynonymSubScorer::Term { scorer, .. } => scorer.doc_id(),
-    }
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    match self {
-      SynonymSubScorer::Term { scorer, .. } => scorer.iterator(),
-    }
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    match self {
-      SynonymSubScorer::Term { scorer, .. } => scorer.iterator_mut(),
+      SynonymSubScorer::Term { scorer, .. } => (scorer).scoring_doc_id(),
     }
   }
 
@@ -1041,11 +1132,11 @@ where
   }
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.iterator()
+    self
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.iterator_mut()
+    self
   }
 }
 
@@ -1136,32 +1227,64 @@ where
   }
 }
 
+impl<LR> DocIdSetIterator for SynonymScorer<LR>
+where
+  LR: LeafReader + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    if self.use_impacts_disi() {
+      DocIdSetIterator::doc_id(&self.impacts_disi)
+    } else {
+      DocIdSetIterator::doc_id(self.impacts_disi.iterator())
+    }
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    if self.use_impacts_disi() {
+      DocIdSetIterator::next_doc(&mut self.impacts_disi)
+    } else {
+      DocIdSetIterator::next_doc(self.impacts_disi.iterator_mut())
+    }
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    if self.use_impacts_disi() {
+      DocIdSetIterator::advance(&mut self.impacts_disi, target)
+    } else {
+      DocIdSetIterator::advance(self.impacts_disi.iterator_mut(), target)
+    }
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    if self.use_impacts_disi() {
+      DocIdSetIterator::slow_advance(&mut self.impacts_disi, target)
+    } else {
+      DocIdSetIterator::slow_advance(self.impacts_disi.iterator_mut(), target)
+    }
+  }
+  fn cost(&self) -> Result<i64> {
+    if self.use_impacts_disi() {
+      DocIdSetIterator::cost(&self.impacts_disi)
+    } else {
+      DocIdSetIterator::cost(self.impacts_disi.iterator())
+    }
+  }
+}
+impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for SynonymScorer<LR> where
+  LR: LeafReader + 'static
+{
+}
+impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymScorer<LR> where
+  LR: LeafReader + 'static
+{
+}
 impl<LR> Scorer for SynonymScorer<LR>
 where
   LR: LeafReader + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(if self.use_impacts_disi() {
       self.impacts_disi.doc_id()
     } else {
       self.impacts_disi.iterator().doc_id()
     })
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    if self.use_impacts_disi() {
-      &self.impacts_disi
-    } else {
-      self.impacts_disi.iterator()
-    }
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    if self.use_impacts_disi() {
-      &mut self.impacts_disi
-    } else {
-      self.impacts_disi.iterator_mut()
-    }
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -1188,11 +1311,11 @@ where
   }
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.iterator()
+    self
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.iterator_mut()
+    self
   }
 }
 
@@ -1245,7 +1368,7 @@ where
 {
   fn score(&mut self) -> Result<f32> {
     let mut norm = 1;
-    let doc = self.in_.doc_id()?;
+    let doc = (self.in_).scoring_doc_id()?;
     if let Some(ref mut norms) = self.norms
       && norms.advance_exact(doc)?
     {
@@ -1260,20 +1383,77 @@ where
   }
 }
 
+impl<LR> DocIdSetIterator for FreqBoostTermScorer<LR>
+where
+  LR: LeafReader + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.in_)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.in_)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.in_, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.in_, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.in_)
+  }
+}
+impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for FreqBoostTermScorer<LR>
+where
+  LR: LeafReader + 'static,
+{
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = { &self.in_ };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = { &self.in_ };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    let iterator: &dyn DocIdSetIterator = { &self.in_ };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
+      iterator,
+    )
+  }
+}
+impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FreqBoostTermScorer<LR>
+where
+  LR: LeafReader + 'static,
+{
+  fn is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(&self.in_)
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(&self.in_, index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(&mut self.in_, doc)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.in_)
+  }
+}
 impl<LR> Scorer for FreqBoostTermScorer<LR>
 where
   LR: LeafReader + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
-    self.in_.doc_id()
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    self.in_.iterator()
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.in_.iterator_mut()
+  fn scoring_doc_id(&mut self) -> Result<i32> {
+    (self.in_).scoring_doc_id()
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -1293,11 +1473,11 @@ where
   }
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.iterator()
+    self
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.iterator_mut()
+    self
   }
 }
 

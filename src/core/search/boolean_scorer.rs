@@ -16,7 +16,6 @@
  */
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disi_wrapper::DisiWrapper;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::{DocIdStream, DocIdStreamConsumer};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
@@ -121,14 +120,10 @@ where
     min: i32,
     max: i32,
   ) -> Result<()> {
-    let mut doc = {
-      let mut doc = w.doc;
-      let it = &mut w.scorer.iterator_mut();
-      if doc < min {
-        doc = it.advance(min)?;
-      }
-      doc
-    };
+    let mut doc = w.doc;
+    if doc < min {
+      doc = w.scorer.advance(min)?;
+    }
     while doc < max {
       let doc_index = doc as usize;
       let accepted = match accept_docs {
@@ -149,7 +144,7 @@ where
         }
       }
 
-      doc = w.scorer.iterator_mut().next_doc()?;
+      doc = w.scorer.next_doc()?;
     }
 
     w.doc = doc;
@@ -190,7 +185,7 @@ where
         while head_top.doc < min {
           match self.tail.take_top() {
             None => {
-              let v = head_top.scorer.iterator_mut().advance(min)?;
+              let v = head_top.scorer.advance(min)?;
               head_top.doc = v;
               let _ = self.head.update_top_with_new_top(head_top)?;
               head_top = self
@@ -200,7 +195,7 @@ where
             },
             Some(mut tail_top) => {
               if head_top.cost <= tail_top.cost {
-                let v = head_top.scorer.iterator_mut().advance(min)?;
+                let v = head_top.scorer.advance(min)?;
                 head_top.doc = v;
                 let _ = self.head.update_top_with_new_top(head_top)?;
                 head_top = self
@@ -210,7 +205,7 @@ where
                 // return tail_top back
                 self.tail.update_top_with_new_top(tail_top)?;
               } else {
-                let v = tail_top.scorer.iterator_mut().advance(min)?;
+                let v = tail_top.scorer.advance(min)?;
                 tail_top.doc = v;
                 let _ = self.head.update_top_with_new_top(tail_top)?;
                 let _ = self.tail.update_top_with_new_top(head_top)?;
@@ -249,7 +244,7 @@ where
         .ok_or_else(|| LuceneError::illegal_state("tail.pop returned None"))?;
 
       if candidate.doc < window_min {
-        let new_doc = candidate.scorer.iterator_mut().advance(window_min)?;
+        let new_doc = candidate.scorer.advance(window_min)?;
         candidate.doc = new_doc;
       }
 
@@ -308,7 +303,7 @@ where
       let mut doc;
       {
         doc = w.doc;
-        let it = w.scorer.iterator_mut();
+        let it = &mut w.scorer;
         if doc < window_min {
           doc = it.advance(window_min)?;
         }
@@ -322,7 +317,7 @@ where
         if accepted {
           collector.collect(doc, &mut w.scorer)?;
         }
-        doc = w.scorer.iterator_mut().next_doc()?;
+        doc = w.scorer.next_doc()?;
       }
       doc
     };

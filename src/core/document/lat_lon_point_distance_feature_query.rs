@@ -457,7 +457,7 @@ where
   PV: PointValues,
 {
   fn score(&mut self) -> Result<f32> {
-    let doc_id = self.doc_id()?;
+    let doc_id = self.scoring_doc_id()?;
     if !self.disi.doc_values.advance_exact(doc_id)? {
       return Ok(0.0);
     }
@@ -501,7 +501,7 @@ where
     let cross_dateline = box_.crosses_dateline();
 
     let result = DocIdSetBuilder::new(self.max_doc);
-    let doc = self.doc_id()?;
+    let doc = self.scoring_doc_id()?;
     let mut visitor = DistanceScorerIntersectVisitor::new(
       result,
       doc,
@@ -531,21 +531,48 @@ where
 
 impl<PV, ND> FixedScore for DistanceScorer<PV, ND> {}
 
+impl<PV, ND> DocIdSetIterator for DistanceScorer<PV, ND>
+where
+  ND: NumericDocValues + 'static,
+  PV: PointValues,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl<PV, ND> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DistanceScorer<PV, ND>
+where
+  ND: NumericDocValues + 'static,
+  PV: PointValues,
+{
+}
+impl<PV, ND> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DistanceScorer<PV, ND>
+where
+  ND: NumericDocValues + 'static,
+  PV: PointValues,
+{
+}
 impl<PV, ND> Scorer for DistanceScorer<PV, ND>
 where
   ND: NumericDocValues + 'static,
   PV: PointValues,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc)
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

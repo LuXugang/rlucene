@@ -89,7 +89,7 @@ where
       if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
         return Ok(None);
       }
-    } else if scorer.iterator_mut().advance(doc)? != doc {
+    } else if scorer.advance(doc)? != doc {
       return Ok(None);
     }
     Ok(Some(QueryWeightMatches::MatchWithNoTerms(MatchWithNoTerms)))
@@ -377,7 +377,7 @@ where
   }
 
   fn cost(&mut self) -> Result<i64> {
-    self.scorer.iterator_mut().cost()
+    DocIdSetIterator::cost(&self.scorer)
   }
 
   #[cfg(test)]
@@ -434,7 +434,7 @@ where
       .scorer
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("DefaultScorer::get returned None"))?;
-    scorer.iterator().cost()
+    scorer.cost()
   }
 }
 /// Specialized method to bulk-score all hits;

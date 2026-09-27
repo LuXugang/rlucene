@@ -197,22 +197,22 @@ fn test_basics() -> Result<()> {
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(6.0, scorer.score()?);
 
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
 
-  assert_eq!(5, scorer.iterator_mut().next_doc()?);
+  assert_eq!(5, scorer.next_doc()?);
   assert_eq!(4.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -221,13 +221,13 @@ fn test_basics() -> Result<()> {
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
   scorer.set_min_competitive_score(4.0)?;
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(6.0, scorer.score()?);
 
-  assert_eq!(5, scorer.iterator_mut().next_doc()?);
+  assert_eq!(5, scorer.next_doc()?);
   assert_eq!(4.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -235,12 +235,12 @@ fn test_basics() -> Result<()> {
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
   scorer.set_min_competitive_score(10.0)?;
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
   //  test a filtered disjunction
   builder = Builder::new();
   builder
@@ -275,13 +275,13 @@ fn test_basics() -> Result<()> {
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
-  assert_eq!(5, scorer.iterator_mut().next_doc()?);
+  assert_eq!(5, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -290,10 +290,10 @@ fn test_basics() -> Result<()> {
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
   scorer.set_min_competitive_score(2.0)?;
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   builder = Builder::new();
   builder
@@ -328,16 +328,16 @@ fn test_basics() -> Result<()> {
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
 
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -346,10 +346,10 @@ fn test_basics() -> Result<()> {
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
   scorer.set_min_competitive_score(3.0)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }
@@ -417,16 +417,16 @@ fn test_basics_with_disjunction_and_min_should_match() -> Result<()> {
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(6.0, scorer.score()?);
 
-  assert_eq!(5, scorer.iterator_mut().next_doc()?);
+  assert_eq!(5, scorer.next_doc()?);
   assert_eq!(4.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -435,13 +435,13 @@ fn test_basics_with_disjunction_and_min_should_match() -> Result<()> {
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
   scorer.set_min_competitive_score(4.0)?;
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(6.0, scorer.score()?);
 
-  assert_eq!(5, scorer.iterator_mut().next_doc()?);
+  assert_eq!(5, scorer.next_doc()?);
   assert_eq!(4.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -449,12 +449,12 @@ fn test_basics_with_disjunction_and_min_should_match() -> Result<()> {
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?);
 
   scorer.set_min_competitive_score(10.0)?;
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }
@@ -509,11 +509,11 @@ fn test_basics_with_disjunction_and_min_should_match_and_tail_size_condition() -
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   let score = scorer.score()?;
   scorer.set_min_competitive_score(score)?;
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
 
   Ok(())
 }
@@ -580,10 +580,10 @@ fn test_basics_with_disjunction_and_min_should_match_and_non_scoring_mode() -> R
     .scorer(context, &searcher)?
     .expect("expected scorer to be present");
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
-  assert_eq!(5, scorer.iterator_mut().next_doc()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
+  assert_eq!(5, scorer.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }
@@ -658,13 +658,13 @@ fn test_basics_with_filtered_disjunction_and_min_should_match() -> Result<()> {
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
   assert_eq!(6.0, scorer.score()?); // 2 + 4
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(7.0, scorer.score()?); // 2 + 1 + 4
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -673,10 +673,10 @@ fn test_basics_with_filtered_disjunction_and_min_should_match() -> Result<()> {
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
   scorer.set_min_competitive_score(7.0)?; // 2 + 1 + 4
 
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(7.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }
@@ -750,9 +750,9 @@ fn test_basics_with_filtered_disjunction_and_min_should_match_and_non_scoring_mo
     .scorer(context, &searcher)?
     .expect("expected scorer to be present");
 
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }
@@ -826,13 +826,13 @@ fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match() -> 
     .scorer(context, &searcher)?
     .expect("expected scorer to be present");
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(3.0, scorer.score()?); // 2 + 1
 
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
   assert_eq!(5.0, scorer.score()?); // 1 + 4
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -841,10 +841,10 @@ fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match() -> 
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
   scorer.set_min_competitive_score(4.0)?;
 
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
   assert_eq!(5.0, scorer.score()?);
 
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }
@@ -920,9 +920,9 @@ fn test_basics_with_filtered_disjunction_and_must_not_and_min_should_match_and_n
     .scorer(context, &searcher)?
     .expect("expected scorer to be present");
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }

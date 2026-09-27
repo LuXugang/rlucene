@@ -46,14 +46,14 @@ where
     let mut costs = Vec::with_capacity(num_clauses);
     let mut i = 0usize;
     let mut tmp_all_scores = Vec::with_capacity(num_clauses);
-    for mut scorer in required_scoring.into_iter() {
-      costs.push((scorer.iterator_mut().cost()?, true, i));
+    for scorer in required_scoring.into_iter() {
+      costs.push((DocIdSetIterator::cost(&scorer)?, true, i));
       tmp_all_scores.push(Some(scorer));
       i += 1;
     }
 
-    for mut scorer in required_no_scoring.into_iter() {
-      costs.push((scorer.iterator_mut().cost()?, false, i));
+    for scorer in required_no_scoring.into_iter() {
+      costs.push((DocIdSetIterator::cost(&scorer)?, false, i));
       tmp_all_scores.push(Some(scorer));
       i += 1;
     }
@@ -92,23 +92,26 @@ where
   ) -> Result<i32> {
     let (mut lead1_doc_id, lead2_doc_id) = {
       let (first, rest) = self.all_scores.split_at_mut(1);
-      let lead1 = &mut first[0].iterator_mut();
+      let lead1 = &mut first[0];
 
       let (second, _) = rest.split_at_mut(1);
-      let lead2 = &mut second[0].iterator_mut();
-      debug_assert!({ lead1.doc_id() >= lead2.doc_id() });
+      let lead2 = &mut second[0];
+      debug_assert!({ DocIdSetIterator::doc_id(&lead1) >= DocIdSetIterator::doc_id(&lead2) });
 
-      if lead1.doc_id() < min {
+      if DocIdSetIterator::doc_id(&lead1) < min {
         lead1.advance(min)?;
       }
-      if lead1.doc_id() >= max {
-        return Ok(lead1.doc_id());
+      if DocIdSetIterator::doc_id(&lead1) >= max {
+        return Ok(DocIdSetIterator::doc_id(&lead1));
       }
-      (lead1.doc_id(), lead2.doc_id())
+      (
+        DocIdSetIterator::doc_id(&lead1),
+        DocIdSetIterator::doc_id(&lead2),
+      )
     };
     collector.set_scorer(&mut ScorableImpl::new(self))?;
 
-    // In the main loop, we rely on the invariant that `lead1.doc_id()` is greater than
+    // In the main loop, we rely on the invariant that `DocIdSetIterator::doc_id(&lead1)` is greater than
     // lead2.doc(). However it's possible that these two are equal on the first document in a
     // scoring window. So we treat this case separately here.
     if lead1_doc_id == lead2_doc_id {
@@ -120,17 +123,17 @@ where
         let mut matched = true;
         {
           let (first, rest) = self.all_scores.split_at_mut(1);
-          let lead1 = &mut first[0].iterator_mut();
+          let lead1 = &mut first[0];
           let (_, other_scorers) = rest.split_at_mut(1);
 
           let competitive_iterator = collector.competitive_iterator()?;
           let others = other_scorers
             .iter_mut()
-            .map(|scorer| scorer.iterator_mut())
+            .map(|scorer| scorer as &mut dyn DocIdSetIterator)
             .chain(competitive_iterator);
 
           for it in others {
-            if it.doc_id() < doc {
+            if DocIdSetIterator::doc_id(&it) < doc {
               let next = it.advance(doc)?;
               if next != doc {
                 lead1.advance(next)?;
@@ -138,23 +141,23 @@ where
                 break;
               }
             }
-            debug_assert!(it.doc_id() == doc);
+            debug_assert!(DocIdSetIterator::doc_id(&it) == doc);
           }
-          lead1_doc_id = lead1.doc_id();
+          lead1_doc_id = DocIdSetIterator::doc_id(&lead1);
         }
 
         if matched {
           collector.collect(doc, &mut ScorableImpl::new(self))?;
           let (first, _) = self.all_scores.split_at_mut(1);
-          let lead1 = &mut first[0].iterator_mut();
+          let lead1 = &mut first[0];
           lead1.next_doc()?;
-          lead1_doc_id = lead1.doc_id();
+          lead1_doc_id = DocIdSetIterator::doc_id(&lead1);
         }
       } else {
         let (first, _) = self.all_scores.split_at_mut(1);
-        let lead1 = &mut first[0].iterator_mut();
+        let lead1 = &mut first[0];
         lead1.next_doc()?;
-        lead1_doc_id = lead1.doc_id();
+        lead1_doc_id = DocIdSetIterator::doc_id(&lead1);
       }
     }
 
@@ -163,11 +166,11 @@ where
     'advance_head: while doc < max {
       {
         let (first, rest) = self.all_scores.split_at_mut(1);
-        let lead1 = &mut first[0].iterator_mut();
+        let lead1 = &mut first[0];
         let (second, other_scorers) = rest.split_at_mut(1);
-        let lead2 = &mut second[0].iterator_mut();
+        let lead2 = &mut second[0];
 
-        debug_assert!(lead2.doc_id() < doc);
+        debug_assert!(DocIdSetIterator::doc_id(&lead2) < doc);
 
         if match accept_docs {
           None => false,
@@ -176,7 +179,7 @@ where
           doc = lead1.next_doc()?;
           continue;
         }
-        // We maintain `lead2.doc_id() < lead1.doc_id()` so that we do not need to check
+        // We maintain `DocIdSetIterator::doc_id(&lead2) < DocIdSetIterator::doc_id(&lead1)` so that we do not need to check
         // if lead2 is already on the same doc as lead1 here.
         let next2 = lead2.advance(doc)?;
         if next2 != doc {
@@ -193,37 +196,37 @@ where
             continue;
           }
         }
-        debug_assert!(lead2.doc_id() == doc);
+        debug_assert!(DocIdSetIterator::doc_id(&lead2) == doc);
 
         let competitive_iterator = collector.competitive_iterator()?;
         let others = other_scorers
           .iter_mut()
-          .map(|scorer| scorer.iterator_mut())
+          .map(|scorer| scorer as &mut dyn DocIdSetIterator)
           .chain(competitive_iterator);
 
         for it in others {
-          if it.doc_id() < doc {
+          if DocIdSetIterator::doc_id(&it) < doc {
             let next = it.advance(doc)?;
             if next != doc {
               doc = lead1.advance(next)?;
               continue 'advance_head;
             }
           }
-          debug_assert!(it.doc_id() == doc);
+          debug_assert!(DocIdSetIterator::doc_id(&it) == doc);
         }
       }
       collector.collect(doc, &mut ScorableImpl::new(self))?;
       let (first, _) = self.all_scores.split_at_mut(1);
-      let lead1 = &mut first[0].iterator_mut();
+      let lead1 = &mut first[0];
       doc = lead1.next_doc()?;
     }
     let (first, _) = self.all_scores.split_at_mut(1);
-    let lead1 = &mut first[0].iterator_mut();
-    Ok(lead1.doc_id())
+    let lead1 = &mut first[0];
+    Ok(DocIdSetIterator::doc_id(&lead1))
   }
 
   fn cost(&mut self) -> Result<i64> {
-    self.all_scores[0].iterator().cost()
+    DocIdSetIterator::cost(&self.all_scores[0])
   }
 }
 

@@ -24,29 +24,17 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Expert: Common scoring functionality for different types of queries.
 ///
-/// A [`Scorer`] exposes an `iterator_mut()` over documents matching a query in
-/// increasing order of doc id.
-pub trait Scorer: Scorable {
-  /// Returns the doc ID that is currently being scored.
-  fn doc_id(&mut self) -> Result<i32>;
-
-  /// Return a [`DocIdSetIterator`] over matching documents.
-  ///
-  /// The returned iterator will either be positioned on `-1` if no documents
-  /// have been scored yet, [`NO_MORE_DOCS`] if all documents have been scored already,
-  /// or the last document id that has been scored otherwise.
-  /// # Warning
-  /// The returned iterator is a *view*: calling this method several times must
-  /// return iterators that share the same state.
-  fn iterator(&self) -> &dyn DocIdSetIterator;
-
-  /// Return a mutable borrow of the same iterator exposed by [`Self::iterator`].
-  /// The borrow must end before this scorer can be borrowed again for scoring.
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator;
+/// A [`Scorer`] is a [`DocIdSetIterator`] over fully matching documents, in
+/// increasing order of doc ID. Its two-phase approximation shares the same cursor.
+/// Advancing and scoring borrow the same owner for one operation at a time.
+pub trait Scorer: Scorable + DocIdSetIterator {
+  /// Returns the document currently being scored, preserving the scorer-specific view.
+  /// This is distinct from the full matching iterator cursor.
+  fn scoring_doc_id(&mut self) -> Result<i32>;
 
   /// Return a [`DocIdSetIterator`] over matching documents, transferring ownership.
   ///
-  /// Unlike [`iterator`](Self::iterator), this method takes ownership of the
+  /// This method takes ownership of the
   /// underlying iterator rather than returning a view.
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator>;
 
@@ -66,7 +54,7 @@ pub trait Scorer: Scorable {
   /// A return value of `None` indicates that two-phase iteration is not supported.
   ///
   /// Note that the returned [`TwoPhaseIterator`]'s approximation must advance
-  /// synchronously with `iterator()`: advancing the approximation must advance
+  /// synchronously with this scorer: advancing the approximation must advance
   /// the iterator and vice-versa.
   ///
   /// The default implementation returns `None`.
@@ -82,7 +70,7 @@ pub trait Scorer: Scorable {
   /// A return value of `None` indicates that two-phase iteration is not supported.
   ///
   /// Note that the returned [`TwoPhaseIterator`]'s approximation must advance
-  /// synchronously with `iterator()`: advancing the approximation must advance
+  /// synchronously with this scorer: advancing the approximation must advance
   /// the iterator and vice-versa.
   ///
   /// The default implementation returns `None`.
@@ -134,7 +122,7 @@ pub trait Scorer: Scorable {
   fn get_max_score(&mut self, upto: i32) -> Result<f32>;
 
   fn default_cost(&mut self) -> Result<i64> {
-    self.iterator().cost()
+    DocIdSetIterator::cost(self)
   }
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
 
@@ -144,7 +132,7 @@ pub trait Scorer: Scorable {
   /// returns `Some`), then this method must return the approximation of the
   /// two-phase iterator.
   ///
-  /// Otherwise, this method must return the same iterator as [`Self::iterator`].
+  /// Otherwise, this method must return the same iterator as this scorer.
   ///
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
@@ -157,7 +145,7 @@ pub trait Scorer: Scorable {
   /// returns `Some`), then this method must return the mutable approximation of the
   /// two-phase iterator.
   ///
-  /// Otherwise, this method must return the same iterator as [`Self::iterator_mut`].
+  /// Otherwise, this method must return the same iterator as this scorer.
   ///
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
@@ -224,16 +212,8 @@ impl<T> Scorer for Box<T>
 where
   T: Scorer,
 {
-  fn doc_id(&mut self) -> Result<i32> {
-    (**self).doc_id()
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    (**self).iterator()
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    (**self).iterator_mut()
+  fn scoring_doc_id(&mut self) -> Result<i32> {
+    (**self).scoring_doc_id()
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -296,16 +276,8 @@ where
 }
 
 impl Scorer for Box<dyn Scorer> {
-  fn doc_id(&mut self) -> Result<i32> {
-    (**self).doc_id()
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    (**self).iterator()
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    (**self).iterator_mut()
+  fn scoring_doc_id(&mut self) -> Result<i32> {
+    (**self).scoring_doc_id()
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -437,22 +409,78 @@ macro_rules! either_scorer {
             }
         }
 
+        impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
+        where
+            $( $T: Scorer ),+
+        {
+            fn doc_id(&self) -> i32 {
+                match self { $( Self::$Variant(inner) => DocIdSetIterator::doc_id(inner), )+ }
+            }
+
+            fn next_doc(&mut self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => DocIdSetIterator::next_doc(inner), )+ }
+            }
+
+            fn advance(&mut self, target: i32) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => DocIdSetIterator::advance(inner, target), )+ }
+            }
+
+            fn slow_advance(&mut self, target: i32) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => DocIdSetIterator::slow_advance(inner, target), )+ }
+            }
+
+            fn cost(&self) -> Result<i64> {
+                match self { $( Self::$Variant(inner) => DocIdSetIterator::cost(inner), )+ }
+            }
+
+        }
+
+        impl<$( $T ),+> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for $name<$( $T ),+>
+        where
+            $( $T: Scorer ),+
+        {
+            fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(inner), )+ }
+            }
+
+            fn get_sparse_fixed_bit_set(&self) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(inner), )+ }
+            }
+
+            fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(inner), )+ }
+            }
+
+        }
+
+        impl<$( $T ),+> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for $name<$( $T ),+>
+        where
+            $( $T: Scorer ),+
+        {
+            fn is_bit_iter(&self) -> bool {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(inner), )+ }
+            }
+
+            fn get(&self, index: usize) -> Result<bool> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(inner, index), )+ }
+            }
+
+            fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(inner, doc), )+ }
+            }
+
+            fn bit_set_length(&self) -> Result<usize> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(inner), )+ }
+            }
+
+        }
+
         impl<$( $T ),+> Scorer for $name<$( $T ),+>
         where
             $( $T: Scorer ),+
         {
-            #[inline]
-            fn doc_id(&mut self) -> Result<i32> {
-                match self { $( Self::$Variant(inner) => inner.doc_id(), )+ }
-            }
-
-            #[inline]
-            fn iterator(&self) -> &dyn DocIdSetIterator {
-                match self { $( Self::$Variant(inner) => inner.iterator(), )+ }
-            }
-            #[inline]
-            fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-                match self { $( Self::$Variant(inner) => inner.iterator_mut(), )+ }
+            fn scoring_doc_id(&mut self) -> Result<i32> {
+                match self { $( Self::$Variant(inner) => inner.scoring_doc_id(), )+ }
             }
 
             #[inline]

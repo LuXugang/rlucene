@@ -2473,7 +2473,7 @@ where
       return Ok(None);
     };
     let scorer = scorer_supplier.get(i64::MAX, context, searcher)?;
-    let cost = scorer.iterator().cost()?;
+    let cost = crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&scorer)?;
     Ok(Some(Box::new(WeightWrapperScorerSupplier {
       in_: self.in_.clone(),
       scorer: Some(scorer),

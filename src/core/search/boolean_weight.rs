@@ -28,7 +28,6 @@ use crate::core::search::matches_utils::from_sub_matches;
 use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::weight::Weight;
@@ -276,7 +275,7 @@ where
         .scorer(context, searcher)?
         .ok_or_else(|| LuceneError::illegal_state("no scorer available for explanation"))?;
 
-      let advanced = scorer.iterator_mut().advance(doc)?;
+      let advanced = scorer.advance(doc)?;
       debug_assert!(advanced == doc);
 
       Ok(Explanation::match_(scorer.score()?, "sum of:", subs))

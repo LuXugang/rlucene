@@ -46,16 +46,54 @@ impl Scorable for DummyScorer {
 
 impl FixedScore for DummyScorer {}
 
+impl DocIdSetIterator for DummyScorer {
+  fn doc_id(&self) -> i32 {
+    dummy_unreachable!()
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    dummy_unreachable!()
+  }
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    dummy_unreachable!()
+  }
+  fn slow_advance(&mut self, _target: i32) -> Result<i32> {
+    dummy_unreachable!()
+  }
+  fn cost(&self) -> Result<i64> {
+    dummy_unreachable!()
+  }
+}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DummyScorer {
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    dummy_unreachable!()
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    dummy_unreachable!()
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    dummy_unreachable!()
+  }
+}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DummyScorer {
+  fn is_bit_iter(&self) -> bool {
+    dummy_unreachable!()
+  }
+  fn get(&self, _index: usize) -> Result<bool> {
+    dummy_unreachable!()
+  }
+  fn set_doc_id(&mut self, _doc: i32) -> Result<()> {
+    dummy_unreachable!()
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    dummy_unreachable!()
+  }
+}
 impl Scorer for DummyScorer {
-  fn doc_id(&mut self) -> Result<i32> {
-    dummy_unreachable!()
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    dummy_unreachable!()
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     dummy_unreachable!()
   }
 

@@ -113,26 +113,57 @@ where
 
 impl<S> crate::core::search::scorable::FixedScore for ConjunctionScorer<S> {}
 
+impl<S> DocIdSetIterator for ConjunctionScorer<S>
+where
+  S: Scorer + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    match &self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::doc_id(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::doc_id(v),
+    }
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::next_doc(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::next_doc(v),
+    }
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::advance(v, target),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::advance(v, target),
+    }
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::slow_advance(v, target),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::slow_advance(v, target),
+    }
+  }
+  fn cost(&self) -> Result<i64> {
+    match &self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::cost(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::cost(v),
+    }
+  }
+}
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ConjunctionScorer<S>
+where
+  S: Scorer + 'static,
+{
+}
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ConjunctionScorer<S> where
+  S: Scorer + 'static
+{
+}
 impl<S> Scorer for ConjunctionScorer<S>
 where
   S: Scorer + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc_id())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => v,
-      DocIdSetIteratorEnum2::B(v) => v,
-    }
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => v,
-      DocIdSetIteratorEnum2::B(v) => v,
-    }
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -206,7 +237,7 @@ where
       DocIdSetIteratorEnum2::A(v) => {
         for idx in 0..v.len() {
           let s = v.iterator_at_mut(idx);
-          if s.doc_id()? <= upto {
+          if s.scoring_doc_id()? <= upto {
             max_score += s.get_max_score(upto)? as f64;
           }
         }
@@ -214,7 +245,7 @@ where
       DocIdSetIteratorEnum2::B(v) => {
         for idx in 0..v.two_phase_iterator.approximation.len() {
           let s = v.two_phase_iterator.approximation.iterator_at_mut(idx);
-          if s.doc_id()? <= upto {
+          if s.scoring_doc_id()? <= upto {
             max_score += s.get_max_score(upto)? as f64;
           }
         }
@@ -232,14 +263,14 @@ where
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.disi {
-      DocIdSetIteratorEnum2::A(_) => self.iterator(),
+      DocIdSetIteratorEnum2::A(_) => self,
       DocIdSetIteratorEnum2::B(ref v) => v.two_phase_iterator.approximation(),
     }
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.disi {
-      DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
+      DocIdSetIteratorEnum2::A(_) => self,
       DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
     }
   }

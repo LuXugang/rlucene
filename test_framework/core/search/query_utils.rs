@@ -169,7 +169,7 @@ impl QueryUtils {
         if let Some(mut scorer) = scorer_opt {
           let mut more = false;
           {
-            let iterator = scorer.iterator_mut();
+            let iterator = &mut scorer;
 
             let bits = reader_context_array[last_reader_idx]
               .reader()
@@ -195,7 +195,7 @@ impl QueryUtils {
             "query's last doc was {} but advance({}) got to {}",
             collector.last_doc,
             collector.last_doc + 1,
-            scorer.doc_id()?
+            (scorer).scoring_doc_id()?
           );
         }
       }
@@ -229,7 +229,7 @@ impl QueryUtils {
           .get_live_docs()?;
         let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
         {
-          let iterator = scorer.iterator_mut();
+          let iterator = &mut scorer;
           let mut d = iterator.advance(collector.last_doc + 1)?;
           while d != NO_MORE_DOCS {
             if match live_docs {
@@ -248,7 +248,7 @@ impl QueryUtils {
           "query's last doc was {} but advance({}) got to {}",
           collector.last_doc,
           collector.last_doc + 1,
-          scorer.doc_id()?
+          (scorer).scoring_doc_id()?
         );
       }
     }
@@ -282,7 +282,7 @@ impl QueryUtils {
         continue;
       } else if bulk_scorer.is_none() {
         let scorer = scorer.as_mut().unwrap();
-        assert_eq!(scorer.iterator_mut().next_doc()?, NO_MORE_DOCS);
+        assert_eq!(scorer.next_doc()?, NO_MORE_DOCS);
         continue;
       }
 
@@ -296,8 +296,8 @@ impl QueryUtils {
         let v = r.random_bool(0.5);
         let max = min + 1 + r.random_range(if v { 0..10 } else { 0..5000 });
 
-        if scorer.doc_id()? < min {
-          scorer.iterator_mut().advance(min)?;
+        if (scorer).scoring_doc_id()? < min {
+          scorer.advance(min)?;
         }
 
         let mut collector = LeafCollectorImpl4::new(scorer, min, max);
@@ -305,11 +305,11 @@ impl QueryUtils {
         let next = bulk_scorer.score(&mut collector, None::<&dyn Bits>, min, max)?;
 
         assert!(max <= next);
-        assert!(next <= scorer.doc_id()?);
+        assert!(next <= (scorer).scoring_doc_id()?);
 
         up_to = max;
 
-        if scorer.doc_id()? == NO_MORE_DOCS {
+        if (scorer).scoring_doc_id()? == NO_MORE_DOCS {
           let mut collector = LeafCollectorImpl3;
           bulk_scorer.score(&mut collector, None::<&dyn Bits>, up_to, NO_MORE_DOCS)?;
           break;
@@ -476,10 +476,10 @@ where
     assert!(doc >= self.min);
     assert!(doc < self.max);
 
-    assert_eq!(self.scorer.doc_id()?, doc);
+    assert_eq!((self.scorer).scoring_doc_id()?, doc);
     assert!((self.scorer.score()? - scorer2.score()?).abs() <= 0.01);
 
-    self.scorer.iterator_mut().next_doc()?;
+    self.scorer.next_doc()?;
     Ok(())
   }
 }
@@ -580,7 +580,7 @@ where
       let mut scorer = supplier.get(1, ctx, self.s)?;
 
       assert!(
-        scorer.iterator_mut().advance(i)? != NO_MORE_DOCS,
+        scorer.advance(i)? != NO_MORE_DOCS,
         "query collected {} but advance({}) says no more docs!",
         doc,
         i
@@ -588,11 +588,11 @@ where
 
       assert_eq!(
         doc,
-        scorer.doc_id()?,
+        (scorer).scoring_doc_id()?,
         "query collected {} but advance({}) got to {}",
         doc,
         i,
-        scorer.doc_id()?
+        (scorer).scoring_doc_id()?
       );
 
       let advance_score = scorer.score()?;
@@ -654,7 +654,7 @@ where
         let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
 
         {
-          let iterator = scorer.iterator_mut();
+          let iterator = &mut scorer;
           let mut d = iterator.advance(self.last_doc + 1)?;
 
           while d != NO_MORE_DOCS {
@@ -674,7 +674,7 @@ where
           "query's last doc was {} but advance({}) got to {}",
           self.last_doc,
           self.last_doc + 1,
-          scorer.doc_id()?
+          (scorer).scoring_doc_id()?
         );
       }
 
@@ -803,19 +803,13 @@ where
     self.opidx += 1;
 
     let more = if op == self.skip_op {
-      let doc_id = self.scorer.as_mut().unwrap().doc_id()?;
-      self
-        .scorer
-        .as_mut()
-        .unwrap()
-        .iterator_mut()
-        .advance(doc_id + 1)?
-        != NO_MORE_DOCS
+      let doc_id = (self.scorer.as_mut().unwrap()).scoring_doc_id()?;
+      self.scorer.as_mut().unwrap().advance(doc_id + 1)? != NO_MORE_DOCS
     } else {
-      self.scorer.as_mut().unwrap().iterator_mut().next_doc()? != NO_MORE_DOCS
+      self.scorer.as_mut().unwrap().next_doc()? != NO_MORE_DOCS
     };
     let scorer = self.scorer.as_mut().unwrap();
-    let scorer_doc = scorer.doc_id()?;
+    let scorer_doc = (scorer).scoring_doc_id()?;
     let scorer_score = scorer.score()?;
     let scorer_score2 = scorer.score()?;
 
@@ -858,7 +852,7 @@ where
       if let Some(mut scorer) = scorer_opt {
         let mut more = false;
         {
-          let iterator = scorer.iterator_mut();
+          let iterator = &mut scorer;
 
           let context_ord = context.ord;
           let bits = self.s.get_leaf_contexts()?[context_ord]
@@ -885,7 +879,7 @@ where
           "query's last doc was {} but advance({}) got to {}",
           self.last_doc,
           self.last_doc + 1,
-          scorer.doc_id()?
+          (scorer).scoring_doc_id()?
         );
       }
 

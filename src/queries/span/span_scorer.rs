@@ -155,22 +155,83 @@ where
   }
 }
 
+impl<S, SS, N> DocIdSetIterator for SpanScorer<S, SS, N>
+where
+  S: Spans + 'static,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.spans)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.spans)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.spans, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.spans, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.spans)
+  }
+}
+impl<S, SS, N> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SpanScorer<S, SS, N>
+where
+  S: Spans + 'static,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
+      &self.spans,
+    )
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
+      &self.spans,
+    )
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
+      &self.spans,
+    )
+  }
+}
+impl<S, SS, N> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SpanScorer<S, SS, N>
+where
+  S: Spans + 'static,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
+  fn is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(&self.spans)
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(&self.spans, index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(&mut self.spans, doc)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.spans)
+  }
+}
 impl<S, SS, N> Scorer for SpanScorer<S, SS, N>
 where
   S: Spans + 'static,
   SS: SimScorer,
   N: NumericDocValues,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.spans.doc_id())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.spans
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.spans
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -194,10 +255,10 @@ where
   }
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.iterator()
+    self
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.iterator_mut()
+    self
   }
 }

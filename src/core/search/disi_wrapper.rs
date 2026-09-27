@@ -38,7 +38,7 @@ where
   S: Scorer,
 {
   pub fn new(mut scorer: S) -> Result<Self> {
-    let cost = scorer.iterator_mut().cost()?;
+    let cost = DocIdSetIterator::cost(&scorer)?;
     let match_cost = match scorer.two_phase_iterator_mut() {
       Some(tpi) => tpi.match_cost(),
       None => 0.0,

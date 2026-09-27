@@ -1012,7 +1012,7 @@ where
     };
 
     let mut count = 0;
-    while scorer.iterator_mut().next_doc()? != NO_MORE_DOCS {
+    while scorer.next_doc()? != NO_MORE_DOCS {
       count += 1;
     }
     Ok(count)

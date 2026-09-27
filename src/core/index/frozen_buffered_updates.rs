@@ -41,7 +41,6 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
-use crate::core::search::scorer::Scorer;
 use crate::core::store::directory::Directory;
 use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
@@ -479,7 +478,7 @@ impl FrozenBufferedUpdates {
         let scorer = weight.scorer(&reader_context, &searcher)?;
 
         if let Some(mut scorer) = scorer {
-          let it = scorer.iterator_mut();
+          let it = &mut scorer;
           if let (Some(sort_map), true) = (seg_state.rld.sort_map.as_ref(), limit != i32::MAX) {
             debug_assert!(self.private_segment.is_some());
 
@@ -639,7 +638,7 @@ impl Hash for FrozenBufferedUpdates {
   }
 }
 /// This struct helps iterating a term dictionary and consuming all the docs for each term.
-/// It accepts a (field, value) tuple and returns a [`DocIdSetIterator`](crate::core::search::doc_id_set_iterator::DocIdSetIterator) if the field has an entry
+/// It accepts a (field, value) tuple and returns a [`DocIdSetIterator`](DocIdSetIterator) if the field has an entry
 /// for the given value.  
 ///
 /// It has an optimized way of iterating the term dictionary if the terms are  

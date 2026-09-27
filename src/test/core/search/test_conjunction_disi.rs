@@ -330,10 +330,7 @@ fn test_recursive_conjunction_approximation() -> Result<()> {
       has_approximation,
       conjunction.two_phase_iterator().is_some()
     );
-    assert_eq!(
-      intersect(&sets),
-      to_bit_set(max_doc, conjunction.iterator_mut())?
-    );
+    assert_eq!(intersect(&sets), to_bit_set(max_doc, &mut conjunction)?);
   }
 
   Ok(())
@@ -450,10 +447,7 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
       ))
     };
 
-    assert_eq!(
-      intersect(&sets),
-      to_bit_set(max_doc, conjunction.iterator_mut())?
-    );
+    assert_eq!(intersect(&sets), to_bit_set(max_doc, &mut conjunction)?);
   }
 
   Ok(())
@@ -556,20 +550,40 @@ where
 
 impl<TPI> FixedScore for ScorerImpl<TPI> where TPI: TwoPhaseIterator {}
 
+impl<TPI> DocIdSetIterator for ScorerImpl<TPI>
+where
+  TPI: TwoPhaseIterator + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.tpi_disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.tpi_disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.tpi_disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.tpi_disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.tpi_disi)
+  }
+}
+impl<TPI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ScorerImpl<TPI> where
+  TPI: TwoPhaseIterator + 'static
+{
+}
+impl<TPI> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerImpl<TPI> where
+  TPI: TwoPhaseIterator + 'static
+{
+}
 impl<TPI> Scorer for ScorerImpl<TPI>
 where
   TPI: TwoPhaseIterator + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.tpi_disi.doc_id())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.tpi_disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.tpi_disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

@@ -234,7 +234,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.iterator().cost()
+    crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&self)
   }
 }
 
@@ -243,20 +243,44 @@ impl<S> crate::core::search::scorable::FixedScore for RandomApproximationScorer<
 {
 }
 
+impl<S> DocIdSetIterator for RandomApproximationScorer<S>
+where
+  S: Scorer + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for RandomApproximationScorer<S>
+where
+  S: Scorer + 'static,
+{
+}
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for RandomApproximationScorer<S>
+where
+  S: Scorer + 'static,
+{
+}
 impl<S> Scorer for RandomApproximationScorer<S>
 where
   S: Scorer + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.approximation().doc_id())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -472,23 +496,23 @@ where
   S: Scorer,
 {
   fn doc_id(&self) -> i32 {
-    self.scorer.iterator().doc_id()
+    self.scorer.doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.scorer.iterator().next_doc()
+    self.scorer.next_doc()
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    self.scorer.iterator().advance(target)
+    self.scorer.advance(target)
   }
 
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.scorer.iterator().slow_advance(target)
+    self.scorer.slow_advance(target)
   }
 
   fn cost(&self) -> Result<i64> {
-    self.scorer.iterator().cost()
+    crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&self.scorer)
   }
 }
 

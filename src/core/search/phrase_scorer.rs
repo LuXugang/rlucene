@@ -106,22 +106,52 @@ where
 
 impl<IE, SS, N> crate::core::search::scorable::FixedScore for PhraseScorer<IE, SS, N> {}
 
+impl<IE, SS, N> DocIdSetIterator for PhraseScorer<IE, SS, N>
+where
+  IE: ImpactsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl<IE, SS, N> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for PhraseScorer<IE, SS, N>
+where
+  IE: ImpactsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues + 'static,
+{
+}
+impl<IE, SS, N> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for PhraseScorer<IE, SS, N>
+where
+  IE: ImpactsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues + 'static,
+{
+}
 impl<IE, SS, N> Scorer for PhraseScorer<IE, SS, N>
 where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.doc_id())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

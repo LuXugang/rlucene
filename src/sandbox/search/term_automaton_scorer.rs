@@ -404,16 +404,8 @@ where
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.doc_id)
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    self
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -429,11 +421,11 @@ where
   }
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.iterator()
+    self
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.iterator_mut()
+    self
   }
 }
 

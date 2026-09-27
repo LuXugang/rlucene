@@ -147,7 +147,7 @@ fn test_single_filter_clause() -> Result<()> {
     .scorer(leaf, &searcher)?
     .ok_or_else(|| LuceneError::illegal_state("null scorer"))?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(0.0, scorer.score()?);
 
   Ok(())

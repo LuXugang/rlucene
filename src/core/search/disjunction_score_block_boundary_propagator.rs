@@ -39,7 +39,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
     for (i, scorer) in scorers.iter_mut().enumerate() {
       scorer.advance_shallow(0)?;
       let max_score = scorer.get_max_score(NO_MORE_DOCS)?;
-      let iter_cost = scorer.iterator_mut().cost()?;
+      let iter_cost = scorer.cost()?;
       cost.push(Cost::new(max_score, i, iter_cost));
     }
     cost.sort_by(|a, b| {
@@ -62,7 +62,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
     // For scorers that are below the lead index, just propagate.
     for i in 0..self.lead_index {
       let s = &mut scorers[self.cost[i].idx].scorer;
-      if s.doc_id()? < target {
+      if (s).scoring_doc_id()? < target {
         s.advance_shallow(target)?;
       }
     }
@@ -70,14 +70,14 @@ impl DisjunctionScoreBlockBoundaryPropagator {
     // For scorers above the lead index, we take the minimum boundary.
     let lead_idx = self.lead_index;
     let lead_scorer = &mut scorers[self.cost[lead_idx].idx];
-    let doc_id = lead_scorer.scorer.doc_id()?;
+    let doc_id = (lead_scorer.scorer).scoring_doc_id()?;
     let mut upto = lead_scorer
       .scorer
       .advance_shallow(std::cmp::max(doc_id, target))?;
 
     for i in (lead_idx + 1)..self.cost.len() {
       let scorer = &mut scorers[self.cost[i].idx];
-      if scorer.scorer.doc_id()? <= target {
+      if (scorer.scorer).scoring_doc_id()? <= target {
         let v = scorer.scorer.advance_shallow(target)?;
         upto = std::cmp::min(v, upto);
       }
@@ -89,7 +89,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
     let mut i = self.cost.len() - 1;
     while i > self.lead_index {
       let scorer = &mut scorers[self.cost[i].idx];
-      let doc = scorer.scorer.doc_id()?;
+      let doc = (scorer.scorer).scoring_doc_id()?;
       if doc > target {
         upto = std::cmp::min(upto, doc - 1);
       } else {

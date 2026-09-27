@@ -83,16 +83,8 @@ impl Scorable for SimpleScorer {
 }
 
 impl Scorer for SimpleScorer {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.idx.get())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    self
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -110,11 +102,11 @@ impl Scorer for SimpleScorer {
   }
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.iterator()
+    self
   }
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.iterator_mut()
+    self
   }
 }
 
@@ -217,7 +209,7 @@ fn test_negative_scores() -> Result<()> {
   leaf_collector.set_scorer(&mut scorer)?;
 
   loop {
-    let doc = scorer.iterator_mut().next_doc()?;
+    let doc = scorer.next_doc()?;
     if doc == NO_MORE_DOCS {
       break;
     }

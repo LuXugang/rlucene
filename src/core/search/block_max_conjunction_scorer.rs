@@ -40,8 +40,8 @@ where
 {
   pub(crate) fn new(scorers_list: Vec<S>) -> Result<Self> {
     let mut scorers_with_cost = Vec::with_capacity(scorers_list.len());
-    for mut v in scorers_list {
-      let cost = v.iterator_mut().cost()?;
+    for v in scorers_list {
+      let cost = DocIdSetIterator::cost(&v)?;
       scorers_with_cost.push((cost, v));
     }
     scorers_with_cost.sort_by_key(|entry| std::cmp::Reverse(entry.0));
@@ -115,28 +115,61 @@ where
 
 impl<S> crate::core::search::scorable::FixedScore for BlockMaxConjunctionScorer<S> {}
 
+impl<S> DocIdSetIterator for BlockMaxConjunctionScorer<S>
+where
+  S: Scorer + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    match &self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::doc_id(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::doc_id(v),
+    }
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::next_doc(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::next_doc(v),
+    }
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::advance(v, target),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::advance(v, target),
+    }
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::slow_advance(v, target),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::slow_advance(v, target),
+    }
+  }
+  fn cost(&self) -> Result<i64> {
+    match &self.disi {
+      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::cost(v),
+      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::cost(v),
+    }
+  }
+}
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BlockMaxConjunctionScorer<S>
+where
+  S: Scorer + 'static,
+{
+}
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BlockMaxConjunctionScorer<S>
+where
+  S: Scorer + 'static,
+{
+}
 impl<S> Scorer for BlockMaxConjunctionScorer<S>
 where
   S: Scorer + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     match self.disi {
       DocIdSetIteratorEnum2::A(ref mut v) => v.scorer_doc_id(),
       DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approx.scorer_doc_id(),
-    }
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => v,
-      DocIdSetIteratorEnum2::B(v) => v,
-    }
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => v,
-      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
@@ -219,9 +252,9 @@ where
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.two_phase_state {
-      TwoPhaseState::No => self.iterator(),
+      TwoPhaseState::No => self,
       _ => match self.disi {
-        DocIdSetIteratorEnum2::A(_) => self.iterator(),
+        DocIdSetIteratorEnum2::A(_) => self,
         DocIdSetIteratorEnum2::B(ref v) => v.two_phase_iterator.approximation(),
       },
     }
@@ -229,9 +262,9 @@ where
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.two_phase_state {
-      TwoPhaseState::No => self.iterator_mut(),
+      TwoPhaseState::No => self,
       _ => match self.disi {
-        DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
+        DocIdSetIteratorEnum2::A(_) => self,
         DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
       },
     }
@@ -259,7 +292,7 @@ where
   }
 
   fn scorer_doc_id(&mut self) -> Result<i32> {
-    self.scorers[0].doc_id()
+    (self.scorers[0]).scoring_doc_id()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -383,7 +416,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.scorers[0].cost()
+    Scorable::cost(&self.scorers[0])
   }
 }
 pub struct TwoPhaseIteratorImpl<S> {

@@ -104,28 +104,28 @@ where
 
     let mut doc;
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(2, doc);
     assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
     scorer.set_min_competitive_score(2.0)?;
-    assert_eq!(doc, scorer.doc_id()?);
-    assert_eq!(doc, scorer.iterator().doc_id());
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
     assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(3, doc);
     assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(4, doc);
     assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(5, doc);
     assert!((scorer.score()? - 1.0).abs() <= 0.0);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(NO_MORE_DOCS, doc);
 
     Ok(())
@@ -142,16 +142,16 @@ fn test_matching_score_mode_top_scores() -> Result<()> {
 
     let mut doc;
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(2, doc);
     assert_eq!(1.0, scorer.score()?);
 
     scorer.set_min_competitive_score(2.0)?;
-    assert_eq!(doc, scorer.doc_id()?);
-    assert_eq!(doc, scorer.iterator().doc_id());
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
     assert_eq!(1.0, scorer.score()?);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(NO_MORE_DOCS, doc);
 
     Ok(())
@@ -180,20 +180,20 @@ where
 
     let mut doc;
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(2, doc);
     assert_eq!(1.0, scorer.score()?);
 
     scorer.set_min_competitive_score(2.0)?;
-    assert_eq!(doc, scorer.doc_id()?);
-    assert_eq!(doc, scorer.iterator().doc_id());
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
     assert_eq!(1.0, scorer.score()?);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(5, doc);
     assert_eq!(1.0, scorer.score()?);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(NO_MORE_DOCS, doc);
 
     Ok(())
@@ -210,16 +210,16 @@ fn test_two_phase_matching_score_mode_top_scores() -> Result<()> {
 
     let mut doc;
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(2, doc);
     assert_eq!(1.0, scorer.score()?);
 
     scorer.set_min_competitive_score(2.0)?;
-    assert_eq!(doc, scorer.doc_id()?);
-    assert_eq!(doc, scorer.iterator().doc_id());
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
+    assert_eq!(doc, (scorer).scoring_doc_id()?);
     assert_eq!(1.0, scorer.score()?);
 
-    doc = scorer.iterator_mut().next_doc()?;
+    doc = scorer.next_doc()?;
     assert_eq!(NO_MORE_DOCS, doc);
 
     Ok(())

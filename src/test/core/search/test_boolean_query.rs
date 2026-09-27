@@ -480,11 +480,11 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
     // First pass: just use next_doc() to gather all hits
     hits.clear();
     loop {
-      let doc_id = scorer.iterator_mut().next_doc()?;
+      let doc_id = scorer.next_doc()?;
       if doc_id == NO_MORE_DOCS {
         break;
       }
-      hits.push(ScoreDoc::new(scorer.doc_id()?, scorer.score()?));
+      hits.push(ScoreDoc::new((scorer).scoring_doc_id()?, scorer.score()?));
     }
 
     // Now, randomly next/advance through the list and verify exact match
@@ -502,11 +502,11 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
 
         if left == 1 || random.random_bool(0.5) {
           next_upto = upto;
-          next_doc = scorer.iterator_mut().next_doc()?;
+          next_doc = scorer.next_doc()?;
         } else {
           let inc = TestUtil::next_usize(&mut random, 1, left - 1);
           next_upto = upto + inc - 1;
-          next_doc = scorer.iterator_mut().advance(hits[next_upto].doc)?;
+          next_doc = scorer.advance(hits[next_upto].doc)?;
         }
 
         if next_upto == hits.len() {

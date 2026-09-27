@@ -196,7 +196,7 @@ where
   T2: Scorer,
 {
   if actual.is_none() {
-    let mut expected_it = expected.iterator();
+    let mut expected_it = &expected;
     assert_eq!(NO_MORE_DOCS, expected_it.next_doc()?);
     return Ok(());
   }
@@ -204,12 +204,12 @@ where
   let actual = actual.unwrap();
 
   loop {
-    let doc = expected.iterator_mut().next_doc()?;
+    let doc = expected.next_doc()?;
     if doc == NO_MORE_DOCS {
       break;
     }
 
-    assert_eq!(doc, actual.iterator_mut().next_doc()?);
+    assert_eq!(doc, actual.next_doc()?);
 
     let expected_score = expected.score()?;
     let actual_score = actual.score()?;
@@ -217,7 +217,7 @@ where
     assert_eq!(expected_score, actual_score);
   }
 
-  assert_eq!(NO_MORE_DOCS, actual.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, actual.next_doc()?);
 
   Ok(())
 }
@@ -227,7 +227,7 @@ where
   T2: Scorer,
 {
   if actual.is_none() {
-    let mut expected_it = expected.iterator();
+    let mut expected_it = &expected;
     assert_eq!(NO_MORE_DOCS, expected_it.next_doc()?);
     return Ok(());
   }
@@ -237,12 +237,12 @@ where
   let mut prev_doc = 0;
 
   loop {
-    let doc = expected.iterator_mut().advance(prev_doc + amount)?;
+    let doc = expected.advance(prev_doc + amount)?;
     if doc == NO_MORE_DOCS {
       break;
     }
 
-    assert_eq!(doc, actual.iterator_mut().advance(prev_doc + amount)?);
+    assert_eq!(doc, actual.advance(prev_doc + amount)?);
 
     let expected_score = expected.score()?;
     let actual_score = actual.score()?;
@@ -252,10 +252,7 @@ where
     prev_doc = doc;
   }
 
-  assert_eq!(
-    NO_MORE_DOCS,
-    actual.iterator_mut().advance(prev_doc + amount)?
-  );
+  assert_eq!(NO_MORE_DOCS, actual.advance(prev_doc + amount)?);
 
   Ok(())
 }
@@ -611,20 +608,75 @@ where
 
 impl<IRC> FixedScore for SlowMinShouldMatchScorer<IRC> where IRC: IndexReaderContext {}
 
+impl<IRC> DocIdSetIterator for SlowMinShouldMatchScorer<IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl<IRC> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SlowMinShouldMatchScorer<IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
+      &self.disi,
+    )
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
+      &self.disi,
+    )
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
+      &self.disi,
+    )
+  }
+}
+impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SlowMinShouldMatchScorer<IRC>
+where
+  IRC: IndexReaderContext + 'static,
+{
+  fn is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(&self.disi)
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(&self.disi, index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(&mut self.disi, doc)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.disi)
+  }
+}
 impl<IRC> Scorer for SlowMinShouldMatchScorer<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.current_doc)
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {

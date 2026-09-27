@@ -46,8 +46,8 @@ where
   pub(crate) fn new(max_doc: i32, scorers_list: Vec<S>) -> Result<Self> {
     let mut temp_scorers_list = Vec::with_capacity(scorers_list.len());
     let mut cost = Vec::with_capacity(scorers_list.len());
-    for (idx, mut v) in scorers_list.into_iter().enumerate() {
-      cost.push((idx, v.iterator_mut().cost()?));
+    for (idx, v) in scorers_list.into_iter().enumerate() {
+      cost.push((idx, DocIdSetIterator::cost(&v)?));
       temp_scorers_list.push(Some(v));
     }
     cost.sort_by_key(|entry| std::cmp::Reverse(entry.1));
@@ -101,12 +101,12 @@ where
     }
     let scorers_len: i32 = self.scorers.len().try_convert()?;
     let lead1_doc = {
-      let lead1_iter = self.scorers[0].iterator_mut();
+      let lead1_iter = &mut self.scorers[0];
 
-      if lead1_iter.doc_id() < min {
+      if DocIdSetIterator::doc_id(&lead1_iter) < min {
         lead1_iter.advance(min)?;
       }
-      lead1_iter.doc_id()
+      DocIdSetIterator::doc_id(&lead1_iter)
     };
 
     let sum_other_at_1 = self.sum_of_other_clauses[1];
@@ -119,7 +119,7 @@ where
       if let Some(bits) = accept_docs
         && !bits.get(doc as usize)?
       {
-        doc = self.scorers[0].iterator_mut().next_doc()?;
+        doc = self.scorers[0].next_doc()?;
         continue;
       }
       // Compute the score as we find more matching clauses, in order to skip advancing other
@@ -140,7 +140,7 @@ where
         && (MathUtil::sum_upper_bound(current_score + sum_other_at_1, scorers_len) as f32)
           < self.scorable.min_competitive_score
       {
-        doc = self.scorers[0].iterator_mut().next_doc()?;
+        doc = self.scorers[0].next_doc()?;
         continue;
       }
 
@@ -152,15 +152,15 @@ where
 
       {
         // NOTE: lead2 may be on `doc` already if we `continue`d on the previous loop iteration.
-        let lead2_iter = &mut lead2.iterator_mut();
-        if lead2_iter.doc_id() < doc {
+        let lead2_iter = &mut *lead2;
+        if DocIdSetIterator::doc_id(&lead2_iter) < doc {
           let next = lead2_iter.advance(doc)?;
           if next != doc {
-            doc = lead1.iterator_mut().advance(next)?;
+            doc = lead1.advance(next)?;
             continue 'advance_head;
           }
         }
-        debug_assert!(lead2_iter.doc_id() == doc);
+        debug_assert!(DocIdSetIterator::doc_id(&lead2_iter) == doc);
       }
 
       if has_min_comp {
@@ -174,22 +174,22 @@ where
             as f32)
             < self.scorable.min_competitive_score
         {
-          doc = self.scorers[0].iterator_mut().next_doc()?;
+          doc = self.scorers[0].next_doc()?;
           continue 'advance_head;
         }
 
         {
           // NOTE: these iterators may be on `doc` already if we called `continue advanceHead` on the
           // previous loop iteration.
-          let it = iter.iterator_mut();
-          if it.doc_id() < doc {
+          let it = &mut *iter;
+          if DocIdSetIterator::doc_id(&it) < doc {
             let next = it.advance(doc)?;
             if next != doc {
-              doc = lead1.iterator_mut().advance(next)?;
+              doc = lead1.advance(next)?;
               continue 'advance_head;
             }
           }
-          debug_assert!(it.doc_id() == doc);
+          debug_assert!(DocIdSetIterator::doc_id(&it) == doc);
         }
         if has_min_comp {
           current_score += iter.score()? as f64;
@@ -209,7 +209,7 @@ where
         // no more hits are competitive
         return Ok(());
       }
-      doc = self.scorers[0].iterator_mut().next_doc()?;
+      doc = self.scorers[0].next_doc()?;
     }
 
     Ok(())
@@ -228,7 +228,7 @@ where
   ) -> Result<i32> {
     collector.set_scorer(&mut self.scorable)?;
 
-    let mut window_min = self.scorers[0].iterator().doc_id().max(min);
+    let mut window_min = DocIdSetIterator::doc_id(&self.scorers[0]).max(min);
 
     while window_min < max {
       let shallow = self.scorers[0].advance_shallow(window_min)?;
@@ -248,7 +248,7 @@ where
         window_max + 1,
         max_window_score,
       )?;
-      window_min = self.scorers[0].iterator().doc_id().max(window_max + 1);
+      window_min = DocIdSetIterator::doc_id(&self.scorers[0]).max(window_max + 1);
     }
 
     Ok(if window_min >= self.max_doc {
@@ -259,7 +259,7 @@ where
   }
 
   fn cost(&mut self) -> Result<i64> {
-    self.scorers[0].iterator().cost()
+    DocIdSetIterator::cost(&self.scorers[0])
   }
 }
 

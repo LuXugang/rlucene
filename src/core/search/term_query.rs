@@ -40,7 +40,7 @@ use crate::core::search::query::{
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum2};
+use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
@@ -356,7 +356,7 @@ where
       self.score_mode,
       false,
     )?;
-    let new_doc = scorer.iterator_mut().advance(doc)?;
+    let new_doc = scorer.advance(doc)?;
     if new_doc == doc {
       let freq = match &mut scorer {
         ScorerEnum2::A(ts) => ts.freq()?,

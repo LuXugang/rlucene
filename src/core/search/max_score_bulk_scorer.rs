@@ -17,7 +17,6 @@
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -201,7 +200,7 @@ where
           let fdoc = filter.doc;
           {
             let top = &mut self.all_scorers[top_index];
-            let v = top.scorer.iterator_mut().advance(fdoc)?;
+            let v = top.scorer.advance(fdoc)?;
             top.doc = v;
           }
           top_index = self.essential_queue.update_top(&self.all_scorers);
@@ -231,7 +230,7 @@ where
 
           {
             let top = &mut self.all_scorers[top_index];
-            let v = top.scorer.iterator_mut().next_doc()?;
+            let v = top.scorer.next_doc()?;
             top.doc = v;
           }
           top_index = self.essential_queue.update_top(&self.all_scorers);
@@ -287,10 +286,10 @@ where
       }
 
       let top = &mut self.all_scorers[top_index];
-      doc = top.scorer.iterator_mut().next_doc()?;
+      doc = top.scorer.next_doc()?;
     }
     let top = &mut self.all_scorers[top_index];
-    let v = top.scorer.iterator_mut().doc_id();
+    let v = top.scorer.doc_id();
     top.doc = v;
     self.essential_queue.update_top(&self.all_scorers);
 
@@ -324,10 +323,7 @@ where
 
       if self.all_scorers[leader1_idx].doc < self.all_scorers[leader2_idx].doc {
         let target = self.all_scorers[leader2_idx].doc.min(max);
-        let v = self.all_scorers[leader1_idx]
-          .scorer
-          .iterator_mut()
-          .advance(target)?;
+        let v = self.all_scorers[leader1_idx].scorer.advance(target)?;
         self.all_scorers[leader1_idx].doc = v;
       }
       (
@@ -344,10 +340,7 @@ where
         };
 
         if !accepted {
-          let v = self.all_scorers[leader1_idx]
-            .scorer
-            .iterator_mut()
-            .next_doc()?;
+          let v = self.all_scorers[leader1_idx].scorer.next_doc()?;
           self.all_scorers[leader1_idx].doc = v;
           doc = v;
           continue;
@@ -359,10 +352,7 @@ where
           as f32)
           < self.scorable.min_competitive_score
         {
-          let v = self.all_scorers[leader1_idx]
-            .scorer
-            .iterator_mut()
-            .next_doc()?;
+          let v = self.all_scorers[leader1_idx].scorer.next_doc()?;
           self.all_scorers[leader1_idx].doc = v;
           doc = v;
           continue;
@@ -370,18 +360,12 @@ where
 
         if self.all_scorers[leader2_idx].doc < self.all_scorers[leader1_idx].doc {
           let target = self.all_scorers[leader1_idx].doc;
-          let v = self.all_scorers[leader2_idx]
-            .scorer
-            .iterator_mut()
-            .advance(target)?;
+          let v = self.all_scorers[leader2_idx].scorer.advance(target)?;
           self.all_scorers[leader2_idx].doc = v;
         }
         if self.all_scorers[leader2_idx].doc != self.all_scorers[leader1_idx].doc {
           let target = self.all_scorers[leader2_idx].doc.min(max);
-          let v = self.all_scorers[leader1_idx]
-            .scorer
-            .iterator_mut()
-            .advance(target)?;
+          let v = self.all_scorers[leader1_idx].scorer.advance(target)?;
           self.all_scorers[leader1_idx].doc = v;
           doc = v;
           continue;
@@ -395,10 +379,7 @@ where
               as f32)
               < self.scorable.min_competitive_score
             {
-              let v = self.all_scorers[leader1_idx]
-                .scorer
-                .iterator_mut()
-                .next_doc()?;
+              let v = self.all_scorers[leader1_idx].scorer.next_doc()?;
               self.all_scorers[leader1_idx].doc = v;
               doc = v;
               continue 'outer;
@@ -408,14 +389,13 @@ where
             let scorer_idx = self.all_scorers_idx[j];
             let w = &mut self.all_scorers[scorer_idx];
             if w.doc < leader_1_doc {
-              let v = w.scorer.iterator_mut().advance(leader_1_doc)?;
+              let v = w.scorer.advance(leader_1_doc)?;
               w.doc = v;
             }
             let w_doc = w.doc;
             if w_doc != leader_1_doc {
               let v = self.all_scorers[leader1_idx]
                 .scorer
-                .iterator_mut()
                 .advance(w_doc.min(max))?;
               self.all_scorers[leader1_idx].doc = v;
               doc = v;
@@ -430,7 +410,7 @@ where
 
       self.score_non_essential_clauses(collector, v, score, self.first_required_scorer)?;
       let lead1 = &mut self.all_scorers[leader1_idx];
-      let v = lead1.scorer.iterator_mut().next_doc()?;
+      let v = lead1.scorer.next_doc()?;
       doc = v;
       lead1.doc = v;
     }
@@ -467,10 +447,10 @@ where
           self.window_matches[i >> 6] |= 1u64 << (i & 0x3f);
           self.window_scores[i] += top.scorer.score()? as f64;
         }
-        doc = top.scorer.iterator_mut().next_doc()?;
+        doc = top.scorer.next_doc()?;
       }
 
-      let doc_id = top.scorer.iterator_mut().doc_id();
+      let doc_id = top.scorer.doc_id();
       top.doc = doc_id;
       let next_index = self.essential_queue.update_top(&self.all_scorers);
       top = &mut self.all_scorers[next_index];
@@ -588,7 +568,7 @@ where
       let scorer = &mut self.all_scorers[index];
 
       if scorer.doc < doc {
-        let v = scorer.scorer.iterator_mut().advance(doc)?;
+        let v = scorer.scorer.advance(doc)?;
         scorer.doc = v;
       }
       if scorer.doc == doc {
@@ -778,7 +758,7 @@ where
         while doc < outer_window_min {
           {
             let top = &mut self.all_scorers[top_index];
-            let v = top.scorer.iterator_mut().advance(outer_window_min)?;
+            let v = top.scorer.advance(outer_window_min)?;
             top.doc = v;
           }
           top_index = self.essential_queue.update_top(&self.all_scorers);

@@ -17,7 +17,7 @@
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::vector_scorer::VectorScorer;
@@ -691,79 +691,26 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.scorer.cost()
+    Scorable::cost(&self.scorer)
   }
 }
 
 impl<S> crate::core::search::scorable::FixedScore for ScorerDisi<S> {}
 
-impl<S> Scorer for ScorerDisi<S>
-where
-  S: Scorer,
-{
-  fn doc_id(&mut self) -> Result<i32> {
-    self.scorer.doc_id()
+impl<S: Scorer> ScorerDisi<S> {
+  pub(crate) fn scoring_doc_id(&mut self) -> Result<i32> {
+    (self.scorer).scoring_doc_id()
   }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    self.scorer.iterator()
+  pub(crate) fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+    self.scorer.advance_shallow(target)
   }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.scorer.iterator_mut()
+  pub(crate) fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+    self.scorer.get_max_score(upto)
   }
-
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    (*self).into_iterator()
-  }
-
-  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
-    let ScorerDisi { scorer } = self;
-    scorer.into_iterator()
-  }
-
   fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     self.scorer.two_phase_iterator()
   }
-
   fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     self.scorer.two_phase_iterator_mut()
-  }
-
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    (*self).into_two_phase_iterator()
-  }
-
-  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
-    let ScorerDisi { scorer } = self;
-    scorer.into_two_phase_iterator()
-  }
-
-  fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
-    self.scorer.advance_shallow(_target)
-  }
-
-  fn default_advance_shallow(&mut self, _target: i32) -> Result<i32> {
-    self.scorer.default_advance_shallow(_target)
-  }
-
-  fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    self.scorer.get_max_score(upto)
-  }
-
-  fn default_cost(&mut self) -> Result<i64> {
-    self.scorer.default_cost()
-  }
-
-  fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    self.scorer.has_two_phase_iterator()
-  }
-
-  fn approximation(&self) -> &dyn DocIdSetIterator {
-    self.scorer.approximation()
-  }
-
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.scorer.approximation_mut()
   }
 }

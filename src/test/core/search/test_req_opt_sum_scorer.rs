@@ -131,11 +131,11 @@ where
   let context = &searcher.get_leaf_contexts()?[0];
 
   let mut scorer = weight.scorer(context, &searcher)?.expect("expected scorer");
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
-  assert_eq!(2, scorer.iterator_mut().next_doc()?);
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
+  assert_eq!(2, scorer.next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -145,14 +145,14 @@ where
   scorer.set_min_competitive_score(FloatPoint::next_down(1.0))?;
 
   if req_occur == Occur::Must {
-    assert_eq!(0, scorer.iterator_mut().next_doc()?);
+    assert_eq!(0, scorer.next_doc()?);
   }
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
   if req_occur == Occur::Must {
-    assert_eq!(2, scorer.iterator_mut().next_doc()?);
+    assert_eq!(2, scorer.next_doc()?);
   }
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -162,10 +162,10 @@ where
   scorer.set_min_competitive_score(FloatPoint::next_up(1.0))?;
 
   if req_occur == Occur::Must {
-    assert_eq!(1, scorer.iterator_mut().next_doc()?);
-    assert_eq!(4, scorer.iterator_mut().next_doc()?);
+    assert_eq!(1, scorer.next_doc()?);
+    assert_eq!(4, scorer.next_doc()?);
   }
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut ss = weight
     .scorer_supplier(context, &searcher)?
@@ -173,13 +173,13 @@ where
   ss.set_top_level_scoring_clause()?;
   let mut scorer = ss.get(i64::MAX, context, &searcher)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   scorer.set_min_competitive_score(FloatPoint::next_up(1.0))?;
   if req_occur == Occur::Must {
-    assert_eq!(1, scorer.iterator_mut().next_doc()?);
-    assert_eq!(4, scorer.iterator_mut().next_doc()?);
+    assert_eq!(1, scorer.next_doc()?);
+    assert_eq!(4, scorer.next_doc()?);
   }
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }
@@ -240,8 +240,8 @@ fn test_max_block() -> Result<()> {
   actual.set_min_competitive_score(f32::next_up(1.0))?;
 
   for i in 0..1024 {
-    assert_eq!(i, actual.iterator_mut().next_doc()?);
-    assert_eq!(i, expected.iterator_mut().next_doc()?);
+    assert_eq!(i, actual.next_doc()?);
+    assert_eq!(i, expected.next_doc()?);
     assert_eq!(actual.score()?, expected.score()?);
   }
 
@@ -291,43 +291,43 @@ fn test_max_score_segment() -> Result<()> {
 
   let mut scorer = req_opt_scorer(&searcher, req_q.clone(), opt_q.clone(), false)?;
 
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
-  assert_eq!(6, scorer.iterator_mut().next_doc()?);
+  assert_eq!(6, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut scorer = req_opt_scorer(&searcher, req_q.clone(), opt_q.clone(), false)?;
   scorer.set_min_competitive_score(f32::from_bits(1.0f32.to_bits() - 1))?;
-  assert_eq!(0, scorer.iterator_mut().next_doc()?);
+  assert_eq!(0, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
-  assert_eq!(1, scorer.iterator_mut().next_doc()?);
+  assert_eq!(1, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
-  assert_eq!(4, scorer.iterator_mut().next_doc()?);
+  assert_eq!(4, scorer.next_doc()?);
   assert_eq!(1.0, scorer.score()?);
-  assert_eq!(6, scorer.iterator_mut().next_doc()?);
+  assert_eq!(6, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut scorer = req_opt_scorer(&searcher, req_q.clone(), opt_q.clone(), false)?;
   scorer.set_min_competitive_score(f32::from_bits(1.0f32.to_bits() + 1))?;
-  assert_eq!(3, scorer.iterator_mut().next_doc()?);
+  assert_eq!(3, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
-  assert_eq!(6, scorer.iterator_mut().next_doc()?);
+  assert_eq!(6, scorer.next_doc()?);
   assert_eq!(2.0, scorer.score()?);
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   let mut scorer = req_opt_scorer(&searcher, req_q, opt_q, true)?;
   scorer.set_min_competitive_score(f32::from_bits(2.0f32.to_bits() + 1))?;
-  assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().next_doc()?);
+  assert_eq!(NO_MORE_DOCS, scorer.next_doc()?);
 
   Ok(())
 }

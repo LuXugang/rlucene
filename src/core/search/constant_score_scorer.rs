@@ -118,21 +118,60 @@ where
 
 impl<DISI, TPI> crate::core::search::scorable::FixedScore for ConstantScoreScorer<DISI, TPI> {}
 
+impl<DISI, TPI> DocIdSetIterator for ConstantScoreScorer<DISI, TPI>
+where
+  DISI: DocIdSetIterator + 'static,
+  TPI: TwoPhaseIterator + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl<DISI, TPI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ConstantScoreScorer<DISI, TPI>
+where
+  DISI: DocIdSetIterator + 'static,
+  TPI: TwoPhaseIterator + 'static,
+{
+}
+impl<DISI, TPI> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for ConstantScoreScorer<DISI, TPI>
+where
+  DISI: DocIdSetIterator + 'static,
+  TPI: TwoPhaseIterator + 'static,
+{
+  fn is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(&self.disi)
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(&self.disi, index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(&mut self.disi, doc)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.disi)
+  }
+}
 impl<DISI, TPI> Scorer for ConstantScoreScorer<DISI, TPI>
 where
   DISI: DocIdSetIterator + 'static,
   TPI: TwoPhaseIterator + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc_id())
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -203,7 +242,7 @@ where
 
   fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.tpi_state {
-      TwoPhaseState::No => self.iterator_mut(),
+      TwoPhaseState::No => self,
       _ => match &mut self.disi {
         ConstantScoreIterator::DisiTop(iterator) => iterator,
         ConstantScoreIterator::Disi(iterator) => iterator,
@@ -215,7 +254,7 @@ where
 
   fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.tpi_state {
-      TwoPhaseState::No => self.iterator(),
+      TwoPhaseState::No => self,
       _ => match &self.disi {
         ConstantScoreIterator::DisiTop(iterator) => iterator,
         ConstantScoreIterator::Disi(iterator) => iterator,

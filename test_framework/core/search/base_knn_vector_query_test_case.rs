@@ -455,7 +455,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let leaf = &searcher.get_leaf_contexts()?[0];
     let mut scorer = weight.scorer(leaf, &searcher)?.unwrap();
 
-    assert_eq!(-1, scorer.doc_id()?);
+    assert_eq!(-1, (scorer).scoring_doc_id()?);
     assert!(matches!(
       scorer.score(),
       Err(LuceneError::ArrayIndexOutOfBounds(_))
@@ -464,19 +464,22 @@ pub trait BaseKnnVectorQueryTestCase {
     assert_eq!(1.0 / 2.0, scorer.get_max_score(2)?);
     assert_eq!(1.0 / 2.0, scorer.get_max_score(i32::MAX)?);
 
-    assert_eq!(3, scorer.iterator_mut().cost()?);
-    let first_doc = scorer.iterator_mut().next_doc()?;
+    assert_eq!(
+      3,
+      crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&scorer)?
+    );
+    let first_doc = scorer.next_doc()?;
     if first_doc == 1 {
       assert_eq!(1.0 / 6.0, scorer.score()?);
-      assert_eq!(3, scorer.iterator_mut().advance(3)?);
+      assert_eq!(3, scorer.advance(3)?);
       assert_eq!(1.0 / 2.0, scorer.score()?);
-      assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().advance(4)?);
+      assert_eq!(NO_MORE_DOCS, scorer.advance(4)?);
     } else {
       assert_eq!(2, first_doc);
       assert_eq!(1.0 / 2.0, scorer.score()?);
-      assert_eq!(4, scorer.iterator_mut().advance(4)?);
+      assert_eq!(4, scorer.advance(4)?);
       assert_eq!(1.0 / 6.0, scorer.score()?);
-      assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().advance(5)?);
+      assert_eq!(NO_MORE_DOCS, scorer.advance(5)?);
     }
 
     assert!(matches!(
@@ -512,7 +515,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let leaf = &searcher.get_leaf_contexts()?[0];
     let mut scorer = weight.scorer(leaf, &searcher)?.unwrap();
 
-    assert_eq!(-1, scorer.doc_id()?);
+    assert_eq!(-1, (scorer).scoring_doc_id()?);
     assert!(matches!(
       scorer.score(),
       Err(LuceneError::ArrayIndexOutOfBounds(_))
@@ -524,12 +527,15 @@ pub trait BaseKnnVectorQueryTestCase {
     assert!((score1 - scorer.get_max_score(2)?).abs() <= 0.0001);
     assert!((score1 - scorer.get_max_score(i32::MAX)?).abs() <= 0.0001);
 
-    assert_eq!(3, scorer.iterator().cost()?);
-    assert_eq!(0, scorer.iterator_mut().next_doc()?);
+    assert_eq!(
+      3,
+      crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&scorer)?
+    );
+    assert_eq!(0, scorer.next_doc()?);
     assert!((score0 - scorer.score()?).abs() <= 0.0001);
-    assert_eq!(1, scorer.iterator_mut().advance(1)?);
+    assert_eq!(1, scorer.advance(1)?);
     assert!((score1 - scorer.score()?).abs() <= 0.0001);
-    assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().advance(4)?);
+    assert_eq!(NO_MORE_DOCS, scorer.advance(4)?);
     assert!(matches!(
       scorer.score(),
       Err(LuceneError::ArrayIndexOutOfBounds(_))

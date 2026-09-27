@@ -135,20 +135,40 @@ where
 
 impl<S> crate::core::search::scorable::FixedScore for WANDScorer<S> {}
 
+impl<S> DocIdSetIterator for WANDScorer<S>
+where
+  S: Scorer + 'static,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for WANDScorer<S> where
+  S: Scorer + 'static
+{
+}
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for WANDScorer<S> where
+  S: Scorer + 'static
+{
+}
 impl<S> Scorer for WANDScorer<S>
 where
   S: Scorer + 'static,
 {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.approximation.doc)
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -185,7 +205,7 @@ where
     for w in all_scorers {
       let scorer = &mut w.scorer;
 
-      if scorer.doc_id()? <= upto {
+      if scorer.scoring_doc_id()? <= upto {
         max_score_sum += scorer.get_max_score(upto)? as f64;
       }
     }
@@ -283,7 +303,7 @@ where
     let mut all_scorers = Vec::with_capacity(num_scorers);
     let mut cost = Vec::with_capacity(num_scorers);
     for scorer in scorers {
-      cost.push(scorer.iterator().cost()?);
+      cost.push(DocIdSetIterator::cost(&scorer)?);
       all_scorers.push(DisiWrapper::new(scorer)?);
     }
 
@@ -348,10 +368,7 @@ where
       let evicted = self.insert_tail_with_overflow(idx);
 
       if let Some(evicted_idx) = evicted {
-        let new_doc = self.all_scorers[evicted_idx]
-          .scorer
-          .iterator_mut()
-          .advance(target)?;
+        let new_doc = self.all_scorers[evicted_idx].scorer.advance(target)?;
         self.all_scorers[evicted_idx].doc = new_doc;
         self.head.add(evicted_idx, &self.all_scorers);
       }
@@ -373,10 +390,7 @@ where
       let evicted = self.insert_tail_with_overflow(top_idx);
 
       if let Some(evicted_idx) = evicted {
-        let new_doc = self.all_scorers[evicted_idx]
-          .scorer
-          .iterator_mut()
-          .advance(target)?;
+        let new_doc = self.all_scorers[evicted_idx].scorer.advance(target)?;
         self.all_scorers[evicted_idx].doc = new_doc;
         head_top = Some(self.head.update_top_with(evicted_idx, &self.all_scorers));
       } else {
@@ -389,10 +403,7 @@ where
   }
 
   fn advance_tail(&mut self, idx: usize) -> Result<()> {
-    let new_doc = self.all_scorers[idx]
-      .scorer
-      .iterator_mut()
-      .advance(self.doc)?;
+    let new_doc = self.all_scorers[idx].scorer.advance(self.doc)?;
     self.all_scorers[idx].doc = new_doc;
 
     if new_doc == self.doc {
@@ -476,10 +487,7 @@ where
     while self.tail_size > 0 && self.tail_max_score >= self.min_competitive_score {
       let idx = self.pop_tail();
 
-      let new_doc = self.all_scorers[idx]
-        .scorer
-        .iterator_mut()
-        .advance(target)?;
+      let new_doc = self.all_scorers[idx].scorer.advance(target)?;
       self.all_scorers[idx].doc = new_doc;
       self.head.add(idx, &self.all_scorers);
     }

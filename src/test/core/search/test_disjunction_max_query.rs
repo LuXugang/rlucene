@@ -250,10 +250,10 @@ fn test_skip_to_firsttime_miss() -> Result<()> {
 
   let mut scorer = weight.scorer(ctx, &s)?.unwrap();
 
-  let skip_ok = scorer.iterator_mut().advance(3)? != NO_MORE_DOCS;
+  let skip_ok = scorer.advance(3)? != NO_MORE_DOCS;
 
   if skip_ok {
-    let doc = scorer.doc_id()?;
+    let doc = (scorer).scoring_doc_id()?;
     let stored = s.reader_context.reader().stored_fields()?.document(doc)?;
     unreachable!(
       "firsttime skipTo found a match? ... {}",
@@ -287,10 +287,10 @@ fn test_skip_to_firsttime_hit() -> Result<()> {
 
   let mut ds = weight.scorer(ctx, &s)?.unwrap();
 
-  let hit = ds.iterator_mut().advance(3)? != NO_MORE_DOCS;
+  let hit = ds.advance(3)? != NO_MORE_DOCS;
   assert!(hit, "firsttime skipTo found no match");
 
-  let doc = ds.doc_id()?;
+  let doc = (ds).scoring_doc_id()?;
   let stored = s.reader_context.reader().stored_fields()?.document(doc)?;
   assert_eq!(
     "d4",

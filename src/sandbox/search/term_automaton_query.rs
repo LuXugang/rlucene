@@ -40,7 +40,6 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
   SimScorer, Similarity, SimilarityEnum, SimilarityEnumSimScorer,
@@ -759,7 +758,7 @@ where
       ));
     };
 
-    let advanced_doc = scorer.iterator_mut().advance(doc)?;
+    let advanced_doc = scorer.advance(doc)?;
     if advanced_doc != doc {
       return Ok(Explanation::no_match_no_details(
         "No matching terms in the document",

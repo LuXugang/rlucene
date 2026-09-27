@@ -57,7 +57,7 @@ impl DisjunctionScorerBase for DisjunctionSumScorer {
     let mut min = NO_MORE_DOCS;
 
     for w in disi_wrapper.iter_mut() {
-      if w.scorer.doc_id()? <= target {
+      if (w.scorer).scoring_doc_id()? <= target {
         min = std::cmp::min(min, w.scorer.advance_shallow(target)?);
       }
     }
@@ -72,7 +72,7 @@ impl DisjunctionScorerBase for DisjunctionSumScorer {
     let mut sum: f64 = 0.0;
 
     for w in disi_wrapper.iter_mut() {
-      if w.scorer.doc_id()? <= upto {
+      if (w.scorer).scoring_doc_id()? <= upto {
         let v = w.scorer.get_max_score(upto)? as f64;
         sum += v;
       }

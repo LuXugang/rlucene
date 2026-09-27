@@ -581,7 +581,7 @@ where
     let context = &searcher.get_leaf_contexts()?[0];
     if let Some(mut scorer) = weight.scorer(context, &searcher)? {
       // Consume the borrowed iterator while its scorer and searcher are alive.
-      let iterator = scorer.iterator_mut();
+      let iterator = &mut scorer;
       consumer(iterator)?;
       Ok(true)
     } else {

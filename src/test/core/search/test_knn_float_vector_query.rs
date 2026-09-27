@@ -380,10 +380,10 @@ fn test_score_negative_dot_product() -> Result<()> {
     let leaf = &searcher.get_leaf_contexts()?[0];
     let mut scorer = weight.scorer(leaf, &searcher)?.unwrap();
 
-    assert_eq!(2, scorer.iterator().cost()?);
-    assert_eq!(0, scorer.iterator_mut().next_doc()?);
+    assert_eq!(2, DocIdSetIterator::cost(&scorer)?);
+    assert_eq!(0, scorer.next_doc()?);
     assert!(scorer.score()? >= 0.0);
-    assert_eq!(1, scorer.iterator_mut().advance(1)?);
+    assert_eq!(1, scorer.advance(1)?);
     assert_eq!(1.0, scorer.score()?);
     Ok(())
   })
@@ -419,7 +419,7 @@ fn test_score_dot_product() -> Result<()> {
     let leaf = &searcher.get_leaf_contexts()?[0];
     let mut scorer = weight.scorer(leaf, &searcher)?.unwrap();
 
-    assert_eq!(-1, scorer.doc_id()?);
+    assert_eq!(-1, (scorer).scoring_doc_id()?);
     assert!(matches!(
       scorer.score(),
       Err(LuceneError::ArrayIndexOutOfBounds(_))
@@ -432,14 +432,14 @@ fn test_score_dot_product() -> Result<()> {
     assert!((score1 - scorer.get_max_score(i32::MAX)?).abs() <= 0.0001);
 
     {
-      let it = scorer.iterator_mut();
-      assert_eq!(3, it.cost()?);
+      let it = &mut scorer;
+      assert_eq!(3, DocIdSetIterator::cost(it)?);
       assert_eq!(0, it.next_doc()?);
     }
     assert!((score0 - scorer.score()?).abs() <= 0.0001);
-    assert_eq!(1, scorer.iterator_mut().advance(1)?);
+    assert_eq!(1, scorer.advance(1)?);
     assert!((score1 - scorer.score()?).abs() <= 0.0001);
-    assert_eq!(NO_MORE_DOCS, scorer.iterator_mut().advance(4)?);
+    assert_eq!(NO_MORE_DOCS, scorer.advance(4)?);
     assert!(matches!(
       scorer.score(),
       Err(LuceneError::ArrayIndexOutOfBounds(_))
@@ -520,7 +520,7 @@ fn test_doc_and_score_query_basics() -> Result<()> {
           assert!(scorer.get_max_score(NO_MORE_DOCS)? > 0.0);
           assert!(count > 0);
           let mut iterator_count = 0;
-          while scorer.iterator_mut().next_doc()? != NO_MORE_DOCS {
+          while scorer.next_doc()? != NO_MORE_DOCS {
             iterator_count += 1;
           }
           assert_eq!(iterator_count, count);

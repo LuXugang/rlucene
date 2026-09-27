@@ -1638,26 +1638,86 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.iterator().cost()
+    crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&self)
   }
 }
 
 impl<S> crate::core::search::scorable::FixedScore for MaxScoreWrapperScorer<S> where S: Scorer {}
 
+impl<S> DocIdSetIterator for MaxScoreWrapperScorer<S>
+where
+  S: Scorer,
+{
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.scorer)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.scorer)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.scorer, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.scorer, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.scorer)
+  }
+}
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MaxScoreWrapperScorer<S>
+where
+  S: Scorer,
+{
+  fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = { &self.scorer };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_sparse_fixed_bit_set(
+    &self,
+  ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
+    let iterator: &dyn DocIdSetIterator = { &self.scorer };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
+      iterator,
+    )
+  }
+  fn get_doc_base_fixed_bit_set(
+    &self,
+  ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
+    let iterator: &dyn DocIdSetIterator = { &self.scorer };
+    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
+      iterator,
+    )
+  }
+}
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MaxScoreWrapperScorer<S>
+where
+  S: Scorer,
+{
+  fn is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(&self.scorer)
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(&self.scorer, index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(
+      &mut self.scorer,
+      doc,
+    )
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.scorer)
+  }
+}
 impl<S> Scorer for MaxScoreWrapperScorer<S>
 where
   S: Scorer,
 {
-  fn doc_id(&mut self) -> Result<i32> {
-    self.scorer.doc_id()
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    self.scorer.iterator()
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    self.scorer.iterator_mut()
+  fn scoring_doc_id(&mut self) -> Result<i32> {
+    (self.scorer).scoring_doc_id()
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -1685,7 +1745,7 @@ where
   }
 
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    let v = self.doc_id()?.max(self.last_shallow_target);
+    let v = (self).scoring_doc_id()?.max(self.last_shallow_target);
     if upto - v >= self.max_range {
       return Ok(self.max_score);
     }

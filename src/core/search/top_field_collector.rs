@@ -42,7 +42,6 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -310,7 +309,7 @@ where
       .ok_or_else(|| LuceneError::illegal_argument("leaf_doc < 0"))?
       .try_convert()?;
 
-    let advanced = scorer.iterator_mut().advance(leaf_doc)?;
+    let advanced = scorer.advance(leaf_doc)?;
     if leaf_doc != advanced {
       return Err(LuceneError::illegal_argument(format!(
         "Doc id {} doesn't match the query",

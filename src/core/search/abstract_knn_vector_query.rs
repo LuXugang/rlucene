@@ -273,7 +273,7 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
       None => return Ok(NO_RESULTS.clone()),
     };
 
-    let accept_docs = create_bit_set(scorer.iterator_mut(), live_docs.as_ref(), reader.max_doc()?)?;
+    let accept_docs = create_bit_set(&mut scorer, live_docs.as_ref(), reader.max_doc()?)?;
     let cost = accept_docs.cardinality();
     let query_timeout = time_limiting_knn_collector_manager.get_query_timeout();
 
@@ -855,22 +855,33 @@ impl Scorable for ScorerImpl {
 
 impl FixedScore for ScorerImpl {}
 
+impl DocIdSetIterator for ScorerImpl {
+  fn doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&self.disi)
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut self.disi)
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut self.disi, target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut self.disi, target)
+  }
+  fn cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&self.disi)
+  }
+}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ScorerImpl {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerImpl {}
 impl Scorer for ScorerImpl {
-  fn doc_id(&mut self) -> Result<i32> {
+  fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(doc_id_no_shadow(
       self.disi.upto,
       self.disi.upper,
       self.disi.docs.as_ref(),
       self.disi.doc_base,
     ))
-  }
-
-  fn iterator(&self) -> &dyn DocIdSetIterator {
-    &self.disi
-  }
-
-  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
