@@ -44,7 +44,8 @@ where
       let cost = DocIdSetIterator::cost(&v)?;
       scorers_with_cost.push((cost, v));
     }
-    scorers_with_cost.sort_by_key(|entry| std::cmp::Reverse(entry.0));
+    // Lead with the lowest-cost scorer, preserving input order for equal costs.
+    scorers_with_cost.sort_by_key(|entry| entry.0);
 
     let mut scorers = Vec::with_capacity(scorers_with_cost.len());
     for (_, mut v) in scorers_with_cost {
