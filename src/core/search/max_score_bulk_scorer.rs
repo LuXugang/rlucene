@@ -405,7 +405,8 @@ where
             }
 
             let leader_1_doc = self.all_scorers[leader1_idx].doc;
-            let w = &mut self.all_scorers[j];
+            let scorer_idx = self.all_scorers_idx[j];
+            let w = &mut self.all_scorers[scorer_idx];
             if w.doc < leader_1_doc {
               let v = w.scorer.iterator_mut().advance(leader_1_doc)?;
               w.doc = v;
@@ -421,7 +422,7 @@ where
               continue 'outer;
             }
 
-            score += self.all_scorers[j].scorer.score()? as f64;
+            score += self.all_scorers[scorer_idx].scorer.score()? as f64;
           }
         }
         (self.all_scorers[leader1_idx].doc, score)
