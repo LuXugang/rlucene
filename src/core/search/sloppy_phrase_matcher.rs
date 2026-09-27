@@ -167,10 +167,14 @@ where
 
   /// advance a PhrasePosition and update `end`, return false if exhausted
   fn advance_pp(&mut self, pp_idx: usize) -> Result<bool> {
-    if !PhrasePositions::next_position(self, pp_idx)? {
+    let pp = &mut self.pq.compare.phrase_positions[pp_idx];
+    let postings = self
+      .impacts_approximation
+      .iterator_mut()
+      .iterator_at_mut(pp.postings_idx);
+    if !pp.next_position(postings)? {
       return Ok(false);
     }
-    let pp = &mut self.pq.compare.phrase_positions[pp_idx];
     if pp.position > self.end {
       self.end = pp.position;
     }
@@ -295,11 +299,13 @@ where
     self.pq.clear();
 
     // position pps and build queue from list
+    let impacts = self.impacts_approximation.iterator_mut();
     let len = self.pq.compare.phrase_positions.len();
     for pp_idx in 0..len {
-      PhrasePositions::first_position(self, pp_idx)?;
+      let pp = &mut self.pq.compare.phrase_positions[pp_idx];
+      pp.first_position(impacts.iterator_at_mut(pp.postings_idx))?;
 
-      let pos = self.pq.compare.phrase_positions[pp_idx].position;
+      let pos = pp.position;
       if pos > self.end {
         self.end = pos;
       }
@@ -322,9 +328,9 @@ where
 
   /// move all PPs to their first position
   fn place_first_positions(&mut self) -> Result<()> {
-    let len = self.pq.compare.phrase_positions.len();
-    for pp_idx in 0..len {
-      PhrasePositions::first_position(self, pp_idx)?;
+    let impacts = self.impacts_approximation.iterator_mut();
+    for pp in &mut self.pq.compare.phrase_positions {
+      pp.first_position(impacts.iterator_at_mut(pp.postings_idx))?;
     }
     Ok(())
   }
@@ -371,9 +377,12 @@ where
         }
       } else {
         // simpler, we know exactly how much to advance
+        let impacts = self.impacts_approximation.iterator_mut();
         for (j, &pp_idx) in rg.iter().enumerate().skip(1) {
+          let pp = &mut self.pq.compare.phrase_positions[pp_idx];
+          let postings = impacts.iterator_at_mut(pp.postings_idx);
           for _ in 0..j {
-            if !PhrasePositions::next_position(self, pp_idx)? {
+            if !pp.next_position(postings)? {
               return Ok(false); // PPs exhausted
             }
           }

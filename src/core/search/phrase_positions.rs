@@ -14,10 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::impacts_enum::ImpactsEnum;
+use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
-use crate::core::search::similarities_impl::similarities::SimScorer;
-use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::util::error::lucene_error::Result;
 
 /// Position of a term in a document that takes into account the term offset
@@ -54,19 +52,10 @@ impl PhrasePositions {
     })
   }
 
-  pub(crate) fn first_position<IE, SS>(
-    phrase_matcher: &mut SloppyPhraseMatcher<IE, SS>,
-    pp_idx: usize,
-  ) -> Result<()>
-  where
-    IE: ImpactsEnum,
-    SS: SimScorer,
-  {
+  pub(crate) fn first_position<PE: PostingsEnum>(&mut self, postings: &mut PE) -> Result<()> {
     // read first position
-    let freq = phrase_matcher.posting_mut(pp_idx).freq()?;
-    let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];
-    pp.count = freq;
-    Self::next_position(phrase_matcher, pp_idx)?;
+    self.count = postings.freq()?;
+    self.next_position(postings)?;
     Ok(())
   }
 
@@ -74,21 +63,11 @@ impl PhrasePositions {
   /// `position` as `location - offset`, so that a matching exact phrase is
   /// easily identified when all `PhrasePositions` have exactly the same
   /// `position`.
-  pub(crate) fn next_position<IE, SS>(
-    phrase_matcher: &mut SloppyPhraseMatcher<IE, SS>,
-    pp_idx: usize,
-  ) -> Result<bool>
-  where
-    IE: ImpactsEnum,
-    SS: SimScorer,
-  {
-    let count = phrase_matcher.pq.compare.phrase_positions[pp_idx].count;
+  pub(crate) fn next_position<PE: PostingsEnum>(&mut self, postings: &mut PE) -> Result<bool> {
+    let count = self.count;
+    self.count = count.wrapping_sub(1);
     if count > 0 {
-      let pos = phrase_matcher.posting_mut(pp_idx).next_position()?;
-      let pp = &mut phrase_matcher.pq.compare.phrase_positions[pp_idx];
-      pp.count -= 1;
-      pp.position = pos - pp.offset;
-
+      self.position = postings.next_position()? - self.offset;
       Ok(true)
     } else {
       Ok(false)
