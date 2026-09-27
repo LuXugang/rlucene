@@ -992,8 +992,12 @@ where
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let FilterScorerImpl { inner: base } = *self;
-    Box::new(base).take_iterator()
+    (*self).into_iterator()
+  }
+
+  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+    let FilterScorerImpl { inner: base } = self;
+    base.into_iterator()
   }
 
   fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
@@ -1008,8 +1012,12 @@ where
   where
     Self: Sized,
   {
-    let FilterScorerImpl { inner: base } = *self;
-    Box::new(base).take_two_phase_iterator()
+    (*self).into_two_phase_iterator()
+  }
+
+  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
+    let FilterScorerImpl { inner: base } = self;
+    base.into_two_phase_iterator()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {

@@ -136,7 +136,11 @@ where
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let ConstantScoreScorer { disi, .. } = *self;
+    (*self).into_iterator()
+  }
+
+  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+    let ConstantScoreScorer { disi, .. } = self;
     Box::new(disi)
   }
 
@@ -169,9 +173,13 @@ where
   }
 
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+    (*self).into_two_phase_iterator()
+  }
+
+  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
     let ConstantScoreScorer {
       disi, tpi_state, ..
-    } = *self;
+    } = self;
     match tpi_state {
       TwoPhaseState::No => None,
       _ => match disi {

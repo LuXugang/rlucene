@@ -714,8 +714,12 @@ where
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let ScorerDisi { scorer } = *self;
-    Box::new(scorer).take_iterator()
+    (*self).into_iterator()
+  }
+
+  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+    let ScorerDisi { scorer } = self;
+    scorer.into_iterator()
   }
 
   fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
@@ -727,8 +731,12 @@ where
   }
 
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    let ScorerDisi { scorer } = *self;
-    Box::new(scorer).take_two_phase_iterator()
+    (*self).into_two_phase_iterator()
+  }
+
+  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
+    let ScorerDisi { scorer } = self;
+    scorer.into_two_phase_iterator()
   }
 
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {

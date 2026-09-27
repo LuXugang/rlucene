@@ -50,6 +50,17 @@ pub trait Scorer: Scorable {
   /// underlying iterator rather than returning a view.
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator>;
 
+  /// Transfer an owned scorer into its iterator without requiring callers to box it.
+  ///
+  /// Boxed scorers override this method to transfer their existing allocation.
+  /// The default preserves the consuming implementation of concrete scorers.
+  fn into_iterator(self) -> Box<dyn DocIdSetIterator>
+  where
+    Self: Sized,
+  {
+    Box::new(self).take_iterator()
+  }
+
   /// Optional: Return a two-phase iterator view of this scorer.
   ///
   /// A return value of `None` indicates that two-phase iteration is not supported.
@@ -87,6 +98,17 @@ pub trait Scorer: Scorable {
   /// By default, this returns `None`.
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
     None
+  }
+
+  /// Transfer an owned scorer into its optional two-phase iterator.
+  ///
+  /// Like [`Self::take_two_phase_iterator`], this consumes the scorer even when
+  /// it returns `None`. Boxed scorers reuse their existing allocation.
+  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>>
+  where
+    Self: Sized,
+  {
+    Box::new(self).take_two_phase_iterator()
   }
 
   /// Advance to the block of documents that contains `target` in order to get
@@ -219,6 +241,10 @@ where
     Scorer::take_iterator(inner)
   }
 
+  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+    Scorer::take_iterator(self)
+  }
+
   fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     (**self).two_phase_iterator()
   }
@@ -230,6 +256,10 @@ where
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
     let inner: Box<T> = *self;
     Scorer::take_two_phase_iterator(inner)
+  }
+
+  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
+    Scorer::take_two_phase_iterator(self)
   }
 
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
@@ -283,6 +313,10 @@ impl Scorer for Box<dyn Scorer> {
     Scorer::take_iterator(inner)
   }
 
+  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+    Scorer::take_iterator(self)
+  }
+
   fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     (**self).two_phase_iterator()
   }
@@ -294,6 +328,10 @@ impl Scorer for Box<dyn Scorer> {
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
     let inner: Box<dyn Scorer> = *self;
     Scorer::take_two_phase_iterator(inner)
+  }
+
+  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
+    Scorer::take_two_phase_iterator(self)
   }
 
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
@@ -419,8 +457,12 @@ macro_rules! either_scorer {
 
             #[inline]
             fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-                match *self {
-                    $( Self::$Variant(inner) => Box::new(inner).take_iterator(), )+
+                (*self).into_iterator()
+            }
+
+            fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+                match self {
+                    $( Self::$Variant(inner) => inner.into_iterator(), )+
                 }
             }
 
@@ -436,8 +478,12 @@ macro_rules! either_scorer {
 
             #[inline]
             fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-                match *self {
-                    $( Self::$Variant(inner) => Box::new(inner).take_two_phase_iterator(), )+
+                (*self).into_two_phase_iterator()
+            }
+
+            fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.into_two_phase_iterator(), )+
                 }
             }
 
