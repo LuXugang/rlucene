@@ -103,12 +103,12 @@ where
 {
   /// Returns term frequency in the current document.
   pub fn freq(&mut self) -> Result<i32> {
-    let mut postings = self.postings();
+    let mut postings = Self::postings(&mut self.state);
     postings.freq()
   }
 
-  fn postings(&mut self) -> TSPostings<'_, IE, PE> {
-    match &mut self.state {
+  fn postings(state: &mut TermScorerState<PE, SS, IE>) -> TSPostings<'_, IE, PE> {
+    match state {
       TermScorerState::ImpactsDisi(impacts_disi) => {
         TSPostings::Impacts(impacts_disi.iterator_mut())
       },
@@ -137,18 +137,14 @@ where
   SS: SimScorer + 'static,
 {
   fn score(&mut self) -> Result<f32> {
+    let mut postings = Self::postings(&mut self.state);
     let mut norm = 1;
-    let (freq, doc_id) = {
-      let mut postings = self.postings();
-      let freq = postings.freq()?;
-      let doc_id = postings.doc_id()?;
-      (freq, doc_id)
-    };
     if let Some(ref mut norms) = self.norms
-      && norms.advance_exact(doc_id)?
+      && norms.advance_exact(postings.doc_id()?)?
     {
       norm = norms.long_value()?;
     }
+    let freq = postings.freq()?;
     let scorer = self.sim_scorer();
     Ok(scorer.score(freq as f32, norm))
   }
@@ -389,7 +385,7 @@ where
   IE: ImpactsEnum + 'static,
 {
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    let mut postings = self.postings();
+    let mut postings = Self::postings(&mut self.state);
     postings.doc_id()
   }
 
