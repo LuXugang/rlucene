@@ -171,8 +171,10 @@ where
       for (idx, iter) in other.iter_mut().enumerate() {
         // First check if we have a chance of having a match based on max scores
         if has_min_comp
-          && (MathUtil::sum_upper_bound(current_score + self.sum_of_other_clauses[idx], scorers_len)
-            as f32)
+          && (MathUtil::sum_upper_bound(
+            current_score + self.sum_of_other_clauses[idx + 2],
+            scorers_len,
+          ) as f32)
             < self.scorable.min_competitive_score
         {
           doc = self.scorers[0].next_doc()?;
