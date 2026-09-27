@@ -153,29 +153,25 @@ where
     unreachable!("")
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(self.disi.disi())
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    self.disi.disi()
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(self.disi.disi_mut())
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    self.disi.disi_mut()
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
     unreachable!("")
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    if self.has_tpi {
-      Some(Box::new(&self.disi))
-    } else {
-      None
-    }
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+    if self.has_tpi { Some(&self.disi) } else { None }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     if self.has_tpi {
-      Some(Box::new(&mut self.disi))
+      Some(&mut self.disi)
     } else {
       None
     }
@@ -197,19 +193,19 @@ where
     }
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     if self.has_tpi {
-      Box::new(self.disi.approximation())
+      self.disi.approximation()
     } else {
-      Box::new(self.iterator())
+      self.iterator()
     }
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     if self.has_tpi {
-      Box::new(self.disi.approximation_mut())
+      self.disi.approximation_mut()
     } else {
-      Box::new(self.iterator_mut())
+      self.iterator_mut()
     }
   }
 }

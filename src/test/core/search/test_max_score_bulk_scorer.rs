@@ -601,12 +601,12 @@ impl Scorer for FakeScorer {
     Ok(self.doc_id)
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.disi)
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.disi
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.disi)
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -626,12 +626,12 @@ impl Scorer for FakeScorer {
     No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.disi)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.disi
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.disi)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.disi
   }
 }
 

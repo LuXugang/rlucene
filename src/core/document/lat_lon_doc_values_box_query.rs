@@ -277,14 +277,12 @@ where
 {
   fn approximation_mut(
     &mut self,
-  ) -> Box<dyn crate::core::search::doc_id_set_iterator::DocIdSetIterator + '_> {
-    Box::new(&mut self.values)
+  ) -> &mut dyn crate::core::search::doc_id_set_iterator::DocIdSetIterator {
+    &mut self.values
   }
 
-  fn approximation(
-    &self,
-  ) -> Box<dyn crate::core::search::doc_id_set_iterator::DocIdSetIterator + '_> {
-    Box::new(&self.values)
+  fn approximation(&self) -> &dyn crate::core::search::doc_id_set_iterator::DocIdSetIterator {
+    &self.values
   }
 
   fn matches(&mut self) -> Result<bool> {

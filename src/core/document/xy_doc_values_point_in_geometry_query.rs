@@ -242,12 +242,12 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.values)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.values
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.values)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.values
   }
 
   fn matches(&mut self) -> Result<bool> {

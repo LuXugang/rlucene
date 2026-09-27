@@ -18,7 +18,6 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -170,7 +169,7 @@ impl QueryUtils {
         if let Some(mut scorer) = scorer_opt {
           let mut more = false;
           {
-            let mut iterator = scorer.iterator_mut();
+            let iterator = scorer.iterator_mut();
 
             let bits = reader_context_array[last_reader_idx]
               .reader()
@@ -230,7 +229,7 @@ impl QueryUtils {
           .get_live_docs()?;
         let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
         {
-          let mut iterator = scorer.iterator_mut();
+          let iterator = scorer.iterator_mut();
           let mut d = iterator.advance(collector.last_doc + 1)?;
           while d != NO_MORE_DOCS {
             if match live_docs {
@@ -655,7 +654,7 @@ where
         let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
 
         {
-          let mut iterator = scorer.iterator_mut();
+          let iterator = scorer.iterator_mut();
           let mut d = iterator.advance(self.last_doc + 1)?;
 
           while d != NO_MORE_DOCS {
@@ -859,7 +858,7 @@ where
       if let Some(mut scorer) = scorer_opt {
         let mut more = false;
         {
-          let mut iterator = scorer.iterator_mut();
+          let iterator = scorer.iterator_mut();
 
           let context_ord = context.ord;
           let bits = self.s.get_leaf_contexts()?[context_ord]

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
@@ -26,6 +27,7 @@ use crate::core::index::term::Term;
 use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::{self, IndexSearcher};

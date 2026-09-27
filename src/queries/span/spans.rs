@@ -76,7 +76,7 @@ pub trait Spans: DocIdSetIterator {
   /// `None` indicates that two-phase iteration is not supported.
   ///
   /// See [`Scorer::two_phase_iterator`](crate::core::search::scorer::Scorer::two_phase_iterator).
-  fn as_two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator>> {
+  fn as_two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     None
   }
 

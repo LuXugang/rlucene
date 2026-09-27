@@ -35,7 +35,6 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -86,7 +85,7 @@ where
     };
 
     let mut scorer = scorer_supplier.get(1, context, searcher)?;
-    if let Some(mut two_phase) = scorer.two_phase_iterator_mut() {
+    if let Some(two_phase) = scorer.two_phase_iterator_mut() {
       if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
         return Ok(None);
       }
@@ -479,7 +478,7 @@ where
         let matches = {
           let tpi = scorer.two_phase_iterator_mut();
           match tpi {
-            Some(mut two_phase) => two_phase.matches()?,
+            Some(two_phase) => two_phase.matches()?,
             None => {
               return Err(LuceneError::illegal_state(
                 "TwoPhaseIterator should not None",
@@ -523,7 +522,7 @@ where
     }
   }
   let mut doc = {
-    let mut iterator = scorer.approximation_mut();
+    let iterator = scorer.approximation_mut();
     let mut doc = iterator.doc_id();
     if doc < min {
       if doc == min - 1 {
@@ -568,7 +567,7 @@ where
       };
       if is_accept {
         let matches = if has_two_phase {
-          let Some(mut two_phase) = scorer.two_phase_iterator_mut() else {
+          let Some(two_phase) = scorer.two_phase_iterator_mut() else {
             return Err(LuceneError::illegal_state(
               "scorer reported a two-phase iterator but did not provide one",
             ));

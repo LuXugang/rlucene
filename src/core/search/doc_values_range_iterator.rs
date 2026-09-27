@@ -47,12 +47,12 @@ where
   TPI: TwoPhaseIterator,
   DVS: DocValuesSkipper,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.approximation)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.approximation
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.approximation)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.approximation
   }
 
   fn matches(&mut self) -> Result<bool> {
@@ -173,7 +173,7 @@ where
           return Ok(self.doc);
         },
         Match::MAYBE | Match::IfDocHasValue => {
-          let mut inner_approximation = self.inner_approximation.approximation_mut();
+          let inner_approximation = self.inner_approximation.approximation_mut();
           if target > inner_approximation.doc_id() {
             target = inner_approximation.advance(target)?;
           }

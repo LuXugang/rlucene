@@ -274,12 +274,12 @@ impl Scorer for BlockScoreScorer {
     Ok(self.docs[self.i.get()])
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(BlockScoreIterator { scorer: self })
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    self
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(BlockScoreIterator { scorer: self })
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    self
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -316,44 +316,38 @@ impl Scorer for BlockScoreScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(BlockScoreIterator { scorer: self })
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    self
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(BlockScoreIterator { scorer: self })
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    self
   }
 }
 
-struct BlockScoreIterator<'a> {
-  scorer: &'a BlockScoreScorer,
-}
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BlockScoreIterator<'_>
-{
-}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BlockScoreIterator<'_> {}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BlockScoreScorer {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BlockScoreScorer {}
 
-impl DocIdSetIterator for BlockScoreIterator<'_> {
+impl DocIdSetIterator for BlockScoreScorer {
   fn doc_id(&self) -> i32 {
-    self.scorer.docs[self.scorer.i.get()]
+    self.docs[self.i.get()]
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    let i = self.scorer.i.get();
-    assert!(self.scorer.docs[i] != NO_MORE_DOCS);
-    self.scorer.i.set(i + 1);
-    Ok(self.scorer.docs[i + 1])
+    let i = self.i.get();
+    assert!(self.docs[i] != NO_MORE_DOCS);
+    self.i.set(i + 1);
+    Ok(self.docs[i + 1])
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    let i = self.scorer.index_for_target(target);
-    self.scorer.i.set(i);
-    Ok(self.scorer.docs[i])
+    let i = self.index_for_target(target);
+    self.i.set(i);
+    Ok(self.docs[i])
   }
 
   fn cost(&self) -> Result<i64> {
-    Ok((self.scorer.docs.len() as i64) - 2)
+    Ok((self.docs.len() as i64) - 2)
   }
 }
 

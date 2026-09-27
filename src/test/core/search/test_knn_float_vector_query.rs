@@ -432,7 +432,7 @@ fn test_score_dot_product() -> Result<()> {
     assert!((score1 - scorer.get_max_score(i32::MAX)?).abs() <= 0.0001);
 
     {
-      let mut it = scorer.iterator_mut();
+      let it = scorer.iterator_mut();
       assert_eq!(3, it.cost()?);
       assert_eq!(0, it.next_doc()?);
     }

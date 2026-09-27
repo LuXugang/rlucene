@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store::No;
 use crate::core::document::field::{FieldBase, Store};
@@ -21,6 +22,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::fields::Fields;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
   new_log_merge_policy, new_search_executor, new_searcher_with_reader, new_string_field,

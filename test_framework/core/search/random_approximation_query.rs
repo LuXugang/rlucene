@@ -209,7 +209,7 @@ where
 }
 
 pub struct RandomApproximationScorer<S> {
-  two_phase_view: RandomTwoPhaseView<ScorerDISI<S>>,
+  disi: TwoPhaseIteratorAsDocIdSetIterator<RandomTwoPhaseView<ScorerDISI<S>>>,
 }
 impl<S> RandomApproximationScorer<S>
 where
@@ -219,7 +219,9 @@ where
     let disi = ScorerDISI::new(scorer);
     let mut random = random_from_seed(random_seed);
     let two_phase_view = RandomTwoPhaseView::new(&mut random, disi);
-    Self { two_phase_view }
+    Self {
+      disi: TwoPhaseIteratorAsDocIdSetIterator::new(two_phase_view),
+    }
   }
 }
 
@@ -228,7 +230,7 @@ where
   S: Scorer + 'static,
 {
   fn score(&mut self) -> Result<f32> {
-    self.two_phase_view.disi_mut().scorer.score()
+    self.disi.two_phase_iterator.disi_mut().scorer.score()
   }
 
   fn cost(&self) -> Result<i64> {
@@ -246,40 +248,36 @@ where
   S: Scorer + 'static,
 {
   fn doc_id(&mut self) -> Result<i32> {
-    Ok(self.two_phase_view.approximation().doc_id())
+    Ok(self.disi.two_phase_iterator.approximation().doc_id())
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(TwoPhaseIteratorAsDocIdSetIterator::new(
-      &self.two_phase_view,
-    ))
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.disi
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(TwoPhaseIteratorAsDocIdSetIterator::new(
-      &mut self.two_phase_view,
-    ))
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new(TwoPhaseIteratorAsDocIdSetIterator::new(self.two_phase_view))
+    Box::new(self.disi)
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    Some(Box::new(&self.two_phase_view))
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+    Some(&self.disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    Some(Box::new(&mut self.two_phase_view))
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+    Some(&mut self.disi.two_phase_iterator)
   }
 
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    Some(Box::new(self.two_phase_view))
+    Some(Box::new(self.disi.two_phase_iterator))
   }
 
   fn advance_shallow(&mut self, mut target: i32) -> Result<i32> {
-    let scorer_doc = self.two_phase_view.disi().doc_id();
-    let approx_doc = self.two_phase_view.approximation().doc_id();
+    let scorer_doc = self.disi.two_phase_iterator.disi().doc_id();
+    let approx_doc = self.disi.two_phase_iterator.approximation().doc_id();
     if scorer_doc > target && approx_doc != scorer_doc {
       // The random approximation can return doc ids that are not present in the underlying
       // scorer. These additional doc ids are always *before* the next matching doc so we
@@ -287,26 +285,32 @@ where
       target = scorer_doc;
     }
     self
-      .two_phase_view
+      .disi
+      .two_phase_iterator
       .disi_mut()
       .scorer
       .advance_shallow(target)
   }
 
   fn get_max_score(&mut self, up_to: i32) -> Result<f32> {
-    self.two_phase_view.disi_mut().scorer.get_max_score(up_to)
+    self
+      .disi
+      .two_phase_iterator
+      .disi_mut()
+      .scorer
+      .get_max_score(up_to)
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    self.two_phase_view.approximation()
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    self.disi.two_phase_iterator.approximation()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    self.two_phase_view.approximation_mut()
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    self.disi.two_phase_iterator.approximation_mut()
   }
 }
 
@@ -343,12 +347,12 @@ impl<DISI> TwoPhaseIterator for RandomTwoPhaseView<DISI>
 where
   DISI: DocIdSetIterator,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.approximation)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.approximation
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.approximation)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.approximation
   }
 
   fn matches(&mut self) -> Result<bool> {

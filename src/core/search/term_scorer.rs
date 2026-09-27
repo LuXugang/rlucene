@@ -190,22 +190,22 @@ where
     postings.doc_id()
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     match &self.state {
-      TermScorerState::ImpactsDisi(impacts_disi) => Box::new(impacts_disi),
+      TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
       TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
-        ImpactsEnumEnum2::A(ref impacts_enum) => Box::new(impacts_enum),
-        ImpactsEnumEnum2::B(ref slow_impacts) => Box::new(&slow_impacts.delegate),
+        ImpactsEnumEnum2::A(ref impacts_enum) => impacts_enum,
+        ImpactsEnumEnum2::B(ref slow_impacts) => &slow_impacts.delegate,
       },
     }
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match &mut self.state {
-      TermScorerState::ImpactsDisi(impacts_disi) => Box::new(impacts_disi),
+      TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
       TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
-        ImpactsEnumEnum2::A(ref mut impacts_enum) => Box::new(impacts_enum),
-        ImpactsEnumEnum2::B(ref mut slow_impacts) => Box::new(&mut slow_impacts.delegate),
+        ImpactsEnumEnum2::A(ref mut impacts_enum) => impacts_enum,
+        ImpactsEnumEnum2::B(ref mut slow_impacts) => &mut slow_impacts.delegate,
       },
     }
   }
@@ -243,11 +243,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.iterator()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.iterator_mut()
   }
 }

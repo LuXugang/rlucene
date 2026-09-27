@@ -132,17 +132,17 @@ where
     }
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
+      DocIdSetIteratorEnum2::A(v) => v,
+      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
+      DocIdSetIteratorEnum2::A(v) => v,
+      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
@@ -154,7 +154,7 @@ where
     }
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     match self.tpi_state {
       TwoPhaseState::No => None,
       _ => match &self.disi {
@@ -162,12 +162,12 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        DocIdSetIteratorEnum2::B(wrapper) => Some(Box::new(&wrapper.two_phase_iterator)),
+        DocIdSetIteratorEnum2::B(wrapper) => Some(&wrapper.two_phase_iterator),
       },
     }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     match self.tpi_state {
       TwoPhaseState::No => None,
       _ => match &mut self.disi {
@@ -175,7 +175,7 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        DocIdSetIteratorEnum2::B(wrapper) => Some(Box::new(&mut wrapper.two_phase_iterator)),
+        DocIdSetIteratorEnum2::B(wrapper) => Some(&mut wrapper.two_phase_iterator),
       },
     }
   }
@@ -221,7 +221,7 @@ where
     self.tpi_state
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.tpi_state {
       TwoPhaseState::No => self.iterator_mut(),
       _ => match self.disi {
@@ -231,7 +231,7 @@ where
     }
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.tpi_state {
       TwoPhaseState::No => self.iterator(),
       _ => match self.disi {
@@ -417,7 +417,7 @@ where
     if opt_scorer_doc < cur_doc {
       opt_scorer_doc = ScorerUtil::advance(&mut self.opt_scorer, cur_doc)?;
       let should_skip = {
-        if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator_mut() {
+        if let Some(opt_tpi) = self.opt_scorer.two_phase_iterator_mut() {
           opt_scorer_doc == cur_doc && !opt_tpi.matches()?
         } else {
           false
@@ -494,16 +494,16 @@ where
   S1: Scorer,
   S2: Scorer,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.disi)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.disi
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.disi)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.disi
   }
 
   fn matches(&mut self) -> Result<bool> {
-    if let Some(mut req_tpi) = self.disi.req_scorer.two_phase_iterator_mut()
+    if let Some(req_tpi) = self.disi.req_scorer.two_phase_iterator_mut()
       && !req_tpi.matches()?
     {
       return Ok(false);
@@ -525,7 +525,7 @@ where
           }
         }
         let matches = match self.disi.opt_scorer.two_phase_iterator_mut() {
-          Some(mut tpi) => tpi.matches()?,
+          Some(tpi) => tpi.matches()?,
           None => {
             return Err(LuceneError::illegal_state(
               "optional scorer reported a two-phase iterator but did not provide one",
@@ -539,7 +539,7 @@ where
         }
       } else if opt_doc == req_doc {
         let matches = match self.disi.opt_scorer.two_phase_iterator_mut() {
-          Some(mut tpi) => tpi.matches()?,
+          Some(tpi) => tpi.matches()?,
           None => {
             return Err(LuceneError::illegal_state(
               "optional scorer reported a two-phase iterator but did not provide one",

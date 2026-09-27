@@ -21,11 +21,11 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyTwoPhaseIterator;
 
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     dummy_unreachable!()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     dummy_unreachable!()
   }
 

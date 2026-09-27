@@ -101,7 +101,7 @@ where
     }
     let scorers_len: i32 = self.scorers.len().try_convert()?;
     let lead1_doc = {
-      let mut lead1_iter = self.scorers[0].iterator_mut();
+      let lead1_iter = self.scorers[0].iterator_mut();
 
       if lead1_iter.doc_id() < min {
         lead1_iter.advance(min)?;
@@ -181,7 +181,7 @@ where
         {
           // NOTE: these iterators may be on `doc` already if we called `continue advanceHead` on the
           // previous loop iteration.
-          let mut it = iter.iterator_mut();
+          let it = iter.iterator_mut();
           if it.doc_id() < doc {
             let next = it.advance(doc)?;
             if next != doc {

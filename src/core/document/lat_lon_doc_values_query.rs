@@ -308,12 +308,12 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.values)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.values
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.values)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.values
   }
 
   fn matches(&mut self) -> Result<bool> {
@@ -350,11 +350,11 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.values)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.values
   }
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.values)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.values
   }
   fn matches(&mut self) -> Result<bool> {
     let count = self.values.doc_value_count()?;
@@ -390,11 +390,11 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.values)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.values
   }
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.values)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.values
   }
 
   fn matches(&mut self) -> Result<bool> {
@@ -431,7 +431,7 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self {
       Self::Intersects(iterator) => iterator.approximation_mut(),
       Self::Within(iterator) => iterator.approximation_mut(),
@@ -440,7 +440,7 @@ where
     }
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     match self {
       Self::Intersects(iterator) => iterator.approximation(),
       Self::Within(iterator) => iterator.approximation(),
@@ -484,11 +484,11 @@ impl<S> TwoPhaseIterator for ContainsTPI<S>
 where
   S: SortedNumericDocValues,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.values)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.values
   }
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.values)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.values
   }
 
   fn matches(&mut self) -> Result<bool> {

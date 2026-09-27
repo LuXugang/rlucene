@@ -16,15 +16,15 @@
  */
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 pub trait TwoPhaseIterator {
   /// Return the approximation [`DocIdSetIterator`].
   ///
   /// The returned iterator must advance synchronously with this
   /// [`TwoPhaseIterator`].
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_>;
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator;
+  fn approximation(&self) -> &dyn DocIdSetIterator;
 
   /// Return whether the current doc ID that `approximation()` is on matches.
   ///
@@ -44,14 +44,19 @@ pub trait TwoPhaseIterator {
   fn match_cost(&self) -> f32;
 }
 #[derive(Default)]
-pub struct EmptyTPI;
+pub struct EmptyTPI {
+  approximation: EmptyDISI,
+}
 impl TwoPhaseIterator for EmptyTPI {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(EmptyDISI::new())
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    // Preserve the fresh empty cursor returned by this placeholder on every access.
+    self.approximation = EmptyDISI::new();
+    &mut self.approximation
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(EmptyDISI::new())
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    static EMPTY: std::sync::LazyLock<EmptyDISI> = std::sync::LazyLock::new(EmptyDISI::new);
+    &*EMPTY
   }
 
   fn matches(&mut self) -> Result<bool> {
@@ -65,15 +70,15 @@ impl TwoPhaseIterator for EmptyTPI {
 
 impl<T> TwoPhaseIterator for &mut T
 where
-  T: TwoPhaseIterator,
+  T: TwoPhaseIterator + ?Sized,
 {
   #[inline]
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     (**self).approximation_mut()
   }
 
   #[inline]
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     (**self).approximation()
   }
 
@@ -87,44 +92,18 @@ where
     (**self).match_cost()
   }
 }
-impl<T> TwoPhaseIterator for &T
-where
-  T: TwoPhaseIterator,
-{
-  #[inline]
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    (**self).approximation()
-  }
-
-  #[inline]
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    (**self).approximation()
-  }
-
-  #[inline]
-  fn matches(&mut self) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(
-      "matches requires a mutable TwoPhaseIterator",
-    ))
-  }
-
-  #[inline]
-  fn match_cost(&self) -> f32 {
-    (**self).match_cost()
-  }
-}
 
 impl<T> TwoPhaseIterator for Box<T>
 where
   T: TwoPhaseIterator + ?Sized,
 {
   #[inline]
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     (**self).approximation_mut()
   }
 
   #[inline]
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     (**self).approximation()
   }
 
@@ -231,14 +210,14 @@ macro_rules! either_two_phase_iterator_gat {
             $( $T: TwoPhaseIterator ),+
         {
             #[inline]
-            fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
                 match self {
                     $( Self::$Variant(inner) => inner.approximation_mut(), )+
                 }
             }
 
             #[inline]
-            fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+            fn approximation(&self) -> &dyn DocIdSetIterator {
                 match self {
                     $( Self::$Variant(inner) => inner.approximation(), )+
                 }

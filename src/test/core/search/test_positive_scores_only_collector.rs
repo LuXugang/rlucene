@@ -87,12 +87,12 @@ impl Scorer for SimpleScorer {
     Ok(self.idx.get())
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(SimpleScorerIterator { idx: &self.idx })
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    self
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(SimpleScorerIterator { idx: &self.idx })
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    self
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -109,26 +109,19 @@ impl Scorer for SimpleScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.iterator()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.iterator_mut()
   }
 }
 
-struct SimpleScorerIterator<'a> {
-  idx: &'a Cell<i32>,
-}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for SimpleScorer {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SimpleScorer {}
 
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SimpleScorerIterator<'_>
-{
-}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SimpleScorerIterator<'_> {}
-
-impl DocIdSetIterator for SimpleScorerIterator<'_> {
+impl DocIdSetIterator for SimpleScorer {
   fn doc_id(&self) -> i32 {
     self.idx.get()
   }

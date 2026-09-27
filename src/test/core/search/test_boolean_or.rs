@@ -405,12 +405,12 @@ impl Scorer for ScorerImpl {
     Ok(self.it.doc_id())
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.it)
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.it
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.it)
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.it
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -426,11 +426,11 @@ impl Scorer for ScorerImpl {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.it)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.it
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.it)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.it
   }
 }

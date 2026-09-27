@@ -102,12 +102,12 @@ where
     }
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.disi)
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.disi
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.disi)
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -115,12 +115,12 @@ where
     Box::new(disi)
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    Some(Box::new(&self.disi.two_phase_iterator))
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+    Some(&self.disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    Some(Box::new(&mut self.disi.two_phase_iterator))
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+    Some(&mut self.disi.two_phase_iterator)
   }
 
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
@@ -149,11 +149,11 @@ where
     Yes
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.disi.two_phase_iterator.approximation_mut()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.disi.two_phase_iterator.approximation()
   }
   #[cfg(test)]
@@ -181,11 +181,11 @@ where
   S1: Scorer,
   S2: Scorer,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.req_scorer.approximation_mut()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.req_scorer.approximation()
   }
 
@@ -199,19 +199,19 @@ where
       }
       if excl_doc != doc {
         return match self.req_scorer.two_phase_iterator_mut() {
-          Some(mut req_tpi) => req_tpi.matches(),
+          Some(req_tpi) => req_tpi.matches(),
           None => Ok(true),
         };
       }
     }
     let req_match = match self.req_scorer.two_phase_iterator_mut() {
-      Some(mut req_tpi) => req_tpi.matches()?,
+      Some(req_tpi) => req_tpi.matches()?,
       None => true,
     };
     match req_match {
       true => {
         let v = match self.excl_scorer.two_phase_iterator_mut() {
-          Some(mut excl_tpi) => excl_tpi.matches()?,
+          Some(excl_tpi) => excl_tpi.matches()?,
           None => true,
         };
         Ok(!v)
@@ -244,11 +244,11 @@ where
   S1: Scorer,
   S2: Scorer,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.req_scorer.approximation_mut()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.req_scorer.approximation()
   }
 
@@ -264,14 +264,14 @@ where
 
       if excl_doc != doc {
         return match self.req_scorer.two_phase_iterator_mut() {
-          Some(mut req_tpi) => req_tpi.matches(),
+          Some(req_tpi) => req_tpi.matches(),
           None => Ok(true),
         };
       }
     }
 
     let excl_not_match = match self.excl_scorer.two_phase_iterator_mut() {
-      Some(mut excl_tpi) => !excl_tpi.matches()?,
+      Some(excl_tpi) => !excl_tpi.matches()?,
       None => false,
     };
 
@@ -280,7 +280,7 @@ where
     }
 
     let req_match = match self.req_scorer.two_phase_iterator_mut() {
-      Some(mut req_tpi) => req_tpi.matches()?,
+      Some(req_tpi) => req_tpi.matches()?,
       None => true,
     };
 

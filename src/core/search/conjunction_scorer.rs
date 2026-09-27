@@ -121,17 +121,17 @@ where
     Ok(self.disi.doc_id())
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
+      DocIdSetIteratorEnum2::A(v) => v,
+      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
+      DocIdSetIteratorEnum2::A(v) => v,
+      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
@@ -143,17 +143,17 @@ where
     }
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     match self.disi {
       DocIdSetIteratorEnum2::A(_) => None,
-      DocIdSetIteratorEnum2::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
+      DocIdSetIteratorEnum2::B(ref v) => Some(&v.two_phase_iterator),
     }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     match self.disi {
       DocIdSetIteratorEnum2::A(_) => None,
-      DocIdSetIteratorEnum2::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
+      DocIdSetIteratorEnum2::B(ref mut v) => Some(&mut v.two_phase_iterator),
     }
   }
 
@@ -230,14 +230,14 @@ where
     }
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.disi {
       DocIdSetIteratorEnum2::A(_) => self.iterator(),
       DocIdSetIteratorEnum2::B(ref v) => v.two_phase_iterator.approximation(),
     }
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.disi {
       DocIdSetIteratorEnum2::A(_) => self.iterator_mut(),
       DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),

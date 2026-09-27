@@ -408,12 +408,12 @@ where
     Ok(self.doc_id)
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(self)
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    self
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(self)
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    self
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -428,11 +428,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.iterator()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.iterator_mut()
   }
 }

@@ -38,9 +38,11 @@ pub trait Scorer: Scorable {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_>;
+  fn iterator(&self) -> &dyn DocIdSetIterator;
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
+  /// Return a mutable borrow of the same iterator exposed by [`Self::iterator`].
+  /// The borrow must end before this scorer can be borrowed again for scoring.
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator;
 
   /// Return a [`DocIdSetIterator`] over matching documents, transferring ownership.
   ///
@@ -60,7 +62,7 @@ pub trait Scorer: Scorable {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     None
   }
 
@@ -76,7 +78,7 @@ pub trait Scorer: Scorable {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     None
   }
 
@@ -125,7 +127,7 @@ pub trait Scorer: Scorable {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_>;
+  fn approximation(&self) -> &dyn DocIdSetIterator;
 
   /// Return a mutable approximation [`DocIdSetIterator`] for this scorer.
   ///
@@ -138,7 +140,7 @@ pub trait Scorer: Scorable {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator;
 
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
@@ -204,11 +206,11 @@ where
     (**self).doc_id()
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     (**self).iterator()
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     (**self).iterator_mut()
   }
 
@@ -217,11 +219,11 @@ where
     Scorer::take_iterator(inner)
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     (**self).two_phase_iterator()
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     (**self).two_phase_iterator_mut()
   }
 
@@ -250,11 +252,11 @@ where
     (**self).has_two_phase_iterator()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     (**self).approximation()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     (**self).approximation_mut()
   }
   #[cfg(test)]
@@ -268,11 +270,11 @@ impl Scorer for Box<dyn Scorer> {
     (**self).doc_id()
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     (**self).iterator()
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     (**self).iterator_mut()
   }
 
@@ -281,11 +283,11 @@ impl Scorer for Box<dyn Scorer> {
     Scorer::take_iterator(inner)
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     (**self).two_phase_iterator()
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     (**self).two_phase_iterator_mut()
   }
 
@@ -314,11 +316,11 @@ impl Scorer for Box<dyn Scorer> {
     (**self).has_two_phase_iterator()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     (**self).approximation()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     (**self).approximation_mut()
   }
   #[cfg(test)]
@@ -327,8 +329,8 @@ impl Scorer for Box<dyn Scorer> {
   }
 }
 pub type ScorerDisi = Box<dyn DocIdSetIterator>;
-pub type ScorerDisiMut<'a> = Box<dyn DocIdSetIterator + 'a>;
-pub type ScorerDisiRef<'a> = Box<dyn DocIdSetIterator + 'a>;
+pub type ScorerDisiMut<'a> = &'a mut dyn DocIdSetIterator;
+pub type ScorerDisiRef<'a> = &'a dyn DocIdSetIterator;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum TwoPhaseState {
   /// Has two_phase_iterator
@@ -407,11 +409,11 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+            fn iterator(&self) -> &dyn DocIdSetIterator {
                 match self { $( Self::$Variant(inner) => inner.iterator(), )+ }
             }
             #[inline]
-            fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
                 match self { $( Self::$Variant(inner) => inner.iterator_mut(), )+ }
             }
 
@@ -423,11 +425,11 @@ macro_rules! either_scorer {
             }
 
             #[inline]
-            fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+            fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
                 match self { $( Self::$Variant(inner) => inner.two_phase_iterator(), )+ }
             }
             #[inline]
-            fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+            fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
                 match self { $( Self::$Variant(inner) => inner.two_phase_iterator_mut(), )+ }
             }
 
@@ -462,11 +464,11 @@ macro_rules! either_scorer {
                 match self { $( Self::$Variant(inner) => inner.has_two_phase_iterator(), )+ }
             }
            #[inline]
-            fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+            fn approximation(&self) -> &dyn DocIdSetIterator {
                 match self { $( Self::$Variant(inner) => inner.approximation(), )+ }
             }
             #[inline]
-            fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+            fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
                 match self { $( Self::$Variant(inner) => inner.approximation_mut(), )+ }
             }
             #[cfg(test)]

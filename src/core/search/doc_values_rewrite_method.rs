@@ -454,12 +454,12 @@ impl<S> TwoPhaseIterator for SingletonTermSetTwoPhaseIterator<S>
 where
   S: SortedDocValues,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.singleton)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.singleton
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.singleton)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.singleton
   }
 
   fn matches(&mut self) -> Result<bool> {
@@ -491,12 +491,12 @@ impl<S> TwoPhaseIterator for SortedSetTermSetTwoPhaseIterator<S>
 where
   S: SortedSetDocValues,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.values)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.values
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.values)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.values
   }
 
   fn matches(&mut self) -> Result<bool> {

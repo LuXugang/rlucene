@@ -22,7 +22,6 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_clause::Occur::{Filter, Must};
 use crate::core::search::boolean_query::BooleanQuery;
 use crate::core::search::boolean_scorer_supplier::BooleanScorerSupplier;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::from_sub_matches;

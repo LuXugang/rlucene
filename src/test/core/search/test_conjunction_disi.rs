@@ -332,7 +332,7 @@ fn test_recursive_conjunction_approximation() -> Result<()> {
     );
     assert_eq!(
       intersect(&sets),
-      to_bit_set(max_doc, conjunction.iterator_mut().as_mut())?
+      to_bit_set(max_doc, conjunction.iterator_mut())?
     );
   }
 
@@ -452,7 +452,7 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
 
     assert_eq!(
       intersect(&sets),
-      to_bit_set(max_doc, conjunction.iterator_mut().as_mut())?
+      to_bit_set(max_doc, conjunction.iterator_mut())?
     );
   }
 
@@ -564,12 +564,12 @@ where
     Ok(self.tpi_disi.doc_id())
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.tpi_disi)
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.tpi_disi
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.tpi_disi)
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.tpi_disi
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -577,12 +577,12 @@ where
     Box::new(tpi_disi)
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    Some(Box::new(&self.tpi_disi.two_phase_iterator))
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+    Some(&self.tpi_disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
-    Some(Box::new(&mut self.tpi_disi.two_phase_iterator))
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+    Some(&mut self.tpi_disi.two_phase_iterator)
   }
 
   fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
@@ -598,11 +598,11 @@ where
     TwoPhaseState::Yes
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.tpi_disi.two_phase_iterator.approximation()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.tpi_disi.two_phase_iterator.approximation_mut()
   }
 }
@@ -626,12 +626,12 @@ impl<D> TwoPhaseIterator for TwoPhaseIteratorImpl<D>
 where
   D: DocIdSetIterator,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.approximation)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.approximation
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.approximation)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.approximation
   }
 
   fn matches(&mut self) -> Result<bool> {

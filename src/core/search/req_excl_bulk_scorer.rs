@@ -19,7 +19,6 @@ use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::bulk_scorer::BulkScorerKind;
 #[cfg(test)]
 use crate::core::search::bulk_scorer::BulkScorerKind::ReqExcl;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;

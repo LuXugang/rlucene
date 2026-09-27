@@ -126,17 +126,17 @@ where
     }
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
+      DocIdSetIteratorEnum2::A(v) => v,
+      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
+      DocIdSetIteratorEnum2::A(v) => v,
+      DocIdSetIteratorEnum2::B(v) => v,
     }
   }
 
@@ -148,7 +148,7 @@ where
     }
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     match self.two_phase_state {
       TwoPhaseState::No => None,
       _ => match self.disi {
@@ -156,12 +156,12 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        DocIdSetIteratorEnum2::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
+        DocIdSetIteratorEnum2::B(ref v) => Some(&v.two_phase_iterator),
       },
     }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     match self.two_phase_state {
       TwoPhaseState::No => None,
       _ => match self.disi {
@@ -169,7 +169,7 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        DocIdSetIteratorEnum2::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
+        DocIdSetIteratorEnum2::B(ref mut v) => Some(&mut v.two_phase_iterator),
       },
     }
   }
@@ -217,7 +217,7 @@ where
     self.two_phase_state
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     match self.two_phase_state {
       TwoPhaseState::No => self.iterator(),
       _ => match self.disi {
@@ -227,7 +227,7 @@ where
     }
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self.two_phase_state {
       TwoPhaseState::No => self.iterator_mut(),
       _ => match self.disi {
@@ -405,12 +405,12 @@ impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
 where
   S: Scorer,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.approx)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.approx
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.approx)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.approx
   }
 
   fn matches(&mut self) -> Result<bool> {

@@ -66,28 +66,28 @@ where
   IE: ImpactsEnum,
   SS: SimScorer,
 {
-  pub(crate) fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  pub(crate) fn approximation(&self) -> &dyn DocIdSetIterator {
     match self {
       PhraseMatcherEnum::Exact(m) => {
         if m.score_mode == TopScores {
-          Box::new(m.approximation_top_scorers())
+          m.approximation_top_scorers()
         } else {
-          Box::new(m.approximation())
+          m.approximation()
         }
       },
-      PhraseMatcherEnum::Sloppy(m) => Box::new(m.approximation()),
+      PhraseMatcherEnum::Sloppy(m) => m.approximation(),
     }
   }
-  pub(crate) fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  pub(crate) fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self {
       PhraseMatcherEnum::Exact(m) => {
         if m.score_mode == TopScores {
-          Box::new(m.approximation_top_scorers_mut())
+          m.approximation_top_scorers_mut()
         } else {
-          Box::new(m.approximation_mut())
+          m.approximation_mut()
         }
       },
-      PhraseMatcherEnum::Sloppy(m) => Box::new(m.approximation_mut()),
+      PhraseMatcherEnum::Sloppy(m) => m.approximation_mut(),
     }
   }
 }

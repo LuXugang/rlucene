@@ -35,14 +35,14 @@ struct TestScoreCachingWrappingScorer;
 
 struct SimpleScorer {
   idx: usize,
-  doc: Rc<Cell<i32>>,
+  iterator: SimpleDocIdSetIterator,
 }
 
 impl SimpleScorer {
   fn new() -> Self {
     Self {
       idx: 0,
-      doc: Rc::new(Cell::new(-1)),
+      iterator: SimpleDocIdSetIterator::new(Rc::new(Cell::new(-1))),
     }
   }
 }
@@ -72,20 +72,19 @@ impl FixedScore for SimpleScorer {}
 
 impl Scorer for SimpleScorer {
   fn doc_id(&mut self) -> Result<i32> {
-    Ok(self.doc.get())
+    Ok(self.iterator.doc.get())
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(SimpleDocIdSetIterator::new(self.doc.clone()))
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.iterator
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(SimpleDocIdSetIterator::new(self.doc.clone()))
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.iterator
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let SimpleScorer { doc, .. } = *self;
-    Box::new(SimpleDocIdSetIterator::new(doc))
+    Box::new(self.iterator)
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -96,12 +95,12 @@ impl Scorer for SimpleScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(SimpleDocIdSetIterator::new(self.doc.clone()))
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.iterator
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(SimpleDocIdSetIterator::new(self.doc.clone()))
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.iterator
   }
 }
 
@@ -238,7 +237,7 @@ fn test_get_scores() -> Result<()> {
     // We need to iterate on the scorer so that its doc() advances.
     loop {
       let doc = {
-        let mut it = s.iterator_mut();
+        let it = s.iterator_mut();
         it.next_doc()?
       };
       if doc == NO_MORE_DOCS {

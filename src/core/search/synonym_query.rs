@@ -1012,13 +1012,13 @@ where
     }
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.iterator(),
     }
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.iterator_mut(),
     }
@@ -1040,11 +1040,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.iterator()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.iterator_mut()
   }
 }
@@ -1148,19 +1148,19 @@ where
     })
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     if self.use_impacts_disi() {
-      Box::new(&self.impacts_disi)
+      &self.impacts_disi
     } else {
-      Box::new(self.impacts_disi.iterator())
+      self.impacts_disi.iterator()
     }
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     if self.use_impacts_disi() {
-      Box::new(&mut self.impacts_disi)
+      &mut self.impacts_disi
     } else {
-      Box::new(self.impacts_disi.iterator_mut())
+      self.impacts_disi.iterator_mut()
     }
   }
 
@@ -1187,11 +1187,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.iterator()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.iterator_mut()
   }
 }
@@ -1268,11 +1268,11 @@ where
     self.in_.doc_id()
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     self.in_.iterator()
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.in_.iterator_mut()
   }
 
@@ -1292,11 +1292,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.iterator()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.iterator_mut()
   }
 }

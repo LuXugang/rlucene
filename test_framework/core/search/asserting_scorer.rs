@@ -54,6 +54,9 @@ impl AssertingScorerState {
 
 /// Wraps a Scorer with additional checks.
 pub(crate) struct AssertingScorer {
+  iterator_view: AssertingDocIdSetIterator,
+  approximation_view: AssertingDocIdSetIterator,
+  two_phase_view: AssertingTwoPhaseIterator,
   _random_seed: u64,
   in_: Rc<RefCell<QueryWeightSsScorer>>,
   score_mode: ScoreMode,
@@ -69,12 +72,17 @@ impl AssertingScorer {
     can_call_min_competitive_score: bool,
   ) -> Self {
     let doc = in_.doc_id().expect("doc_id should be available");
+    let in_ = Rc::new(RefCell::new(in_));
+    let state = Rc::new(RefCell::new(AssertingScorerState::new(doc)));
     Self {
+      iterator_view: AssertingDocIdSetIterator::new(in_.clone(), state.clone(), false),
+      approximation_view: AssertingDocIdSetIterator::new(in_.clone(), state.clone(), true),
+      two_phase_view: AssertingTwoPhaseIterator::from_shared(in_.clone(), state.clone()),
       _random_seed: random_seed,
-      in_: Rc::new(RefCell::new(in_)),
+      in_,
       score_mode,
       can_call_min_competitive_score,
-      state: Rc::new(RefCell::new(AssertingScorerState::new(doc))),
+      state,
     }
   }
 
@@ -130,20 +138,12 @@ impl Scorer for AssertingScorer {
     self.in_.borrow_mut().doc_id()
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(AssertingDocIdSetIterator::new(
-      self.in_.clone(),
-      self.state.clone(),
-      false,
-    ))
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.iterator_view
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(AssertingDocIdSetIterator::new(
-      self.in_.clone(),
-      self.state.clone(),
-      false,
-    ))
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.iterator_view
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
@@ -154,23 +154,19 @@ impl Scorer for AssertingScorer {
     ))
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     if self.in_.borrow().two_phase_iterator().is_some() {
-      Some(Box::new(AssertingTwoPhaseIterator::new(
-        self.in_.clone(),
-        self.state.clone(),
-      )))
+      self.two_phase_view.check_position();
+      Some(&self.two_phase_view)
     } else {
       None
     }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     if self.in_.borrow_mut().two_phase_iterator_mut().is_some() {
-      Some(Box::new(AssertingTwoPhaseIterator::new(
-        self.in_.clone(),
-        self.state.clone(),
-      )))
+      self.two_phase_view.check_position();
+      Some(&mut self.two_phase_view)
     } else {
       None
     }
@@ -235,21 +231,20 @@ impl Scorer for AssertingScorer {
     self.in_.borrow().has_two_phase_iterator()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(AssertingDocIdSetIterator::new(
-      self.in_.clone(),
-      self.state.clone(),
-      self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes,
-    ))
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+      &self.approximation_view
+    } else {
+      &self.iterator_view
+    }
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    let has_two_phase = self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes;
-    Box::new(AssertingDocIdSetIterator::new(
-      self.in_.clone(),
-      self.state.clone(),
-      has_two_phase,
-    ))
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+      &mut self.approximation_view
+    } else {
+      &mut self.iterator_view
+    }
   }
 }
 
@@ -387,45 +382,56 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
 }
 
 struct AssertingTwoPhaseIterator {
+  approximation_view: AssertingDocIdSetIterator,
   scorer: Rc<RefCell<QueryWeightSsScorer>>,
   state: Rc<RefCell<AssertingScorerState>>,
 }
 
 impl AssertingTwoPhaseIterator {
-  fn new(
+  fn from_shared(
     scorer: Rc<RefCell<QueryWeightSsScorer>>,
     state: Rc<RefCell<AssertingScorerState>>,
   ) -> Self {
-    let scorer_doc = scorer
+    Self {
+      approximation_view: AssertingDocIdSetIterator::new(scorer.clone(), state.clone(), true),
+      scorer,
+      state,
+    }
+  }
+
+  fn check_position(&self) {
+    let scorer_doc = self
+      .scorer
       .borrow_mut()
       .doc_id()
       .expect("doc_id should be available");
-    let approximation_doc = scorer
+    let approximation_doc = self
+      .scorer
       .borrow()
       .two_phase_iterator()
       .expect("two_phase_iterator should be available")
       .approximation()
       .doc_id();
     assert_eq!(approximation_doc, scorer_doc);
-    Self { scorer, state }
+  }
+
+  fn new(
+    scorer: Rc<RefCell<QueryWeightSsScorer>>,
+    state: Rc<RefCell<AssertingScorerState>>,
+  ) -> Self {
+    let view = Self::from_shared(scorer, state);
+    view.check_position();
+    view
   }
 }
 
 impl TwoPhaseIterator for AssertingTwoPhaseIterator {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(AssertingDocIdSetIterator::new(
-      self.scorer.clone(),
-      self.state.clone(),
-      true,
-    ))
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.approximation_view
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(AssertingDocIdSetIterator::new(
-      self.scorer.clone(),
-      self.state.clone(),
-      true,
-    ))
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.approximation_view
   }
 
   fn matches(&mut self) -> Result<bool> {

@@ -56,7 +56,7 @@ where
 
   pub fn matches(&mut self) -> Result<bool> {
     match self.scorer.two_phase_iterator_mut() {
-      Some(mut tpi) => tpi.matches(),
+      Some(tpi) => tpi.matches(),
       None => Err(LuceneError::illegal_state(
         "this scorer does not support two-phase iteration",
       )),
@@ -64,7 +64,7 @@ where
   }
   pub fn matches_may_none(&mut self) -> Result<bool> {
     match self.scorer.two_phase_iterator_mut() {
-      Some(mut tpi) => tpi.matches(),
+      Some(tpi) => tpi.matches(),
       None => Ok(true),
     }
   }

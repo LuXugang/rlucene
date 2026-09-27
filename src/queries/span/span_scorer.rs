@@ -165,19 +165,19 @@ where
     Ok(self.spans.doc_id())
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.spans)
+  fn iterator(&self) -> &dyn DocIdSetIterator {
+    &self.spans
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.spans)
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.spans
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
     Box::new(self.spans)
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     self.spans.as_two_phase_iterator()
   }
 
@@ -193,11 +193,11 @@ where
     }
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.iterator()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.iterator_mut()
   }
 }

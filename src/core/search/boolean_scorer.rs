@@ -308,7 +308,7 @@ where
       let mut doc;
       {
         doc = w.doc;
-        let mut it = w.scorer.iterator_mut();
+        let it = w.scorer.iterator_mut();
         if doc < window_min {
           doc = it.advance(window_min)?;
         }

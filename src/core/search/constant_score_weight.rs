@@ -16,10 +16,8 @@
  */
 use std::fmt::Write as _;
 
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::scorer::Scorer;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 /// A Weight that has a constant score equal to the boost of the wrapped query.
 /// This is typically useful when building queries which do not produce
@@ -44,10 +42,9 @@ impl ConstantScoreWeight {
     let exists = match scorer {
       None => false,
       Some(mut s) => {
-        if let Some(mut two_phase) = s.two_phase_iterator_mut() {
-          let mut approximation = two_phase.approximation_mut();
+        if let Some(two_phase) = s.two_phase_iterator_mut() {
+          let approximation = two_phase.approximation_mut();
           let is_match = approximation.advance(doc)? == doc;
-          drop(approximation);
           is_match && two_phase.matches()?
         } else {
           s.iterator_mut().advance(doc)? == doc

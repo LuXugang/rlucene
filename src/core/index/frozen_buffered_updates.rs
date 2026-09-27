@@ -479,7 +479,7 @@ impl FrozenBufferedUpdates {
         let scorer = weight.scorer(&reader_context, &searcher)?;
 
         if let Some(mut scorer) = scorer {
-          let mut it = scorer.iterator_mut();
+          let it = scorer.iterator_mut();
           if let (Some(sort_map), true) = (seg_state.rld.sort_map.as_ref(), limit != i32::MAX) {
             debug_assert!(self.private_segment.is_some());
 

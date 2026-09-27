@@ -492,12 +492,12 @@ impl<S> TwoPhaseIterator for ConjunctionTwoPhaseIterator<S>
 where
   S: Scorer,
 {
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&mut self.approximation)
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+    &mut self.approximation
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
-    Box::new(&self.approximation)
+  fn approximation(&self) -> &dyn DocIdSetIterator {
+    &self.approximation
   }
 
   fn matches(&mut self) -> Result<bool> {
@@ -522,17 +522,17 @@ where
     self.match_cost
   }
 }
-struct TwoPhaseIteratorCmp<'a, T> {
-  tpis: &'a [Option<T>],
+struct TwoPhaseIteratorCmp<'a, T: ?Sized> {
+  tpis: &'a [Option<&'a T>],
 }
-impl<'a, T> TwoPhaseIteratorCmp<'a, T> {
-  fn new(tpis: &'a [Option<T>]) -> Self {
+impl<'a, T: ?Sized> TwoPhaseIteratorCmp<'a, T> {
+  fn new(tpis: &'a [Option<&'a T>]) -> Self {
     TwoPhaseIteratorCmp { tpis }
   }
 }
 impl<T> Comparator<usize> for TwoPhaseIteratorCmp<'_, T>
 where
-  T: TwoPhaseIterator,
+  T: TwoPhaseIterator + ?Sized,
 {
   const TYPE: &'static str = "TwoPhaseIteratorCmp";
 
@@ -705,11 +705,11 @@ where
     self.scorer.doc_id()
   }
 
-  fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator(&self) -> &dyn DocIdSetIterator {
     self.scorer.iterator()
   }
 
-  fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn iterator_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.scorer.iterator_mut()
   }
 
@@ -718,11 +718,11 @@ where
     Box::new(scorer).take_iterator()
   }
 
-  fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
     self.scorer.two_phase_iterator()
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
     self.scorer.two_phase_iterator_mut()
   }
 
@@ -751,11 +751,11 @@ where
     self.scorer.has_two_phase_iterator()
   }
 
-  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation(&self) -> &dyn DocIdSetIterator {
     self.scorer.approximation()
   }
 
-  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
     self.scorer.approximation_mut()
   }
 }

@@ -123,13 +123,13 @@ where
           let lead1 = &mut first[0].iterator_mut();
           let (_, other_scorers) = rest.split_at_mut(1);
 
-          let competitive_iterator = collector.competitive_iterator()?;
+          let mut competitive_iterator = collector.competitive_iterator()?;
           let others = other_scorers
             .iter_mut()
             .map(|scorer| scorer.iterator_mut())
-            .chain(competitive_iterator);
+            .chain(competitive_iterator.as_deref_mut());
 
-          for mut it in others {
+          for it in others {
             if it.doc_id() < doc {
               let next = it.advance(doc)?;
               if next != doc {
@@ -195,13 +195,13 @@ where
         }
         debug_assert!(lead2.doc_id() == doc);
 
-        let competitive_iterator = collector.competitive_iterator()?;
+        let mut competitive_iterator = collector.competitive_iterator()?;
         let others = other_scorers
           .iter_mut()
           .map(|scorer| scorer.iterator_mut())
-          .chain(competitive_iterator);
+          .chain(competitive_iterator.as_deref_mut());
 
-        for mut it in others {
+        for it in others {
           if it.doc_id() < doc {
             let next = it.advance(doc)?;
             if next != doc {
