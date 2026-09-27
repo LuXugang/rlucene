@@ -139,12 +139,11 @@ where
   }
 
   fn reset(&mut self) -> Result<()> {
-    for i in 0..self.postings.len() {
-      let postings_idx = self.postings[i].postings_idx;
-      let freq = self.posting_mut(postings_idx).freq()?;
-      self.postings[i].freq = freq;
-      self.postings[i].pos = -1;
-      self.postings[i].upto = 0;
+    let impacts_enums = &mut self.impacts_approximation.iterator_mut().impacts_enums;
+    for posting in &mut self.postings {
+      posting.freq = impacts_enums.iterator_at_mut(posting.postings_idx).freq()?;
+      posting.pos = -1;
+      posting.upto = 0;
     }
 
     Ok(())
