@@ -70,21 +70,29 @@ where
    * `false` if it is exhausted before reaching `target`, and `true` otherwise.
    */
   fn advance_position(&mut self, idx: usize, target: i32) -> Result<bool> {
-    let mut pos = self.postings[idx].pos;
-    while pos < target {
-      if self.postings[idx].upto == self.postings[idx].freq {
+    let posting = &mut self.postings[idx];
+    if posting.pos >= target {
+      return Ok(true);
+    }
+    if posting.upto == posting.freq {
+      return Ok(false);
+    }
+    // The position state and its postings owner are in independent fields.
+    let iterator = self
+      .impacts_approximation
+      .iterator_mut()
+      .impacts_enums
+      .iterator_at_mut(posting.postings_idx);
+    loop {
+      posting.pos = iterator.next_position()?;
+      posting.upto += 1;
+      if posting.pos >= target {
+        return Ok(true);
+      }
+      if posting.upto == posting.freq {
         return Ok(false);
-      } else {
-        let postings_idx = self.postings[idx].postings_idx;
-        let next_pos = self.posting_mut(postings_idx).next_position()?;
-        let posting = &mut self.postings[idx];
-        posting.pos = next_pos;
-        pos = next_pos;
-        posting.upto += 1;
       }
     }
-
-    Ok(true)
   }
 
   #[inline]

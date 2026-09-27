@@ -331,7 +331,6 @@ where
         self.max_score_sums[all_scorers_len - 2],
       )
     };
-    // TODO IMPORTANT能否降低iterator()方法的调用次数
     'outer: while doc < max {
       let (v, score) = {
         let accepted = match accept_docs {
