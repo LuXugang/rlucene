@@ -50,7 +50,8 @@ where
       cost.push((idx, DocIdSetIterator::cost(&v)?));
       temp_scorers_list.push(Some(v));
     }
-    cost.sort_by_key(|entry| std::cmp::Reverse(entry.1));
+    // Use the least costly scorers as leads, preserving input order for equal costs.
+    cost.sort_by_key(|entry| entry.1);
     let mut scorers = Vec::with_capacity(cost.len());
     for (idx, _) in cost {
       let v = temp_scorers_list[idx]
