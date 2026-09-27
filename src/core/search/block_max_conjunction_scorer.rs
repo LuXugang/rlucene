@@ -338,11 +338,11 @@ where
       let len = self.scorers.len();
       // then find agreement with other iterators
       for i in 1..len {
-        let other_doc_id = self.scorers[i].approximation().doc_id();
+        let other = self.scorers[i].approximation_mut();
         // other.doc may already be equal to doc if we "continued advanceHead"
         // on the previous iteration and the advance on the lead scorer exactly matched.
-        if other_doc_id < doc {
-          let next = self.scorers[i].approximation_mut().advance(doc)?;
+        if other.doc_id() < doc {
+          let next = other.advance(doc)?;
           if next > doc {
             // iterator beyond the current doc - advance lead and continue to the new highest
             // doc.
@@ -351,7 +351,7 @@ where
             continue 'advance_head;
           }
         }
-        debug_assert_eq!(self.scorers[i].approximation().doc_id(), doc);
+        debug_assert_eq!(other.doc_id(), doc);
       }
       return Ok(doc);
     }
