@@ -382,10 +382,9 @@ where
         req_doc = self.advance_impacts(req_doc)?;
       }
 
-      {
-        if ScorerUtil::doc_id(&self.req_scorer) < req_doc {
-          req_doc = ScorerUtil::advance(&mut self.req_scorer, req_doc)?;
-        }
+      let req_approximation = self.req_scorer.approximation_mut();
+      if req_approximation.doc_id() < req_doc {
+        req_doc = req_approximation.advance(req_doc)?;
       }
 
       if req_doc == NO_MORE_DOCS || !self.opt_is_required {
@@ -403,11 +402,12 @@ where
       }
       // Find the next common doc within the current block
 
+      let opt_approximation = self.opt_scorer.approximation_mut();
       loop {
-        let mut opt_doc = ScorerUtil::doc_id(&self.opt_scorer);
+        let mut opt_doc = opt_approximation.doc_id();
 
         if opt_doc < req_doc {
-          opt_doc = ScorerUtil::advance(&mut self.opt_scorer, req_doc)?;
+          opt_doc = opt_approximation.advance(req_doc)?;
         }
 
         if opt_doc > upper_bound {
@@ -416,7 +416,7 @@ where
         }
 
         if opt_doc != req_doc {
-          req_doc = ScorerUtil::advance(&mut self.req_scorer, opt_doc)?;
+          req_doc = req_approximation.advance(opt_doc)?;
           if req_doc > upper_bound {
             continue 'advance_head;
           }
