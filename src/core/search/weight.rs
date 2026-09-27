@@ -450,7 +450,7 @@ where
 {
   if !has_two_phase {
     loop {
-      let doc = ScorerUtil::next_doc(scorer)?;
+      let doc = scorer.next_doc()?;
       if doc == NO_MORE_DOCS {
         break;
       }
@@ -544,7 +544,7 @@ where
       if is_accept {
         collector.collect(doc, scorer)?;
       }
-      doc = ScorerUtil::next_doc(scorer)?;
+      doc = scorer.next_doc()?;
     }
   } else {
     while doc < max {
