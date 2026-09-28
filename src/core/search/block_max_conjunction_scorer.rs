@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
   TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
@@ -107,6 +107,19 @@ where
       },
     }
     Ok(())
+  }
+
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+    let scorers = match &mut self.disi {
+      DocIdSetIteratorEnum2::A(disi) => &mut disi.scorers,
+      DocIdSetIteratorEnum2::B(wrapper) => &mut wrapper.two_phase_iterator.approx.scorers,
+    };
+    Ok(
+      scorers
+        .iter_mut()
+        .map(|scorer| ChildScorable::new(scorer as &mut dyn Scorable, "MUST"))
+        .collect(),
+    )
   }
 
   fn cost(&self) -> Result<i64> {
