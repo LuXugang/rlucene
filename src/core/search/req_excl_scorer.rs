@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{ChildScorable, Scorable};
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::TwoPhaseState::Yes;
@@ -81,6 +81,14 @@ where
       TwoPhaseIteratorEnum2::A(ref mut tpi) => tpi.req_scorer.set_min_competitive_score(min_score),
       TwoPhaseIteratorEnum2::B(ref mut tpi) => tpi.req_scorer.set_min_competitive_score(min_score),
     }
+  }
+
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+    let req: &mut dyn Scorable = match &mut self.disi.two_phase_iterator {
+      TwoPhaseIteratorEnum2::A(tpi) => &mut tpi.req_scorer,
+      TwoPhaseIteratorEnum2::B(tpi) => &mut tpi.req_scorer,
+    };
+    Ok(vec![ChildScorable::new(req, "MUST")])
   }
 
   fn cost(&self) -> Result<i64> {

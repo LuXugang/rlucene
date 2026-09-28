@@ -102,7 +102,7 @@ where
     Ok(())
   }
 
-  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
     todo!()
   }
 

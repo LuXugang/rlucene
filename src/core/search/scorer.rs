@@ -186,7 +186,7 @@ where
     (**self).set_min_competitive_score(min_score)
   }
 
-  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
     (**self).get_children()
   }
 
@@ -383,7 +383,7 @@ macro_rules! either_scorer {
 
 
             #[inline]
-            fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+            fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
                 match self {
                     $( Self::$Variant(inner) => inner.get_children(), )+
                 }

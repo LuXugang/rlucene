@@ -55,7 +55,10 @@ pub trait Scorable: FixedScore {
   }
 
   /// Returns child sub-scorers positioned on the current document.
-  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+  ///
+  /// Children borrow their existing scorers. This may advance child iterators
+  /// to resolve all matches before returning them.
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
     Ok(vec![])
   }
 
@@ -133,7 +136,7 @@ where
     (**self).set_min_competitive_score(min_score)
   }
 
-  fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
     (**self).get_children()
   }
 
@@ -176,7 +179,7 @@ macro_rules! either_scorable {
                 match self { $( Self::$Variant(inner) => inner.set_min_competitive_score(min_score), )+ }
             }
 
-            fn get_children(&self) -> Result<Vec<ChildScorable<Box<dyn Scorable>>>> {
+            fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
                 match self {
                     $( Self::$Variant(inner) => inner.get_children(), )+
                 }
