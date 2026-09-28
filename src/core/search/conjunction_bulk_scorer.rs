@@ -137,12 +137,7 @@ where
           } else {
             None
           };
-          let others = other_scorers
-            .iter_mut()
-            .map(|scorer| scorer as &mut dyn DocIdSetIterator)
-            .chain(competitive_iterator);
-
-          for it in others {
+          for it in other_scorers {
             if DocIdSetIterator::doc_id(&it) < doc {
               let next = it.advance(doc)?;
               if next != doc {
@@ -152,6 +147,16 @@ where
               }
             }
             debug_assert!(DocIdSetIterator::doc_id(&it) == doc);
+          }
+          if matched && let Some(it) = competitive_iterator {
+            if it.doc_id() < doc {
+              let next = it.advance(doc)?;
+              if next != doc {
+                lead1.advance(next)?;
+                matched = false;
+              }
+            }
+            debug_assert!(!matched || it.doc_id() == doc);
           }
           lead1_doc_id = DocIdSetIterator::doc_id(&lead1);
         }
@@ -213,12 +218,7 @@ where
         } else {
           None
         };
-        let others = other_scorers
-          .iter_mut()
-          .map(|scorer| scorer as &mut dyn DocIdSetIterator)
-          .chain(competitive_iterator);
-
-        for it in others {
+        for it in other_scorers {
           if DocIdSetIterator::doc_id(&it) < doc {
             let next = it.advance(doc)?;
             if next != doc {
@@ -227,6 +227,16 @@ where
             }
           }
           debug_assert!(DocIdSetIterator::doc_id(&it) == doc);
+        }
+        if let Some(it) = competitive_iterator {
+          if it.doc_id() < doc {
+            let next = it.advance(doc)?;
+            if next != doc {
+              doc = lead1.advance(next)?;
+              continue 'advance_head;
+            }
+          }
+          debug_assert!(it.doc_id() == doc);
         }
       }
       collector.collect(doc, &mut ScorableImpl::new(self))?;
