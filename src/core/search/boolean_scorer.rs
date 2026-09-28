@@ -168,9 +168,10 @@ where
     // take Ownership
     let mut score = std::mem::take(&mut self.score);
     let mut stream = DocIdStreamView::new(self, base);
-    collector.collect_stream(&mut stream, &mut score)?;
+    let result = collector.collect_stream(&mut stream, &mut score);
     // give back Ownership
     self.score = score;
+    result?;
     for m in self.matching.iter_mut() {
       *m = 0;
     }
