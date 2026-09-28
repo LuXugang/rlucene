@@ -133,7 +133,7 @@ where
     disi.advance_all_tail()?;
     let mut current = disi.lead;
     let mut scorers: Vec<_> = disi.all_scorers.iter_mut().map(Some).collect();
-    let mut children = Vec::new();
+    let mut children = Vec::with_capacity(disi.freq);
     while let Some(idx) = current {
       let wrapper = scorers[idx]
         .take()
