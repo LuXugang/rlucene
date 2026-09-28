@@ -255,7 +255,7 @@ where
         context,
         searcher,
       )?;
-      return Ok(Box::new(v));
+      return Ok(v);
     }
     //
     // // conjunction-disjunction mix:
