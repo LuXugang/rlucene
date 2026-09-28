@@ -18,7 +18,7 @@ use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_util::ScorerUtil;
@@ -126,6 +126,25 @@ where
     debug_assert!(scaled_min_score >= disi.min_competitive_score);
     disi.min_competitive_score = scaled_min_score;
     Ok(())
+  }
+
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+    let disi = &mut self.disi.two_phase_iterator.approximation;
+    disi.advance_all_tail()?;
+    let mut current = disi.lead;
+    let mut scorers: Vec<_> = disi.all_scorers.iter_mut().map(Some).collect();
+    let mut children = Vec::new();
+    while let Some(idx) = current {
+      let wrapper = scorers[idx]
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("duplicate WAND lead"))?;
+      current = wrapper.next;
+      children.push(ChildScorable::new(
+        &mut wrapper.scorer as &mut dyn Scorable,
+        "SHOULD",
+      ));
+    }
+    Ok(children)
   }
 
   fn cost(&self) -> Result<i64> {
