@@ -123,8 +123,9 @@ where
     max: i32,
   ) -> Result<()> {
     if let Some(mut filter) = self.filter.take() {
-      self.score_inner_window_with_filter(collector, accept_docs, max, &mut filter)?;
+      let result = self.score_inner_window_with_filter(collector, accept_docs, max, &mut filter);
       self.filter = Some(filter);
+      result?;
     } else if self.all_scorers_idx.len() - self.first_required_scorer >= 2 {
       self.score_inner_window_as_conjunction(collector, accept_docs, max)?;
     } else {
