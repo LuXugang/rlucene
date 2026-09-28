@@ -115,6 +115,9 @@ where
       )
     };
     collector.set_scorer(&mut ScorableImpl::new(self))?;
+    // Java determines whether a competitive iterator exists once per scoring window.
+    // A present iterator must be reborrowed after collecting, but None stays absent.
+    let has_competitive_iterator = collector.competitive_iterator()?.is_some();
 
     // In the main loop, we rely on the invariant that `DocIdSetIterator::doc_id(&lead1)` is greater than
     // lead2.doc(). However it's possible that these two are equal on the first document in a
@@ -131,7 +134,11 @@ where
           let lead1 = &mut first[0];
           let (_, other_scorers) = rest.split_at_mut(1);
 
-          let competitive_iterator = collector.competitive_iterator()?;
+          let competitive_iterator = if has_competitive_iterator {
+            collector.competitive_iterator()?
+          } else {
+            None
+          };
           let others = other_scorers
             .iter_mut()
             .map(|scorer| scorer as &mut dyn DocIdSetIterator)
@@ -203,7 +210,11 @@ where
         }
         debug_assert!(DocIdSetIterator::doc_id(&lead2) == doc);
 
-        let competitive_iterator = collector.competitive_iterator()?;
+        let competitive_iterator = if has_competitive_iterator {
+          collector.competitive_iterator()?
+        } else {
+          None
+        };
         let others = other_scorers
           .iter_mut()
           .map(|scorer| scorer as &mut dyn DocIdSetIterator)
