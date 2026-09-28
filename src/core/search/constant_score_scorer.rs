@@ -68,7 +68,10 @@ impl<TPI> ConstantScoreScorer<DummyDISI, TPI> {
     let two_phase_iterator = match score_mode {
       ScoreMode::TopScores => {
         let v: DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>> =
-          DocIdSetIteratorWrapper::new(TwoPhaseDelegate::Tpi(two_phase_iterator));
+          DocIdSetIteratorWrapper::new(TwoPhaseDelegate {
+            two_phase_iterator,
+            empty: None,
+          });
         ConstantScoreIterator::TpiTop(TwoPhaseIteratorAsDocIdSetIterator::new(
           TwoPhaseIteratorImpl::new(v),
         ))
@@ -100,8 +103,7 @@ where
           iterator.delegate = DisiDelegate::Empty(EmptyDISI::new());
         },
         ConstantScoreIterator::TpiTop(iterator) => {
-          iterator.two_phase_iterator.approximation.delegate =
-            TwoPhaseDelegate::Empty(EmptyDISI::new());
+          iterator.two_phase_iterator.approximation.delegate.empty = Some(EmptyDISI::new());
         },
         ConstantScoreIterator::Disi(_) | ConstantScoreIterator::Tpi(_) => {
           return Err(LuceneError::illegal_state("TopScores: should not be here"));
@@ -291,17 +293,11 @@ where
   }
 
   fn matches(&mut self) -> Result<bool> {
-    match self.approximation.delegate {
-      TwoPhaseDelegate::Tpi(ref mut t) => t.matches(),
-      TwoPhaseDelegate::Empty(_) => Ok(false),
-    }
+    self.approximation.delegate.two_phase_iterator.matches()
   }
 
   fn match_cost(&self) -> f32 {
-    match self.approximation.delegate {
-      TwoPhaseDelegate::Tpi(ref t) => t.match_cost(),
-      TwoPhaseDelegate::Empty(_) => 0.0,
-    }
+    self.approximation.delegate.two_phase_iterator.match_cost()
   }
 }
 
@@ -458,9 +454,9 @@ where
   }
 }
 
-enum TwoPhaseDelegate<T> {
-  Tpi(T),
-  Empty(EmptyDISI),
+struct TwoPhaseDelegate<T> {
+  two_phase_iterator: T,
+  empty: Option<EmptyDISI>,
 }
 impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for TwoPhaseDelegate<T> where
   T: TwoPhaseIterator
@@ -476,37 +472,40 @@ where
   T: TwoPhaseIterator,
 {
   fn doc_id(&self) -> i32 {
-    match self {
-      Self::Tpi(t) => t.approximation().doc_id(),
-      Self::Empty(e) => e.doc_id(),
+    match &self.empty {
+      Some(e) => e.doc_id(),
+      None => self.two_phase_iterator.approximation().doc_id(),
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    match self {
-      Self::Tpi(t) => t.approximation_mut().next_doc(),
-      Self::Empty(e) => e.next_doc(),
+    match &mut self.empty {
+      Some(e) => e.next_doc(),
+      None => self.two_phase_iterator.approximation_mut().next_doc(),
     }
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      Self::Tpi(t) => t.approximation_mut().advance(target),
-      Self::Empty(e) => e.advance(target),
+    match &mut self.empty {
+      Some(e) => e.advance(target),
+      None => self.two_phase_iterator.approximation_mut().advance(target),
     }
   }
 
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      Self::Tpi(t) => t.approximation_mut().slow_advance(target),
-      Self::Empty(e) => e.slow_advance(target),
+    match &mut self.empty {
+      Some(e) => e.slow_advance(target),
+      None => self
+        .two_phase_iterator
+        .approximation_mut()
+        .slow_advance(target),
     }
   }
 
   fn cost(&self) -> Result<i64> {
-    match self {
-      Self::Tpi(t) => t.approximation().cost(),
-      Self::Empty(e) => e.cost(),
+    match &self.empty {
+      Some(e) => e.cost(),
+      None => self.two_phase_iterator.approximation().cost(),
     }
   }
 }
