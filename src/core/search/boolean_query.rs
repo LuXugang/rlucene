@@ -112,7 +112,7 @@ impl BooleanQuery {
   }
   pub fn rewrite_no_scoring(&self) -> Result<Option<Query>> {
     let mut actually_rewritten = false;
-    // Retain Java's Builder.add checks while borrowing clauses until a replacement is needed.
+    // Retain builder validation while borrowing clauses until a replacement is needed.
     let mut new_query = Vec::with_capacity(self.clauses.len());
     let mut add_clause = |query, occur| -> Result<()> {
       if new_query.len() >= get_max_clause_count() {

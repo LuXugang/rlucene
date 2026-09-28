@@ -166,7 +166,7 @@ impl<D> NRTCachingDirectory<D> {
     }
   }
 
-  #[allow(dead_code)] // Java's cache callback calls this helper; Rust's CacheDirectory performs the same check directly.
+  #[allow(dead_code)]
   fn is_cached_file(&self, file_name: &str) -> Result<bool> {
     self.cache_directory.file_exists(file_name)
   }

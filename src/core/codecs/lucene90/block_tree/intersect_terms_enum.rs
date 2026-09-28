@@ -50,7 +50,6 @@ where
   pub(crate) input: I,
   pub(crate) stack: Vec<IntersectTermsEnumFrame>,
   arcs: Vec<Arc<BytesRef<std::sync::Arc<Vec<u8>>>>>,
-  /// use AutomatonEnum instead of ByteRunnable/TransitionAccessor in Java Lucene
   pub(crate) automaton: AutomatonEnum,
   common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
   current_frame: usize,

@@ -315,10 +315,7 @@ pub(crate) struct SortedSetDocValuesWriter {
 
   final_ords: Option<PackedLongValues>,
   final_ord_counts: Option<PackedLongValues>,
-  // In Java Lucene, `finalSortedValues` corresponds to the `ids` array inside BytesRefHash.
-  // Due to language limitations, we do not need to explicitly define finalSortedValues in Rust.
-  // Instead of storing the sorted array,
-  // we can simply define an `is_sorted` field to indicate whether the BytesRefHash::sort method has been called.
+  // Sorted term IDs remain in BytesRefHash; is_sorted tracks whether sort has been called.
   is_sorted: bool,
   final_ord_map: Option<Arc<Vec<i32>>>,
   pool: Option<Arc<ByteBlockPool>>,

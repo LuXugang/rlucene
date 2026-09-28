@@ -289,7 +289,6 @@ impl SearcherThread {
         Ok(())
       })();
       if let Err(error) = open_result {
-        // In Java this can be rethrown as `RuntimeException` when it happens in a close listener.
         if !error.to_string().contains("on purpose") {
           return Err(error);
         }

@@ -16,8 +16,6 @@
  */
 use crate::core::util::error::lucene_error::Result;
 
-// WARNING: This test does *not* use the shared Lucene test case support, so that the Java version
-// can prevent static class initialization when it is spawned as a subprocess.
 #[allow(dead_code)] // for quick search
 struct TestCodecLoadingDeadlock;
 

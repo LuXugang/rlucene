@@ -33,10 +33,10 @@ use wide::{f32x16 as FloatVector, i32x16 as IntVector};
 
 /// Vector calculations used by the default provider.
 ///
-/// Derived from Lucene 10.1's Panama implementation and optimized for Rust.
+/// Derived from Lucene 10.1's Panama implementation.
 ///
-/// Uses safe `wide` operations. Byte slices also represent the data consumed by
-/// Java's MemorySegment overloads; acquiring mmap slices is a separate concern.
+/// Uses safe `wide` operations on borrowed array or mapped bytes; acquiring mmap
+/// slices is a separate concern.
 #[derive(Default)]
 pub struct DefaultVectorUtilSupport;
 
@@ -44,11 +44,9 @@ impl DefaultVectorUtilSupport {
   /// Compile-time vector width, not a runtime CPU capability probe.
   pub const VECTOR_BITSIZE: usize = size_of::<FloatVector>() * 8;
   const LANES: usize = Self::VECTOR_BITSIZE / 32;
-  // Match Java's avoidance of 128-bit integer vectors on x86-64.
   const HAS_FAST_INTEGER_VECTORS: bool =
     !cfg!(target_arch = "x86_64") || Self::VECTOR_BITSIZE >= 256;
-  // Conservative compile-time FMA policy; it does not detect the CPU vendor
-  // at runtime. Java 10.1 avoids FMA on Apple Silicon.
+  // Conservative compile-time FMA policy; it does not detect the CPU vendor at runtime.
   const HAS_FAST_FMA: bool = cfg!(target_feature = "fma")
     || cfg!(all(
       target_arch = "aarch64",
@@ -331,8 +329,7 @@ impl DefaultVectorUtilSupport {
         let vc = u8x16::new(std::array::from_fn(|k| {
           if k < 8 { upper0[k] } else { upper1[k - 8] }
         }));
-        // Java multiplies bytes before zero-extending, including inputs
-        // outside the unsigned int4 range.
+        // Multiply bytes before zero-extending, including inputs outside the unsigned int4 range.
         let low_product = (vb & LOW_NIBBLE_MASK) * va;
         let high_product = (vb >> 4u32) * vc;
         acc0 += i16x8::from_u8x16_low(low_product);
@@ -373,8 +370,8 @@ impl DefaultVectorUtilSupport {
         let vb = i16x16::new(std::array::from_fn(|k| i16::from(packed_block[k])));
         let va = i16x16::new(std::array::from_fn(|k| i16::from(lower[k] as i8)));
         let vc = i16x16::new(std::array::from_fn(|k| i16::from(upper[k] as i8)));
-        // Java multiplies bytes before zero-extending. Keep that truncation even
-        // for inputs outside the usual unsigned 4-bit value range.
+        // Multiply bytes before zero-extending. Keep that truncation even for inputs
+        // outside the usual unsigned 4-bit value range.
         acc0 += ((vb & i16x16::splat(0x0f)) * va) & i16x16::splat(0xff);
         acc1 += ((vb >> 4u32) * vc) & i16x16::splat(0xff);
       }
@@ -402,8 +399,8 @@ impl DefaultVectorUtilSupport {
         let vb = i16x32::new(std::array::from_fn(|k| i16::from(packed_block[k])));
         let va = i16x32::new(std::array::from_fn(|k| i16::from(lower[k] as i8)));
         let vc = i16x32::new(std::array::from_fn(|k| i16::from(upper[k] as i8)));
-        // Java multiplies bytes before zero-extending. Keep that truncation even
-        // for inputs outside the usual unsigned 4-bit value range.
+        // Multiply bytes before zero-extending. Keep that truncation even for inputs
+        // outside the usual unsigned 4-bit value range.
         acc0 += ((vb & i16x32::splat(0x0f)) * va) & i16x32::splat(0xff);
         acc1 += ((vb >> 4u32) * vc) & i16x32::splat(0xff);
       }
@@ -427,8 +424,8 @@ impl DefaultVectorUtilSupport {
       for j in (0..inner_limit).step_by(16) {
         let a = &a[i + j..i + j + 16];
         let b = &b[i + j..i + j + 16];
-        // Byte multiplication keeps the low 8 bits, matching Java before
-        // zero-extension, including values outside the unsigned int4 range.
+        // Byte multiplication keeps the low 8 bits before zero-extension, including
+        // values outside the unsigned int4 range.
         let product = u8x16::from(a) * u8x16::from(b);
         acc0 += i16x8::from_u8x16_low(product);
         acc1 += i16x8::from_u8x16_high(product);
@@ -444,7 +441,6 @@ impl DefaultVectorUtilSupport {
     sum
   }
 
-  // Java's 256-bit body also serves 512-bit vectors using the preferred species.
   fn square_distance_body_256(a: &[u8], b: &[u8], limit: usize) -> i32 {
     let mut acc = IntVector::splat(0);
     for i in (0..limit).step_by(Self::LANES) {
@@ -475,7 +471,7 @@ impl DefaultVectorUtilSupport {
     (acc1 + acc2).reduce_add()
   }
 
-  /// Java MemorySegment overload; accepts borrowed array or mapped bytes.
+  /// Accepts borrowed array or mapped bytes.
   pub fn dot_product_memory_segment(a: &[u8], b: &[u8]) -> i32 {
     debug_assert_eq!(a.len(), b.len());
     let mut i = 0;
@@ -499,7 +495,7 @@ impl DefaultVectorUtilSupport {
     res
   }
 
-  /// Java MemorySegment overload; accepts borrowed array or mapped bytes.
+  /// Accepts borrowed array or mapped bytes.
   pub fn cosine_memory_segment(a: &[u8], b: &[u8]) -> f32 {
     let mut i = 0;
     let mut sum = 0i32;
@@ -516,8 +512,8 @@ impl DefaultVectorUtilSupport {
         i = (a.len() - 8) / 8 * 8;
         Self::cosine_body_128(a, b, i)
       };
-      // Java returns float[] from the body, then applies int += float. Preserve
-      // both the rounding to float and the saturating narrowing back to int.
+      // Round the body result to float before adding it to the accumulator, then
+      // apply saturating narrowing back to int.
       sum = (sum as f32 + ret[0]) as i32;
       norm1 = (norm1 as f32 + ret[1]) as i32;
       norm2 = (norm2 as f32 + ret[2]) as i32;
@@ -533,7 +529,7 @@ impl DefaultVectorUtilSupport {
     (f64::from(sum) / (f64::from(norm1) * f64::from(norm2)).sqrt()) as f32
   }
 
-  /// Java MemorySegment overload; accepts borrowed array or mapped bytes.
+  /// Accepts borrowed array or mapped bytes.
   pub fn square_distance_memory_segment(a: &[u8], b: &[u8]) -> i32 {
     debug_assert_eq!(a.len(), b.len());
     let mut i = 0;

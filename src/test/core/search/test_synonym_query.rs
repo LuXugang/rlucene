@@ -139,8 +139,6 @@ fn test_bogus_params() -> Result<()> {
     ));
   }
 
-  // Java additionally checks null field names. Rust's Builder accepts an owned String and cannot
-  // represent a null field value.
   Ok(())
 }
 

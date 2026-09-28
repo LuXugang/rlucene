@@ -976,8 +976,7 @@ pub trait BaseStoredFieldsFormatTestCase:
       let target_dir = new_directory_shared(random)?;
       let adder = IndexWriter::new(target_dir.clone(), IndexWriterConfig::new()?)?;
       if random.random_bool(0.5) {
-        // Mix up fields explicitly. Rust expresses Java's MismatchedDirectoryReader at the
-        // CodecReader boundary used by addIndexesSlowly.
+        // Mix up fields at the CodecReader boundary used by addIndexesSlowly.
         let leaf = get_only_leaf_reader(&reader)?;
         let mismatched = MismatchedCodecReader::new(leaf, random)?;
         adder.add_indexes_from_codec_readers(vec![mismatched])?;

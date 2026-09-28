@@ -81,7 +81,7 @@ pub type DefaultNormsFormat = <DefaultCodec as Codec>::NormsFormat;
 pub type DefaultLiveDocsFormat = <DefaultCodec as Codec>::LiveDocsFormat;
 pub type DefaultPointsFormat = <DefaultCodec as Codec>::PointsFormat;
 
-/// Static dispatch for the two Java `IndexReader` shapes accepted by `TestUtil.checkReader`.
+/// Static dispatch for the two `IndexReader` shapes accepted by `TestUtil.checkReader`.
 pub trait CheckReaderContextKind<I>
 where
   I: IndexReader,
@@ -511,9 +511,8 @@ impl TestUtil {
     I: LeafReader,
   {
     let mut output = Vec::with_capacity(1024);
-    // Java calls checkIntegrity only for a CodecReader.  A generic LeafReader may not expose
-    // codec-level integrity checks, in which case the default Rust implementation reports
-    // UnsupportedOperation and the slow wrapper below supplies the codec view used by CheckIndex.
+    // A generic LeafReader may not expose codec-level integrity checks. If it reports
+    // UnsupportedOperation, the slow wrapper below supplies the codec view used by CheckIndex.
     if let Err(error) = reader.check_integrity()
       && !matches!(error, LuceneError::UnsupportedOperation(_))
     {

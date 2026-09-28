@@ -44,7 +44,7 @@ const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be
 /// # Experimental
 pub struct SnapshotDeletionPolicy<D> {
   primary: Arc<IndexDeletionPolicyEnum<D>>,
-  // Java synchronizes the policy and its commit wrappers on the same reentrant monitor.
+  // The policy and its commit wrappers share the same reentrant monitor.
   inner: Arc<ReentrantMutex<RefCell<Inner<D>>>>,
 }
 

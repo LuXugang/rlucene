@@ -37,8 +37,7 @@ pub struct SegmentDocValuesProducer<I>
 where
   I: IndexInput,
 {
-  // Java stores the same producer references in a field map and an identity set. Rust owns each
-  // producer Arc once in this Vec and stores its stable index in the field map.
+  // Own each producer Arc once in this Vec and store its stable index in the field map.
   dv_producers_by_field: HashMap<i32, usize>,
   dv_producers: Vec<Arc<CodecDocValuesProducer<I>>>,
   pub(crate) dv_gens: Vec<i64>,

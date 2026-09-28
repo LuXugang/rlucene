@@ -35,7 +35,7 @@ struct TestByteBuffersDataInput;
 fn test_sanity() -> Result<()> {
   let mut out = ByteBuffersDataOutput::new();
   // Keep an owned snapshot so Rust can continue mutating `out` while the old
-  // input remains observable, matching Java's `toDataInput()` semantics.
+  // input remains observable.
   let mut o1 = out.get_data_input_owner(false)?;
   assert_eq!(0, o1.length());
   let mut result = DataInput::read_byte(&mut o1);

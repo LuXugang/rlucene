@@ -34,9 +34,8 @@ pub(crate) enum FailurePoint {
 
 /// The implementation type that owns a logical execution frame.
 ///
-/// These values intentionally describe the Java-level type identity used by
-/// `LuceneTestCase.callStackContains`. They do not depend on Rust symbol names
-/// or generic parameters.
+/// These values describe the type identity used by `LuceneTestCase.callStackContains`.
+/// They do not depend on Rust symbol names or generic parameters.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum ExecutionOwner {
   DocumentsWriterPerThread,

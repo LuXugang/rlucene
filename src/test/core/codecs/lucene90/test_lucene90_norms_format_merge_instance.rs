@@ -178,7 +178,7 @@ mod base_norms_format_test_case_test {
   #[test]
   #[ignore = "MockRandom postings randomizes content on the fly"]
   fn test_merge_stability() -> Result<()> {
-    // The corresponding Java override skips this inherited test.
+    // This inherited test is intentionally skipped.
     Ok(())
   }
 

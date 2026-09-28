@@ -113,7 +113,7 @@ impl BufferedUpdatesStream {
     inner.updates.len()
   }
   /// Only used by IW.rollback
-  #[allow(dead_code)] // Mirrors Java's retained BufferedUpdatesStream.clear hook, which currently has no IndexWriter caller.
+  #[allow(dead_code)]
   pub(crate) fn clear(&self) {
     let mut inner = self.inner.lock();
     inner.updates.clear();
@@ -383,7 +383,7 @@ impl FinishedSegments {
     }
   }
 
-  #[allow(dead_code)] // Only reached by Java's retained, currently unused BufferedUpdatesStream.clear hook.
+  #[allow(dead_code)]
   pub(crate) fn clear(&self) {
     let mut inner = self.inner.lock();
     inner.finished_del_gens.clear();

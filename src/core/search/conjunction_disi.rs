@@ -28,7 +28,7 @@ use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
 
-/// The two implementations selected by Java's `createConjunction`.
+/// The two conjunction implementations selected by iterator cost.
 pub type ConjunctionDISIEnum<D> =
   DocIdSetIteratorEnum2<ConjunctionDISI<D>, BitSetConjunctionDISI<D>>;
 
@@ -100,8 +100,8 @@ impl<D> ConjunctionDISI<D>
 where
   D: DocIdSetIterator,
 {
-  /// Select the conjunction implementation using Java's `createConjunction`
-  /// cost rule. Minimum-cost bit sets remain eligible to lead iteration.
+  /// Selects the conjunction implementation by cost.
+  /// Minimum-cost bit sets remain eligible to lead iteration.
   pub(crate) fn create_conjunction(iterators: Vec<D>) -> Result<ConjunctionDISIEnum<D>> {
     debug_assert!(iterators.len() >= 2);
     let cur_doc = iterators[0].doc_id();

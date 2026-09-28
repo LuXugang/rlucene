@@ -356,9 +356,9 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
     IndexSearcher<IRC>: Sync,
     Self: Sized;
 
-  /// Returns `None` when Java would return this query, or a replacement query otherwise.
-  /// The default leaves this query unchanged, matching Java's `Query.rewrite`.
-  /// An unchanged result still performs the rewrite call and its observable side effects.
+  /// Returns `None` when this query is unchanged, or a replacement query otherwise.
+  /// The default leaves this query unchanged. An unchanged result still performs
+  /// the rewrite call and its observable side effects.
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,

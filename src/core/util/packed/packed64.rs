@@ -74,7 +74,7 @@ impl Packed64 {
       bits_per_value > 0 && bits_per_value <= 64,
       "bitsPerValue must be > 0 and <= 64"
     );
-    let format = Format::Packed(PackedImpl::new(0)); // Corresponds to PackedInts.Format.PACKED in Java
+    let format = Format::Packed(PackedImpl::new(0));
     let long_count = format.long_count(PackedInts::VERSION_CURRENT, value_count, bits_per_value);
     let blocks = vec![0; long_count];
 

@@ -42,7 +42,7 @@ use rand::RngExt;
 pub struct TestSimilarity2;
 
 fn set_up() -> Result<[SimilarityEnum; 2]> {
-  // TODO: Add the Java test's Boolean, Axiomatic, DFR, IB, LM and DFI similarities after their
+  // TODO: Add Boolean, Axiomatic, DFR, IB, LM and DFI similarities after their
   // Rust implementations are available.
   Ok([
     classic_similarity::new().into(),

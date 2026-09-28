@@ -173,7 +173,7 @@ impl DoubleRange {
   ///
   /// # Parameters
   /// - `field`: field name.
-  /// - `min`: array of min values. Accepts `BitUtil::F64_MIN_VALUE` (`Double.MIN_VALUE` in Java).
+  /// - `min`: array of min values. Accepts `BitUtil::F64_MIN_VALUE`.
   /// - `max`: array of max values. Accepts `f64::MAX`.
   ///
   /// # Returns
@@ -194,7 +194,7 @@ impl DoubleRange {
   ///
   /// # Parameters
   /// - `field`: field name.
-  /// - `min`: array of min values. Accepts `BitUtil::F64_MIN_VALUE` (`Double.MIN_VALUE` in Java).
+  /// - `min`: array of min values. Accepts `BitUtil::F64_MIN_VALUE`.
   /// - `max`: array of max values. Accepts `f64::MAX`.
   ///
   /// # Returns
@@ -217,7 +217,7 @@ impl DoubleRange {
   ///
   /// # Parameters
   /// - `field`: field name.
-  /// - `min`: array of min values. Accepts `BitUtil::F64_MIN_VALUE` (`Double.MIN_VALUE` in Java).
+  /// - `min`: array of min values. Accepts `BitUtil::F64_MIN_VALUE`.
   /// - `max`: array of max values. Accepts `f64::MAX`.
   ///
   /// # Returns

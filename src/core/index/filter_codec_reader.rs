@@ -28,8 +28,6 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct FilterCodecReader;
 

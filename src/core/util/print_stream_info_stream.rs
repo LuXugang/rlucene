@@ -55,7 +55,7 @@ where
     let timestamp = self.get_timestamp();
     let mut stream = self.stream.lock();
     if let Some(stream) = stream.as_mut() {
-      // Java PrintStream records I/O failures instead of throwing them from println.
+      // Record I/O failures instead of propagating them from println.
       let _ = writeln!(
         stream,
         "{} {} [{}; {}]: {}",
@@ -79,7 +79,7 @@ where
     if !self.is_system_stream() {
       let mut stream = self.stream.lock();
       if let Some(mut stream) = stream.take() {
-        // As with Java PrintStream.close, an I/O failure does not escape close.
+        // An I/O failure does not escape close.
         let _ = stream.flush();
       }
     }

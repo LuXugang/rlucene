@@ -122,8 +122,8 @@ fn test_fsync_access_denied_opening_directory() -> Result<()> {
     let result = IOUtils::fsync(&path, true);
     fs::set_permissions(&path, original_permissions)?;
 
-    // A privileged process can bypass the permission bits. Java uses a mock
-    // filesystem provider here, which has no std::fs equivalent.
+    // A privileged process can bypass the permission bits; std::fs has no mock
+    // filesystem provider to enforce them.
     if unsafe { libc::geteuid() } != 0 {
       assert!(matches!(
         result,

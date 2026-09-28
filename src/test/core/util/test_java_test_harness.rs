@@ -16,9 +16,9 @@
  */
 use crate::core::util::error::lucene_error::Result;
 
-// These Java classes are self-tests for JUnit, RandomizedRunner, JVM permissions, or JVM object
-// inspection. Declaring the class names here keeps their method mappings explicit even though the
-// Rust test harness has no corresponding lifecycle/rule/runner extension points.
+// These entries cover JUnit, RandomizedRunner, JVM permissions and object inspection.
+// Keep the method mappings explicit even though the test harness has no corresponding
+// lifecycle, rule or runner extension points.
 #[allow(dead_code)]
 struct TestBeforeAfterOverrides;
 #[allow(dead_code)]

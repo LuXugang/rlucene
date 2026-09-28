@@ -69,7 +69,6 @@ pub struct TopFieldCollector {
   min_score_acc: Option<Arc<MaxScoreAccumulator>>,
   min_competitive_score: f32,
   #[allow(dead_code)]
-  // Mirrors Java's retained numComparators field, which is not read after construction.
   num_comparators: usize,
   queue_full: bool,
   doc_base: i32,

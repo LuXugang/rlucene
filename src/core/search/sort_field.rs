@@ -181,14 +181,10 @@ impl SortField {
     Ok(result)
   }
   /// Represents sorting by document score (relevance)
-  /// # Note
-  /// Replace Java's `SortField.FIELD_SCORE` with this method.
   pub fn get_field_score() -> Result<Self> {
     SortField::new::<String>(None, SortFieldType::Score)
   }
   /// Represents sorting by document number (index order).
-  /// # Note
-  /// Replace Java's `SortField.FIELD_DOC` with this method.
   pub fn get_field_doc() -> Result<Self> {
     SortField::new::<String>(None, SortFieldType::Doc)
   }
@@ -779,7 +775,7 @@ pub enum SortFieldType {
   Rewritable,
 }
 impl SortFieldType {
-  /// Resolves the Java enum name persisted in segment sort metadata.
+  /// Resolves the enum name persisted in segment sort metadata.
   pub fn value_of(type_str: &str) -> Result<Self> {
     match type_str {
       "SCORE" => Ok(SortFieldType::Score),
@@ -909,13 +905,7 @@ impl PartialEq for MissingValueEnum {
       },
       MissingValueEnum::Float(val) => {
         if let MissingValueEnum::Float(other_val) = other {
-          // In Rust Lucene,
-          // negative Float::NAN and positive Float::NAN are
-          // considered the smallest and largest floating-point
-          // values, respectively.
-          // However, we need to stay consistent with Java Lucene,
-          // where Float::NAN, regardless of its sign,
-          // is always treated as the largest floating-point value.
+          // NaN sorts after all other values, regardless of its sign.
           NumericUtils::float_to_sortable_int(*val)
             == NumericUtils::float_to_sortable_int(*other_val)
         } else {
@@ -924,13 +914,7 @@ impl PartialEq for MissingValueEnum {
       },
       MissingValueEnum::Double(val) => {
         if let MissingValueEnum::Double(other_val) = other {
-          // In Rust Lucene,
-          // negative Double::NAN and positive Double::NAN are
-          // considered the smallest and largest floating-point
-          // values, respectively.
-          // However, we need to stay consistent with Java Lucene,
-          // where Double::NAN, regardless of its sign,
-          // is always treated as the largest floating-point value.
+          // NaN sorts after all other values, regardless of its sign.
           NumericUtils::double_to_sortable_long(*val)
             == NumericUtils::double_to_sortable_long(*other_val)
         } else {

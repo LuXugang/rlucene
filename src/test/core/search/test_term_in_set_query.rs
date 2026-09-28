@@ -515,7 +515,7 @@ fn test_ram_bytes_used() -> Result<()> {
     TermInSetQuery::new("f", vec![new_bytes_ref_from_string(&mut random, "term")?])?;
 
   assert!(ram_bytes_used > 0);
-  // TODO: Restore Java's reflection-based size comparison after a Rust RamUsageTester equivalent
+  // TODO: Restore the recursive retained-size comparison after a Rust RamUsageTester equivalent
   // is available. The retained-heap invariants that Rust can currently express are checked above
   // and below.
   assert!(ram_bytes_used > one_term_query.ram_bytes_used()?);

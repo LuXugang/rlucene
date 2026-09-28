@@ -156,7 +156,7 @@ impl TieredMergePolicy {
   /// measures the number of times each document in the index is written. A higher write
   /// amplification factor will lead to higher CPU and I/O activity as indicated above.
   pub fn set_deletes_pct_allowed(&mut self, v: f64) -> Result<&mut Self> {
-    // Match Java's comparison behavior for NaN.
+    // NaN passes this range check.
     if !v.is_nan() && !(5.0..=50.0).contains(&v) {
       return Err(LuceneError::illegal_argument(format!(
         "indexPctDeletedTarget must be >= 5.0 and <= 50 (got {})",
@@ -205,7 +205,7 @@ impl TieredMergePolicy {
   /// When forceMergeDeletes is called, we only merge away a segment if its delete percentage is over
   /// this threshold. Default is 10%.
   pub fn set_force_merge_deletes_pct_allowed(&mut self, v: f64) -> Result<&mut Self> {
-    // Match Java's comparison behavior for NaN.
+    // NaN passes this range check.
     if !v.is_nan() && !(0.0..=100.0).contains(&v) {
       return Err(LuceneError::illegal_argument(format!(
         "forceMergeDeletesPctAllowed must be between 0.0 and 100.0 inclusive (got {})",
@@ -1162,7 +1162,7 @@ where
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum MergeType {
   Natural,
-  #[allow(dead_code)] // Mirrors Java's retained FORCE_MERGE value, which has no current callers.
+  #[allow(dead_code)]
   ForceMerge,
   ForceMergeDeletes,
 }

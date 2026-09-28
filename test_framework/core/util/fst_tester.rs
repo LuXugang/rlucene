@@ -234,7 +234,7 @@ where
     D: Directory,
   {
     // Move the FST out of each consumed enumerator so all verification steps
-    // reuse the same FST, as Java's verifyUnPruned does.
+    // reuse the same FST.
     let v = self.step1(self.input_mode, Some(reuse))?;
     reuse = v.base.fst;
 

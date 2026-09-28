@@ -163,7 +163,7 @@ impl XYPolygon {
     self.holes.as_slice()
   }
 
-  #[allow(dead_code)] // Java Tessellator uses this package-private accessor; its Rust entry point is not yet migrated.
+  #[allow(dead_code)]
   pub(crate) fn get_hole(&self, i: usize) -> &XYPolygon {
     &self.holes[i]
   }

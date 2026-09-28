@@ -34,7 +34,7 @@ fn test_dense() -> Result<()> {
   let mut it = set.iterator()?;
   assert_eq!(NO_MORE_DOCS, it.next_doc()?);
 
-  // Each Java checkpoint needs its own set because Rust iterators require finish().
+  // Each checkpoint needs its own set because Rust iterators require finish().
   let mut set = DocsWithFieldSet::new();
   set.add(0)?;
   set.finish();
@@ -70,7 +70,7 @@ fn test_sparse() -> Result<()> {
   assert_eq!(NO_MORE_DOCS, it.next_doc()?);
 
   let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
-  // Rebuild the prefix for the second Java checkpoint with a newly finished set.
+  // Rebuild the prefix for the second checkpoint with a newly finished set.
   let mut set = DocsWithFieldSet::new();
   set.add(doc)?;
   set.add(doc2)?;

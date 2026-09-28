@@ -18,9 +18,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
-/// Random access supported by Java's `BitSetIterator` specialization.
-/// Ordinary iterators keep the defaults; Rust-only ownership wrappers forward
-/// these methods only when they represent the same Java iterator.
+/// Random access supported by bit-set iterators.
+/// Ordinary iterators keep the defaults; ownership wrappers forward these methods
+/// only when they preserve the underlying iterator capability.
 pub trait BitSetIteratorAccess {
   fn is_bit_iter(&self) -> bool {
     false
@@ -47,21 +47,18 @@ pub trait BitSetIteratorAccess {
 
 /// Rust-side specialization hooks for [`DocIdSetIterator`].
 pub trait DocIdSetIteratorExtensions {
-  /// Returns the wrapped fixed bit set when this iterator has the same shape
-  /// as Java's `BitSetIterator.getFixedBitSetOrNull` specialization.
+  /// Returns the wrapped fixed bit set when this iterator exposes that specialization.
   fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     None
   }
 
-  /// Returns the wrapped sparse fixed bit set when this iterator has the same
-  /// shape as Java's `BitSetIterator.getSparseFixedBitSetOrNull`
-  /// specialization.
+  /// Returns the wrapped sparse fixed bit set when this iterator exposes that specialization.
   fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
     None
   }
 
-  /// Returns Java's [`DocBaseBitSetIterator`](crate::core::util::doc_base_bit_set_iterator::DocBaseBitSetIterator) specialization as its document
-  /// base and backing bit set.
+  /// Returns the document base and backing bit set of a
+  /// [`DocBaseBitSetIterator`](crate::core::util::doc_base_bit_set_iterator::DocBaseBitSetIterator).
   fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
     None
   }

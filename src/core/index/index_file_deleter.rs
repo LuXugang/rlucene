@@ -457,7 +457,6 @@ where
       ExecutionOwner::IndexFileDeleter,
       ExecutionMethod::Checkpoint,
     );
-    // In Java Lucene, this method should be called while synchronized on IndexWriter instance.
     // `IndexFileDeleter` runs while the writer's inner mutex is held.
     let t0 = std::time::Instant::now();
 

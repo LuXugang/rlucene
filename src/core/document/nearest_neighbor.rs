@@ -80,7 +80,6 @@ impl<PT> Ord for Cell<PT> {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
     // BinaryHeap pops greatest first. We want closest cells first (smallest distance_sort_key).
     // Reverse comparison so smaller distance_sort_key is "greater" and pops first.
-    // This matches Java PriorityQueue natural ordering (closest cells explored first).
     CoreHelper::compare_f64(other.distance_sort_key, self.distance_sort_key)
   }
 }

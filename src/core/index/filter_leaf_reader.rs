@@ -15,20 +15,12 @@
  * limitations under the License.
  */
 
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 pub trait FilterLeafReader {}
 
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct FilterFields;
 
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct FilterTerms;
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct FilterTermsEnum;

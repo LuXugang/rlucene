@@ -1117,8 +1117,7 @@ impl KnnVectorsFormat for AssertingCodecKnnVectorsFormat {
   }
 }
 
-/// Static-dispatch access to the methods that Java subclasses override on
-/// [`AssertingCodec`].
+/// Static-dispatch access to overridable [`AssertingCodec`] methods.
 pub trait AssertingCodecBase {
   fn get_postings_format_for_field(&self, field: &str) -> Result<&AssertingCodecPostingsFormat>;
 

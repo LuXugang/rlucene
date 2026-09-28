@@ -249,7 +249,7 @@ fn test_binary_vectors_boundaries() {
 #[test]
 fn test_int4_dot_product() {
   let mut random = random();
-  // Java's int4 tests apply only to even parameter sizes.
+  // The int4 cases apply only to even parameter sizes.
   for test in TestVectorUtilSupport::parameters_factory().filter(|test| test.size.is_multiple_of(2))
   {
     test.test_int4_dot_product(&mut random);

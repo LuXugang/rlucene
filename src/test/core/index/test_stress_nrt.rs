@@ -330,8 +330,8 @@ impl Display for StressDirReader {
   }
 }
 
-/// Corresponds to Java fields protected by `synchronized (TestStressNRT.this)`:
-/// `reader`, `committedModel`, `snapshotCount`, `committedModelClock`.
+/// State protected by the shared test mutex: the reader, committed model,
+/// snapshot count and committed-model clock.
 struct SyncedState {
   reader: Option<DirReader>,
   committed_model: HashMap<i32, i64>,

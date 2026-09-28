@@ -94,7 +94,7 @@ fn test_ram_bytes_used() -> Result<()> {
 
   if let SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes::B(ref msdv) = sdv {
     let ram_bytes_used = msdv.mapping.ram_bytes_used()?;
-    // TODO: RamUsageTester is not implemented, so Java's exact recursive retained-heap comparison
+    // TODO: RamUsageTester is not implemented, so the exact recursive retained-heap comparison
     // cannot be reproduced; the Accountable result is only sanity-checked for now.
     assert!(ram_bytes_used > 0);
   } else {
@@ -108,7 +108,7 @@ fn test_ram_bytes_used() -> Result<()> {
 
   if let SingletonOrMultiSortedSetDocValuesEnum::Multi(ref mssdv) = ssdv {
     let ram_bytes_used = mssdv.mapping.ram_bytes_used()?;
-    // TODO: RamUsageTester is not implemented, so Java's exact recursive retained-heap comparison
+    // TODO: RamUsageTester is not implemented, so the exact recursive retained-heap comparison
     // cannot be reproduced; the Accountable result is only sanity-checked for now.
     assert!(ram_bytes_used > 0);
   } else {

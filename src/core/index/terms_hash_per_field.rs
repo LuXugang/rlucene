@@ -58,7 +58,7 @@ pub struct TermsHashPerField {
   // parent hash in the case that this TermsHashPerField is hashing term
   // vectors.
   pub(crate) bytes_hash: BytesRefHash<PostingsBytesStartArray>,
-  // Sorted term IDs stay in bytes_hash.ids; track Java's sortedTermIDs null state separately.
+  // Sorted term IDs stay in bytes_hash.ids; track whether they are available separately.
   #[cfg(debug_assertions)]
   is_sorted: bool,
   last_doc_id: i32, // only used with debug/asserts
@@ -73,8 +73,6 @@ impl TermsHashPerField {
     postings_array_wrapper: PostingsArrayWrapper,
     index_options: IndexOptions,
   ) -> Result<Self> {
-    // In the original Java code, we assert that indexOptions !=
-    // IndexOptions.NONE.
     debug_assert!(index_options != IndexOptions::None);
     let slice_pool = ByteSlicePool;
     let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
@@ -385,17 +383,11 @@ pub(crate) trait TermsHashPerFieldBase {
   where
     AS: AttributeSource;
   /// Called when the postings array is initialized or resized.
-  /// # Note
-  /// In rust Lucene, we do not need to init new postings array
-  /// But we still keep this method for consistent with the original Java code
   #[allow(dead_code)]
   fn new_postings_array(&mut self) -> Result<()> {
     Err(LuceneError::not_implemented("should nerve called"))
   }
   /// Creates a new postings array of the specified size.
-  /// # Note
-  /// In rust Lucene, we do not need to init new postings array
-  /// But we still keep this method for consistent with the original Java code
   #[allow(dead_code)]
   fn create_postings_array(&self, _size: i32) -> Result<PostingsArrayEnum> {
     Err(LuceneError::not_implemented(

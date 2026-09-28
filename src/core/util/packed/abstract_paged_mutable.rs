@@ -41,7 +41,7 @@ pub struct AbstractPagedMutable<T> {
   pub(crate) sub_mutables: Vec<MutableEnum>,
 }
 
-#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
+#[allow(private_bounds)]
 impl<T> AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase,
@@ -188,7 +188,7 @@ where
     self.grow_with_size(self.size() + 1)
   }
 }
-#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
+#[allow(private_bounds)]
 impl<T> LongValues for AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase,
@@ -203,7 +203,7 @@ where
     Ok(sub_mutable.get(index_in_page))
   }
 }
-#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
+#[allow(private_bounds)]
 impl<T> Accountable for AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase,
@@ -218,7 +218,7 @@ where
     Ok(byte_used)
   }
 }
-#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
+#[allow(private_bounds)]
 impl<T> Display for AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase + Display,

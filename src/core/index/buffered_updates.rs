@@ -405,8 +405,8 @@ impl DeletedTerms {
 
 impl Accountable for DeletedTerms {
   fn ram_bytes_used(&self) -> Result<i64> {
-    // BytesRefIntMap is inline in each bucket, not a separate allocation whose
-    // shallow size can be charged by the child as it is in Java.
+    // BytesRefIntMap is inline in each bucket, so its shallow size is accounted for
+    // by the bucket rather than by a separate child allocation.
     Ok(
       self
         .bytes_used

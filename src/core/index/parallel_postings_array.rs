@@ -56,16 +56,8 @@ impl PostingsArrayBase for ParallelPostingsArray {
 
 pub(crate) trait PostingsArrayBase {
   fn bytes_per_posting(&self) -> usize;
-  /// # Note
-  /// Diff to Java Lucene, this method used for array growing in Java Lucene,
-  /// But In Rust Lucene we do not need to init a new array instead we can
-  /// just grow the vector.
   #[allow(dead_code)]
   fn new_instance(&self, _size: i32) {}
-  /// # Note
-  /// Diff to Java Lucene, In Rust Lucene we do not need to init a new array
-  /// instead we can just grow the vector. But we still keep this method
-  /// with same function name for consistent.
   fn copy_to(&mut self, new_size: usize) -> Result<()>;
 }
 pub(crate) enum PostingsArrayEnum {

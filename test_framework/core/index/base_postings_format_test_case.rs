@@ -1025,8 +1025,7 @@ pub trait BasePostingsFormatTestCase:
         Store::No,
       )?);
       writer.add_document(random, just_body_doc)?;
-      // Java uses RamUsageTester only to choose a realistic amount of input. Rust has no JVM
-      // object-layout estimator, so count the retained text bytes that drive postings creation.
+      // Count retained text bytes to choose a realistic amount of input for postings creation.
       bytes_indexed += body_value.len().max(1) as i32;
     }
 

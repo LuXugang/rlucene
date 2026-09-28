@@ -393,11 +393,6 @@ pub trait MSBRadixSorterBase: Sorter {
   /// # Returns
   /// The k-th byte of the entry at index `i` as an `i32`, or `-1` if the
   /// entry's length is less than or equal to `k`.
-  ///
-  /// # Note
-  /// In Rust, this method might return a signed integer (`i32`) to
-  /// accommodate the `-1` case, which differs from Java's default integer
-  /// handling.
   fn byte_at(&mut self, _i: usize, _k: usize) -> Result<i32> {
     Err(LuceneError::not_implemented(""))
   }

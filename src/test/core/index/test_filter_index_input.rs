@@ -19,7 +19,7 @@ use crate::core::util::error::lucene_error::Result;
 struct TestFilterIndexInput;
 #[test]
 fn test_raw_filter_index_input_read() -> Result<()> {
-  // Rust Lucene does not expose Java's concrete FilterIndexInput wrapper.
+  // Rust Lucene does not expose a concrete FilterIndexInput wrapper.
   test_not_required_in_rust_lucene!();
 }
 
@@ -31,6 +31,6 @@ fn test_overrides() -> Result<()> {
 
 #[test]
 fn test_unwrap() -> Result<()> {
-  // Rust Lucene does not expose Java's FilterIndexInput#getDelegate/unwrap API.
+  // Rust Lucene does not expose the FilterIndexInput#getDelegate/unwrap API.
   test_not_required_in_rust_lucene!();
 }

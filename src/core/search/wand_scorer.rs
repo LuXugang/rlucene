@@ -936,8 +936,7 @@ pub(crate) fn scaling_factor(f: f32) -> Result<i32> {
   } else if f.is_infinite() {
     Ok(scaling_factor(f32::MAX)? - 1)
   } else {
-    // Widen to f64 so even subnormal f32 values have a normal exponent,
-    // matching Java's Math.getExponent((double) f).
+    // Widen to f64 so even subnormal f32 values have a normal exponent.
     let d = f as f64;
     let exp = ((d.to_bits() >> 52) & 0x7ff) as i32 - 1023;
     debug_assert!(d == 0.0 || exp >= -1022);

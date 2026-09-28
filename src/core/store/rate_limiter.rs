@@ -132,9 +132,9 @@ impl RateLimiter for SimpleRateLimiter {
    * Returns the pause time in nanoseconds.
    */
   fn pause(&self, bytes: i64) -> Result<i64> {
-    // Use a signed nanosecond clock so Java long conversion and overflow semantics
-    // also apply to NaN, negative rates and infinite pause lengths. The clock origin
-    // is arbitrary; start at one nanosecond, including on coarse-resolution clocks.
+    // Use a signed nanosecond clock to retain saturating conversion and wrapping arithmetic
+    // for NaN, negative rates and infinite pause lengths. The clock origin is arbitrary;
+    // start at one nanosecond, including on coarse-resolution clocks.
     let start_ns = (self.time_origin.elapsed().as_nanos() as i64).wrapping_add(1);
 
     let seconds_to_pause = (bytes as f64 / 1024.0 / 1024.0) / self.get_mb_per_sec();

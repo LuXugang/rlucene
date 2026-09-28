@@ -95,7 +95,7 @@ fn test_modify_on_unmodifiable() -> Result<()> {
 
 #[test]
 fn test_unmodifiable_set() -> Result<()> {
-  // TODO: CharArraySet::unmodifiable_set and Java's null argument behavior have not been migrated.
+  // TODO: CharArraySet::unmodifiable_set and null argument checks have not been migrated.
   Ok(())
 }
 
@@ -290,7 +290,7 @@ fn test_copy_jdk_set() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
-/// Tests the Java-only shared `EMPTY_SET` case; Rust uses [`CharArraySet::empty_set`].
+/// Tests the shared `EMPTY_SET` case; [`CharArraySet::empty_set`] returns an owned value.
 #[test]
 #[ignore = "Java-only: Rust exposes an owned empty value instead of Java's shared EMPTY_SET singleton"]
 fn test_copy_empty_set() -> Result<()> {

@@ -537,7 +537,7 @@ impl ByteBuffersIndexOutputOnClose for ByteBuffersDirectoryOutputOnClose {
     // Defensive check for an output that was deleted before it was closed. The
     // NRT-specific strategy must not publish deleted content or update cache
     // accounting, while ordinary custom strategies still receive their close
-    // callback as in Java's ByteBuffersDirectory.
+    // callback.
     if entry.deleted
       && matches!(
         self.output_to_input,

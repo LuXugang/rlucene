@@ -31,8 +31,7 @@ struct TestMathUtil;
 /// List of prime numbers.
 const PRIMES: [i64; 10] = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
 
-/// Generates a random `i64` value following the logic in the original Java
-/// function.
+/// Generates a random `i64` value.
 fn random_long<R>(random: &mut R) -> i64
 where
   R: Rng + ?Sized,

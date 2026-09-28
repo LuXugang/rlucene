@@ -33,10 +33,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, ToInt};
 
-/// Comparator based on Java's `Double.compare` semantics for `num_hits`.
+/// Comparator for `num_hits` that treats all NaNs as equal and greater than
+/// positive infinity, and sorts negative zero before positive zero.
 ///
-/// This comparator provides a skipping functionality – an iterator that can skip over
-/// non-competitive documents.
+/// Provides an iterator that can skip over non-competitive documents.
 pub struct DoubleComparator {
   values: Vec<f64>,
   top_value: f64,

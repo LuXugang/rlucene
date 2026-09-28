@@ -180,7 +180,7 @@ fn test_2b_terms() -> Result<()> {
   let mut custom_type = FieldType::from_ref(&*TYPE_NOT_STORED)?;
   custom_type.set_index_options(IndexOptions::Docs)?;
   custom_type.set_omit_norms(true)?;
-  // Each iteration installs a fresh token-stream wrapper over the same Java-equivalent stream
+  // Each iteration installs a fresh token-stream wrapper over the same stream
   // state while the surrounding `Document` is reused.
   let num_docs = (term_count / i64::from(terms_per_doc)) as i32;
 

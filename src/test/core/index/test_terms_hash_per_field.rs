@@ -114,7 +114,6 @@ fn test_add_and_update_term() -> Result<()> {
   let mut next_byte_pool = ByteBlockPool::new(DirectAllocatorByte::new());
   let mut base = hash.base.take().unwrap();
   base.start(&dummy_filed, true, &mut byte_pool)?;
-  // Pass `None` for the field as in the Java version (None)
   let mut int_pool = IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(Arc::new(
     AtomicCounter::new(),
   )));
@@ -511,8 +510,8 @@ fn test_write_bytes() -> Result<()> {
     }
 
     let mut reader = ByteSliceReader::new(&byte_pool);
-    // Java uses a separate term-byte pool, so its first postings slice starts at 0. Rust shares
-    // the pool with term bytes; initialize from the recorded stream boundaries instead.
+    // The pool is shared with term bytes; initialize from the recorded stream
+    // boundaries instead of assuming the first postings slice starts at zero.
     base.base.init_reader(&mut reader, 0, 0, &int_pool)?;
     for expected in random_data {
       assert_eq!(expected, reader.read_byte()?);

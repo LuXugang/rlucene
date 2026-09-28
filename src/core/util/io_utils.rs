@@ -355,8 +355,7 @@ impl IOUtils {
   /// Closes every item yielded by `objects` using the supplied `close`
   /// operation.
   ///
-  /// This is the iterator/custom-operation form of Java's `IOUtils.close`. Use
-  /// it for an arbitrary-length iterator or when the cleanup operation is not
+  /// Use this for an arbitrary-length iterator or when the cleanup operation is not
   /// the resource's standard `close` method. For resources that can be passed
   /// directly, use [`Self::close`] instead.
   ///
@@ -519,8 +518,7 @@ impl IOUtils {
         continue;
       };
       let location = location.as_ref();
-      // Keep Java's current leniency: missing locations, including broken
-      // symbolic links, are ignored.
+      // Missing locations, including broken symbolic links, are ignored.
       if location.exists() {
         Self::rm_path(&mut unremoved, location);
       }
@@ -562,9 +560,8 @@ impl IOUtils {
       for entry in entries {
         match entry {
           Ok(entry) => Self::rm_path(unremoved, &entry.path()),
-          // `ReadDir` does not expose the failed entry's path. Record the
-          // containing directory and keep visiting, like Java's
-          // `visitFileFailed` callback.
+          // `ReadDir` does not expose the failed entry's path. Record the containing
+          // directory and keep visiting.
           Err(error) => {
             unremoved.insert(location.to_path_buf(), error);
           },
@@ -664,8 +661,8 @@ impl IOUtils {
     }
   }
 
-  /// Combines a body result with a following close result using Java
-  /// try-with-resources suppression semantics.
+  /// Combines a body result with a following close result.
+  /// If both fail, the close failure is suppressed under the body failure.
   #[inline]
   pub fn use_or_suppress_result<T>(result: Result<T>, close_result: Result<()>) -> Result<T> {
     match (result, close_result) {
@@ -676,8 +673,8 @@ impl IOUtils {
     }
   }
 
-  /// Combines a caught body result with a caught close result using Java
-  /// try-with-resources suppression semantics.
+  /// Combines a caught body result with a caught close result.
+  /// If both fail, the close failure is suppressed under the body failure.
   #[inline]
   pub fn use_or_suppress_caught_result<T>(
     result: CaughtResult<T>,
@@ -709,9 +706,8 @@ impl IOUtils {
     }
   }
 
-  /// Combines a caught body result with a caught `finally` result using Java
-  /// `try`/`finally` semantics. A failure or panic in the `finally` block
-  /// overrides the body result or panic.
+  /// Combines a caught body result with a caught `finally` result.
+  /// A failure or panic in the `finally` block overrides the body result or panic.
   #[inline]
   pub fn finally_caught_result<T>(
     result: CaughtResult<T>,

@@ -46,7 +46,6 @@ use std::sync::Arc;
 pub struct AutomatonTermsEnum {
   /// A tableized array-based form of the DFA.
   /// array of sorted transitions for each state, indexed by state number
-  /// use AutomatonEnum instead of ByteRunnable/TransitionAccessor in Java Lucene
   automaton: AutomatonEnum,
   /// Common suffix of the automaton.
   common_suffix_ref: Option<Arc<BytesRef<Vec<u8>>>>,

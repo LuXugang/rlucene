@@ -371,7 +371,7 @@ impl DisjunctionMaxRewrite {
 }
 impl PartialEq for DisjunctionMaxRewrite {
   fn eq(&self, other: &Self) -> bool {
-    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // Compare distinct instances with primitive `==`; the identity case keeps `Eq`
     // reflexive when the tie breaker is NaN.
     std::ptr::eq(self, other) || self.tie_breaker_multiplier == other.tie_breaker_multiplier
   }

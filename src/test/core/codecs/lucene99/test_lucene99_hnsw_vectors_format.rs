@@ -55,7 +55,7 @@ fn test_to_string() -> Result<()> {
 
 #[test]
 fn test_limits() -> Result<()> {
-  // TODO: Rust uses usize for max_conn, so Java's maxConn=-1 constructor case cannot be expressed.
+  // TODO: A negative max_conn constructor argument cannot be expressed by usize.
   assert!(matches!(
     Lucene99HnswVectorsFormat::with_graph_para(0, 20),
     Err(LuceneError::IllegalArgument(_))
@@ -64,7 +64,7 @@ fn test_limits() -> Result<()> {
     Lucene99HnswVectorsFormat::with_graph_para(20, 0),
     Err(LuceneError::IllegalArgument(_))
   ));
-  // TODO: Rust uses usize for beam_width, so Java's beamWidth=-1 constructor case cannot be expressed.
+  // TODO: A negative beam_width constructor argument cannot be expressed by usize.
   assert!(matches!(
     Lucene99HnswVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20),
     Err(LuceneError::IllegalArgument(_))

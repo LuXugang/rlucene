@@ -228,7 +228,7 @@ where
     })
   }
 
-  #[allow(dead_code)] // Mirrors Java's retained package-private getRefCount method, which has no current callers.
+  #[allow(dead_code)]
   pub(crate) fn get_ref_count(&self) -> i32 {
     self.ref_.load(Ordering::SeqCst)
   }

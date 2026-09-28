@@ -41,7 +41,7 @@ impl Number {
       Number::I16(n) => n.to_u8(),
       Number::I32(n) => n.to_u8(),
       Number::I64(n) => n.to_u8(),
-      // Java byteValue first converts to int, then narrows to the low eight bits.
+      // Convert to i32 first, then narrow to the low eight bits.
       Number::F32(n) => Some(*n as i32 as u8),
       Number::F64(n) => Some(*n as i32 as u8),
       Number::BigInt(n) => n.to_u8(),
@@ -54,7 +54,7 @@ impl Number {
       Number::I16(n) => Some(*n),
       Number::I32(n) => n.to_i16(),
       Number::I64(n) => n.to_i16(),
-      // Java shortValue first converts to int, then narrows to the low sixteen bits.
+      // Convert to i32 first, then narrow to the low sixteen bits.
       Number::F32(n) => Some(*n as i32 as i16),
       Number::F64(n) => Some(*n as i32 as i16),
       Number::BigInt(n) => n.to_i16(),
@@ -67,7 +67,7 @@ impl Number {
       Number::I16(n) => n.to_i32(),
       Number::I32(n) => Some(*n),
       Number::I64(n) => n.to_i32(),
-      // Like Java intValue, Rust casts saturate overflow and convert NaN to zero.
+      // The cast saturates overflow and converts NaN to zero.
       Number::F32(n) => Some(*n as i32),
       Number::F64(n) => Some(*n as i32),
       Number::BigInt(n) => n.to_i32(),

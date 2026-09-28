@@ -134,9 +134,8 @@ impl Drop for ExpectedPanicGuard {
   }
 }
 
-/// Rust equivalent of `LuceneTestCase.expectThrows` for an expected Java
-/// `Error`. The panic hook is suppressed only on the thread that is currently
-/// checking the expected panic, since Java does not print expected throwables.
+/// Checks an expected panic. The panic hook is suppressed only on the thread
+/// currently checking that panic.
 pub(crate) fn expect_panic<T, F>(f: F)
 where
   F: FnOnce() -> T,

@@ -101,7 +101,6 @@ impl core::fmt::Display for Occur {
 }
 
 impl Occur {
-  /// Convenience mirror of Java helpers if you ever want them on [`Occur`] directly.
   pub fn is_required(self) -> bool {
     matches!(self, Occur::Must | Occur::Filter)
   }

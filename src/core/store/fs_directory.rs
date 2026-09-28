@@ -525,21 +525,5 @@ where
   }
 }
 
-/// The maximum chunk size is 8192 bytes in the original Java implementation
-/// because:
-/// - On certain platforms, Java's FileChannel or native I/O layers allocate a
-///   native buffer (outside the heap) for each write operation if the writing
-///   size exceeds 8192 bytes.
-/// - Limiting the chunk size avoids unnecessary native memory allocation and
-///   improves performance.
-///
-/// In Rust, this restriction is not necessary when using `BufWriter`, because:
-/// - `BufWriter` internally manages a buffer with a default size of 8192 bytes,
-///   which optimizes the write operations by batching smaller writes into a
-///   single larger writing.
-/// - There is no native memory allocation overhead similar to Java's
-///   FileChannel behavior.
-///
-/// As a result, in Rust, we can safely rely on `BufWriter` for efficient
-/// buffered writes without manually enforcing a chunk size limit.
+/// File output write-buffer capacity in bytes.
 const CHUNK_SIZE: usize = 8192;

@@ -51,7 +51,7 @@ use crate::test_framework::core::util::failure_context::{
 pub struct PersistentSnapshotDeletionPolicy<D> {
   /// Wrapped in-memory snapshot deletion policy.
   pub base: SnapshotDeletionPolicy<D>,
-  // Writes are serialized by the base policy monitor; Java leaves getLastSaveFile unsynchronized.
+  // Writes are serialized by the base policy monitor; reads of the last saved file are not.
   next_write_gen: Arc<AtomicI64>,
   dir: Arc<D>,
 }

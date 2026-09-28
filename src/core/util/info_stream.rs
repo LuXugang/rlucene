@@ -45,8 +45,7 @@ where
   }
 }
 
-/// A global, thread-safe reference to a default [`InfoStream`](crate::core::util::info_stream::InfoStream),
-/// mirroring `private static InfoStream defaultInfoStream` in Java.
+/// A global, thread-safe reference to the default [`InfoStream`](crate::core::util::info_stream::InfoStream).
 static DEFAULT_INFO_STREAM: LazyLock<RwLock<InfoStreamMT>> =
   LazyLock::new(|| RwLock::new(Arc::new(InfoStreamEnum::NoOutput(NoOutput))));
 

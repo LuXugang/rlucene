@@ -30,8 +30,7 @@ pub(crate) struct ImpactsDISI<M> {
   state: CompetitiveScoreState,
 }
 
-/// Keeps document iteration separate from the impacts source, as Java does for phrase and synonym
-/// scorers.
+/// Keeps document iteration separate from the impacts source for phrase and synonym scorers.
 pub(crate) struct SeparateIteratorMode<D, IS, SS> {
   iterator: D,
   max_score_cache: MaxScoreCache<IS, SS>,

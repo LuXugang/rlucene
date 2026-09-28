@@ -67,7 +67,7 @@ impl IntsRef<Arc<Vec<i32>>> {
   /// compare: same bytes reference, same offset, same length
   pub fn equals(a: &IntsRef<Arc<Vec<i32>>>, b: &IntsRef<Arc<Vec<i32>>>) -> bool {
     let v = Arc::ptr_eq(&a.ints, &b.ints);
-    // Simulate Java-style reference equality: if the bytes reference is the same,
+    // Check reference equality: if the backing array reference is the same,
     // then offset and length must also be equal.
     debug_assert!({
       if v {

@@ -390,7 +390,7 @@ fn test_to_string() -> Result<()> {
 
 #[test]
 fn test_limits() -> Result<()> {
-  // TODO: The Java -1 maxConn and beamWidth cases cannot be represented by Rust's usize
+  // TODO: Negative maxConn and beamWidth cases cannot be represented by usize
   // constructor parameters.
   assert!(matches!(
     Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(0, 20),

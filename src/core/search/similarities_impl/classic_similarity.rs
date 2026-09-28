@@ -46,7 +46,7 @@ impl TFIDFSimilarityBase for ClassicSimilarity {
   }
 
   fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
-    // Java adds in long precision before converting to double.
+    // Add in i64 precision before converting to f64.
     ((doc_count.wrapping_add(1) as f64 / doc_freq.wrapping_add(1) as f64).ln() + 1.0) as f32
   }
 

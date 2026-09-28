@@ -339,7 +339,6 @@ where
 
   #[allow(dead_code)]
   pub(crate) fn num_docs(&self) -> i32 {
-    // not used in Java Lucene, so we did not impl it
     0
   }
   pub fn ensure_open(&self) -> Result<()> {

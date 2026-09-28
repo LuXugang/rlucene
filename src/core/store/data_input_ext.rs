@@ -16,7 +16,7 @@
  */
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-/// Rust adaptation of Java's `instanceof IndexInput` and cast-based seek path.
+/// Optional positioning capability for data inputs.
 ///
 /// Ordinary data inputs use the defaults: `false` from `is_index_input` and
 /// unsupported positioning operations. Index inputs implement all three methods

@@ -319,8 +319,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
     DM: DocMap,
     DC: DocValuesConsumer,
   {
-    // `final_values` should always be `Some` here, because we call finish() before flush()
-    // but we still keep the check here for consistent with Java Lucene.
+    // `final_values` should always be `Some` here, because finish() runs before flush().
     let built_values;
     let built_value_counts;
     let (values, value_counts) = match self.final_values.as_ref() {

@@ -14,14 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// # Java intermediate base classes
-///
-/// In the original Java implementation, an intermediate abstract base class
-/// is often introduced to centralize shared control flow via inheritance.
-///
-/// During the Rust port, such an intermediate layer is frequently unnecessary.
-/// If it only performs direct forwarding without adding state, invariants,
-/// or behavioral constraints, the layer can be eliminated and the logic
-/// expressed directly via trait default methods or helper functions.
 #[allow(dead_code)]
 pub struct JavaIntermediateBaseClass;

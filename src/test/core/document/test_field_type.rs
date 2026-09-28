@@ -127,7 +127,6 @@ where
   R: Rng + ?Sized,
 {
   let mut ft = FieldType::new();
-  // Java discovers setters through reflection; call each setter explicitly here.
   ft.set_stored(random_value_bool(random))?;
   ft.set_tokenized(random_value_bool(random))?;
   ft.set_store_term_vectors(random_value_bool(random))?;

@@ -117,8 +117,8 @@ struct TermAndShardVersion {
 // We share collection stats for these fields on each node reopen:
 const FIELDS_TO_SHARE: [&str; 2] = ["body", "title"];
 
-// Java returns `TopDocs` for both branches; Rust represents the two concrete result types
-// explicitly because `TopFieldDocs` does not inherit from `TopDocs`.
+// Represent the two concrete result types explicitly because TopFieldDocs
+// does not inherit from TopDocs.
 enum SearchNodeResult {
   Score(TopDocs<ScoreDoc>),
   Field(TopFieldDocs),

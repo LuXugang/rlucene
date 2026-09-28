@@ -30,10 +30,8 @@ pub struct ArrayUtil;
 impl ArrayUtil {
   /// Maximum number of elements supported by Lucene's array-oriented APIs.
   ///
-  /// Java Lucene subtracts the JVM array header size from `i32::MAX`. Rust
-  /// vectors do not have a JVM array header, so the Lucene-level limit is
-  /// `i32::MAX`; [`oversize`](Self::oversize) separately enforces Rust's
-  /// allocation-size limit.
+  /// The element-count limit is `i32::MAX`; [`oversize`](Self::oversize) separately
+  /// enforces Rust's allocation-size limit.
   pub const MAX_ARRAY_LENGTH: usize = i32::MAX as usize;
   const MIN_RADIX: i32 = 2;
   const MAX_RADIX: i32 = 36;
@@ -126,10 +124,8 @@ impl ArrayUtil {
   /// generally over-allocating exponentially to achieve amortized linear-time
   /// cost as the vector grows.
   ///
-  /// This follows Java Lucene's growth policy: grow by one eighth, with a
-  /// minimum growth of three elements for small vectors. Unlike Java, no
-  /// element-count rounding is needed for JVM array-header alignment. Rust's
-  /// allocator handles the alignment required by the element type.
+  /// Grows by one eighth, with a minimum growth of three elements for small
+  /// vectors. The allocator handles the alignment required by the element type.
   ///
   /// `bytes_per_element` is used to ensure that the vector's element storage
   /// does not exceed Rust's `isize::MAX` byte allocation limit. A value of zero

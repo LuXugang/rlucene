@@ -129,8 +129,8 @@ fn test_to_string() -> Result<()> {
 
 #[test]
 fn test_invalid_values() -> Result<()> {
-  // Java's null object-setter checks are prevented by Rust's types. The remaining numeric setter
-  // validation also cannot be expressed until the Rust live-config setters return Result.
+  // Null object-setter arguments are prevented by the type system. Numeric setter
+  // validation cannot be expressed until the live-config setters return Result.
   test_not_required_in_rust_lucene!();
 }
 

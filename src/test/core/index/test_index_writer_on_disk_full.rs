@@ -413,7 +413,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
       }
 
       if done {
-        // Javadocs state that temp free Directory space
+        // The documented temporary free Directory space
         // required is at most 2X total input size of
         // indices so let's make sure:
         assert!(

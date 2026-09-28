@@ -25,8 +25,7 @@ use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 
-/// Global NO_OUTPUT singleton shared by all threads, matching Java's
-/// `private static final IntsRef NO_OUTPUT = new IntsRef()` semantics.
+/// Global NO_OUTPUT singleton shared by all threads.
 static NO_OUTPUT: LazyLock<IntsRef<Arc<Vec<i32>>>> = LazyLock::new(IntsRef::new);
 
 pub static SINGLETON: LazyLock<IntSequenceOutputs> = LazyLock::new(|| IntSequenceOutputs {

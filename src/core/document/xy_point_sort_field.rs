@@ -111,7 +111,7 @@ impl Hash for XYPointSortField {
 
 impl PartialEq for XYPointSortField {
   fn eq(&self, other: &Self) -> bool {
-    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // Compare distinct instances with primitive `==`; the identity case keeps `Eq`
     // reflexive when a coordinate is NaN.
     std::ptr::eq(self, other) || (self.base == other.base && self.x == other.x && self.y == other.y)
   }

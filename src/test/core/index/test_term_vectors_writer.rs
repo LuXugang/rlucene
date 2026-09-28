@@ -279,7 +279,7 @@ fn test_end_offset_position_char_analyzer() -> Result<()> {
 }
 #[test]
 fn test_end_offset_position_with_caching_token_filter() -> Result<()> {
-  // TODO: CachingTokenFilter is not implemented, so the Java token-stream reuse path cannot be
+  // TODO: CachingTokenFilter is not implemented, so the token-stream reuse path cannot be
   // represented faithfully.
   test_not_required_in_rust_lucene!();
 }

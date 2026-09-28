@@ -150,7 +150,6 @@ impl DocValuesWriter for BinaryDocValuesWriter {
   {
     self.bytes_out.paged_bytes.freeze(false)?;
     // final_lengths should already be available because finish() runs before flush().
-    // Build them here when needed, as Java Lucene does.
     if self.final_lengths.is_none() {
       self.final_lengths = Some(self.lengths.build()?);
     }

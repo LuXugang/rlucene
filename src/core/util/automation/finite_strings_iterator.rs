@@ -103,7 +103,7 @@ impl<'a> FiniteStringsIterator<'a> {
   ///
   /// The return value is only valid until the next call of this method.
   #[allow(clippy::should_implement_trait)]
-  // Mirrors Java's public, fallible lending API; std::Iterator cannot return the reused buffer borrowed from self.
+  // std::Iterator cannot return the reused buffer borrowed from self.
   pub fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
     // Special case the empty string, as usual:
     if self.emit_empty_string {

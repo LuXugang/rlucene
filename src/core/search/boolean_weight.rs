@@ -36,7 +36,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct BooleanWeight<IRC> {
-  #[allow(dead_code)] // Mirrors Java's package-private field, which is initialized but not read.
+  #[allow(dead_code)]
   pub(crate) similarity: Arc<SimilarityEnum>,
   pub(crate) weighted_clauses: Vec<WeightedBooleanClause<IRC>>,
   pub(crate) query: BooleanQuery,

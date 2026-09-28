@@ -692,7 +692,7 @@ where
     iwc.set_max_buffered_docs(min_buffered_docs);
   }
   iwc.set_codec(get_codec());
-  // TODO: Use the Java test framework's virus-checking directory variants after the equivalent
+  // TODO: Use virus-checking directory variants after the equivalent
   // FSDirectory and in-memory wrappers are implemented.
   let dir = if values.len() > 100000 {
     new_fs_directory(

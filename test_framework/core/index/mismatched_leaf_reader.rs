@@ -25,7 +25,7 @@ use rand::prelude::SliceRandom;
 use std::borrow::Borrow;
 use std::sync::Arc;
 
-#[allow(unused)] // for quick search; mirrors Java MismatchedLeafReader.
+#[allow(unused)]
 pub struct MismatchedLeafReader;
 
 pub struct MismatchedVisitor<'a, V, F = Arc<FieldInfos>> {

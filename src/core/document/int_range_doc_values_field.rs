@@ -39,7 +39,7 @@ use std::fmt::{Display, Formatter};
 /// BinaryDocValuesField.
 pub struct IntRangeDocValuesField {
   pub(crate) base: BinaryDocValuesField,
-  #[allow(dead_code)] // Mirrors Java's package-private field for source and test API fidelity.
+  #[allow(dead_code)]
   pub(crate) field: String,
   pub(crate) min: [i32; 4],
   pub(crate) max: [i32; 4],

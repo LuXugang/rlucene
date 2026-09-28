@@ -414,7 +414,7 @@ impl<P> LRUQueryCache<P> {
     skip_cache_factor: f32,
     leaves_to_cache: P,
   ) -> Result<Self> {
-    // Keep the negated comparison semantics from Java: NaN must be rejected as well.
+    // The negated comparison also rejects NaN.
     if matches!(
       skip_cache_factor.partial_cmp(&1.0),
       None | Some(std::cmp::Ordering::Less)
@@ -677,12 +677,8 @@ where
           }
         };
         let Some(singleton) = unique_queries.remove(query.as_ref()) else {
-          // Defensive parity with Java Lucene: production Rust query keys are expected to keep
-          // their Hash/Eq state stable after entering the cache. If a future interior-mutable
-          // query violates that invariant, fail fast instead of silently leaving cache state
-          // inconsistent.
-          // size did not decrease, because the hash of the query changed since it has been
-          // put into the cache
+          // Query keys must keep their Hash/Eq state stable after entering the cache.
+          // Fail if a changed hash prevents removal, rather than leave the cache inconsistent.
           return Err(LuceneError::concurrent_modification(format!(
             "Removal from the cache failed! This \
              is probably due to a query which has been modified after having been put into \

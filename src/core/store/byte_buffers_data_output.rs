@@ -32,9 +32,7 @@ use crate::core::util::{ReadableCursorExt, TryIntoInt, WritableCursorExt};
 
 /// A [`DataOutput`] storing data in a list of [`Cursor<Vec<u8>>`](Cursor).
 pub struct ByteBuffersDataOutput {
-  //In Rust Lucene, all data within each block is considered valid.
-  // However, in Java Lucene, the valid data range can be controlled
-  // by the `limit` parameter of the `java.nio.ByteBuffer` encapsulation.
+  // All data within each block is considered valid.
   blocks: VecDeque<Cursor<Vec<u8>>>,
   max_bits_per_block: i32,
   block_bits: i32,

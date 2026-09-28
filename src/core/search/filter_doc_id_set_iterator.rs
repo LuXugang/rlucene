@@ -14,7 +14,5 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct FilterDocIdSetIterator;

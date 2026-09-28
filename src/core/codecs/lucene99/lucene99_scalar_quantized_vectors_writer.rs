@@ -1236,7 +1236,7 @@ impl ScalarQuantizedFieldWriter {
     }
   }
 
-  #[allow(dead_code)] // Mirrors Java FieldWriter.isFinished; Rust returns the delegate field writer and tracks this wrapper separately.
+  #[allow(dead_code)]
   fn is_finished<FW>(&self, flat_field_vectors_writers: &mut [FW]) -> Result<bool>
   where
     FW: FlatFieldVectorsWriter,
@@ -1709,7 +1709,7 @@ where
         let old_scalar_quantizer = knn_vectors_reader.get_quantization_state(&field_info.name)?;
         // Either our quantization parameters are way different than the merged ones
         // or we have never been quantized. For smaller `bits` values, always
-        // recalculate the quantiles, matching Java's conservative int4 policy.
+        // recalculate the quantiles.
         let existing_values = match old_scalar_quantizer.as_ref() {
           Some(old_scalar_quantizer)
             if scalar_quantizer.get_bits() > 4

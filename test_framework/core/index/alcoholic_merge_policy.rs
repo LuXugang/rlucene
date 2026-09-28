@@ -54,10 +54,10 @@ impl AlcoholicMergePolicy {
       .timestamp_millis_opt(time_in_millis)
       .single()
       .unwrap_or_else(|| {
-        // Java's GregorianCalendar accepts every non-negative i64 millisecond value, while
-        // chrono's DateTime has a narrower year range. The Gregorian calendar repeats every
-        // 400 years, so normalize otherwise-unrepresentable instants into a future 400-year
-        // cycle. IANA zones use their recurring future transition rules in this range.
+        // chrono's DateTime cannot represent every non-negative i64 millisecond value.
+        // The Gregorian calendar repeats every 400 years, so normalize otherwise-
+        // unrepresentable instants into a future 400-year cycle. IANA zones use their
+        // recurring future transition rules in this range.
         const MILLIS_PER_400_YEARS: i64 = 146_097 * 24 * 60 * 60 * 1000;
         time_zone
           .timestamp_millis_opt(

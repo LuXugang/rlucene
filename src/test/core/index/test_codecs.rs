@@ -140,7 +140,7 @@ fn test_fixed_postings() -> Result<()> {
       .ok_or_else(|| LuceneError::illegal_state("term missing"))?;
     assert_eq!(term_data.text2, term.utf8_to_string()?);
 
-    // Do this twice to stress the codec's reuse/reset behavior, as in Java.
+    // Do this twice to stress the codec's reuse/reset behavior.
     for _ in 0..2 {
       let mut docs_enum = terms_enum.postings_with_flags(postings_enum.take(), NONE as i32)?;
       assert_eq!(term_data.docs[0], docs_enum.next_doc()?);

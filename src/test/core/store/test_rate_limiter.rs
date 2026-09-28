@@ -82,7 +82,6 @@ fn test_threads() -> Result<()> {
   // Only enforce that it wasn't too fast; if machine is bogged down (can't schedule threads /
   // sleep properly) then it may falsely be too slow:
   if ratio < 0.9 {
-    // mock Java's assumeTrue
     return Ok(());
   }
   assert!(

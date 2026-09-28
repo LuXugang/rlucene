@@ -20,17 +20,15 @@ use crate::core::search::multi_term_query::RewriteMethodEnum;
 
 /// Locale used by date range parsing.
 ///
-/// Java uses `java.util.Locale` here. Rust Lucene does not yet have a locale
-/// abstraction, so this type keeps the locale identifier while preserving a
-/// distinct configuration type.
+/// Keeps the locale identifier as a distinct configuration type; a locale
+/// abstraction is not yet available.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Locale(pub String);
 
 /// Time zone used by date range parsing.
 ///
-/// Java uses `java.util.TimeZone` here. Rust Lucene does not yet have a
-/// time-zone database abstraction in the query parser layer, so this type keeps
-/// the time-zone identifier while preserving a distinct configuration type.
+/// Keeps the time-zone identifier as a distinct configuration type; a time-zone
+/// database abstraction is not yet available in the query parser layer.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TimeZone(pub String);
 

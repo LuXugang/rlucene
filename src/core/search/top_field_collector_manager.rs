@@ -216,7 +216,6 @@ impl CollectorManager for TopFieldCollectorManager {
     let mut top_docs_list = Vec::with_capacity(len);
     for mut collector in collectors {
       let mut v = collector.top_docs()?;
-      // Discard `TopFieldDocs::fields` because the original Java Lucene implementation does not use it.
       top_docs_list.push(std::mem::take(&mut v.base));
     }
     top_docs::merge_top_field_docs_with_start(&self.sort, 0, self.num_hits, top_docs_list)

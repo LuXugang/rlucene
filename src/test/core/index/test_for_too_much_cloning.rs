@@ -46,9 +46,7 @@ fn test() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   config.set_max_buffered_docs(2).set_merge_policy(tmp);
-  // Java uses a FilterMergePolicy here so RandomIndexWriter cannot randomly
-  // reconfigure the merge policy. Rust RandomIndexWriter does not currently
-  // perform that reconfiguration.
+  // RandomIndexWriter does not randomly reconfigure the merge policy.
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
   let num_docs = 20;
   for _ in 0..num_docs {

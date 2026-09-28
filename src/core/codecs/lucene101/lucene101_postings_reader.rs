@@ -1641,7 +1641,6 @@ impl Impacts for ImpactsImpl<'_> {
 
   fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
     if self.index_has_freq {
-      // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
       if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {
         let level0_serialized_impacts_bytes_ref = self
           .level0_serialized_impacts

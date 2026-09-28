@@ -238,7 +238,7 @@ pub trait BaseGeoPointTestCase {
   /// Null field name not allowed.
   #[allow(dead_code)]
   fn test_box_null(&self) -> Result<()> {
-    // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
+    // These concrete test entries are ignored because `&str` cannot be null.
     Ok(())
   }
 
@@ -290,7 +290,7 @@ pub trait BaseGeoPointTestCase {
   /// Null field name not allowed.
   #[allow(dead_code)]
   fn test_distance_null(&self) -> Result<()> {
-    // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
+    // These concrete test entries are ignored because `&str` cannot be null.
     Ok(())
   }
 
@@ -487,7 +487,7 @@ pub trait BaseGeoPointTestCase {
   /// Null field name not allowed.
   #[allow(dead_code)]
   fn test_polygon_null_field(&self) -> Result<()> {
-    // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
+    // These concrete test entries are ignored because `&str` cannot be null.
     Ok(())
   }
 

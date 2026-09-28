@@ -767,9 +767,6 @@ impl BytesStartArray for DirectBytesStartArray {
   }
 }
 
-/// # Note
-/// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language
-/// limitations, a new MSBStringHashRadixSorter is currently being used.
 pub struct MSBStringHashRadixSorter<'a, T: StringSorterBase, C> {
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch2: BytesRefBuilder<Vec<u8>>,

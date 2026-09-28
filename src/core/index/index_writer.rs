@@ -168,7 +168,7 @@ impl IndexingDocument for &mut Document {}
 /// you should **not** synchronize on the [`IndexWriter`] instance as this may cause deadlock; use
 /// your own (non-Lucene) objects instead.
 ///
-/// **NOTE**: Rust does not expose Java-style thread interruption. Callers should use explicit
+/// **NOTE**: Rust does not provide a thread-interruption API. Callers should use explicit
 /// cancellation or timeout mechanisms when coordinating work performed by [`IndexWriter`].
 ///
 /// Clarification: Check Points (and commits)
@@ -1233,8 +1233,7 @@ where
       return Ok(());
     }
 
-    // Java keeps the SegmentCommitInfo argument available throughout this method. Rust addresses
-    // it by ID, so retain the SegmentInfo before either collection can remove its last entry.
+    // Retain the SegmentInfo before either collection can remove its last entry.
     // This also covers a segment that has already moved from the live list to the retained map
     // while ReaderPool still holds it.
     let segment_info = inner
@@ -1525,7 +1524,6 @@ where
           let value = match f.numeric_value()? {
             Some(Number::I64(value)) => Some(value),
             Some(value) => {
-              // Java casts numericValue to Long here instead of calling longValue.
               return Err(LuceneError::illegal_argument(format!(
                 "numeric docvalues update for field={} requires an i64 value, got {:?}",
                 name, value
@@ -2039,7 +2037,7 @@ where
         // final clause below:
         success = false;
       }
-      // Reapply the hook after CFS updates and before writing .si, as in Java.
+      // Reapply the hook after CFS updates and before writing .si.
       let sci = merge
         .info
         .take()
@@ -3006,15 +3004,14 @@ where
       })
     }));
     if !matches!(&abort_result, Ok(Ok(()))) {
-      // Java clears pendingMerges only after every abort succeeds. Restore the
-      // detached queue on either an error or panic so cleanup can be retried.
+      // Clear pending merges only after every abort succeeds. Restore the detached
+      // queue on either an error or panic so cleanup can be retried.
       inner.pending_merges = pending_merges;
     }
     unwrap_caught_result!(abort_result)?;
 
-    // Java keeps one writer-level AddIndexesMergeSource and aborts its pending merges here.
-    // Rust needs one typed source per CodecReader type, so keep weak references to all live
-    // sources and abort each of them while holding the same writer lock used for registration.
+    // Keep weak references to all live typed AddIndexesMergeSource instances and abort
+    // each while holding the same writer lock used for registration.
     let add_indexes_merge_sources = std::mem::take(&mut inner.add_indexes_merge_sources);
     let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       IOUtils::close_with(&add_indexes_merge_sources, |source| {
@@ -3026,7 +3023,7 @@ where
       })
     }));
     if !matches!(&abort_result, Ok(Ok(()))) {
-      // Keep failed sources reachable by the next writer-wide abort, as in Java.
+      // Keep failed sources reachable by the next writer-wide abort.
       inner.add_indexes_merge_sources = add_indexes_merge_sources;
     }
     unwrap_caught_result!(abort_result)?;
@@ -3176,7 +3173,7 @@ where
     self
       .event_queue
       .add(Event::ApplyUpdatesPacket(packet.clone()))?;
-    // Retain the published packet for callers that log it after publication, as in Java.
+    // Retain the published packet for callers that log it after publication.
     Ok((next_gen, packet))
   }
   /// Atomically adds the segment private delete packet and publishes the flushed segments SegmentInfo to the index writer.
@@ -8213,10 +8210,8 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::time::{Duration, Instant};
 
-/// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
-/// it's well below the typical JVM's `ArrayUtil.MAX_ARRAY_LENGTH` and
-/// avoid potential overflow issues across JVM implementations.
-/// In Rust Lucene, we keep the same value for consistency.
+/// Maximum number of documents: `i32::MAX - 128`, leaving headroom below
+/// the signed integer limit.
 pub const MAX_DOCS: i32 = i32::MAX - 128;
 /// Maximum value for the token position in an indexed field.
 pub const MAX_POSITION: i32 = i32::MAX - 128;
@@ -8742,7 +8737,7 @@ where
     if matches!(&result, Ok(Ok(()))) {
       self.processed_merges.lock().extend(pending_merges);
     } else {
-      // Java clears the pending queue only after every abort succeeds.
+      // Clear the pending queue only after every abort succeeds.
       *self.pending_merges.lock() = pending_merges;
     }
     unwrap_caught_result!(result)
@@ -8879,7 +8874,7 @@ impl DocModifier for DocModifierImpl1 {
   }
 }
 
-/// DocModifierImpl2: applies doc values updates to a document, following the Java tryUpdateDocValue lambda.
+/// Applies doc values updates to a document.
 struct DocModifierImpl2 {
   dv_updates: Vec<DocValuesUpdate>,
 }

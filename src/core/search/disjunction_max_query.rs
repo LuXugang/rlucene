@@ -81,7 +81,7 @@ impl DisjunctionMaxQuery {
   where
     I: IntoIterator<Item = Query>,
   {
-    // Keep Java's pair of primitive comparisons: NaN passes this check.
+    // NaN passes this pair of primitive comparisons.
     if tie_breaker_multiplier < 0.0 || tie_breaker_multiplier > 1.0 {
       return Err(LuceneError::illegal_argument(
         "tie_breaker_multiplier must be in [0, 1]",
@@ -233,7 +233,7 @@ impl QueryBase for DisjunctionMaxQuery {
 }
 impl PartialEq for DisjunctionMaxQuery {
   fn eq(&self, other: &Self) -> bool {
-    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // Compare distinct instances with primitive `==`; the identity case keeps `Eq`
     // reflexive when the accepted tie breaker is NaN.
     std::ptr::eq(self, other)
       || (self.tie_breaker_multiplier == other.tie_breaker_multiplier

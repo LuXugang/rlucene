@@ -255,8 +255,7 @@ impl Builder {
     if self.pending_off == self.pending.len() {
       let current_value_len = self.values.len();
       if current_value_len == self.values_off {
-        // Not consistent with the Java version implementation, we
-        // increase by half of the current length
+        // Increase by half of the current length.
         let new_length = current_value_len + current_value_len / 2;
         debug_assert!(new_length <= i32::MAX as usize);
         self.grow(new_length)?;

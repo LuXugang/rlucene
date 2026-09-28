@@ -269,8 +269,8 @@ where
     D2: Directory,
     CR: crate::core::index::codec_reader::CodecReader,
   {
-    // Java only takes the bulk path when every entry is a non-null
-    // Lucene90PointsReader. Sorted/wrapped or absent readers use the generic merge.
+    // Use the bulk path only when every entry is a non-null Lucene90PointsReader.
+    // Sorted/wrapped or absent readers use the generic merge.
     if merge_state.points_readers.iter().any(|reader| {
       reader
         .as_ref()

@@ -399,9 +399,8 @@ impl Bits for SparseFixedBitSet {
     let index = self.indices[i4096];
     let i64 = i >> 6;
     let i64bit = 1_u64 << (i64 % 64);
-    // first check the index, if the i64-th bit is not set, then i is not
-    // set note: this relies on the fact that shifts are mod 64 in
-    // java
+    // If the i64-th index bit is not set, then bit i is not set.
+    // Shift distances are reduced modulo 64.
     if index & i64bit == 0 {
       return Ok(false);
     }

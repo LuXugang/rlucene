@@ -2236,7 +2236,7 @@ where
     self.stat.has_finished()
   }
 
-  #[allow(dead_code)] // Java calls this on OneMerge; Rust addIndexes tracks the detached MergeStat values directly.
+  #[allow(dead_code)]
   pub(crate) fn has_completed_successfully(&self) -> Option<bool> {
     self.stat.has_completed_successfully()
   }

@@ -62,7 +62,7 @@ impl<'a> LimitedFiniteStringsIterator<'a> {
 
   /// Generates the next finite string, or `None` when the limit is reached.
   #[allow(clippy::should_implement_trait)]
-  // Mirrors Java's public, fallible lending API; std::Iterator cannot return the reused buffer borrowed from self.
+  // std::Iterator cannot return the reused buffer borrowed from self.
   pub fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
     if self.count >= self.limit {
       return Ok(None);

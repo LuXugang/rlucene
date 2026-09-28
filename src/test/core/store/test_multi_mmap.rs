@@ -496,9 +496,8 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
 
     let mut input = mmap_dir.open_input("a", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
-    // TODO IMPORTANT: Java verifies the error for seek(-1234). Rust's
-    // IndexInput::seek accepts usize, so a negative position cannot be
-    // represented at this API boundary.
+    // TODO IMPORTANT: The seek(-1234) error case cannot be represented because
+    // IndexInput::seek accepts usize.
 
     let pos_after_eof = size + 123;
     let eof = input.seek(pos_after_eof).unwrap_err();

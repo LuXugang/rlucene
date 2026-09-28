@@ -1734,7 +1734,7 @@ fn test_multi_sort() -> Result<()> {
 #[test]
 #[ignore = "LongValuesSource, DoubleValuesSource and Sort::rewrite are not implemented"]
 fn test_rewrite() -> Result<()> {
-  // TODO: Restore this Java test after LongValuesSource/DoubleValuesSource sort fields and
+  // TODO: Restore this test after LongValuesSource/DoubleValuesSource sort fields and
   // Sort::rewrite are implemented.
   Ok(())
 }

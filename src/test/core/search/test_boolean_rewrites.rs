@@ -436,7 +436,6 @@ fn test_match_all_must_not() -> Result<()> {
 fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
   let mut random = random();
 
-  // Java: newSearcher(new MultiReader())
   let reader = MultiReader::empty()?;
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -495,7 +494,6 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
 fn test_deeply_nested_boolean_rewrite() -> Result<()> {
   let mut random = random();
 
-  // Java: newSearcher(new MultiReader())
   let reader = MultiReader::empty()?;
   let searcher = new_searcher_with_reader(reader)?;
   let depth: usize = random.random_range(10..=30);

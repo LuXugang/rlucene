@@ -124,8 +124,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
     DM: DocMap,
     DC: DocValuesConsumer,
   {
-    // `final_values` should always be `Some` here, because we call finish() before flush()
-    // but we still keep the check here for consistent with Java Lucene.
+    // `final_values` should always be `Some` here, because finish() runs before flush().
     let final_values = match &mut self.final_values {
       Some(final_values) => final_values,
       slot @ None => slot.insert(std::mem::take(&mut self.pending).build()?),

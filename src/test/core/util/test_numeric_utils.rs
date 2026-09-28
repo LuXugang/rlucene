@@ -764,8 +764,8 @@ fn test_longs_compare() -> Result<()> {
 
   Ok(())
 }
-/// Checks that the sort order of encoded `f32` values is consistent with
-/// Java `Float.compare`.
+/// Checks the sort order of encoded `f32` values, treating all NaNs as equal
+/// and greater than positive infinity, and negative zero as less than positive zero.
 ///
 /// This test ensures that when two random `f32` values are encoded using
 /// `NumericUtils::float_to_sortable_int`, the lexicographic comparison of
@@ -800,8 +800,8 @@ fn test_floats_compare() -> Result<()> {
 
   Ok(())
 }
-/// Checks that the sort order of encoded `f64` values is consistent with
-/// Java `Double.compare`.
+/// Checks the sort order of encoded `f64` values, treating all NaNs as equal
+/// and greater than positive infinity, and negative zero as less than positive zero.
 ///
 /// This test ensures that when two random `f64` values are encoded using
 /// `NumericUtils::double_to_sortable_long`, the lexicographic comparison of

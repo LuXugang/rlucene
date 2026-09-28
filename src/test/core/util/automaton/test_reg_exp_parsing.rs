@@ -157,8 +157,7 @@ impl TestRegExp {
     }
 
     let regex_pattern = result;
-    // Assert our randomly generated regex actually matches the provided raw input
-    // using java's expression matcher
+    // Assert that the randomly generated regex matches the provided raw input.
     let re = if self.case_sensitive_query {
       Regex::new(&regex_pattern).unwrap()
     } else {

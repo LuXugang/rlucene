@@ -182,7 +182,7 @@ where
     self.pos_shift = pos;
   }
 
-  #[allow(unused_assignments)] // Preserves the Java control flow when ANY matching peters out.
+  #[allow(unused_assignments)]
   fn count_matches(&mut self) -> Result<()> {
     self.freq = 0;
     for &index in &self.subs_on_doc {

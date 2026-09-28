@@ -79,8 +79,7 @@ use crate::core::util::info_stream::InfoStreamMT;
 /// [`DeleteSlice`](crate::core::index::DeleteSlice)
 /// [`DocumentsWriterPerThread`](crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread)
 pub struct DocumentsWriterDeleteQueue {
-  // Java synchronizes several queue operations on `this`; this lock carries
-  // that monitor.
+  // Serializes queue operations that share this monitor.
   queue_lock: Mutex<QueueState>,
   // The current end (latest delete operation) in the delete queue.
   tail: Mutex<Arc<Node>>,

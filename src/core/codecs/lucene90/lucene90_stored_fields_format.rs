@@ -100,7 +100,7 @@ impl Default for Lucene90StoredFieldsFormat {
 }
 
 impl Lucene90StoredFieldsFormat {
-  /// Attribute key for compression mode, as persisted by Java Lucene.
+  /// Attribute key for compression mode persisted in segment metadata.
   const MODE_KEY: &'static str = "Lucene90StoredFieldsFormat.mode";
 
   /// Shoot for 10 sub blocks of 48kB each.

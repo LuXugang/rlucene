@@ -680,7 +680,7 @@ fn test_index_writer_reopen_segment() -> Result<()> {
 }
 
 fn do_test_index_writer_reopen_segment(do_full_merge: bool) -> Result<()> {
-  // TODO: getAssertNoDeletesDirectory is not implemented, so this currently lacks Java's wrapper
+  // TODO: getAssertNoDeletesDirectory is not implemented, so this currently lacks the wrapper
   // assertion that reopened segments expose no deletes.
   let mut random = random();
   let dir1 = new_directory_shared(&mut random)?;
@@ -1502,8 +1502,6 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
 
 /// Assert that the leaf readers of the provided directory reader are sorted
 /// according to the provided leafSorter.
-///
-/// [Java reference: TestIndexWriterReader.assertLeavesSorted]
 fn assert_leaves_sorted<DR>(reader: &DR, sorter: &PointValueLeafSorter) -> Result<()>
 where
   DR: DirectoryReader,

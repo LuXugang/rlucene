@@ -25,16 +25,10 @@ use crate::core::store::native_fs_lock_factory::NativeFSLockFactory;
 use crate::core::store::{IOContext, ReadAdvice, fs_lock_factory};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-/// Default maximum mmap chunk size.
-///
-/// This matches Java Lucene's defaults: 16 GiB on 64-bit targets and 256 MiB
-/// otherwise.
+/// Default maximum mmap chunk size: 16 GiB on 64-bit targets and 256 MiB otherwise.
 #[cfg(target_pointer_width = "64")]
 pub const DEFAULT_MAX_CHUNK_SIZE: u64 = 1u64 << 34;
-/// Default maximum mmap chunk size.
-///
-/// This matches Java Lucene's defaults: 16 GiB on 64-bit targets and 256 MiB
-/// otherwise.
+/// Default maximum mmap chunk size: 16 GiB on 64-bit targets and 256 MiB otherwise.
 #[cfg(not(target_pointer_width = "64"))]
 pub const DEFAULT_MAX_CHUNK_SIZE: u64 = 1u64 << 28;
 
@@ -155,8 +149,7 @@ impl MMapDirectory {
   /// specifying both the lock factory and the maximum mmap chunk size.
   ///
   /// Using a smaller chunk size can help on address-space constrained
-  /// platforms. The chunk size is rounded down to a power of two, matching
-  /// Java Lucene's constructor behavior.
+  /// platforms. The chunk size is rounded down to a power of two.
   pub fn with_lock_factory_and_max_chunk_size<D, P>(
     directory: P,
     lock_factory: D,

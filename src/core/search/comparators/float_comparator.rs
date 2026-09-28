@@ -33,8 +33,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, ToInt};
 
-/// Comparator based on Java's `Float.compare` semantics for `num_hits`.
-/// This comparator provides a skipping functionality – an iterator that can skip over non-competitive documents.
+/// Comparator for `num_hits` that treats all NaNs as equal and greater than
+/// positive infinity, and sorts negative zero before positive zero.
+///
+/// Provides an iterator that can skip over non-competitive documents.
 pub struct FloatComparator {
   values: Vec<f32>,
   top_value: f32,

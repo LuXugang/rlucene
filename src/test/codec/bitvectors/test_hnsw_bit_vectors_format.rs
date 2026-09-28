@@ -211,7 +211,7 @@ fn test_to_string() -> Result<()> {
 
 #[test]
 fn test_limits() -> Result<()> {
-  // Rust uses usize for max_conn and beam_width, so Java's -1 cases cannot be expressed.
+  // Negative max_conn and beam_width cases cannot be expressed by usize parameters.
   assert!(matches!(
     HnswBitVectorsFormat::with_graph_para(0, 20),
     Err(LuceneError::IllegalArgument(_))

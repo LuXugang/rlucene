@@ -174,7 +174,7 @@ impl Lock for State {
     }
     match guard.as_mut() {
       Some((_, hold_count)) => {
-        // Java ReentrantLock throws Error if its signed hold count overflows.
+        // Fail if the signed lock hold count overflows.
         assert!(*hold_count < i32::MAX, "Maximum lock count exceeded");
         *hold_count += 1;
       },
@@ -187,7 +187,7 @@ impl Lock for State {
     let mut guard = self.lock_state.lock();
     match guard.as_mut() {
       Some((owner, hold_count)) if *owner == current => {
-        // Java ReentrantLock throws Error if its signed hold count overflows.
+        // Fail if the signed lock hold count overflows.
         assert!(*hold_count < i32::MAX, "Maximum lock count exceeded");
         *hold_count += 1;
         true
@@ -231,7 +231,7 @@ where
     debug_assert!(!matches!(&throwable, Ok(Ok(()))));
     let _ = self.aborting_exception.set(throwable);
   }
-  #[allow(dead_code)] // Mirrors Java; Rust reads the separately synchronized DWPT state without locking the writer.
+  #[allow(dead_code)]
   pub(crate) fn is_aborted(&self) -> bool {
     self.state.is_aborted()
   }
@@ -698,9 +698,8 @@ where
         self.segment_info.set_files(files)?;
 
         let dir = self.segment_info.dir.clone();
-        // Java keeps the same SegmentInfo instance in the DWPT after constructing
-        // SegmentCommitInfo. Rust must move it, so retain a file-only mirror for
-        // flushFailed; otherwise the replacement dummy reports no files.
+        // Retain a file-only mirror before moving SegmentInfo into SegmentCommitInfo,
+        // so flushFailed can still find the files; the replacement dummy reports none.
         let mut replacement_segment_info = SegmentInfo::dummy(dir);
         replacement_segment_info.name = self.segment_info.name.clone();
         replacement_segment_info.set_files(self.segment_info.files()?)?;
@@ -1010,7 +1009,7 @@ where
     res
   }
 
-  #[allow(dead_code)] // Mirrors Java; Rust must move this value out when reporting a failed flush.
+  #[allow(dead_code)]
   pub(crate) fn get_segment_info(&self) -> &SegmentInfo<D> {
     &self.segment_info
   }
@@ -1021,7 +1020,7 @@ where
   }
 
   /// Sets this DWPT as flush pending. This can only be set once.
-  #[allow(dead_code)] // Mirrors Java; Rust updates the separately synchronized DWPT state directly.
+  #[allow(dead_code)]
   pub(crate) fn set_flush_pending(&self) -> Result<()> {
     self.state.set_flush_pending()
   }
@@ -1057,7 +1056,7 @@ where
   }
 
   /// Returns `true` iff this DWPT has been flushed
-  #[allow(dead_code)] // Mirrors Java; Rust checks the separately synchronized DWPT state without locking the writer.
+  #[allow(dead_code)]
   pub(crate) fn has_flushed(&self) -> bool {
     self.state.has_flushed()
   }

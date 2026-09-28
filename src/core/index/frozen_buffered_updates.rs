@@ -142,7 +142,7 @@ impl FrozenBufferedUpdates {
         ),
       )?;
     }
-    // Retain the source maps if a fallible freeze operation fails, as Map.copyOf does in Java.
+    // Retain the source maps if a fallible freeze operation fails.
     for (query, limit) in std::mem::take(&mut updates.delete_queries) {
       delete_queries.push(query);
       delete_query_limits.push(limit);

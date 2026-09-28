@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Rust uses the newer Lucene94FieldInfosFormat and its corresponding tests. The Java
-// TestLucene90FieldInfosFormat tests are intentionally not migrated; keep only this marker so
-// future migration audits do not add a duplicate legacy test suite.
+// Lucene94FieldInfosFormat and its corresponding tests supersede this legacy suite.
+// Keep this marker to avoid adding duplicate field-info format tests.
 #[allow(dead_code)] // for quick search
 struct TestLucene90FieldInfosFormat;

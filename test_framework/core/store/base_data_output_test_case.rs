@@ -150,8 +150,8 @@ where
         let len = rnd.random_range(0..=100);
         let bytes: Vec<u8> = (0..len).map(|_| rnd.random()).collect();
         let bytes_len = bytes.len();
-        // Rust has no separate ByteBuffer overload, but consume the same two
-        // random choices as Java before using the byte-slice APIs.
+        // Consume two random choices before using the byte-slice APIs to preserve
+        // the test randomization sequence.
         let _write_byte_buffer = rnd.random_bool(0.5);
         dst.write_bytes_with_len(&bytes, bytes_len)?;
         let _use_buffers_for_read = rnd.random_bool(0.5);

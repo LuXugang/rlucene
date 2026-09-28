@@ -19,7 +19,7 @@ use crate::core::util::error::lucene_error::Result;
 #[allow(dead_code)] // for quick search
 struct TestAssertions;
 
-/// Validates that Java assertions are enabled for token-stream subclass checks.
+/// Validates assertion enablement for token-stream subclass checks.
 #[test]
 #[ignore = ""]
 fn test_token_streams() -> Result<()> {

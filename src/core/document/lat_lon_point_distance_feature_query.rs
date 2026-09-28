@@ -93,7 +93,7 @@ impl LatLonPointDistanceFeatureQuery {
 
 impl PartialEq for LatLonPointDistanceFeatureQuery {
   fn eq(&self, other: &Self) -> bool {
-    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // Compare distinct instances with primitive `==`; the identity case keeps `Eq`
     // reflexive when an accepted value is NaN.
     std::ptr::eq(self, other)
       || (self.field == other.field

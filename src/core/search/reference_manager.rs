@@ -142,8 +142,8 @@ where
 
   fn do_maybe_refresh(&self) -> Result<()> {
     // It is okay to call lock() here because callers have already obtained refresh_lock. This
-    // protects against accidentally calling this method outside the lock's scope. ReentrantMutex,
-    // like Java's ReentrantLock, permits the same thread to lock more than once as long as it
+    // protects against accidentally calling this method outside the lock's scope. ReentrantMutex
+    // permits the same thread to lock more than once as long as it
     // unlocks the same number of times.
     let _refresh_lock = self.refresh_lock.lock();
     let reference = self.acquire()?;

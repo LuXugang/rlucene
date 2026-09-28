@@ -225,8 +225,7 @@ impl Meta {
     }
   }
 
-  /// Unlike Java Lucene, here we return a new object with identical
-  /// properties.
+  /// Returns a new object with identical properties.
   pub fn single_zero_block() -> Self {
     Meta::new(1, 63)
   }

@@ -400,7 +400,6 @@ fn test_segment_partitions_same_slice() -> Result<()> {
 
   for ctx in searcher.get_leaf_contexts()? {
     if ctx.reader().max_doc()? <= 1 {
-      // mock Java's assumeTrue
       return Ok(());
     }
   }

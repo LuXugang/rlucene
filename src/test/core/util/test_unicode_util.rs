@@ -76,14 +76,14 @@ fn test_new_string() -> Result<()> {
   assert_eq!(first_second, UnicodeUtil::new_string(&code_points, 0, 2)?);
   assert_eq!(second, UnicodeUtil::new_string(&code_points, 1, 1)?);
 
-  // Rust String cannot contain the unpaired UTF-16 surrogate that Java String accepts, so the
-  // Java-success cases containing code point 0xDBFF must fail in Rust.
+  // String cannot contain unpaired UTF-16 surrogates, so cases containing code
+  // point 0xDBFF must fail.
   assert!(UnicodeUtil::new_string(&code_points, 1, 2).is_err());
   assert!(UnicodeUtil::new_string(&code_points, 1, 3).is_err());
   assert!(UnicodeUtil::new_string(&code_points, 2, 2).is_err());
   assert!(UnicodeUtil::new_string(&code_points, 2, 3).is_err());
   assert!(UnicodeUtil::new_string(&code_points, 4, 5).is_err());
-  // TODO: Java's negative count case cannot be expressed by Rust's usize count parameter.
+  // TODO: The negative count case cannot be expressed by Rust's usize count parameter.
   Ok(())
 }
 

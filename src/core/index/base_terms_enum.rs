@@ -18,8 +18,6 @@ use crate::core::index::term_state::TermState;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Display, Formatter};
 
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 pub struct BaseTermsEnum;
 
 #[derive(Debug, Clone, Default)]

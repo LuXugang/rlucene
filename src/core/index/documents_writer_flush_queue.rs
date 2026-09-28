@@ -249,7 +249,7 @@ where
     self.segment.take()
   }
   /// Returns a frozen global deletes package.
-  #[allow(dead_code)] // Mirrors Java's getFrozenUpdates; Rust publishers take ownership instead. See take_frozen_updates
+  #[allow(dead_code)]
   pub(crate) fn get_frozen_updates(&self) -> Option<&FrozenBufferedUpdates> {
     self.frozen_updates.as_ref()
   }

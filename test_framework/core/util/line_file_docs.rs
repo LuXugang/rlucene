@@ -152,8 +152,7 @@ impl LineFileDocs {
     Ok(())
   }
 
-  /// Note: Document instance is re-used per-thread in Java. This Rust port keeps the same DocState
-  /// shape and refreshes the stored Document from the current field values.
+  /// Refreshes the stored Document from the current field values in DocState.
   pub fn next_doc(&mut self) -> Result<&mut Document> {
     let mut line = String::new();
     {

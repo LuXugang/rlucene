@@ -38,8 +38,8 @@ use crate::core::util::packed::monotonic_block_packed_reader::expected;
 ///   - `B`: The `B` from `f(x) = A * x + B` encoded using
 ///     [`BitUtil::zig_zag_encode_i64`](crate::core::util::bit_util::BitUtil::zig_zag_encode_i64)
 ///     with [`DataOutput::write_vlong`].
-///   - `A`: The `A` from `f(x) = A * x + B` encoded like Java
-///     `Float.floatToIntBits` and written as a 4-byte integer with [`DataOutput::write_int`].
+///   - `A`: The `A` from `f(x) = A * x + B` encoded as float bits with NaNs canonicalized
+///     and written as a 4-byte integer with [`DataOutput::write_int`].
 ///   - `BitsPerValue`: A variable-length integer written with
 ///     [`DataOutput::write_vint`].
 /// - `Ints`: If `BitsPerValue` is `0`, then there is nothing to read, and all

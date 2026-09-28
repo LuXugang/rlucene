@@ -82,7 +82,7 @@ pub trait QueryVisitor {
 
   /// Pulls a visitor instance for visiting child clauses of a query.
   ///
-  /// The Java default implementation returns this visitor, unless `occur` is equal to
+  /// The default implementation returns this visitor, unless `occur` is equal to
   /// [`Occur::MustNot`] in which case it returns [`EMPTY_VISITOR`].
   ///
   /// # Parameters
@@ -105,7 +105,7 @@ pub trait QueryVisitor {
   }
 }
 
-/// The visitor returned by Java's default `getSubVisitor` behavior.
+/// The visitor returned by the default `get_sub_visitor` implementation.
 pub enum DefaultQueryVisitor<'a, V>
 where
   V: ?Sized,

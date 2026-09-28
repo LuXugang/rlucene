@@ -465,9 +465,9 @@ fn test_small_merges_don_not_get_threads() -> Result<()> {
 #[test]
 #[ignore = "Java CachedExecutor dynamically subtracts active merge threads from its thread budget; a fixed Rayon pool cannot expose the same per-submission count"]
 fn test_intra_merge_thread_pool_is_limited_by_max_threads() -> Result<()> {
-  // Java's test expects exactly one of four submissions to run on its cached pool and the other
-  // three to run on their merge threads. Rayon bounds the pool as a whole and does not expose that
-  // CachedExecutor admission policy.
+  // This test expects exactly one of four submissions to run on a cached pool and the
+  // other three to run on their merge threads. Rayon bounds the pool as a whole
+  // and does not expose that CachedExecutor admission policy.
   test_not_required_in_rust_lucene!();
 }
 

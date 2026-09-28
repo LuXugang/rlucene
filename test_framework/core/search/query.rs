@@ -919,8 +919,7 @@ impl Hash for RandomQuery {
     H: Hasher,
   {
     self.seed.hash(state);
-    // Java's equals ignores density even though its hashCode includes it. Keep the equality
-    // behavior while preserving Rust's Eq/Hash contract.
+    // Ignore density in both equality and hashing to preserve the Eq/Hash contract.
     Arc::as_ptr(&self.doc_values).hash(state);
   }
 }
@@ -1809,7 +1808,7 @@ impl Eq for MaxScoreWrapperQuery {}
 
 impl PartialEq for MaxScoreWrapperQuery {
   fn eq(&self, other: &Self) -> bool {
-    // Java compares maxScore with primitive `==`. The identity case keeps Rust `Eq` reflexive
+    // Compare maxScore with primitive `==`. The identity case keeps `Eq` reflexive
     // when maxScore is NaN.
     std::ptr::eq(self, other)
       || (self.query == other.query

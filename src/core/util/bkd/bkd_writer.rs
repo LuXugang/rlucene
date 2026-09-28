@@ -74,7 +74,6 @@ where
   temp_file_name_prefix: Arc<str>,
 
   #[allow(dead_code)]
-  // Mirrors Java's retained constructor setting; derived limits are used afterward.
   max_mb_sort_in_heap: f64,
   scratch_diff: Vec<u8>,
   scratch: Vec<u8>,
@@ -384,7 +383,7 @@ where
 
     let mut min_packed_value = vec![0u8; self.min_packed_value.len()];
     let mut max_packed_value = vec![0u8; self.max_packed_value.len()];
-    // Java's MutablePointTree accesses are limited to signed int positions.
+    // MutablePointTree accesses are limited to signed i32 positions.
     let _: i32 = point_count.try_convert()?;
     // Compute the min/max for this slice
     self.compute_packed_value_bounds_with_tree(

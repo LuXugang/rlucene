@@ -2525,8 +2525,8 @@ fn test_crazy_position_increment_gap() -> Result<()> {
 #[test]
 fn test_exception_on_ctor() -> Result<()> {
   let mut random = random();
-  // Rust does not yet expose Java's FilterDirectory forwarding abstraction, so the
-  // same openInput failure is installed directly on MockDirectoryWrapper.
+  // FilterDirectory forwarding is not available, so install the openInput failure
+  // directly on MockDirectoryWrapper.
   let dir = Arc::new(new_mock_directory(&mut random)?);
   let failure = UOEDirectoryFailure::default();
   dir.fail_on(Box::new(failure.clone()));

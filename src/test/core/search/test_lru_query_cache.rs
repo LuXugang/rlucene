@@ -509,7 +509,7 @@ fn test_clear_filter() -> Result<()> {
 #[test]
 #[ignore = "Java @AwaitsFix LUCENE-7595"]
 fn test_ram_bytes_used_agrees_with_ram_usage_tester() -> Result<()> {
-  // TODO: Restore this Java @AwaitsFix test after a Rust equivalent of RamUsageTester is available.
+  // TODO: Restore this known-failure test after a Rust equivalent of RamUsageTester is available.
   Ok(())
 }
 
@@ -520,7 +520,7 @@ fn test_ram_bytes_used_agrees_with_ram_usage_tester() -> Result<()> {
 #[test]
 #[ignore = "Java @AwaitsFix LUCENE-7595"]
 fn test_ram_bytes_used_constant_entry_overhead() -> Result<()> {
-  // TODO: Restore this Java @AwaitsFix test after a Rust equivalent of RamUsageTester is available.
+  // TODO: Restore this known-failure test after a Rust equivalent of RamUsageTester is available.
   Ok(())
 }
 

@@ -481,7 +481,6 @@ pub struct FormatAndBits {
 /// # Returns
 ///
 /// A [`FormatAndBits`] struct containing the selected format and bits per value.
-// `value_count` is not used in Java Lucene
 pub fn fastest_format_and_bits(
   // TODO
   _value_count: i32,
@@ -913,8 +912,6 @@ pub trait Mutable: Reader + Display {
     self.fill(0, self.size(), 0)
   }
 }
-/// # Note
-/// See [`JavaIntermediateBaseClass`](crate::migration_notes::JavaIntermediateBaseClass)
 #[allow(dead_code)]
 pub struct MutableImpl;
 

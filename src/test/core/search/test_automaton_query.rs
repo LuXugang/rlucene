@@ -345,7 +345,6 @@ fn test_equals() -> Result<()> {
   assert_ne!(a1, a4);
   assert_ne!(a1, a5);
 
-  // Java also checks a1.equals(null), but a Rust Query cannot be null.
   Ok(())
 }
 #[test]

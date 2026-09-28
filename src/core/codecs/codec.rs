@@ -157,8 +157,8 @@ static DEFAULT_CODEC: LazyLock<RwLock<Codecs>> = LazyLock::new(|| {
   ))
 });
 
-// Rust tests run concurrently in the same process, so their defaults must not interfere with one
-// another. This preserves the per-test effect of Java's Codec.setDefault/getDefault lifecycle.
+// Tests run concurrently in the same process, so their default codecs must not interfere
+// with one another.
 #[cfg(test)]
 thread_local! {
   static DEFAULT_CODEC: RefCell<Codecs> = RefCell::new(match Codecs::new() {
@@ -780,9 +780,7 @@ impl Codec for Codecs {
   }
 }
 
-/// Returns the current default codec.
-///
-/// This mirrors Java Lucene's `Codec.getDefault` entry point. The initial default is `Lucene101`.
+/// Returns the current default codec. The initial default is `Lucene101`.
 pub fn get_default() -> Codecs {
   #[cfg(not(test))]
   {
@@ -795,8 +793,6 @@ pub fn get_default() -> Codecs {
 }
 
 /// Sets the default codec used by newly created index writer configurations.
-///
-/// This mirrors Java Lucene's `Codec.setDefault` entry point.
 pub fn set_default<T>(codec: T)
 where
   T: Into<Codecs>,
@@ -813,8 +809,6 @@ where
 }
 
 /// Looks up a codec by name.
-///
-/// This mirrors Java Lucene's `Codec.forName` entry point.
 pub fn for_name(name: &str) -> Result<Codecs> {
   match name {
     "Lucene101" => Codecs::new(),

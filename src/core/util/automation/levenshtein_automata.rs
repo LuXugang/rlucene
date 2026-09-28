@@ -41,7 +41,6 @@ pub struct LevenshteinAutomata {
   alphabet: Vec<i32>,
   /// The maximum symbol in the alphabet (e.g. 255 for UTF-8 or 10FFFF for UTF-32).
   #[allow(dead_code)]
-  // Mirrors Java's retained alphaMax field, which is only used during construction.
   alpha_max: i32,
   /// Lower bounds for ranges outside of alphabet.
   range_lower: Vec<i32>,

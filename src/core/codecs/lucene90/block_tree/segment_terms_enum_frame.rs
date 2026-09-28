@@ -32,7 +32,7 @@ use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use std::sync::Arc;
 
 pub struct SegmentTermsEnumFrame {
-  /// Java stack ord; -1 for the static frame.
+  /// Stack ordinal; -1 for the static frame.
   pub(crate) ord: i32,
 
   pub(crate) has_terms: bool,

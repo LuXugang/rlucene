@@ -69,13 +69,13 @@ struct MappedView {
   length: usize,
   power: u32,
   mask: usize,
-  // Multi clones share Java's segment directory. Closing a clone clears that
+  // Multi clones share the segment directory. Closing a clone clears that
   // directory, but another input can still hold its previously loaded segment.
   directory_closed: Option<Arc<AtomicBool>>,
 }
 
-// Holds the loaded mapping independently of the directory, just as Java's
-// curSegment. The visible range belongs to this input's slice.
+// Holds the loaded mapping independently of the directory.
+// The visible range belongs to this input's slice.
 struct CurrentSegment {
   mapping: Option<Arc<Mmap>>,
   base: usize,
@@ -282,7 +282,7 @@ impl MappedView {
   fn advance_segment(&self, cursor: &mut SegmentCursor<'_>) {
     cursor.state.index += 1;
     if matches!(self.range, SegmentRange::Multi { .. }) {
-      // On failure Java retains curSegment but has already advanced its index.
+      // On failure, retain the current segment after advancing its index.
       cursor.state.seek_count = 0;
     }
   }
@@ -692,7 +692,6 @@ impl MemorySegmentIndexInput {
 
       #[cfg(unix)]
       {
-        // Java's preload path uses MemorySegment::load and explicitly bypasses madvise.
         if !preload && read_advice != ReadAdvice::Normal {
           native_access
             .madvise(&mmap, &read_advice)
@@ -886,7 +885,7 @@ impl MemorySegmentIndexInput {
     }
     self.view.directory_open()?;
     CoreHelper::check_from_index_size(pos, length, self.view.length)?;
-    // Java advice uses segment-directory coordinates, even on a multi slice.
+    // Advice uses segment-directory coordinates, even on a multi slice.
     let index = pos >> self.view.power;
     let offset = pos & self.view.mask;
     let Some((map, start, visible)) = self.view.mapped_segment(index)? else {
@@ -1116,7 +1115,6 @@ impl CloseableRef for MemorySegmentIndexInput {
 }
 impl Drop for MemorySegmentIndexInput {
   fn drop(&mut self) {
-    // Java collection of a clone is not an explicit close of its shared array.
     if self.owns_file {
       let _ = CloseableRef::close(self);
     }

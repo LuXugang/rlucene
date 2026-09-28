@@ -134,19 +134,19 @@ pub enum Resolution {
 }
 
 impl Resolution {
-  /// Java-compatible constant for year granularity.
+  /// Constant for year granularity.
   pub const YEAR: Resolution = Resolution::Year;
-  /// Java-compatible constant for month granularity.
+  /// Constant for month granularity.
   pub const MONTH: Resolution = Resolution::Month;
-  /// Java-compatible constant for day granularity.
+  /// Constant for day granularity.
   pub const DAY: Resolution = Resolution::Day;
-  /// Java-compatible constant for hour granularity.
+  /// Constant for hour granularity.
   pub const HOUR: Resolution = Resolution::Hour;
-  /// Java-compatible constant for minute granularity.
+  /// Constant for minute granularity.
   pub const MINUTE: Resolution = Resolution::Minute;
-  /// Java-compatible constant for second granularity.
+  /// Constant for second granularity.
   pub const SECOND: Resolution = Resolution::Second;
-  /// Java-compatible constant for millisecond granularity.
+  /// Constant for millisecond granularity.
   pub const MILLISECOND: Resolution = Resolution::Millisecond;
 
   /// Returns the length of the date string format for this resolution.

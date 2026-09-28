@@ -1613,7 +1613,6 @@ where
       let iterator = iterators.remove(0);
       let boost = term_boosts.remove(0);
       return if self.score_mode == ScoreMode::CompleteNoScores || boost == 1.0 {
-        // Java uses the three-argument postings constructor, including in TopScores mode.
         let scorer = TermScorer::from_postings(iterator, sim_weight, norms);
         Ok(SynonymScorerEnum::C(scorer))
       } else {

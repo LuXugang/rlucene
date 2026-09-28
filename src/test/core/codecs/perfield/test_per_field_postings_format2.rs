@@ -320,8 +320,8 @@ fn test_same_codec_different_instance() -> Result<()> {
 
 #[test]
 fn test_same_codec_different_params() -> Result<()> {
-  // LuceneVarGapFixedInterval has not been migrated to Rust. A different postings format would not
-  // preserve the Java test's format and parameter behavior.
+  // LuceneVarGapFixedInterval has not been migrated. A different postings format
+  // would not preserve the format and parameter behavior under test.
   test_not_required_in_rust_lucene!();
 }
 

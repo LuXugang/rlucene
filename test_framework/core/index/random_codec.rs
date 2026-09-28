@@ -21,7 +21,7 @@ use std::collections::HashSet;
 
 /// Codec that assigns per-field random postings formats.
 ///
-/// TODO IMPORTANT: Implement the Java `RandomCodec` format selection and per-field mappings. The
+/// TODO IMPORTANT: Implement `RandomCodec` format selection and per-field mappings. The
 /// enum and constructors are defined now so callers will not need to change when that logic is
 /// migrated.
 #[derive(Clone)]

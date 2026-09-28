@@ -144,7 +144,6 @@ where
 
   fn cost(&mut self) -> Result<i64> {
     let mut cost = 0i64;
-    // Preserve Java's heap iteration order, including the call prefix on errors.
     for slot in 1..=self.scorers.size() {
       if let Some(index) = self.scorers.heap()[slot] {
         cost += self.scorers.compare.bulk_scorer_and_nexts[index]

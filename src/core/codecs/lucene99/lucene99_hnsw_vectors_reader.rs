@@ -616,7 +616,7 @@ where
 
 #[derive(Clone)]
 pub struct FieldEntry {
-  #[allow(dead_code)] // Mirrors the Java record component, retained as part of the field metadata.
+  #[allow(dead_code)]
   similarity_function: VectorSimilarityFunction,
   vector_encoding: VectorEncoding,
   vector_index_offset: usize,
@@ -629,7 +629,7 @@ pub struct FieldEntry {
   // for each level the start offsets in vectorIndex file from where to read neighbours
   offsets_meta: Option<Meta>,
   offsets_offset: usize,
-  #[allow(dead_code)] // Mirrors the Java record component used while decoding offsets metadata.
+  #[allow(dead_code)]
   offsets_block_shift: i32,
   offsets_length: usize,
 }

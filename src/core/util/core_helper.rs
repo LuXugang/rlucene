@@ -46,7 +46,7 @@ fn array_equals_f32_wide(a: &[f32], b: &[f32]) -> bool {
   const ALL_LANES: u32 = (1 << LANES) - 1;
   let mut i = 0;
   // Combine four raw-bit masks before reducing them. This avoids paying for a mask reduction on
-  // every vector, while the uncommon mismatch path still canonicalizes NaNs exactly like Java.
+  // every vector, while the uncommon mismatch path still canonicalizes NaNs.
   while i + BLOCK_LANES <= a.len() {
     let raw_equal_0 = f32x8::from(&a[i..i + LANES])
       .to_bits()
@@ -165,8 +165,8 @@ fn array_equals_f64_wide(a: &[f64], b: &[f64]) -> bool {
 
 pub struct CoreHelper;
 impl CoreHelper {
-  /// Compares like Java's `Float.compare`: all NaNs are equal and greater than
-  /// positive infinity, and negative zero sorts before positive zero.
+  /// Compares values with all NaNs equal and greater than positive infinity,
+  /// and negative zero ordered before positive zero.
   #[inline]
   pub fn compare_f32(a: f32, b: f32) -> Ordering {
     match (a.is_nan(), b.is_nan()) {
@@ -177,8 +177,8 @@ impl CoreHelper {
     }
   }
 
-  /// Compares like Java's `Double.compare`: all NaNs are equal and greater than
-  /// positive infinity, and negative zero sorts before positive zero.
+  /// Compares values with all NaNs equal and greater than positive infinity,
+  /// and negative zero ordered before positive zero.
   #[inline]
   pub fn compare_f64(a: f64, b: f64) -> Ordering {
     match (a.is_nan(), b.is_nan()) {
@@ -189,7 +189,7 @@ impl CoreHelper {
     }
   }
 
-  /// Returns the greater value with Java `Math.max(float, float)` semantics.
+  /// Returns the greater value, propagating NaN and preferring positive zero to negative zero.
   #[inline]
   pub fn max_f32(a: f32, b: f32) -> f32 {
     if a.is_nan() {
@@ -205,7 +205,7 @@ impl CoreHelper {
     }
   }
 
-  /// Returns the lesser value with Java `Math.min(float, float)` semantics.
+  /// Returns the lesser value, propagating NaN and preferring negative zero to positive zero.
   #[inline]
   pub fn min_f32(a: f32, b: f32) -> f32 {
     if a.is_nan() {
@@ -221,7 +221,7 @@ impl CoreHelper {
     }
   }
 
-  /// Returns the greater value with Java `Math.max(double, double)` semantics.
+  /// Returns the greater value, propagating NaN and preferring positive zero to negative zero.
   #[inline]
   pub fn max_f64(a: f64, b: f64) -> f64 {
     if a.is_nan() {
@@ -237,7 +237,7 @@ impl CoreHelper {
     }
   }
 
-  /// Returns the lesser value with Java `Math.min(double, double)` semantics.
+  /// Returns the lesser value, propagating NaN and preferring negative zero to positive zero.
   #[inline]
   pub fn min_f64(a: f64, b: f64) -> f64 {
     if a.is_nan() {
@@ -254,20 +254,20 @@ impl CoreHelper {
   }
 
   /// Returns canonical bits suitable for hashing a float whose equality uses
-  /// Java primitive `==`: signed zeros are equal, so they share one hash.
+  /// primitive `==`: signed zeros are equal, so they share one hash.
   #[inline]
   pub fn hash_bits_f32_for_primitive_eq(value: f32) -> u32 {
     BitUtil::float_to_int_bits(if value == 0.0 { 0.0 } else { value }) as u32
   }
 
   /// Returns canonical bits suitable for hashing a double whose equality uses
-  /// Java primitive `==`: signed zeros are equal, so they share one hash.
+  /// primitive `==`: signed zeros are equal, so they share one hash.
   #[inline]
   pub fn hash_bits_f64_for_primitive_eq(value: f64) -> u64 {
     BitUtil::double_to_long_bits(if value == 0.0 { 0.0 } else { value }) as u64
   }
 
-  /// Compares slices like Java's `Arrays.equals(float[], float[])`.
+  /// Compares slices element by element, treating all NaNs as equal and distinguishing signed zeros.
   #[inline]
   pub fn array_equals_f32(a: &[f32], b: &[f32]) -> bool {
     if a.len() != b.len() {
@@ -291,7 +291,7 @@ impl CoreHelper {
     array_equals_f32_wide(a, b)
   }
 
-  /// Compares slices like Java's `Arrays.equals(double[], double[])`.
+  /// Compares slices element by element, treating all NaNs as equal and distinguishing signed zeros.
   #[inline]
   pub fn array_equals_f64(a: &[f64], b: &[f64]) -> bool {
     if a.len() != b.len() {

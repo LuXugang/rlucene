@@ -133,8 +133,6 @@ impl Stats {
     self.start_block_count += 1;
     self.total_block_suffix_bytes += frame.total_suffix_bytes;
     self.total_uncompressed_block_suffix_bytes += frame.suffixes_reader.length() as i64;
-    // Rust keeps the two Java readers as distinct values, so Java's reference
-    // inequality check is always true here.
     self.total_uncompressed_block_suffix_bytes += frame.suffix_lengths_reader.length() as i64;
     self.total_block_stats_bytes += frame.stats_reader.length() as i64;
     self.compression_algorithms[frame.compression_alg.code() as usize] += 1;
