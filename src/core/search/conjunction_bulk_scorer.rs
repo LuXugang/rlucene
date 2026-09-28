@@ -29,7 +29,7 @@ pub struct ConjunctionBulkScorer<S> {
   // lead1: all_scores[0]
   // lead2: all_scores[1]
   all_scores: Vec<S>,
-  required_scoring_idx: Vec<usize>,
+  required_scoring_len: usize,
   all_scores_input_idx: Box<[usize]>,
 }
 impl<S> ConjunctionBulkScorer<S>
@@ -48,13 +48,13 @@ where
     let mut i = 0usize;
     let mut tmp_all_scores = Vec::with_capacity(num_clauses);
     for scorer in required_scoring.into_iter() {
-      costs.push((DocIdSetIterator::cost(&scorer)?, true, i));
+      costs.push((DocIdSetIterator::cost(&scorer)?, i));
       tmp_all_scores.push(Some(scorer));
       i += 1;
     }
 
     for scorer in required_no_scoring.into_iter() {
-      costs.push((DocIdSetIterator::cost(&scorer)?, false, i));
+      costs.push((DocIdSetIterator::cost(&scorer)?, i));
       tmp_all_scores.push(Some(scorer));
       i += 1;
     }
@@ -63,22 +63,17 @@ where
 
     let mut all_scores = Vec::with_capacity(num_clauses);
     let mut all_scores_input_idx = vec![0; num_clauses].into_boxed_slice();
-    // Iteration follows cost order, but scoring must preserve required_scoring input order.
-    let mut required_scoring_idx = vec![0; required_scoring_len];
-    for (_, is_required_score, idx) in costs {
+    for (_, idx) in costs {
       let scorer = tmp_all_scores[idx]
         .take()
         .ok_or_else(|| LuceneError::illegal_state("scorer is missing"))?;
       all_scores_input_idx[idx] = all_scores.len();
       all_scores.push(scorer);
-      if is_required_score {
-        required_scoring_idx[idx] = all_scores.len() - 1;
-      }
     }
 
     Ok(Self {
       all_scores,
-      required_scoring_idx,
+      required_scoring_len,
       all_scores_input_idx,
     })
   }
@@ -268,7 +263,8 @@ where
 {
   fn score(&mut self) -> Result<f32> {
     let mut score = 0f64;
-    for scorer in self.base.required_scoring_idx.iter() {
+    // Scoring clauses occupy the original input prefix, before all filter clauses.
+    for scorer in &self.base.all_scores_input_idx[..self.base.required_scoring_len] {
       score += self.base.all_scores[*scorer].score()? as f64;
     }
     Ok(score as f32)
