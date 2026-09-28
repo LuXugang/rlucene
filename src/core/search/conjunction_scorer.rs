@@ -214,13 +214,13 @@ where
 
     match &mut self.disi {
       DocIdSetIteratorEnum2::A(v) => {
-        for idx in 0..v.len() {
+        for &idx in &self.scoring_idx {
           let s = v.iterator_at_mut(idx);
           s.advance_shallow(target)?;
         }
       },
       DocIdSetIteratorEnum2::B(v) => {
-        for idx in 0..v.two_phase_iterator.approximation.len() {
+        for &idx in &self.scoring_idx {
           let s = v.two_phase_iterator.approximation.iterator_at_mut(idx);
           s.advance_shallow(target)?;
         }
@@ -235,7 +235,7 @@ where
 
     match &mut self.disi {
       DocIdSetIteratorEnum2::A(v) => {
-        for idx in 0..v.len() {
+        for &idx in &self.scoring_idx {
           let s = v.iterator_at_mut(idx);
           if s.scoring_doc_id()? <= upto {
             max_score += s.get_max_score(upto)? as f64;
@@ -243,7 +243,7 @@ where
         }
       },
       DocIdSetIteratorEnum2::B(v) => {
-        for idx in 0..v.two_phase_iterator.approximation.len() {
+        for &idx in &self.scoring_idx {
           let s = v.two_phase_iterator.approximation.iterator_at_mut(idx);
           if s.scoring_doc_id()? <= upto {
             max_score += s.get_max_score(upto)? as f64;
