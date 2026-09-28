@@ -17,7 +17,7 @@
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -30,6 +30,7 @@ pub struct ConjunctionBulkScorer<S> {
   // lead2: all_scores[1]
   all_scores: Vec<S>,
   required_scoring_idx: Vec<usize>,
+  all_scores_input_idx: Box<[usize]>,
 }
 impl<S> ConjunctionBulkScorer<S>
 where
@@ -61,11 +62,13 @@ where
     costs.sort_by_key(|a| a.0);
 
     let mut all_scores = Vec::with_capacity(num_clauses);
+    let mut all_scores_input_idx = vec![0; num_clauses].into_boxed_slice();
     let mut required_scoring_idx = Vec::with_capacity(required_scoring_len);
     for (_, is_required_score, idx) in costs {
       let scorer = tmp_all_scores[idx]
         .take()
         .ok_or_else(|| LuceneError::illegal_state("scorer is missing"))?;
+      all_scores_input_idx[idx] = all_scores.len();
       all_scores.push(scorer);
       if is_required_score {
         required_scoring_idx.push(all_scores.len() - 1);
@@ -75,6 +78,7 @@ where
     Ok(Self {
       all_scores,
       required_scoring_idx,
+      all_scores_input_idx,
     })
   }
 }
@@ -248,6 +252,21 @@ where
       score += self.base.all_scores[*scorer].score()? as f64;
     }
     Ok(score as f32)
+  }
+
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+    let mut scorers: Vec<_> = self.base.all_scores.iter_mut().map(Some).collect();
+    self
+      .base
+      .all_scores_input_idx
+      .iter()
+      .map(|&idx| {
+        let scorer = scorers[idx]
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("duplicate conjunction child"))?;
+        Ok(ChildScorable::new(scorer as &mut dyn Scorable, "MUST"))
+      })
+      .collect()
   }
 
   fn cost(&self) -> Result<i64> {
