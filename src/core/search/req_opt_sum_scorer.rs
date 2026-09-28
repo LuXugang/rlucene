@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
-use crate::core::search::scorable::Scorable;
+use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::TopScores;
 #[cfg(test)]
@@ -109,6 +109,17 @@ where
         .disi
         .set_min_competitive_score(min_score),
     }
+  }
+
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+    let disi = match &mut self.disi {
+      DocIdSetIteratorEnum2::A(disi) => disi,
+      DocIdSetIteratorEnum2::B(wrapper) => &mut wrapper.two_phase_iterator.disi,
+    };
+    Ok(vec![
+      ChildScorable::new(&mut disi.req_scorer as &mut dyn Scorable, "MUST"),
+      ChildScorable::new(&mut disi.opt_scorer as &mut dyn Scorable, "SHOULD"),
+    ])
   }
 
   fn cost(&self) -> Result<i64> {
