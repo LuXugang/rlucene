@@ -1207,16 +1207,6 @@ where
     Ok(self.sim_weight.score(freq, norm))
   }
 
-  fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
-    let mut norm = 1;
-    if let Some(ref mut norms) = self.norms
-      && norms.advance_exact(doc_id)?
-    {
-      norm = norms.long_value()?;
-    }
-    Ok(self.sim_weight.score(0.0, norm))
-  }
-
   fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
     self.impacts_disi.set_min_competitive_score(_min_score);
     Ok(())
