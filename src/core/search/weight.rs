@@ -548,8 +548,8 @@ where
     }
   } else {
     while doc < max {
-      // competitive_iterator may be updated by collector.collect
-      if let Some(competitive_iterator) = collector.competitive_iterator()? {
+      // Reborrow a present iterator after collecting, but retain initial absence for the window.
+      if has_competitive && let Some(competitive_iterator) = collector.competitive_iterator()? {
         debug_assert!(competitive_iterator.doc_id() <= doc);
         let mut competitive_doc = competitive_iterator.doc_id();
         if competitive_doc < doc {
