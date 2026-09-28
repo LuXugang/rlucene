@@ -115,8 +115,6 @@ where
       )
     };
     collector.set_scorer(&mut ScorableImpl::new(self))?;
-    // Java determines whether a competitive iterator exists once per scoring window.
-    // A present iterator must be reborrowed after collecting, but None stays absent.
     let has_competitive_iterator = collector.competitive_iterator()?.is_some();
 
     // In the main loop, we rely on the invariant that `DocIdSetIterator::doc_id(&lead1)` is greater than

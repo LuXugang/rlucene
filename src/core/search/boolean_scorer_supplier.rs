@@ -577,6 +577,8 @@ where
     }
     match self.subs.get_mut(&Occur::Filter) {
       Some(v) if !v.is_empty() => {
+        // Lucene uses the FILTER minimum instead of the MUST minimum when filters exist.
+        lead_cost = i64::MAX;
         for ss in v.iter_mut() {
           lead_cost = lead_cost.min(ss.cost(context, searcher)?);
         }
