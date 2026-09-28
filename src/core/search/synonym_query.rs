@@ -1584,7 +1584,7 @@ where
         "ScorerSupplier.get must be called at most once",
       ));
     };
-    let Some(mut impacts) = self.impacts.take() else {
+    let Some(impacts) = self.impacts.take() else {
       return Err(LuceneError::illegal_state(
         "ScorerSupplier.get must be called at most once",
       ));
@@ -1611,21 +1611,13 @@ where
 
     if iterators.len() == 1 {
       let iterator = iterators.remove(0);
-      let impact = impacts.remove(0);
       let boost = term_boosts.remove(0);
       return if self.score_mode == ScoreMode::CompleteNoScores || boost == 1.0 {
-        let scorer = if self.score_mode == ScoreMode::TopScores {
-          TermScorer::from_impacts(impact, sim_weight, norms, false)
-        } else {
-          TermScorer::from_postings(iterator, sim_weight, norms)
-        };
+        // Java uses the three-argument postings constructor, including in TopScores mode.
+        let scorer = TermScorer::from_postings(iterator, sim_weight, norms);
         Ok(SynonymScorerEnum::C(scorer))
       } else {
-        let scorer = if self.score_mode == ScoreMode::TopScores {
-          TermScorer::from_impacts(impact, sim_weight.clone(), None, false)
-        } else {
-          TermScorer::from_postings(iterator, sim_weight.clone(), None)
-        };
+        let scorer = TermScorer::from_postings(iterator, sim_weight.clone(), None);
         Ok(SynonymScorerEnum::B(FreqBoostTermScorer::new(
           boost, scorer, sim_weight, norms,
         )?))
