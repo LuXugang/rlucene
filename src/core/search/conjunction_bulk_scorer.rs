@@ -63,7 +63,8 @@ where
 
     let mut all_scores = Vec::with_capacity(num_clauses);
     let mut all_scores_input_idx = vec![0; num_clauses].into_boxed_slice();
-    let mut required_scoring_idx = Vec::with_capacity(required_scoring_len);
+    // Iteration follows cost order, but scoring must preserve required_scoring input order.
+    let mut required_scoring_idx = vec![0; required_scoring_len];
     for (_, is_required_score, idx) in costs {
       let scorer = tmp_all_scores[idx]
         .take()
@@ -71,7 +72,7 @@ where
       all_scores_input_idx[idx] = all_scores.len();
       all_scores.push(scorer);
       if is_required_score {
-        required_scoring_idx.push(all_scores.len() - 1);
+        required_scoring_idx[idx] = all_scores.len() - 1;
       }
     }
 
