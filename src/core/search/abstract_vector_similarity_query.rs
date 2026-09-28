@@ -395,6 +395,7 @@ where
 
 struct VectorSimilarityScorerSupplier<I> {
   iterator: Option<I>,
+  fixed_cost: Option<i64>,
 }
 
 impl<IRC, I> ScorerSupplier<IRC> for VectorSimilarityScorerSupplier<I>
@@ -432,6 +433,9 @@ where
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<i64> {
+    if let Some(cost) = self.fixed_cost {
+      return Ok(cost);
+    }
     self
       .iterator
       .as_ref()
@@ -446,8 +450,10 @@ impl VectorSimilarityScorerSupplier<DocsIteratorImpl> {
       return None;
     }
     score_docs.sort_unstable_by_key(|score_doc| score_doc.doc);
+    let fixed_cost = Some(score_docs.len() as i64);
     Some(Self {
       iterator: Some(DocsIteratorImpl::new(score_docs, boost)),
+      fixed_cost,
     })
   }
 }
@@ -473,6 +479,7 @@ where
         boost,
         threshold,
       )?),
+      fixed_cost: None,
     }))
   }
 }
