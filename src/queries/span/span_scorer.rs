@@ -105,7 +105,7 @@ where
         self.freq = 1.0;
         return Ok(());
       }
-      self.freq += 1.0 / (1.0 + self.spans.width() as f32);
+      self.freq = (self.freq as f64 + 1.0 / (1.0 + self.spans.width() as f64)) as f32;
       self.spans.do_current_spans()?;
       prev_start_pos = start_pos;
       prev_end_pos = end_pos;
