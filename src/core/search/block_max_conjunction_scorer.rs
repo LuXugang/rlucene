@@ -440,7 +440,11 @@ pub struct TwoPhaseIteratorImpl<S> {
 }
 impl<S> TwoPhaseIteratorImpl<S> {
   fn new(approx: DocIdSetIteratorImpl<S>, has_tpi_idx: Vec<(usize, f32)>) -> Self {
-    let match_cost: f32 = has_tpi_idx.iter().map(|&(_, cost)| cost).sum();
+    // Accumulate this cost estimate in f64; Java's compensated sum may round differently.
+    let match_cost = has_tpi_idx
+      .iter()
+      .map(|&(_, cost)| f64::from(cost))
+      .sum::<f64>() as f32;
     Self {
       approx,
       match_cost,
