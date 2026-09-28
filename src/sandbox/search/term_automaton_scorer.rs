@@ -259,10 +259,12 @@ where
         (&left[current_index], &mut right[0])
       };
 
+      let sub = &mut self.subs[index];
+
       // Match current token:
       for &state in &current.states[..current.count] {
         // println!("    check cur state={state}");
-        let state = self.run_automaton.step(state, self.subs[index].term_id);
+        let state = self.run_automaton.step(state, sub.term_id);
         if state != -1 {
           // println!("      --> {state}");
           next.add(state);
@@ -274,7 +276,7 @@ where
       }
 
       // Also consider starting a new match from this position:
-      let state = self.run_automaton.step(0, self.subs[index].term_id);
+      let state = self.run_automaton.step(0, sub.term_id);
       if state != -1 {
         // println!("  add init state={state}");
         next.add(state);
@@ -284,10 +286,10 @@ where
         }
       }
 
-      if self.subs[index].pos_left > 0 {
+      if sub.pos_left > 0 {
         // Put this sub back into the posQueue:
-        self.subs[index].pos = self.subs[index].pos_enum.next_position()?;
-        self.subs[index].pos_left -= 1;
+        sub.pos = sub.pos_enum.next_position()?;
+        sub.pos_left -= 1;
         self.pos_queue.add(index, &self.subs);
       }
 
