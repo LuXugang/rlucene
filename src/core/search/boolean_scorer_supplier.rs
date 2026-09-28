@@ -1172,11 +1172,4 @@ where
   fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
     self.collector.collect(doc, &mut self.fake)
   }
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
-    self.collector.competitive_iterator()
-  }
-
-  fn finish(&mut self) -> Result<()> {
-    self.collector.finish()
-  }
 }
