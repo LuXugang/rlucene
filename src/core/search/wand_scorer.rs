@@ -211,6 +211,20 @@ where
     Some(Box::new(disi.two_phase_iterator))
   }
 
+  fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+    let disi = &mut self.disi.two_phase_iterator.approximation;
+    // Propagate to improve score bounds.
+    for w in &mut disi.all_scorers {
+      if w.scorer.scoring_doc_id()? < target {
+        w.scorer.advance_shallow(target)?;
+      }
+    }
+    if target <= disi.upto {
+      return Ok(disi.upto);
+    }
+    Ok(NO_MORE_DOCS)
+  }
+
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
     let all_scorers = self
       .disi
