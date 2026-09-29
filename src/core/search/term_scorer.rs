@@ -190,6 +190,7 @@ where
       },
     }
   }
+  #[inline]
   fn next_doc(&mut self) -> Result<i32> {
     match &mut self.state {
       TermScorerState::ImpactsDisi(impacts_disi) => DocIdSetIterator::next_doc(impacts_disi),

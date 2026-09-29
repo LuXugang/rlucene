@@ -1518,6 +1518,7 @@ where
     self.doc
   }
 
+  #[inline]
   fn next_doc(&mut self) -> Result<i32> {
     if self.doc_buffer_upto == ForUtil::BLOCK_SIZE {
       self.move_to_next_level0_block()?;
@@ -1528,6 +1529,7 @@ where
     Ok(doc)
   }
 
+  #[inline]
   fn advance(&mut self, target: i32) -> Result<i32> {
     if target > self.level0_last_doc_id || self.needs_refilling {
       if target > self.level0_last_doc_id {
