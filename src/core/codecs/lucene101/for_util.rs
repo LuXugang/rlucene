@@ -67,6 +67,15 @@ impl ForUtil {
     }
   }
   pub(crate) fn collapse8(arr: &mut [i32]) {
+    if arr.len() >= 128 {
+      let (a, b) = arr[..128].split_at_mut(32);
+      let (b, c) = b.split_at_mut(32);
+      let (c, d) = c.split_at_mut(32);
+      for i in 0..32 {
+        a[i] = (a[i] << 24) | (b[i] << 16) | (c[i] << 8) | d[i];
+      }
+      return;
+    }
     for i in 0..32 {
       arr[i] = (arr[i] << 24) | (arr[32 + i] << 16) | (arr[64 + i] << 8) | arr[96 + i];
     }
@@ -81,6 +90,13 @@ impl ForUtil {
   }
 
   pub(crate) fn collapse16(arr: &mut [i32]) {
+    if arr.len() >= 128 {
+      let (a, b) = arr[..128].split_at_mut(64);
+      for i in 0..64 {
+        a[i] = (a[i] << 16) | b[i];
+      }
+      return;
+    }
     for i in 0..64 {
       arr[i] = (arr[i] << 16) | (arr[64 + i]);
     }
@@ -121,6 +137,49 @@ impl ForUtil {
     let num_ints = Self::BLOCK_SIZE * (primitive_size as usize) / i32::BITS as usize;
     let num_ints_per_shift = (bits_per_value * 4) as usize;
 
+    if bits_per_value <= 4
+      && primitive_size == 8
+      && ints.len() >= 32
+      && tmp.len() >= num_ints_per_shift
+    {
+      match bits_per_value {
+        1 => {
+          for i in 0..4 {
+            tmp[i] = (ints[i] << 7)
+              | (ints[4 + i] << 6)
+              | (ints[8 + i] << 5)
+              | (ints[12 + i] << 4)
+              | (ints[16 + i] << 3)
+              | (ints[20 + i] << 2)
+              | (ints[24 + i] << 1)
+              | ints[28 + i];
+          }
+          for &value in &tmp[..4] {
+            out.write_int(value)?;
+          }
+          return Ok(());
+        },
+        2 => {
+          for i in 0..8 {
+            tmp[i] = (ints[i] << 6) | (ints[8 + i] << 4) | (ints[16 + i] << 2) | ints[24 + i];
+          }
+          for &value in &tmp[..8] {
+            out.write_int(value)?;
+          }
+          return Ok(());
+        },
+        4 => {
+          for i in 0..16 {
+            tmp[i] = (ints[i] << 4) | ints[16 + i];
+          }
+          for &value in &tmp[..16] {
+            out.write_int(value)?;
+          }
+          return Ok(());
+        },
+        _ => {},
+      }
+    }
     let mut idx = 0;
     let mut shift = primitive_size - bits_per_value;
     for (t, l) in tmp.iter_mut().take(num_ints_per_shift).zip(&ints[idx..]) {
@@ -145,40 +204,75 @@ impl ForUtil {
       _ => Self::MASKS32[remaining_bits_per_int_index],
     };
 
-    let mut tmp_idx = 0;
-    let mut remaining_bits_per_value = bits_per_value;
-    while idx < num_ints {
-      if remaining_bits_per_value >= remaining_bits_per_int {
-        remaining_bits_per_value -= remaining_bits_per_int;
-        tmp[tmp_idx] |=
-          (ints[idx] as u32 >> remaining_bits_per_value) as i32 & mask_remaining_bits_per_int;
-        if remaining_bits_per_value == 0 {
-          idx += 1;
-          remaining_bits_per_value = bits_per_value;
-        }
-        tmp_idx += 1;
-      } else {
-        let remaining_bits_per_value_index = remaining_bits_per_value as usize;
-        let (mask1, mask2) = match primitive_size {
-          8 => (
-            Self::MASKS8[remaining_bits_per_value_index],
-            Self::MASKS8[remaining_bits_per_int_index - remaining_bits_per_value_index],
-          ),
-          16 => (
-            Self::MASKS16[remaining_bits_per_value_index],
-            Self::MASKS16[remaining_bits_per_int_index - remaining_bits_per_value_index],
-          ),
-          _ => (
-            Self::MASKS32[remaining_bits_per_value_index],
-            Self::MASKS32[remaining_bits_per_int_index - remaining_bits_per_value_index],
-          ),
-        };
+    let packed_tail = if bits_per_value == 18
+      && primitive_size == 32
+      && ints.len() >= num_ints
+      && tmp.len() >= num_ints_per_shift
+    {
+      match (primitive_size, bits_per_value) {
+        (32, 18) => {
+          for group in 0..8 {
+            tmp[group * 9] |= ((ints[idx + group * 7] as u32 >> 4) as i32) & Self::MASKS32[14];
+            tmp[group * 9 + 1] |= ((ints[idx + group * 7] & Self::MASKS32[4]) << 10)
+              | (((ints[idx + group * 7 + 1] as u32 >> 8) as i32) & Self::MASKS32[10]);
+            tmp[group * 9 + 2] |= ((ints[idx + group * 7 + 1] & Self::MASKS32[8]) << 6)
+              | (((ints[idx + group * 7 + 2] as u32 >> 12) as i32) & Self::MASKS32[6]);
+            tmp[group * 9 + 3] |= ((ints[idx + group * 7 + 2] & Self::MASKS32[12]) << 2)
+              | (((ints[idx + group * 7 + 3] as u32 >> 16) as i32) & Self::MASKS32[2]);
+            tmp[group * 9 + 4] |=
+              ((ints[idx + group * 7 + 3] as u32 >> 2) as i32) & Self::MASKS32[14];
+            tmp[group * 9 + 5] |= ((ints[idx + group * 7 + 3] & Self::MASKS32[2]) << 12)
+              | (((ints[idx + group * 7 + 4] as u32 >> 6) as i32) & Self::MASKS32[12]);
+            tmp[group * 9 + 6] |= ((ints[idx + group * 7 + 4] & Self::MASKS32[6]) << 8)
+              | (((ints[idx + group * 7 + 5] as u32 >> 10) as i32) & Self::MASKS32[8]);
+            tmp[group * 9 + 7] |= ((ints[idx + group * 7 + 5] & Self::MASKS32[10]) << 4)
+              | (((ints[idx + group * 7 + 6] as u32 >> 14) as i32) & Self::MASKS32[4]);
+            tmp[group * 9 + 8] |= ints[idx + group * 7 + 6] & Self::MASKS32[14];
+          }
+          true
+        },
+        _ => false,
+      }
+    } else {
+      false
+    };
+    if !packed_tail {
+      let mut tmp_idx = 0;
+      let mut remaining_bits_per_value = bits_per_value;
+      while idx < num_ints {
+        if remaining_bits_per_value >= remaining_bits_per_int {
+          remaining_bits_per_value -= remaining_bits_per_int;
+          tmp[tmp_idx] |=
+            (ints[idx] as u32 >> remaining_bits_per_value) as i32 & mask_remaining_bits_per_int;
+          if remaining_bits_per_value == 0 {
+            idx += 1;
+            remaining_bits_per_value = bits_per_value;
+          }
+          tmp_idx += 1;
+        } else {
+          let remaining_bits_per_value_index = remaining_bits_per_value as usize;
+          let (mask1, mask2) = match primitive_size {
+            8 => (
+              Self::MASKS8[remaining_bits_per_value_index],
+              Self::MASKS8[remaining_bits_per_int_index - remaining_bits_per_value_index],
+            ),
+            16 => (
+              Self::MASKS16[remaining_bits_per_value_index],
+              Self::MASKS16[remaining_bits_per_int_index - remaining_bits_per_value_index],
+            ),
+            _ => (
+              Self::MASKS32[remaining_bits_per_value_index],
+              Self::MASKS32[remaining_bits_per_int_index - remaining_bits_per_value_index],
+            ),
+          };
 
-        tmp[tmp_idx] |= (ints[idx] & mask1) << (remaining_bits_per_int - remaining_bits_per_value);
-        idx += 1;
-        remaining_bits_per_value += bits_per_value - remaining_bits_per_int;
-        tmp[tmp_idx] |= (ints[idx] as u32 >> remaining_bits_per_value) as i32 & mask2;
-        tmp_idx += 1;
+          tmp[tmp_idx] |=
+            (ints[idx] & mask1) << (remaining_bits_per_int - remaining_bits_per_value);
+          idx += 1;
+          remaining_bits_per_value += bits_per_value - remaining_bits_per_int;
+          tmp[tmp_idx] |= (ints[idx] as u32 >> remaining_bits_per_value) as i32 & mask2;
+          tmp_idx += 1;
+        }
       }
     }
     for &val in tmp.iter().take(num_ints_per_shift) {
@@ -207,6 +301,104 @@ impl ForUtil {
     let mask = Self::MASKS32[bits_per_value_index];
     pdu.split_ints_diff(num_ints, ints, 32 - bits_per_value, 32, mask, tmp, 0, -1)?;
 
+    if ints.len() >= 128 && tmp.len() >= num_ints {
+      match bits_per_value {
+        20 => {
+          for group in 0..16 {
+            let t = group * 5;
+            ints[80 + group * 3] = ((tmp[t] & Self::MASKS32[12]) << 8)
+              | (((tmp[t + 1] as u32 >> 4) as i32) & Self::MASKS32[8]);
+            ints[80 + group * 3 + 1] = ((tmp[t + 1] & Self::MASKS32[4]) << 16)
+              | ((tmp[t + 2] & Self::MASKS32[12]) << 4)
+              | (((tmp[t + 3] as u32 >> 8) as i32) & Self::MASKS32[4]);
+            ints[80 + group * 3 + 2] =
+              ((tmp[t + 3] & Self::MASKS32[8]) << 12) | (tmp[t + 4] & Self::MASKS32[12]);
+          }
+          return Ok(());
+        },
+        24 => {
+          for group in 0..32 {
+            let t = group * 3;
+            ints[96 + group] = ((tmp[t] & Self::MASKS32[8]) << 16)
+              | ((tmp[t + 1] & Self::MASKS32[8]) << 8)
+              | (tmp[t + 2] & Self::MASKS32[8]);
+          }
+          return Ok(());
+        },
+        28 => {
+          for group in 0..16 {
+            let t = group * 7;
+            ints[112 + group] = ((tmp[t] & Self::MASKS32[4]) << 24)
+              | ((tmp[t + 1] & Self::MASKS32[4]) << 20)
+              | ((tmp[t + 2] & Self::MASKS32[4]) << 16)
+              | ((tmp[t + 3] & Self::MASKS32[4]) << 12)
+              | ((tmp[t + 4] & Self::MASKS32[4]) << 8)
+              | ((tmp[t + 5] & Self::MASKS32[4]) << 4)
+              | (tmp[t + 6] & Self::MASKS32[4]);
+          }
+          return Ok(());
+        },
+        30 => {
+          for group in 0..8 {
+            let t = group * 15;
+            ints[120 + group] = ((tmp[t] & Self::MASKS32[2]) << 28)
+              | ((tmp[t + 1] & Self::MASKS32[2]) << 26)
+              | ((tmp[t + 2] & Self::MASKS32[2]) << 24)
+              | ((tmp[t + 3] & Self::MASKS32[2]) << 22)
+              | ((tmp[t + 4] & Self::MASKS32[2]) << 20)
+              | ((tmp[t + 5] & Self::MASKS32[2]) << 18)
+              | ((tmp[t + 6] & Self::MASKS32[2]) << 16)
+              | ((tmp[t + 7] & Self::MASKS32[2]) << 14)
+              | ((tmp[t + 8] & Self::MASKS32[2]) << 12)
+              | ((tmp[t + 9] & Self::MASKS32[2]) << 10)
+              | ((tmp[t + 10] & Self::MASKS32[2]) << 8)
+              | ((tmp[t + 11] & Self::MASKS32[2]) << 6)
+              | ((tmp[t + 12] & Self::MASKS32[2]) << 4)
+              | ((tmp[t + 13] & Self::MASKS32[2]) << 2)
+              | (tmp[t + 14] & Self::MASKS32[2]);
+          }
+          return Ok(());
+        },
+        31 => {
+          for group in 0..4 {
+            let t = group * 31;
+            ints[124 + group] = ((tmp[t] & Self::MASKS32[1]) << 30)
+              | ((tmp[t + 1] & Self::MASKS32[1]) << 29)
+              | ((tmp[t + 2] & Self::MASKS32[1]) << 28)
+              | ((tmp[t + 3] & Self::MASKS32[1]) << 27)
+              | ((tmp[t + 4] & Self::MASKS32[1]) << 26)
+              | ((tmp[t + 5] & Self::MASKS32[1]) << 25)
+              | ((tmp[t + 6] & Self::MASKS32[1]) << 24)
+              | ((tmp[t + 7] & Self::MASKS32[1]) << 23)
+              | ((tmp[t + 8] & Self::MASKS32[1]) << 22)
+              | ((tmp[t + 9] & Self::MASKS32[1]) << 21)
+              | ((tmp[t + 10] & Self::MASKS32[1]) << 20)
+              | ((tmp[t + 11] & Self::MASKS32[1]) << 19)
+              | ((tmp[t + 12] & Self::MASKS32[1]) << 18)
+              | ((tmp[t + 13] & Self::MASKS32[1]) << 17)
+              | ((tmp[t + 14] & Self::MASKS32[1]) << 16)
+              | ((tmp[t + 15] & Self::MASKS32[1]) << 15)
+              | ((tmp[t + 16] & Self::MASKS32[1]) << 14)
+              | ((tmp[t + 17] & Self::MASKS32[1]) << 13)
+              | ((tmp[t + 18] & Self::MASKS32[1]) << 12)
+              | ((tmp[t + 19] & Self::MASKS32[1]) << 11)
+              | ((tmp[t + 20] & Self::MASKS32[1]) << 10)
+              | ((tmp[t + 21] & Self::MASKS32[1]) << 9)
+              | ((tmp[t + 22] & Self::MASKS32[1]) << 8)
+              | ((tmp[t + 23] & Self::MASKS32[1]) << 7)
+              | ((tmp[t + 24] & Self::MASKS32[1]) << 6)
+              | ((tmp[t + 25] & Self::MASKS32[1]) << 5)
+              | ((tmp[t + 26] & Self::MASKS32[1]) << 4)
+              | ((tmp[t + 27] & Self::MASKS32[1]) << 3)
+              | ((tmp[t + 28] & Self::MASKS32[1]) << 2)
+              | ((tmp[t + 29] & Self::MASKS32[1]) << 1)
+              | (tmp[t + 30] & Self::MASKS32[1]);
+          }
+          return Ok(());
+        },
+        _ => {},
+      }
+    }
     let remaining_bits_per_int = (32 - bits_per_value) as usize;
     let mask32_remaining_bits_per_int = Self::MASKS32[remaining_bits_per_int];
 
