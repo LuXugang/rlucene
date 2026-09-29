@@ -315,36 +315,19 @@ impl GroupVIntUtil {
       scratch[write_pos] = flag as u8;
       write_pos += 1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos] as i32,
-        n1_minus1,
-      );
+      scratch[write_pos..write_pos + 4].copy_from_slice(&(values[read_pos] as i32).to_le_bytes());
       write_pos += n1_minus1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos + 1] as i32,
-        n2_minus1,
-      );
+      scratch[write_pos..write_pos + 4]
+        .copy_from_slice(&(values[read_pos + 1] as i32).to_le_bytes());
       write_pos += n2_minus1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos + 2] as i32,
-        n3_minus1,
-      );
+      scratch[write_pos..write_pos + 4]
+        .copy_from_slice(&(values[read_pos + 2] as i32).to_le_bytes());
       write_pos += n3_minus1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos + 3] as i32,
-        n4_minus1,
-      );
+      scratch[write_pos..write_pos + 4]
+        .copy_from_slice(&(values[read_pos + 3] as i32).to_le_bytes());
       write_pos += n4_minus1;
 
       data_output.write_bytes_with_len(scratch, write_pos)?;
@@ -386,31 +369,16 @@ impl GroupVIntUtil {
       scratch[write_pos] = flag as u8;
       write_pos += 1;
 
-      BitUtil::set_i32_le_with_len(&mut scratch[write_pos..], 0, values[read_pos], n1_minus1);
+      scratch[write_pos..write_pos + 4].copy_from_slice(&values[read_pos].to_le_bytes());
       write_pos += n1_minus1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos + 1],
-        n2_minus1,
-      );
+      scratch[write_pos..write_pos + 4].copy_from_slice(&values[read_pos + 1].to_le_bytes());
       write_pos += n2_minus1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos + 2],
-        n3_minus1,
-      );
+      scratch[write_pos..write_pos + 4].copy_from_slice(&values[read_pos + 2].to_le_bytes());
       write_pos += n3_minus1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos + 3],
-        n4_minus1,
-      );
+      scratch[write_pos..write_pos + 4].copy_from_slice(&values[read_pos + 3].to_le_bytes());
       write_pos += n4_minus1;
 
       data_output.write_bytes_with_len(scratch, write_pos)?;
