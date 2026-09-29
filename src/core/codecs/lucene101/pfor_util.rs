@@ -17,7 +17,6 @@
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::store::{DataInput, DataOutput, IndexInput};
-use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_heap::LongHeap;
 use crate::core::util::packed::PackedInts;
@@ -37,8 +36,27 @@ impl PForUtil {
   }
 
   pub(crate) fn all_equal(arr: &[i32]) -> bool {
-    // Adjacent slices match exactly when every value in the block is equal.
-    arr.is_empty() || CoreHelper::miss_match_i32(&arr[..arr.len() - 1], &arr[1..]) == -1
+    if arr.len() >= ForUtil::BLOCK_SIZE {
+      let expected = wide::i32x8::splat(arr[0]);
+      for chunk in arr[..ForUtil::BLOCK_SIZE].as_chunks::<8>().0 {
+        if !wide::i32x8::new([
+          chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
+        ])
+        .simd_eq(expected)
+        .all()
+        {
+          return false;
+        }
+      }
+      true
+    } else {
+      for i in 1..ForUtil::BLOCK_SIZE {
+        if arr[i] != arr[0] {
+          return false;
+        }
+      }
+      true
+    }
   }
   /// Encode 128 integers from `ints` into `out`.
   pub(crate) fn encode<O>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()>
@@ -56,9 +74,17 @@ impl PForUtil {
     }
 
     let mut top_value = top.top();
-    for &v in &ints[Self::MAX_EXCEPTIONS + 1..ForUtil::BLOCK_SIZE] {
-      if v as i64 > top_value {
-        top_value = top.update_top(v as i64);
+    for chunk in ints[Self::MAX_EXCEPTIONS + 1..ForUtil::BLOCK_SIZE]
+      .as_chunks::<8>()
+      .0
+    {
+      let values = wide::i32x8::new(*chunk);
+      if values.simd_gt(wide::i32x8::splat(top_value as i32)).any() {
+        for &v in chunk {
+          if v as i64 > top_value {
+            top_value = top.update_top(v as i64);
+          }
+        }
       }
     }
 
@@ -84,12 +110,34 @@ impl PForUtil {
     let mut exceptions = [0u8; Self::MAX_EXCEPTIONS * 2];
     if num_exceptions > 0 {
       let mut exception_count = 0;
-      for (i, v) in ints.iter_mut().enumerate().take(ForUtil::BLOCK_SIZE) {
-        if *v as i64 > max_unpatched_value {
-          exceptions[exception_count * 2] = i as u8;
-          exceptions[exception_count * 2 + 1] = (*v as u64 >> patched_bits_required) as u8;
-          *v = ((*v as i64) & max_unpatched_value) as i32;
-          exception_count += 1;
+      if max_unpatched_value <= i32::MAX as i64 {
+        let bound = wide::i32x4::splat(max_unpatched_value as i32);
+        for (block, chunk) in ints[..ForUtil::BLOCK_SIZE]
+          .as_chunks_mut::<4>()
+          .0
+          .iter_mut()
+          .enumerate()
+        {
+          let values = wide::i32x4::new([chunk[0], chunk[1], chunk[2], chunk[3]]);
+          let mut mask = values.simd_gt(bound).to_bitmask();
+          while mask != 0 {
+            let lane = mask.trailing_zeros() as usize;
+            let v = &mut chunk[lane];
+            exceptions[exception_count * 2] = (block * 4 + lane) as u8;
+            exceptions[exception_count * 2 + 1] = (*v as u64 >> patched_bits_required) as u8;
+            *v = ((*v as i64) & max_unpatched_value) as i32;
+            exception_count += 1;
+            mask &= mask - 1;
+          }
+        }
+      } else {
+        for (i, v) in ints.iter_mut().enumerate().take(ForUtil::BLOCK_SIZE) {
+          if *v as i64 > max_unpatched_value {
+            exceptions[exception_count * 2] = i as u8;
+            exceptions[exception_count * 2 + 1] = (*v as u64 >> patched_bits_required) as u8;
+            *v = ((*v as i64) & max_unpatched_value) as i32;
+            exception_count += 1;
+          }
         }
       }
       debug_assert!(exception_count == num_exceptions)

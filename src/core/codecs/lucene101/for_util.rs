@@ -57,7 +57,17 @@ impl ForUtil {
     Self::expand_mask8((1i32 << bits_per_value) - 1)
   }
   pub(crate) fn expand8(arr: &mut [i32]) {
-    let arr = &mut arr[..Self::BLOCK_SIZE];
+    if arr.len() >= Self::BLOCK_SIZE {
+      let arr = &mut arr[..Self::BLOCK_SIZE];
+      for i in 0..32 {
+        let l = arr[i] as u32;
+        arr[i] = ((l >> 24) & 0xFF) as i32;
+        arr[32 + i] = ((l >> 16) & 0xFF) as i32;
+        arr[64 + i] = ((l >> 8) & 0xFF) as i32;
+        arr[96 + i] = (l & 0xFF) as i32;
+      }
+      return;
+    }
     for i in 0..32 {
       let l = arr[i] as u32;
       arr[i] = ((l >> 24) & 0xFF) as i32;
@@ -404,6 +414,30 @@ impl ForUtil {
 
     let mut tmp_idx = 0;
     let mut remaining_bits = remaining_bits_per_int;
+    if ints.len() < Self::BLOCK_SIZE {
+      let mut out_idx = num_ints;
+      while out_idx < Self::BLOCK_SIZE {
+        let mut b = bits_per_value_index - remaining_bits;
+        let mut l = (tmp[tmp_idx] & Self::MASKS32[remaining_bits]) << b;
+        tmp_idx += 1;
+
+        while b >= remaining_bits_per_int {
+          b -= remaining_bits_per_int;
+          l |= (tmp[tmp_idx] & mask32_remaining_bits_per_int) << b;
+          tmp_idx += 1;
+        }
+
+        if b > 0 {
+          l |= (tmp[tmp_idx] >> (remaining_bits_per_int - b)) & Self::MASKS32[b];
+          remaining_bits = remaining_bits_per_int - b;
+        } else {
+          remaining_bits = remaining_bits_per_int;
+        }
+        ints[out_idx] = l;
+        out_idx += 1;
+      }
+      return Ok(());
+    }
     for out in ints.iter_mut().take(Self::BLOCK_SIZE).skip(num_ints) {
       let mut b = bits_per_value_index - remaining_bits;
       let mut l = (tmp[tmp_idx] & Self::MASKS32[remaining_bits]) << b;

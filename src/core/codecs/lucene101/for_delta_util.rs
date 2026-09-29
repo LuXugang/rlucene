@@ -20,7 +20,6 @@ use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::pfor_util::PForUtil;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::store::{DataOutput, IndexInput};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 
@@ -29,9 +28,9 @@ static IDENTITY_PLUS_ONE: LazyLock<[i32; ForUtil::BLOCK_SIZE]> =
 
 /// Inspired from <https://fulmicoton.com/posts/bitpacking/>
 /// Encodes multiple integers in a long to get SIMD-like speedups.
-/// If `bits_per_value <= 4` then we pack 8 ints per long,
-/// else if `bits_per_value <= 11` we pack 4 ints per long,
-/// else we pack 2 ints per long.
+/// Use four packed 8-bit lanes per integer for `bits_per_value <= 3`,
+/// two packed 16-bit lanes for `bits_per_value <= 10`, and full-width
+/// integers otherwise.
 pub struct ForDeltaUtil {
   tmp: Vec<i32>,
 }
@@ -52,156 +51,235 @@ impl ForDeltaUtil {
   const THREE_BLOCK_SIZE_FOURTHS: usize = 3 * Self::BLOCK_SIZE / 4;
 
   fn prefix_sum_of_ones(arr: &mut [i32], base: i32) {
-    arr.copy_from(&IDENTITY_PLUS_ONE[..], 0);
-    for v in arr.iter_mut() {
-      *v = v.wrapping_add(base);
+    if arr.len() >= Self::BLOCK_SIZE {
+      for (i, value) in arr[..Self::BLOCK_SIZE].iter_mut().enumerate() {
+        *value = base.wrapping_add(i as i32 + 1);
+      }
+    } else {
+      arr[..Self::BLOCK_SIZE].copy_from_slice(&IDENTITY_PLUS_ONE[..]);
+      for v in &mut arr[..Self::BLOCK_SIZE] {
+        *v = v.wrapping_add(base);
+      }
     }
   }
   fn prefix_sum8(arr: &mut [i32], base: i32) {
-    // When the number of bits per value is 4 or less, we can sum up all
-    // values in a block without risking overflowing an 8-bits
-    // integer. This allows computing the prefix sum by summing up 4
-    // values at once.
-    Self::inner_prefix_sum8(arr);
-    ForUtil::expand8(arr);
+    if arr.len() >= Self::BLOCK_SIZE {
+      Self::inner_prefix_sum8(arr);
+      let last = arr[31] as u32;
+      let l0 = base;
+      let l1 = l0.wrapping_add(((last >> 24) & 255) as i32);
+      let l2 = l1.wrapping_add(((last >> 16) & 255) as i32);
+      let l3 = l2.wrapping_add(((last >> 8) & 255) as i32);
+      for i in 0..32 {
+        let value = arr[i] as u32;
+        arr[i] = (((value >> 24) & 255) as i32).wrapping_add(l0);
+        arr[32 + i] = (((value >> 16) & 255) as i32).wrapping_add(l1);
+        arr[64 + i] = (((value >> 8) & 255) as i32).wrapping_add(l2);
+        arr[96 + i] = ((value & 255) as i32).wrapping_add(l3);
+      }
+    } else {
+      // When the number of bits per value is 3 or less, we can sum up all
+      // values in a block without risking overflowing an 8-bits
+      // integer. This allows computing the prefix sum by summing up 4
+      // values at once.
+      Self::inner_prefix_sum8(arr);
+      ForUtil::expand8(arr);
 
-    let l0 = base;
-    let l1 = l0.wrapping_add(arr[Self::ONE_BLOCK_SIZE_FOURTH - 1]);
-    let l2 = l1.wrapping_add(arr[Self::TWO_BLOCK_SIZE_FOURTHS - 1]);
-    let l3 = l2.wrapping_add(arr[Self::THREE_BLOCK_SIZE_FOURTHS - 1]);
+      let l0 = base;
+      let l1 = l0.wrapping_add(arr[Self::ONE_BLOCK_SIZE_FOURTH - 1]);
+      let l2 = l1.wrapping_add(arr[Self::TWO_BLOCK_SIZE_FOURTHS - 1]);
+      let l3 = l2.wrapping_add(arr[Self::THREE_BLOCK_SIZE_FOURTHS - 1]);
 
-    for i in 0..Self::ONE_BLOCK_SIZE_FOURTH {
-      arr[i] = arr[i].wrapping_add(l0);
-      arr[Self::ONE_BLOCK_SIZE_FOURTH + i] = arr[Self::ONE_BLOCK_SIZE_FOURTH + i].wrapping_add(l1);
-      arr[Self::TWO_BLOCK_SIZE_FOURTHS + i] =
-        arr[Self::TWO_BLOCK_SIZE_FOURTHS + i].wrapping_add(l2);
-      arr[Self::THREE_BLOCK_SIZE_FOURTHS + i] =
-        arr[Self::THREE_BLOCK_SIZE_FOURTHS + i].wrapping_add(l3);
+      for i in 0..Self::ONE_BLOCK_SIZE_FOURTH {
+        arr[i] = arr[i].wrapping_add(l0);
+        arr[Self::ONE_BLOCK_SIZE_FOURTH + i] =
+          arr[Self::ONE_BLOCK_SIZE_FOURTH + i].wrapping_add(l1);
+        arr[Self::TWO_BLOCK_SIZE_FOURTHS + i] =
+          arr[Self::TWO_BLOCK_SIZE_FOURTHS + i].wrapping_add(l2);
+        arr[Self::THREE_BLOCK_SIZE_FOURTHS + i] =
+          arr[Self::THREE_BLOCK_SIZE_FOURTHS + i].wrapping_add(l3);
+      }
     }
   }
 
   fn prefix_sum16(arr: &mut [i32], base: i32) {
-    // When the number of bits per value is 11 or less, we can sum up all
-    // values in a block without risking overflowing a 16-bits
-    // integer. This allows computing the prefix sum by summing up 4
-    // values at once.
-    Self::inner_prefix_sum16(arr);
-    ForUtil::expand16(arr);
+    if arr.len() >= Self::BLOCK_SIZE {
+      Self::inner_prefix_sum16(arr);
+      let last = arr[63] as u32;
+      let l0 = base;
+      let l1 = l0.wrapping_add(((last >> 16) & 65535) as i32);
+      for i in 0..64 {
+        let value = arr[i] as u32;
+        arr[i] = (((value >> 16) & 65535) as i32).wrapping_add(l0);
+        arr[64 + i] = ((value & 65535) as i32).wrapping_add(l1);
+      }
+    } else {
+      // When the number of bits per value is 10 or less, we can sum up all
+      // values in a block without risking overflowing a 16-bits
+      // integer. This allows computing the prefix sum by summing up 2
+      // values at once.
+      Self::inner_prefix_sum16(arr);
+      ForUtil::expand16(arr);
 
-    let l0 = base;
-    let l1 = l0.wrapping_add(arr[Self::HALF_BLOCK_SIZE - 1]);
+      let l0 = base;
+      let l1 = l0.wrapping_add(arr[Self::HALF_BLOCK_SIZE - 1]);
 
-    for i in 0..Self::HALF_BLOCK_SIZE {
-      arr[i] = arr[i].wrapping_add(l0);
-      arr[Self::HALF_BLOCK_SIZE + i] = arr[Self::HALF_BLOCK_SIZE + i].wrapping_add(l1);
+      for i in 0..Self::HALF_BLOCK_SIZE {
+        arr[i] = arr[i].wrapping_add(l0);
+        arr[Self::HALF_BLOCK_SIZE + i] = arr[Self::HALF_BLOCK_SIZE + i].wrapping_add(l1);
+      }
     }
   }
 
   fn prefix_sum32(arr: &mut [i32], base: i32) {
-    arr[0] = arr[0].wrapping_add(base);
-    for i in 1..Self::BLOCK_SIZE {
-      arr[i] = arr[i].wrapping_add(arr[i - 1]);
+    if arr.len() >= 128 {
+      let mut carry: i32 = base;
+      for chunk in arr[..128].as_chunks_mut::<4>().0 {
+        carry = chunk[0].wrapping_add(carry);
+        chunk[0] = carry;
+        carry = chunk[1].wrapping_add(carry);
+        chunk[1] = carry;
+        carry = chunk[2].wrapping_add(carry);
+        chunk[2] = carry;
+        carry = chunk[3].wrapping_add(carry);
+        chunk[3] = carry;
+      }
+    } else {
+      arr[0] = arr[0].wrapping_add(base);
+      for i in 1..Self::BLOCK_SIZE {
+        arr[i] = arr[i].wrapping_add(arr[i - 1]);
+      }
     }
   }
   // For some reason unrolling seems to help
   fn inner_prefix_sum8(arr: &mut [i32]) {
-    arr[1] = arr[1].wrapping_add(arr[0]);
-    arr[2] = arr[2].wrapping_add(arr[1]);
-    arr[3] = arr[3].wrapping_add(arr[2]);
-    arr[4] = arr[4].wrapping_add(arr[3]);
-    arr[5] = arr[5].wrapping_add(arr[4]);
-    arr[6] = arr[6].wrapping_add(arr[5]);
-    arr[7] = arr[7].wrapping_add(arr[6]);
-    arr[8] = arr[8].wrapping_add(arr[7]);
-    arr[9] = arr[9].wrapping_add(arr[8]);
-    arr[10] = arr[10].wrapping_add(arr[9]);
-    arr[11] = arr[11].wrapping_add(arr[10]);
-    arr[12] = arr[12].wrapping_add(arr[11]);
-    arr[13] = arr[13].wrapping_add(arr[12]);
-    arr[14] = arr[14].wrapping_add(arr[13]);
-    arr[15] = arr[15].wrapping_add(arr[14]);
-    arr[16] = arr[16].wrapping_add(arr[15]);
-    arr[17] = arr[17].wrapping_add(arr[16]);
-    arr[18] = arr[18].wrapping_add(arr[17]);
-    arr[19] = arr[19].wrapping_add(arr[18]);
-    arr[20] = arr[20].wrapping_add(arr[19]);
-    arr[21] = arr[21].wrapping_add(arr[20]);
-    arr[22] = arr[22].wrapping_add(arr[21]);
-    arr[23] = arr[23].wrapping_add(arr[22]);
-    arr[24] = arr[24].wrapping_add(arr[23]);
-    arr[25] = arr[25].wrapping_add(arr[24]);
-    arr[26] = arr[26].wrapping_add(arr[25]);
-    arr[27] = arr[27].wrapping_add(arr[26]);
-    arr[28] = arr[28].wrapping_add(arr[27]);
-    arr[29] = arr[29].wrapping_add(arr[28]);
-    arr[30] = arr[30].wrapping_add(arr[29]);
-    arr[31] = arr[31].wrapping_add(arr[30]);
+    if arr.len() >= 32 {
+      let mut carry = 0;
+      for chunk in arr[..32].as_chunks_mut::<4>().0 {
+        let mut value = wide::i32x4::new(*chunk);
+        let lanes = value.to_array();
+        value += wide::i32x4::new([0, 0, lanes[0], lanes[1]]);
+        let lanes = value.to_array();
+        value += wide::i32x4::new([0, lanes[0], lanes[1], lanes[2]]);
+        value += wide::i32x4::splat(carry);
+        let lanes = value.to_array();
+        carry = lanes[3];
+        chunk.copy_from_slice(&lanes);
+      }
+    } else {
+      arr[1] = arr[1].wrapping_add(arr[0]);
+      arr[2] = arr[2].wrapping_add(arr[1]);
+      arr[3] = arr[3].wrapping_add(arr[2]);
+      arr[4] = arr[4].wrapping_add(arr[3]);
+      arr[5] = arr[5].wrapping_add(arr[4]);
+      arr[6] = arr[6].wrapping_add(arr[5]);
+      arr[7] = arr[7].wrapping_add(arr[6]);
+      arr[8] = arr[8].wrapping_add(arr[7]);
+      arr[9] = arr[9].wrapping_add(arr[8]);
+      arr[10] = arr[10].wrapping_add(arr[9]);
+      arr[11] = arr[11].wrapping_add(arr[10]);
+      arr[12] = arr[12].wrapping_add(arr[11]);
+      arr[13] = arr[13].wrapping_add(arr[12]);
+      arr[14] = arr[14].wrapping_add(arr[13]);
+      arr[15] = arr[15].wrapping_add(arr[14]);
+      arr[16] = arr[16].wrapping_add(arr[15]);
+      arr[17] = arr[17].wrapping_add(arr[16]);
+      arr[18] = arr[18].wrapping_add(arr[17]);
+      arr[19] = arr[19].wrapping_add(arr[18]);
+      arr[20] = arr[20].wrapping_add(arr[19]);
+      arr[21] = arr[21].wrapping_add(arr[20]);
+      arr[22] = arr[22].wrapping_add(arr[21]);
+      arr[23] = arr[23].wrapping_add(arr[22]);
+      arr[24] = arr[24].wrapping_add(arr[23]);
+      arr[25] = arr[25].wrapping_add(arr[24]);
+      arr[26] = arr[26].wrapping_add(arr[25]);
+      arr[27] = arr[27].wrapping_add(arr[26]);
+      arr[28] = arr[28].wrapping_add(arr[27]);
+      arr[29] = arr[29].wrapping_add(arr[28]);
+      arr[30] = arr[30].wrapping_add(arr[29]);
+      arr[31] = arr[31].wrapping_add(arr[30]);
+    }
   }
   // For some reason unrolling seems to help
   fn inner_prefix_sum16(arr: &mut [i32]) {
-    arr[1] = arr[1].wrapping_add(arr[0]);
-    arr[2] = arr[2].wrapping_add(arr[1]);
-    arr[3] = arr[3].wrapping_add(arr[2]);
-    arr[4] = arr[4].wrapping_add(arr[3]);
-    arr[5] = arr[5].wrapping_add(arr[4]);
-    arr[6] = arr[6].wrapping_add(arr[5]);
-    arr[7] = arr[7].wrapping_add(arr[6]);
-    arr[8] = arr[8].wrapping_add(arr[7]);
-    arr[9] = arr[9].wrapping_add(arr[8]);
-    arr[10] = arr[10].wrapping_add(arr[9]);
-    arr[11] = arr[11].wrapping_add(arr[10]);
-    arr[12] = arr[12].wrapping_add(arr[11]);
-    arr[13] = arr[13].wrapping_add(arr[12]);
-    arr[14] = arr[14].wrapping_add(arr[13]);
-    arr[15] = arr[15].wrapping_add(arr[14]);
-    arr[16] = arr[16].wrapping_add(arr[15]);
-    arr[17] = arr[17].wrapping_add(arr[16]);
-    arr[18] = arr[18].wrapping_add(arr[17]);
-    arr[19] = arr[19].wrapping_add(arr[18]);
-    arr[20] = arr[20].wrapping_add(arr[19]);
-    arr[21] = arr[21].wrapping_add(arr[20]);
-    arr[22] = arr[22].wrapping_add(arr[21]);
-    arr[23] = arr[23].wrapping_add(arr[22]);
-    arr[24] = arr[24].wrapping_add(arr[23]);
-    arr[25] = arr[25].wrapping_add(arr[24]);
-    arr[26] = arr[26].wrapping_add(arr[25]);
-    arr[27] = arr[27].wrapping_add(arr[26]);
-    arr[28] = arr[28].wrapping_add(arr[27]);
-    arr[29] = arr[29].wrapping_add(arr[28]);
-    arr[30] = arr[30].wrapping_add(arr[29]);
-    arr[31] = arr[31].wrapping_add(arr[30]);
-    arr[32] = arr[32].wrapping_add(arr[31]);
-    arr[33] = arr[33].wrapping_add(arr[32]);
-    arr[34] = arr[34].wrapping_add(arr[33]);
-    arr[35] = arr[35].wrapping_add(arr[34]);
-    arr[36] = arr[36].wrapping_add(arr[35]);
-    arr[37] = arr[37].wrapping_add(arr[36]);
-    arr[38] = arr[38].wrapping_add(arr[37]);
-    arr[39] = arr[39].wrapping_add(arr[38]);
-    arr[40] = arr[40].wrapping_add(arr[39]);
-    arr[41] = arr[41].wrapping_add(arr[40]);
-    arr[42] = arr[42].wrapping_add(arr[41]);
-    arr[43] = arr[43].wrapping_add(arr[42]);
-    arr[44] = arr[44].wrapping_add(arr[43]);
-    arr[45] = arr[45].wrapping_add(arr[44]);
-    arr[46] = arr[46].wrapping_add(arr[45]);
-    arr[47] = arr[47].wrapping_add(arr[46]);
-    arr[48] = arr[48].wrapping_add(arr[47]);
-    arr[49] = arr[49].wrapping_add(arr[48]);
-    arr[50] = arr[50].wrapping_add(arr[49]);
-    arr[51] = arr[51].wrapping_add(arr[50]);
-    arr[52] = arr[52].wrapping_add(arr[51]);
-    arr[53] = arr[53].wrapping_add(arr[52]);
-    arr[54] = arr[54].wrapping_add(arr[53]);
-    arr[55] = arr[55].wrapping_add(arr[54]);
-    arr[56] = arr[56].wrapping_add(arr[55]);
-    arr[57] = arr[57].wrapping_add(arr[56]);
-    arr[58] = arr[58].wrapping_add(arr[57]);
-    arr[59] = arr[59].wrapping_add(arr[58]);
-    arr[60] = arr[60].wrapping_add(arr[59]);
-    arr[61] = arr[61].wrapping_add(arr[60]);
-    arr[62] = arr[62].wrapping_add(arr[61]);
-    arr[63] = arr[63].wrapping_add(arr[62]);
+    if arr.len() >= 64 {
+      let mut carry = 0;
+      for chunk in arr[..64].as_chunks_mut::<4>().0 {
+        let mut value = wide::i32x4::new(*chunk);
+        let lanes = value.to_array();
+        value += wide::i32x4::new([0, 0, lanes[0], lanes[1]]);
+        let lanes = value.to_array();
+        value += wide::i32x4::new([0, lanes[0], lanes[1], lanes[2]]);
+        value += wide::i32x4::splat(carry);
+        let lanes = value.to_array();
+        carry = lanes[3];
+        chunk.copy_from_slice(&lanes);
+      }
+    } else {
+      arr[1] = arr[1].wrapping_add(arr[0]);
+      arr[2] = arr[2].wrapping_add(arr[1]);
+      arr[3] = arr[3].wrapping_add(arr[2]);
+      arr[4] = arr[4].wrapping_add(arr[3]);
+      arr[5] = arr[5].wrapping_add(arr[4]);
+      arr[6] = arr[6].wrapping_add(arr[5]);
+      arr[7] = arr[7].wrapping_add(arr[6]);
+      arr[8] = arr[8].wrapping_add(arr[7]);
+      arr[9] = arr[9].wrapping_add(arr[8]);
+      arr[10] = arr[10].wrapping_add(arr[9]);
+      arr[11] = arr[11].wrapping_add(arr[10]);
+      arr[12] = arr[12].wrapping_add(arr[11]);
+      arr[13] = arr[13].wrapping_add(arr[12]);
+      arr[14] = arr[14].wrapping_add(arr[13]);
+      arr[15] = arr[15].wrapping_add(arr[14]);
+      arr[16] = arr[16].wrapping_add(arr[15]);
+      arr[17] = arr[17].wrapping_add(arr[16]);
+      arr[18] = arr[18].wrapping_add(arr[17]);
+      arr[19] = arr[19].wrapping_add(arr[18]);
+      arr[20] = arr[20].wrapping_add(arr[19]);
+      arr[21] = arr[21].wrapping_add(arr[20]);
+      arr[22] = arr[22].wrapping_add(arr[21]);
+      arr[23] = arr[23].wrapping_add(arr[22]);
+      arr[24] = arr[24].wrapping_add(arr[23]);
+      arr[25] = arr[25].wrapping_add(arr[24]);
+      arr[26] = arr[26].wrapping_add(arr[25]);
+      arr[27] = arr[27].wrapping_add(arr[26]);
+      arr[28] = arr[28].wrapping_add(arr[27]);
+      arr[29] = arr[29].wrapping_add(arr[28]);
+      arr[30] = arr[30].wrapping_add(arr[29]);
+      arr[31] = arr[31].wrapping_add(arr[30]);
+      arr[32] = arr[32].wrapping_add(arr[31]);
+      arr[33] = arr[33].wrapping_add(arr[32]);
+      arr[34] = arr[34].wrapping_add(arr[33]);
+      arr[35] = arr[35].wrapping_add(arr[34]);
+      arr[36] = arr[36].wrapping_add(arr[35]);
+      arr[37] = arr[37].wrapping_add(arr[36]);
+      arr[38] = arr[38].wrapping_add(arr[37]);
+      arr[39] = arr[39].wrapping_add(arr[38]);
+      arr[40] = arr[40].wrapping_add(arr[39]);
+      arr[41] = arr[41].wrapping_add(arr[40]);
+      arr[42] = arr[42].wrapping_add(arr[41]);
+      arr[43] = arr[43].wrapping_add(arr[42]);
+      arr[44] = arr[44].wrapping_add(arr[43]);
+      arr[45] = arr[45].wrapping_add(arr[44]);
+      arr[46] = arr[46].wrapping_add(arr[45]);
+      arr[47] = arr[47].wrapping_add(arr[46]);
+      arr[48] = arr[48].wrapping_add(arr[47]);
+      arr[49] = arr[49].wrapping_add(arr[48]);
+      arr[50] = arr[50].wrapping_add(arr[49]);
+      arr[51] = arr[51].wrapping_add(arr[50]);
+      arr[52] = arr[52].wrapping_add(arr[51]);
+      arr[53] = arr[53].wrapping_add(arr[52]);
+      arr[54] = arr[54].wrapping_add(arr[53]);
+      arr[55] = arr[55].wrapping_add(arr[54]);
+      arr[56] = arr[56].wrapping_add(arr[55]);
+      arr[57] = arr[57].wrapping_add(arr[56]);
+      arr[58] = arr[58].wrapping_add(arr[57]);
+      arr[59] = arr[59].wrapping_add(arr[58]);
+      arr[60] = arr[60].wrapping_add(arr[59]);
+      arr[61] = arr[61].wrapping_add(arr[60]);
+      arr[62] = arr[62].wrapping_add(arr[61]);
+      arr[63] = arr[63].wrapping_add(arr[62]);
+    }
   }
   /// Encode deltas of a strictly monotonically increasing sequence of
   /// integers. The provided ints are expected to be deltas between
