@@ -7,9 +7,10 @@ plugins, Compose service, and automatic job creation are versioned under
 from a clone of this repository or configure it to build your fork.
 
 The job checks out the same repository and branch that supplied its Jenkinsfile.
-Each job has its own build cache and last-successful-commit state. The original
-controller's disabled `legency` job and historical builds are instance data;
-new installations create only `rlucene-ci`.
+Scheduled and manual release jobs have their own build cache and state. The
+commit and PR checks use per-build Cargo targets that are deleted after each
+run. The original controller's disabled `legency` job and historical builds
+are instance data; new installations create only `rlucene-ci`.
 
 ## Pull request commit-check job
 
@@ -33,9 +34,10 @@ cancels the older Actions run and asks Jenkins to stop its obsolete build.
 If the obsolete request is still queued, it cancels the queue item and checks
 whether a build started during that handoff. Different PRs do not cancel each
 other; cancelled build records remain retained.
-Every Jenkins PR build is protected from automatic deletion, including its log
-and archived test output. The normal 200-build history limit applies only to a
-run that fails before the Pipeline can mark it for retention.
+Every Jenkins PR build is protected from automatic deletion, including its
+Console Output and build status. The Pipeline does not archive a duplicate
+Cargo log. The normal 200-build history limit applies only to a run that fails
+before the Pipeline can mark it for retention.
 
 PR code runs only on the exclusive `rlucene-pr` inbound agent. That container
 does not mount Jenkins home or the Docker socket. The existing scheduled
@@ -58,9 +60,13 @@ its own GitHub check and Jenkins build link. The workflow allows 40 minutes to s
 35 minutes for it to finish; queue or build timeouts fail the GitHub check.
 
 `rlucene-commit` shares the existing single-executor `rlucene-pr` agent with
-PR testing. Each job has a separate workspace and Cargo target cache; their
-tests run serially on that agent. All commit builds are retained, with no
-age or count limit. The scheduled `rlucene-ci` release job remains separate.
+PR testing. Each job has a separate workspace and per-build Cargo target; their
+tests run serially on that agent. Before a build starts, the Pipeline removes
+any target left by an interrupted earlier run. Its `post` cleanup removes the
+current target after success, failure, or cancellation. `/opt/cargo` remains
+available as the dependency download cache, while compiler output is not kept
+between revisions. All commit builds are retained, with no age or count limit.
+The scheduled `rlucene-ci` release job remains separate.
 
 ## Jenkins prerequisites
 

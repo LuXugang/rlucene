@@ -314,9 +314,11 @@ instance's accounts, credentials, jobs and history.
 
 The PR agent uses separate workspace and Cargo target volumes. It receives only
 its inbound-agent connection secret; it cannot read `jenkins_home`. Do not add
-the controller home or Docker socket to this service. Recreating the agent keeps
-its compilation cache, while the Pipeline cleans the checked-out workspace and
-per-build temporary directory after every result.
+the controller home or Docker socket to this service. The target volume is
+scratch space for `rlucene-commit` and `rlucene-pr`: each Pipeline uses a
+build-number-specific directory, removes stale target data before compiling,
+and deletes compiler output again from `post` after success, failure, or
+cancellation. `/opt/cargo` remains the dependency download cache.
 
 The default job retains the existing cache and state paths:
 
