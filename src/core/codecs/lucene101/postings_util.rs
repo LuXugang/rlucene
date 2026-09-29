@@ -36,6 +36,16 @@ impl PostingsUtil {
   {
     GroupVIntUtil::read_group_vints_i32(doc_in, doc_buffer, num)?;
     if index_has_freq && decode_freq {
+      if freq_buffer.len() < num {
+        for i in 0..num {
+          freq_buffer[i] = doc_buffer[i] & 1;
+          doc_buffer[i] = ((doc_buffer[i] as u32) >> 1) as i32;
+          if freq_buffer[i] == 0 {
+            freq_buffer[i] = doc_in.read_vint()?;
+          }
+        }
+        return Ok(());
+      }
       let doc_buffer = &mut doc_buffer[..num];
       let freq_buffer = &mut freq_buffer[..num];
       for i in 0..num {
@@ -65,8 +75,21 @@ impl PostingsUtil {
     DO: DataOutput,
   {
     if write_freqs {
-      for i in 0..num {
-        doc_buffer[i] = (doc_buffer[i] << 1) | if freq_buffer[i] == 1 { 1 } else { 0 };
+      if (4..=16).contains(&num) && doc_buffer.len() >= num && freq_buffer.len() >= num {
+        let (docs, doc_tail) = doc_buffer[..num].as_chunks_mut::<4>();
+        let (freqs, freq_tail) = freq_buffer[..num].as_chunks::<4>();
+        for (docs, freqs) in docs.iter_mut().zip(freqs) {
+          let values = wide::i32x4::new(*docs);
+          let flags = wide::i32x4::new(*freqs).simd_eq(wide::i32x4::splat(1));
+          *docs = ((values << 1u32) - flags).to_array();
+        }
+        for (doc, &freq) in doc_tail.iter_mut().zip(freq_tail) {
+          *doc = (*doc << 1) | if freq == 1 { 1 } else { 0 };
+        }
+      } else {
+        for i in 0..num {
+          doc_buffer[i] = (doc_buffer[i] << 1) | if freq_buffer[i] == 1 { 1 } else { 0 };
+        }
       }
     }
     write_group_vints_i32(doc_out, doc_buffer, num)?;
