@@ -375,14 +375,23 @@ impl DocIdsWriter {
       let l1 = input.read_long()? as u64;
       let l2 = input.read_long()? as u64;
       let l3 = input.read_long()? as u64;
-      doc_ids[i] = (l1 >> 40) as i32;
-      doc_ids[i + 1] = ((l1 >> 16) & 0xffffff) as i32;
-      doc_ids[i + 2] = (((l1 & 0xffff) << 8) | ((l2 >> 56) & 0xff)) as i32;
-      doc_ids[i + 3] = ((l2 >> 32) & 0xffffff) as i32;
-      doc_ids[i + 4] = ((l2 >> 8) & 0xffffff) as i32;
-      doc_ids[i + 5] = (((l2 & 0xff) << 16) | ((l3 >> 48) & 0xffff)) as i32;
-      doc_ids[i + 6] = ((l3 >> 24) & 0xffffff) as i32;
-      doc_ids[i + 7] = (l3 & 0xffffff) as i32;
+      let ids = [
+        (l1 >> 40) as i32,
+        ((l1 >> 16) & 0xffffff) as i32,
+        (((l1 & 0xffff) << 8) | ((l2 >> 56) & 0xff)) as i32,
+        ((l2 >> 32) & 0xffffff) as i32,
+        ((l2 >> 8) & 0xffffff) as i32,
+        (((l2 & 0xff) << 16) | ((l3 >> 48) & 0xffff)) as i32,
+        ((l3 >> 24) & 0xffffff) as i32,
+        (l3 & 0xffffff) as i32,
+      ];
+      if let Some(dst) = doc_ids.get_mut(i..i + 8) {
+        dst.copy_from_slice(&ids);
+      } else {
+        for (j, doc_id) in ids.into_iter().enumerate() {
+          doc_ids[i + j] = doc_id;
+        }
+      }
       i += 8;
     }
     while i < count_usize {
