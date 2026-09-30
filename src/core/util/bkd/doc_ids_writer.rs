@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::point_values::IntersectVisitor;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::{DataOutput, IndexInput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
@@ -246,7 +245,7 @@ impl DocIdsWriter {
     &mut self,
     input: &mut II,
     count: usize,
-  ) -> Result<impl DocIdSetIterator>
+  ) -> Result<DocBaseBitSetIterator>
   where
     II: IndexInput,
   {
@@ -310,14 +309,39 @@ impl DocIdsWriter {
     II: IndexInput,
   {
     let mut iterator = self.read_bit_set_iterator(input, count)?;
+    let doc_base = iterator.get_doc_base();
+    let word_count = self.scratch_longs.length;
+    let end = word_count
+      .checked_mul(64)
+      .and_then(|bits| doc_base.checked_add(bits));
+    if word_count == 0 || end.is_none_or(|end| end >= NO_MORE_DOCS as usize) {
+      let mut pos = 0;
+      loop {
+        let doc_id = iterator.next_doc()?;
+        if doc_id == NO_MORE_DOCS {
+          break;
+        }
+        doc_ids[pos] = doc_id;
+        pos += 1;
+      }
+      debug_assert!(pos == count, "pos: {pos}, count: {count}");
+      return Ok(());
+    }
     let mut pos = 0;
-    let mut doc_id;
-    while {
-      doc_id = iterator.next_doc()?;
-      doc_id != NO_MORE_DOCS
-    } {
-      doc_ids[pos] = doc_id;
-      pos += 1;
+    for (word_index, &bits) in iterator
+      .get_bit_set()
+      .get_bits()
+      .iter()
+      .take(self.scratch_longs.length)
+      .enumerate()
+    {
+      let mut word = bits as u64;
+      while word != 0 {
+        let bit = word.trailing_zeros() as usize;
+        doc_ids[pos] = (doc_base + (word_index << 6) + bit) as i32;
+        pos += 1;
+        word &= word - 1;
+      }
     }
     debug_assert!(pos == count, "pos: {pos}, count: {count}");
     Ok(())
