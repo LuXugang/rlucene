@@ -269,6 +269,16 @@ impl DocIdsWriter {
     II: IndexInput,
   {
     let start = input.read_vint()?;
+    if doc_ids.len() < count {
+      for (i, doc_id) in doc_ids.iter_mut().enumerate() {
+        *doc_id = start + i as i32;
+      }
+      return Err(LuceneError::array_index_out_of_bounds(format!(
+        "Index {} out of bounds for length {}",
+        doc_ids.len(),
+        doc_ids.len()
+      )));
+    }
     for (i, doc_id) in doc_ids.iter_mut().take(count).enumerate() {
       *doc_id = start + i as i32;
     }
