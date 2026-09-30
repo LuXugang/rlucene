@@ -1520,10 +1520,14 @@ where
 
   #[inline]
   fn next_doc(&mut self) -> Result<i32> {
-    if self.doc_buffer_upto == ForUtil::BLOCK_SIZE {
-      self.move_to_next_level0_block()?;
-    }
-    let doc = self.doc_buffer[self.doc_buffer_upto];
+    let doc = if let Some(&doc) = self.doc_buffer.get(self.doc_buffer_upto) {
+      doc
+    } else {
+      if self.doc_buffer_upto == ForUtil::BLOCK_SIZE {
+        self.move_to_next_level0_block()?;
+      }
+      self.doc_buffer[self.doc_buffer_upto]
+    };
     self.doc = doc;
     self.doc_buffer_upto += 1;
     Ok(doc)
