@@ -376,9 +376,11 @@ where
       let term_count = num_terms[skip + i];
       let mut arr = Vec::with_capacity(term_count + 1);
       arr.push(0);
+      let mut position = 0;
       for j in 0..term_count {
         let freq = term_freqs[term_index + j];
-        arr.push(arr[j] + freq);
+        position += freq;
+        arr.push(position);
       }
       term_index += term_count;
       *slot = arr;
