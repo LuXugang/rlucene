@@ -680,25 +680,25 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
       // allow an earlier match, or fail at the first unreadable scalar access.
       let end = to.min(buffer.len());
       let target_vector = i32x4::splat(target);
-      // Combine two comparisons before testing for a match, then preserve
-      // block order when locating the first matching lane.
+      // Descending weights identify the first matching lane across both blocks,
+      // while a zero maximum means that neither block matched.
       let mut blocks = buffer[from..end].chunks_exact(8);
       for block in &mut blocks {
         let first = i32x4::from(&block[..4]).simd_ge(target_vector);
         let second = i32x4::from(&block[4..]).simd_ge(target_vector);
-        if (first | second).any() {
-          let mask = first.to_bitmask();
-          if mask != 0 {
-            return from + mask.trailing_zeros() as usize;
-          }
-          return from + 4 + second.to_bitmask().trailing_zeros() as usize;
+        let first = first & i32x4::from([8, 7, 6, 5]);
+        let second = second & i32x4::from([4, 3, 2, 1]);
+        let first_match = first.max(second).reduce_max();
+        if first_match != 0 {
+          return from + (8 - first_match) as usize;
         }
         from += 8;
       }
       for block in blocks.remainder().chunks_exact(4) {
         let mask = i32x4::from(block).simd_ge(target_vector);
-        if mask.any() {
-          return from + mask.to_bitmask().trailing_zeros() as usize;
+        let first_match = (mask & i32x4::from([4, 3, 2, 1])).reduce_max();
+        if first_match != 0 {
+          return from + (4 - first_match) as usize;
         }
         from += 4;
       }
