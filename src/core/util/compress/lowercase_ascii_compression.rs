@@ -24,8 +24,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub struct LowercaseAsciiCompression;
 impl LowercaseAsciiCompression {
   fn is_compressible(b: i32) -> bool {
-    let high3_bits = (b.wrapping_add(1)) & !0x1F;
-    high3_bits == 0x20 || high3_bits == 0x60
+    (b.wrapping_add(1) & 0xA0) == 0x20
   }
   /// Compresses `input[0..len]` into `out`.
   ///
@@ -45,8 +44,10 @@ impl LowercaseAsciiCompression {
     let mut previous_exception_index = 0;
     let mut num_exceptions = 0;
 
-    for (i, &b) in input.iter().take(len).enumerate() {
-      let b = b as i32;
+    // An indexed read preserves Java's failure timing when input is shorter than len.
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..len {
+      let b = input[i] as i32;
       if !Self::is_compressible(b) {
         while i - previous_exception_index > 0xFF {
           num_exceptions += 1;
@@ -61,6 +62,7 @@ impl LowercaseAsciiCompression {
     }
 
     debug_assert!(num_exceptions <= max_exceptions);
+    let input = &input[..len];
 
     // 2. Move to 6-bit space
     let compressed_len = len - (len >> 2);
