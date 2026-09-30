@@ -31,6 +31,9 @@ pub struct DocBaseBitSetIterator {
   cost: i64,
   doc_base: usize,
   doc: i32,
+  fast_next_doc: bool,
+  pending_index: usize,
+  pending_word: u64,
 }
 
 impl DocBaseBitSetIterator {
@@ -47,12 +50,19 @@ impl DocBaseBitSetIterator {
     }
     let len: i32 = bits.length().try_convert()?;
     let length = len + doc_base as i32;
+    let fast_next_doc = bits.length() > 0
+      && doc_base
+        .checked_add(bits.length())
+        .is_some_and(|end| end < NO_MORE_DOCS as usize);
     Ok(DocBaseBitSetIterator {
       bits,
       length,
       cost,
       doc_base,
       doc: -1,
+      fast_next_doc,
+      pending_index: usize::MAX,
+      pending_word: 0,
     })
   }
   /// Gets the [`FixedBitSet`]. A `docId` will exist in this
@@ -80,10 +90,42 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.advance(self.doc + 1)
+    let target = self.doc + 1;
+    if !self.fast_next_doc {
+      return self.advance(target);
+    }
+    if target >= self.length {
+      self.doc = NO_MORE_DOCS;
+      self.pending_index = usize::MAX;
+      return Ok(self.doc);
+    }
+    let start = 0.max(target - self.doc_base as i32) as usize;
+    let mut word_index = start >> 6;
+    let words = self.bits.get_bits();
+    let limit = FixedBitSet::bits2words(self.bits.length());
+    let mut word = if self.pending_index == word_index {
+      self.pending_word
+    } else {
+      words[word_index] as u64
+    } & (u64::MAX << (start & 63));
+    while word == 0 {
+      word_index += 1;
+      if word_index == limit {
+        self.doc = NO_MORE_DOCS;
+        self.pending_index = usize::MAX;
+        return Ok(self.doc);
+      }
+      word = words[word_index] as u64;
+    }
+    let bit = word.trailing_zeros() as usize;
+    self.pending_index = word_index;
+    self.pending_word = word & (word - 1);
+    self.doc = (self.doc_base + (word_index << 6) + bit) as i32;
+    Ok(self.doc)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
+    self.pending_index = usize::MAX;
     if target >= self.length {
       self.doc = NO_MORE_DOCS;
       return Ok(self.doc);
