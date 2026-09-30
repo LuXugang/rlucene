@@ -290,9 +290,17 @@ impl DocIdsWriter {
     II: IndexInput,
   {
     let mut doc = 0;
-    for doc_id in doc_ids.iter_mut().take(count) {
+    let length = doc_ids.len();
+    let mut i = 0;
+    while i < count {
       doc += input.read_vint()?;
+      let doc_id = doc_ids.get_mut(i).ok_or_else(|| {
+        LuceneError::array_index_out_of_bounds(format!(
+          "Index {i} out of bounds for length {length}"
+        ))
+      })?;
       *doc_id = doc;
+      i += 1;
     }
     Ok(())
   }
