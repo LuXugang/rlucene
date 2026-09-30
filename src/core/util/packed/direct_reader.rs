@@ -162,12 +162,13 @@ where
         (1i64 << self.bits_per_value) - 1
       };
       let mut offset = self.base_offset + (index * bits_per_value_usize) / 8;
+      let bits_per_value = self.bits_per_value;
       for value in buffer.iter_mut() {
-        if self.bits_per_value > i32::BITS as i32 {
+        if bits_per_value > i32::BITS as i32 {
           *value = slice.read_long(offset)? & mask;
-        } else if self.bits_per_value > i16::BITS as i32 {
+        } else if bits_per_value > i16::BITS as i32 {
           *value = (slice.read_int(offset)? as u32 as i64) & mask;
-        } else if self.bits_per_value > i8::BITS as i32 {
+        } else if bits_per_value > i8::BITS as i32 {
           *value = slice.read_short(offset)? as u16 as i64;
         } else {
           *value = slice.read_byte(offset)? as i64;
