@@ -30,10 +30,44 @@ impl StoredFieldsInts {
     DO: DataOutput,
   {
     let mut all_equal = true;
-    for i in 1..count {
-      if values[start + i] != values[start] {
+    if count > 1 {
+      let second = values[start + 1];
+      let first = values[start];
+      if second != first {
         all_equal = false;
-        break;
+      } else if count >= 10
+        && let Some(active) = values.get(start..).and_then(|s| s.get(..count))
+      {
+        let (chunks, tail) = active[2..].as_chunks::<8>();
+        for chunk in chunks {
+          if !((chunk[0] == first)
+            & (chunk[1] == first)
+            & (chunk[2] == first)
+            & (chunk[3] == first)
+            & (chunk[4] == first)
+            & (chunk[5] == first)
+            & (chunk[6] == first)
+            & (chunk[7] == first))
+          {
+            all_equal = false;
+            break;
+          }
+        }
+        if all_equal {
+          for &value in tail {
+            if value != first {
+              all_equal = false;
+              break;
+            }
+          }
+        }
+      } else {
+        for i in 2..count {
+          if values[start + i] != first {
+            all_equal = false;
+            break;
+          }
+        }
       }
     }
 
