@@ -223,7 +223,7 @@ impl StoredFieldsInts {
       k += Self::BLOCK_SIZE;
     }
     for i in k..count {
-      values[offset + i] = input.read_int()? as u32 as i64;
+      values[offset + i] = input.read_int()? as i64;
     }
     Ok(())
   }
