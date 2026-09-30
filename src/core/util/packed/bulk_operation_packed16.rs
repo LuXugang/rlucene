@@ -36,7 +36,8 @@ impl Decoder for BulkOperationPacked16 {
     for _ in 0..iterations {
       let block = blocks[blocks_offset];
       blocks_offset += 1;
-      for shift in (0..=48).rev().step_by(16) {
+      for i in 0..4 {
+        let shift = 48 - i * 16;
         values[values_offset] = ((block >> shift) & 0xFFFF) as i64;
         values_offset += 1;
       }
@@ -70,7 +71,8 @@ impl Decoder for BulkOperationPacked16 {
     for _ in 0..iterations {
       let block = blocks[blocks_offset];
       blocks_offset += 1;
-      for shift in (0..=48).rev().step_by(16) {
+      for i in 0..4 {
+        let shift = 48 - i * 16;
         values[values_offset] = ((block >> shift) & 0xFFFF) as i32;
         values_offset += 1;
       }

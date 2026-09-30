@@ -91,14 +91,10 @@ impl BulkOperationPackedSingleBlock {
     block
   }
   fn read_long(blocks: &[u8], blocks_offset: usize) -> u64 {
-    ((blocks[blocks_offset] as u64) << 56)
-      | ((blocks[blocks_offset + 1] as u64) << 48)
-      | ((blocks[blocks_offset + 2] as u64) << 40)
-      | ((blocks[blocks_offset + 3] as u64) << 32)
-      | ((blocks[blocks_offset + 4] as u64) << 24)
-      | ((blocks[blocks_offset + 5] as u64) << 16)
-      | ((blocks[blocks_offset + 6] as u64) << 8)
-      | (blocks[blocks_offset + 7] as u64)
+    let bytes = &blocks[blocks_offset..blocks_offset + 8];
+    u64::from_be_bytes([
+      bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+    ])
   }
 }
 impl Decoder for BulkOperationPackedSingleBlock {
@@ -225,6 +221,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
     }
   }
 
+  #[allow(clippy::collapsible_if)]
   fn encode_i64_to_u8(
     &self,
     values: &[i64],
@@ -236,6 +233,13 @@ impl Encoder for BulkOperationPackedSingleBlock {
     for _ in 0..iterations {
       let block = self.encode_from_i64(values, values_offset);
       values_offset += self.value_count;
+      if let Some(end) = blocks_offset.checked_add(8) {
+        if let Some(output) = blocks.get_mut(blocks_offset..end) {
+          output.copy_from_slice(&block.to_be_bytes());
+          blocks_offset = end;
+          continue;
+        }
+      }
       blocks_offset = self.write_long(block, blocks, blocks_offset);
     }
   }
@@ -255,6 +259,7 @@ impl Encoder for BulkOperationPackedSingleBlock {
     }
   }
 
+  #[allow(clippy::collapsible_if)]
   fn encode_i32_to_u8(
     &self,
     values: &[i32],
@@ -266,6 +271,13 @@ impl Encoder for BulkOperationPackedSingleBlock {
     for _ in 0..iterations {
       let block = self.encode_from_i32(values, values_offset);
       values_offset += self.value_count;
+      if let Some(end) = blocks_offset.checked_add(8) {
+        if let Some(output) = blocks.get_mut(blocks_offset..end) {
+          output.copy_from_slice(&block.to_be_bytes());
+          blocks_offset = end;
+          continue;
+        }
+      }
       blocks_offset = self.write_long(block, blocks, blocks_offset);
     }
   }

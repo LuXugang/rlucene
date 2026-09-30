@@ -38,7 +38,7 @@ impl Decoder for BulkOperationPacked1 {
       let block = blocks[blocks_offset];
       blocks_offset += 1;
 
-      for shift in (0..=63).rev() {
+      for shift in (0..64).rev() {
         values[values_offset] = ((block >> shift) & 1) as i64;
         values_offset += 1;
       }
@@ -46,6 +46,7 @@ impl Decoder for BulkOperationPacked1 {
   }
 
   /// Decodes blocks of type `u8` into `u64` values.
+  #[allow(clippy::collapsible_if, clippy::chunks_exact_to_as_chunks)]
   fn decode_u8_to_i64(
     &self,
     blocks: &[u8],
@@ -54,20 +55,52 @@ impl Decoder for BulkOperationPacked1 {
     mut values_offset: usize,
     iterations: usize,
   ) {
+    // Java's generated per-group read/write sequence is shared by the
+    // complete-range fast path and the exact short-buffer fallback.
+    macro_rules! decode_group {
+      ($input:ident, $bi:ident, $output:ident, $vi:ident) => {{
+        let block = $input[$bi];
+        $bi += 1;
+
+        $output[$vi] = ((block >> 7) & 1) as i64;
+        $output[$vi + 1] = ((block >> 6) & 1) as i64;
+        $output[$vi + 2] = ((block >> 5) & 1) as i64;
+        $output[$vi + 3] = ((block >> 4) & 1) as i64;
+        $output[$vi + 4] = ((block >> 3) & 1) as i64;
+        $output[$vi + 5] = ((block >> 2) & 1) as i64;
+        $output[$vi + 6] = ((block >> 1) & 1) as i64;
+        $output[$vi + 7] = (block & 1) as i64;
+
+        $vi += 8;
+      }};
+    }
+
+    if iterations >= 2 {
+      if let (Some(blocks_end), Some(values_end)) = (
+        iterations
+          .checked_mul(1)
+          .and_then(|n| blocks_offset.checked_add(n)),
+        iterations
+          .checked_mul(8)
+          .and_then(|n| values_offset.checked_add(n)),
+      ) {
+        if let (Some(blocks), Some(values)) = (
+          blocks.get(blocks_offset..blocks_end),
+          values.get_mut(values_offset..values_end),
+        ) {
+          for (blocks, values) in blocks.chunks_exact(1).zip(values.chunks_exact_mut(8)) {
+            let mut blocks_offset = 0;
+            let mut values_offset = 0;
+            decode_group!(blocks, blocks_offset, values, values_offset);
+            let _ = (blocks_offset, values_offset);
+          }
+          return;
+        }
+      }
+    }
+
     for _ in 0..iterations {
-      let block = blocks[blocks_offset];
-      blocks_offset += 1;
-
-      values[values_offset] = ((block >> 7) & 1) as i64;
-      values[values_offset + 1] = ((block >> 6) & 1) as i64;
-      values[values_offset + 2] = ((block >> 5) & 1) as i64;
-      values[values_offset + 3] = ((block >> 4) & 1) as i64;
-      values[values_offset + 4] = ((block >> 3) & 1) as i64;
-      values[values_offset + 5] = ((block >> 2) & 1) as i64;
-      values[values_offset + 6] = ((block >> 1) & 1) as i64;
-      values[values_offset + 7] = (block & 1) as i64;
-
-      values_offset += 8;
+      decode_group!(blocks, blocks_offset, values, values_offset);
     }
   }
 
@@ -84,7 +117,7 @@ impl Decoder for BulkOperationPacked1 {
       let block = blocks[blocks_offset];
       blocks_offset += 1;
 
-      for shift in (0..=63).rev() {
+      for shift in (0..64).rev() {
         values[values_offset] = ((block >> shift) & 1) as i32;
         values_offset += 1;
       }
@@ -93,6 +126,7 @@ impl Decoder for BulkOperationPacked1 {
   }
 
   /// Decodes blocks of type `u8` into `i32` values.
+  #[allow(clippy::collapsible_if, clippy::chunks_exact_to_as_chunks)]
   fn decode_u8_to_i32(
     &self,
     blocks: &[u8],
@@ -101,20 +135,50 @@ impl Decoder for BulkOperationPacked1 {
     mut values_offset: usize,
     iterations: usize,
   ) -> Result<()> {
+    // Java's generated per-group read/write sequence is shared by the
+    // complete-range fast path and the exact short-buffer fallback.
+    macro_rules! decode_group {
+      ($input:ident, $bi:ident, $output:ident, $vi:ident) => {{
+        let block = $input[$bi];
+        $bi += 1;
+
+        $output[$vi] = ((block >> 7) & 1) as i32;
+        $output[$vi + 1] = ((block >> 6) & 1) as i32;
+        $output[$vi + 2] = ((block >> 5) & 1) as i32;
+        $output[$vi + 3] = ((block >> 4) & 1) as i32;
+        $output[$vi + 4] = ((block >> 3) & 1) as i32;
+        $output[$vi + 5] = ((block >> 2) & 1) as i32;
+        $output[$vi + 6] = ((block >> 1) & 1) as i32;
+        $output[$vi + 7] = (block & 1) as i32;
+
+        $vi += 8;
+      }};
+    }
+
+    if let (Some(blocks_end), Some(values_end)) = (
+      iterations
+        .checked_mul(1)
+        .and_then(|n| blocks_offset.checked_add(n)),
+      iterations
+        .checked_mul(8)
+        .and_then(|n| values_offset.checked_add(n)),
+    ) {
+      if let (Some(blocks), Some(values)) = (
+        blocks.get(blocks_offset..blocks_end),
+        values.get_mut(values_offset..values_end),
+      ) {
+        for (blocks, values) in blocks.chunks_exact(1).zip(values.chunks_exact_mut(8)) {
+          let mut blocks_offset = 0;
+          let mut values_offset = 0;
+          decode_group!(blocks, blocks_offset, values, values_offset);
+          let _ = (blocks_offset, values_offset);
+        }
+        return Ok(());
+      }
+    }
+
     for _ in 0..iterations {
-      let block = blocks[blocks_offset];
-      blocks_offset += 1;
-
-      values[values_offset] = ((block >> 7) & 1) as i32;
-      values[values_offset + 1] = ((block >> 6) & 1) as i32;
-      values[values_offset + 2] = ((block >> 5) & 1) as i32;
-      values[values_offset + 3] = ((block >> 4) & 1) as i32;
-      values[values_offset + 4] = ((block >> 3) & 1) as i32;
-      values[values_offset + 5] = ((block >> 2) & 1) as i32;
-      values[values_offset + 6] = ((block >> 1) & 1) as i32;
-      values[values_offset + 7] = (block & 1) as i32;
-
-      values_offset += 8;
+      decode_group!(blocks, blocks_offset, values, values_offset);
     }
     Ok(())
   }

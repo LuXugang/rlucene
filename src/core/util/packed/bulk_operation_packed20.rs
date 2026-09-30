@@ -25,6 +25,7 @@ use crate::core::util::packed::bulk_operation_packed::{
 define_bulk_operation_packed_specialized!(BulkOperationPacked20, 20);
 impl Decoder for BulkOperationPacked20 {
   delegate_bulk_operation_packed_decoder_counts!();
+  #[allow(clippy::collapsible_if, clippy::chunks_exact_to_as_chunks)]
   fn decode_u64_to_i64(
     &self,
     blocks: &[u64],
@@ -33,53 +34,83 @@ impl Decoder for BulkOperationPacked20 {
     mut values_offset: usize,
     iterations: usize,
   ) {
+    // Java's generated per-group read/write sequence is shared by the
+    // complete-range fast path and the exact short-buffer fallback.
+    macro_rules! decode_group {
+      ($input:ident, $bi:ident, $output:ident, $vi:ident) => {{
+        let block0 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (block0 >> 44) as i64;
+        $vi += 1;
+        $output[$vi] = ((block0 >> 24) & 1_048_575) as i64;
+        $vi += 1;
+        $output[$vi] = ((block0 >> 4) & 1_048_575) as i64;
+        $vi += 1;
+
+        let block1 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block0 & 15) << 16) | (block1 >> 48)) as i64;
+        $vi += 1;
+        $output[$vi] = ((block1 >> 28) & 1_048_575) as i64;
+        $vi += 1;
+        $output[$vi] = ((block1 >> 8) & 1_048_575) as i64;
+        $vi += 1;
+
+        let block2 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block1 & 255) << 12) | (block2 >> 52)) as i64;
+        $vi += 1;
+        $output[$vi] = ((block2 >> 32) & 1_048_575) as i64;
+        $vi += 1;
+        $output[$vi] = ((block2 >> 12) & 1_048_575) as i64;
+        $vi += 1;
+
+        let block3 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block2 & 4095) << 8) | (block3 >> 56)) as i64;
+        $vi += 1;
+        $output[$vi] = ((block3 >> 36) & 1_048_575) as i64;
+        $vi += 1;
+        $output[$vi] = ((block3 >> 16) & 1_048_575) as i64;
+        $vi += 1;
+
+        let block4 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block3 & 65_535) << 4) | (block4 >> 60)) as i64;
+        $vi += 1;
+        $output[$vi] = ((block4 >> 40) & 1_048_575) as i64;
+        $vi += 1;
+        $output[$vi] = ((block4 >> 20) & 1_048_575) as i64;
+        $vi += 1;
+        $output[$vi] = (block4 & 1_048_575) as i64;
+        $vi += 1;
+      }};
+    }
+
+    if let (Some(blocks_end), Some(values_end)) = (
+      iterations
+        .checked_mul(5)
+        .and_then(|n| blocks_offset.checked_add(n)),
+      iterations
+        .checked_mul(16)
+        .and_then(|n| values_offset.checked_add(n)),
+    ) {
+      if let (Some(blocks), Some(values)) = (
+        blocks.get(blocks_offset..blocks_end),
+        values.get_mut(values_offset..values_end),
+      ) {
+        for (blocks, values) in blocks.chunks_exact(5).zip(values.chunks_exact_mut(16)) {
+          let mut blocks_offset = 0;
+          let mut values_offset = 0;
+          decode_group!(blocks, blocks_offset, values, values_offset);
+          let _ = (blocks_offset, values_offset);
+        }
+        return;
+      }
+    }
+
     for _ in 0..iterations {
-      let block0 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (block0 >> 44) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block0 >> 24) & 1_048_575) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block0 >> 4) & 1_048_575) as i64;
-      values_offset += 1;
-
-      let block1 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block0 & 15) << 16) | (block1 >> 48)) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block1 >> 28) & 1_048_575) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block1 >> 8) & 1_048_575) as i64;
-      values_offset += 1;
-
-      let block2 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block1 & 255) << 12) | (block2 >> 52)) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block2 >> 32) & 1_048_575) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block2 >> 12) & 1_048_575) as i64;
-      values_offset += 1;
-
-      let block3 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block2 & 4095) << 8) | (block3 >> 56)) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block3 >> 36) & 1_048_575) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block3 >> 16) & 1_048_575) as i64;
-      values_offset += 1;
-
-      let block4 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block3 & 65_535) << 4) | (block4 >> 60)) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block4 >> 40) & 1_048_575) as i64;
-      values_offset += 1;
-      values[values_offset] = ((block4 >> 20) & 1_048_575) as i64;
-      values_offset += 1;
-      values[values_offset] = (block4 & 1_048_575) as i64;
-      values_offset += 1;
+      decode_group!(blocks, blocks_offset, values, values_offset);
     }
   }
   fn decode_u8_to_i64(
@@ -108,6 +139,7 @@ impl Decoder for BulkOperationPacked20 {
       values_offset += 1;
     }
   }
+  #[allow(clippy::collapsible_if, clippy::chunks_exact_to_as_chunks)]
   fn decode_u64_to_i32(
     &self,
     blocks: &[u64],
@@ -116,53 +148,83 @@ impl Decoder for BulkOperationPacked20 {
     mut values_offset: usize,
     iterations: usize,
   ) -> Result<()> {
+    // Java's generated per-group read/write sequence is shared by the
+    // complete-range fast path and the exact short-buffer fallback.
+    macro_rules! decode_group {
+      ($input:ident, $bi:ident, $output:ident, $vi:ident) => {{
+        let block0 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (block0 >> 44) as i32;
+        $vi += 1;
+        $output[$vi] = ((block0 >> 24) & 1_048_575) as i32;
+        $vi += 1;
+        $output[$vi] = ((block0 >> 4) & 1_048_575) as i32;
+        $vi += 1;
+
+        let block1 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block0 & 15) << 16) | (block1 >> 48)) as i32;
+        $vi += 1;
+        $output[$vi] = ((block1 >> 28) & 1_048_575) as i32;
+        $vi += 1;
+        $output[$vi] = ((block1 >> 8) & 1_048_575) as i32;
+        $vi += 1;
+
+        let block2 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block1 & 255) << 12) | (block2 >> 52)) as i32;
+        $vi += 1;
+        $output[$vi] = ((block2 >> 32) & 1_048_575) as i32;
+        $vi += 1;
+        $output[$vi] = ((block2 >> 12) & 1_048_575) as i32;
+        $vi += 1;
+
+        let block3 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block2 & 4095) << 8) | (block3 >> 56)) as i32;
+        $vi += 1;
+        $output[$vi] = ((block3 >> 36) & 1_048_575) as i32;
+        $vi += 1;
+        $output[$vi] = ((block3 >> 16) & 1_048_575) as i32;
+        $vi += 1;
+
+        let block4 = $input[$bi];
+        $bi += 1;
+        $output[$vi] = (((block3 & 65_535) << 4) | (block4 >> 60)) as i32;
+        $vi += 1;
+        $output[$vi] = ((block4 >> 40) & 1_048_575) as i32;
+        $vi += 1;
+        $output[$vi] = ((block4 >> 20) & 1_048_575) as i32;
+        $vi += 1;
+        $output[$vi] = (block4 & 1_048_575) as i32;
+        $vi += 1;
+      }};
+    }
+
+    if let (Some(blocks_end), Some(values_end)) = (
+      iterations
+        .checked_mul(5)
+        .and_then(|n| blocks_offset.checked_add(n)),
+      iterations
+        .checked_mul(16)
+        .and_then(|n| values_offset.checked_add(n)),
+    ) {
+      if let (Some(blocks), Some(values)) = (
+        blocks.get(blocks_offset..blocks_end),
+        values.get_mut(values_offset..values_end),
+      ) {
+        for (blocks, values) in blocks.chunks_exact(5).zip(values.chunks_exact_mut(16)) {
+          let mut blocks_offset = 0;
+          let mut values_offset = 0;
+          decode_group!(blocks, blocks_offset, values, values_offset);
+          let _ = (blocks_offset, values_offset);
+        }
+        return Ok(());
+      }
+    }
+
     for _ in 0..iterations {
-      let block0 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (block0 >> 44) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block0 >> 24) & 1_048_575) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block0 >> 4) & 1_048_575) as i32;
-      values_offset += 1;
-
-      let block1 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block0 & 15) << 16) | (block1 >> 48)) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block1 >> 28) & 1_048_575) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block1 >> 8) & 1_048_575) as i32;
-      values_offset += 1;
-
-      let block2 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block1 & 255) << 12) | (block2 >> 52)) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block2 >> 32) & 1_048_575) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block2 >> 12) & 1_048_575) as i32;
-      values_offset += 1;
-
-      let block3 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block2 & 4095) << 8) | (block3 >> 56)) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block3 >> 36) & 1_048_575) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block3 >> 16) & 1_048_575) as i32;
-      values_offset += 1;
-
-      let block4 = blocks[blocks_offset];
-      blocks_offset += 1;
-      values[values_offset] = (((block3 & 65_535) << 4) | (block4 >> 60)) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block4 >> 40) & 1_048_575) as i32;
-      values_offset += 1;
-      values[values_offset] = ((block4 >> 20) & 1_048_575) as i32;
-      values_offset += 1;
-      values[values_offset] = (block4 & 1_048_575) as i32;
-      values_offset += 1;
+      decode_group!(blocks, blocks_offset, values, values_offset);
     }
     Ok(())
   }
