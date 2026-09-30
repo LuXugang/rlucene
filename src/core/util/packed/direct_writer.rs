@@ -78,8 +78,9 @@ where
     if self.count >= self.num_values {
       return Err(LuceneError::eof("Writing past end of stream"));
     }
-    self.next_values[self.off] = l;
+    let off = self.off;
     self.off += 1;
+    self.next_values[off] = l;
     if self.off == self.next_values.len() {
       self.flush()?;
     }
@@ -146,6 +147,27 @@ where
       }
     } else {
       // bitsPerValue is 12, 20 or 28
+      // Keep the original loop for a missing padded value, including its partial-write order.
+      // Bounded pairs let the valid hot loop avoid two source checks per pair.
+      if matches!(bits_per_value, 12 | 20 | 28)
+        && upto <= next_values.len()
+        && (upto & 1 == 0 || upto < next_values.len())
+      {
+        let padded_values = &next_values[..upto + (upto & 1)];
+        let mut o = 0;
+        let step = bits_per_value / 4;
+        let (pairs, _) = padded_values.as_chunks::<2>();
+        for pair in pairs {
+          let merged = pair[0] | (pair[1] << bits_per_value);
+          if bits_per_value == 12 {
+            BitUtil::set_i32_le(next_blocks, o, merged as i32);
+          } else {
+            BitUtil::set_i64_le(next_blocks, o, merged);
+          }
+          o += step;
+        }
+        return;
+      }
       // Write values 2 by 2
       let num_bytes_for_2_values = bits_per_value * 2 / u8::BITS as usize;
       let mut i = 0;
