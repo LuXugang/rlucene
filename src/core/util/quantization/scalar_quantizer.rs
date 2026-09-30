@@ -142,17 +142,24 @@ impl ScalarQuantizer {
     // see first parenthesis in equation: byte = (float - minQuantile) * 127/(maxQuantile -
     // minQuantile)
     let dx = v - self.min_quantile;
-    let dxc = CoreHelper::max_f32(self.min_quantile, CoreHelper::min_f32(self.max_quantile, v))
-      - self.min_quantile;
+    // Bounds are finite, and integer quantization discards the sign of a zero.
+    // Preserve input NaN for Java rounding and correction behavior.
+    let dxc = if v.is_nan() {
+      v
+    } else {
+      self.min_quantile.max(self.max_quantile.min(v))
+    } - self.min_quantile;
     // Scale the value to the range [0, 127], this is our quantized value
     // scale = 127/(maxQuantile - minQuantile)
     let dxs = self.scale * dxc;
-    let rounded = dxs.round();
+    // Clipping makes dxs nonnegative (or NaN); round agrees with Java Math.round
+    // here. Keep its integer result before byte narrowing and dequantization.
+    let rounded = dxs.round() as i32;
     // We multiply by `alpha` here to get the quantized value back into the original range
     // to aid in calculating the corrective offset
-    let dxq = rounded * self.alpha;
+    let dxq = rounded as f32 * self.alpha;
     if let Some(dest) = dest {
-      dest[dest_index] = rounded as i8 as u8;
+      dest[dest_index] = rounded as u8;
     }
     // Calculate the corrective offset that needs to be applied to the score
     // in addition to the `byte * minQuantile * alpha` term in the equation
