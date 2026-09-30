@@ -284,13 +284,30 @@ impl FixedBitSet {
   /// returns true if the sets have any elements in common
   pub fn intersects(&self, other: &FixedBitSet) -> bool {
     // Depends on the ghost bits being clear!
-    let pos = std::cmp::min(self.num_words, other.num_words);
-    for i in (0..pos).rev() {
-      if (self.bits[i] & other.bits[i]) != 0 {
-        return true;
+    fn scan_rest(a: &[i64], b: &[i64]) -> bool {
+      if a.len() < 2 {
+        return a.iter().zip(b).rev().any(|(&x, &y)| (x & y) != 0);
       }
+      let a_chunks = a.rchunks_exact(4);
+      let b_chunks = b.rchunks_exact(4);
+      let a_tail = a_chunks.remainder();
+      let b_tail = b_chunks.remainder();
+      for (x, y) in a_chunks.zip(b_chunks) {
+        if (x[3] & y[3]) != 0 || (x[2] & y[2]) != 0 || (x[1] & y[1]) != 0 || (x[0] & y[0]) != 0 {
+          return true;
+        }
+      }
+      a_tail.iter().zip(b_tail).rev().any(|(&x, &y)| (x & y) != 0)
     }
-    false
+    let pos = std::cmp::min(self.num_words, other.num_words);
+    if pos == 0 {
+      return false;
+    }
+    let last = pos - 1;
+    if (self.bits[last] & other.bits[last]) != 0 {
+      return true;
+    }
+    scan_rest(&self.bits[..last], &other.bits[..last])
   }
 
   /// this = this AND other
