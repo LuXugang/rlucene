@@ -156,10 +156,24 @@ impl LongBitSet {
   /// This relies on ghost bits being clear.
   pub fn cardinality(&self) -> usize {
     // Depends on the ghost bits being clear!
-    self.bits[..self.num_words]
-      .iter()
-      .map(|v| v.count_ones() as usize)
-      .sum()
+    let words = &self.bits[..self.num_words];
+    if words.len() >= 8 {
+      words.iter().map(|v| v.count_ones() as usize).sum()
+    } else {
+      match words.len() {
+        0 => 0,
+        1 => words[0].count_ones() as usize,
+        _ => {
+          // Count two disjoint 64-bit halves together without sign extension.
+          let (pairs, tail) = words.as_chunks::<2>();
+          pairs
+            .iter()
+            .map(|&[a, b]| ((a as u64 as u128) | ((b as u64 as u128) << 64)).count_ones() as usize)
+            .sum::<usize>()
+            + tail.iter().map(|v| v.count_ones() as usize).sum::<usize>()
+        },
+      }
+    }
   }
 
   pub fn get(&self, index: usize) -> bool {
@@ -324,7 +338,20 @@ impl LongBitSet {
   /// Depends on the ghost bits being clear!
   pub fn intersects(&self, other: &LongBitSet) -> bool {
     let pos = std::cmp::min(self.num_words, other.num_words);
-    for i in 0..pos {
+    if pos == 0 {
+      return false;
+    }
+    // Probe both ends while retaining the fast first-word path.
+    if (self.bits[0] & other.bits[0]) != 0 {
+      return true;
+    }
+    if pos == 1 {
+      return false;
+    }
+    if (self.bits[pos - 1] & other.bits[pos - 1]) != 0 {
+      return true;
+    }
+    for i in 1..pos - 1 {
       if (self.bits[i] & other.bits[i]) != 0 {
         return true;
       }
@@ -359,9 +386,30 @@ impl LongBitSet {
   ///
   /// This depends on the ghost bits being clear!
   pub fn scan_is_empty(&self) -> bool {
-    for i in 0..self.num_words {
+    // Constructors validate num_words <= bits.len(); keep the bound explicit
+    // so the grouped loads do not need individual bounds checks.
+    let mut num_words = self.num_words;
+    if num_words > self.bits.len() {
+      num_words = self.bits.len();
+    }
+    let mut i = 0;
+    while i < num_words {
       if self.bits[i] != 0 {
         return false;
+      }
+      i += 1;
+      // One scalar probe followed by five words keeps first hits cheap.
+      if i + 5 <= num_words {
+        if (self.bits[i]
+          | self.bits[i + 1]
+          | self.bits[i + 2]
+          | self.bits[i + 3]
+          | self.bits[i + 4])
+          != 0
+        {
+          return false;
+        }
+        i += 5;
       }
     }
     true
