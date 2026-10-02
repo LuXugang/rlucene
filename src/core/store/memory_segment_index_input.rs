@@ -36,7 +36,10 @@ use std::fs::File;
 use std::hint::black_box;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicUsize, Ordering};
+
+const INPUT_CLOSED: u8 = 1;
+const OWNS_FILE: u8 = 2;
 
 /// Immutable mappings are owned once for the whole file. A borrowed random read
 /// remains valid after logical close; the last owner releases the mappings.
@@ -63,9 +66,10 @@ struct MappedView {
 
 struct SegmentState {
   index: usize,
-  // Retain the loaded mapping independently of directory close state.
+  // Retain the loaded mapping independently of directory close state. The
+  // cached pointer refers to its checked visible range, not to this struct.
   current_mapping: Option<Arc<Mmap>>,
-  current_base: usize,
+  current_data: *const u8,
   current_len: usize,
   // Logical positions that can be handled without resolving the directory.
   seek_start: usize,
@@ -73,35 +77,34 @@ struct SegmentState {
   seek_position: usize,
 }
 
+// SAFETY: current_data only points into the immutable mmap retained by
+// current_mapping, or into the empty static slice. Moving the Arc does not move
+// the mapping. Shared cursor updates are protected by MemorySegmentIndexInput's
+// mutex; exclusive updates require &mut SegmentState. No mutable data pointer
+// or reference is exposed.
+unsafe impl Send for SegmentState {}
+
 impl SegmentState {
   fn current_byte(&self, pos: usize) -> Option<u8> {
     if pos >= self.current_len {
       return None;
     }
-    // Loaded views satisfy base + len <= mapping.len(), so the logical
-    // bounds check also proves that this address addition cannot overflow.
-    self
-      .current_mapping
-      .as_deref()?
-      .get(self.current_base + pos)
-      .copied()
+    // SAFETY: pos is inside the checked range retained by current_mapping.
+    Some(unsafe { *self.current_data.add(pos) })
   }
 
   fn current_range(&self, pos: usize, len: usize) -> Option<&[u8]> {
     if len > self.current_len.checked_sub(pos)? {
       return None;
     }
-    // Check the requested bytes directly, without rebuilding the entire view.
-    // The loaded view and logical bounds above also bound both additions.
-    let start = self.current_base + pos;
-    let mapping = self.current_mapping.as_deref().map_or(&[][..], |m| &m[..]);
-    mapping.get(start..start + len)
+    self.current_slice().get(pos..pos + len)
   }
 
   fn current_slice(&self) -> &[u8] {
-    self.current_mapping.as_deref().map_or(&[], |mapping| {
-      &mapping[self.current_base..self.current_base + self.current_len]
-    })
+    // SAFETY: new/load_segment obtain this pointer and length from a checked
+    // slice in a retained immutable mmap, or from &[] for an empty segment.
+    // The returned borrow cannot outlive self or a mutable segment update.
+    unsafe { std::slice::from_raw_parts(self.current_data, self.current_len) }
   }
 
   fn new(view: &MappedView) -> Self {
@@ -111,11 +114,17 @@ impl SegmentState {
     } else {
       view.file.segments.get(view.first).map_or(0, |m| m.len())
     };
+    let current_mapping = view.file.segments.get(view.first).cloned();
+    let current_slice = current_mapping
+      .as_deref()
+      .map_or(&[][..], |mapping| &mapping[start..end]);
+    let current_data = current_slice.as_ptr();
+    let current_len = current_slice.len();
     let mut state = SegmentState {
       index: 0,
-      current_mapping: view.file.segments.get(view.first).cloned(),
-      current_base: start,
-      current_len: end - start,
+      current_mapping,
+      current_data,
+      current_len,
       seek_start: 0,
       seek_count: 0,
       seek_position: 0,
@@ -131,9 +140,9 @@ impl SegmentState {
 pub struct MemorySegmentIndexInput {
   state: Mutex<SegmentState>,
   position: AtomicUsize,
-  closed: AtomicBool,
+  // Keep the existing closed/owner state together for exclusive reads.
+  read_state: AtomicU8,
   single_segment: bool,
-  owns_file: bool,
   consecutive_prefetch_hit_count: AtomicI32,
   view: MappedView,
   resource_desc_suffix: ResourceDescriptionSuffix,
@@ -233,9 +242,15 @@ impl MappedView {
       self.file.segments.get(physical).map_or(0, |m| m.len())
     };
     // Resolve first: a failed directory advance must retain the old mapping.
-    state.current_mapping = self.file.segments.get(physical).cloned();
-    state.current_base = start;
-    state.current_len = end - start;
+    let current_mapping = self.file.segments.get(physical).cloned();
+    let current_slice = current_mapping
+      .as_deref()
+      .map_or(&[][..], |mapping| &mapping[start..end]);
+    let current_data = current_slice.as_ptr();
+    let current_len = current_slice.len();
+    state.current_mapping = current_mapping;
+    state.current_data = current_data;
+    state.current_len = current_len;
     self.set_seek_window(state, index);
     Ok(())
   }
@@ -586,8 +601,7 @@ impl MemorySegmentIndexInput {
       state,
       single_segment,
       consecutive_prefetch_hit_count: AtomicI32::new(0),
-      closed: AtomicBool::new(false),
-      owns_file: true,
+      read_state: AtomicU8::new(OWNS_FILE),
       #[cfg(unix)]
       native_access,
     })
@@ -602,16 +616,19 @@ impl MemorySegmentIndexInput {
     }
   }
   fn is_closed(&self) -> bool {
-    self.closed.load(Ordering::Relaxed)
+    self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0
   }
   fn is_closed_for_reading(&self) -> bool {
-    self.closed.load(Ordering::Relaxed) || self.view.file.closed.load(Ordering::SeqCst)
+    self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0
+      || self.view.file.closed.load(Ordering::SeqCst)
   }
   fn is_closed_for_exclusive_reading(&mut self) -> bool {
     // Only the root can close the file. An exclusive borrow of that root also
     // excludes concurrent close, so its local flag is sufficient. A clone must
     // still observe the root's shared lifetime flag.
-    *self.closed.get_mut() || (!self.owns_file && self.view.file.closed.load(Ordering::SeqCst))
+    *self.read_state.get_mut() & INPUT_CLOSED != 0
+      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
+        && self.view.file.closed.load(Ordering::SeqCst))
   }
   #[cold]
   #[inline(never)]
@@ -629,8 +646,7 @@ impl MemorySegmentIndexInput {
       state,
       single_segment,
       consecutive_prefetch_hit_count: AtomicI32::new(0),
-      closed: AtomicBool::new(false),
-      owns_file: false,
+      read_state: AtomicU8::new(0),
       #[cfg(unix)]
       native_access: self.native_access,
     }
@@ -797,16 +813,19 @@ impl MemorySegmentIndexInput {
 impl DataInput for MemorySegmentIndexInput {
   #[inline]
   fn read_byte(&mut self) -> Result<u8> {
-    if *self.closed.get_mut() || (!self.owns_file && self.view.file.closed.load(Ordering::SeqCst)) {
+    let read_state = *self.read_state.get_mut();
+    // OWNS_FILE alone means an open root: its exclusive borrow excludes close.
+    // Clones still observe shared file close, after checking their local state.
+    if read_state != OWNS_FILE
+      && (read_state & INPUT_CLOSED != 0 || self.view.file.closed.load(Ordering::SeqCst))
+    {
       return Err(self.closed_error());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    if *position < state.current_len
-      && let Some(mapping) = state.current_mapping.as_deref()
-      && let Some(value) = mapping.get(state.current_base + *position)
-    {
-      let value = *value;
+    if *position < state.current_len {
+      // SAFETY: the cached visible range belongs to the retained mapping.
+      let value = unsafe { *state.current_data.add(*position) };
       *position += 1;
       return Ok(value);
     }
@@ -827,14 +846,15 @@ impl DataInput for MemorySegmentIndexInput {
   }
   #[inline]
   fn read_short(&mut self) -> Result<i16> {
-    if *self.closed.get_mut() || (!self.owns_file && self.view.file.closed.load(Ordering::SeqCst)) {
+    if *self.read_state.get_mut() & INPUT_CLOSED != 0
+      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
+        && self.view.file.closed.load(Ordering::SeqCst))
+    {
       return Err(self.closed_error());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    let segment = state.current_mapping.as_deref().map_or(&[][..], |mapping| {
-      &mapping[state.current_base..state.current_base + state.current_len]
-    });
+    let segment = state.current_slice();
     if let Some(bytes) = segment.get(*position..).and_then(|s| s.first_chunk::<2>()) {
       let value = i16::from_le_bytes(*bytes);
       *position += 2;
@@ -847,14 +867,15 @@ impl DataInput for MemorySegmentIndexInput {
 
   #[inline]
   fn read_int(&mut self) -> Result<i32> {
-    if *self.closed.get_mut() || (!self.owns_file && self.view.file.closed.load(Ordering::SeqCst)) {
+    if *self.read_state.get_mut() & INPUT_CLOSED != 0
+      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
+        && self.view.file.closed.load(Ordering::SeqCst))
+    {
       return Err(self.closed_error());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    let segment = state.current_mapping.as_deref().map_or(&[][..], |mapping| {
-      &mapping[state.current_base..state.current_base + state.current_len]
-    });
+    let segment = state.current_slice();
     if let Some(bytes) = segment.get(*position..).and_then(|s| s.first_chunk::<4>()) {
       let value = i32::from_le_bytes(*bytes);
       *position += 4;
@@ -867,14 +888,15 @@ impl DataInput for MemorySegmentIndexInput {
 
   #[inline]
   fn read_long(&mut self) -> Result<i64> {
-    if *self.closed.get_mut() || (!self.owns_file && self.view.file.closed.load(Ordering::SeqCst)) {
+    if *self.read_state.get_mut() & INPUT_CLOSED != 0
+      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
+        && self.view.file.closed.load(Ordering::SeqCst))
+    {
       return Err(self.closed_error());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    let segment = state.current_mapping.as_deref().map_or(&[][..], |mapping| {
-      &mapping[state.current_base..state.current_base + state.current_len]
-    });
+    let segment = state.current_slice();
     if let Some(bytes) = segment.get(*position..).and_then(|s| s.first_chunk::<8>()) {
       let value = i64::from_le_bytes(*bytes);
       *position += 8;
@@ -994,11 +1016,12 @@ impl Display for MemorySegmentRandomAccessInput {
 }
 impl CloseableRef for MemorySegmentIndexInput {
   fn close(&self) -> Result<()> {
-    if self.closed.load(Ordering::Relaxed) {
+    if self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0 {
       return Ok(());
     }
-    if !self.closed.swap(true, Ordering::Relaxed) {
-      if self.owns_file {
+    let previous = self.read_state.fetch_or(INPUT_CLOSED, Ordering::Relaxed);
+    if previous & INPUT_CLOSED == 0 {
+      if previous & OWNS_FILE != 0 {
         self.view.file.closed.store(true, Ordering::SeqCst);
       }
       if let Some(closed) = &self.view.directory_closed {
@@ -1010,7 +1033,7 @@ impl CloseableRef for MemorySegmentIndexInput {
 }
 impl Drop for MemorySegmentIndexInput {
   fn drop(&mut self) {
-    if self.owns_file {
+    if self.read_state.load(Ordering::Relaxed) & OWNS_FILE != 0 {
       let _ = CloseableRef::close(self);
     }
   }
@@ -1041,7 +1064,7 @@ impl IndexInput for MemorySegmentIndexInput {
   type RandomAccessSlice = MemorySegmentRandomAccessInput;
   #[inline]
   fn get_file_pointer(&self) -> Result<usize> {
-    if self.closed.load(Ordering::Relaxed) {
+    if self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0 {
       return Err(self.closed_error());
     }
     if self.single_segment {
@@ -1051,7 +1074,7 @@ impl IndexInput for MemorySegmentIndexInput {
   }
   #[inline]
   fn seek(&mut self, pos: usize) -> Result<()> {
-    if *self.closed.get_mut() {
+    if *self.read_state.get_mut() & INPUT_CLOSED != 0 {
       return Err(self.closed_error());
     }
     let state = self.state.get_mut();
@@ -1070,7 +1093,7 @@ impl IndexInput for MemorySegmentIndexInput {
       )));
     }
     let num_bytes: usize = num_bytes.try_convert()?;
-    if *self.closed.get_mut() {
+    if *self.read_state.get_mut() & INPUT_CLOSED != 0 {
       return Err(self.closed_error());
     }
     let state = self.state.get_mut();
@@ -1249,7 +1272,7 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     let mut state = SegmentState {
       index,
       current_mapping: None,
-      current_base: 0,
+      current_data: [].as_ptr(),
       current_len: 0,
       seek_start: 0,
       seek_count: 0,
