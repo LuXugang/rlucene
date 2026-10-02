@@ -23,6 +23,7 @@ use crate::core::store::{native_access::NativeAccess, posix_native_access::Posix
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
+use crate::core::util::error::Eof;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{CoreHelper, TryIntoInt};
@@ -47,37 +48,24 @@ struct MappedFile {
 
 struct SegmentState {
   index: usize,
-  current_data: *const u8,
-  current_len: usize,
+  // Private stable view retained by the input's immutable MappedFile.
+  current: &'static [u8],
 }
-
-// SAFETY: the private cursor is used only while its input or a local file
-// borrow retains MappedFile. Its immutable segments never change, including when
-// another input is dropped. Moving an input does not move its mappings. Shared
-// cursor updates require the mutex; exclusive updates require &mut SegmentState.
-unsafe impl Send for SegmentState {}
 
 impl SegmentState {
   fn current_byte(&self, pos: usize) -> Option<u8> {
-    if pos >= self.current_len {
-      return None;
-    }
-    // SAFETY: pos is inside the checked range retained by the input's MappedFile.
-    Some(unsafe { *self.current_data.add(pos) })
+    self.current.get(pos).copied()
   }
 
   fn current_range(&self, pos: usize, len: usize) -> Option<&[u8]> {
-    if len > self.current_len.checked_sub(pos)? {
+    if len > self.current.len().checked_sub(pos)? {
       return None;
     }
-    self.current_slice().get(pos..pos + len)
+    self.current.get(pos..pos + len)
   }
 
   fn current_slice(&self) -> &[u8] {
-    // SAFETY: new/load_segment obtain this pointer and length from a checked
-    // slice in the input's immutable MappedFile, or from &[] for an empty segment.
-    // The returned borrow cannot outlive self or a mutable segment update.
-    unsafe { std::slice::from_raw_parts(self.current_data, self.current_len) }
+    self.current
   }
 
   fn new(file: &MappedFile, range: (usize, usize, u32)) -> Self {
@@ -96,11 +84,11 @@ impl SegmentState {
       .segments
       .get(first)
       .map_or(&[][..], |mapping| &mapping[begin..end]);
-    SegmentState {
-      index: 0,
-      current_data: current_slice.as_ptr(),
-      current_len: current_slice.len(),
-    }
+    // SAFETY: callers retain file in the enclosing input. Mmap allocations are
+    // immutable and stable; the private view is not exposed with its extended
+    // lifetime. Public/current_slice borrows stay tied to the retaining input.
+    let current = unsafe { &*(current_slice as *const [u8]) };
+    SegmentState { index: 0, current }
   }
 }
 
@@ -184,6 +172,22 @@ impl ResourceDescriptionSuffix {
 }
 
 impl MemorySegmentIndexInput {
+  #[cold]
+  fn read_single_scalar_eof(&mut self) -> Eof {
+    let state = self.state.get_mut();
+    let position = self.position.get_mut();
+    // Consume the visible tail before the failed directory advance, exactly
+    // as the byte-wise scalar fallback does for a partial Single element.
+    if *position < state.current.len() {
+      *position = state.current.len();
+    }
+    Self::advance_segment(state);
+    Self::scalar_eof()
+  }
+  #[cold]
+  fn scalar_eof() -> Eof {
+    Eof::new("read past EOF")
+  }
   fn advance_segment(state: &mut SegmentState) {
     // Failed advances still retain the old data and position.
     state.index += 1;
@@ -217,10 +221,10 @@ impl MemorySegmentIndexInput {
       .segments
       .get(physical)
       .map_or(&[][..], |mapping| &mapping[start..end]);
-    let current_data = current_slice.as_ptr();
-    let current_len = current_slice.len();
-    state.current_data = current_data;
-    state.current_len = current_len;
+    // SAFETY: the input or local file borrow retains every mapping used by this
+    // private cursor. Replacing the view never changes the backing allocation;
+    // any returned public slice has the lifetime of the retaining input borrow.
+    state.current = unsafe { &*(current_slice as *const [u8]) };
     Ok(())
   }
 
@@ -385,7 +389,8 @@ impl MemorySegmentIndexInput {
     let last = ((range.0 & ((1usize << range.2) - 1)) + range.1) >> range.2;
     loop {
       let available = state
-        .current_len
+        .current
+        .len()
         .checked_sub(*position)
         .ok_or_else(|| LuceneError::array_index_out_of_bounds("source position out of bounds"))?;
       if len <= available {
@@ -424,7 +429,7 @@ impl MemorySegmentIndexInput {
           let state = self.state.get_mut();
           state.index = index;
         }
-        if offset > self.state.get_mut().current_len {
+        if offset > self.state.get_mut().current.len() {
           return Err(Self::eof());
         }
         *self.position.get_mut() = offset;
@@ -625,43 +630,84 @@ impl MemorySegmentIndexInput {
     }
     Ok(())
   }
-  fn read_absolute<const N: usize>(&self, pos: usize) -> Result<[u8; N]> {
-    if self.single_segment {
-      let index = self.start >> self.power;
-      let start = self.start & ((1usize << self.power) - 1);
-      let length = self.length;
-      if length
-        .checked_sub(pos)
-        .is_none_or(|remaining| remaining < N)
-      {
-        return Err(Self::eof());
-      }
-      let bytes = &self.file.segments[index][start + pos..start + pos + N];
-      return bytes.try_into().map_err(|_| Self::eof());
+  #[inline]
+  fn single_slice(&self) -> &[u8] {
+    debug_assert!(self.single_segment);
+    // SAFETY: on a Single input, shared methods never replace the current view.
+    // All Single cursor/view updates require &mut self, excluding shared reads.
+    // The two shared cursor-locking paths are restricted to Multi inputs.
+    // The private slice remains backed by the input's Arc<MappedFile> and the
+    // returned borrow cannot outlive this input. Reading it needs no mutex.
+    unsafe { (&*self.state.data_ptr()).current_slice() }
+  }
+  #[inline(never)]
+  fn read_short_multi(
+    file: &MappedFile,
+    range: (usize, usize, u32),
+    cursor: (&Mutex<SegmentState>, &AtomicUsize),
+    pos: usize,
+  ) -> Result<i16> {
+    Ok(i16::from_le_bytes(Self::read_absolute_multi::<2>(
+      file, range, cursor, pos,
+    )?))
+  }
+  #[inline(never)]
+  fn read_int_multi(
+    file: &MappedFile,
+    range: (usize, usize, u32),
+    cursor: (&Mutex<SegmentState>, &AtomicUsize),
+    pos: usize,
+  ) -> Result<i32> {
+    Ok(i32::from_le_bytes(Self::read_absolute_multi::<4>(
+      file, range, cursor, pos,
+    )?))
+  }
+  #[inline(never)]
+  fn read_long_multi(
+    file: &MappedFile,
+    range: (usize, usize, u32),
+    cursor: (&Mutex<SegmentState>, &AtomicUsize),
+    pos: usize,
+  ) -> Result<i64> {
+    Ok(i64::from_le_bytes(Self::read_absolute_multi::<8>(
+      file, range, cursor, pos,
+    )?))
+  }
+  fn read_absolute_multi<const N: usize>(
+    file: &MappedFile,
+    range: (usize, usize, u32),
+    cursor: (&Mutex<SegmentState>, &AtomicUsize),
+    pos: usize,
+  ) -> Result<[u8; N]> {
+    let (start, length, power) = range;
+    let mask = (1usize << power) - 1;
+    let absolute = pos.checked_add(start & mask).ok_or_else(Self::eof)?;
+    let (index, offset) = (absolute >> power, absolute & mask);
+    let last = ((start & mask) + length) >> power;
+    if index > last {
+      return Err(Self::eof());
     }
-    let (index, offset) = self.coordinates(pos)?;
-    let segment = self.segment(index).ok_or_else(Self::eof)?;
+    let segment = file
+      .segments
+      .get((start >> power) + index)
+      .map_or(&[][..], |m| {
+        if index == last {
+          &m[..((start & mask) + length) & mask]
+        } else {
+          &m[..]
+        }
+      });
     if let Some(bytes) = segment.get(offset..).and_then(|s| s.first_chunk::<N>()) {
       return Ok(*bytes);
     }
-    let mut state = self.state.lock();
+    let mut state = cursor.0.lock();
     let mut position = offset;
     let result = {
-      Self::load_segment(
-        &self.file,
-        (self.start, self.length, self.power),
-        &mut state,
-        index,
-      )?;
+      Self::load_segment(file, range, &mut state, index)?;
       state.index = index;
-      Self::read_scalar(
-        &self.file,
-        (self.start, self.length, self.power),
-        &mut state,
-        &mut position,
-      )
+      Self::read_scalar(file, range, &mut state, &mut position)
     };
-    self.position.store(position, Ordering::Relaxed);
+    cursor.1.store(position, Ordering::Relaxed);
     result
   }
   #[cfg(unix)]
@@ -734,9 +780,9 @@ impl DataInput for MemorySegmentIndexInput {
   fn read_byte(&mut self) -> Result<u8> {
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    if *position < state.current_len {
+    if *position < state.current.len() {
       // SAFETY: the input's MappedFile retains this checked immutable range.
-      let value = unsafe { *state.current_data.add(*position) };
+      let value = unsafe { *state.current.as_ptr().add(*position) };
       *position += 1;
       return Ok(value);
     }
@@ -751,7 +797,7 @@ impl DataInput for MemorySegmentIndexInput {
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    if let Some(remaining) = state.current_len.checked_sub(*position)
+    if let Some(remaining) = state.current.len().checked_sub(*position)
       && len <= remaining
       && let Some(target) = b.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
@@ -762,7 +808,7 @@ impl DataInput for MemorySegmentIndexInput {
       // The overlapping head/tail destinations are separate copy operations,
       // while each operation's source and destination remain disjoint.
       unsafe {
-        let src = state.current_data.add(*position);
+        let src = state.current.as_ptr().add(*position);
         let dst = target.as_mut_ptr();
         if len <= 32 {
           match len {
@@ -802,6 +848,16 @@ impl DataInput for MemorySegmentIndexInput {
   }
   #[inline]
   fn read_short(&mut self) -> Result<i16> {
+    if self.single_segment {
+      let position = self.position.get_mut();
+      let data = self.state.get_mut().current;
+      if let Some(bytes) = data.get(*position..).and_then(|s| s.first_chunk::<2>()) {
+        let value = i16::from_le_bytes(*bytes);
+        *position += 2;
+        return Ok(value);
+      }
+      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     let segment = state.current_slice();
@@ -815,6 +871,16 @@ impl DataInput for MemorySegmentIndexInput {
 
   #[inline]
   fn read_int(&mut self) -> Result<i32> {
+    if self.single_segment {
+      let position = self.position.get_mut();
+      let data = self.state.get_mut().current;
+      if let Some(bytes) = data.get(*position..).and_then(|s| s.first_chunk::<4>()) {
+        let value = i32::from_le_bytes(*bytes);
+        *position += 4;
+        return Ok(value);
+      }
+      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     let segment = state.current_slice();
@@ -828,6 +894,16 @@ impl DataInput for MemorySegmentIndexInput {
 
   #[inline]
   fn read_long(&mut self) -> Result<i64> {
+    if self.single_segment {
+      let position = self.position.get_mut();
+      let data = self.state.get_mut().current;
+      if let Some(bytes) = data.get(*position..).and_then(|s| s.first_chunk::<8>()) {
+        let value = i64::from_le_bytes(*bytes);
+        *position += 8;
+        return Ok(value);
+      }
+      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     let segment = state.current_slice();
@@ -842,7 +918,7 @@ impl DataInput for MemorySegmentIndexInput {
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
-    let remaining = state.current_len.saturating_sub(*position);
+    let remaining = state.current.len().saturating_sub(*position);
     let pos = *position;
     let len = GroupVIntUtil::read_group_vint_i32_with_reader(self, remaining, pos, dst, offset)?;
     *self.position.get_mut() += len;
@@ -970,7 +1046,7 @@ impl IndexInput for MemorySegmentIndexInput {
       if let Some(absolute) = pos.checked_add(self.start & mask) {
         let state = self.state.get_mut();
         let offset = absolute & mask;
-        if absolute >> self.power == state.index && offset <= state.current_len {
+        if absolute >> self.power == state.index && offset <= state.current.len() {
           *self.position.get_mut() = offset;
           return Ok(());
         }
@@ -991,7 +1067,7 @@ impl IndexInput for MemorySegmentIndexInput {
     // Every input uses the current segment's checked range here. At its end,
     // seek handles a partial EOF or advances to the next segment as required.
     if let Some(target) = position.checked_add(num_bytes)
-      && target < state.current_len
+      && target < state.current.len()
     {
       *position = target;
       return Ok(());
@@ -1131,14 +1207,62 @@ impl RandomAccessInput for MemorySegmentIndexInput {
       .copied()
       .ok_or_else(Self::eof)
   }
+  #[inline]
   fn read_short(&self, pos: usize) -> Result<i16> {
-    Ok(i16::from_le_bytes(self.read_absolute(pos)?))
+    if self.single_segment {
+      if let Some(bytes) = self
+        .single_slice()
+        .get(pos..)
+        .and_then(|s| s.first_chunk::<2>())
+      {
+        return Ok(i16::from_le_bytes(*bytes));
+      }
+      return Err(LuceneError::Eof(Self::scalar_eof()));
+    }
+    Self::read_short_multi(
+      &self.file,
+      (self.start, self.length, self.power),
+      (&self.state, &self.position),
+      pos,
+    )
   }
+  #[inline]
   fn read_int(&self, pos: usize) -> Result<i32> {
-    Ok(i32::from_le_bytes(self.read_absolute(pos)?))
+    if self.single_segment {
+      if let Some(bytes) = self
+        .single_slice()
+        .get(pos..)
+        .and_then(|s| s.first_chunk::<4>())
+      {
+        return Ok(i32::from_le_bytes(*bytes));
+      }
+      return Err(LuceneError::Eof(Self::scalar_eof()));
+    }
+    Self::read_int_multi(
+      &self.file,
+      (self.start, self.length, self.power),
+      (&self.state, &self.position),
+      pos,
+    )
   }
+  #[inline]
   fn read_long(&self, pos: usize) -> Result<i64> {
-    Ok(i64::from_le_bytes(self.read_absolute(pos)?))
+    if self.single_segment {
+      if let Some(bytes) = self
+        .single_slice()
+        .get(pos..)
+        .and_then(|s| s.first_chunk::<8>())
+      {
+        return Ok(i64::from_le_bytes(*bytes));
+      }
+      return Err(LuceneError::Eof(Self::scalar_eof()));
+    }
+    Self::read_long_multi(
+      &self.file,
+      (self.start, self.length, self.power),
+      (&self.state, &self.position),
+      pos,
+    )
   }
   fn read_bytes(&self, pos: usize, len: usize) -> Result<Cow<'_, [u8]>> {
     if pos.checked_add(len).is_none_or(|end| end > self.length) {
@@ -1152,8 +1276,7 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     let mut bytes = vec![0; len];
     let mut state = SegmentState {
       index,
-      current_data: [].as_ptr(),
-      current_len: 0,
+      current: &[],
     };
     let mut position = offset;
     Self::load_segment(
@@ -1185,12 +1308,15 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
   fn read_byte(&self, pos: usize) -> Result<u8> {
     RandomAccessInput::read_byte(&self.input, pos)
   }
+  #[inline]
   fn read_short(&self, pos: usize) -> Result<i16> {
     RandomAccessInput::read_short(&self.input, pos)
   }
+  #[inline]
   fn read_int(&self, pos: usize) -> Result<i32> {
     RandomAccessInput::read_int(&self.input, pos)
   }
+  #[inline]
   fn read_long(&self, pos: usize) -> Result<i64> {
     RandomAccessInput::read_long(&self.input, pos)
   }
