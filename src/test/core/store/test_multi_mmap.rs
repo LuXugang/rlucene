@@ -56,6 +56,20 @@ impl BaseDirectoryTestCase for TestMultiMMap {
 }
 
 impl BaseChunkedDirectoryTestCase for TestMultiMMap {
+  fn test_clone_close<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    self.test_clone_safety(random)
+  }
+
+  fn test_clone_slice_close<R>(&self, random: &mut R) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    self.test_clone_slice_safety(random)
+  }
+
   fn get_directory_with_max_chunk_size(
     &self,
     path: PathBuf,
@@ -540,24 +554,16 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       mmap_dir.open_input("bytes", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut two = one.try_clone()?;
     let mut three = two.try_clone()?;
-    CloseableRef::close(&one)?;
-
-    assert!(matches!(
-      one.read_vint(),
-      Err(LuceneError::AlreadyClosed(_))
-    ));
-    assert!(matches!(
-      two.read_vint(),
-      Err(LuceneError::AlreadyClosed(_))
-    ));
-    assert!(matches!(
-      three.read_vint(),
-      Err(LuceneError::AlreadyClosed(_))
-    ));
-
     CloseableRef::close(&two)?;
-    CloseableRef::close(&three)?;
     CloseableRef::close(&one)?;
+    assert_eq!(one.read_vint()?, 5);
+    drop(one);
+    assert_eq!(two.read_vint()?, 5);
+    drop(two);
+    assert_eq!(three.read_vint()?, 5);
+    CloseableRef::close(&three)?;
+    three.seek(0)?;
+    assert_eq!(three.read_vint()?, 5);
     CloseableRef::close(&mmap_dir)?;
     Ok(())
   }
@@ -581,23 +587,17 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
     let mut three = one.try_clone()?;
     let mut four = two.try_clone()?;
     CloseableRef::close(&slicer)?;
-
-    assert!(matches!(one.read_int(), Err(LuceneError::AlreadyClosed(_))));
-    assert!(matches!(two.read_int(), Err(LuceneError::AlreadyClosed(_))));
-    assert!(matches!(
-      three.read_int(),
-      Err(LuceneError::AlreadyClosed(_))
-    ));
-    assert!(matches!(
-      four.read_int(),
-      Err(LuceneError::AlreadyClosed(_))
-    ));
-
+    drop(slicer);
     CloseableRef::close(&one)?;
+    assert_eq!(one.read_int()?, 1);
+    drop(one);
     CloseableRef::close(&two)?;
+    assert_eq!(two.read_int()?, 2);
+    drop(two);
+    assert_eq!(three.read_int()?, 1);
+    assert_eq!(four.read_int()?, 2);
     CloseableRef::close(&three)?;
     CloseableRef::close(&four)?;
-    CloseableRef::close(&slicer)?;
     CloseableRef::close(&mmap_dir)?;
     Ok(())
   }

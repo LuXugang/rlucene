@@ -104,11 +104,7 @@ impl TestMMapDirectory {
               let accum_len = accum.len();
               DataInput::read_bytes(&mut clone, &mut accum, 0, accum_len)
             })();
-            match read_result {
-              Ok(()) => {},
-              Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
-              Err(err) => return Err(err),
-            }
+            read_result?;
           }
           Ok(())
         });

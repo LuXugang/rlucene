@@ -36,17 +36,13 @@ use std::fs::File;
 use std::hint::black_box;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU8, AtomicUsize, Ordering};
-
-const INPUT_CLOSED: u8 = 1;
-const OWNS_FILE: u8 = 2;
+use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
 /// Immutable mappings are owned once for the whole file. A borrowed random read
-/// remains valid after logical close; the last owner releases the mappings.
+/// stays valid while an input retains its owner. The last owner releases the mappings.
 struct MappedFile {
   resource_desc: Box<str>,
   segments: Box<[Arc<Mmap>]>,
-  closed: AtomicBool,
 }
 
 struct SegmentState {
@@ -56,9 +52,9 @@ struct SegmentState {
 }
 
 // SAFETY: the private cursor is used only while its input or a local file
-// borrow retains MappedFile. Its immutable segments never change, including on
-// logical close. Moving the input does not move those mappings. Shared cursor
-// updates require the input mutex; exclusive updates require &mut SegmentState.
+// borrow retains MappedFile. Its immutable segments never change, including when
+// another input is dropped. Moving an input does not move its mappings. Shared
+// cursor updates require the mutex; exclusive updates require &mut SegmentState.
 unsafe impl Send for SegmentState {}
 
 impl SegmentState {
@@ -108,16 +104,18 @@ impl SegmentState {
   }
 }
 
-// Keep the frequently accessed cursor fields together instead of allowing
-// the default field reordering to spread them across the object.
+/// A mapped input that retains its backing independently of other views.
+///
+/// `close()` is a compatibility no-op. Clones and slices remain readable after
+/// another view is dropped; the mappings are released with their last owner.
+// Keep frequently accessed cursor fields together instead of allowing the
+// default field reordering to spread them across the object.
 #[repr(C)]
 pub struct MemorySegmentIndexInput {
   // Keep the written position apart from the immutable current range so that
   // a paired load does not span the position store on sequential reads.
   position: AtomicUsize,
   state: Mutex<SegmentState>,
-  // Keep the existing closed/owner state together for exclusive reads.
-  read_state: AtomicU8,
   single_segment: bool,
   consecutive_prefetch_hit_count: AtomicI32,
   // Immutable mapping and visible-range information need no cursor lock.
@@ -125,8 +123,6 @@ pub struct MemorySegmentIndexInput {
   start: usize,
   length: usize,
   power: u32,
-  // Multi-segment clones share directory close independently of file close.
-  directory_closed: Option<Arc<AtomicBool>>,
   resource_desc_suffix: ResourceDescriptionSuffix,
   #[cfg(unix)]
   native_access: PosixNativeAccess,
@@ -231,14 +227,6 @@ impl MemorySegmentIndexInput {
   fn count(&self) -> usize {
     (((self.start & ((1usize << self.power) - 1)) + self.length) >> self.power) + 1
   }
-  fn directory_open(directory_closed: Option<&AtomicBool>) -> Result<()> {
-    if directory_closed.is_some_and(|c| c.load(Ordering::Relaxed)) {
-      return Err(LuceneError::already_closed(
-        "mmap segment directory is closed",
-      ));
-    }
-    Ok(())
-  }
   fn eof() -> LuceneError {
     LuceneError::eof("read past EOF")
   }
@@ -309,7 +297,6 @@ impl MemorySegmentIndexInput {
   fn read_byte_boundary(
     file: &MappedFile,
     range: (usize, usize, u32),
-    directory_closed: Option<&AtomicBool>,
     state: &mut SegmentState,
     position: &mut usize,
   ) -> Result<u8> {
@@ -319,7 +306,6 @@ impl MemorySegmentIndexInput {
       if state.index > last {
         return Err(Self::eof());
       }
-      Self::directory_open(directory_closed)?;
       let index = state.index;
       Self::load_segment(file, range, state, index)?;
       *position = 0;
@@ -332,7 +318,6 @@ impl MemorySegmentIndexInput {
   fn read_scalar<const N: usize>(
     file: &MappedFile,
     range: (usize, usize, u32),
-    directory_closed: Option<&AtomicBool>,
     state: &mut SegmentState,
     position: &mut usize,
   ) -> Result<[u8; N]> {
@@ -358,7 +343,7 @@ impl MemorySegmentIndexInput {
       } else {
         // Keep readByte's directory/EOF transition, including the old loaded
         // segment when advancing beyond the directory fails.
-        bytes[filled] = Self::read_byte_boundary(file, range, directory_closed, state, position)?;
+        bytes[filled] = Self::read_byte_boundary(file, range, state, position)?;
         filled += 1;
       }
     }
@@ -369,7 +354,6 @@ impl MemorySegmentIndexInput {
     Self::read_scalar(
       &self.file,
       (self.start, self.length, self.power),
-      self.directory_closed.as_deref(),
       self.state.get_mut(),
       self.position.get_mut(),
     )
@@ -393,7 +377,6 @@ impl MemorySegmentIndexInput {
   fn read_bytes_from_segments(
     file: &MappedFile,
     range: (usize, usize, u32),
-    directory_closed: Option<&AtomicBool>,
     state: &mut SegmentState,
     position: &mut usize,
     destination: (&mut [u8], usize, usize),
@@ -417,7 +400,6 @@ impl MemorySegmentIndexInput {
       if state.index > last {
         return Err(Self::eof());
       }
-      Self::directory_open(directory_closed)?;
       Self::load_segment(file, range, state, state.index)?;
       *position = 0;
     }
@@ -433,7 +415,6 @@ impl MemorySegmentIndexInput {
       (|| {
         let (index, offset) = self.coordinates(pos)?;
         if index != self.state.get_mut().index {
-          Self::directory_open(self.directory_closed.as_deref())?;
           Self::load_segment(
             &self.file,
             (self.start, self.length, self.power),
@@ -531,14 +512,8 @@ impl MemorySegmentIndexInput {
     let file = Arc::new(MappedFile {
       resource_desc: resource_desc.into_boxed_str(),
       segments: segments.into_boxed_slice(),
-      closed: AtomicBool::new(false),
     });
     let power = chunk_size_power;
-    let directory_closed = if length < chunk_size {
-      None
-    } else {
-      Some(Arc::new(AtomicBool::new(false)))
-    };
     let single_segment = last == 0;
     let position = AtomicUsize::new(0);
     let state = Mutex::new(SegmentState::new(&file, (0, length, power)));
@@ -548,12 +523,10 @@ impl MemorySegmentIndexInput {
       start: 0,
       length,
       power,
-      directory_closed,
       position,
       state,
       single_segment,
       consecutive_prefetch_hit_count: AtomicI32::new(0),
-      read_state: AtomicU8::new(OWNS_FILE),
       #[cfg(unix)]
       native_access,
     })
@@ -567,33 +540,12 @@ impl MemorySegmentIndexInput {
         .wrapping_sub(self.start & ((1usize << self.power) - 1))
     }
   }
-  fn is_closed(&self) -> bool {
-    self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0
-  }
-  fn is_closed_for_reading(&self) -> bool {
-    self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0
-      || self.file.closed.load(Ordering::SeqCst)
-  }
-  fn is_closed_for_exclusive_reading(&mut self) -> bool {
-    // Only the root can close the file. An exclusive borrow of that root also
-    // excludes concurrent close, so its local flag is sufficient. A clone must
-    // still observe the root's shared lifetime flag.
-    *self.read_state.get_mut() & INPUT_CLOSED != 0
-      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
-        && self.file.closed.load(Ordering::SeqCst))
-  }
-  #[cold]
-  #[inline(never)]
-  fn closed_error(&self) -> LuceneError {
-    LuceneError::already_closed(format!("Already closed: {self}"))
-  }
   fn with_range(
     &self,
     first: usize,
     last: usize,
     offset: usize,
     length: usize,
-    directory_closed: Option<Arc<AtomicBool>>,
     suffix: ResourceDescriptionSuffix,
   ) -> Self {
     let single_segment = last == 0;
@@ -606,12 +558,10 @@ impl MemorySegmentIndexInput {
       start,
       length,
       power: self.power,
-      directory_closed,
       position,
       state,
       single_segment,
       consecutive_prefetch_hit_count: AtomicI32::new(0),
-      read_state: AtomicU8::new(0),
       #[cfg(unix)]
       native_access: self.native_access,
     }
@@ -625,9 +575,6 @@ impl MemorySegmentIndexInput {
     F: Fn([u8; N]) -> T,
   {
     while !dst.is_empty() {
-      if self.is_closed_for_exclusive_reading() {
-        return Err(self.closed_error());
-      }
       let state = self.state.get_mut();
       let position = self.position.get_mut();
       let segment = state.current_slice();
@@ -643,7 +590,6 @@ impl MemorySegmentIndexInput {
             {
               return Err(Self::eof());
             }
-            Self::directory_open(self.directory_closed.as_deref())?;
             let index = state.index;
             Self::load_segment(
               &self.file,
@@ -663,7 +609,6 @@ impl MemorySegmentIndexInput {
         let bytes = Self::read_scalar(
           &self.file,
           (self.start, self.length, self.power),
-          self.directory_closed.as_deref(),
           state,
           position,
         )?;
@@ -681,9 +626,6 @@ impl MemorySegmentIndexInput {
     Ok(())
   }
   fn read_absolute<const N: usize>(&self, pos: usize) -> Result<[u8; N]> {
-    if self.is_closed_for_reading() {
-      return Err(self.closed_error());
-    }
     if self.single_segment {
       let index = self.start >> self.power;
       let start = self.start & ((1usize << self.power) - 1);
@@ -697,7 +639,6 @@ impl MemorySegmentIndexInput {
       let bytes = &self.file.segments[index][start + pos..start + pos + N];
       return bytes.try_into().map_err(|_| Self::eof());
     }
-    Self::directory_open(self.directory_closed.as_deref())?;
     let (index, offset) = self.coordinates(pos)?;
     let segment = self.segment(index).ok_or_else(Self::eof)?;
     if let Some(bytes) = segment.get(offset..).and_then(|s| s.first_chunk::<N>()) {
@@ -716,7 +657,6 @@ impl MemorySegmentIndexInput {
       Self::read_scalar(
         &self.file,
         (self.start, self.length, self.power),
-        self.directory_closed.as_deref(),
         &mut state,
         &mut position,
       )
@@ -729,10 +669,6 @@ impl MemorySegmentIndexInput {
   where
     F: FnOnce(&Mmap, usize, usize) -> std::io::Result<()>,
   {
-    if self.is_closed() {
-      return Err(self.closed_error());
-    }
-    Self::directory_open(self.directory_closed.as_deref())?;
     CoreHelper::check_from_index_size(pos, length, self.length)?;
     // Advice uses segment-directory coordinates, even on a multi slice.
     let index = pos >> self.power;
@@ -758,17 +694,11 @@ impl MemorySegmentIndexInput {
       physical_offset += skipped;
       length -= skipped;
     }
-    if self.is_closed_for_reading() {
-      return Err(self.closed_error());
-    }
     advice(map, physical_offset, length).map_err(LuceneError::io)
   }
   fn prefetch_impl(&self, pos: usize, len: usize) -> Result<()> {
     #[cfg(unix)]
     {
-      if self.is_closed() {
-        return Err(self.closed_error());
-      }
       CoreHelper::check_from_index_size(pos, len, self.length)?;
       let hits = self
         .consecutive_prefetch_hit_count
@@ -802,14 +732,6 @@ impl MemorySegmentIndexInput {
 impl DataInput for MemorySegmentIndexInput {
   #[inline]
   fn read_byte(&mut self) -> Result<u8> {
-    let read_state = *self.read_state.get_mut();
-    // OWNS_FILE alone means an open root: its exclusive borrow excludes close.
-    // Clones still observe shared file close, after checking their local state.
-    if read_state != OWNS_FILE
-      && (read_state & INPUT_CLOSED != 0 || self.file.closed.load(Ordering::SeqCst))
-    {
-      return Err(self.closed_error());
-    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     if *position < state.current_len {
@@ -821,16 +743,12 @@ impl DataInput for MemorySegmentIndexInput {
     Self::read_byte_boundary(
       &self.file,
       (self.start, self.length, self.power),
-      self.directory_closed.as_deref(),
       state,
       position,
     )
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    if self.is_closed_for_exclusive_reading() {
-      return Err(self.closed_error());
-    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     if let Some(remaining) = state.current_len.checked_sub(*position)
@@ -877,7 +795,6 @@ impl DataInput for MemorySegmentIndexInput {
     Self::read_bytes_from_segments(
       &self.file,
       (self.start, self.length, self.power),
-      self.directory_closed.as_deref(),
       self.state.get_mut(),
       self.position.get_mut(),
       (b, offset, len),
@@ -885,12 +802,6 @@ impl DataInput for MemorySegmentIndexInput {
   }
   #[inline]
   fn read_short(&mut self) -> Result<i16> {
-    if *self.read_state.get_mut() & INPUT_CLOSED != 0
-      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
-        && self.file.closed.load(Ordering::SeqCst))
-    {
-      return Err(self.closed_error());
-    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     let segment = state.current_slice();
@@ -904,12 +815,6 @@ impl DataInput for MemorySegmentIndexInput {
 
   #[inline]
   fn read_int(&mut self) -> Result<i32> {
-    if *self.read_state.get_mut() & INPUT_CLOSED != 0
-      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
-        && self.file.closed.load(Ordering::SeqCst))
-    {
-      return Err(self.closed_error());
-    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     let segment = state.current_slice();
@@ -923,12 +828,6 @@ impl DataInput for MemorySegmentIndexInput {
 
   #[inline]
   fn read_long(&mut self) -> Result<i64> {
-    if *self.read_state.get_mut() & INPUT_CLOSED != 0
-      || (self.read_state.load(Ordering::Relaxed) & OWNS_FILE == 0
-        && self.file.closed.load(Ordering::SeqCst))
-    {
-      return Err(self.closed_error());
-    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     let segment = state.current_slice();
@@ -941,9 +840,6 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
-    if self.is_closed_for_exclusive_reading() {
-      return Err(self.closed_error());
-    }
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let remaining = state.current_len.saturating_sub(*position);
@@ -953,9 +849,6 @@ impl DataInput for MemorySegmentIndexInput {
     Ok(())
   }
   fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
-    if self.is_closed_for_exclusive_reading() {
-      return Err(self.closed_error());
-    }
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let byte_len = len.checked_mul(4).ok_or_else(Self::eof)?;
@@ -973,9 +866,6 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
-    if self.is_closed_for_exclusive_reading() {
-      return Err(self.closed_error());
-    }
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let byte_len = len.checked_mul(8).ok_or_else(Self::eof)?;
@@ -993,9 +883,6 @@ impl DataInput for MemorySegmentIndexInput {
   }
 
   fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
-    if self.is_closed_for_exclusive_reading() {
-      return Err(self.closed_error());
-    }
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let byte_len = len.checked_mul(4).ok_or_else(Self::eof)?;
@@ -1022,9 +909,6 @@ impl DataInputExt for MemorySegmentIndexInput {
 }
 impl IntReader for MemorySegmentIndexInput {
   fn read(&mut self, pos: usize) -> Result<i32> {
-    if self.is_closed_for_exclusive_reading() {
-      return Err(self.closed_error());
-    }
     // Every input already caches its visible mapping range.
     let state = self.state.get_mut();
     let bytes = state
@@ -1047,42 +931,17 @@ impl Display for MemorySegmentRandomAccessInput {
     self.input.fmt(f)
   }
 }
-impl CloseableRef for MemorySegmentIndexInput {
-  fn close(&self) -> Result<()> {
-    if self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0 {
-      return Ok(());
-    }
-    let previous = self.read_state.fetch_or(INPUT_CLOSED, Ordering::Relaxed);
-    if previous & INPUT_CLOSED == 0 {
-      if previous & OWNS_FILE != 0 {
-        self.file.closed.store(true, Ordering::SeqCst);
-      }
-      if let Some(closed) = &self.directory_closed {
-        closed.store(true, Ordering::Relaxed);
-      }
-    }
-    Ok(())
-  }
-}
-impl Drop for MemorySegmentIndexInput {
-  fn drop(&mut self) {
-    if self.read_state.load(Ordering::Relaxed) & OWNS_FILE != 0 {
-      let _ = CloseableRef::close(self);
-    }
-  }
-}
+// Mapped inputs retain their backing through Arc. Closing one view does not
+// invalidate another; the last owner drops and unmaps the backing.
+impl CloseableRef for MemorySegmentIndexInput {}
+
 impl TryClone for MemorySegmentIndexInput {
   fn try_clone(&self) -> Result<Self> {
-    if self.is_closed() {
-      return Err(self.closed_error());
-    }
-    Self::directory_open(self.directory_closed.as_deref())?;
     let mut clone = self.with_range(
       self.start >> self.power,
       ((self.start & ((1usize << self.power) - 1)) + self.length) >> self.power,
       self.start & ((1usize << self.power) - 1),
       self.length,
-      self.directory_closed.clone(),
       self.resource_desc_suffix.clone(),
     );
     clone.seek(self.get_file_pointer()?)?;
@@ -1094,9 +953,6 @@ impl IndexInput for MemorySegmentIndexInput {
   type RandomAccessSlice = MemorySegmentRandomAccessInput;
   #[inline]
   fn get_file_pointer(&self) -> Result<usize> {
-    if self.read_state.load(Ordering::Relaxed) & INPUT_CLOSED != 0 {
-      return Err(self.closed_error());
-    }
     if self.single_segment {
       return Ok(self.position.load(Ordering::Relaxed));
     }
@@ -1104,9 +960,6 @@ impl IndexInput for MemorySegmentIndexInput {
   }
   #[inline]
   fn seek(&mut self, pos: usize) -> Result<()> {
-    if *self.read_state.get_mut() & INPUT_CLOSED != 0 {
-      return Err(self.closed_error());
-    }
     if self.single_segment {
       if pos <= self.length {
         *self.position.get_mut() = pos;
@@ -1133,9 +986,6 @@ impl IndexInput for MemorySegmentIndexInput {
       )));
     }
     let num_bytes: usize = num_bytes.try_convert()?;
-    if *self.read_state.get_mut() & INPUT_CLOSED != 0 {
-      return Err(self.closed_error());
-    }
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     // Every input uses the current segment's checked range here. At its end,
@@ -1168,32 +1018,20 @@ impl IndexInput for MemorySegmentIndexInput {
         self.length
       )));
     }
-    if self.is_closed() {
-      return Err(self.closed_error());
-    }
-    Self::directory_open(self.directory_closed.as_deref())?;
     let start = (self.start & ((1usize << self.power) - 1)) + offset;
     let suffix = self.resource_desc_suffix.extend(description)?;
     if self.single_segment {
-      return Ok(self.with_range(self.start >> self.power, 0, start, length, None, suffix));
+      return Ok(self.with_range(self.start >> self.power, 0, start, length, suffix));
     }
     let end = start + length;
     let first_index = start >> self.power;
     let last_index = end >> self.power;
     let last = last_index - first_index;
-    let directory_closed = if last == 0 {
-      None
-    } else if start == 0 && length == self.length {
-      self.directory_closed.clone()
-    } else {
-      Some(Arc::new(AtomicBool::new(false)))
-    };
     Ok(self.with_range(
       (self.start >> self.power) + first_index,
       last,
       start & ((1usize << self.power) - 1),
       length,
-      directory_closed,
       suffix,
     ))
   }
@@ -1233,10 +1071,6 @@ impl IndexInput for MemorySegmentIndexInput {
   fn update_read_advice(&self, advice: ReadAdvice) -> Result<()> {
     #[cfg(unix)]
     {
-      if self.is_closed() {
-        return Err(self.closed_error());
-      }
-      Self::directory_open(self.directory_closed.as_deref())?;
       if let Some(advice) = self.native_access.map_read_advice(&advice) {
         let mut offset = 0;
         for index in 0..self.count() {
@@ -1255,10 +1089,6 @@ impl IndexInput for MemorySegmentIndexInput {
     Ok(())
   }
   fn is_loaded(&self) -> Result<Option<bool>> {
-    if self.is_closed_for_reading() {
-      return Err(self.closed_error());
-    }
-    Self::directory_open(self.directory_closed.as_deref())?;
     #[cfg(unix)]
     {
       for index in 0..self.count() {
@@ -1284,9 +1114,6 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     Ok(self.length)
   }
   fn read_byte(&self, pos: usize) -> Result<u8> {
-    if self.is_closed_for_reading() {
-      return Err(self.closed_error());
-    }
     if self.single_segment {
       let index = self.start >> self.power;
       let start = self.start & ((1usize << self.power) - 1);
@@ -1296,7 +1123,6 @@ impl RandomAccessInput for MemorySegmentIndexInput {
       }
       return Ok(self.file.segments[index][start + pos]);
     }
-    Self::directory_open(self.directory_closed.as_deref())?;
     let (index, offset) = self.coordinates(pos)?;
     self
       .segment(index)
@@ -1315,10 +1141,6 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     Ok(i64::from_le_bytes(self.read_absolute(pos)?))
   }
   fn read_bytes(&self, pos: usize, len: usize) -> Result<Cow<'_, [u8]>> {
-    if self.is_closed_for_reading() {
-      return Err(self.closed_error());
-    }
-    Self::directory_open(self.directory_closed.as_deref())?;
     if pos.checked_add(len).is_none_or(|end| end > self.length) {
       return Err(Self::eof());
     }
@@ -1343,7 +1165,6 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     Self::read_bytes_from_segments(
       &self.file,
       (self.start, self.length, self.power),
-      self.directory_closed.as_deref(),
       &mut state,
       &mut position,
       (&mut bytes, 0, len),
