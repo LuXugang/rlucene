@@ -61,46 +61,12 @@ struct MappedView {
   directory_closed: Option<Arc<AtomicBool>>,
 }
 
-// Holds the loaded mapping independently of the directory.
-// The visible range belongs to this input's slice.
-struct CurrentSegment {
-  mapping: Option<Arc<Mmap>>,
-  base: usize,
-  len: usize,
-}
-
-impl CurrentSegment {
-  fn byte(&self, pos: usize) -> Option<u8> {
-    if pos >= self.len {
-      return None;
-    }
-    // Loaded views satisfy base + len <= mapping.len(), so the logical
-    // bounds check also proves that this address addition cannot overflow.
-    self.mapping.as_deref()?.get(self.base + pos).copied()
-  }
-
-  fn range(&self, pos: usize, len: usize) -> Option<&[u8]> {
-    if len > self.len.checked_sub(pos)? {
-      return None;
-    }
-    // Check the requested bytes directly, without rebuilding the entire view.
-    // The loaded view and logical bounds above also bound both additions.
-    let start = self.base + pos;
-    let mapping = self.mapping.as_deref().map_or(&[][..], |m| &m[..]);
-    mapping.get(start..start + len)
-  }
-
-  fn as_slice(&self) -> &[u8] {
-    self
-      .mapping
-      .as_deref()
-      .map_or(&[], |mapping| &mapping[self.base..self.base + self.len])
-  }
-}
-
 struct SegmentState {
   index: usize,
-  current: CurrentSegment,
+  // Retain the loaded mapping independently of directory close state.
+  current_mapping: Option<Arc<Mmap>>,
+  current_base: usize,
+  current_len: usize,
   // Logical positions that can be handled without resolving the directory.
   seek_start: usize,
   seek_count: usize,
@@ -108,6 +74,36 @@ struct SegmentState {
 }
 
 impl SegmentState {
+  fn current_byte(&self, pos: usize) -> Option<u8> {
+    if pos >= self.current_len {
+      return None;
+    }
+    // Loaded views satisfy base + len <= mapping.len(), so the logical
+    // bounds check also proves that this address addition cannot overflow.
+    self
+      .current_mapping
+      .as_deref()?
+      .get(self.current_base + pos)
+      .copied()
+  }
+
+  fn current_range(&self, pos: usize, len: usize) -> Option<&[u8]> {
+    if len > self.current_len.checked_sub(pos)? {
+      return None;
+    }
+    // Check the requested bytes directly, without rebuilding the entire view.
+    // The loaded view and logical bounds above also bound both additions.
+    let start = self.current_base + pos;
+    let mapping = self.current_mapping.as_deref().map_or(&[][..], |m| &m[..]);
+    mapping.get(start..start + len)
+  }
+
+  fn current_slice(&self) -> &[u8] {
+    self.current_mapping.as_deref().map_or(&[], |mapping| {
+      &mapping[self.current_base..self.current_base + self.current_len]
+    })
+  }
+
   fn new(view: &MappedView) -> Self {
     let start = if view.last == 0 { view.offset } else { 0 };
     let end = if view.last == 0 {
@@ -117,11 +113,9 @@ impl SegmentState {
     };
     let mut state = SegmentState {
       index: 0,
-      current: CurrentSegment {
-        mapping: view.file.segments.get(view.first).cloned(),
-        base: start,
-        len: end - start,
-      },
+      current_mapping: view.file.segments.get(view.first).cloned(),
+      current_base: start,
+      current_len: end - start,
       seek_start: 0,
       seek_count: 0,
       seek_position: 0,
@@ -214,7 +208,7 @@ impl MappedView {
       state.seek_start = base.saturating_sub(self.offset);
       state.seek_position = prefix;
       // A full segment's end belongs to the next segment for seek.
-      state.seek_count = (state.current.len.min(self.mask) + 1).saturating_sub(prefix);
+      state.seek_count = (state.current_len.min(self.mask) + 1).saturating_sub(prefix);
     }
   }
   fn advance_segment(&self, state: &mut SegmentState) {
@@ -239,11 +233,9 @@ impl MappedView {
       self.file.segments.get(physical).map_or(0, |m| m.len())
     };
     // Resolve first: a failed directory advance must retain the old mapping.
-    state.current = CurrentSegment {
-      mapping: self.file.segments.get(physical).cloned(),
-      base: start,
-      len: end - start,
-    };
+    state.current_mapping = self.file.segments.get(physical).cloned();
+    state.current_base = start;
+    state.current_len = end - start;
     self.set_seek_window(state, index);
     Ok(())
   }
@@ -326,7 +318,7 @@ impl MappedView {
       self.load_segment(state, index)?;
       state.index = index;
     }
-    if offset > state.current.len {
+    if offset > state.current_len {
       return Err(Self::eof());
     }
     *position = offset;
@@ -343,7 +335,7 @@ impl MappedView {
       let index = state.index;
       self.load_segment(state, index)?;
       *position = 0;
-      if let Some(value) = state.current.byte(0) {
+      if let Some(value) = state.current_byte(0) {
         *position = 1;
         return Ok(value);
       }
@@ -355,8 +347,7 @@ impl MappedView {
     position: &mut usize,
   ) -> Result<[u8; N]> {
     if let Some(bytes) = state
-      .current
-      .range(*position, N)
+      .current_range(*position, N)
       .and_then(|s| s.first_chunk::<N>())
     {
       let bytes = *bytes;
@@ -374,7 +365,7 @@ impl MappedView {
     let mut bytes = [0; N];
     let mut filled = 0;
     while filled < N {
-      let segment = state.current.as_slice();
+      let segment = state.current_slice();
       if let Some(remaining) = segment.get(*position..)
         && !remaining.is_empty()
       {
@@ -392,13 +383,13 @@ impl MappedView {
     Ok(bytes)
   }
   fn copy(
-    segment: &CurrentSegment,
+    segment: &SegmentState,
     pos: usize,
     b: &mut [u8],
     offset: usize,
     len: usize,
   ) -> Result<()> {
-    let source = segment.range(pos, len).ok_or_else(Self::eof)?;
+    let source = segment.current_range(pos, len).ok_or_else(Self::eof)?;
     let target = b
       .get_mut(offset..)
       .and_then(|s| s.get_mut(..len))
@@ -415,17 +406,16 @@ impl MappedView {
     mut len: usize,
   ) -> Result<()> {
     loop {
-      let segment = &state.current;
-      let available = segment
-        .len
+      let available = state
+        .current_len
         .checked_sub(*position)
         .ok_or_else(|| LuceneError::array_index_out_of_bounds("source position out of bounds"))?;
       if len <= available {
-        Self::copy(segment, *position, b, offset, len)?;
+        Self::copy(state, *position, b, offset, len)?;
         *position += len;
         return Ok(());
       }
-      Self::copy(segment, *position, b, offset, available)?;
+      Self::copy(state, *position, b, offset, available)?;
       len -= available;
       offset += available;
       self.advance_segment(state);
@@ -659,7 +649,7 @@ impl MemorySegmentIndexInput {
       }
       let state = self.state.get_mut();
       let position = self.position.get_mut();
-      let segment = state.current.as_slice();
+      let segment = state.current_slice();
       let count = (segment.len().saturating_sub(*position) / N).min(dst.len());
       if count == 0 {
         if *position >= segment.len() {
@@ -674,7 +664,7 @@ impl MemorySegmentIndexInput {
             let index = state.index;
             self.view.load_segment(state, index)?;
             *position = 0;
-            if !state.current.as_slice().is_empty() {
+            if !state.current_slice().is_empty() {
               break;
             }
           }
@@ -812,9 +802,9 @@ impl DataInput for MemorySegmentIndexInput {
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    if *position < state.current.len
-      && let Some(mapping) = state.current.mapping.as_deref()
-      && let Some(value) = mapping.get(state.current.base + *position)
+    if *position < state.current_len
+      && let Some(mapping) = state.current_mapping.as_deref()
+      && let Some(value) = mapping.get(state.current_base + *position)
     {
       let value = *value;
       *position += 1;
@@ -842,8 +832,8 @@ impl DataInput for MemorySegmentIndexInput {
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    let segment = state.current.mapping.as_deref().map_or(&[][..], |mapping| {
-      &mapping[state.current.base..state.current.base + state.current.len]
+    let segment = state.current_mapping.as_deref().map_or(&[][..], |mapping| {
+      &mapping[state.current_base..state.current_base + state.current_len]
     });
     if let Some(bytes) = segment.get(*position..).and_then(|s| s.first_chunk::<2>()) {
       let value = i16::from_le_bytes(*bytes);
@@ -862,8 +852,8 @@ impl DataInput for MemorySegmentIndexInput {
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    let segment = state.current.mapping.as_deref().map_or(&[][..], |mapping| {
-      &mapping[state.current.base..state.current.base + state.current.len]
+    let segment = state.current_mapping.as_deref().map_or(&[][..], |mapping| {
+      &mapping[state.current_base..state.current_base + state.current_len]
     });
     if let Some(bytes) = segment.get(*position..).and_then(|s| s.first_chunk::<4>()) {
       let value = i32::from_le_bytes(*bytes);
@@ -882,8 +872,8 @@ impl DataInput for MemorySegmentIndexInput {
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
-    let segment = state.current.mapping.as_deref().map_or(&[][..], |mapping| {
-      &mapping[state.current.base..state.current.base + state.current.len]
+    let segment = state.current_mapping.as_deref().map_or(&[][..], |mapping| {
+      &mapping[state.current_base..state.current_base + state.current_len]
     });
     if let Some(bytes) = segment.get(*position..).and_then(|s| s.first_chunk::<8>()) {
       let value = i64::from_le_bytes(*bytes);
@@ -901,7 +891,7 @@ impl DataInput for MemorySegmentIndexInput {
     }
     let state = self.state.get_mut();
     let position = self.position.get_mut();
-    let remaining = state.current.len.saturating_sub(*position);
+    let remaining = state.current_len.saturating_sub(*position);
     let pos = *position;
     let len = GroupVIntUtil::read_group_vint_i32_with_reader(self, remaining, pos, dst, offset)?;
     *self.position.get_mut() += len;
@@ -914,7 +904,7 @@ impl DataInput for MemorySegmentIndexInput {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let byte_len = len.checked_mul(4).ok_or_else(MappedView::eof)?;
-    if let Some(bytes) = state.current.range(*position, byte_len)
+    if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<4>().0) {
@@ -934,7 +924,7 @@ impl DataInput for MemorySegmentIndexInput {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let byte_len = len.checked_mul(8).ok_or_else(MappedView::eof)?;
-    if let Some(bytes) = state.current.range(*position, byte_len)
+    if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<8>().0) {
@@ -954,7 +944,7 @@ impl DataInput for MemorySegmentIndexInput {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let byte_len = len.checked_mul(4).ok_or_else(MappedView::eof)?;
-    if let Some(bytes) = state.current.range(*position, byte_len)
+    if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<4>().0) {
@@ -983,8 +973,7 @@ impl IntReader for MemorySegmentIndexInput {
     // Every input already caches its visible mapping range.
     let state = self.state.get_mut();
     let bytes = state
-      .current
-      .range(pos, 4)
+      .current_range(pos, 4)
       .and_then(|s| s.first_chunk::<4>())
       .ok_or_else(MappedView::eof)?;
     Ok(i32::from_le_bytes(*bytes))
@@ -1259,11 +1248,9 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     let mut bytes = vec![0; len];
     let mut state = SegmentState {
       index,
-      current: CurrentSegment {
-        mapping: None,
-        base: 0,
-        len: 0,
-      },
+      current_mapping: None,
+      current_base: 0,
+      current_len: 0,
       seek_start: 0,
       seek_count: 0,
       seek_position: 0,
