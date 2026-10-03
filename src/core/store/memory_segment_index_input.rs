@@ -844,6 +844,15 @@ impl MemorySegmentIndexInput {
 impl DataInput for MemorySegmentIndexInput {
   #[inline]
   fn read_byte(&mut self) -> Result<u8> {
+    if self.single_segment {
+      let position = self.position.get_mut();
+      let data = self.state.get_mut().current;
+      if let Some(value) = data.get(*position).copied() {
+        *position += 1;
+        return Ok(value);
+      }
+      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+    }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
     if *position < state.current.len() {
