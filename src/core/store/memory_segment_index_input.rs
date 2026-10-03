@@ -1278,12 +1278,13 @@ impl RandomAccessInput for MemorySegmentIndexInput {
   #[inline(always)]
   fn read_short(&self, pos: usize) -> Result<i16> {
     if self.single_segment {
-      if let Some(bytes) = self
-        .single_slice()
-        .get(pos..)
-        .and_then(|s| s.first_chunk::<2>())
+      let data = self.single_slice();
+      if let Some(last) = data.len().checked_sub(2)
+        && pos <= last
       {
-        return Ok(i16::from_le_bytes(*bytes));
+        return Ok(i16::from_le_bytes(
+          data[pos..pos + 2].try_into().map_err(|_| Self::eof())?,
+        ));
       }
       return Err(LuceneError::Eof(Self::scalar_eof()));
     }
@@ -1292,12 +1293,13 @@ impl RandomAccessInput for MemorySegmentIndexInput {
   #[inline(always)]
   fn read_int(&self, pos: usize) -> Result<i32> {
     if self.single_segment {
-      if let Some(bytes) = self
-        .single_slice()
-        .get(pos..)
-        .and_then(|s| s.first_chunk::<4>())
+      let data = self.single_slice();
+      if let Some(last) = data.len().checked_sub(4)
+        && pos <= last
       {
-        return Ok(i32::from_le_bytes(*bytes));
+        return Ok(i32::from_le_bytes(
+          data[pos..pos + 4].try_into().map_err(|_| Self::eof())?,
+        ));
       }
       return Err(LuceneError::Eof(Self::scalar_eof()));
     }
