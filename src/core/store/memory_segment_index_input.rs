@@ -593,13 +593,17 @@ impl MemorySegmentIndexInput {
           std::ptr::copy_nonoverlapping(src, dst, 8);
           std::ptr::copy_nonoverlapping(src.add(len - 8), dst.add(len - 8), 8);
         },
-        16..=31 => {
+        16..=32 => {
           std::ptr::copy_nonoverlapping(src, dst, 16);
           std::ptr::copy_nonoverlapping(src.add(len - 16), dst.add(len - 16), 16);
         },
-        32..=64 => {
+        33..=80 => {
           std::ptr::copy_nonoverlapping(src, dst, 32);
           std::ptr::copy_nonoverlapping(src.add(len - 32), dst.add(len - 32), 32);
+          if len > 64 {
+            // The middle fills the gap between the checked head and tail.
+            std::ptr::copy_nonoverlapping(src.add(32), dst.add(32), 16);
+          }
         },
         _ => std::ptr::copy_nonoverlapping(src, dst, len),
       }
