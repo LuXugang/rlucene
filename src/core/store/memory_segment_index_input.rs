@@ -729,50 +729,28 @@ impl MemorySegmentIndexInput {
     if N == 1 {
       return Err(Self::eof());
     }
-    Self::read_absolute_multi(
-      &self.file,
-      (self.start, self.length, self.power),
-      (&self.state, &self.position),
-      pos,
-    )
-  }
-  #[inline(never)]
-  fn read_absolute_multi<const N: usize>(
-    file: &MappedFile,
-    range: (usize, usize, u32),
-    cursor: (&Mutex<SegmentState>, &AtomicUsize),
-    pos: usize,
-  ) -> Result<[u8; N]> {
-    let (start, length, power) = range;
-    let mask = (1usize << power) - 1;
-    let absolute = pos.checked_add(start & mask).ok_or_else(Self::eof)?;
-    let (index, offset) = (absolute >> power, absolute & mask);
-    let last = ((start & mask) + length) >> power;
+    let range = (self.start, self.length, self.power);
+    let last = ((self.start & ((1usize << self.power) - 1)) + self.length) >> self.power;
     if index > last {
       return Err(Self::eof());
     }
-    let segment = file
-      .segments
-      .get((start >> power) + index)
-      .map_or(&[][..], |m| {
-        if index == last {
-          &m[..((start & mask) + length) & mask]
-        } else {
-          &m[..]
-        }
-      });
-    if let Some(bytes) = segment.get(offset..).and_then(|s| s.first_chunk::<N>()) {
-      return Ok(*bytes);
-    }
-    let mut state = cursor.0.lock();
+    let mut state = self.state.lock();
     let mut position = offset;
-    let result = {
-      Self::load_segment(file, range, &mut state, index)?;
-      state.index = index;
-      Self::read_scalar(file, range, &mut state, &mut position)
-    };
-    cursor.1.store(position, Ordering::Relaxed);
+    let result = Self::read_absolute_multi(&self.file, range, &mut state, &mut position, index);
+    self.position.store(position, Ordering::Relaxed);
     result
+  }
+  #[cold]
+  fn read_absolute_multi<const N: usize>(
+    file: &MappedFile,
+    range: (usize, usize, u32),
+    state: &mut SegmentState,
+    position: &mut usize,
+    index: usize,
+  ) -> Result<[u8; N]> {
+    Self::load_segment(file, range, state, index)?;
+    state.index = index;
+    Self::read_scalar(file, range, state, position)
   }
   #[cfg(unix)]
   fn advise_first<F>(&self, pos: usize, length: usize, advice: F) -> Result<()>
@@ -1328,12 +1306,13 @@ impl RandomAccessInput for MemorySegmentIndexInput {
   #[inline(always)]
   fn read_long(&self, pos: usize) -> Result<i64> {
     if self.single_segment {
-      if let Some(bytes) = self
-        .single_slice()
-        .get(pos..)
-        .and_then(|s| s.first_chunk::<8>())
+      let data = self.single_slice();
+      if let Some(last) = data.len().checked_sub(8)
+        && pos <= last
       {
-        return Ok(i64::from_le_bytes(*bytes));
+        return Ok(i64::from_le_bytes(
+          data[pos..pos + 8].try_into().map_err(|_| Self::eof())?,
+        ));
       }
       return Err(LuceneError::Eof(Self::scalar_eof()));
     }
