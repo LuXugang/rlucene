@@ -571,41 +571,46 @@ impl MemorySegmentIndexInput {
       native_access: self.native_access,
     }
   }
-  // Byte copies preserve all integer and floating-point bit patterns on a
-  // little-endian target. Small copies use constant widths to avoid a library
-  // call; larger copies retain the platform memcpy implementation.
-  #[cfg(target_endian = "little")]
+  // Primitive arrays use byte copies on little-endian targets; this helper
+  // itself preserves bytes on every target. Small copies use constant widths
+  // to avoid a library call; larger copies retain platform memcpy.
   #[inline]
-  unsafe fn copy_array_bytes(source: &[u8], dst: *mut u8) {
-    let len = source.len();
-    let src = source.as_ptr();
-    // SAFETY: callers pass a disjoint, writable destination of exactly len
-    // bytes. Each head/tail copy stays within both ranges; separate copies may
+  unsafe fn copy_bytes(src: *const u8, dst: *mut u8, len: usize) {
+    // SAFETY: callers check a readable immutable source and a disjoint,
+    // writable destination of exactly len bytes and retain the source owner.
+    // Each head/tail copy stays within both ranges; separate copies may
     // overlap each other in the destination, but never their own source.
     unsafe {
-      match len {
-        0 => {},
-        4..=7 => {
-          std::ptr::copy_nonoverlapping(src, dst, 4);
-          std::ptr::copy_nonoverlapping(src.add(len - 4), dst.add(len - 4), 4);
-        },
-        8..=15 => {
-          std::ptr::copy_nonoverlapping(src, dst, 8);
-          std::ptr::copy_nonoverlapping(src.add(len - 8), dst.add(len - 8), 8);
-        },
-        16..=32 => {
-          std::ptr::copy_nonoverlapping(src, dst, 16);
-          std::ptr::copy_nonoverlapping(src.add(len - 16), dst.add(len - 16), 16);
-        },
-        33..=80 => {
-          std::ptr::copy_nonoverlapping(src, dst, 32);
-          std::ptr::copy_nonoverlapping(src.add(len - 32), dst.add(len - 32), 32);
-          if len > 64 {
-            // The middle fills the gap between the checked head and tail.
-            std::ptr::copy_nonoverlapping(src.add(32), dst.add(32), 16);
-          }
-        },
-        _ => std::ptr::copy_nonoverlapping(src, dst, len),
+      if len <= 80 {
+        match len {
+          0 => {},
+          1 => std::ptr::copy_nonoverlapping(src, dst, 1),
+          2..=3 => {
+            std::ptr::copy_nonoverlapping(src, dst, 2);
+            std::ptr::copy_nonoverlapping(src.add(len - 2), dst.add(len - 2), 2);
+          },
+          4..=7 => {
+            std::ptr::copy_nonoverlapping(src, dst, 4);
+            std::ptr::copy_nonoverlapping(src.add(len - 4), dst.add(len - 4), 4);
+          },
+          8..=16 => {
+            std::ptr::copy_nonoverlapping(src, dst, 8);
+            std::ptr::copy_nonoverlapping(src.add(len - 8), dst.add(len - 8), 8);
+          },
+          17..=32 => {
+            std::ptr::copy_nonoverlapping(src, dst, 16);
+            std::ptr::copy_nonoverlapping(src.add(len - 16), dst.add(len - 16), 16);
+          },
+          _ => {
+            std::ptr::copy_nonoverlapping(src, dst, 32);
+            std::ptr::copy_nonoverlapping(src.add(len - 32), dst.add(len - 32), 32);
+            if len > 64 {
+              std::ptr::copy_nonoverlapping(src.add(32), dst.add(32), 16);
+            }
+          },
+        }
+      } else {
+        std::ptr::copy_nonoverlapping(src, dst, len);
       }
     }
   }
@@ -683,7 +688,7 @@ impl MemorySegmentIndexInput {
               64,
             );
           } else {
-            Self::copy_array_bytes(bytes, target);
+            Self::copy_bytes(bytes.as_ptr(), target, bytes.len());
           }
         }
         #[cfg(target_endian = "big")]
@@ -884,39 +889,11 @@ impl DataInput for MemorySegmentIndexInput {
       // The overlapping head/tail destinations are separate copy operations,
       // while each operation's source and destination remain disjoint.
       unsafe {
-        let src = state.current.as_ptr().add(*position);
-        let dst = target.as_mut_ptr();
-        if len <= 80 {
-          match len {
-            0 => {},
-            1 => std::ptr::copy_nonoverlapping(src, dst, 1),
-            2..=3 => {
-              std::ptr::copy_nonoverlapping(src, dst, 2);
-              std::ptr::copy_nonoverlapping(src.add(len - 2), dst.add(len - 2), 2);
-            },
-            4..=7 => {
-              std::ptr::copy_nonoverlapping(src, dst, 4);
-              std::ptr::copy_nonoverlapping(src.add(len - 4), dst.add(len - 4), 4);
-            },
-            8..=16 => {
-              std::ptr::copy_nonoverlapping(src, dst, 8);
-              std::ptr::copy_nonoverlapping(src.add(len - 8), dst.add(len - 8), 8);
-            },
-            17..=32 => {
-              std::ptr::copy_nonoverlapping(src, dst, 16);
-              std::ptr::copy_nonoverlapping(src.add(len - 16), dst.add(len - 16), 16);
-            },
-            _ => {
-              std::ptr::copy_nonoverlapping(src, dst, 32);
-              std::ptr::copy_nonoverlapping(src.add(len - 32), dst.add(len - 32), 32);
-              if len > 64 {
-                std::ptr::copy_nonoverlapping(src.add(32), dst.add(32), 16);
-              }
-            },
-          }
-        } else {
-          std::ptr::copy_nonoverlapping(src, dst, len);
-        }
+        Self::copy_bytes(
+          state.current.as_ptr().add(*position),
+          target.as_mut_ptr(),
+          len,
+        );
       }
       *position += len;
       return Ok(());
@@ -1022,7 +999,11 @@ impl DataInput for MemorySegmentIndexInput {
       // read-only and cannot overlap the caller's mutable destination. i32 has
       // no padding and every bit pattern is valid; byte alignment is sufficient.
       unsafe {
-        Self::copy_array_bytes(bytes, target.as_mut_ptr().cast::<u8>());
+        Self::copy_bytes(
+          bytes.as_ptr(),
+          target.as_mut_ptr().cast::<u8>(),
+          bytes.len(),
+        );
       }
       #[cfg(target_endian = "big")]
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<4>().0) {
@@ -1051,7 +1032,11 @@ impl DataInput for MemorySegmentIndexInput {
       // read-only and cannot overlap the caller's mutable destination. i64 has
       // no padding and every bit pattern is valid; byte alignment is sufficient.
       unsafe {
-        Self::copy_array_bytes(bytes, target.as_mut_ptr().cast::<u8>());
+        Self::copy_bytes(
+          bytes.as_ptr(),
+          target.as_mut_ptr().cast::<u8>(),
+          bytes.len(),
+        );
       }
       #[cfg(target_endian = "big")]
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<8>().0) {
@@ -1080,7 +1065,11 @@ impl DataInput for MemorySegmentIndexInput {
       // read-only and cannot overlap the caller's mutable destination. f32 has
       // no padding and every bit pattern is valid; byte alignment is sufficient.
       unsafe {
-        Self::copy_array_bytes(bytes, target.as_mut_ptr().cast::<u8>());
+        Self::copy_bytes(
+          bytes.as_ptr(),
+          target.as_mut_ptr().cast::<u8>(),
+          bytes.len(),
+        );
       }
       #[cfg(target_endian = "big")]
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<4>().0) {
