@@ -869,6 +869,7 @@ impl DataInput for MemorySegmentIndexInput {
     )
   }
 
+  #[inline(always)]
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     let position = self.position.get_mut();
     let state = self.state.get_mut();
@@ -885,7 +886,7 @@ impl DataInput for MemorySegmentIndexInput {
       unsafe {
         let src = state.current.as_ptr().add(*position);
         let dst = target.as_mut_ptr();
-        if len <= 32 {
+        if len <= 80 {
           match len {
             0 => {},
             1 => std::ptr::copy_nonoverlapping(src, dst, 1),
@@ -897,13 +898,20 @@ impl DataInput for MemorySegmentIndexInput {
               std::ptr::copy_nonoverlapping(src, dst, 4);
               std::ptr::copy_nonoverlapping(src.add(len - 4), dst.add(len - 4), 4);
             },
-            8..=15 => {
+            8..=16 => {
               std::ptr::copy_nonoverlapping(src, dst, 8);
               std::ptr::copy_nonoverlapping(src.add(len - 8), dst.add(len - 8), 8);
             },
-            _ => {
+            17..=32 => {
               std::ptr::copy_nonoverlapping(src, dst, 16);
               std::ptr::copy_nonoverlapping(src.add(len - 16), dst.add(len - 16), 16);
+            },
+            _ => {
+              std::ptr::copy_nonoverlapping(src, dst, 32);
+              std::ptr::copy_nonoverlapping(src.add(len - 32), dst.add(len - 32), 32);
+              if len > 64 {
+                std::ptr::copy_nonoverlapping(src.add(32), dst.add(32), 16);
+              }
             },
           }
         } else {
