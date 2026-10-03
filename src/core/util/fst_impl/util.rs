@@ -48,8 +48,7 @@ impl Util {
     F: FstReader,
     AV: SharedAccessVec<i32>,
   {
-    let mut arc = Arc::default();
-    fst.get_first_arc(&mut arc);
+    let mut arc = fst.get_first_arc_owned();
     let mut follow = arc.clone();
     let (mut arc, mut follow) = (&mut arc, &mut follow);
     let mut fst_reader = fst.get_bytes_reader()?;
@@ -116,8 +115,7 @@ impl Util {
     debug_assert_eq!(fst.metadata.input_type, InputType::Byte1);
 
     let mut fst_reader = fst.get_bytes_reader()?;
-    let mut arc = Arc::default();
-    fst.get_first_arc(&mut arc);
+    let mut arc = fst.get_first_arc_owned();
     let mut follow = arc.clone();
     let (mut arc, mut follow) = (&mut arc, &mut follow);
     let mut output = fst.outputs.get_no_output().clone();

@@ -173,26 +173,50 @@ where
     reader.skip_bytes(skip_bytes as i64)?;
     Ok(())
   }
-  /// Fills the virtual 'start' arc, i.e., an empty incoming arc to the FST's
-  /// start node.
+  /// Fills the virtual start arc, i.e., an empty incoming arc to the FST's
+  /// start node, reusing the caller's arc.
   pub fn get_first_arc(&self, arc: &mut Arc<O::V>) {
-    let no_output = self.outputs.get_no_output();
-
-    if let Some(ref empty_output) = self.metadata.empty_output {
-      arc.flags = BIT_FINAL_ARC | BIT_LAST_ARC;
-      arc.next_final_output = empty_output.clone();
-      if empty_output != no_output {
-        arc.flags |= BIT_ARC_HAS_FINAL_OUTPUT;
-      }
-    } else {
-      arc.flags = BIT_LAST_ARC;
-      arc.next_final_output = no_output.clone();
-    }
-
+    let (flags, no_output, final_output) = self.first_arc_state();
+    arc.flags = flags;
+    arc.next_final_output = final_output.clone();
     arc.output = no_output.clone();
     // If there are no nodes, ie, the FST only accepts the
     // empty string, then startNode is 0
     arc.target = self.metadata.start_node;
+  }
+  /// Returns the virtual start arc without constructing default output slots.
+  pub fn get_first_arc_owned(&self) -> Arc<O::V> {
+    let (flags, no_output, final_output) = self.first_arc_state();
+    Arc {
+      label: 0,
+      output: no_output.clone(),
+      target: self.metadata.start_node,
+      flags,
+      next_final_output: final_output.clone(),
+      next_arc: 0,
+      node_flags: 0,
+      bytes_per_arc: 0,
+      pos_arcs_start: 0,
+      arc_idx: 0,
+      num_arcs: 0,
+      bit_table_start: 0,
+      first_label: 0,
+      presence_index: 0,
+    }
+  }
+
+  fn first_arc_state(&self) -> (u8, &O::V, &O::V) {
+    let no_output = self.outputs.get_no_output();
+    match self.metadata.empty_output.as_ref() {
+      Some(empty_output) => {
+        let mut flags = BIT_FINAL_ARC | BIT_LAST_ARC;
+        if empty_output != no_output {
+          flags |= BIT_ARC_HAS_FINAL_OUTPUT;
+        }
+        (flags, no_output, empty_output)
+      },
+      None => (BIT_LAST_ARC, no_output, no_output),
+    }
   }
   /// Follows the `follow` arc and reads the last arc of its target; this
   /// changes the provided `arc` (2nd arg) in-place and returns it.
