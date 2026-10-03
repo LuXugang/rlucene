@@ -571,14 +571,56 @@ impl MemorySegmentIndexInput {
       native_access: self.native_access,
     }
   }
-  fn read_array_boundary<T, F, const N: usize>(
+  // Byte copies preserve all integer and floating-point bit patterns on a
+  // little-endian target. Small copies use constant widths to avoid a library
+  // call; larger copies retain the platform memcpy implementation.
+  #[cfg(target_endian = "little")]
+  #[inline]
+  unsafe fn copy_array_bytes(source: &[u8], dst: *mut u8) {
+    let len = source.len();
+    let src = source.as_ptr();
+    // SAFETY: callers pass a disjoint, writable destination of exactly len
+    // bytes. Each head/tail copy stays within both ranges; separate copies may
+    // overlap each other in the destination, but never their own source.
+    unsafe {
+      match len {
+        0 => {},
+        4..=7 => {
+          std::ptr::copy_nonoverlapping(src, dst, 4);
+          std::ptr::copy_nonoverlapping(src.add(len - 4), dst.add(len - 4), 4);
+        },
+        8..=15 => {
+          std::ptr::copy_nonoverlapping(src, dst, 8);
+          std::ptr::copy_nonoverlapping(src.add(len - 8), dst.add(len - 8), 8);
+        },
+        16..=31 => {
+          std::ptr::copy_nonoverlapping(src, dst, 16);
+          std::ptr::copy_nonoverlapping(src.add(len - 16), dst.add(len - 16), 16);
+        },
+        32..=64 => {
+          std::ptr::copy_nonoverlapping(src, dst, 32);
+          std::ptr::copy_nonoverlapping(src.add(len - 32), dst.add(len - 32), 32);
+        },
+        _ => std::ptr::copy_nonoverlapping(src, dst, len),
+      }
+    }
+  }
+  // SAFETY contract: only the three primitive callers below use this helper.
+  // T is i32/f32 with N=4, or i64 with N=8; all bit patterns are valid and
+  // decode is the corresponding from_le_bytes operation.
+  #[cold]
+  unsafe fn read_array_boundary<T, F, const N: usize>(
     &mut self,
-    mut dst: &mut [T],
+    dst: &mut [T],
+    offset: usize,
+    len: usize,
     decode: F,
   ) -> Result<()>
   where
     F: Fn([u8; N]) -> T,
   {
+    CoreHelper::check_from_index_size(offset, len, dst.len())?;
+    let mut dst = &mut dst[offset..offset + len];
     while !dst.is_empty() {
       let state = self.state.get_mut();
       let position = self.position.get_mut();
@@ -621,6 +663,26 @@ impl MemorySegmentIndexInput {
         dst = &mut dst[1..];
       } else {
         let bytes = &segment[*position..*position + count * N];
+        #[cfg(target_endian = "little")]
+        // SAFETY: count complete elements fit both slices. The primitive type
+        // contract above makes the byte copy valid, including every float bit
+        // pattern. The retained read-only mapping is disjoint from dst.
+        unsafe {
+          let target = dst.as_mut_ptr().cast::<u8>();
+          if (65..=128).contains(&bytes.len()) {
+            // This range also covers a short long-array tail without a memcpy
+            // call. Both 64-byte copies stay within the complete elements.
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), target, 64);
+            std::ptr::copy_nonoverlapping(
+              bytes.as_ptr().add(bytes.len() - 64),
+              target.add(bytes.len() - 64),
+              64,
+            );
+          } else {
+            Self::copy_array_bytes(bytes, target);
+          }
+        }
+        #[cfg(target_endian = "big")]
         for (value, chunk) in dst[..count].iter_mut().zip(bytes.as_chunks::<N>().0) {
           *value = decode(*chunk);
         }
@@ -924,55 +986,91 @@ impl DataInput for MemorySegmentIndexInput {
     *self.position.get_mut() += len;
     Ok(())
   }
+  #[inline]
   fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
-    let byte_len = len.checked_mul(4).ok_or_else(Self::eof)?;
+    let Some(byte_len) = len.checked_mul(4) else {
+      return Err(LuceneError::Eof(Self::scalar_eof()));
+    };
     if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
+      #[cfg(target_endian = "little")]
+      // SAFETY: both slices cover exactly byte_len bytes. The mapped source is
+      // read-only and cannot overlap the caller's mutable destination. i32 has
+      // no padding and every bit pattern is valid; byte alignment is sufficient.
+      unsafe {
+        Self::copy_array_bytes(bytes, target.as_mut_ptr().cast::<u8>());
+      }
+      #[cfg(target_endian = "big")]
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<4>().0) {
         *value = i32::from_le_bytes(*chunk);
       }
       *position += byte_len;
       return Ok(());
     }
-    CoreHelper::check_from_index_size(offset, len, dst.len())?;
-    self.read_array_boundary(&mut dst[offset..offset + len], i32::from_le_bytes)
+    // SAFETY: this primitive has the checked element width and all bit
+    // patterns are valid; the boundary helper retains scalar EOF behavior.
+    unsafe { self.read_array_boundary(dst, offset, len, i32::from_le_bytes) }
   }
 
+  #[inline]
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
-    let byte_len = len.checked_mul(8).ok_or_else(Self::eof)?;
+    let Some(byte_len) = len.checked_mul(8) else {
+      return Err(LuceneError::Eof(Self::scalar_eof()));
+    };
     if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
+      #[cfg(target_endian = "little")]
+      // SAFETY: both slices cover exactly byte_len bytes. The mapped source is
+      // read-only and cannot overlap the caller's mutable destination. i64 has
+      // no padding and every bit pattern is valid; byte alignment is sufficient.
+      unsafe {
+        Self::copy_array_bytes(bytes, target.as_mut_ptr().cast::<u8>());
+      }
+      #[cfg(target_endian = "big")]
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<8>().0) {
         *value = i64::from_le_bytes(*chunk);
       }
       *position += byte_len;
       return Ok(());
     }
-    CoreHelper::check_from_index_size(offset, len, dst.len())?;
-    self.read_array_boundary(&mut dst[offset..offset + len], i64::from_le_bytes)
+    // SAFETY: this primitive has the checked element width and all bit
+    // patterns are valid; the boundary helper retains scalar EOF behavior.
+    unsafe { self.read_array_boundary(dst, offset, len, i64::from_le_bytes) }
   }
 
+  #[inline]
   fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
-    let byte_len = len.checked_mul(4).ok_or_else(Self::eof)?;
+    let Some(byte_len) = len.checked_mul(4) else {
+      return Err(LuceneError::Eof(Self::scalar_eof()));
+    };
     if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
+      #[cfg(target_endian = "little")]
+      // SAFETY: both slices cover exactly byte_len bytes. The mapped source is
+      // read-only and cannot overlap the caller's mutable destination. f32 has
+      // no padding and every bit pattern is valid; byte alignment is sufficient.
+      unsafe {
+        Self::copy_array_bytes(bytes, target.as_mut_ptr().cast::<u8>());
+      }
+      #[cfg(target_endian = "big")]
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<4>().0) {
         *value = f32::from_le_bytes(*chunk);
       }
       *position += byte_len;
       return Ok(());
     }
-    CoreHelper::check_from_index_size(offset, len, dst.len())?;
-    self.read_array_boundary(&mut dst[offset..offset + len], f32::from_le_bytes)
+    // SAFETY: this primitive has the checked element width and all bit
+    // patterns are valid; the boundary helper retains scalar EOF behavior.
+    unsafe { self.read_array_boundary(dst, offset, len, f32::from_le_bytes) }
   }
 
   #[inline]
