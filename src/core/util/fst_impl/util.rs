@@ -61,45 +61,14 @@ impl Util {
       if found.is_none() {
         return Ok(None);
       }
-      let take_arc_output = match fst.outputs.add(&output, &arc.output) {
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => false,
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.output) => true,
-        std::borrow::Cow::Borrowed(existing) => {
-          output = existing.clone();
-          false
-        },
-        std::borrow::Cow::Owned(next_output) => {
-          output = next_output;
-          false
-        },
-      };
-      if take_arc_output {
-        std::mem::swap(&mut output, &mut arc.output);
-      }
+      fst.outputs.add_assign(&mut output, &mut arc.output);
     }
 
     if arc.is_final() {
-      let mut take_output = false;
-      let mut take_final_output = false;
-      let mut owned_output = None;
-      match fst.outputs.add(&output, &arc.next_final_output) {
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {
-          take_output = true;
-        },
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.next_final_output) => {
-          take_final_output = true;
-        },
-        std::borrow::Cow::Borrowed(existing) => owned_output = Some(existing.clone()),
-        std::borrow::Cow::Owned(final_output) => owned_output = Some(final_output),
-      }
-      if take_output {
-        Ok(Some(output))
-      } else if take_final_output {
-        std::mem::swap(&mut output, &mut arc.next_final_output);
-        Ok(Some(output))
-      } else {
-        Ok(owned_output)
-      }
+      fst
+        .outputs
+        .add_assign(&mut output, &mut arc.next_final_output);
+      Ok(Some(output))
     } else {
       Ok(None)
     }
@@ -127,45 +96,14 @@ impl Util {
       if found.is_none() {
         return Ok(None);
       }
-      let take_arc_output = match fst.outputs.add(&output, &arc.output) {
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => false,
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.output) => true,
-        std::borrow::Cow::Borrowed(existing) => {
-          output = existing.clone();
-          false
-        },
-        std::borrow::Cow::Owned(next_output) => {
-          output = next_output;
-          false
-        },
-      };
-      if take_arc_output {
-        std::mem::swap(&mut output, &mut arc.output);
-      }
+      fst.outputs.add_assign(&mut output, &mut arc.output);
     }
 
     if arc.is_final() {
-      let mut take_output = false;
-      let mut take_final_output = false;
-      let mut owned_output = None;
-      match fst.outputs.add(&output, &arc.next_final_output) {
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &output) => {
-          take_output = true;
-        },
-        std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, &arc.next_final_output) => {
-          take_final_output = true;
-        },
-        std::borrow::Cow::Borrowed(existing) => owned_output = Some(existing.clone()),
-        std::borrow::Cow::Owned(final_output) => owned_output = Some(final_output),
-      }
-      if take_output {
-        Ok(Some(output))
-      } else if take_final_output {
-        std::mem::swap(&mut output, &mut arc.next_final_output);
-        Ok(Some(output))
-      } else {
-        Ok(owned_output)
-      }
+      fst
+        .outputs
+        .add_assign(&mut output, &mut arc.next_final_output);
+      Ok(Some(output))
     } else {
       Ok(None)
     }

@@ -135,6 +135,26 @@ impl Outputs for ByteSequenceOutputs {
     ))
   }
 
+  fn add_assign(&self, prefix: &mut Self::V, output: &mut Self::V) {
+    if BytesRef::equals(prefix, self.no_output) {
+      std::mem::swap(prefix, output);
+      return;
+    }
+    if BytesRef::equals(output, self.no_output) {
+      return;
+    }
+
+    if prefix.offset == 0
+      && prefix.length == prefix.bytes.len()
+      && let Some(bytes) = Arc::get_mut(&mut prefix.bytes)
+    {
+      bytes.extend_from_slice(&output.bytes[output.offset..output.offset + output.length]);
+      prefix.length += output.length;
+      return;
+    }
+    *prefix = self.add(prefix, output).into_owned();
+  }
+
   #[inline]
   fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>
   where

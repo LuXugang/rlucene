@@ -40,6 +40,30 @@ pub trait Outputs: Display + Clone + Default {
   /// Eg. `add("foo", "bar") -> "foobar"`
   fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V>;
 
+  /// Stores `add(prefix, output)` in `prefix`.
+  ///
+  /// `output` is a disposable scratch slot: an implementation may move its value
+  /// into `prefix` and leave the old prefix in `output`. Callers must not rely on
+  /// the value of `output` after this call. Use [`Self::add`] when both inputs
+  /// must remain unchanged.
+  fn add_assign(&self, prefix: &mut Self::V, output: &mut Self::V) {
+    let take_output = match self.add(prefix, output) {
+      std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, prefix) => false,
+      std::borrow::Cow::Borrowed(existing) if std::ptr::eq(existing, output) => true,
+      std::borrow::Cow::Borrowed(existing) => {
+        *prefix = existing.clone();
+        false
+      },
+      std::borrow::Cow::Owned(next) => {
+        *prefix = next;
+        false
+      },
+    };
+    if take_output {
+      std::mem::swap(prefix, output);
+    }
+  }
+
   /// Encode an output value into a `Write` stream.
   fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>
   where
