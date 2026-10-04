@@ -1476,6 +1476,10 @@ impl DataInput for DirIndexInput {
     DataInput::read_byte(&mut self.0)
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    DataInput::get_bytes(&mut self.0, len)
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     DataInput::read_bytes(&mut self.0, b, offset, len)
   }

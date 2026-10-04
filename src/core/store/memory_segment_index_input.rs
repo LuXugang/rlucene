@@ -818,6 +818,26 @@ impl MemorySegmentIndexInput {
 }
 
 impl DataInput for MemorySegmentIndexInput {
+  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
+    let position = *self.position.get_mut();
+    let state = self.state.get_mut();
+    if state
+      .current
+      .len()
+      .checked_sub(position)
+      .is_some_and(|remaining| len <= remaining)
+    {
+      *self.position.get_mut() += len;
+      let state = self.state.get_mut();
+      return Ok(Cow::Borrowed(
+        &state.current_slice()[position..position + len],
+      ));
+    }
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(Cow::Owned(bytes))
+  }
+
   #[inline]
   fn read_byte(&mut self) -> Result<u8> {
     if self.single_segment {

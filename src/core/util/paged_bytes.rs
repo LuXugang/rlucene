@@ -467,6 +467,32 @@ impl DataInput for PagedBytesDataInput {
     Ok(byte)
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    let offset = self.current_block_upto;
+    let contiguous = self
+      .block_size
+      .checked_sub(offset)
+      .is_some_and(|left| len <= left)
+      && self
+        .blocks
+        .get(self.current_block_index)
+        .is_some_and(|block| {
+          block
+            .len()
+            .checked_sub(offset)
+            .is_some_and(|left| len <= left)
+        });
+    if contiguous {
+      self.current_block_upto += len;
+      return Ok(std::borrow::Cow::Borrowed(
+        &self.blocks[self.current_block_index][offset..offset + len],
+      ));
+    }
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(std::borrow::Cow::Owned(bytes))
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], mut offset: usize, len: usize) -> Result<()> {
     debug_assert!(
       b.len() >= (offset + len),

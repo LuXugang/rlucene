@@ -206,6 +206,13 @@ impl DataInput for IndexInputEnum {
     }
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    match self {
+      IndexInputEnum::Fs(inner) => DataInput::get_bytes(inner, len),
+      IndexInputEnum::Custom(inner) => DataInput::get_bytes(inner, len),
+    }
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     match self {
       IndexInputEnum::Fs(inner) => DataInput::read_bytes(inner, b, offset, len),
@@ -524,6 +531,12 @@ macro_rules! either_index_input {
             fn read_byte(&mut self) -> Result<u8> {
                 match self {
                     $( Self::$Variant(inner) => DataInput::read_byte(inner), )+
+                }
+            }
+
+            fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+                match self {
+                    $( Self::$Variant(inner) => DataInput::get_bytes(inner, len), )+
                 }
             }
 

@@ -20,6 +20,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, TryIntoInt};
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
@@ -34,6 +35,18 @@ pub trait DataInput: Display + DataInputExt {
   /// # See Also
   /// [`DataOutput::write_byte`](crate::core::store::data_output::DataOutput::write_byte)
   fn read_byte(&mut self) -> Result<u8>;
+  /// Reads the next `len` bytes, borrowing a contiguous input range when possible.
+  ///
+  /// The result borrows this input until its last use. Callers that need to keep
+  /// bytes across another input operation must obtain ownership. This entry uses
+  /// the ordinary three-argument Java read path, independently of buffer policy.
+  /// On success the input advances by `len`. On failure it retains the state
+  /// changes of the ordinary read path; reads are not rolled back.
+  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(Cow::Owned(bytes))
+  }
   /// Reads a specified number of bytes into an array at the specified offset.
   ///
   /// # Arguments
@@ -221,17 +234,16 @@ pub trait DataInput: Display + DataInputExt {
   /// [`DataOutput::write_string`](crate::core::store::data_output::DataOutput::write_string)
   fn read_string(&mut self) -> Result<String> {
     let length = self.read_vint()?.try_convert()?;
-    if length > 64 {
-      let mut bytes = vec![0; length];
-      self.read_bytes(&mut bytes, 0, length)?;
-      return Ok(match String::from_utf8(bytes) {
+    Ok(match self.get_bytes(length)? {
+      Cow::Borrowed(bytes) => match std::str::from_utf8(bytes) {
+        Ok(value) => value.to_owned(),
+        Err(_) => String::from_utf8_lossy(bytes).into_owned(),
+      },
+      Cow::Owned(bytes) => match String::from_utf8(bytes) {
         Ok(value) => value,
         Err(error) => String::from_utf8_lossy(error.as_bytes()).into_owned(),
-      });
-    }
-    stack_or_heap_buffer!(bytes, u8, length, 64, 0);
-    self.read_bytes(bytes, 0, length)?;
-    Ok(String::from_utf8_lossy(bytes).into_owned())
+      },
+    })
   }
 
   /// Reads a `HashMap<String, String>` previously written with
@@ -292,6 +304,10 @@ impl<T: ?Sized + Closeable> Closeable for Box<T> {
 impl<T: ?Sized + DataInput> DataInput for &mut T {
   fn read_byte(&mut self) -> Result<u8> {
     (**self).read_byte()
+  }
+
+  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
+    DataInput::get_bytes(&mut **self, len)
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
@@ -372,6 +388,10 @@ impl<T: ?Sized + DataInput> DataInput for &mut T {
 impl<T: ?Sized + DataInput> DataInput for Box<T> {
   fn read_byte(&mut self) -> Result<u8> {
     (**self).read_byte()
+  }
+
+  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
+    DataInput::get_bytes(&mut **self, len)
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
@@ -483,6 +503,12 @@ macro_rules! define_data_input_enum {
                     $(
                         Self::$V(inner) => inner.read_byte(),
                     )+
+                }
+            }
+
+            fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+                match self {
+                    $( Self::$V(inner) => DataInput::get_bytes(inner, len), )+
                 }
             }
 

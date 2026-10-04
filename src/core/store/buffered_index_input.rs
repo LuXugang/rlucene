@@ -634,6 +634,28 @@ where
     Ok(bytes[0])
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    let offset = {
+      let state = self.state.get_mut();
+      state.pos.checked_sub(state.buffer_start).filter(|&offset| {
+        state
+          .length
+          .checked_sub(offset)
+          .is_some_and(|remaining| len <= remaining)
+      })
+    };
+    if let Some(offset) = offset {
+      let state = self.state.get_mut();
+      state.pos += len;
+      return Ok(std::borrow::Cow::Borrowed(
+        &state.buffer.get_ref()[offset..offset + len],
+      ));
+    }
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(std::borrow::Cow::Owned(bytes))
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.read_bytes_with_buffer(b, offset, len, true)
   }

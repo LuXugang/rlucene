@@ -172,8 +172,7 @@ impl Outputs for ByteSequenceOutputs {
     if len == 0 {
       Ok(std::borrow::Cow::Borrowed(self.no_output))
     } else {
-      let mut output = vec![0u8; len];
-      input.read_bytes(&mut output, 0, len)?;
+      let output = input.get_bytes(len)?.into_owned();
       Ok(std::borrow::Cow::Owned(BytesRef::from_slice(
         Arc::new(output),
         0,

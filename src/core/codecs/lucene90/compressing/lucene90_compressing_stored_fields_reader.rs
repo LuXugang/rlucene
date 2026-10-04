@@ -925,6 +925,19 @@ where
     Ok(b)
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    if len <= self.bytes.length {
+      let offset = self.bytes.offset;
+      let bytes = &self.bytes.bytes[offset..offset + len];
+      self.bytes.offset += len;
+      self.bytes.length -= len;
+      return Ok(std::borrow::Cow::Borrowed(bytes));
+    }
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(std::borrow::Cow::Owned(bytes))
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], mut offset: usize, mut len: usize) -> Result<()> {
     while len > self.bytes.length {
       b.copy_from(

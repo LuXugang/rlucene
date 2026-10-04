@@ -1299,6 +1299,13 @@ where
     }
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    match self {
+      BytesReaderEnum2::A(reader) => DataInput::get_bytes(reader, len),
+      BytesReaderEnum2::B(reader) => DataInput::get_bytes(reader, len),
+    }
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     match self {
       BytesReaderEnum2::A(reader) => reader.read_bytes(b, offset, len),

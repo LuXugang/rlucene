@@ -94,8 +94,7 @@ impl MonotonicBlockPackedReader {
         let byte_count =
           Format::Packed(PackedImpl::new(0)).byte_count(packed_ints_version, size, bits_per_value);
         total_byte_count += byte_count as i64;
-        let mut blocks = vec![0u8; byte_count];
-        input.read_bytes(&mut blocks, 0, byte_count)?;
+        let blocks = input.get_bytes(byte_count)?.into_owned();
         let mask_right = 1u64.wrapping_shl(bits_per_value as u32).wrapping_sub(1);
         let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
         sub_readers[i] = LongValuesEnum2::B(MonotonicLongValues {

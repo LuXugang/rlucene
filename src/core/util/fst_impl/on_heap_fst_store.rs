@@ -63,6 +63,13 @@ impl DataInput for OnHeapFSTBytesReader {
     }
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    match self {
+      Self::Reverse { reader, .. } => DataInput::get_bytes(reader, len),
+      Self::Blocks(reader) => DataInput::get_bytes(reader, len),
+    }
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     match self {
       Self::Reverse { reader, .. } => reader.read_bytes(b, offset, len),
@@ -134,9 +141,7 @@ impl OnHeapFSTStore {
         bytes_array: None,
       })
     } else {
-      let mut bytes_array = vec![0u8; num_bytes as usize];
-      let len = bytes_array.len();
-      input.read_bytes(&mut bytes_array, 0, len)?;
+      let bytes_array = input.get_bytes(num_bytes as usize)?.into_owned();
       Ok(Self {
         data_output: None,
         bytes_array: Some(Rc::new(bytes_array)),

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::cmp::Ordering;
 
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
@@ -367,22 +368,23 @@ impl CodecUtil {
     Self::check_index_header_id(data_in, expected_id)?;
     let suffix_length = data_in.read_byte()?;
     let suffix_len = suffix_length as usize;
-    let mut suffix_bytes = [0u8; u8::MAX as usize];
-    data_in.read_bytes(&mut suffix_bytes[..suffix_len], 0, suffix_len)?;
+    let suffix_bytes = data_in.get_bytes(suffix_len)?;
     Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
     data_out.write_string(&codec)?;
     Self::write_be_int(data_out, version)?;
     data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH)?;
     data_out.write_byte(suffix_length)?;
-    data_out.write_bytes_range(&suffix_bytes[..suffix_len], 0, suffix_len)?;
+    data_out.write_bytes_range(&suffix_bytes, 0, suffix_len)?;
     Ok(())
   }
   /// Retrieves the full index header from the provided [`IndexInput`].
+  /// The returned bytes may borrow the input; obtain ownership to keep them
+  /// across another input operation.
   ///
   /// # Errors
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the file does not appear to be a valid index
   ///   file.
-  pub fn read_index_header<II>(data_input: &mut II) -> Result<Vec<u8>>
+  pub fn read_index_header<II>(data_input: &mut II) -> Result<Cow<'_, [u8]>>
   where
     II: IndexInput,
   {
@@ -401,17 +403,17 @@ impl CodecUtil {
     let suffix_length = data_input.read_byte()? as usize;
     let bytes_len = Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length;
 
-    let mut bytes: Vec<u8> = vec![0u8; bytes_len];
     data_input.seek(0)?;
-    data_input.read_bytes(&mut bytes, 0, bytes_len)?;
-    Ok(bytes)
+    data_input.get_bytes(bytes_len)
   }
 
   /// Retrieves the full footer from the provided [`IndexInput`].
+  /// The returned bytes may borrow the input; obtain ownership to keep them
+  /// across another input operation.
   ///
   /// # Errors
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the file does not have a valid footer.
-  pub fn read_footer<II>(data_input: &mut II) -> Result<Vec<u8>>
+  pub fn read_footer<II>(data_input: &mut II) -> Result<Cow<'_, [u8]>>
   where
     II: IndexInput,
   {
@@ -428,9 +430,7 @@ impl CodecUtil {
     data_input.seek(length - footer_len)?;
     Self::validate_footer(data_input)?;
     data_input.seek(length - footer_len)?;
-    let mut bytes: Vec<u8> = vec![0u8; Self::footer_length()];
-    data_input.read_bytes(&mut bytes, 0, Self::footer_length())?;
-    Ok(bytes)
+    data_input.get_bytes(footer_len)
   }
   /// Expert: reads and verifies the object ID of an index header.
   pub fn check_index_header_id<DI>(

@@ -350,8 +350,7 @@ where
   }
   fn slice(input: &mut I) -> Result<ByteBuffersDataInputOwned> {
     let length = input.read_vint()?.try_convert()?;
-    let mut buf = vec![0; length];
-    input.read_bytes(&mut buf, 0, length)?;
+    let buf = input.get_bytes(length)?.into_owned();
     ByteBuffersDataInput::new(vec![Cursor::new(buf)], length)
   }
   pub(crate) fn is_loaded(&self, doc_id: i32) -> bool {

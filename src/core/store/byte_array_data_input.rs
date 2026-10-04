@@ -117,6 +117,12 @@ where
     Ok(value)
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    let bytes = &self.bytes.as_slice()[self.pos..self.pos + len];
+    self.pos += len;
+    Ok(std::borrow::Cow::Borrowed(bytes))
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     b.copy_from(&self.bytes.as_slice()[self.pos..self.pos + len], offset);
     self.pos += len;

@@ -359,6 +359,35 @@ where
     self.pos += 1;
     Ok(value)
   }
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    if len == 0 {
+      return Ok(std::borrow::Cow::Borrowed(&[]));
+    }
+    let pos = self.pos;
+    let block_index = self.block_index(pos);
+    let block_offset = self.block_offset(pos);
+    let contiguous = pos
+      .checked_add(len)
+      .is_some_and(|end| end <= self.length + self.offset)
+      && self.blocks.get(block_index).is_some_and(|block| {
+        block
+          .get_ref()
+          .as_slice()
+          .len()
+          .checked_sub(block_offset)
+          .is_some_and(|remaining| len <= remaining)
+      });
+    if contiguous {
+      self.pos += len;
+      return Ok(std::borrow::Cow::Borrowed(
+        &self.blocks[block_index].get_ref().as_slice()[block_offset..block_offset + len],
+      ));
+    }
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(std::borrow::Cow::Owned(bytes))
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     let output = &mut b[offset..(offset + len)];
     if len == 1 {

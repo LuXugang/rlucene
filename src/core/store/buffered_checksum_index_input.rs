@@ -95,6 +95,12 @@ where
     Ok(b)
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    let bytes = self.main.get_bytes(len)?;
+    self.digest.update_bytes(bytes.as_ref(), 0, len);
+    Ok(bytes)
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.main.read_bytes(b, offset, len)?;
     self.digest.update_bytes(b, offset, len);

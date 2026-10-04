@@ -76,6 +76,11 @@ where
     DataInput::read_byte(&mut self.in_)
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    self.ensure_open()?;
+    DataInput::get_bytes(&mut self.in_, len)
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.ensure_open()?;
     DataInput::read_bytes(&mut self.in_, b, offset, len)
