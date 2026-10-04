@@ -61,13 +61,13 @@ impl<'a> DocumentStoredFieldVisitor<'a> {
   pub fn get_document_ref(&self) -> &Document {
     &self.doc
   }
-  /// Retrieve the visited document.
+  /// Consume this visitor and retrieve the visited document.
   ///
   /// Returns a [`Document`] populated with stored fields.
   /// Note that only the stored information in the field instances is valid;
   /// data such as indexing options, term vector options, etc. is not set.
-  pub fn get_document_owner(&mut self) -> Document {
-    std::mem::take(&mut self.doc)
+  pub fn get_document_owner(self) -> Document {
+    self.doc
   }
 }
 impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
