@@ -165,7 +165,7 @@ where
       frontier,
     })
   }
-  fn compile_node(&mut self, node_in_idx: usize) -> Result<(CompiledNode, usize)> {
+  fn compile_node(&mut self, node_in_idx: usize) -> Result<CompiledNode> {
     let num_arcs = self.frontier[node_in_idx].num_arcs;
 
     let bytes_pos_start = self.num_bytes_written;
@@ -194,7 +194,7 @@ where
 
     self.frontier[node_in_idx].clear(&self.no_output);
 
-    Ok((CompiledNode { node }, node_in_idx))
+    Ok(CompiledNode { node })
   }
   fn freeze_tail(&mut self, prefix_len_plus1: usize) -> Result<()> {
     let (len, down_to) = { (self.last_input.length(), prefix_len_plus1.max(1)) };
@@ -218,7 +218,7 @@ where
         let label = self.last_input.int_at(prev_idx);
         (label, next_final_output, is_final, prev_idx)
       };
-      let (compiled, _) = self.compile_node(idx)?;
+      let compiled = self.compile_node(idx)?;
       let parent = &mut self.frontier[prev_idx];
       // this node makes it and we now compile it.  first,
       // compile any targets that were previously
@@ -402,7 +402,7 @@ where
         self.write_padding_byte()?;
       }
     }
-    let (compiled_root, _) = self.compile_node(0)?;
+    let compiled_root = self.compile_node(0)?;
     self.finish(compiled_root.node)?;
     let v = std::mem::take(&mut self.fst.metadata);
     Ok(Some(v))
