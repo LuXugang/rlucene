@@ -883,11 +883,8 @@ where
     DO: DataOutput,
   {
     let state = match state {
-      Cow::Borrowed(b) => b.clone(),
-      Cow::Owned(o) => o,
-    };
-    let state = match state {
-      TermStateEnum::Int(state) => state,
+      Cow::Borrowed(TermStateEnum::Int(state)) => Cow::Borrowed(state),
+      Cow::Owned(TermStateEnum::Int(state)) => Cow::Owned(state),
       _ => {
         return Err(LuceneError::illegal_state(
           "not IntBlockTermState".to_string(),
@@ -927,7 +924,7 @@ where
       }
     }
 
-    self.last_state = state;
+    self.last_state = state.into_owned();
     Ok(())
   }
 }
