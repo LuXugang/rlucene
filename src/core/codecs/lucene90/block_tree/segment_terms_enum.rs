@@ -78,12 +78,15 @@ where
       None => None,
     };
 
-    let v = Arc::default();
-    let mut arcs = vec![v; 1];
-    if let Some(index) = fr.index.as_ref() {
-      index.get_first_arc(&mut arcs[0]);
-      debug_assert!(arcs[0].is_final());
-    }
+    let arc = match fr.index.as_ref() {
+      Some(index) => {
+        let arc = index.get_first_arc_owned();
+        debug_assert!(arc.is_final());
+        arc
+      },
+      None => Arc::default(),
+    };
+    let arcs = vec![arc];
 
     // Used to hold seek by TermState, or cached seek.
     let frames = vec![SegmentTermsEnumFrame::new(-1, &fr)?];
