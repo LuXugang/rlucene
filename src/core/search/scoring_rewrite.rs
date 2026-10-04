@@ -243,13 +243,13 @@ where
         Err(e) => return Err(e),
       };
       array.boost[pos] = boost;
-      array.term_state[pos] = TermStates::with_state_and_stats(
+      array.term_state.push(TermStates::with_state_and_stats(
         top_reader_context,
         state,
         self.ord,
         terms_enum.doc_freq()?,
         terms_enum.total_term_freq()?,
-      )?;
+      )?);
       (self.check_max_clause_count)(self.terms.size())?;
     }
 
@@ -266,6 +266,7 @@ where
 /// Special implementation of BytesStartArray that keeps parallel arrays for boost and docFreq
 struct TermFreqBoostByteStart {
   boost: Vec<f32>,
+  // New term IDs are consecutive; only successfully collected states occupy the prefix.
   term_state: Vec<TermStates>,
   base: DirectBytesStartArray,
 }
@@ -284,8 +285,11 @@ impl BytesStartArray for TermFreqBoostByteStart {
     self.base.init()?;
     let len = self.base.bytes_start.as_slice().len();
     ArrayUtil::grow_no_copy(&mut self.boost, len)?;
-    ArrayUtil::grow_with_len(&mut self.term_state, len)?;
-    debug_assert!(self.term_state.len() >= len);
+    if self.term_state.capacity() < len {
+      let capacity = ArrayUtil::oversize(len, size_of::<TermStates>())?;
+      self.term_state.reserve(capacity - self.term_state.len());
+    }
+    debug_assert!(self.term_state.capacity() >= len);
     debug_assert!(self.boost.len() >= len);
     Ok(())
   }
@@ -295,8 +299,8 @@ impl BytesStartArray for TermFreqBoostByteStart {
     let ord = self.base.bytes_start.as_slice();
     let len = ord.len();
     ArrayUtil::grow_with_len(&mut self.boost, len)?;
-    if self.term_state.len() < len {
-      self.term_state.resize_with(len, TermStates::default);
+    if self.term_state.capacity() < len {
+      self.term_state.reserve(len - self.term_state.len());
     }
     Ok(())
   }
