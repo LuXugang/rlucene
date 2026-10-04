@@ -460,6 +460,9 @@ impl CodecUtil {
     let suffix_length = data_input.read_byte()? as usize;
     let mut suffix = [0u8; u8::MAX as usize];
     data_input.read_bytes(&mut suffix[..suffix_length], 0, suffix_length)?;
+    if &suffix[..suffix_length] == expected_suffix.as_bytes() {
+      return Ok(());
+    }
     let actual_suffix = String::from_utf8_lossy(&suffix[..suffix_length]);
     if actual_suffix != expected_suffix {
       return Err(LuceneError::corrupt_index(format!(
