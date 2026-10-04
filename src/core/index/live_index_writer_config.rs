@@ -392,13 +392,7 @@ where
   where
     T: Into<AnalyzerEnum>,
   {
-    let mut v = Self::new()?;
-    v.analyzer = analyzer.into();
-    Ok(v)
-  }
-  pub fn new() -> Result<Self> {
     Ok(Self {
-      analyzer: AnalyzerEnum::default(),
       ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
       max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,
       index_deletion_policy: KeepOnlyLastCommitDeletionPolicy.into(),
@@ -423,7 +417,11 @@ where
       index_sort_fields: HashSet::new(),
       merge_scheduler: MergeSchedulerEnum::default(),
       leaf_sorter: None,
+      analyzer: analyzer.into(),
     })
+  }
+  pub fn new() -> Result<Self> {
+    Self::with_analyzer(AnalyzerEnum::default())
   }
 
   pub fn get_flush_policy(&self) -> &FlushPolicyEnum {
