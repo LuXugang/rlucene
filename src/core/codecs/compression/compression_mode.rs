@@ -372,14 +372,14 @@ impl Compressor for LZ4FastCompressor {
 impl Closeable for LZ4FastCompressor {}
 
 pub struct LZ4HighCompressor {
-  ht: HashTableEnum,
   bytes: Vec<u8>,
+  ht: HashTableEnum,
 }
 impl LZ4HighCompressor {
   fn new(ht: HighCompressionHashTable) -> Self {
     LZ4HighCompressor {
-      ht: HashTableEnum::High(ht),
       bytes: Vec::new(),
+      ht: HashTableEnum::High(ht),
     }
   }
 }
@@ -394,9 +394,23 @@ impl Compressor for LZ4HighCompressor {
     DO: DataOutput,
   {
     let len = buffers_input.length();
-    self.bytes.resize(len, 0);
-    DataInput::read_bytes(buffers_input, &mut self.bytes, 0, len)?;
-    LZ4::compress(&self.bytes, 0, len as i32, out, &mut self.ht)?;
+    // The writer supplies a fresh full-input view. Check its actual first
+    // block extent before choosing a borrowed read or the reusable buffer.
+    let contiguous = len == 0
+      || buffers_input.blocks.first().is_some_and(|block| {
+        usize::try_from(block.position())
+          .ok()
+          .and_then(|offset| block.get_ref().len().checked_sub(offset))
+          .is_some_and(|remaining| len <= remaining)
+      });
+    if contiguous {
+      let bytes = buffers_input.get_bytes(len)?;
+      LZ4::compress(bytes.as_ref(), 0, len as i32, out, &mut self.ht)?;
+    } else {
+      self.bytes.resize(len, 0);
+      buffers_input.read_bytes(&mut self.bytes, 0, len)?;
+      LZ4::compress(&self.bytes, 0, len as i32, out, &mut self.ht)?;
+    }
     Ok(())
   }
 }

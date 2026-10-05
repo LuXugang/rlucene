@@ -833,6 +833,27 @@ impl DataInput for MemorySegmentIndexInput {
         &state.current_slice()[position..position + len],
       ));
     }
+    // A request at an exhausted mapping may fit wholly in the next visible
+    // segment. Keep the ordinary advance/load transition without copying it.
+    let next_index = state.index.checked_add(1);
+    if position == state.current.len()
+      && len > 0
+      && !self.single_segment
+      && next_index
+        .and_then(|index| self.segment(index))
+        .is_some_and(|segment| len <= segment.len())
+    {
+      let state = self.state.get_mut();
+      Self::advance_segment(state);
+      Self::load_segment(
+        &self.file,
+        (self.start, self.length, self.power),
+        state,
+        state.index,
+      )?;
+      *self.position.get_mut() = len;
+      return Ok(Cow::Borrowed(&self.state.get_mut().current_slice()[..len]));
+    }
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(Cow::Owned(bytes))

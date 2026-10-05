@@ -66,7 +66,7 @@ impl ByteBuffersDataInputBlock for Arc<Vec<u8>> {
 /// A [`DataInput`] implementing [`RandomAccessInput`]
 /// and reading data from a list of [`Cursor<Vec<u8>>`](Cursor).
 pub struct ByteBuffersDataInput<B> {
-  blocks: Vec<Cursor<B>>,
+  pub(crate) blocks: Vec<Cursor<B>>,
   block_mask: usize,
   block_bits: usize,
   length: usize,

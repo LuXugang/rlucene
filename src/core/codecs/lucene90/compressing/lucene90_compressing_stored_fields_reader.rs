@@ -926,6 +926,9 @@ where
   }
 
   fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
+    if self.bytes.length == 0 && len > 0 && len <= self.chunk_size as usize {
+      self.fill_buffer()?;
+    }
     if len <= self.bytes.length {
       let offset = self.bytes.offset;
       let bytes = &self.bytes.bytes[offset..offset + len];

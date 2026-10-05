@@ -651,6 +651,25 @@ where
         &state.buffer.get_ref()[offset..offset + len],
       ));
     }
+    let refill = {
+      let state = self.state.get_mut();
+      len > 0 && len < self.buffer_size && state.pos == state.buffer_start + state.length
+    };
+    if refill {
+      let mut access = self.access_mut();
+      debug_assert!(access.buffer.position() <= u32::MAX as u64);
+      let start = access.buffer_start + access.length;
+      access.refill(0, start)?;
+      if len > access.length {
+        return Err(LuceneError::eof(format!(
+          "read past EOF: expected {len}, got {}",
+          access.length
+        )));
+      }
+      access.pos += len;
+      let state = self.state.get_mut();
+      return Ok(std::borrow::Cow::Borrowed(&state.buffer.get_ref()[..len]));
+    }
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(std::borrow::Cow::Owned(bytes))
