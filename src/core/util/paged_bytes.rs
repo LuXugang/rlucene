@@ -488,6 +488,28 @@ impl DataInput for PagedBytesDataInput {
         &self.blocks[self.current_block_index][offset..offset + len],
       ));
     }
+    // The current page may be exhausted while the next request is still
+    // wholly contained in the following page. Preserve the ordinary read
+    // transition, then borrow that page instead of copying through a Vec.
+    if offset == self.block_size
+      && len > 0
+      && len <= self.block_size
+      && self
+        .blocks
+        .get(self.current_block_index)
+        .is_some_and(|block| block.len() >= offset)
+      && self
+        .current_block_index
+        .checked_add(1)
+        .and_then(|index| self.blocks.get(index))
+        .is_some_and(|block| len <= block.len())
+    {
+      self.next_block();
+      self.current_block_upto = len;
+      return Ok(std::borrow::Cow::Borrowed(
+        &self.blocks[self.current_block_index][..len],
+      ));
+    }
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(std::borrow::Cow::Owned(bytes))
