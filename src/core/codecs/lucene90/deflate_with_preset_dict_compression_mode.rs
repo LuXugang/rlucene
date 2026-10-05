@@ -93,7 +93,13 @@ impl DeflateWithPresetDictDecompressor {
   where
     DI: DataInput,
   {
-    let compressed_length = input.read_vint()? as usize;
+    let compressed_length = input.read_vint()?;
+    if compressed_length < 0 {
+      return Err(LuceneError::corrupt_index(format!(
+        "Invalid compressed length: {compressed_length} (resource={input})"
+      )));
+    }
+    let compressed_length = compressed_length as usize;
     if compressed_length == 0 {
       return Ok(());
     }
