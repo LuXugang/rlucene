@@ -108,18 +108,30 @@ impl DeflateWithPresetDictDecompressor {
     // unnecessary in zlib for years.
     let padded_length = compressed_length + 1;
     ArrayUtil::grow_no_copy(&mut self.compressed, padded_length)?;
-    input.read_bytes(&mut self.compressed, 0, compressed_length)?;
+    let compressed = input.get_bytes(compressed_length)?;
     self.compressed[compressed_length] = 0; // Explicitly set dummy byte to 0
 
     // Extra "dummy byte"
     let total_out = decompressor.total_out();
-    let status = decompressor
+    let total_in = decompressor.total_in();
+    let mut status = decompressor
       .decompress(
-        &self.compressed[..padded_length],
+        &compressed,
         &mut bytes.bytes[bytes.length..],
         FlushDecompress::Finish,
       )
       .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
+    if status != Status::StreamEnd && decompressor.total_in() - total_in == compressed_length as u64
+    {
+      let produced = (decompressor.total_out() - total_out) as usize;
+      status = decompressor
+        .decompress(
+          &self.compressed[compressed_length..padded_length],
+          &mut bytes.bytes[bytes.length + produced..],
+          FlushDecompress::Finish,
+        )
+        .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
+    }
     bytes.length += (decompressor.total_out() - total_out) as usize;
     if status != Status::StreamEnd {
       return Err(LuceneError::corrupt_index(format!(
