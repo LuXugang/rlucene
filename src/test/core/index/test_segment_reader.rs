@@ -214,7 +214,7 @@ fn test_terms() -> Result<()> {
         Str(v) => *v,
         _ => unreachable!(),
       };
-      assert!(field_value.contains(&term.utf8_to_string()?));
+      assert!(field_value.contains(term.utf8_to_string()?));
     }
   }
 
@@ -278,7 +278,7 @@ fn test_term_vectors() -> Result<()> {
 
   let mut terms_enum = result.iterator()?;
   while terms_enum.next()?.is_some() {
-    let term = terms_enum.term()?.utf8_to_string()?;
+    let term = terms_enum.term()?.utf8_to_string()?.to_owned();
     let freq = terms_enum.total_term_freq()? as i32;
     assert!(FIELD_2_TEXT.contains(&term));
     assert!(freq > 0);

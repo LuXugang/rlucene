@@ -467,7 +467,7 @@ impl DataInput for PagedBytesDataInput {
     Ok(byte)
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     let offset = self.current_block_upto;
     let contiguous = self
       .block_size

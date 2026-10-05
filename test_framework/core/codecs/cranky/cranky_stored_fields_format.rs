@@ -24,6 +24,7 @@ use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexInput};
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -178,7 +179,10 @@ where
       .write_field_with_input(field_info, input, length)
   }
 
-  fn write_field_bytes(&mut self, field_info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
+  fn write_field_bytes<B>(&mut self, field_info: &FieldInfo, value: &BytesRef<B>) -> Result<()>
+  where
+    B: ByteSource,
+  {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from StoredFieldsWriter::write_field_bytes()",

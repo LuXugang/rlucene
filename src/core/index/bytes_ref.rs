@@ -374,11 +374,10 @@ pub trait BytesRefValue<'a>: Sized + Debug + Display {
     Ok(true)
   }
 
-  fn utf8_to_string(&self) -> Result<String> {
+  fn utf8_to_string(&self) -> Result<&str> {
     let value = self.as_bytes_ref();
     CoreHelper::check_from_index_size(value.offset, value.length, value.bytes.len())?;
     std::str::from_utf8(&value.bytes[value.offset..value.offset + value.length])
-      .map(str::to_owned)
       .map_err(LuceneError::from)
   }
 }

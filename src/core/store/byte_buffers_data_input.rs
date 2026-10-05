@@ -359,7 +359,7 @@ where
     self.pos += 1;
     Ok(value)
   }
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     if len == 0 {
       return Ok(std::borrow::Cow::Borrowed(&[]));
     }

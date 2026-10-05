@@ -52,9 +52,9 @@ pub trait FloatVectorValues: KnnVectorValues {
   }
 
   type VectorScorer: VectorScorer;
-  fn scorer<TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
     Err(LuceneError::unsupported_operation(""))
   }

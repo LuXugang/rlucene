@@ -79,7 +79,7 @@ where
     prefix_length: usize,
     transpositions: bool,
   ) -> Result<Self> {
-    let text = term.text()?;
+    let text = term.text()?.into_owned();
     Self::with_builder(terms, term, || {
       FuzzyAutomatonBuilder::new(text, max_edits, prefix_length, transpositions)
     })
@@ -110,7 +110,7 @@ where
     prefix_length: usize,
     transpositions: bool,
   ) -> Result<Self> {
-    let text = term.text()?;
+    let text = term.text()?.into_owned();
     Self::with_builder(terms, term, || {
       FuzzyAutomatonBuilder::new(text, max_edits, prefix_length, transpositions)
     })

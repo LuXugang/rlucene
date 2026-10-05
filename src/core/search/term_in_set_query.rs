@@ -161,7 +161,7 @@ impl QueryBase for TermInSetQuery {
       }
       first = false;
       let term = term.as_ref();
-      builder.push_str(&Term::get_string(term).unwrap_or_else(|_| term.to_string()));
+      builder.push_str(&Term::get_string(term).unwrap_or_else(|_| term.to_string().into()));
     }
     builder.push(')');
     Ok(builder)

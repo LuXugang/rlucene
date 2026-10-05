@@ -27,6 +27,7 @@ use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -75,13 +76,27 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
   where
     DI: DataInput,
   {
-    let mut buf = vec![0u8; length];
-    input.read_bytes(&mut buf, 0, length)?;
-    self.write_field_bytes(field_info, &BytesRef::from_slice(buf, 0, length))
+    if length == 0 {
+      let mut bytes = Vec::new();
+      input.read_bytes(&mut bytes, 0, 0)?;
+      return self.write_field_bytes(field_info, &BytesRef::from_slice(bytes, 0, 0));
+    }
+    let bytes = input.get_bytes(length)?;
+    self.write_field_bytes(
+      field_info,
+      &BytesRef {
+        bytes: bytes.as_ref(),
+        offset: 0,
+        length,
+      },
+    )
   }
 
   /// Writes a stored binary value.
-  fn write_field_bytes(&mut self, field_info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()>;
+  /// Implementations that retain the bytes beyond this call must copy them.
+  fn write_field_bytes<B>(&mut self, field_info: &FieldInfo, value: &BytesRef<B>) -> Result<()>
+  where
+    B: ByteSource;
 
   /// Writes a stored string value.
   fn write_field_str(&mut self, field_info: &FieldInfo, value: &str) -> Result<()>;
@@ -277,7 +292,7 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   fn binary_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: Vec<u8>,
+    value: std::borrow::Cow<'_, [u8]>,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
@@ -285,13 +300,20 @@ impl StoredFieldVisitor for MergeVisitor<'_> {
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
-    writer.write_field_bytes(self.remap(field_info)?, &BytesRef::from_bytes(value))
+    writer.write_field_bytes(
+      self.remap(field_info)?,
+      &BytesRef {
+        bytes: value.as_ref(),
+        offset: 0,
+        length: value.len(),
+      },
+    )
   }
 
   fn string_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: String,
+    value: std::borrow::Cow<'_, str>,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
@@ -459,7 +481,10 @@ where
     }
   }
 
-  fn write_field_bytes(&mut self, field_info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
+  fn write_field_bytes<S>(&mut self, field_info: &FieldInfo, value: &BytesRef<S>) -> Result<()>
+  where
+    S: ByteSource,
+  {
     match self {
       Self::A(inner) => inner.write_field_bytes(field_info, value),
       Self::B(inner) => inner.write_field_bytes(field_info, value),

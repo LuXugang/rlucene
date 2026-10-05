@@ -127,6 +127,8 @@ use crate::core::util::HasIdentity;
 #[cfg(test)]
 use crate::core::util::StringHelper;
 #[cfg(test)]
+use crate::core::util::access::ByteSource;
+#[cfg(test)]
 use crate::core::util::accountable::Accountable;
 #[cfg(test)]
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -1255,7 +1257,10 @@ impl<D: Directory> StoredFieldsWriter for CodecStoredFieldsWriter<D> {
     }
   }
 
-  fn write_field_bytes(&mut self, field_info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
+  fn write_field_bytes<B>(&mut self, field_info: &FieldInfo, value: &BytesRef<B>) -> Result<()>
+  where
+    B: ByteSource,
+  {
     match self {
       Self::Lucene90(writer) => writer.write_field_bytes(field_info, value),
       Self::Asserting(writer) => writer.write_field_bytes(field_info, value),
@@ -3368,11 +3373,11 @@ where
 
   type VectorScorer = CodecFloatVectorScorer<I>;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
+    let target: std::borrow::Cow<'a, [f32]> = target.into();
     self
       .0
       .scorer(target)

@@ -305,7 +305,7 @@ impl AbstractKnnVectorQuery for KnnFloatVectorQuery {
         return Ok(None);
       },
     };
-    vector_values.scorer(self.target.as_ref().clone())
+    vector_values.scorer(self.target.as_ref().as_slice())
   }
 
   fn exact_search<LR, T, Q>(

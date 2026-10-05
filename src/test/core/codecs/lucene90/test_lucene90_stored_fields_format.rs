@@ -341,6 +341,10 @@ where
     self.in_.read_byte()
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    self.in_.get_bytes(len)
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.in_.read_bytes(b, offset, len)
   }

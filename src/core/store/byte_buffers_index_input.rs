@@ -76,7 +76,7 @@ where
     DataInput::read_byte(&mut self.in_)
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     self.ensure_open()?;
     DataInput::get_bytes(&mut self.in_, len)
   }
@@ -147,7 +147,7 @@ where
     self.in_.read_zlong()
   }
 
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     self.ensure_open()?;
     self.in_.read_string()
   }

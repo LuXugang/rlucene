@@ -14,12 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 
-use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ram_usage_estimator::{size_of_string, size_of_vec};
@@ -88,17 +89,17 @@ impl Term {
 
   /// Returns a human-readable form of the term text. If the term is not valid
   /// UTF-8, the raw bytes will be printed instead.
-  pub fn get_string(term_text: &BytesRef<Vec<u8>>) -> Result<String> {
-    match term_text.utf8_to_string() {
-      Ok(text) => Ok(text),
-      Err(_) => Ok(term_text.to_string()),
+  pub fn get_string(term_text: &BytesRef<Vec<u8>>) -> Result<Cow<'_, str>> {
+    match BytesRefValue::utf8_to_string(term_text) {
+      Ok(text) => Ok(Cow::Borrowed(text)),
+      Err(_) => Ok(Cow::Owned(term_text.to_string())),
     }
   }
 
   /// Returns the text of this term. In the case of words, this is simply the
   /// text of the word. In the case of dates and other types, this is an
   /// encoding of the object as a string.
-  pub fn text(&self) -> Result<String> {
+  pub fn text(&self) -> Result<Cow<'_, str>> {
     Self::get_string(&self.bytes)
   }
   /// Returns the bytes of this term, these should not be modified.

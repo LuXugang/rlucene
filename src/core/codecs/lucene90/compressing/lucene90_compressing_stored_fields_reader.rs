@@ -925,7 +925,7 @@ where
     Ok(b)
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     if len <= self.bytes.length {
       let offset = self.bytes.offset;
       let bytes = &self.bytes.bytes[offset..offset + len];

@@ -2365,11 +2365,11 @@ where
 
   type VectorScorer = FVV::VectorScorer;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
+    let target: std::borrow::Cow<'a, [f32]> = target.into();
     match self {
       Self::Original(values) => values.scorer(target),
       Self::Normalized(_) => Err(LuceneError::unsupported_operation("")),

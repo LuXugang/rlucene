@@ -171,7 +171,11 @@ fn test_merge() -> Result<()> {
   let mut terms_enum = v.iterator()?;
   let mut i = 0;
   while (terms_enum.next()?).is_some() {
-    let term = terms_enum.term()?.as_bytes_ref().utf8_to_string()?;
+    let term = terms_enum
+      .term()?
+      .as_bytes_ref()
+      .utf8_to_string()?
+      .to_owned();
     let freq = terms_enum.total_term_freq()? as i32;
     assert!(FIELD_2_TEXT.contains(&term));
     assert_eq!(FIELD_2_FREQS[i], freq);

@@ -95,6 +95,12 @@ where
     self.base.read_byte()
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(std::borrow::Cow::Owned(bytes))
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.base.read_bytes(b, offset, len)?;
     self.read_bytes[self.off..self.off + len].copy_from_slice(&b[offset..offset + len]);

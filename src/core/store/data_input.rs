@@ -40,13 +40,12 @@ pub trait DataInput: Display + DataInputExt {
   /// The result borrows this input until its last use. Callers that need to keep
   /// bytes across another input operation must obtain ownership. This entry uses
   /// the ordinary three-argument Java read path, independently of buffer policy.
+  /// Implementations may borrow their own reusable scratch buffer when the
+  /// input cannot provide a contiguous view. Borrowed alone does not imply
+  /// zero copying. A result that needs to outlive the borrow must be owned.
   /// On success the input advances by `len`. On failure it retains the state
   /// changes of the ordinary read path; reads are not rolled back.
-  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
-    let mut bytes = vec![0; len];
-    self.read_bytes(&mut bytes, 0, len)?;
-    Ok(Cow::Owned(bytes))
-  }
+  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>>;
   /// Reads a specified number of bytes into an array at the specified offset.
   ///
   /// # Arguments
@@ -228,21 +227,23 @@ pub trait DataInput: Display + DataInputExt {
   fn read_zlong(&mut self) -> Result<i64> {
     Ok(BitUtil::zig_zag_decode_i64(self.read_vlong()? as u64))
   }
-  /// Reads a string.
+  /// Reads a string, borrowing valid UTF-8 from the input or its scratch buffer.
+  /// Callers that retain
+  /// the result across another input operation must obtain ownership.
   ///
   /// # See Also
   /// [`DataOutput::write_string`](crate::core::store::data_output::DataOutput::write_string)
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     let length = self.read_vint()?.try_convert()?;
     Ok(match self.get_bytes(length)? {
       Cow::Borrowed(bytes) => match std::str::from_utf8(bytes) {
-        Ok(value) => value.to_owned(),
-        Err(_) => String::from_utf8_lossy(bytes).into_owned(),
+        Ok(value) => Cow::Borrowed(value),
+        Err(_) => Cow::Owned(String::from_utf8_lossy(bytes).into_owned()),
       },
-      Cow::Owned(bytes) => match String::from_utf8(bytes) {
+      Cow::Owned(bytes) => Cow::Owned(match String::from_utf8(bytes) {
         Ok(value) => value,
         Err(error) => String::from_utf8_lossy(error.as_bytes()).into_owned(),
-      },
+      }),
     })
   }
 
@@ -258,12 +259,18 @@ pub trait DataInput: Display + DataInputExt {
       Ok(HashMap::new())
     } else if count == 1 {
       let mut map = HashMap::new();
-      map.insert(self.read_string()?, self.read_string()?);
+      map.insert(
+        self.read_string()?.into_owned(),
+        self.read_string()?.into_owned(),
+      );
       Ok(map)
     } else {
       let mut map = HashMap::new();
       for _ in 0..count {
-        map.insert(self.read_string()?, self.read_string()?);
+        map.insert(
+          self.read_string()?.into_owned(),
+          self.read_string()?.into_owned(),
+        );
       }
       Ok(map)
     }
@@ -279,12 +286,12 @@ pub trait DataInput: Display + DataInputExt {
       Ok(HashSet::new())
     } else if count == 1 {
       let mut set = HashSet::new();
-      set.insert(self.read_string()?);
+      set.insert(self.read_string()?.into_owned());
       Ok(set)
     } else {
       let mut set = HashSet::new();
       for _ in 0..count {
-        set.insert(self.read_string()?);
+        set.insert(self.read_string()?.into_owned());
       }
       Ok(set)
     }
@@ -306,7 +313,7 @@ impl<T: ?Sized + DataInput> DataInput for &mut T {
     (**self).read_byte()
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<Cow<'a, [u8]>> {
     DataInput::get_bytes(&mut **self, len)
   }
 
@@ -368,7 +375,7 @@ impl<T: ?Sized + DataInput> DataInput for &mut T {
     (**self).read_zlong()
   }
 
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     (**self).read_string()
   }
 
@@ -390,7 +397,7 @@ impl<T: ?Sized + DataInput> DataInput for Box<T> {
     (**self).read_byte()
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<Cow<'a, [u8]>> {
     DataInput::get_bytes(&mut **self, len)
   }
 
@@ -452,7 +459,7 @@ impl<T: ?Sized + DataInput> DataInput for Box<T> {
     (**self).read_zlong()
   }
 
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     (**self).read_string()
   }
 
@@ -506,7 +513,7 @@ macro_rules! define_data_input_enum {
                 }
             }
 
-            fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+            fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
                 match self {
                     $( Self::$V(inner) => DataInput::get_bytes(inner, len), )+
                 }
@@ -622,7 +629,7 @@ macro_rules! define_data_input_enum {
                 }
             }
 
-            fn read_string(&mut self) -> Result<String> {
+            fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
                 match self {
                     $(
                         Self::$V(inner) => inner.read_string(),

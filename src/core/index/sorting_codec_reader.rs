@@ -2340,11 +2340,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
+    let target: std::borrow::Cow<'a, [f32]> = target.into();
     match self {
       Self::Filter(values) => values.scorer(target),
       Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
@@ -4718,11 +4718,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
+    let target: std::borrow::Cow<'a, [f32]> = target.into();
     match self {
       Self::A(values) => values.scorer(target),
       Self::B(_) => Err(LuceneError::unsupported_operation("")),

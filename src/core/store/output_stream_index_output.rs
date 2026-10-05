@@ -21,7 +21,7 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher;
 
 use crate::core::store::data_input::DataInput;
-use crate::core::store::data_output::{COPY_BUFFER_SIZE, DataOutput, copy_bytes_impl};
+use crate::core::store::data_output::{DataOutput, copy_bytes_impl};
 use crate::core::store::index_output::IndexOutput;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::{Closeable, CloseableWrite};
@@ -37,7 +37,6 @@ where
   os: Option<XBufferedOutputStream<W>>,
   bytes_written: usize,
   flushed_on_close: bool,
-  copy_buffer: Vec<u8>,
   name: String,
   resource_description: String,
 }
@@ -72,7 +71,6 @@ where
       os: Some(os),
       bytes_written: 0,
       flushed_on_close: false,
-      copy_buffer: Vec::new(),
       name: name.into(),
       resource_description: resource_description.into(),
     })
@@ -94,12 +92,7 @@ where
   where
     I: DataInput + ?Sized,
   {
-    let mut buffer = std::mem::take(&mut self.copy_buffer);
-    buffer.resize(COPY_BUFFER_SIZE, 0);
-    let result = copy_bytes_impl(self, input, num_bytes, &mut buffer);
-    // Return the allocation on both success and a recoverable I/O error.
-    self.copy_buffer = buffer;
-    result
+    copy_bytes_impl(self, input, num_bytes)
   }
 
   fn write_byte(&mut self, b: u8) -> Result<()> {

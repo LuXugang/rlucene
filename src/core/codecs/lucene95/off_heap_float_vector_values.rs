@@ -313,11 +313,11 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerF32<DenseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let query = query.into();
+    let query = query.into().into_owned();
     let copy = self.float_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
     })?;
@@ -532,11 +532,11 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let query = query.into();
+    let query = query.into().into_owned();
     let copy = self.float_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
     })?;
@@ -663,9 +663,9 @@ impl FloatVectorValues for EmptyOffHeapVectorValues {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer<TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
     Ok(None)
   }
@@ -790,11 +790,10 @@ where
 
   type VectorScorer = VectorScorerEnum<I, F>;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
     match self {
       Self::Dense(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Dense)),
       Self::Sparse(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Sparse)),
@@ -949,13 +948,15 @@ where
 
   type VectorScorer = VectorScorerEnum<I, F>;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
     match self {
-      OffHeapFloatVectorValuesEnum::Empty(_) => Ok(None),
+      OffHeapFloatVectorValuesEnum::Empty(_) => {
+        let _: std::borrow::Cow<'a, [f32]> = target.into();
+        Ok(None)
+      },
 
       OffHeapFloatVectorValuesEnum::Dense(e) => Ok(e.scorer(target)?.map(VectorScorerEnum::Dense)),
 

@@ -453,7 +453,7 @@ impl<D> SegmentInfos<D> {
     let mut total_docs = 0i64;
 
     for _ in 0..num_segments {
-      let seg_name = input.read_string()?;
+      let seg_name = input.read_string()?.into_owned();
       let mut segment_id = [0u8; StringHelper::ID_LENGTH];
       let segment_id_len = segment_id.len();
       debug_assert!(segment_id_len <= i32::MAX as usize);

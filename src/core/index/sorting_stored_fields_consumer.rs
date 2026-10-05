@@ -219,21 +219,26 @@ where
   fn binary_field<S1>(
     &mut self,
     field_info: &FieldInfo,
-    value: Vec<u8>,
+    value: std::borrow::Cow<'_, [u8]>,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
     S1: StoredFieldsWriter,
   {
-    self
-      .writer
-      .write_field_bytes(field_info, &BytesRef::from_bytes(value))
+    self.writer.write_field_bytes(
+      field_info,
+      &BytesRef {
+        bytes: value.as_ref(),
+        offset: 0,
+        length: value.len(),
+      },
+    )
   }
 
   fn string_field<S1>(
     &mut self,
     field_info: &FieldInfo,
-    value: String,
+    value: std::borrow::Cow<'_, str>,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where

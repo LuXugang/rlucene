@@ -282,7 +282,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
             let mut field_infos = Vec::with_capacity(size as usize);
 
             for _ in 0..size {
-              let name = input.read_string()?;
+              let name = input.read_string()?.into_owned();
               let field_number = input.read_vint()?;
               if field_number < 0 {
                 return Err(LuceneError::corrupt_index(format!(

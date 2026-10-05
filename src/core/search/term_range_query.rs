@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::bytes_ref::BytesRefValue;
 use std::borrow::Cow;
 
 use crate::core::index::BytesRef;
@@ -229,11 +230,11 @@ impl QueryBase for TermRangeQuery {
 
     let lower_str = match self.lower_term.as_ref() {
       Some(term) => {
-        let s = term.utf8_to_string()?;
+        let s = BytesRefValue::utf8_to_string(term)?;
         if s == "*" {
           Cow::Borrowed("\\*")
         } else {
-          Cow::Owned(s)
+          Cow::Borrowed(s)
         }
       },
       None => Cow::Borrowed("*"),
@@ -244,11 +245,11 @@ impl QueryBase for TermRangeQuery {
 
     let upper_str = match self.upper_term.as_ref() {
       Some(term) => {
-        let s = term.utf8_to_string()?;
+        let s = BytesRefValue::utf8_to_string(term)?;
         if s == "*" {
           Cow::Borrowed("\\*")
         } else {
-          Cow::Owned(s)
+          Cow::Borrowed(s)
         }
       },
       None => Cow::Borrowed("*"),

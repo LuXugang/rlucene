@@ -634,7 +634,7 @@ where
     Ok(bytes[0])
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     let offset = {
       let state = self.state.get_mut();
       state.pos.checked_sub(state.buffer_start).filter(|&offset| {

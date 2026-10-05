@@ -113,7 +113,7 @@ impl QueryBase for WildcardQuery {
     {
       let text = self.base.term.text()?;
       if buffer.is_empty() {
-        buffer = text;
+        buffer = text.into_owned();
       } else {
         buffer.push_str(&text);
       }

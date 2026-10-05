@@ -332,7 +332,7 @@ pub struct DumbRegexpQuery {
 
 impl DumbRegexpQuery {
   pub fn new(term: Term, flags: i32) -> Result<Self> {
-    let re = RegExp::parse(&term.text()?, flags, 0)?;
+    let re = RegExp::parse(term.text()?.into_owned(), flags, 0)?;
     let automaton = re.to_automaton()?;
     let automaton =
       match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {

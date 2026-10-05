@@ -26,6 +26,7 @@ use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexInput};
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -265,7 +266,10 @@ where
     self.in_.write_field_with_input(field_info, input, length)
   }
 
-  fn write_field_bytes(&mut self, field_info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
+  fn write_field_bytes<B>(&mut self, field_info: &FieldInfo, value: &BytesRef<B>) -> Result<()>
+  where
+    B: ByteSource,
+  {
     assert!(self.doc_status == Status::Started);
     self.in_.write_field_bytes(field_info, value)
   }

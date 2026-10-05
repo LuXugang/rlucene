@@ -245,6 +245,7 @@ impl CodecUtil {
         "codec mismatch: actual codec={actual_codec} vs expected codec={codec}"
       )));
     }
+    drop(actual_codec);
     let actual_version = Self::read_be_int(data_input)?;
     if actual_version < min_version {
       return Err(LuceneError::index_format_too_old_with_version(
@@ -363,7 +364,7 @@ impl CodecUtil {
       )));
     }
 
-    let codec = data_in.read_string()?;
+    let codec = data_in.read_string()?.into_owned();
     let version = Self::read_be_int(data_in)?;
     Self::check_index_header_id(data_in, expected_id)?;
     let suffix_length = data_in.read_byte()?;
@@ -397,11 +398,14 @@ impl CodecUtil {
         CodecUtil::CODEC_MAGIC
       )));
     }
-    let codec = data_input.read_string()?;
+    let header_length = {
+      let codec = data_input.read_string()?;
+      Self::header_length(&codec)
+    };
     Self::read_be_int(data_input)?;
     data_input.seek(data_input.get_file_pointer()? + StringHelper::ID_LENGTH)?;
     let suffix_length = data_input.read_byte()? as usize;
-    let bytes_len = Self::header_length(&codec) + StringHelper::ID_LENGTH + 1 + suffix_length;
+    let bytes_len = header_length + StringHelper::ID_LENGTH + 1 + suffix_length;
 
     data_input.seek(0)?;
     data_input.get_bytes(bytes_len)
@@ -458,12 +462,24 @@ impl CodecUtil {
     DI: DataInput,
   {
     let suffix_length = data_input.read_byte()? as usize;
-    let mut suffix = [0u8; u8::MAX as usize];
-    data_input.read_bytes(&mut suffix[..suffix_length], 0, suffix_length)?;
-    if &suffix[..suffix_length] == expected_suffix.as_bytes() {
+    if suffix_length == 0 {
+      data_input.read_bytes(&mut [], 0, 0)?;
+      if !expected_suffix.is_empty() {
+        return Err(LuceneError::corrupt_index(format!(
+          "file mismatch, expected suffix={expected_suffix}, got= (resource={data_input})"
+        )));
+      }
       return Ok(());
     }
-    let actual_suffix = String::from_utf8_lossy(&suffix[..suffix_length]);
+    let suffix = data_input.get_bytes(suffix_length)?;
+    if suffix.as_ref() == expected_suffix.as_bytes() {
+      return Ok(());
+    }
+    // Keep diagnostic bytes only when comparison needs the input's Display.
+    let mut actual_bytes = [0u8; u8::MAX as usize];
+    actual_bytes[..suffix_length].copy_from_slice(suffix.as_ref());
+    drop(suffix);
+    let actual_suffix = String::from_utf8_lossy(&actual_bytes[..suffix_length]);
     if actual_suffix != expected_suffix {
       return Err(LuceneError::corrupt_index(format!(
         "file mismatch, expected suffix={expected_suffix}, got={actual_suffix} (resource={data_input})"

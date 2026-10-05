@@ -206,7 +206,7 @@ impl FuzzyQuery {
   /// Returns the compiled automata used to match terms
   pub fn get_automata(&self) -> Result<CompiledAutomaton> {
     Self::get_fuzzy_automaton(
-      self.term.text()?,
+      self.term.text()?.into_owned(),
       self.max_edits,
       self.prefix_length,
       self.transpositions,
@@ -270,7 +270,7 @@ impl QueryBase for FuzzyQuery {
     {
       let text = self.term.text()?;
       if buffer.is_empty() {
-        buffer = text;
+        buffer = text.into_owned();
       } else {
         buffer.push_str(&text);
       }

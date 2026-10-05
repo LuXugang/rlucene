@@ -18,7 +18,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::data_input::DataInput;
-use crate::core::store::data_output::{COPY_BUFFER_SIZE, DataOutput, copy_bytes_impl};
+use crate::core::store::data_output::{DataOutput, copy_bytes_impl};
 use crate::core::store::index_output::IndexOutput;
 use crate::core::store::rate_limiter::RateLimiter;
 use crate::core::util::bit_util::BitUtil;
@@ -35,7 +35,6 @@ pub struct RateLimitedIndexOutput<O, R> {
   bytes_since_last_pause: i64,
   /// Cached here to not always have to call [`RateLimiter::get_min_pause_check_bytes`].
   current_min_pause_check_bytes: i64,
-  copy_buffer: Vec<u8>,
 }
 
 impl<O, R> RateLimitedIndexOutput<O, R>
@@ -49,7 +48,6 @@ where
       rate_limiter,
       bytes_since_last_pause: 0,
       current_min_pause_check_bytes,
-      copy_buffer: Vec::new(),
     }
   }
 
@@ -72,12 +70,7 @@ where
   where
     I: DataInput + ?Sized,
   {
-    let mut buffer = std::mem::take(&mut self.copy_buffer);
-    buffer.resize(COPY_BUFFER_SIZE, 0);
-    let result = copy_bytes_impl(self, input, num_bytes, &mut buffer);
-    // Return the allocation on both success and a recoverable I/O error.
-    self.copy_buffer = buffer;
-    result
+    copy_bytes_impl(self, input, num_bytes)
   }
 
   fn write_byte(&mut self, b: u8) -> Result<()> {

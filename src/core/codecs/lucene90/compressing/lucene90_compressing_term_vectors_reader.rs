@@ -44,9 +44,7 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::store::byte_buffers_data_input::{
-  ByteBuffersDataInput, ByteBuffersDataInputOwned,
-};
+use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteArrayDataInput, ByteBuffersDataOutput, DataInput, IOContext, IndexInput, ReadAdvice,
@@ -68,6 +66,7 @@ use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, ReaderIterator};
 use crate::core::util::{ToInt, TryIntoInt};
+use std::borrow::Cow;
 use std::io::Cursor;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -348,10 +347,10 @@ where
       Ok(())
     }
   }
-  fn slice(input: &mut I) -> Result<ByteBuffersDataInputOwned> {
+  fn slice(input: &mut I) -> Result<(Cow<'_, [u8]>, usize)> {
     let length = input.read_vint()?.try_convert()?;
-    let buf = input.get_bytes(length)?.into_owned();
-    ByteBuffersDataInput::new(vec![Cursor::new(buf)], length)
+    let buf = input.get_bytes(length)?;
+    Ok((buf, length))
   }
   pub(crate) fn is_loaded(&self, doc_id: i32) -> bool {
     let bs = &self.block_state;
@@ -559,13 +558,19 @@ where
     let mut field_num_offs = vec![0; num_fields];
     let flags = {
       let bits_per_off = bits_required((field_nums.len() - 1) as i64)?;
-      let all_field_num_offs =
-        DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, bits_per_off)?;
+      let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+      let all_field_num_offs = DirectReader::get_instance(
+        ByteBuffersDataInput::new(vec![Cursor::new(bytes.into_owned())], length)?,
+        bits_per_off,
+      )?;
       let v = self.vectors_stream.read_vint()?;
       let flags = match v {
         0 => {
-          let field_flags =
-            DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, *FLAGS_BITS)?;
+          let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+          let field_flags = DirectReader::get_instance(
+            ByteBuffersDataInput::new(vec![Cursor::new(bytes.as_ref())], length)?,
+            *FLAGS_BITS,
+          )?;
           let mut out = ByteBuffersDataOutput::new();
           let mut writer = DirectWriter::get_instance(&mut out, total_fields as i64, *FLAGS_BITS)?;
           for i in 0..total_fields {
@@ -576,7 +581,13 @@ where
           writer.finish()?;
           DirectReader::get_instance(out.get_data_input_owner(false)?, *FLAGS_BITS)?
         },
-        1 => DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, *FLAGS_BITS)?,
+        1 => {
+          let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+          DirectReader::get_instance(
+            ByteBuffersDataInput::new(vec![Cursor::new(bytes.into_owned())], length)?,
+            *FLAGS_BITS,
+          )?
+        },
         _ => {
           return Err(LuceneError::illegal_state(format!(
             "invalid flag selector: {v}"
@@ -592,8 +603,11 @@ where
     // number of terms per field for all fields
     let (num_terms, total_terms) = {
       let bits_required = self.vectors_stream.read_vint()?;
-      let packed_num_terms =
-        DirectReader::get_instance(Self::slice(&mut self.vectors_stream)?, bits_required)?;
+      let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+      let packed_num_terms = DirectReader::get_instance(
+        ByteBuffersDataInput::new(vec![Cursor::new(bytes.as_ref())], length)?,
+        bits_required,
+      )?;
       let mut sum = 0;
       let mut num_terms = Vec::with_capacity(total_fields);
       for i in 0..total_fields {

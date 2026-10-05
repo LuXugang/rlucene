@@ -63,7 +63,7 @@ where
   fn binary_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: Vec<u8>,
+    value: std::borrow::Cow<'_, [u8]>,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
@@ -76,7 +76,7 @@ where
   fn string_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: String,
+    value: std::borrow::Cow<'_, str>,
     writer: Option<&mut S>,
   ) -> Result<()>
   where

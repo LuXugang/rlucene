@@ -251,18 +251,19 @@ impl QueryBase for PhraseQuery {
 
     let max_position = self.positions.last().copied();
 
-    let mut pieces: Vec<Option<String>> = match max_position {
+    let mut pieces: Vec<Option<Cow<'_, str>>> = match max_position {
       None => Vec::new(),
       Some(max) => vec![None; max + 1],
     };
 
     for (term, &pos) in self.terms.iter().zip(self.positions.iter()) {
-      let text = term.text().unwrap_or_else(|_| "None".to_string());
+      let text = term.text().unwrap_or(Cow::Borrowed("None"));
       match &mut pieces[pos] {
         None => {
           pieces[pos] = Some(text);
         },
         Some(existing) => {
+          let existing = existing.to_mut();
           existing.push('|');
           existing.push_str(&text);
         },

@@ -232,11 +232,11 @@ where
 
     let term = tq.term.text()?;
     assert!(
-      allowed_terms.contains(term.as_str()),
+      allowed_terms.contains(term.as_ref()),
       "invalid term: {}",
       term
     );
-    allowed_terms.remove(term.as_str());
+    allowed_terms.remove(term.as_ref());
   }
 
   assert_eq!(0, allowed_terms.len());

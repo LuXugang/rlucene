@@ -425,9 +425,9 @@ impl<F: Borrow<Vec<Vec<f32>>> + Clone> FloatVectorValues for TestSimpleFloatVect
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer<TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
     Err(LuceneError::unsupported_operation(""))
   }

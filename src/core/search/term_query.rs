@@ -127,14 +127,12 @@ impl QueryBase for TermQuery {
       buffer.push_str(&self.term.field);
       buffer.push(':');
     }
+    if buffer.is_empty() {
+      let bytes = self.term.bytes();
+      return Ok(bytes.utf8_to_string().unwrap_or_else(|_| bytes.to_string()));
+    }
     match self.term.text() {
-      Ok(text) => {
-        if buffer.is_empty() {
-          buffer = text;
-        } else {
-          buffer.push_str(&text);
-        }
-      },
+      Ok(text) => buffer.push_str(&text),
       Err(_) => {
         buffer.push_str("<?>");
       },

@@ -147,7 +147,7 @@ where
 
   while let Some(term) = terms_enum.next()? {
     assert!(last.as_byte_slice() < term.as_bytes());
-    let s = term.utf8_to_string()?;
+    let s = term.utf8_to_string()?.to_owned();
     last = term.into_owned();
     assert!(
       all_terms.contains(&s),

@@ -2222,7 +2222,7 @@ where
     assert_eq!(
       *tk
         .freqs
-        .get(&terms_enum.term()?.utf8_to_string()?)
+        .get(terms_enum.term()?.utf8_to_string()?)
         .expect("term must exist"),
       postings_enum.freq()?
     );
@@ -2241,7 +2241,7 @@ where
       assert_eq!(
         *tk
           .freqs
-          .get(&terms_enum.term()?.utf8_to_string()?)
+          .get(terms_enum.term()?.utf8_to_string()?)
           .expect("term must exist"),
         freq
       );

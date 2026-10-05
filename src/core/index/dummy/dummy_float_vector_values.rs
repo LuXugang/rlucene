@@ -79,12 +79,12 @@ impl FloatVectorValues for DummyFloatVectorValues {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer<TV>(
+  fn scorer<'a, TV>(
     &self,
     _target: TV,
   ) -> crate::core::util::error::lucene_error::Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
     dummy_unreachable!()
   }

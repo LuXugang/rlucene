@@ -382,7 +382,7 @@ where
       let code = self.input.read_vint()?;
       let new_field = (code & 1) != 0;
       if new_field {
-        self.field = self.input.read_string()?
+        self.field = self.input.read_string()?.into_owned()
       }
       let prefix = (code >> 1) as usize;
       let suffix = self.input.read_vint()? as usize;

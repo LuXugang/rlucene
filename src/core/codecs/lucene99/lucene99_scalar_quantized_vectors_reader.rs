@@ -723,11 +723,11 @@ where
 
   type VectorScorer = Q::QuantizedVectorScorer;
 
-  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let query = query.into();
+    let query: std::borrow::Cow<'a, [f32]> = query.into();
     QuantizedByteVectorValues::scorer(&self.quantized_vector_values, &query)
   }
 

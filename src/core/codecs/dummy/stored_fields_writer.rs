@@ -21,6 +21,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::MergeState;
 use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
@@ -71,11 +72,10 @@ impl StoredFieldsWriter for DummyStoredFieldsWriter {
     dummy_unreachable!()
   }
 
-  fn write_field_bytes(
-    &mut self,
-    _field_info: &FieldInfo,
-    _value: &BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  fn write_field_bytes<B>(&mut self, _field_info: &FieldInfo, _value: &BytesRef<B>) -> Result<()>
+  where
+    B: ByteSource,
+  {
     dummy_unreachable!()
   }
 

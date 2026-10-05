@@ -26,11 +26,15 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 /// A [`DataInput`] wrapping a plain [`Read`] and [`Seek`].
 pub struct InputStreamDataInput<R> {
   is: R,
+  scratch: Vec<u8>,
 }
 
 impl<R> InputStreamDataInput<R> {
   pub fn new(is: R) -> Self {
-    Self { is }
+    Self {
+      is,
+      scratch: Vec::new(),
+    }
   }
 }
 
@@ -44,6 +48,25 @@ impl<R: Read + Seek> DataInput for InputStreamDataInput<R> {
       return Err(LuceneError::eof(""));
     }
     Ok(b[0])
+  }
+
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    if self.scratch.len() < len {
+      self.scratch.resize(len, 0);
+    }
+    let mut offset = 0;
+    let mut remaining = len;
+    while remaining > 0 {
+      let cnt = self
+        .is
+        .read(&mut self.scratch[offset..offset + remaining])?;
+      if cnt == 0 {
+        return Err(LuceneError::eof(""));
+      }
+      remaining -= cnt;
+      offset += cnt;
+    }
+    Ok(std::borrow::Cow::Borrowed(&self.scratch[..len]))
   }
 
   fn read_bytes(&mut self, b: &mut [u8], mut offset: usize, mut len: usize) -> Result<()> {

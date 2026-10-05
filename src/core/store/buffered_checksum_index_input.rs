@@ -95,7 +95,7 @@ where
     Ok(b)
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     let bytes = self.main.get_bytes(len)?;
     self.digest.update_bytes(bytes.as_ref(), 0, len);
     Ok(bytes)

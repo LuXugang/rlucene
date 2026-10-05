@@ -1476,7 +1476,7 @@ impl DataInput for DirIndexInput {
     DataInput::read_byte(&mut self.0)
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     DataInput::get_bytes(&mut self.0, len)
   }
 
@@ -1538,7 +1538,7 @@ impl DataInput for DirIndexInput {
     self.0.read_zlong()
   }
 
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     self.0.read_string()
   }
 

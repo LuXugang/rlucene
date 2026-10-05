@@ -33,8 +33,9 @@ use crate::core::util::error::lucene_error::Result;
 pub trait StoredFieldVisitor {
   /// Expert: Process a binary field directly from the DataInput.
   /// Implementors of this method must read `length` bytes from the given
-  /// [`DataInput`]. Default implementation reads into a byte array and
-  /// delegates to `binary_field`.
+  /// [`DataInput`]. Default implementation reads all bytes before
+  /// delegating to `binary_field`, borrowing a contiguous input when possible
+  /// or borrowing an input-owned scratch buffer for fallback reads.
   fn binary_field_with_input<S, DI>(
     &mut self,
     field_info: &FieldInfo,
@@ -46,15 +47,15 @@ pub trait StoredFieldVisitor {
     S: StoredFieldsWriter,
     DI: DataInput,
   {
-    let buffer = input.get_bytes(length)?.into_owned();
-    self.binary_field(field_info, buffer, writer)
+    let value = input.get_bytes(length)?;
+    self.binary_field(field_info, value, writer)
   }
 
-  /// Process a binary field.
+  /// Process a binary field. Obtain ownership when retaining or modifying the value.
   fn binary_field<S>(
     &mut self,
     _field_info: &FieldInfo,
-    _value: Vec<u8>,
+    _value: std::borrow::Cow<'_, [u8]>,
     _writer: Option<&mut S>,
   ) -> Result<()>
   where
@@ -63,11 +64,11 @@ pub trait StoredFieldVisitor {
     Ok(())
   }
 
-  /// Process a string field.
+  /// Process a string field. Obtain ownership when retaining the value.
   fn string_field<S>(
     &mut self,
     _field_info: &FieldInfo,
-    _value: String,
+    _value: std::borrow::Cow<'_, str>,
     _writer: Option<&mut S>,
   ) -> Result<()>
   where

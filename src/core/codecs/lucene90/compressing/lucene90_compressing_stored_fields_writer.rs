@@ -42,6 +42,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteBuffersDataOutput, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
 };
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::Closeable;
@@ -596,14 +597,17 @@ where
     Ok(())
   }
 
-  fn write_field_bytes(&mut self, info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
+  fn write_field_bytes<B>(&mut self, info: &FieldInfo, value: &BytesRef<B>) -> Result<()>
+  where
+    B: ByteSource,
+  {
     self.num_stored_fields_in_doc += 1;
     let info_and_bits = ((info.number as i64) << TYPE_BITS) | BYTE_ARR as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     self.buffered_docs.write_vint(value.length as i32)?;
     self
       .buffered_docs
-      .write_bytes_range(&value.bytes, value.offset, value.length)?;
+      .write_bytes_range(value.bytes.as_slice(), value.offset, value.length)?;
     Ok(())
   }
 

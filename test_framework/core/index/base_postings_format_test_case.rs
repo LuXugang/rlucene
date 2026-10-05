@@ -363,7 +363,7 @@ where
 
     loop {
       let term_string = match terms_enum.next()? {
-        Some(term) => term.utf8_to_string()?,
+        Some(term) => term.utf8_to_string()?.to_owned(),
         None => break,
       };
       let no_positions = self.state.random_bool();
@@ -1047,7 +1047,7 @@ pub trait BasePostingsFormatTestCase:
     let mut term_count = 0_i64;
     let mut supports_ords = true;
     while let Some(term) = terms_enum.next()? {
-      let term_string = term.utf8_to_string()?;
+      let term_string = term.utf8_to_string()?.to_owned();
       let (expected_doc_freq, expected_total_term_freq) = {
         let term_freqs = state.term_freqs.lock();
         let term_freqs = term_freqs

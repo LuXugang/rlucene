@@ -544,7 +544,7 @@ where
   T: TermsEnum,
 {
   match te.next()? {
-    Some(br) => Ok(Some(br.utf8_to_string()?)),
+    Some(br) => Ok(Some(br.utf8_to_string()?.to_owned())),
     None => Ok(None),
   }
 }

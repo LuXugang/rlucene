@@ -516,6 +516,12 @@ where
     self.in_.read_byte()
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    let mut bytes = vec![0; len];
+    self.read_bytes(&mut bytes, 0, len)?;
+    Ok(std::borrow::Cow::Owned(bytes))
+  }
+
   fn read_bytes(&mut self, bytes: &mut [u8], offset: usize, length: usize) -> Result<()> {
     let fp = self.in_.get_file_pointer()?;
     let mut read_bytes = self.read_bytes.lock();

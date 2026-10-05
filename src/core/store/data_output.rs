@@ -209,9 +209,7 @@ pub trait DataOutput {
     Self: Sized,
     I: DataInput + ?Sized,
   {
-    let buffer_size = if num_bytes == 0 { 0 } else { COPY_BUFFER_SIZE };
-    let mut buffer = vec![0u8; buffer_size];
-    copy_bytes_impl(self, input, num_bytes, &mut buffer)
+    copy_bytes_impl(self, input, num_bytes)
   }
 
   /// Writes a `HashMap<String, String>`.
@@ -247,12 +245,7 @@ pub trait DataOutput {
     Ok(())
   }
 }
-pub(crate) fn copy_bytes_impl<O, I>(
-  out: &mut O,
-  input: &mut I,
-  num_bytes: usize,
-  buffer: &mut [u8],
-) -> Result<()>
+pub(crate) fn copy_bytes_impl<O, I>(out: &mut O, input: &mut I, num_bytes: usize) -> Result<()>
 where
   O: DataOutput + ?Sized,
   I: DataInput + ?Sized,
@@ -260,8 +253,8 @@ where
   let mut left = num_bytes;
   while left > 0 {
     let to_copy = left.min(COPY_BUFFER_SIZE);
-    input.read_bytes(buffer, 0, to_copy)?;
-    out.write_bytes_with_len(buffer, to_copy)?;
+    let bytes = input.get_bytes(to_copy)?;
+    out.write_bytes_with_len(bytes.as_ref(), to_copy)?;
     left -= to_copy;
   }
   Ok(())

@@ -295,6 +295,10 @@ impl DataInput for InterceptingIndexInput {
     Err(LuceneError::unsupported_operation(""))
   }
 
+  fn get_bytes(&mut self, _len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }

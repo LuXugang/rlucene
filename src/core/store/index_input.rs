@@ -206,7 +206,7 @@ impl DataInput for IndexInputEnum {
     }
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     match self {
       IndexInputEnum::Fs(inner) => DataInput::get_bytes(inner, len),
       IndexInputEnum::Custom(inner) => DataInput::get_bytes(inner, len),
@@ -310,7 +310,7 @@ impl DataInput for IndexInputEnum {
     }
   }
 
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     match self {
       IndexInputEnum::Fs(inner) => DataInput::read_string(inner),
       IndexInputEnum::Custom(inner) => inner.read_string(),
@@ -534,7 +534,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+            fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
                 match self {
                     $( Self::$Variant(inner) => DataInput::get_bytes(inner, len), )+
                 }
@@ -637,7 +637,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            fn read_string(&mut self) -> Result<String> {
+            fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
                 match self {
                     $( Self::$Variant(inner) => inner.read_string(), )+
                 }
@@ -857,6 +857,10 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
+  fn get_bytes(&mut self, _len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -915,7 +919,7 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     Err(LuceneError::unsupported_operation(""))
   }
 

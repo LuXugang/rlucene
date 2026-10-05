@@ -195,11 +195,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
+    let target: std::borrow::Cow<'a, [f32]> = target.into();
     match self {
       Self::A(values) => values.scorer(target),
       Self::B(_) => Err(LuceneError::unsupported_operation("")),
@@ -1267,7 +1267,7 @@ where
   fn binary_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: Vec<u8>,
+    value: std::borrow::Cow<'_, [u8]>,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
@@ -1280,7 +1280,7 @@ where
   fn string_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: String,
+    value: std::borrow::Cow<'_, str>,
     writer: Option<&mut S>,
   ) -> Result<()>
   where

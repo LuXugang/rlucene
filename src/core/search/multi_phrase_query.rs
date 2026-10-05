@@ -47,6 +47,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -257,11 +258,11 @@ impl QueryBase for MultiPhraseQuery {
           if j > 0 {
             buffer.push(' ');
           }
-          buffer.push_str(&term.text().unwrap_or_else(|_| "None".to_string()));
+          buffer.push_str(&term.text().unwrap_or(Cow::Borrowed("None")));
         }
         buffer.push(')');
       } else {
-        buffer.push_str(&terms[0].text().unwrap_or_else(|_| "None".to_string()));
+        buffer.push_str(&terms[0].text().unwrap_or(Cow::Borrowed("None")));
       }
       last_pos = position;
     }

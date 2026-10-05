@@ -818,7 +818,7 @@ impl MemorySegmentIndexInput {
 }
 
 impl DataInput for MemorySegmentIndexInput {
-  fn get_bytes(&mut self, len: usize) -> Result<Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<Cow<'a, [u8]>> {
     let position = *self.position.get_mut();
     let state = self.state.get_mut();
     if state

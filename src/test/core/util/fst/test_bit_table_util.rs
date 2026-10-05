@@ -182,6 +182,10 @@ impl DataInput for BytesReaderImpl<'_> {
     Ok(v)
   }
 
+  fn get_bytes(&mut self, _len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    Err(LuceneError::unsupported_operation("not implement"))
+  }
+
   fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
     Err(LuceneError::unsupported_operation("not implement"))
   }

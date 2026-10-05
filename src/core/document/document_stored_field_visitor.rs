@@ -20,6 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::stored_field::StoredField;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
+use crate::core::store::DataInput;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashSet;
 
@@ -71,25 +72,42 @@ impl<'a> DocumentStoredFieldVisitor<'a> {
   }
 }
 impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
+  fn binary_field_with_input<S, DI>(
+    &mut self,
+    field_info: &FieldInfo,
+    input: &mut DI,
+    length: usize,
+    writer: Option<&mut S>,
+  ) -> Result<()>
+  where
+    S: StoredFieldsWriter,
+    DI: DataInput,
+  {
+    // This visitor retains the bytes, so a fallback Vec can be transferred directly.
+    let value = input.get_bytes(length)?;
+    self.binary_field(field_info, value, writer)
+  }
+
   fn binary_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: Vec<u8>,
+    value: std::borrow::Cow<'_, [u8]>,
     _writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
   {
-    self
-      .doc
-      .add(StoredField::from_binary(&field_info.name, value)?);
+    self.doc.add(StoredField::from_binary(
+      &field_info.name,
+      value.into_owned(),
+    )?);
     Ok(())
   }
 
   fn string_field<S>(
     &mut self,
     field_info: &FieldInfo,
-    value: String,
+    value: std::borrow::Cow<'_, str>,
     _writer: Option<&mut S>,
   ) -> Result<()>
   where
@@ -101,7 +119,7 @@ impl StoredFieldVisitor for DocumentStoredFieldVisitor<'_> {
     ft.set_index_options(*field_info.get_index_options())?;
     self.doc.add(StoredField::from_string_and_type(
       &field_info.name,
-      value,
+      value.into_owned(),
       ft,
     )?);
     Ok(())

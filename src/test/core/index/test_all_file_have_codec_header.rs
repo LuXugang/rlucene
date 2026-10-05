@@ -128,7 +128,7 @@ where
     val
   );
 
-  let codec_name = input.read_string()?;
+  let codec_name = input.read_string()?.into_owned();
   assert!(!codec_name.is_empty());
 
   let extension = match IndexFileNames::get_extension(file) {

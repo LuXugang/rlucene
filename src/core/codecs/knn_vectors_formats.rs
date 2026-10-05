@@ -284,11 +284,10 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValuesCopy
 
   type VectorScorer = KnnVectorsFormatsFloatVectorScorer<I>;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
     match self {
       Self::Lucene99Hnsw(values) => values
         .scorer(target)
@@ -426,11 +425,10 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
 
   type VectorScorer = KnnVectorsFormatsFloatVectorScorer<I>;
 
-  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  fn scorer<'a, TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
   where
-    TV: Into<Vec<f32>>,
+    TV: Into<std::borrow::Cow<'a, [f32]>>,
   {
-    let target = target.into();
     match self {
       Self::Lucene99Hnsw(values) => values
         .scorer(target)

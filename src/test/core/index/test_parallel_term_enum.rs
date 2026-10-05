@@ -132,7 +132,11 @@ where
   let mut terms_enum = terms.iterator()?;
 
   for expected in terms_list {
-    let term = terms_enum.next()?.expect("term").utf8_to_string()?;
+    let term = terms_enum
+      .next()?
+      .expect("term")
+      .utf8_to_string()?
+      .to_owned();
     assert_eq!(*expected, term);
     let mut postings = TestUtil::docs(random, &mut terms_enum, None, NONE as i32)?;
     assert_ne!(NO_MORE_DOCS, postings.next_doc()?);

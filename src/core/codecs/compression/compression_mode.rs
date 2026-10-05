@@ -344,13 +344,11 @@ impl Decompressor for DecompressorEnum {
 
 pub struct LZ4FastCompressor {
   ht: HashTableEnum,
-  bytes: Vec<u8>,
 }
 impl LZ4FastCompressor {
   fn new() -> Self {
     LZ4FastCompressor {
       ht: HashTableEnum::Fast(FastCompressionHashTable::new()),
-      bytes: Vec::new(),
     }
   }
 }
@@ -365,9 +363,8 @@ impl Compressor for LZ4FastCompressor {
     DO: DataOutput,
   {
     let len = buffers_input.length();
-    self.bytes.resize(len, 0);
-    DataInput::read_bytes(buffers_input, &mut self.bytes, 0, len)?;
-    LZ4::compress(&self.bytes, 0, len as i32, out, &mut self.ht)?;
+    let bytes = buffers_input.get_bytes(len)?;
+    LZ4::compress(bytes.as_ref(), 0, len as i32, out, &mut self.ht)?;
     Ok(())
   }
 }

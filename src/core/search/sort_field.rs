@@ -673,7 +673,7 @@ impl SortFieldProvider for Provider {
   where
     DI: DataInput,
   {
-    let field_name = data_input.read_string()?;
+    let field_name = data_input.read_string()?.into_owned();
     let field_type = SortFieldType::read_type(data_input)?;
     let reverse = data_input.read_int()? == 1;
     let mut sort_field = SortField::with_reverse(Some(field_name), field_type, reverse)?;

@@ -285,7 +285,7 @@ impl AbstractVectorSimilarityQuery for FloatVectorSimilarityQuery {
         return Ok(None);
       },
     };
-    vector_values.scorer(self.target.as_ref().clone())
+    vector_values.scorer(self.target.as_ref().as_slice())
   }
 
   fn approximate_search<LR, B, K>(

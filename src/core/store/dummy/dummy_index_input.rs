@@ -31,6 +31,10 @@ impl DataInput for DummyIndexInput {
     dummy_unreachable!()
   }
 
+  fn get_bytes(&mut self, _len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    dummy_unreachable!()
+  }
+
   fn read_bytes(&mut self, _b: &mut [u8], _offset: usize, _len: usize) -> Result<()> {
     dummy_unreachable!()
   }

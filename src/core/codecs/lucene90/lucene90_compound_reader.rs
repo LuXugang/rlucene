@@ -177,7 +177,7 @@ where
     let num_entries = entries_stream.read_vint()?;
     let mut mapping = HashMap::with_capacity(num_entries as usize);
     for _ in 0..num_entries {
-      let id = entries_stream.read_string()?;
+      let id = entries_stream.read_string()?.into_owned();
       if mapping.contains_key(&id) {
         return Err(LuceneError::corrupt_index(format!(
           "Duplicate cfs entry id={id} in CFS (resource={entries_stream})"

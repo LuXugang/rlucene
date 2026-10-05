@@ -669,7 +669,7 @@ fn test_thread_safety() -> Result<()> {
     get_terms(&reader, field)?.ok_or_else(|| LuceneError::illegal_state("terms missing"))?;
   let mut terms_enum = terms.iterator()?;
   while let Some(term) = terms_enum.next()? {
-    let term_text = term.utf8_to_string()?;
+    let term_text = term.utf8_to_string()?.to_owned();
     let mut tp = terms_enum.postings_with_flags(None, PAYLOADS as i32)?;
     while tp.next_doc()? != NO_MORE_DOCS {
       let freq = tp.freq()?;

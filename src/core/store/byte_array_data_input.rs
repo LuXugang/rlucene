@@ -117,7 +117,7 @@ where
     Ok(value)
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     let bytes = &self.bytes.as_slice()[self.pos..self.pos + len];
     self.pos += len;
     Ok(std::borrow::Cow::Borrowed(bytes))

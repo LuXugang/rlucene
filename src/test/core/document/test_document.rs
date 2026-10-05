@@ -78,7 +78,7 @@ fn test_binary_field() -> Result<()> {
 
   match doc.get_binary_value("binary")? {
     Some(bf) => {
-      let bf_value = bf.as_bytes_ref().utf8_to_string()?;
+      let bf_value = bf.as_bytes_ref().utf8_to_string()?.to_owned();
       assert_eq!(bf_value, binary_val);
     },
     None => {
@@ -100,8 +100,8 @@ fn test_binary_field() -> Result<()> {
   let binary_tests = doc.get_binary_values("binary")?;
   assert_eq!(binary_tests.len(), 2);
 
-  let binary_test = binary_tests[0].as_bytes_ref().utf8_to_string()?;
-  let binary_test2 = binary_tests[1].as_bytes_ref().utf8_to_string()?;
+  let binary_test = binary_tests[0].as_bytes_ref().utf8_to_string()?.to_owned();
+  let binary_test2 = binary_tests[1].as_bytes_ref().utf8_to_string()?.to_owned();
 
   assert_ne!(binary_test, binary_test2);
   assert_eq!(binary_test, binary_val);

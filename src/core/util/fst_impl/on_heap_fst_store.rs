@@ -63,7 +63,7 @@ impl DataInput for OnHeapFSTBytesReader {
     }
   }
 
-  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+  fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     match self {
       Self::Reverse { reader, .. } => DataInput::get_bytes(reader, len),
       Self::Blocks(reader) => DataInput::get_bytes(reader, len),

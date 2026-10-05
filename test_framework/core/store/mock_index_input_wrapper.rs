@@ -221,6 +221,12 @@ where
     self.in_.read_byte()
   }
 
+  fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    self.ensure_open()?;
+    self.ensure_accessible()?;
+    self.in_.get_bytes(len)
+  }
+
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.ensure_open()?;
     self.ensure_accessible()?;
@@ -305,7 +311,7 @@ where
     self.in_.read_zlong()
   }
 
-  fn read_string(&mut self) -> Result<String> {
+  fn read_string<'a>(&'a mut self) -> Result<std::borrow::Cow<'a, str>> {
     self.ensure_open()?;
     self.ensure_accessible()?;
     self.in_.read_string()

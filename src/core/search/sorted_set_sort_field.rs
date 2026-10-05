@@ -237,7 +237,7 @@ impl SortFieldProvider for SetProvider {
   where
     DI: DataInput,
   {
-    let field_name = data_input.read_string()?;
+    let field_name = data_input.read_string()?.into_owned();
     let reverse = data_input.read_int()? == 1;
     let selector = SortedSetSortField::read_selector_type(data_input)?;
     let mut sorted_set_sort_field =

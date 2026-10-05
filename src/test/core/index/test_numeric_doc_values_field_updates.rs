@@ -557,19 +557,19 @@ fn test_multiple_doc_values_types() -> Result<()> {
 
     // binary
     assert_eq!(i, bdv.next_doc()?);
-    let term = bdv.binary_value()?.utf8_to_string()?;
+    let term = bdv.binary_value()?.utf8_to_string()?.to_owned();
     assert_eq!(term, i.to_string());
 
     // sorted
     assert_eq!(i, sdv.next_doc()?);
     let ord_value = sdv.ord_value()?;
-    let term = sdv.lookup_ord(ord_value)?.utf8_to_string()?;
+    let term = sdv.lookup_ord(ord_value)?.utf8_to_string()?.to_owned();
     assert_eq!(term, i.to_string());
 
     // sorted set
     assert_eq!(i, ssdv.next_doc()?);
     let ord = ssdv.next_ord()?;
-    let term = ssdv.lookup_ord(ord)?.utf8_to_string()?;
+    let term = ssdv.lookup_ord(ord)?.utf8_to_string()?.to_owned();
     assert_eq!(i, term.parse::<i32>()?);
 
     if i == 0 {
@@ -577,7 +577,7 @@ fn test_multiple_doc_values_types() -> Result<()> {
     } else {
       assert_eq!(2, ssdv.doc_value_count()?);
       let ord = ssdv.next_ord()?;
-      let term = ssdv.lookup_ord(ord)?.utf8_to_string()?;
+      let term = ssdv.lookup_ord(ord)?.utf8_to_string()?.to_owned();
       assert_eq!(i * 2, term.parse::<i32>()?);
     }
   }
