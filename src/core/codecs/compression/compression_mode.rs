@@ -480,7 +480,6 @@ pub struct DeflateCompressor {
   level: u32,
   compressor: Option<Compress>,
   compressed: Vec<u8>,
-  bytes: Vec<u8>,
 }
 
 impl DeflateCompressor {
@@ -489,7 +488,6 @@ impl DeflateCompressor {
       level,
       compressor: None,
       compressed: Vec::new(),
-      bytes: Vec::new(),
     }
   }
 }
@@ -504,8 +502,7 @@ impl Compressor for DeflateCompressor {
     DO: DataOutput,
   {
     let len = buffers_input.length();
-    self.bytes.resize(len, 0);
-    DataInput::read_bytes(buffers_input, &mut self.bytes, 0, len)?;
+    let bytes = buffers_input.get_bytes(len)?;
     if len == 0 {
       out.write_vint(0)?;
       return Ok(());
@@ -522,7 +519,7 @@ impl Compressor for DeflateCompressor {
       let total_count = compressor.total_out() as usize;
       let status = compressor
         .compress(
-          &self.bytes[consumed..],
+          &bytes[consumed..],
           &mut self.compressed[total_count..],
           FlushCompress::Finish,
         )
