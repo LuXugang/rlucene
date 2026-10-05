@@ -20,7 +20,7 @@ use std::fmt::{Display, Formatter};
 
 use crc32fast::Hasher;
 
-use crate::core::store::check_sum_index_input::ChecksumIndexInput;
+use crate::core::store::check_sum_index_input::{ChecksumIndexInput, SKIP_BUFFER_SIZE};
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{BufferedChecksum, Checksum, DataInput, HasherChecksum};
@@ -162,5 +162,16 @@ where
 {
   fn get_checksum(&mut self) -> i64 {
     self.digest.get_value()
+  }
+
+  fn skip_by_reading(&mut self, mut num_bytes: usize) -> Result<()> {
+    while num_bytes >= SKIP_BUFFER_SIZE {
+      self.get_bytes(SKIP_BUFFER_SIZE)?;
+      num_bytes -= SKIP_BUFFER_SIZE;
+    }
+    if num_bytes > 0 {
+      self.get_bytes(num_bytes)?;
+    }
+    Ok(())
   }
 }

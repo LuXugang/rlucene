@@ -108,21 +108,28 @@ where
           .byte_count(self.packed_ints_version, remaining, self.bits_per_value);
       let blocks_to_read = remaining_blocks.min(self.next_blocks.len());
       debug_assert!(blocks_to_read <= i32::MAX as usize);
-      self
-        .data_input
-        .read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read)?;
-
-      if blocks_to_read < self.next_blocks.len() {
+      if blocks_to_read == self.next_blocks.len() {
+        let blocks = self.data_input.get_bytes(blocks_to_read)?;
+        self.bulk_operation.decode_u8_to_i64(
+          &blocks,
+          0,
+          self.next_values.longs.as_mut_slice(),
+          0,
+          self.iterations,
+        );
+      } else {
+        self
+          .data_input
+          .read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read)?;
         self.next_blocks[blocks_to_read..].fill(0);
+        self.bulk_operation.decode_u8_to_i64(
+          &self.next_blocks,
+          0,
+          self.next_values.longs.as_mut_slice(),
+          0,
+          self.iterations,
+        );
       }
-
-      self.bulk_operation.decode_u8_to_i64(
-        &self.next_blocks,
-        0,
-        self.next_values.longs.as_mut_slice(),
-        0,
-        self.iterations,
-      );
 
       self.next_values.offset = 0;
     }

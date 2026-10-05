@@ -17,7 +17,7 @@
 use crate::core::store::index_input::IndexInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-const SKIP_BUFFER_SIZE: usize = 1024;
+pub(crate) const SKIP_BUFFER_SIZE: usize = 1024;
 /// An extension of [`IndexInput`] that computes a checksum as it reads data.
 /// Callers can retrieve the checksum using the `get_checksum` method from the
 /// implemented trait.

@@ -72,6 +72,7 @@ pub struct ByteBuffersDataInput<B> {
   length: usize,
   offset: usize,
   pos: usize,
+  scratch: Vec<u8>,
 }
 /// Reads data from a set of contiguous buffers.
 /// All data buffers except for the last one must have an identical number of
@@ -103,6 +104,7 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
       length,
       offset,
       pos: offset,
+      scratch: Vec::new(),
     })
   }
   fn block_index(&self, pos: usize) -> usize {
@@ -383,9 +385,14 @@ where
         &self.blocks[block_index].get_ref().as_slice()[block_offset..block_offset + len],
       ));
     }
-    let mut bytes = vec![0; len];
-    self.read_bytes(&mut bytes, 0, len)?;
-    Ok(std::borrow::Cow::Owned(bytes))
+    let mut bytes = std::mem::take(&mut self.scratch);
+    if bytes.len() < len {
+      bytes.resize(len, 0);
+    }
+    let result = self.read_bytes(&mut bytes, 0, len);
+    self.scratch = bytes;
+    result?;
+    Ok(std::borrow::Cow::Borrowed(&self.scratch[..len]))
   }
 
   fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
@@ -655,7 +662,7 @@ where
 
 impl Accountable for ByteBuffersDataInput<Vec<u8>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.blocks);
+    let mut size = size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch));
     for block in &self.blocks {
       size = size.saturating_add(size_of_vec(block.get_ref()));
     }
@@ -665,13 +672,13 @@ impl Accountable for ByteBuffersDataInput<Vec<u8>> {
 
 impl Accountable for ByteBuffersDataInput<&[u8]> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(size_of_vec(&self.blocks))
+    Ok(size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch)))
   }
 }
 
 impl Accountable for ByteBuffersDataInput<Rc<Vec<u8>>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.blocks);
+    let mut size = size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch));
     for block in &self.blocks {
       size = size
         .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)
@@ -683,7 +690,7 @@ impl Accountable for ByteBuffersDataInput<Rc<Vec<u8>>> {
 
 impl Accountable for ByteBuffersDataInput<Arc<Vec<u8>>> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.blocks);
+    let mut size = size_of_vec(&self.blocks).saturating_add(size_of_vec(&self.scratch));
     for block in &self.blocks {
       size = size
         .saturating_add(std::mem::size_of_val(block.get_ref().as_ref()) as i64)
