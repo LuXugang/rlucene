@@ -26,11 +26,12 @@ use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::index::{BytesRef, BytesRefBuilder, DocIDMerger, Sub, SubBase, of};
+use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -302,21 +303,24 @@ impl TermVectorsWriterDefaults {
   {
     let mut position = 0;
     let mut last_offset = 0;
-    let mut payload: Option<BytesRefBuilder<Vec<u8>>> = None;
 
     for _ in 0..num_prox {
+      let bytes;
       let this_payload = if let Some(pos_input) = positions.as_mut() {
         let code = pos_input.read_vint()?;
         position += (code as u32 >> 1) as i32;
 
         if code & 1 != 0 {
           let payload_len = pos_input.read_vint()? as usize;
-
-          let builder = payload.get_or_insert_with(BytesRefBuilder::new);
-          builder.grow_no_copy(payload_len)?;
-          pos_input.read_bytes(&mut builder.bytes_ref.bytes, 0, payload_len)?;
-          builder.set_length(payload_len);
-          Some(builder.get_bytes_ref())
+          if payload_len > ArrayUtil::MAX_ARRAY_LENGTH {
+            ArrayUtil::oversize(payload_len, 1)?;
+          }
+          bytes = pos_input.get_bytes(payload_len)?;
+          Some(BytesRef {
+            bytes: bytes.as_ref(),
+            offset: 0,
+            length: payload_len,
+          })
         } else {
           None
         }
@@ -334,7 +338,6 @@ impl TermVectorsWriterDefaults {
         (-1, -1)
       };
 
-      let this_payload = this_payload.map(BytesRefValue::as_bytes_ref);
       writer.add_position(position, start_offset, end_offset, this_payload.as_ref())?;
     }
 
