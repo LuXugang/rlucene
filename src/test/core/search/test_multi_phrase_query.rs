@@ -121,7 +121,7 @@ fn test_phrase_prefix() -> Result<()> {
     let term_bytes = te.term()?;
     let s = term_bytes.utf8_to_string()?;
     if s.starts_with(prefix) {
-      terms_with_prefix.push(Term::from_text("body", &s));
+      terms_with_prefix.push(Term::from_text("body", s));
     } else {
       break;
     }
@@ -163,7 +163,7 @@ fn test_phrase_prefix() -> Result<()> {
     let term_bytes = te.term()?;
     let s = term_bytes.utf8_to_string()?;
     if s.starts_with(prefix) {
-      terms_with_prefix.push(Term::from_text("body", &s));
+      terms_with_prefix.push(Term::from_text("body", s));
     } else {
       break;
     }

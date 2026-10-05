@@ -53,7 +53,7 @@ fn verify_vectors<F: Fields>(vectors: &F, num: i32) -> Result<()> {
 fn verify_vector<TE: TermsEnum>(terms_enum: &mut TE, num: i32) -> Result<()> {
   let mut temp = String::new();
   while terms_enum.next()?.is_some() {
-    temp.push_str(&terms_enum.term()?.utf8_to_string()?);
+    temp.push_str(terms_enum.term()?.utf8_to_string()?);
   }
   assert_eq!(English::int_to_english(num).trim(), temp.trim());
   Ok(())
