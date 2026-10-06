@@ -56,6 +56,19 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
   }
 
   fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    if len > 1 && self.pos >= 0 {
+      let pos = self.pos as usize;
+      let end = (pos & crate::core::util::byte_block_pool::BYTE_BLOCK_MASK as usize) + 1;
+      let block = pos >> crate::core::util::BYTE_BLOCK_SHIFT;
+      if len <= end && self.buf.buffer_upto.is_some_and(|last| block <= last) {
+        let buffer = self.buf.get_buffer(block);
+        if let Some(range) = buffer.get(end - len..end) {
+          let bytes = range.iter().rev().copied().collect::<Vec<u8>>();
+          self.pos -= len as i64;
+          return Ok(std::borrow::Cow::Owned(bytes));
+        }
+      }
+    }
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(std::borrow::Cow::Owned(bytes))
