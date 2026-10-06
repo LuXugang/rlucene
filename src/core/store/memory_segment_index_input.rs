@@ -114,6 +114,8 @@ pub struct MemorySegmentIndexInput {
   resource_desc_suffix: ResourceDescriptionSuffix,
   #[cfg(unix)]
   native_access: PosixNativeAccess,
+  // Cross-segment results borrow this input's reusable destination buffer.
+  scratch: Vec<u8>,
 }
 
 /// A random slice owns an independent input, including the private cursor that
@@ -537,6 +539,7 @@ impl MemorySegmentIndexInput {
       consecutive_prefetch_hit_count: AtomicI32::new(0),
       #[cfg(unix)]
       native_access,
+      scratch: Vec::new(),
     })
   }
   fn file_pointer(&self) -> usize {
@@ -572,6 +575,7 @@ impl MemorySegmentIndexInput {
       consecutive_prefetch_hit_count: AtomicI32::new(0),
       #[cfg(unix)]
       native_access: self.native_access,
+      scratch: Vec::new(),
     }
   }
   // Primitive arrays use byte copies on little-endian targets; this helper
@@ -854,9 +858,18 @@ impl DataInput for MemorySegmentIndexInput {
       *self.position.get_mut() = len;
       return Ok(Cow::Borrowed(&self.state.get_mut().current_slice()[..len]));
     }
-    let mut bytes = vec![0; len];
-    self.read_bytes(&mut bytes, 0, len)?;
-    Ok(Cow::Owned(bytes))
+    if self.scratch.len() < len {
+      self.scratch = vec![0; len];
+    }
+    // The current range check already ruled out readBytes's single-segment path.
+    Self::read_bytes_from_segments(
+      &self.file,
+      (self.start, self.length, self.power),
+      self.state.get_mut(),
+      self.position.get_mut(),
+      (&mut self.scratch, 0, len),
+    )?;
+    Ok(Cow::Borrowed(&self.scratch[..len]))
   }
 
   #[inline]
