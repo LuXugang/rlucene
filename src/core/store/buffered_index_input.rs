@@ -671,6 +671,46 @@ where
       return Ok(std::borrow::Cow::Borrowed(&state.buffer.get_ref()[..len]));
     }
     let mut bytes = vec![0; len];
+    let state = self.state.get_mut();
+    let available =
+      if state.pos >= state.buffer_start && state.pos < state.buffer_start + state.length {
+        state.length - (state.pos - state.buffer_start)
+      } else {
+        0
+      };
+    let remaining = len - available;
+    if len > 0 && remaining >= self.buffer_size {
+      debug_assert!(state.buffer.position() <= u32::MAX as u64);
+      let after = state.buffer_start + (state.length + remaining);
+      if after > self.sub_index_input.length() {
+        return Err(LuceneError::eof(format!(
+          "read past EOF: BufferedIndexInput({})",
+          self.resource_desc
+        )));
+      }
+      // Reuse the final owner as the large-read temporary. Present the same
+      // zero-filled range and cursor to the underlying input, then prepend
+      // the already cached bytes after the read succeeds.
+      bytes.truncate(remaining);
+      let mut output = Cursor::new(bytes);
+      self.sub_index_input.read_internal(
+        &mut output,
+        remaining,
+        state.buffer_start + state.length,
+      )?;
+      debug_assert!(output.position() == remaining as u64);
+      let mut bytes = output.into_inner();
+      bytes.resize(len, 0);
+      if available > 0 {
+        bytes.copy_within(..remaining, available);
+        let offset = state.pos - state.buffer_start;
+        bytes[..available].copy_from_slice(&state.buffer.get_ref()[offset..offset + available]);
+      }
+      state.buffer_start = after;
+      state.length = 0;
+      state.pos += len;
+      return Ok(std::borrow::Cow::Owned(bytes));
+    }
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(std::borrow::Cow::Owned(bytes))
   }
