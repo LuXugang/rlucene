@@ -115,11 +115,8 @@ where
     let num_leaves = meta_in.read_vint()?;
     debug_assert!(num_leaves > 0);
     let packed_index_bytes_length = config.packed_index_bytes_length();
-    let mut min_packed_value = vec![0; packed_index_bytes_length];
-    let mut max_packed_value = vec![0; packed_index_bytes_length];
-
-    DataInput::read_bytes(meta_in, &mut min_packed_value, 0, packed_index_bytes_length)?;
-    DataInput::read_bytes(meta_in, &mut max_packed_value, 0, packed_index_bytes_length)?;
+    let min_packed_value = meta_in.get_bytes(packed_index_bytes_length)?.into_owned();
+    let max_packed_value = meta_in.get_bytes(packed_index_bytes_length)?.into_owned();
 
     let bytes_per_dim = config.bytes_per_dim;
     let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
