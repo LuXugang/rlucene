@@ -510,6 +510,28 @@ impl DataInput for PagedBytesDataInput {
         &self.blocks[self.current_block_index][..len],
       ));
     }
+    if let Some(block_left) = self.block_size.checked_sub(offset)
+      && block_left < len
+      && len - block_left <= self.block_size
+      && let Some(first) = self
+        .blocks
+        .get(self.current_block_index)
+        .and_then(|block| block.get(offset..self.block_size))
+      && self
+        .current_block_index
+        .checked_add(1)
+        .and_then(|index| self.blocks.get(index))
+        .is_some_and(|block| len - block_left <= block.len())
+    {
+      // A cross-page result needs its own bytes. Fill that owner directly
+      // instead of initializing bytes that the successful read overwrites.
+      let second_len = len - block_left;
+      let second = &self.blocks[self.current_block_index + 1][..second_len];
+      let bytes = [first, second].concat();
+      self.next_block();
+      self.current_block_upto = second_len;
+      return Ok(std::borrow::Cow::Owned(bytes));
+    }
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(std::borrow::Cow::Owned(bytes))
