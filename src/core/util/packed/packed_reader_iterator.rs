@@ -141,14 +141,27 @@ where
         self
           .data_input
           .read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read)?;
-        self.next_blocks[blocks_to_read..].fill(0);
+        let iterations = if blocks_to_read
+          <= self.next_blocks.len() - self.bulk_operation.byte_block_count()
+          && self.next_values.longs.len()
+            == self.iterations * self.bulk_operation.byte_value_count()
+        {
+          blocks_to_read.div_ceil(self.bulk_operation.byte_block_count())
+        } else {
+          self.iterations
+        };
+        self.next_blocks[blocks_to_read..iterations * self.bulk_operation.byte_block_count()]
+          .fill(0);
         self.bulk_operation.decode_u8_to_i64(
           &self.next_blocks,
           0,
           self.next_values.longs.as_mut_slice(),
           0,
-          self.iterations,
+          iterations,
         );
+        if iterations < self.iterations {
+          self.next_values.longs[iterations * self.bulk_operation.byte_value_count()..].fill(0);
+        }
       }
 
       self.next_values.offset = 0;
