@@ -117,6 +117,26 @@ where
           0,
           self.iterations,
         );
+      } else if blocks_to_read.is_multiple_of(self.bulk_operation.byte_block_count())
+        && self.next_values.longs.len() == self.iterations * self.bulk_operation.byte_value_count()
+      {
+        let iterations = blocks_to_read / self.bulk_operation.byte_block_count();
+        let blocks = if blocks_to_read <= self.next_blocks.len() / 2 {
+          self.data_input.get_bytes(blocks_to_read)?
+        } else {
+          self
+            .data_input
+            .read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read)?;
+          std::borrow::Cow::Borrowed(&self.next_blocks[..blocks_to_read])
+        };
+        self.bulk_operation.decode_u8_to_i64(
+          &blocks,
+          0,
+          self.next_values.longs.as_mut_slice(),
+          0,
+          iterations,
+        );
+        self.next_values.longs[iterations * self.bulk_operation.byte_value_count()..].fill(0);
       } else {
         self
           .data_input
