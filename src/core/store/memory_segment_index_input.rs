@@ -1396,6 +1396,17 @@ impl RandomAccessInput for MemorySegmentIndexInput {
     if let Some(bytes) = segment.get(offset..).and_then(|s| s.get(..len)) {
       return Ok(Cow::Borrowed(bytes));
     }
+    if let Some(first) = segment.get(offset..)
+      && len > first.len()
+      && let Some(second) = self
+        .segment(index + 1)
+        .and_then(|bytes| bytes.get(..len - first.len()))
+    {
+      let mut bytes = Vec::with_capacity(len);
+      bytes.extend_from_slice(first);
+      bytes.extend_from_slice(second);
+      return Ok(Cow::Owned(bytes));
+    }
     let mut bytes = vec![0; len];
     let mut state = SegmentState {
       index,
