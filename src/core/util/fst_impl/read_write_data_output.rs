@@ -225,6 +225,32 @@ impl DataInput for BytesReaderImpl {
   }
 
   fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    // A complete physical block needs only one reverse copy into the final owner.
+    // Requests that may fail part-way retain the ordinary byte-by-byte path.
+    if len > 1 && self.block_size > 0 {
+      let (current, next_read) = match self.next_read {
+        Some(next_read) => (Some(self.current), next_read),
+        None => (self.next_buffer, (self.block_size - 1) as usize),
+      };
+      if let Some(end) = next_read.checked_add(1)
+        && len <= end
+        && let Some(current) = current
+        && let Some(buffer) = self.byte_buffers.get(current)
+        && end <= buffer.len()
+      {
+        let bytes = buffer[end - len..end]
+          .iter()
+          .rev()
+          .copied()
+          .collect::<Vec<u8>>();
+        if self.next_read.is_none() {
+          self.current = current;
+          self.next_buffer = current.checked_sub(1);
+        }
+        self.next_read = next_read.checked_sub(len);
+        return Ok(std::borrow::Cow::Owned(bytes));
+      }
+    }
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(std::borrow::Cow::Owned(bytes))
