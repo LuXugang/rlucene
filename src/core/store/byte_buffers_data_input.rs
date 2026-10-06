@@ -386,10 +386,38 @@ where
       ));
     }
     let mut bytes = std::mem::take(&mut self.scratch);
-    if bytes.len() < len {
-      bytes.resize(len, 0);
-    }
-    let result = self.read_bytes(&mut bytes, 0, len);
+    let result = if bytes.len() < len && bytes.capacity() > 0 && len / 2 >= bytes.capacity() {
+      bytes = Vec::with_capacity(len);
+      let mut pos = self.pos;
+      let mut remaining = len;
+      let result = loop {
+        let block_index = self.block_index(pos);
+        let block_offset = self.block_offset(pos);
+        if block_index >= self.blocks.len() || pos + remaining > self.length + self.offset {
+          break Err(LuceneError::eof(format!("{pos}")));
+        }
+        let block_bytes = self.blocks[block_index].get_ref().as_slice();
+        let chunk = remaining.min(block_bytes.len().saturating_sub(block_offset));
+        if chunk == 0 {
+          break Err(LuceneError::eof(format!("{pos}")));
+        }
+        bytes.extend_from_slice(&block_bytes[block_offset..block_offset + chunk]);
+        pos += chunk;
+        remaining -= chunk;
+        if remaining == 0 {
+          break Ok(());
+        }
+      };
+      if result.is_ok() {
+        self.pos += len;
+      }
+      result
+    } else {
+      if bytes.len() < len {
+        bytes.resize(len, 0);
+      }
+      self.read_bytes(&mut bytes, 0, len)
+    };
     self.scratch = bytes;
     result?;
     Ok(std::borrow::Cow::Borrowed(&self.scratch[..len]))
