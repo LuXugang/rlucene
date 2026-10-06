@@ -46,6 +46,21 @@ impl DataInput for ReverseBytesReader {
   }
 
   fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
+    // Copy complete multi-byte results directly in reverse order.
+    // Keep the ordinary per-byte path for requests that may fail part-way.
+    if len > 1
+      && let Ok(end) = usize::try_from(self.pos)
+      && end < self.bytes.len()
+      && len <= end + 1
+    {
+      let bytes = self.bytes[end + 1 - len..=end]
+        .iter()
+        .rev()
+        .copied()
+        .collect::<Vec<u8>>();
+      self.pos -= len as i64;
+      return Ok(std::borrow::Cow::Owned(bytes));
+    }
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
     Ok(std::borrow::Cow::Owned(bytes))
