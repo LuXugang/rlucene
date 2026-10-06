@@ -532,8 +532,27 @@ impl DataInput for PagedBytesDataInput {
       self.current_block_upto = second_len;
       return Ok(std::borrow::Cow::Owned(bytes));
     }
-    let mut bytes = vec![0; len];
-    self.read_bytes(&mut bytes, 0, len)?;
+    // Longer reads still need an independent owner. Append each page's
+    // bytes directly, retaining the read_bytes page and failure transitions.
+    let mut bytes = Vec::with_capacity(len);
+    let mut left = len;
+    loop {
+      let block = &self.blocks[self.current_block_index];
+      let block_left = self.block_size - self.current_block_upto;
+      if block_left < left {
+        bytes.extend_from_slice(
+          &block[self.current_block_upto..self.current_block_upto + block_left],
+        );
+        self.next_block();
+        left -= block_left;
+      } else {
+        bytes.extend_from_slice(
+          &block[self.current_block_upto..self.current_block_upto + left],
+        );
+        self.current_block_upto += left;
+        break;
+      }
+    }
     Ok(std::borrow::Cow::Owned(bytes))
   }
 
