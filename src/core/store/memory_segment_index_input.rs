@@ -859,7 +859,11 @@ impl DataInput for MemorySegmentIndexInput {
       return Ok(Cow::Borrowed(&self.state.get_mut().current_slice()[..len]));
     }
     if self.scratch.len() < len {
-      self.scratch = vec![0; len];
+      if len / 2 >= self.scratch.capacity() {
+        self.scratch = vec![0; len];
+      } else {
+        self.scratch.resize(len, 0);
+      }
     }
     // The current range check already ruled out readBytes's single-segment path.
     Self::read_bytes_from_segments(
