@@ -466,8 +466,7 @@ where
     )));
   }
   let num_bytes = num_bytes as usize;
-  let mut buffer = vec![0u8; num_bytes];
-  input.read_bytes(&mut buffer, 0, num_bytes)?;
+  let buffer = input.get_bytes(num_bytes)?.into_owned();
   Ok(BytesRef::from_slice(buffer, 0, num_bytes))
 }
 fn sort_field_names<I, PR>(
