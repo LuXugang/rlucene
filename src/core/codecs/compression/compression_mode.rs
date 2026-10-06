@@ -457,7 +457,12 @@ impl Decompressor for DeflateDecompressor {
     let compressed_length = compressed_length as usize;
     let padded_length = compressed_length + 1;
     ArrayUtil::grow_no_copy(&mut self.compressed, padded_length)?;
-    input.read_bytes(&mut self.compressed, 0, compressed_length)?;
+    // Keep the original failure path for a wrapped negative length.
+    if padded_length == 0 {
+      input.read_bytes(&mut self.compressed, 0, compressed_length)?;
+      self.compressed[compressed_length] = 0;
+    }
+    let compressed = input.get_bytes(compressed_length)?;
     self.compressed[compressed_length] = 0;
 
     bytes.offset = 0;
@@ -465,13 +470,23 @@ impl Decompressor for DeflateDecompressor {
     let output_length = original_length as usize;
     ArrayUtil::grow_no_copy(&mut bytes.bytes, output_length)?;
     let mut decoder = Decompress::new(false);
-    let status = decoder
+    let mut status = decoder
       .decompress(
-        &self.compressed[..padded_length],
+        &compressed,
         &mut bytes.bytes[..output_length],
         FlushDecompress::Finish,
       )
       .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
+    if status != Status::StreamEnd && decoder.total_in() == compressed_length as u64 {
+      let produced = decoder.total_out() as usize;
+      status = decoder
+        .decompress(
+          &self.compressed[compressed_length..padded_length],
+          &mut bytes.bytes[produced..output_length],
+          FlushDecompress::Finish,
+        )
+        .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
+    }
     bytes.length = decoder.total_out() as usize;
     if status != Status::StreamEnd {
       return Err(LuceneError::corrupt_index(format!(
