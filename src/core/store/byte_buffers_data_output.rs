@@ -178,24 +178,47 @@ impl ByteBuffersDataOutput {
     while let Some(mut old_block) = self.blocks.pop_front() {
       // read from head
       old_block.set_position(0);
-      while old_block.remain()? > 0 {
-        let mut available_space = new_block.remain()?;
-        if available_space == 0 {
-          self.blocks.push_back(new_block);
-          new_block = Cursor::new(vec![0; block_size]);
-          available_space = 1 << self.block_bits;
+      if new_block.remain()? == 0 && old_block.get_ref().len() <= block_size {
+        self.blocks.push_back(new_block);
+        // This block has a unique owner. Grow it into the next destination
+        // instead of copying its existing bytes into a newly allocated block.
+        let old_length = old_block.get_ref().len();
+        let mut bytes = old_block.into_inner();
+        bytes.reserve_exact(block_size - old_length);
+        // All source blocks have the same physical size. Append whole blocks
+        // before initializing the unused tail of the final destination.
+        while old_block_count > 1 && bytes.len() + old_length <= block_size {
+          let following = self
+            .blocks
+            .pop_front()
+            .ok_or_else(|| LuceneError::illegal_state("rewrite source block is missing"))?;
+          bytes.extend_from_slice(following.get_ref());
+          old_block_count -= 1;
         }
-        let bytes_to_copy = available_space.min(old_block.remain()?);
-        let old_position = old_block.position() as usize;
-        let old_data = &old_block.get_ref()[old_position..old_position + bytes_to_copy];
-        debug_assert!(
-          new_block.remain()? >= bytes_to_copy,
-          "Insufficient space in new_block: remaining={}, required={}",
-          new_block.remain()?,
-          bytes_to_copy
-        );
-        new_block.write_from_slice(old_data)?;
-        old_block.set_position((old_position + bytes_to_copy) as u64);
+        let position = bytes.len();
+        bytes.resize(block_size, 0);
+        new_block = Cursor::new(bytes);
+        new_block.set_position(position as u64);
+      } else {
+        while old_block.remain()? > 0 {
+          let mut available_space = new_block.remain()?;
+          if available_space == 0 {
+            self.blocks.push_back(new_block);
+            new_block = Cursor::new(vec![0; block_size]);
+            available_space = 1 << self.block_bits;
+          }
+          let bytes_to_copy = available_space.min(old_block.remain()?);
+          let old_position = old_block.position() as usize;
+          let old_data = &old_block.get_ref()[old_position..old_position + bytes_to_copy];
+          debug_assert!(
+            new_block.remain()? >= bytes_to_copy,
+            "Insufficient space in new_block: remaining={}, required={}",
+            new_block.remain()?,
+            bytes_to_copy
+          );
+          new_block.write_from_slice(old_data)?;
+          old_block.set_position((old_position + bytes_to_copy) as u64);
+        }
       }
       old_block_count -= 1;
       if old_block_count == 0 {
