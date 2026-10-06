@@ -160,7 +160,19 @@ fn output_as_one_buffer(
   file_name: &str,
   mut output: ByteBuffersDataOutput,
 ) -> Result<ByteBuffersIndexInputOwned> {
-  let bytes = output.try_get_array_ownership();
+  let bytes = if output.buffer_slices().count() == 1 {
+    // The output is consumed here: transfer its sole block without allocating
+    // a replacement buffer that would be dropped immediately afterward.
+    let (length, mut buffers) = output.to_buffer_list_owner(false);
+    let mut bytes = buffers
+      .pop()
+      .ok_or_else(|| LuceneError::illegal_state("transferred output block is missing"))?
+      .into_inner();
+    bytes.truncate(length);
+    bytes
+  } else {
+    output.try_get_array_ownership()
+  };
   let length = bytes.len();
   let data_input = ByteBuffersDataInput::new(vec![Cursor::new(Arc::new(bytes))], length)?;
   let input_name = format!(
