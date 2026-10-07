@@ -66,7 +66,6 @@ use crate::core::util::packed::direct_reader::DirectReader;
 use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, ReaderIterator};
 use crate::core::util::{ToInt, TryIntoInt};
-use std::borrow::Cow;
 use std::io::Cursor;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -347,10 +346,12 @@ where
       Ok(())
     }
   }
-  fn slice(input: &mut I) -> Result<(Cow<'_, [u8]>, usize)> {
+  fn slice(input: &mut I) -> Result<Vec<u8>> {
     let length = input.read_vint()?.try_convert()?;
-    let buf = input.get_bytes(length)?;
-    Ok((buf, length))
+    // Only retained metadata uses this helper; fill its final independent owner.
+    let mut buf = vec![0; length];
+    input.read_bytes(&mut buf, 0, length)?;
+    Ok(buf)
   }
   pub(crate) fn is_loaded(&self, doc_id: i32) -> bool {
     let bs = &self.block_state;
@@ -558,15 +559,17 @@ where
     let mut field_num_offs = vec![0; num_fields];
     let flags = {
       let bits_per_off = bits_required((field_nums.len() - 1) as i64)?;
-      let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+      let bytes = Self::slice(&mut self.vectors_stream)?;
+      let length = bytes.len();
       let all_field_num_offs = DirectReader::get_instance(
-        ByteBuffersDataInput::new(vec![Cursor::new(bytes.into_owned())], length)?,
+        ByteBuffersDataInput::new(vec![Cursor::new(bytes)], length)?,
         bits_per_off,
       )?;
       let v = self.vectors_stream.read_vint()?;
       let flags = match v {
         0 => {
-          let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+          let length = self.vectors_stream.read_vint()?.try_convert()?;
+          let bytes = self.vectors_stream.get_bytes(length)?;
           let field_flags = DirectReader::get_instance(
             ByteBuffersDataInput::new(vec![Cursor::new(bytes.as_ref())], length)?,
             *FLAGS_BITS,
@@ -582,9 +585,10 @@ where
           DirectReader::get_instance(out.get_data_input_owner(false)?, *FLAGS_BITS)?
         },
         1 => {
-          let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+          let bytes = Self::slice(&mut self.vectors_stream)?;
+          let length = bytes.len();
           DirectReader::get_instance(
-            ByteBuffersDataInput::new(vec![Cursor::new(bytes.into_owned())], length)?,
+            ByteBuffersDataInput::new(vec![Cursor::new(bytes)], length)?,
             *FLAGS_BITS,
           )?
         },
@@ -603,7 +607,8 @@ where
     // number of terms per field for all fields
     let (num_terms, total_terms) = {
       let bits_required = self.vectors_stream.read_vint()?;
-      let (bytes, length) = Self::slice(&mut self.vectors_stream)?;
+      let length = self.vectors_stream.read_vint()?.try_convert()?;
+      let bytes = self.vectors_stream.get_bytes(length)?;
       let packed_num_terms = DirectReader::get_instance(
         ByteBuffersDataInput::new(vec![Cursor::new(bytes.as_ref())], length)?,
         bits_required,
