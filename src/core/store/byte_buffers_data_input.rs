@@ -609,8 +609,25 @@ where
     {
       return Ok(std::borrow::Cow::Borrowed(bytes));
     }
-    let mut bytes = vec![0; len];
-    self.do_read_bytes(absolute_pos, len, &mut bytes)?;
+    let mut bytes = Vec::with_capacity(len);
+    while bytes.len() < len {
+      let pos = absolute_pos + bytes.len();
+      let remaining = len - bytes.len();
+      let block_index = self.block_index(pos);
+      let block_offset = self.block_offset(pos);
+      if block_index >= self.blocks.len() || pos + remaining > self.length + self.offset {
+        return Err(LuceneError::eof(format!("{pos}")));
+      }
+      let block = self.blocks.get(block_index).ok_or_else(|| {
+        LuceneError::eof(format!("missing block {block_index} at position {pos}"))
+      })?;
+      let block_bytes = block.get_ref().as_slice();
+      let chunk = remaining.min(block_bytes.len().saturating_sub(block_offset));
+      if chunk == 0 {
+        return Err(LuceneError::eof(format!("{pos}")));
+      }
+      bytes.extend_from_slice(&block_bytes[block_offset..block_offset + chunk]);
+    }
     Ok(std::borrow::Cow::Owned(bytes))
   }
 
