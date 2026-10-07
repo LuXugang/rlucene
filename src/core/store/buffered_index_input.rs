@@ -688,21 +688,19 @@ where
           self.resource_desc
         )));
       }
-      // Reuse the final owner as the large-read temporary. Present the same
-      // zero-filled range and cursor to the underlying input, then prepend
-      // the already cached bytes after the read succeeds.
-      bytes.truncate(remaining);
+      // Read the suffix at its final offset so the cached prefix does not
+      // require moving the newly read bytes after the input succeeds.
       let mut output = Cursor::new(bytes);
+      output.set_position(available as u64);
       self.sub_index_input.read_internal(
         &mut output,
         remaining,
         state.buffer_start + state.length,
       )?;
-      debug_assert!(output.position() == remaining as u64);
+      debug_assert!(output.position() == len as u64);
       let mut bytes = output.into_inner();
       bytes.resize(len, 0);
       if available > 0 {
-        bytes.copy_within(..remaining, available);
         let offset = state.pos - state.buffer_start;
         bytes[..available].copy_from_slice(&state.buffer.get_ref()[offset..offset + available]);
       }
