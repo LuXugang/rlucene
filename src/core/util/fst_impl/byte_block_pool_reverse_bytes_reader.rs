@@ -69,8 +69,24 @@ impl DataInput for ByteBlockPoolReverseBytesReader {
         }
       }
     }
-    let mut bytes = vec![0; len];
-    self.read_bytes(&mut bytes, 0, len)?;
+    let mut bytes = Vec::with_capacity(len);
+    while bytes.len() < len {
+      if self.pos >= 0 {
+        let pos = self.pos as usize;
+        let end = (pos & crate::core::util::byte_block_pool::BYTE_BLOCK_MASK as usize) + 1;
+        let block = pos >> crate::core::util::BYTE_BLOCK_SHIFT;
+        let buffer = self.buf.get_buffer(block);
+        let count = (len - bytes.len())
+          .min(end)
+          .min(bytes.capacity() - bytes.len());
+        if let Some(range) = buffer.get(end - count..end) {
+          bytes.extend(range.iter().rev().copied());
+          self.pos -= count as i64;
+          continue;
+        }
+      }
+      bytes.extend(std::iter::once(self.read_byte()?).take(bytes.capacity() - bytes.len()));
+    }
     Ok(std::borrow::Cow::Owned(bytes))
   }
 
