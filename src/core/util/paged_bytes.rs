@@ -540,15 +540,12 @@ impl DataInput for PagedBytesDataInput {
       let block = &self.blocks[self.current_block_index];
       let block_left = self.block_size - self.current_block_upto;
       if block_left < left {
-        bytes.extend_from_slice(
-          &block[self.current_block_upto..self.current_block_upto + block_left],
-        );
+        bytes
+          .extend_from_slice(&block[self.current_block_upto..self.current_block_upto + block_left]);
         self.next_block();
         left -= block_left;
       } else {
-        bytes.extend_from_slice(
-          &block[self.current_block_upto..self.current_block_upto + left],
-        );
+        bytes.extend_from_slice(&block[self.current_block_upto..self.current_block_upto + left]);
         self.current_block_upto += left;
         break;
       }

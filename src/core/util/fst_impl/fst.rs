@@ -1470,7 +1470,20 @@ where
     // 1 KB blocks:
     let mut empty_bytes = get_on_heap_reader_writer(10)?;
     let num_bytes = meta_in.read_vint()?;
-    empty_bytes.copy_bytes(meta_in, num_bytes as usize)?;
+    if num_bytes <= 0 || num_bytes > crate::core::store::data_output::COPY_BUFFER_SIZE as i32 {
+      empty_bytes.copy_bytes(meta_in, num_bytes as usize)?;
+    } else {
+      // This temporary store uses a contiguous reader with the encoded length.
+      // Build its final owner directly, preserving the same get_bytes request.
+      let bytes = match meta_in.get_bytes(num_bytes as usize)? {
+        std::borrow::Cow::Owned(mut bytes) if bytes.len() >= num_bytes as usize => {
+          bytes.truncate(num_bytes as usize);
+          bytes
+        },
+        bytes => bytes[..num_bytes as usize].to_vec(),
+      };
+      empty_bytes.byte_buffer = Some(Rc::new(bytes));
+    }
     empty_bytes.freeze()?;
     empty_bytes.init_reader();
     // De-serialize empty-string output:
