@@ -860,6 +860,39 @@ impl DataInput for MemorySegmentIndexInput {
     }
     if self.scratch.len() < len {
       if len / 2 >= self.scratch.capacity() {
+        // Avoid zeroing a replacement that will be overwritten in full. Short
+        // requests and requests spanning many mappings keep the original path.
+        if len >= 4096 && len <= (1usize << self.power) {
+          self.scratch = Vec::with_capacity(len);
+          let mut remaining = len;
+          loop {
+            let state = self.state.get_mut();
+            let available = state
+              .current
+              .len()
+              .checked_sub(*self.position.get_mut())
+              .ok_or_else(|| LuceneError::array_index_out_of_bounds("source position out of bounds"))?;
+            let chunk = remaining.min(available);
+            self.scratch.extend_from_slice(
+              state
+                .current_range(*self.position.get_mut(), chunk)
+                .ok_or_else(Self::eof)?,
+            );
+            if remaining <= available {
+              *self.position.get_mut() += remaining;
+              return Ok(Cow::Borrowed(self.scratch.as_slice()));
+            }
+            remaining -= available;
+            Self::advance_segment(state);
+            let range = (self.start, self.length, self.power);
+            let last = ((range.0 & ((1usize << range.2) - 1)) + range.1) >> range.2;
+            if state.index > last {
+              return Err(Self::eof());
+            }
+            Self::load_segment(&self.file, range, state, state.index)?;
+            *self.position.get_mut() = 0;
+          }
+        }
         self.scratch = vec![0; len];
       } else {
         self.scratch.resize(len, 0);
