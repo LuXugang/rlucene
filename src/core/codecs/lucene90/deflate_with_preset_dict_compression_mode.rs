@@ -74,13 +74,13 @@ impl CompressionModeBase for DeflateWithPresetDictCompressionMode {
 }
 
 pub struct DeflateWithPresetDictDecompressor {
-  compressed: Vec<u8>,
+  compressed: [u8; 1],
 }
 
 impl DeflateWithPresetDictDecompressor {
   fn new() -> Self {
     Self {
-      compressed: Vec::new(),
+      compressed: [0],
     }
   }
 
@@ -107,9 +107,10 @@ impl DeflateWithPresetDictDecompressor {
     // DEFLATE decompressor. We do it for compliance, but it has been
     // unnecessary in zlib for years.
     let padded_length = compressed_length + 1;
-    ArrayUtil::grow_no_copy(&mut self.compressed, padded_length)?;
+    // Preserve the original length error before reading the payload.
+    ArrayUtil::oversize(padded_length, 1)?;
     let compressed = input.get_bytes(compressed_length)?;
-    self.compressed[compressed_length] = 0; // Explicitly set dummy byte to 0
+    self.compressed[0] = 0; // Explicitly set dummy byte to 0 after the payload read
 
     // Extra "dummy byte"
     let total_out = decompressor.total_out();
@@ -126,7 +127,7 @@ impl DeflateWithPresetDictDecompressor {
       let produced = (decompressor.total_out() - total_out) as usize;
       status = decompressor
         .decompress(
-          &self.compressed[compressed_length..padded_length],
+          &self.compressed,
           &mut bytes.bytes[bytes.length + produced..],
           FlushDecompress::Finish,
         )
