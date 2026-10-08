@@ -22,6 +22,8 @@ use crate::core::index::doc_values_field_updates::{
 };
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::CoreHelper;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -30,6 +32,12 @@ use crate::core::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::mem::size_of_val;
+
+type BinaryDocValuesRanges = (
+  AbstractPagedMutable<PagedGrowableWriter>,
+  AbstractPagedMutable<PagedGrowableWriter>,
+  BytesRef<Vec<u8>>,
+);
 
 /// A [`DocValuesFieldUpdates`](crate::core::index::doc_values_field_updates::DocValuesFieldUpdates) which holds updates for documents of a single [`BinaryDocValuesField`](crate::core::document::binary_doc_values_field::BinaryDocValuesField).
 ///
@@ -40,12 +48,7 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
   lengths: AbstractPagedMutable<PagedGrowableWriter>,
   values: BytesRefBuilder<Vec<u8>>,
 
-  ranges_iter: Option<
-    Arc<(
-      AbstractPagedMutable<PagedGrowableWriter>,
-      AbstractPagedMutable<PagedGrowableWriter>,
-    )>,
-  >,
+  ranges_iter: Option<Arc<BinaryDocValuesRanges>>,
 }
 impl BinaryDocValuesFieldUpdates {
   pub(crate) fn new() -> Result<BinaryDocValuesFieldUpdates> {
@@ -77,14 +80,24 @@ impl Accountable for BinaryDocValuesFieldUpdates {
     Ok(
       offsets_size
         .saturating_add(lengths_size)
-        .saturating_add(size_of_vec(&self.values.bytes().bytes)),
+        .saturating_add(size_of_vec(if let Some(ranges) = &self.ranges_iter {
+          &ranges.2.bytes
+        } else {
+          &self.values.bytes().bytes
+        })),
     )
   }
 }
 
 impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
   fn finish(&mut self) {
-    self.ranges_iter = Some(Arc::new((self.offsets.take(), self.lengths.take())));
+    let mut values = std::mem::take(self.values.bytes_mut());
+    // Iterator buffers previously contained exactly the active bytes. Truncate
+    // once without shrinking the allocation, instead of copying per iterator.
+    values.bytes.truncate(values.length);
+    // Publish the finished byte buffer with the ranges. Iterators retain this
+    // owner and keep independent offsets and lengths, as Java BytesRef.clone does.
+    self.ranges_iter = Some(Arc::new((self.offsets.take(), self.lengths.take(), values)));
   }
 
   fn add_value(&mut self, _doc: i32, _value: i64, _index: usize) -> Result<()> {
@@ -93,10 +106,17 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     ))
   }
 
-  fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()> {
+  fn add_byte_ref<B: ByteSource>(
+    &mut self,
+    _doc: i32,
+    value: &BytesRef<B>,
+    index: usize,
+  ) -> Result<()> {
     self.offsets.set(index, self.values.length() as i64)?;
     self.lengths.set(index, value.length as i64)?;
-    self.values.append(value)?;
+    self
+      .values
+      .append_with_range(value.bytes.as_slice(), value.offset, value.length)?;
     Ok(())
   }
 
@@ -105,7 +125,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     T: DocValuesFieldIterator,
   {
     let value = iterator.binary_value()?;
-    self.add_byte_ref(doc_id, value, index)
+    self.add_byte_ref(doc_id, &value, index)
   }
 
   fn iterator(
@@ -116,11 +136,8 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     let ranges_iter = self.ranges_iter.as_ref().ok_or_else(|| {
       LuceneError::illegal_state("finished binary updates have no offsets iterator")
     })?;
-    let base = AbstractIteratorBinary::new(
-      ranges_iter.clone(),
-      // TODO: avoid copy here if iterator is called busy
-      self.values.get_bytes_ref_copy()?,
-    );
+    CoreHelper::check_from_index_size(0, ranges_iter.2.length, ranges_iter.2.bytes.len())?;
+    let base = AbstractIteratorBinary::new(ranges_iter.clone());
     Ok(DocValuesFieldIteratorEnum::AbstractBinary(
       AbstractIterator::new(inner, del_gen, base),
     ))
@@ -165,30 +182,28 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 /// # Note
 /// To implement Default, we wrap the mutable reference fields here with Option.
 pub struct AbstractIteratorBinary {
-  ranges: Arc<(
-    AbstractPagedMutable<PagedGrowableWriter>,
-    AbstractPagedMutable<PagedGrowableWriter>,
-  )>,
-  values: BytesRef<Vec<u8>>,
+  ranges: Arc<BinaryDocValuesRanges>,
+  offset: usize,
+  length: usize,
 }
 
 impl AbstractIteratorBinary {
-  pub fn new(
-    ranges: Arc<(
-      AbstractPagedMutable<PagedGrowableWriter>,
-      AbstractPagedMutable<PagedGrowableWriter>,
-    )>,
-    values: BytesRef<Vec<u8>>,
-  ) -> AbstractIteratorBinary {
-    AbstractIteratorBinary { ranges, values }
+  pub fn new(ranges: Arc<BinaryDocValuesRanges>) -> AbstractIteratorBinary {
+    let offset = ranges.2.offset;
+    let length = ranges.2.length;
+    AbstractIteratorBinary {
+      ranges,
+      offset,
+      length,
+    }
   }
 }
 impl AbstractIteratorBase for AbstractIteratorBinary {
   fn set(&mut self, idx: usize) -> Result<()> {
     debug_assert!(self.ranges.0.get(idx)? <= i32::MAX as i64);
-    self.values.offset = self.ranges.0.get(idx)? as usize;
+    self.offset = self.ranges.0.get(idx)? as usize;
     debug_assert!(self.ranges.1.get(idx)? <= i32::MAX as i64);
-    self.values.length = self.ranges.1.get(idx)? as usize;
+    self.length = self.ranges.1.get(idx)? as usize;
     Ok(())
   }
 
@@ -198,7 +213,11 @@ impl AbstractIteratorBase for AbstractIteratorBinary {
     ))
   }
 
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
-    Ok(&self.values)
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>> {
+    Ok(BytesRef {
+      bytes: &self.ranges.2.bytes,
+      offset: self.offset,
+      length: self.length,
+    })
   }
 }

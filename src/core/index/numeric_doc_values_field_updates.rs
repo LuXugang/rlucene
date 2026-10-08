@@ -23,6 +23,7 @@ use crate::core::index::doc_values_field_updates::{
   SingleValueDocValuesFieldUpdatesBase,
 };
 use crate::core::index::doc_values_type::DocValuesType;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -79,7 +80,12 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn add_byte_ref(&mut self, _doc: i32, _value: &BytesRef<Vec<u8>>, _index: usize) -> Result<()> {
+  fn add_byte_ref<B: ByteSource>(
+    &mut self,
+    _doc: i32,
+    _value: &BytesRef<B>,
+    _index: usize,
+  ) -> Result<()> {
     Err(LuceneError::unreachable(
       "numericDocValuesFieldUpdates does not support add_byte_ref",
     ))
@@ -170,7 +176,7 @@ impl AbstractIteratorBase for AbstractIteratorNumeric {
     Ok(self.value)
   }
 
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>> {
     Err(LuceneError::unsupported_operation(
       "NumericDocValuesFieldUpdatesIterator does not support binary_value",
     ))

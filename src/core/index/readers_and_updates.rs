@@ -1184,7 +1184,7 @@ where
   DI: BinaryDocValues,
 {
   type Value<'a>
-    = crate::core::index::BytesRefValueEnum2<DI::Value<'a>, &'a BytesRef<Vec<u8>>>
+    = crate::core::index::BytesRefValueEnum2<DI::Value<'a>, BytesRef<&'a [u8]>>
   where
     Self: 'a;
 

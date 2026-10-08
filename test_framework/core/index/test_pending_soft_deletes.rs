@@ -59,10 +59,10 @@ impl DocValuesFieldUpdatesBase for TestSingleUpdateDocValuesFieldUpdates {
     Err(LuceneError::unsupported_operation("add_value"))
   }
 
-  fn add_byte_ref(
+  fn add_byte_ref<B: crate::core::util::access::ByteSource>(
     &mut self,
     _doc: i32,
-    _value: &BytesRef<Vec<u8>>,
+    _value: &BytesRef<B>,
     _index: usize,
   ) -> crate::core::util::error::lucene_error::Result<()> {
     Err(LuceneError::unsupported_operation("add_byte_ref"))
@@ -162,7 +162,7 @@ impl DocValuesFieldIterator for TestSingleUpdateDocValuesFieldIterator {
     Ok(1)
   }
 
-  fn binary_value(&self) -> crate::core::util::error::lucene_error::Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&self) -> crate::core::util::error::lucene_error::Result<BytesRef<&[u8]>> {
     Err(LuceneError::unsupported_operation("binary_value"))
   }
 

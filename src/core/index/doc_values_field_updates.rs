@@ -16,7 +16,6 @@
  */
 use std::sync::Arc;
 
-use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values_field_updates::{
   AbstractIteratorBinary, BinaryDocValuesFieldUpdates,
@@ -27,8 +26,10 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::numeric_doc_values_field_updates::{
   AbstractIteratorNumeric, NumericDocValuesFieldUpdates, SingleValueNumericDocValuesFieldUpdates,
 };
+use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -287,7 +288,12 @@ where
 pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
   fn finish(&mut self);
   fn add_value(&mut self, doc: i32, value: i64, index: usize) -> Result<()>;
-  fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()>;
+  fn add_byte_ref<B: ByteSource>(
+    &mut self,
+    doc: i32,
+    value: &BytesRef<B>,
+    index: usize,
+  ) -> Result<()>;
   fn add_iterator<T>(&mut self, doc_id: i32, iterator: &T, index: usize) -> Result<()>
   where
     T: DocValuesFieldIterator;
@@ -385,7 +391,12 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
     }
   }
 
-  fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()> {
+  fn add_byte_ref<B: ByteSource>(
+    &mut self,
+    doc: i32,
+    value: &BytesRef<B>,
+    index: usize,
+  ) -> Result<()> {
     match self {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.add_byte_ref(doc, value, index),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.add_byte_ref(doc, value, index),
@@ -589,7 +600,7 @@ pub trait DocValuesFieldIterator: DocValuesIterator {
 
   /// Returns a binary value for the current document if this iterator is a
   /// binary value iterator.
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>>;
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>>;
 
   /// Returns the delGen for this packet.
   fn del_gen(&self) -> Result<i64>;
@@ -688,7 +699,7 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
     }
   }
 
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>> {
     match self {
       DocValuesFieldIteratorEnum::AbstractBinary(it) => it.binary_value(),
       DocValuesFieldIteratorEnum::AbstractNumeric(it) => it.binary_value(),
@@ -775,7 +786,7 @@ where
   T: DocValuesFieldIterator,
 {
   type Value<'a>
-    = &'a BytesRef<Vec<u8>>
+    = BytesRef<&'a [u8]>
   where
     Self: 'a;
 
@@ -892,7 +903,7 @@ where
       .long_value()
   }
 
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>> {
     self
       .queue
       .top()
@@ -1044,7 +1055,7 @@ where
     self.sub.long_value()
   }
 
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>> {
     self.sub.binary_value()
   }
 
@@ -1064,7 +1075,7 @@ pub trait AbstractIteratorBase {
   /// * `idx` - The internal index to set the value to.
   fn set(&mut self, idx: usize) -> Result<()>;
   fn long_value(&self) -> Result<i64>;
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>>;
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>>;
 }
 
 pub(crate) struct SingleValueDocValuesFieldUpdates {
@@ -1151,8 +1162,13 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: usize) -> Result<()> {
-    debug_assert!(self.binary_value()? == value);
+  fn add_byte_ref<B: ByteSource>(
+    &mut self,
+    doc: i32,
+    value: &BytesRef<B>,
+    _index: usize,
+  ) -> Result<()> {
+    debug_assert!(self.binary_value()?.compare_to(value).is_eq());
     let doc = doc as usize;
     self.bit_set.set(doc)?;
     self.has_at_least_one_value = true;
@@ -1266,8 +1282,8 @@ impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
     self.single.long_value()
   }
 
-  fn binary_value(&self) -> Result<&BytesRef<Vec<u8>>> {
-    self.single.binary_value()
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>> {
+    self.single.binary_value().map(|value| value.as_bytes_ref())
   }
 
   fn del_gen(&self) -> Result<i64> {
