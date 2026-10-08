@@ -204,8 +204,22 @@ impl ByteBlockPool {
     while bytes_left > 0 {
       let buffer_left = (BYTE_BLOCK_SIZE - self.byte_upto) as usize;
       if bytes_left < buffer_left {
-        // fits within current buffer
-        self.append_bytes_single_buffer(src_pool, src_offset, bytes_left)?;
+        // Fits within the current target page without advancing the pool.
+        let source_pos = (src_offset & BYTE_BLOCK_MASK as i64) as usize;
+        let target_pos = self.byte_upto as usize;
+        if bytes_left <= BYTE_BLOCK_SIZE as usize - source_pos
+          && let Some(buffer_upto) = self.buffer_upto
+          && let Ok(source_index) = i32::try_from(src_offset >> BYTE_BLOCK_SHIFT)
+          && let Some(source) = src_pool.buffers.get(source_index as usize)
+          && let Some(source) = source.get(source_pos..source_pos + bytes_left)
+          && let Some(target) = self.buffers.get_mut(buffer_upto)
+          && let Some(target) = target.get_mut(target_pos..target_pos + bytes_left)
+        {
+          target.copy_from_slice(source);
+          self.byte_upto += bytes_left as i32;
+        } else {
+          self.append_bytes_single_buffer(src_pool, src_offset, bytes_left)?;
+        }
         break;
       } else {
         // fill up this buffer and move to next one
