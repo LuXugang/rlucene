@@ -33,7 +33,11 @@ impl CharacterUtils {
     debug_assert!(offset <= buffer.len());
 
     for ch in &mut buffer[offset..limit] {
-      *ch = ch.to_lowercase().next().unwrap_or(*ch);
+      *ch = if *ch < '\u{C0}' {
+        ch.to_ascii_lowercase()
+      } else {
+        ch.to_lowercase().next().unwrap_or(*ch)
+      };
     }
   }
   pub fn get_upper_case(buffer: &mut [char], offset: usize, limit: usize) {
