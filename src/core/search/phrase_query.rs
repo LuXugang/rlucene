@@ -706,6 +706,38 @@ impl<'a, IE> PostingsAndFreq<'a, IE> {
       None
     } else if n_terms == 1 {
       Some(Cow::Borrowed(terms))
+    } else if n_terms == 2
+      && terms.iter().all(|term| {
+        term
+          .bytes
+          .offset
+          .checked_add(term.bytes.length)
+          .is_some_and(|end| end <= term.bytes.bytes.len())
+      })
+    {
+      if terms[1].cmp(&terms[0]) == Ordering::Less {
+        let mut v = terms.to_vec();
+        v.swap(0, 1);
+        Some(Cow::Owned(v))
+      } else {
+        Some(Cow::Borrowed(terms))
+      }
+    } else if terms[0]
+      .bytes
+      .offset
+      .checked_add(terms[0].bytes.length)
+      .is_some_and(|end| end <= terms[0].bytes.bytes.len())
+      && terms.windows(2).all(|pair| {
+        let term = &pair[1];
+        term
+          .bytes
+          .offset
+          .checked_add(term.bytes.length)
+          .is_some_and(|end| end <= term.bytes.bytes.len())
+          && term.cmp(&pair[0]) != Ordering::Less
+      })
+    {
+      Some(Cow::Borrowed(terms))
     } else {
       let mut v = terms.to_vec();
       v.sort_unstable();
