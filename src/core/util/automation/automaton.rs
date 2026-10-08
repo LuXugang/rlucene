@@ -16,7 +16,6 @@
  */
 use bit_set::BitSet;
 use num_traits::ToPrimitive;
-use std::collections::BTreeSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
@@ -412,8 +411,8 @@ impl Automaton {
   }
   /// Returns sorted array of all interval start points.
   pub fn get_start_points(&self) -> Vec<i32> {
-    let mut pointset = BTreeSet::new();
-    pointset.insert(0);
+    let mut points = Vec::with_capacity(1 + 2 * (self.next_transition / 3));
+    points.push(0);
 
     for s in (0..self.next_state).step_by(2) {
       let mut trans = self.states[s] as usize;
@@ -422,14 +421,17 @@ impl Automaton {
       while trans < limit {
         let min = self.transitions[trans + 1];
         let max = self.transitions[trans + 2];
-        pointset.insert(min);
+        points.push(min);
         if max < char::MAX as i32 {
-          pointset.insert(max + 1);
+          points.push(max + 1);
         }
         trans += 3;
       }
     }
-    pointset.into_iter().collect()
+    points.sort_unstable();
+    points.dedup();
+    points.shrink_to_fit();
+    points
   }
   /// Performs lookup in transitions, assuming determinism.
   ///
