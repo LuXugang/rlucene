@@ -107,11 +107,18 @@ impl VectorValueEnum {
         let byte_len = v.len() * 4;
         debug_assert!(chunk.len() == byte_len);
 
-        let mut offset = 0;
-        for f in v {
-          let bytes = f.to_le_bytes();
-          chunk[offset..offset + 4].copy_from_slice(&bytes);
-          offset += 4;
+        if v.len() > 16 && v.len() & 15 == 0 && chunk.len() >= byte_len {
+          for (f, component) in v.iter().zip(chunk[..byte_len].as_chunks_mut::<4>().0) {
+            let bytes = f.to_le_bytes();
+            component.copy_from_slice(&bytes);
+          }
+        } else {
+          let mut offset = 0;
+          for f in v {
+            let bytes = f.to_le_bytes();
+            chunk[offset..offset + 4].copy_from_slice(&bytes);
+            offset += 4;
+          }
         }
         Ok(())
       },
