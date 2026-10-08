@@ -68,13 +68,12 @@ impl Reader for ReusableStringReader {
         ));
       }
       let mut read = 0;
-      let mut consumed = 0;
-      for ch in s[self.pos..].chars().take(len) {
+      let mut chars = s[self.pos..].chars();
+      for ch in chars.by_ref().take(len) {
         buf[off + read] = ch;
         read += 1;
-        consumed += ch.len_utf8();
       }
-      self.pos += consumed;
+      self.pos = s.len() - chars.as_str().len();
       return Ok(read as i32);
     }
     self.s = None;
