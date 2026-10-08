@@ -871,7 +871,9 @@ impl DataInput for MemorySegmentIndexInput {
               .current
               .len()
               .checked_sub(*self.position.get_mut())
-              .ok_or_else(|| LuceneError::array_index_out_of_bounds("source position out of bounds"))?;
+              .ok_or_else(|| {
+                LuceneError::array_index_out_of_bounds("source position out of bounds")
+              })?;
             let chunk = remaining.min(available);
             self.scratch.extend_from_slice(
               state

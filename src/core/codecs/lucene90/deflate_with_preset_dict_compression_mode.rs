@@ -79,9 +79,7 @@ pub struct DeflateWithPresetDictDecompressor {
 
 impl DeflateWithPresetDictDecompressor {
   fn new() -> Self {
-    Self {
-      compressed: [0],
-    }
+    Self { compressed: [0] }
   }
 
   fn do_decompress<DI>(

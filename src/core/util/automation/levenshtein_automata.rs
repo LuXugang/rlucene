@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::BTreeSet;
 
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
@@ -71,16 +70,18 @@ impl LevenshteinAutomata {
     W: Into<Vec<i32>>,
   {
     let word = word.into();
-    let mut set = BTreeSet::new();
+    let mut alphabet = Vec::with_capacity(word.len());
     for &v in &word {
       if v > alpha_max {
         return Err(LuceneError::illegal_argument(format!(
           "alphaMax exceeded by symbol {v} in word"
         )));
       }
-      set.insert(v);
+      alphabet.push(v);
     }
-    let alphabet: Vec<i32> = set.into_iter().collect();
+    alphabet.sort_unstable();
+    alphabet.dedup();
+    alphabet.shrink_to_fit();
 
     let mut range_lower = vec![0; alphabet.len() + 2];
     let mut range_upper = vec![0; alphabet.len() + 2];
