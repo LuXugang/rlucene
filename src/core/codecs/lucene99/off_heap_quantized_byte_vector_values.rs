@@ -238,9 +238,10 @@ pub(crate) fn decompress_bytes(compressed: &mut [u8], num_bytes: usize) -> Resul
       compressed.len()
     )));
   }
-  for i in 0..num_bytes {
-    compressed[num_bytes + i] = compressed[i] & 0x0F;
-    compressed[i] >>= 4;
+  let (high, low) = compressed.split_at_mut(num_bytes);
+  for (high, low) in high.iter_mut().zip(low.iter_mut()) {
+    *low = *high & 0x0F;
+    *high >>= 4;
   }
   Ok(())
 }
