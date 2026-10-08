@@ -495,6 +495,22 @@ impl DataOutput for ByteBuffersDataOutput {
     self.write_bytes_range(&bytes, 0, length + 1)
   }
 
+  fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
+    let mut value = i as u64;
+    if (value & !0x7F) == 0 {
+      return <Self as DataOutput>::write_byte(self, value as u8);
+    }
+    let mut bytes = [0u8; 10];
+    let mut length = 0;
+    while (value & !0x7F) != 0 {
+      bytes[length] = ((value & 0x7F) | 0x80) as u8;
+      length += 1;
+      value >>= 7;
+    }
+    bytes[length] = value as u8;
+    self.write_bytes_range(&bytes, 0, length + 1)
+  }
+
   #[inline]
   fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
     self.write_bytes_range(b, 0, len)
