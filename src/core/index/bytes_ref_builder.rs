@@ -243,7 +243,12 @@ where
           } else {
             let mut buf = [0u8; 4];
             let encoded_str = c.encode_utf8(&mut buf);
-            bytes.extend_from_slice(encoded_str.as_bytes());
+            match encoded_str.len() {
+              2 => bytes.extend_from_slice(&encoded_str.as_bytes()[..2]),
+              3 => bytes.extend_from_slice(&encoded_str.as_bytes()[..3]),
+              4 => bytes.extend_from_slice(&encoded_str.as_bytes()[..4]),
+              _ => bytes.extend_from_slice(encoded_str.as_bytes()),
+            }
           }
         }
       }
