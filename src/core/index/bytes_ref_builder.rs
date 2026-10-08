@@ -232,11 +232,19 @@ where
       }
       if ascii {
         bytes.extend(source.iter().map(|c| *c as u8));
+      } else if source.len() == 1 && source[0].len_utf8() == 4 {
+        let mut buf = [0u8; 4];
+        let encoded_str = source[0].encode_utf8(&mut buf);
+        bytes.extend_from_slice(encoded_str.as_bytes());
       } else {
         for &c in source {
-          let mut buf = [0u8; 4];
-          let encoded_str = c.encode_utf8(&mut buf);
-          bytes.extend_from_slice(encoded_str.as_bytes());
+          if c.is_ascii() {
+            bytes.push(c as u8);
+          } else {
+            let mut buf = [0u8; 4];
+            let encoded_str = c.encode_utf8(&mut buf);
+            bytes.extend_from_slice(encoded_str.as_bytes());
+          }
         }
       }
       bytes.len()
