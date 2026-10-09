@@ -169,6 +169,27 @@ impl SparseFixedBitSet {
   /// index.
   fn first_doc(&self, mut i4096: usize, i4096_upper: usize) -> usize {
     debug_assert!(i4096_upper <= self.indices.len());
+    if i4096 < i4096_upper {
+      let index = self.indices[i4096];
+      if index != 0 {
+        let i64 = index.trailing_zeros() as usize;
+        return (i4096 << 12) | (i64 << 6) | self.bits[i4096][0].trailing_zeros() as usize;
+      }
+      i4096 += 1;
+    }
+    let scan_limit = i4096_upper.min(self.indices.len());
+    for group in self.indices[i4096.min(scan_limit)..scan_limit].chunks(16) {
+      if group.len() < 16 || group.iter().fold(0u64, |all, &index| all | index) != 0 {
+        for (j, &index) in group.iter().enumerate() {
+          if index != 0 {
+            let block = i4096 + j;
+            let i64 = index.trailing_zeros() as usize;
+            return (block << 12) | (i64 << 6) | self.bits[block][0].trailing_zeros() as usize;
+          }
+        }
+      }
+      i4096 += group.len();
+    }
     let mut index;
     while i4096 < i4096_upper {
       index = self.indices[i4096];

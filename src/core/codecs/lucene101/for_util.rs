@@ -313,6 +313,27 @@ impl ForUtil {
 
     if ints.len() >= 128 && tmp.len() >= num_ints {
       match bits_per_value {
+        18 => {
+          for group in 0..8 {
+            let t = group * 9;
+            ints[72 + group * 7] = ((tmp[t] & Self::MASKS32[14]) << 4)
+              | (((tmp[t + 1] as u32 >> 10) as i32) & Self::MASKS32[4]);
+            ints[72 + group * 7 + 1] = ((tmp[t + 1] & Self::MASKS32[10]) << 8)
+              | (((tmp[t + 2] as u32 >> 6) as i32) & Self::MASKS32[8]);
+            ints[72 + group * 7 + 2] = ((tmp[t + 2] & Self::MASKS32[6]) << 12)
+              | (((tmp[t + 3] as u32 >> 2) as i32) & Self::MASKS32[12]);
+            ints[72 + group * 7 + 3] = ((tmp[t + 3] & Self::MASKS32[2]) << 16)
+              | ((tmp[t + 4] & Self::MASKS32[14]) << 2)
+              | (((tmp[t + 5] as u32 >> 12) as i32) & Self::MASKS32[2]);
+            ints[72 + group * 7 + 4] = ((tmp[t + 5] & Self::MASKS32[12]) << 6)
+              | (((tmp[t + 6] as u32 >> 8) as i32) & Self::MASKS32[6]);
+            ints[72 + group * 7 + 5] = ((tmp[t + 6] & Self::MASKS32[8]) << 10)
+              | (((tmp[t + 7] as u32 >> 4) as i32) & Self::MASKS32[10]);
+            ints[72 + group * 7 + 6] =
+              ((tmp[t + 7] & Self::MASKS32[4]) << 14) | (tmp[t + 8] & Self::MASKS32[14]);
+          }
+          return Ok(());
+        },
         20 => {
           for group in 0..16 {
             let t = group * 5;
@@ -326,12 +347,91 @@ impl ForUtil {
           }
           return Ok(());
         },
+        22 => {
+          for group in 0..8 {
+            let t = group * 11;
+            ints[88 + group * 5] = ((tmp[t] & Self::MASKS32[10]) << 12)
+              | ((tmp[t + 1] & Self::MASKS32[10]) << 2)
+              | (((tmp[t + 2] as u32 >> 8) as i32) & Self::MASKS32[2]);
+            ints[88 + group * 5 + 1] = ((tmp[t + 2] & Self::MASKS32[8]) << 14)
+              | ((tmp[t + 3] & Self::MASKS32[10]) << 4)
+              | (((tmp[t + 4] as u32 >> 6) as i32) & Self::MASKS32[4]);
+            ints[88 + group * 5 + 2] = ((tmp[t + 4] & Self::MASKS32[6]) << 16)
+              | ((tmp[t + 5] & Self::MASKS32[10]) << 6)
+              | (((tmp[t + 6] as u32 >> 4) as i32) & Self::MASKS32[6]);
+            ints[88 + group * 5 + 3] = ((tmp[t + 6] & Self::MASKS32[4]) << 18)
+              | ((tmp[t + 7] & Self::MASKS32[10]) << 8)
+              | (((tmp[t + 8] as u32 >> 2) as i32) & Self::MASKS32[8]);
+            ints[88 + group * 5 + 4] = ((tmp[t + 8] & Self::MASKS32[2]) << 20)
+              | ((tmp[t + 9] & Self::MASKS32[10]) << 10)
+              | (tmp[t + 10] & Self::MASKS32[10]);
+          }
+          return Ok(());
+        },
         24 => {
           for group in 0..32 {
             let t = group * 3;
             ints[96 + group] = ((tmp[t] & Self::MASKS32[8]) << 16)
               | ((tmp[t + 1] & Self::MASKS32[8]) << 8)
               | (tmp[t + 2] & Self::MASKS32[8]);
+          }
+          return Ok(());
+        },
+        26 => {
+          for group in 0..8 {
+            let t = group * 13;
+            ints[104 + group * 3] = ((tmp[t] & Self::MASKS32[6]) << 20)
+              | ((tmp[t + 1] & Self::MASKS32[6]) << 14)
+              | ((tmp[t + 2] & Self::MASKS32[6]) << 8)
+              | ((tmp[t + 3] & Self::MASKS32[6]) << 2)
+              | (((tmp[t + 4] as u32 >> 4) as i32) & Self::MASKS32[2]);
+            ints[104 + group * 3 + 1] = ((tmp[t + 4] & Self::MASKS32[4]) << 22)
+              | ((tmp[t + 5] & Self::MASKS32[6]) << 16)
+              | ((tmp[t + 6] & Self::MASKS32[6]) << 10)
+              | ((tmp[t + 7] & Self::MASKS32[6]) << 4)
+              | (((tmp[t + 8] as u32 >> 2) as i32) & Self::MASKS32[4]);
+            ints[104 + group * 3 + 2] = ((tmp[t + 8] & Self::MASKS32[2]) << 24)
+              | ((tmp[t + 9] & Self::MASKS32[6]) << 18)
+              | ((tmp[t + 10] & Self::MASKS32[6]) << 12)
+              | ((tmp[t + 11] & Self::MASKS32[6]) << 6)
+              | (tmp[t + 12] & Self::MASKS32[6]);
+          }
+          return Ok(());
+        },
+        27 => {
+          for group in 0..4 {
+            let t = group * 27;
+            ints[108 + group * 5] = ((tmp[t] & Self::MASKS32[5]) << 22)
+              | ((tmp[t + 1] & Self::MASKS32[5]) << 17)
+              | ((tmp[t + 2] & Self::MASKS32[5]) << 12)
+              | ((tmp[t + 3] & Self::MASKS32[5]) << 7)
+              | ((tmp[t + 4] & Self::MASKS32[5]) << 2)
+              | (((tmp[t + 5] as u32 >> 3) as i32) & Self::MASKS32[2]);
+            ints[108 + group * 5 + 1] = ((tmp[t + 5] & Self::MASKS32[3]) << 24)
+              | ((tmp[t + 6] & Self::MASKS32[5]) << 19)
+              | ((tmp[t + 7] & Self::MASKS32[5]) << 14)
+              | ((tmp[t + 8] & Self::MASKS32[5]) << 9)
+              | ((tmp[t + 9] & Self::MASKS32[5]) << 4)
+              | (((tmp[t + 10] as u32 >> 1) as i32) & Self::MASKS32[4]);
+            ints[108 + group * 5 + 2] = ((tmp[t + 10] & Self::MASKS32[1]) << 26)
+              | ((tmp[t + 11] & Self::MASKS32[5]) << 21)
+              | ((tmp[t + 12] & Self::MASKS32[5]) << 16)
+              | ((tmp[t + 13] & Self::MASKS32[5]) << 11)
+              | ((tmp[t + 14] & Self::MASKS32[5]) << 6)
+              | ((tmp[t + 15] & Self::MASKS32[5]) << 1)
+              | (((tmp[t + 16] as u32 >> 4) as i32) & Self::MASKS32[1]);
+            ints[108 + group * 5 + 3] = ((tmp[t + 16] & Self::MASKS32[4]) << 23)
+              | ((tmp[t + 17] & Self::MASKS32[5]) << 18)
+              | ((tmp[t + 18] & Self::MASKS32[5]) << 13)
+              | ((tmp[t + 19] & Self::MASKS32[5]) << 8)
+              | ((tmp[t + 20] & Self::MASKS32[5]) << 3)
+              | (((tmp[t + 21] as u32 >> 2) as i32) & Self::MASKS32[3]);
+            ints[108 + group * 5 + 4] = ((tmp[t + 21] & Self::MASKS32[2]) << 25)
+              | ((tmp[t + 22] & Self::MASKS32[5]) << 20)
+              | ((tmp[t + 23] & Self::MASKS32[5]) << 15)
+              | ((tmp[t + 24] & Self::MASKS32[5]) << 10)
+              | ((tmp[t + 25] & Self::MASKS32[5]) << 5)
+              | (tmp[t + 26] & Self::MASKS32[5]);
           }
           return Ok(());
         },

@@ -32,12 +32,30 @@ impl CharacterUtils {
     debug_assert!(buffer.len() >= limit);
     debug_assert!(offset <= buffer.len());
 
-    for ch in &mut buffer[offset..limit] {
-      *ch = if *ch < '\u{C0}' {
-        ch.to_ascii_lowercase()
+    for group in buffer[offset..limit].chunks_mut(8) {
+      if group.len() == 8
+        && (group[0] as u32
+          | group[1] as u32
+          | group[2] as u32
+          | group[3] as u32
+          | group[4] as u32
+          | group[5] as u32
+          | group[6] as u32
+          | group[7] as u32)
+          < 0x80
+      {
+        for ch in group {
+          *ch = ch.to_ascii_lowercase();
+        }
       } else {
-        ch.to_lowercase().next().unwrap_or(*ch)
-      };
+        for ch in group {
+          *ch = if *ch < '\u{C0}' {
+            ch.to_ascii_lowercase()
+          } else {
+            ch.to_lowercase().next().unwrap_or(*ch)
+          };
+        }
+      }
     }
   }
   pub fn get_upper_case(buffer: &mut [char], offset: usize, limit: usize) {

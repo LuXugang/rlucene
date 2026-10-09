@@ -348,13 +348,36 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
   pub fn miss_match_u8(a: &[u8], b: &[u8]) -> i32 {
     let common_len = a.len().min(b.len());
     let mut i = 0;
-    while i + 32 <= common_len {
-      let equal = u8x32::from(&a[i..i + 32]).simd_eq(u8x32::from(&b[i..i + 32]));
-      let mismatch = !equal.to_bitmask();
-      if mismatch != 0 {
-        return (i + mismatch.trailing_zeros() as usize) as i32;
+    if common_len >= 32 {
+      let prefix_limit = common_len.min(128);
+      while i + 32 <= prefix_limit {
+        let equal = u8x32::from(&a[i..i + 32]).simd_eq(u8x32::from(&b[i..i + 32]));
+        let mismatch = !equal.to_bitmask();
+        if mismatch != 0 {
+          return (i + mismatch.trailing_zeros() as usize) as i32;
+        }
+        i += 32;
       }
-      i += 32;
+      if common_len >= 512 {
+        while i + 128 <= common_len {
+          let mismatch = a[i..i + 128]
+            .iter()
+            .zip(&b[i..i + 128])
+            .fold(0u8, |all, (&a, &b)| all | (a ^ b));
+          if mismatch != 0 {
+            break;
+          }
+          i += 128;
+        }
+      }
+      while i + 32 <= common_len {
+        let equal = u8x32::from(&a[i..i + 32]).simd_eq(u8x32::from(&b[i..i + 32]));
+        let mismatch = !equal.to_bitmask();
+        if mismatch != 0 {
+          return (i + mismatch.trailing_zeros() as usize) as i32;
+        }
+        i += 32;
+      }
     }
 
     while i < common_len && a[i] == b[i] {

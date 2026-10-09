@@ -293,7 +293,7 @@ impl FixedBitSet {
       let a_tail = a_chunks.remainder();
       let b_tail = b_chunks.remainder();
       for (x, y) in a_chunks.zip(b_chunks) {
-        if (x[3] & y[3]) != 0 || (x[2] & y[2]) != 0 || (x[1] & y[1]) != 0 || (x[0] & y[0]) != 0 {
+        if ((x[3] & y[3]) | (x[2] & y[2]) | (x[1] & y[1]) | (x[0] & y[0])) != 0 {
           return true;
         }
       }
@@ -482,6 +482,24 @@ impl FixedBitSet {
       Self::bits2words(upper_bound)
     };
     i += 1;
+    if i < limit {
+      word = self.bits[i];
+      if word != 0 {
+        return (i << 6) + word.trailing_zeros() as usize;
+      }
+      i += 1;
+    }
+    let scan_limit = limit.min(self.bits.len());
+    for group in self.bits[i.min(scan_limit)..scan_limit].chunks(16) {
+      if group.len() < 16 || group.iter().fold(0i64, |all, &word| all | word) != 0 {
+        for (j, &word) in group.iter().enumerate() {
+          if word != 0 {
+            return ((i + j) << 6) + word.trailing_zeros() as usize;
+          }
+        }
+      }
+      i += group.len();
+    }
     while i < limit {
       word = self.bits[i];
       if word != 0 {

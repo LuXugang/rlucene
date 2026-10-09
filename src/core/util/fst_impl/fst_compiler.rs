@@ -199,7 +199,8 @@ where
   fn freeze_tail(&mut self, prefix_len_plus1: usize) -> Result<()> {
     let (len, down_to) = { (self.last_input.length(), prefix_len_plus1.max(1)) };
 
-    for idx in (down_to..=len).rev() {
+    let mut idx = len;
+    while idx >= down_to {
       let (label, next_final_output, is_final, prev_idx) = {
         let node = &mut self.frontier[idx];
         let prev_idx = idx - 1;
@@ -229,6 +230,7 @@ where
         next_final_output,
         is_final,
       );
+      idx -= 1;
     }
 
     Ok(())

@@ -17,6 +17,7 @@
 use crate::core::index::BytesRef;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use wide::u8x16;
 
 /// Utility that efficiently compresses arrays mostly containing characters in
 /// the `[0x1F, 0x3F)` or `[0x5F, 0x7F)` ranges,
@@ -149,11 +150,43 @@ impl LowercaseAsciiCompression {
     input.read_bytes(out, 0, compressed_len)?;
 
     // 2. Restore the leading 2 bits into whole bytes
-    for i in 0..saved {
-      let a = (out[i] & 0xC0) >> 2;
-      let b = (out[saved + i] & 0xC0) >> 4;
-      let c = (out[(saved << 1) + i] & 0xC0) >> 6;
-      out[compressed_len + i] = a | b | c;
+    if len <= out.len() {
+      // Only the complete success range is split; short targets retain
+      // the original indexed order and partial state below.
+      let (packed, tail) = out.split_at_mut(compressed_len);
+      let (a, rest) = packed.split_at(saved);
+      let (b, rest) = rest.split_at(saved);
+      let c = &rest[..saved];
+      let full = (saved / 16) * 16;
+      let mask = u8x16::splat(0xC0);
+      for (((dest, a), b), c) in tail[..full]
+        .as_chunks_mut::<16>()
+        .0
+        .iter_mut()
+        .zip(a[..full].as_chunks::<16>().0)
+        .zip(b[..full].as_chunks::<16>().0)
+        .zip(c[..full].as_chunks::<16>().0)
+      {
+        let restored: u8x16 = ((u8x16::from(a.as_slice()) & mask) >> 2_u32)
+          | ((u8x16::from(b.as_slice()) & mask) >> 4_u32)
+          | ((u8x16::from(c.as_slice()) & mask) >> 6_u32);
+        dest.copy_from_slice(&restored.to_array());
+      }
+      for (((dest, &a), &b), &c) in tail[full..saved]
+        .iter_mut()
+        .zip(&a[full..])
+        .zip(&b[full..])
+        .zip(&c[full..])
+      {
+        *dest = ((a & 0xC0) >> 2) | ((b & 0xC0) >> 4) | ((c & 0xC0) >> 6);
+      }
+    } else {
+      for i in 0..saved {
+        let a = (out[i] & 0xC0) >> 2;
+        let b = (out[saved + i] & 0xC0) >> 4;
+        let c = (out[(saved << 1) + i] & 0xC0) >> 6;
+        out[compressed_len + i] = a | b | c;
+      }
     }
 
     // 3. Move back to original range

@@ -246,8 +246,31 @@ impl VectorUtil {
   ///
   /// returns [`LuceneError::IllegalArgument`] if any component of vector is not finite
   pub fn check_finite(v: &[f32]) -> Result<()> {
-    for (i, &value) in v.iter().enumerate() {
+    let (groups, tail) = v.as_chunks::<8>();
+    for (g, group) in groups.iter().enumerate() {
+      if !(group[0].is_finite()
+        & group[1].is_finite()
+        & group[2].is_finite()
+        & group[3].is_finite()
+        & group[4].is_finite()
+        & group[5].is_finite()
+        & group[6].is_finite()
+        & group[7].is_finite())
+      {
+        for (j, &value) in group.iter().enumerate() {
+          if !value.is_finite() {
+            let i = g * 8 + j;
+            return Err(LuceneError::illegal_argument(format!(
+              "non-finite value at vector[{}]={}",
+              i, value
+            )));
+          }
+        }
+      }
+    }
+    for (j, &value) in tail.iter().enumerate() {
       if !value.is_finite() {
+        let i = groups.len() * 8 + j;
         return Err(LuceneError::illegal_argument(format!(
           "non-finite value at vector[{}]={}",
           i, value

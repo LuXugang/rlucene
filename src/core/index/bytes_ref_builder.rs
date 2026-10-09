@@ -225,7 +225,18 @@ where
     let source = &s[off..off + len];
     self.bytes_ref.length = self.bytes_ref.bytes.access_mut(|bytes| {
       bytes.clear();
-      let ascii = source.iter().all(|c| c.is_ascii());
+      let (groups, tail) = source.as_chunks::<8>();
+      let ascii = groups.iter().all(|g| {
+        ((g[0] as u32)
+          | (g[1] as u32)
+          | (g[2] as u32)
+          | (g[3] as u32)
+          | (g[4] as u32)
+          | (g[5] as u32)
+          | (g[6] as u32)
+          | (g[7] as u32))
+          < 0x80
+      }) && tail.iter().all(|c| c.is_ascii());
       if bytes.capacity() < source.len() {
         let encoded_len: usize = source.iter().map(|c| c.len_utf8()).sum();
         bytes.reserve_exact(encoded_len);
