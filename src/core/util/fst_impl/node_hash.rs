@@ -224,7 +224,12 @@ where
         let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
           LuceneError::illegal_state("FST node deduplication hash is not initialized")
         })?;
-        let copied_bytes = node_hash.primary_table.inner.bytes_reader.get_position();
+        let copied_bytes = node_hash
+          .primary_table
+          .inner
+          .bytes_reader
+          .buf
+          .get_position();
         let ram_bytes_used =
           node_hash.primary_table.count * 2 * PackedInts::bits_required(node_address)? as i64 / 8
             + node_hash.primary_table.count * 2 * PackedInts::bits_required(copied_bytes)? as i64

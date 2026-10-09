@@ -306,13 +306,130 @@ where
   {
     reader.read_vlong()
   }
-  /// Follow the `follow` arc and read the first arc of its target;
-  /// modifies `arc` in-place and returns it.
+
+  pub(crate) fn find_target_arc_impl<'a, T, AF>(
+    &self,
+    label_to_match: i32,
+    follow: AF,
+    arc: &mut Arc<O::V>,
+    input: &mut T,
+  ) -> Result<Option<()>>
+  where
+    T: BytesReader,
+    O::V: 'a,
+    AF: Into<Option<&'a Arc<O::V>>>,
+  {
+    let follow = follow.into();
+    let follow_target = follow.unwrap_or(arc).target();
+    if label_to_match == END_LABEL {
+      return if follow.unwrap_or(arc).is_final() {
+        if follow_target <= 0 {
+          arc.flags = BIT_LAST_ARC;
+        } else {
+          arc.flags = 0;
+          arc.next_arc = follow_target;
+        }
+        arc.output = follow.unwrap_or(arc).next_final_output();
+        arc.label = END_LABEL;
+        arc.node_flags = arc.flags;
+        Ok(Some(()))
+      } else {
+        Ok(None)
+      };
+    }
+
+    if follow_target <= 0 {
+      return Ok(None);
+    }
+
+    input.set_position(follow_target);
+
+    let flags = input.read_byte()?;
+    arc.node_flags = flags;
+
+    if flags == ARCS_FOR_DIRECT_ADDRESSING {
+      arc.num_arcs = input.read_vint()?;
+      arc.bytes_per_arc = input.read_vint()?;
+      self.read_presence_bytes(arc, input)?;
+      arc.first_label = self.read_label(input)?;
+      arc.pos_arcs_start = input.get_position();
+
+      let arc_index = label_to_match - arc.first_label;
+      if arc_index < 0 || arc_index >= arc.num_arcs {
+        return Ok(None); // Before or after label range.
+      } else if !BitTable::is_bit_set(arc_index, arc, input)? {
+        return Ok(None); // Arc missing in the range.
+      }
+      return self
+        .read_arc_by_direct_addressing(arc, input, arc_index)
+        .map(Some);
+    } else if flags == ARCS_FOR_BINARY_SEARCH {
+      arc.num_arcs = input.read_vint()?;
+      arc.bytes_per_arc = input.read_vint()?;
+      arc.pos_arcs_start = input.get_position();
+      // Array is sparse; do binary search:
+      let mut low = 0;
+      let mut high = arc.num_arcs - 1;
+      while low <= high {
+        let mid = (low + high) >> 1;
+        input.set_position(arc.pos_arcs_start - (arc.bytes_per_arc * mid + 1) as i64);
+        let mid_label = self.read_label(input)?;
+        match mid_label.cmp(&label_to_match) {
+          std::cmp::Ordering::Less => low = mid + 1,
+          std::cmp::Ordering::Greater => high = mid - 1,
+          std::cmp::Ordering::Equal => {
+            arc.arc_idx = mid - 1;
+            return self.read_next_real_arc(arc, input).map(Some);
+          },
+        }
+      }
+      return Ok(None);
+    } else if flags == ARCS_FOR_CONTINUOUS {
+      arc.num_arcs = input.read_vint()?;
+      arc.bytes_per_arc = input.read_vint()?;
+      arc.first_label = self.read_label(input)?;
+      arc.pos_arcs_start = input.get_position();
+      let arc_index = label_to_match - arc.first_label;
+      if arc_index < 0 || arc_index >= arc.num_arcs {
+        return Ok(None); // Before or after label range.
+      }
+      arc.arc_idx = arc_index - 1;
+      return self.read_next_real_arc(arc, input).map(Some);
+    }
+
+    self.read_first_arc_info(follow_target, arc, input)?;
+    input.set_position(arc.next_arc);
+    loop {
+      debug_assert_eq!(arc.bytes_per_arc, 0);
+      arc.flags = input.read_byte()?;
+      let pos = input.get_position();
+      let label = self.read_label(input)?;
+      if label == label_to_match {
+        input.set_position(pos);
+        return self.read_arc(arc, input).map(Some);
+      } else if label > label_to_match || arc.is_last() {
+        return Ok(None);
+      } else {
+        let flag = arc.flags;
+        if flag_mod(flag, BIT_ARC_HAS_OUTPUT) {
+          self.outputs.skip_output(input)?;
+        }
+        if flag_mod(flag, BIT_ARC_HAS_FINAL_OUTPUT) {
+          self.outputs.skip_final_output(input)?;
+        }
+        if !flag_mod(flag, BIT_STOP_NODE) && !flag_mod(flag, BIT_TARGET_NEXT) {
+          self.read_unpacked_node_target(input)?;
+        }
+      }
+    }
+  }
+
+  /// Follow the `follow` arc and read the first arc of its target.
   pub fn read_first_target_arc<T>(
     &self,
     follow: &Arc<O::V>,
     arc: &mut Arc<O::V>,
-    reader: &mut T,
+    input: &mut T,
   ) -> Result<()>
   where
     T: BytesReader,
@@ -333,7 +450,7 @@ where
       arc.node_flags = arc.flags;
       Ok(())
     } else {
-      self.read_first_real_target_arc(follow.target, arc, reader)
+      self.read_first_real_target_arc(follow.target, arc, input)
     }
   }
   fn read_first_arc_info<T>(
@@ -756,107 +873,7 @@ where
   where
     T: BytesReader,
   {
-    if label_to_match == END_LABEL {
-      return if follow.is_final() {
-        if follow.target() <= 0 {
-          arc.flags = BIT_LAST_ARC;
-        } else {
-          arc.flags = 0;
-          arc.next_arc = follow.target();
-        }
-        arc.output = follow.next_final_output();
-        arc.label = END_LABEL;
-        arc.node_flags = arc.flags;
-        Ok(Some(()))
-      } else {
-        Ok(None)
-      };
-    }
-
-    if !target_has_arcs(follow) {
-      return Ok(None);
-    }
-
-    input.set_position(follow.target());
-
-    let flags = input.read_byte()?;
-    arc.node_flags = flags;
-
-    if flags == ARCS_FOR_DIRECT_ADDRESSING {
-      arc.num_arcs = input.read_vint()?;
-      arc.bytes_per_arc = input.read_vint()?;
-      self.read_presence_bytes(arc, input)?;
-      arc.first_label = self.read_label(input)?;
-      arc.pos_arcs_start = input.get_position();
-
-      let arc_index = label_to_match - arc.first_label;
-      if arc_index < 0 || arc_index >= arc.num_arcs {
-        return Ok(None); // Before or after label range.
-      } else if !BitTable::is_bit_set(arc_index, arc, input)? {
-        return Ok(None); // Arc missing in the range.
-      }
-      return self
-        .read_arc_by_direct_addressing(arc, input, arc_index)
-        .map(Some);
-    } else if flags == ARCS_FOR_BINARY_SEARCH {
-      arc.num_arcs = input.read_vint()?;
-      arc.bytes_per_arc = input.read_vint()?;
-      arc.pos_arcs_start = input.get_position();
-      // Array is sparse; do binary search:
-      let mut low = 0;
-      let mut high = arc.num_arcs - 1;
-      while low <= high {
-        let mid = (low + high) >> 1;
-        input.set_position(arc.pos_arcs_start - (arc.bytes_per_arc * mid + 1) as i64);
-        let mid_label = self.read_label(input)?;
-        match mid_label.cmp(&label_to_match) {
-          std::cmp::Ordering::Less => low = mid + 1,
-          std::cmp::Ordering::Greater => high = mid - 1,
-          std::cmp::Ordering::Equal => {
-            arc.arc_idx = mid - 1;
-            return self.read_next_real_arc(arc, input).map(Some);
-          },
-        }
-      }
-      return Ok(None);
-    } else if flags == ARCS_FOR_CONTINUOUS {
-      arc.num_arcs = input.read_vint()?;
-      arc.bytes_per_arc = input.read_vint()?;
-      arc.first_label = self.read_label(input)?;
-      arc.pos_arcs_start = input.get_position();
-      let arc_index = label_to_match - arc.first_label;
-      if arc_index < 0 || arc_index >= arc.num_arcs {
-        return Ok(None); // Before or after label range.
-      }
-      arc.arc_idx = arc_index - 1;
-      return self.read_next_real_arc(arc, input).map(Some);
-    }
-
-    self.read_first_arc_info(follow.target(), arc, input)?;
-    input.set_position(arc.next_arc);
-    loop {
-      debug_assert_eq!(arc.bytes_per_arc, 0);
-      arc.flags = input.read_byte()?;
-      let pos = input.get_position();
-      let label = self.read_label(input)?;
-      if label == label_to_match {
-        input.set_position(pos);
-        return self.read_arc(arc, input).map(Some);
-      } else if label > label_to_match || arc.is_last() {
-        return Ok(None);
-      } else {
-        let flag = arc.flags;
-        if flag_mod(flag, BIT_ARC_HAS_OUTPUT) {
-          self.outputs.skip_output(input)?;
-        }
-        if flag_mod(flag, BIT_ARC_HAS_FINAL_OUTPUT) {
-          self.outputs.skip_final_output(input)?;
-        }
-        if !flag_mod(flag, BIT_STOP_NODE) && !flag_mod(flag, BIT_TARGET_NEXT) {
-          self.read_unpacked_node_target(input)?;
-        }
-      }
-    }
+    self.find_target_arc_impl(label_to_match, follow, arc, input)
   }
 
   /// Skips over a variable-length arc node until it reaches the last arc.
@@ -946,6 +963,26 @@ pub struct Arc<T> {
   presence_index: i32,
 }
 impl<T> Arc<T> {
+  // A private traversal slot starts without an encoded output. Supply its
+  // empty values directly instead of allocating temporary default owners.
+  pub(crate) fn with_outputs(output: T, next_final_output: T) -> Self {
+    Self {
+      label: 0,
+      output,
+      target: 0,
+      flags: 0,
+      next_final_output,
+      next_arc: 0,
+      node_flags: 0,
+      bytes_per_arc: 0,
+      pos_arcs_start: 0,
+      arc_idx: 0,
+      num_arcs: 0,
+      bit_table_start: 0,
+      first_label: 0,
+      presence_index: 0,
+    }
+  }
   pub(crate) fn flag(&self, flag: u8) -> bool {
     flag_mod(self.flags, flag)
   }

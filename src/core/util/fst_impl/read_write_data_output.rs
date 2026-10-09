@@ -42,6 +42,8 @@ pub struct ReadWriteDataOutput {
   pub contiguous_reader: bool,
   /// Indicates whether the byte_buffer/byte_buffers have been initialized.
   pub finish: bool,
+  // The written length remains valid after the reader takes the buffer owner.
+  num_bytes: usize,
 }
 /// # Warning
 /// Padding Implement for std::mem::replace
@@ -57,6 +59,7 @@ impl Default for ReadWriteDataOutput {
       frozen: true,
       contiguous_reader: false,
       finish: true,
+      num_bytes: 0,
     }
   }
 }
@@ -76,13 +79,13 @@ impl ReadWriteDataOutput {
       frozen: false,
       contiguous_reader,
       finish: false,
+      num_bytes: 0,
     })
   }
 
   pub fn freeze(&mut self) -> Result<()> {
     self.frozen = true;
-    // We only move the ownership of self.data_output when get_reverse_bytes_reader
-    // is called, so that the write_to method can still function correctly.
+    // Reader initialization transfers the buffers; write_to uses their current owner.
     Ok(())
   }
 }
@@ -134,15 +137,37 @@ impl FstReader for ReadWriteDataOutput {
   where
     DO: DataOutput,
   {
-    debug_assert!(!self.finish);
-    // Note: After calling get_reverse_bytes_reader, the ownership of data_output
-    // will be moved.
-    self.data_output.copy_to(out)
+    if let Some(buffer) = &self.byte_buffer {
+      let mut remaining = self.num_bytes;
+      for block in buffer[..self.num_bytes].chunks(self.block_size as usize) {
+        if remaining <= self.block_size as usize {
+          out.write_bytes_range(block, 0, remaining)?;
+        } else {
+          out.write_bytes_with_len(block, block.len())?;
+        }
+        remaining -= block.len();
+      }
+      Ok(())
+    } else if let Some(buffers) = &self.byte_buffers {
+      let mut remaining = self.num_bytes;
+      for block in buffers.iter() {
+        if remaining <= self.block_size as usize {
+          out.write_bytes_range(block, 0, remaining)?;
+        } else {
+          out.write_bytes_with_len(block, block.len())?;
+        }
+        remaining -= remaining.min(block.len());
+      }
+      Ok(())
+    } else {
+      self.data_output.copy_to(out)
+    }
   }
 
   fn init_reader(&mut self) {
     self.finish = true;
     if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
+      self.num_bytes = self.data_output.size();
       if self.contiguous_reader {
         self.byte_buffer = Some(Rc::new(self.data_output.try_get_array_ownership()));
       } else {

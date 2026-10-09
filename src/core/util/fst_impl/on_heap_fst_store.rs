@@ -28,15 +28,12 @@ use crate::core::util::fst_impl::read_write_data_output::{BytesReaderImpl, ReadW
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 
-pub enum OnHeapFSTBytesReader {
-  Reverse {
-    reader: ReverseBytesReader,
-    bytes_array: bool,
-  },
-  Blocks(BytesReaderImpl),
+pub enum OnHeapFSTBytesReader<R = ReverseBytesReader, B = BytesReaderImpl> {
+  Reverse { reader: R, bytes_array: bool },
+  Blocks(B),
 }
 
-impl Display for OnHeapFSTBytesReader {
+impl<R: BytesReader, B: BytesReader> Display for OnHeapFSTBytesReader<R, B> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::Reverse {
@@ -55,7 +52,7 @@ impl Display for OnHeapFSTBytesReader {
   }
 }
 
-impl DataInput for OnHeapFSTBytesReader {
+impl<R: BytesReader, B: BytesReader> DataInput for OnHeapFSTBytesReader<R, B> {
   fn read_byte(&mut self) -> Result<u8> {
     match self {
       Self::Reverse { reader, .. } => reader.read_byte(),
@@ -92,9 +89,9 @@ impl DataInput for OnHeapFSTBytesReader {
   }
 }
 
-impl DataInputExt for OnHeapFSTBytesReader {}
+impl<R: BytesReader, B: BytesReader> DataInputExt for OnHeapFSTBytesReader<R, B> {}
 
-impl BytesReader for OnHeapFSTBytesReader {
+impl<R: BytesReader, B: BytesReader> BytesReader for OnHeapFSTBytesReader<R, B> {
   fn get_position(&self) -> i64 {
     match self {
       Self::Reverse { reader, .. } => reader.get_position(),

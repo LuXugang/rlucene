@@ -97,9 +97,10 @@ where
     if base_upto == 0 {
       Ok(None)
     } else {
-      let output = self.base.output[base_upto].clone();
+      // The END_LABEL output is never a prefix: the next traversal overwrites
+      // this slot before descending. Transfer its owner into the result.
+      std::mem::swap(&mut self.result.output, &mut self.base.output[base_upto]);
       self.result.input.length = base_upto - 1;
-      self.result.output = output;
       Ok(Some(&self.result))
     }
   }
@@ -134,7 +135,9 @@ where
   }
 
   fn grow(&mut self, base: &FSTEnum<O, F>) -> Result<()> {
-    ArrayUtil::grow_with_len(&mut self.result.input.bytes, base.upto + 1)?;
+    if self.result.input.bytes.len() <= base.upto {
+      ArrayUtil::grow_with_len(&mut self.result.input.bytes, base.upto + 1)?;
+    }
     Ok(())
   }
 }

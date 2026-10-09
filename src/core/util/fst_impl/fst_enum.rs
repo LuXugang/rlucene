@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::OutputIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{
   ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING, Arc, BitTable,
@@ -34,7 +34,6 @@ where
   pub(crate) arcs: Vec<Arc<O::V>>,
   pub(crate) output: Vec<O::V>,
 
-  #[allow(dead_code)]
   pub(crate) no_output: O::V,
   pub(crate) fst_reader: F::FstBytesReader,
   pub(crate) upto: usize,
@@ -48,11 +47,11 @@ where
   pub(crate) fn new(fst: FST<O, F>) -> Result<Self> {
     let fst_reader = fst.get_bytes_reader()?;
     let no_output = fst.outputs.get_no_output().clone();
-    let mut arcs = vec![Arc::default(); 10];
-    fst.get_first_arc(&mut arcs[0]);
-
-    let mut output = vec![O::V::default(); 10];
-    output[0] = no_output.clone();
+    let mut arcs = Vec::with_capacity(10);
+    let mut output = Vec::with_capacity(10);
+    let root = fst.get_first_arc_owned();
+    arcs.push(root);
+    output.push(no_output.clone());
 
     Ok(Self {
       fst,
@@ -73,6 +72,7 @@ where
     // let fst = self.fst.borrow_mut();
     if self.upto == 0 {
       self.upto = 1;
+      self.grow_slots();
       let (left, right) = self.arcs.split_at_mut(1);
       let arc0 = &left[0];
       let arc1 = &mut right[0];
@@ -112,6 +112,7 @@ where
   {
     if self.upto == 0 {
       self.upto = 1;
+      self.grow_slots();
       let (left, right) = self.arcs.split_at_mut(1);
       let arc0 = &left[0];
       let arc1 = &mut right[0];
@@ -229,11 +230,16 @@ where
         self.fst.read_arc_by_continuous(arc, reader, target_index)?;
         debug_assert_eq!(arc.label(), target_label);
 
-        self.output[self.upto] = self
+        let output = self
           .fst
           .outputs
           .add(&self.output[self.upto - 1], &arc.output)
           .into_owned();
+        if let Some(current) = self.output.get_mut(self.upto) {
+          *current = output;
+        } else {
+          self.output.push(output);
+        }
 
         if target_label == END_LABEL {
           return Ok(None);
@@ -279,11 +285,16 @@ where
           .read_arc_by_direct_addressing(arc, reader, target_index)?;
         debug_assert_eq!(arc.label(), target_label);
 
-        self.output[self.upto] = self
+        let output = self
           .fst
           .outputs
           .add(&self.output[self.upto - 1], &arc.output)
           .into_owned();
+        if let Some(current) = self.output.get_mut(self.upto) {
+          *current = output;
+        } else {
+          self.output.push(output);
+        }
 
         if target_label == END_LABEL {
           return Ok(None);
@@ -330,11 +341,16 @@ where
       debug_assert_eq!(arc.arc_idx(), idx);
       debug_assert_eq!(arc.label(), target_label);
 
-      self.output[self.upto] = self
+      let output = self
         .fst
         .outputs
         .add(&self.output[self.upto - 1], &arc.output)
         .into_owned();
+      if let Some(current) = self.output.get_mut(self.upto) {
+        *current = output;
+      } else {
+        self.output.push(output);
+      }
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -396,11 +412,16 @@ where
     let upto = arc_index;
     let arc = &mut self.arcs[upto];
     if arc.label() == target_label {
-      self.output[self.upto] = self
+      let output = self
         .fst
         .outputs
         .add(&self.output[self.upto - 1], &arc.output)
         .into_owned();
+      if let Some(current) = self.output.get_mut(self.upto) {
+        *current = output;
+      } else {
+        self.output.push(output);
+      }
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -543,11 +564,16 @@ where
       self.fst.read_arc_by_continuous(arc, reader, target_index)?;
       debug_assert_eq!(arc.label(), target_label);
 
-      self.output[self.upto] = self
+      let output = self
         .fst
         .outputs
         .add(&self.output[self.upto - 1], &arc.output)
         .into_owned();
+      if let Some(current) = self.output.get_mut(self.upto) {
+        *current = output;
+      } else {
+        self.output.push(output);
+      }
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -596,11 +622,16 @@ where
           .read_arc_by_direct_addressing(arc, reader, target_index)?;
         debug_assert_eq!(arc.label(), target_label);
 
-        self.output[self.upto] = self
+        let output = self
           .fst
           .outputs
           .add(&self.output[self.upto - 1], &arc.output)
           .into_owned();
+        if let Some(current) = self.output.get_mut(self.upto) {
+          *current = output;
+        } else {
+          self.output.push(output);
+        }
 
         if target_label == END_LABEL {
           return Ok(None);
@@ -842,11 +873,16 @@ where
         target_label,
         idx
       );
-      self.output[self.upto] = self
+      let output = self
         .fst
         .outputs
         .add(&self.output[self.upto - 1], &arc.output)
         .into_owned();
+      if let Some(current) = self.output.get_mut(self.upto) {
+        *current = output;
+      } else {
+        self.output.push(output);
+      }
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -892,11 +928,16 @@ where
     let upto = arc_index;
     let arc = &mut self.arcs[upto];
     if arc.label() == target_label {
-      self.output[self.upto] = self
+      let output = self
         .fst
         .outputs
         .add(&self.output[self.upto - 1], &arc.output)
         .into_owned();
+      if let Some(current) = self.output.get_mut(self.upto) {
+        *current = output;
+      } else {
+        self.output.push(output);
+      }
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -980,11 +1021,16 @@ where
         return Ok(false);
       }
 
-      self.output[self.upto] = self
+      let output = self
         .fst
         .outputs
         .add(&self.output[self.upto - 1], &next_arc.output)
         .into_owned();
+      if let Some(current) = self.output.get_mut(self.upto) {
+        *current = output;
+      } else {
+        self.output.push(output);
+      }
 
       if target_label == END_LABEL {
         return Ok(true);
@@ -1000,17 +1046,33 @@ where
   where
     FB: FSTEnumBase<O, F>,
   {
+    // Existing arcs also have input slots: growth fills the input first,
+    // and neither enum context shrinks its buffer.
+    if self.upto + 1 < self.arcs.len() {
+      self.upto += 1;
+      Ok(())
+    } else {
+      self.incr_and_grow(sub)
+    }
+  }
+  fn incr_and_grow<FB>(&mut self, sub: &mut FB) -> Result<()>
+  where
+    FB: FSTEnumBase<O, F>,
+  {
     self.upto += 1;
     sub.grow(self)?;
     debug_assert!(self.upto <= i32::MAX as usize);
-    if self.arcs.len() <= self.upto {
-      ArrayUtil::grow_with_len(&mut self.arcs, self.upto + 1)?;
-    }
-
-    if self.output.len() <= self.upto {
-      ArrayUtil::grow_with_len(&mut self.output, self.upto + 1)?;
-    }
+    self.grow_slots();
     Ok(())
+  }
+  fn grow_slots(&mut self) {
+    // A new depth needs one slot; leave spare Vec capacity uninitialized.
+    if self.arcs.len() <= self.upto {
+      self.arcs.push(Arc::with_outputs(
+        self.no_output.clone(),
+        self.no_output.clone(),
+      ));
+    }
   }
   // Appends current arc, and then recurses from its target,
   // appending first arc all the way to the final node
@@ -1021,11 +1083,28 @@ where
     let mut upto = self.upto;
     let mut label = self.arcs[upto].label();
     loop {
-      self.output[self.upto] = self
-        .fst
-        .outputs
-        .add(&self.output[self.upto - 1], &self.arcs[self.upto].output)
-        .into_owned();
+      if self.output.len() == self.upto {
+        let output = self
+          .fst
+          .outputs
+          .add(&self.output[self.upto - 1], &self.arcs[self.upto].output)
+          .into_owned();
+        self.output.push(output);
+      } else {
+        let (prefix, current) = self.output.split_at_mut(self.upto);
+        match self
+          .fst
+          .outputs
+          .add(&prefix[self.upto - 1], &self.arcs[self.upto].output)
+        {
+          std::borrow::Cow::Borrowed(output) => {
+            if !current[0].is_same_reference(output) {
+              current[0] = output.clone();
+            }
+          },
+          std::borrow::Cow::Owned(output) => current[0] = output,
+        }
+      }
 
       if label == END_LABEL {
         break;
@@ -1053,11 +1132,28 @@ where
     let mut label = self.arcs[upto].label();
     loop {
       sub.set_current_label(label, self)?;
-      self.output[self.upto] = self
-        .fst
-        .outputs
-        .add(&self.output[self.upto - 1], &self.arcs[self.upto].output)
-        .into_owned();
+      if self.output.len() == self.upto {
+        let output = self
+          .fst
+          .outputs
+          .add(&self.output[self.upto - 1], &self.arcs[self.upto].output)
+          .into_owned();
+        self.output.push(output);
+      } else {
+        let (prefix, current) = self.output.split_at_mut(self.upto);
+        match self
+          .fst
+          .outputs
+          .add(&prefix[self.upto - 1], &self.arcs[self.upto].output)
+        {
+          std::borrow::Cow::Borrowed(output) => {
+            if !current[0].is_same_reference(output) {
+              current[0] = output.clone();
+            }
+          },
+          std::borrow::Cow::Owned(output) => current[0] = output,
+        }
+      }
 
       if label == END_LABEL {
         break;
