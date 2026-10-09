@@ -437,7 +437,9 @@ where
     if follow.is_final() {
       // Insert "fake" final arc to END_LABEL
       arc.label = END_LABEL;
-      arc.output = follow.next_final_output.clone();
+      if !arc.output.is_same_reference(&follow.next_final_output) {
+        arc.output = follow.next_final_output.clone();
+      }
       arc.flags = BIT_FINAL_ARC;
 
       if follow.target <= 0 {
