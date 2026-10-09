@@ -2687,7 +2687,6 @@ where
   }
 }
 
-#[derive(Default)]
 struct MergeIntersectsVisitor {
   docs_in_block: usize,
   packed_values: Vec<u8>,

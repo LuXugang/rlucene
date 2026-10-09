@@ -1287,21 +1287,6 @@ pub(crate) struct Arc<T> {
   pub output: T,
   pub next_final_output: T,
 }
-impl<T> Default for Arc<T>
-where
-  T: OutputsBound,
-{
-  fn default() -> Self {
-    Self {
-      label: 0,
-      target: NodeEnum::CompiledNode(CompiledNode::default()),
-      is_final: false,
-      output: T::default(),
-      next_final_output: T::default(),
-    }
-  }
-}
-
 /// # NOTE:
 /// Not many instances of Node or CompiledNode are in
 /// memory while the FST is being built; it's only the
@@ -1323,7 +1308,6 @@ impl Node for NodeEnum {
     }
   }
 }
-#[derive(Default)]
 pub(crate) struct CompiledNode {
   pub(crate) node: i64,
 }

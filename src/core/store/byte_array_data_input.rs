@@ -48,14 +48,6 @@ where
   pub fn new() -> Self {
     Self::default()
   }
-
-  pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
-    Self {
-      bytes,
-      pos: offset,
-      limit: offset + length,
-    }
-  }
 }
 
 impl<B> ByteArrayDataInput<B>
@@ -69,6 +61,14 @@ where
 }
 
 impl<B> ByteArrayDataInput<B> {
+  pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
+    Self {
+      bytes,
+      pos: offset,
+      limit: offset + length,
+    }
+  }
+
   pub fn reset_meta(&mut self, offset: usize, length: usize) {
     self.pos = offset;
     self.limit = offset + length;

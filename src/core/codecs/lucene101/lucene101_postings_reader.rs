@@ -1678,7 +1678,6 @@ impl Impacts for ImpactsImpl<'_> {
   }
 }
 
-#[derive(Default)]
 pub(crate) struct MutableImpactList {
   pub(crate) length: usize,
   pub(crate) impacts: Vec<Impact>,
