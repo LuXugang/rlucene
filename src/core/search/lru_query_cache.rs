@@ -1422,10 +1422,7 @@ where
 {
   let mut collector = LeafCollectorImpl::new(max_doc);
   scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
-  let v = BitDocIdSet::with_cost(
-    Some(std::mem::take(&mut collector.bit_set)),
-    collector.count as i64,
-  )?;
+  let v = BitDocIdSet::with_cost(Some(collector.bit_set), collector.count as i64)?;
   Ok(CacheAndCount::new(v, collector.count))
 }
 

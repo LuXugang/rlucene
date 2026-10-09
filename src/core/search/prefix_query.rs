@@ -39,7 +39,6 @@ use std::hash::{Hash, Hasher};
 #[derive(Clone)]
 pub struct PrefixQuery {
   base: AutomatonQuery,
-  id: Identity,
 }
 impl PrefixQuery {
   /// Constructs a query for terms starting with `prefix`.
@@ -62,10 +61,7 @@ impl PrefixQuery {
     let prefix = prefix.into();
     let automaton = to_automaton(prefix.bytes())?;
     let base = AutomatonQuery::new(prefix, automaton, true, rewrite_method)?;
-    Ok(Self {
-      base,
-      id: Identity::default(),
-    })
+    Ok(Self { base })
   }
 }
 impl QueryBase for PrefixQuery {
@@ -129,7 +125,7 @@ impl Debug for PrefixQuery {
 
 impl HasIdentity for PrefixQuery {
   fn identity(&self) -> &Identity {
-    &self.id
+    self.base.identity()
   }
 }
 

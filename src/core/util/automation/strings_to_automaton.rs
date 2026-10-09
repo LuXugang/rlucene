@@ -257,7 +257,7 @@ impl StringsToAutomaton {
   }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct State {
   /// Labels of outgoing transitions. Indexed identically to [`states`].
   /// Labels must be sorted lexicographically.
@@ -269,7 +269,6 @@ pub(crate) struct State {
   /// sequence.
   pub is_final: bool,
 }
-// for padding
 
 impl State {
   pub(crate) fn new() -> Self {

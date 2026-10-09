@@ -495,17 +495,17 @@ impl<D> SegmentInfo<D> {
   }
 
   // padding using
-  pub(crate) fn dummy(dir: Arc<D>) -> Self {
+  pub(crate) fn dummy(dir: Arc<D>, name: Arc<str>) -> Self {
     let id = [0u8; StringHelper::ID_LENGTH];
-    let id_str = StringHelper::id_to_string(Some(&id));
+    let id_str = "0";
     SegmentInfo {
-      name: Arc::from(""),
+      name,
       max_doc: 0,
       dir,
       is_compound_file: false,
       id,
       #[cfg(test)]
-      id_str: id_str.clone(),
+      id_str: id_str.to_string(),
       id_key: Arc::from(id_str),
       diagnostics: HashMap::new(),
       attributes: HashMap::new(),

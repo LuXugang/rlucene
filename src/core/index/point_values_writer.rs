@@ -396,10 +396,7 @@ impl MutablePointTreeImpl {
     bytes_reader: Reader,
     packed_bytes_length: usize,
   ) -> Self {
-    let mut ords = vec![0; num_points];
-    for (i, ord) in ords.iter_mut().take(num_points).enumerate() {
-      *ord = i;
-    }
+    let ords = (0..num_points).collect();
     Self {
       num_points,
       ords,

@@ -647,7 +647,7 @@ where
               let dir = dwpt.segment_info.dir.clone();
               self.flush_notifications.flush_failed(std::mem::replace(
                 &mut dwpt.segment_info,
-                SegmentInfo::dummy(dir),
+                SegmentInfo::dummy(dir, Arc::from("")),
               ))?
             }
             unwrap_caught_result!(result)

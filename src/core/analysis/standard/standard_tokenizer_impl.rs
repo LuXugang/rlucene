@@ -46,14 +46,14 @@ fn zz_unpack_cmap_top() -> Vec<i32> {
   result
 }
 fn zz_unpackcmap_blocks_top_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
-  let packed: Vec<char> = packed.chars().collect();
-  let mut i = 0;
+  let mut packed = packed.chars();
   let mut j = offset;
-  while i < packed.len() {
-    let mut count = packed[i] as usize;
-    i += 1;
-    let value = packed[i] as i32;
-    i += 1;
+  while let Some(count) = packed.next() {
+    let mut count = count as usize;
+    let value = expect_invariant!(
+      packed.next(),
+      "packed tokenizer table has count/value pairs",
+    ) as i32;
     while count > 0 {
       result[j] = value;
       j += 1;
@@ -209,14 +209,14 @@ fn zz_unpackcmap_blocks() -> Vec<i32> {
   result
 }
 fn zz_unpackcmap_blocks_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
-  let packed: Vec<char> = packed.chars().collect();
-  let mut i = 0;
+  let mut packed = packed.chars();
   let mut j = offset;
-  while i < packed.len() {
-    let mut count = packed[i] as usize;
-    i += 1;
-    let value = packed[i] as i32;
-    i += 1;
+  while let Some(count) = packed.next() {
+    let mut count = count as usize;
+    let value = expect_invariant!(
+      packed.next(),
+      "packed tokenizer table has count/value pairs",
+    ) as i32;
     while count > 0 {
       result[j] = value;
       j += 1;
@@ -351,14 +351,14 @@ fn zz_unpack_trans() -> Vec<i32> {
   result
 }
 fn zz_unpack_trans_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
-  let packed: Vec<char> = packed.chars().collect();
-  let mut i = 0;
+  let mut packed = packed.chars();
   let mut j = offset;
-  while i < packed.len() {
-    let mut count = packed[i] as usize;
-    i += 1;
-    let mut value = packed[i] as i32;
-    i += 1;
+  while let Some(count) = packed.next() {
+    let mut count = count as usize;
+    let mut value = expect_invariant!(
+      packed.next(),
+      "packed tokenizer table has count/value pairs",
+    ) as i32;
     value -= 1;
     while count > 0 {
       result[j] = value;

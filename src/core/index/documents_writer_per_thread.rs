@@ -700,8 +700,7 @@ where
         let dir = self.segment_info.dir.clone();
         // Retain a file-only mirror before moving SegmentInfo into SegmentCommitInfo,
         // so flushFailed can still find the files; the replacement dummy reports none.
-        let mut replacement_segment_info = SegmentInfo::dummy(dir);
-        replacement_segment_info.name = self.segment_info.name.clone();
+        let mut replacement_segment_info = SegmentInfo::dummy(dir, self.segment_info.name.clone());
         replacement_segment_info.set_files(self.segment_info.files()?)?;
         let segment_info_per_commit = SegmentCommitInfo::new(
           std::mem::replace(&mut self.segment_info, replacement_segment_info),

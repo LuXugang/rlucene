@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IndexReaderContext, IndexReaderContextBase};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
@@ -36,7 +37,7 @@ where
 {
   let base = IndexReaderContextBase::new(true, 0, 0);
   let mut builder = Builder::new();
-  reader.visit_leaves(&mut |leaf_reader| builder.add_leaf(leaf_reader))?;
+  reader.visit_leaves(&mut |leaf_reader| builder.add_leaf(leaf_reader, base.id()))?;
   let max_doc = builder.max_doc;
   let leaves = builder.leaves;
   let mut ctx = CompositeReaderContext {
@@ -94,7 +95,7 @@ impl<LR> Builder<LR>
 where
   LR: LeafReader + Clone,
 {
-  fn add_leaf(&mut self, reader: &LR) -> Result<()> {
+  fn add_leaf(&mut self, reader: &LR, parent_id: &Identity) -> Result<()> {
     let leaves_size = self.leaves.len();
     let atomic = LeafReaderContext::new(
       reader.clone(),
@@ -102,7 +103,11 @@ where
       self.leaf_doc_base,
       leaves_size,
       self.leaf_doc_base,
-      TopParentMeta::default(),
+      TopParentMeta {
+        leaves_num: 0,
+        max_doc: 0,
+        id: parent_id.clone(),
+      },
     );
     self.leaves.push(atomic);
     let max_doc = reader.max_doc()?;

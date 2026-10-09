@@ -47,7 +47,6 @@ use std::hash::Hash;
 #[derive(Clone)]
 pub struct WildcardQuery {
   base: AutomatonQuery,
-  id: Identity,
 }
 
 impl WildcardQuery {
@@ -94,10 +93,7 @@ impl WildcardQuery {
     let term = term.into();
     let automaton = to_automaton(&term, determinize_work_limit)?;
     let base = AutomatonQuery::new(term, automaton, false, rewrite_method)?;
-    Ok(Self {
-      base,
-      id: Identity::default(),
-    })
+    Ok(Self { base })
   }
 }
 
@@ -161,7 +157,7 @@ impl Debug for WildcardQuery {
 
 impl HasIdentity for WildcardQuery {
   fn identity(&self) -> &Identity {
-    &self.id
+    self.base.identity()
   }
 }
 
