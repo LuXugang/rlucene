@@ -134,6 +134,21 @@ where
     } else if bits_per_value < 8 {
       // bitsPerValue is 1, 2 or 4
       let values_per_long = u64::BITS as usize / bits_per_value;
+      if upto <= next_values.len() && next_values.len().is_multiple_of(values_per_long) {
+        let mut i = 0;
+        let mut o = 0;
+        while i < upto {
+          let mut v = 0;
+          let values = &next_values[i..i + values_per_long];
+          for (j, value) in values.iter().enumerate() {
+            v |= value << (bits_per_value * j);
+          }
+          BitUtil::set_i64_le(next_blocks, o, v);
+          o += BitUtil::LONG_BYTES;
+          i += values_per_long;
+        }
+        return;
+      }
       let mut i = 0;
       let mut o = 0;
       while i < upto {
