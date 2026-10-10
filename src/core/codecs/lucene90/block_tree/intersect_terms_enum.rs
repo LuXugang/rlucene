@@ -538,10 +538,9 @@ where
         let mut idx = frame.start_byte_pos + 1;
         while idx < end {
           last_state = state;
-          state = self.automaton.step(
-            state,
-            self.stack[self.current_frame].suffixes_reader.bytes[idx] as i32,
-          )?;
+          state = self
+            .automaton
+            .step(state, frame.suffixes_reader.bytes[idx] as i32)?;
           if state == -1 {
             is_sub_block = self.pop_push_next()?;
             continue 'next_term;
