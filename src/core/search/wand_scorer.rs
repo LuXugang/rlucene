@@ -495,9 +495,10 @@ where
       // Now update the max scores of clauses that are before upTo.
       let iter = self.head.iter();
       for idx in iter {
-        if self.all_scorers[idx].doc <= self.upto {
-          let v = self.all_scorers[idx].scorer.get_max_score(new_upto)?;
-          self.all_scorers[idx].scaled_max_score = scale_max_score(v, self.scaling_factor);
+        let w = &mut self.all_scorers[idx];
+        if w.doc <= self.upto {
+          let v = w.scorer.get_max_score(new_upto)?;
+          w.scaled_max_score = scale_max_score(v, self.scaling_factor);
         }
       }
     }
@@ -506,10 +507,11 @@ where
 
     for i in 0..self.tail_size {
       let idx = self.tail[i];
-      self.all_scorers[idx].scorer.advance_shallow(target)?;
-      let v = self.all_scorers[idx].scorer.get_max_score(self.upto)?;
+      let w = &mut self.all_scorers[idx];
+      w.scorer.advance_shallow(target)?;
+      let v = w.scorer.get_max_score(self.upto)?;
 
-      self.all_scorers[idx].scaled_max_score = scale_max_score(v, self.scaling_factor);
+      w.scaled_max_score = scale_max_score(v, self.scaling_factor);
 
       Self::up_heap_max_score(&mut self.tail, i, &self.all_scorers); // the heap might need to be reordered
 
