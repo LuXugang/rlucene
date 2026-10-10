@@ -888,10 +888,20 @@ where
 
   fn read_bytes(&self, pos: usize, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     let mut guard = self.state.lock();
-    let mut state = self.access_state(&mut guard);
     if len == 0 {
       return Ok(std::borrow::Cow::Borrowed(&[]));
     }
+    if let Some(offset) = pos.checked_sub(guard.buffer_start)
+      && guard
+        .length
+        .checked_sub(len)
+        .is_some_and(|max| offset <= max)
+    {
+      return Ok(std::borrow::Cow::Owned(
+        guard.buffer.get_ref()[offset..offset + len].to_vec(),
+      ));
+    }
+    let mut state = self.access_state(&mut guard);
     state.resolve_position_in_buffer(pos, len)?;
     if let Some(offset) = pos.checked_sub(state.buffer_start)
       && state
@@ -904,6 +914,35 @@ where
       ));
     }
     let mut bytes = vec![0; len];
+    if len > state.buffer_size && len - state.length >= state.buffer_size {
+      // A request wider than the cache resolves its start exactly to pos.
+      debug_assert_eq!(pos, state.buffer_start);
+      debug_assert!(state.buffer.position() <= u32::MAX as u64);
+      let remaining = len - state.length;
+      let after = state.buffer_start + (state.length + remaining);
+      if after > state.sub_index_input.length() {
+        return Err(LuceneError::eof(format!("read past EOF: {state}")));
+      }
+      // Keep the original underlying target shape, using the final owner.
+      bytes.truncate(remaining);
+      let mut output = Cursor::new(bytes);
+      state.sub_index_input.read_internal(
+        &mut output,
+        remaining,
+        state.buffer_start + state.length,
+      )?;
+      debug_assert!(output.position() == (len - state.length) as u64);
+      let mut bytes = output.into_inner();
+      bytes.resize(len, 0);
+      let available = state.length;
+      if available > 0 {
+        bytes.copy_within(..len - available, available);
+        bytes[..available].copy_from_slice(&state.buffer.get_ref()[..available]);
+      }
+      state.buffer_start += len;
+      state.length = 0;
+      return Ok(std::borrow::Cow::Owned(bytes));
+    }
     state.read_bytes(pos, len, &mut bytes, true)?;
     Ok(std::borrow::Cow::Owned(bytes))
   }
