@@ -21,7 +21,6 @@ use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::internal::hppc::bit_mixer::BitMixer;
@@ -30,10 +29,8 @@ use crate::core::util::BitSetExt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::{Automaton, Builder};
-use crate::core::util::automation::frozen_int_set::FrozenIntSet;
-use crate::core::util::automation::int_set::IntSet;
 use crate::core::util::automation::state_pair::StatePair;
-use crate::core::util::automation::state_set::{StateSet, StateSetHashKey};
+use crate::core::util::automation::state_set::StateSet;
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::bit_set::BitSet as OtherBitSet;
@@ -549,31 +546,30 @@ impl Operations {
 
     let mut b = Builder::new();
 
-    let mut initialset = FrozenIntSet::new(Arc::new(vec![0]), BitMixer::mix_i32(0) as i64 + 1, 0);
-
     b.create_state();
 
+    // All frozen sets belong to this determinization. State ordinals index their ranges;
+    // the second field links distinct sets with the same long hash code.
+    let mut state_values = vec![0];
+    let mut state_sets: Vec<(std::ops::Range<usize>, Option<i32>)> = vec![(0..1, None)];
     let mut worklist = VecDeque::new();
     let mut newstate = HashMap::new();
 
-    let frozen_int_set_hash = initialset.long_hash_code();
-    newstate.insert(
-      StateSetHashKey::new(frozen_int_set_hash, initialset.get_array().clone()),
-      0,
-    );
-    worklist.push_back(initialset);
+    newstate.insert(BitMixer::mix_i32(0) as i64 + 1, 0);
+    worklist.push_back(0);
     b.set_accept(0, a.is_accept(0));
 
     let mut points = PointTransitionSet::new();
-    let mut states_set = StateSet::new(5);
+    let mut states_set = StateSet::with_owned_array(5);
 
     let mut t = Transition::default();
 
     let mut effort_spent: u64 = 0;
     let effort_limit: u64 = (work_limit as u64) * 10;
 
-    while let Some(mut s) = worklist.pop_front() {
-      effort_spent += s.get_array().len() as u64;
+    while let Some(r) = worklist.pop_front() {
+      let range = state_sets[r as usize].0.clone();
+      effort_spent += range.len() as u64;
       if effort_spent >= effort_limit {
         return Err(LuceneError::too_complex_to_determinize(format!(
           "Determinizing automaton with {}, states and {} transitions would require more than {} effort.",
@@ -584,7 +580,7 @@ impl Operations {
       }
 
       // Collate outgoing transitions:
-      for &s0 in s.get_array().iter() {
+      for &s0 in &state_values[range] {
         let num_transitions = a.get_num_transitions_with_state(s0);
         a.init_transition(s0, &mut t);
         for _ in 0..num_transitions {
@@ -601,31 +597,41 @@ impl Operations {
 
       let mut last_point = -1;
       let mut acc_count = 0;
-      let r = s.state;
 
       for i in 0..points.count {
         let point = points.points[i].point;
         if states_set.size() > 0 {
           debug_assert!(last_point != -1);
-          let key =
-            StateSetHashKey::new(states_set.long_hash_code(), states_set.get_array().clone());
-          let q = match newstate.get(&key) {
+          let hash = states_set.long_hash_code();
+          let values = states_set.get_array();
+          let head = newstate.get(&hash).copied();
+          let mut existing = head;
+          while let Some(q) = existing {
+            let (range, next) = &state_sets[q as usize];
+            if state_values[range.clone()] == values[..] {
+              break;
+            }
+            existing = *next;
+          }
+          let q = match existing {
             Some(q) => {
               debug_assert_eq!(
                 acc_count > 0,
-                b.is_accept(*q),
+                b.is_accept(q),
                 "accCount={} vs existing accept={}",
                 acc_count,
-                b.is_accept(*q)
+                b.is_accept(q)
               );
-              *q
+              q
             },
             None => {
               let q = b.create_state();
-              let p = states_set.freeze(q);
-              worklist.push_back(p);
+              let start = state_values.len();
+              state_values.extend_from_slice(values);
+              state_sets.push((start..state_values.len(), head));
+              worklist.push_back(q);
               b.set_accept(q, acc_count > 0);
-              newstate.insert(key, q);
+              newstate.insert(hash, q);
               q
             },
           };

@@ -22,6 +22,7 @@ pub mod byte_runnable;
 pub mod character_run_automaton;
 pub mod compiled_automaton;
 pub mod finite_strings_iterator;
+#[cfg(test)]
 mod frozen_int_set;
 pub(crate) mod int_set;
 pub(crate) mod lev1_parametric_description;

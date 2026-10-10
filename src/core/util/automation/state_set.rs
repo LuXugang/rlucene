@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 use crate::core::internal::hppc::bit_mixer::BitMixer;
+#[cfg(test)]
 use crate::core::util::automation::frozen_int_set::FrozenIntSet;
 use crate::core::util::automation::int_set::IntSet;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// A thin wrapper mapping states to reference counts.
 /// When a state's count drops to zero, it is removed.
 #[derive(Clone)]
-pub(crate) struct StateSet {
+pub(crate) struct StateSet<A = Arc<Vec<i32>>> {
   inner: HashMap<i32, i32>,
   hash_code: i64,
   hash_updated: bool,
   array_updated: bool,
-  array_cache: Arc<Vec<i32>>,
+  array_cache: A,
 }
 
 impl StateSet {
@@ -45,6 +45,13 @@ impl StateSet {
     }
   }
 
+  #[cfg(test)]
+  pub(crate) fn freeze(&mut self, state: i32) -> FrozenIntSet {
+    FrozenIntSet::new(self.get_array().clone(), self.long_hash_code(), state)
+  }
+}
+
+impl<A> StateSet<A> {
   /// Add the state into this set, increasing its reference count by 1.
   pub(crate) fn incr(&mut self, state: i32) {
     let updated_value = self.inner.entry(state).and_modify(|v| *v += 1).or_insert(1);
@@ -56,13 +63,14 @@ impl StateSet {
   /// Decrease the reference count of the state.
   /// If it reaches 0, remove the state.
   pub(crate) fn decr(&mut self, state: i32) -> Result<()> {
-    let entry = self
-      .inner
-      .get_mut(&state)
-      .ok_or_else(|| LuceneError::illegal_state(format!("state {state} not found")))?;
-    *entry -= 1;
-    if *entry == 0 {
-      self.inner.remove(&state);
+    let std::collections::hash_map::Entry::Occupied(mut entry) = self.inner.entry(state) else {
+      return Err(LuceneError::illegal_state(format!(
+        "state {state} not found"
+      )));
+    };
+    *entry.get_mut() -= 1;
+    if *entry.get() == 0 {
+      entry.remove();
       self.key_changed();
     }
     Ok(())
@@ -72,13 +80,23 @@ impl StateSet {
     self.key_changed();
   }
 
-  pub(crate) fn freeze(&mut self, state: i32) -> FrozenIntSet {
-    FrozenIntSet::new(self.get_array().clone(), self.long_hash_code(), state)
-  }
-
   fn key_changed(&mut self) {
     self.hash_updated = false;
     self.array_updated = false;
+  }
+
+  fn compute_hash_code(&mut self) -> i64 {
+    if self.hash_updated {
+      return self.hash_code;
+    }
+
+    let mut hash: i64 = self.inner.len() as i64;
+    for &key in self.inner.keys() {
+      hash = hash.wrapping_add(BitMixer::mix32(key as u32) as i64);
+    }
+    self.hash_code = hash;
+    self.hash_updated = true;
+    self.hash_code
   }
 }
 
@@ -109,44 +127,39 @@ impl IntSet for StateSet {
     self.inner.len()
   }
 
+  #[cfg(test)]
   fn long_hash_code(&mut self) -> i64 {
-    if self.hash_updated {
-      return self.hash_code;
-    }
-
-    let mut hash: i64 = self.inner.len() as i64;
-    for &key in self.inner.keys() {
-      hash = hash.wrapping_add(BitMixer::mix32(key as u32) as i64);
-    }
-    self.hash_code = hash;
-    self.hash_updated = true;
-    self.hash_code
+    self.compute_hash_code()
   }
 }
 
-#[derive(Eq)]
-pub(crate) struct StateSetHashKey {
-  long_hash_code: i64,
-  value: Arc<Vec<i32>>,
-}
-impl StateSetHashKey {
-  pub(crate) fn new(long_hash_code: i64, value: Arc<Vec<i32>>) -> Self {
-    StateSetHashKey {
-      long_hash_code,
-      value,
+impl StateSet<Vec<i32>> {
+  /// Uses a reusable, exclusively owned array when frozen sets live in a separate arena.
+  pub(crate) fn with_owned_array(capacity: usize) -> Self {
+    Self {
+      inner: HashMap::with_capacity(capacity),
+      hash_code: 0,
+      hash_updated: true,
+      array_updated: true,
+      array_cache: Vec::new(),
     }
   }
-}
-impl PartialEq for StateSetHashKey {
-  fn eq(&self, other: &Self) -> bool {
-    self.long_hash_code == other.long_hash_code && *self.value == *other.value
+
+  pub(crate) fn size(&self) -> usize {
+    self.inner.len()
   }
-}
-impl Hash for StateSetHashKey {
-  fn hash<H>(&self, state: &mut H)
-  where
-    H: Hasher,
-  {
-    self.long_hash_code.hash(state);
+
+  pub(crate) fn long_hash_code(&mut self) -> i64 {
+    self.compute_hash_code()
+  }
+
+  pub(crate) fn get_array(&mut self) -> &Vec<i32> {
+    if !self.array_updated {
+      self.array_cache.clear();
+      self.array_cache.extend(self.inner.keys().copied());
+      self.array_cache.sort_unstable();
+      self.array_updated = true;
+    }
+    &self.array_cache
   }
 }

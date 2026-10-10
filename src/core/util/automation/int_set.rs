@@ -36,5 +36,6 @@ pub(crate) trait IntSet {
   fn size(&self) -> usize;
 
   /// Computes a long (i64) hash code for this set.
+  #[cfg(test)]
   fn long_hash_code(&mut self) -> i64;
 }

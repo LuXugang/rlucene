@@ -786,11 +786,13 @@ impl<'a> InPlaceMergeSorterImpl<'a> {
 impl Sorter for InPlaceMergeSorterImpl<'_> {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
     let i_start = i * 4;
+    let i_transition = &self.transitions[i_start..i_start + 4];
     let j_start = j * 4;
+    let j_transition = &self.transitions[j_start..j_start + 4];
 
     // First src
-    let i_src = self.transitions[i_start];
-    let j_src = self.transitions[j_start];
+    let i_src = i_transition[0];
+    let j_src = j_transition[0];
     if i_src < j_src {
       return Ok(-1);
     }
@@ -799,8 +801,8 @@ impl Sorter for InPlaceMergeSorterImpl<'_> {
     }
 
     // Then min
-    let i_min = self.transitions[i_start + 2];
-    let j_min = self.transitions[j_start + 2];
+    let i_min = i_transition[2];
+    let j_min = j_transition[2];
     if i_min < j_min {
       return Ok(-1);
     }
@@ -809,8 +811,8 @@ impl Sorter for InPlaceMergeSorterImpl<'_> {
     }
 
     // Then max
-    let i_max = self.transitions[i_start + 3];
-    let j_max = self.transitions[j_start + 3];
+    let i_max = i_transition[3];
+    let j_max = j_transition[3];
     if i_max < j_max {
       return Ok(-1);
     }
@@ -819,8 +821,8 @@ impl Sorter for InPlaceMergeSorterImpl<'_> {
     }
 
     // Finally dest
-    let i_dest = self.transitions[i_start + 1];
-    let j_dest = self.transitions[j_start + 1];
+    let i_dest = i_transition[1];
+    let j_dest = j_transition[1];
     if i_dest < j_dest {
       Ok(-1)
     } else if i_dest > j_dest {
@@ -853,11 +855,13 @@ impl<'a> MinMaxDestSorter<'a> {
 impl Sorter for MinMaxDestSorter<'_> {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
     let i_start = 3 * i;
+    let i_transition = &self.transitions[i_start..i_start + 3];
     let j_start = 3 * j;
+    let j_transition = &self.transitions[j_start..j_start + 3];
 
     // First compare min
-    let i_min = self.transitions[i_start + 1];
-    let j_min = self.transitions[j_start + 1];
+    let i_min = i_transition[1];
+    let j_min = j_transition[1];
     if i_min < j_min {
       return Ok(-1);
     } else if i_min > j_min {
@@ -865,8 +869,8 @@ impl Sorter for MinMaxDestSorter<'_> {
     }
 
     // Then compare max
-    let i_max = self.transitions[i_start + 2];
-    let j_max = self.transitions[j_start + 2];
+    let i_max = i_transition[2];
+    let j_max = j_transition[2];
     if i_max < j_max {
       return Ok(-1);
     } else if i_max > j_max {
@@ -874,8 +878,8 @@ impl Sorter for MinMaxDestSorter<'_> {
     }
 
     // Finally compare dest
-    let i_dest = self.transitions[i_start];
-    let j_dest = self.transitions[j_start];
+    let i_dest = i_transition[0];
+    let j_dest = j_transition[0];
     if i_dest < j_dest {
       Ok(-1)
     } else if i_dest > j_dest {
@@ -907,11 +911,13 @@ impl<'a> DestMinMaxSorter<'a> {
 impl Sorter for DestMinMaxSorter<'_> {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
     let i_start = 3 * i;
+    let i_transition = &self.transitions[i_start..i_start + 3];
     let j_start = 3 * j;
+    let j_transition = &self.transitions[j_start..j_start + 3];
 
     // First dest:
-    let i_dest = self.transitions[i_start];
-    let j_dest = self.transitions[j_start];
+    let i_dest = i_transition[0];
+    let j_dest = j_transition[0];
     if i_dest < j_dest {
       return Ok(-1);
     } else if i_dest > j_dest {
@@ -919,8 +925,8 @@ impl Sorter for DestMinMaxSorter<'_> {
     }
 
     // Then min:
-    let i_min = self.transitions[i_start + 1];
-    let j_min = self.transitions[j_start + 1];
+    let i_min = i_transition[1];
+    let j_min = j_transition[1];
     if i_min < j_min {
       return Ok(-1);
     } else if i_min > j_min {
@@ -928,8 +934,8 @@ impl Sorter for DestMinMaxSorter<'_> {
     }
 
     // Then max:
-    let i_max = self.transitions[i_start + 2];
-    let j_max = self.transitions[j_start + 2];
+    let i_max = i_transition[2];
+    let j_max = j_transition[2];
     if i_max < j_max {
       return Ok(-1);
     } else if i_max > j_max {

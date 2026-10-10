@@ -22,6 +22,7 @@ use std::sync::Arc;
 #[derive(Eq)]
 pub(crate) struct FrozenIntSet {
   pub(crate) values: Arc<Vec<i32>>,
+  #[allow(dead_code)] // Java node ordinal retained for test-only frozen snapshots.
   pub(crate) state: i32,
   pub(crate) hash_code: i64,
 }
