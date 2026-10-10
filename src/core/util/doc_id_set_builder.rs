@@ -108,12 +108,13 @@ impl DocIdSetBuilder {
       BitSet::or(bit_set, iter)?;
       return Ok(());
     }
+    let buffer = &mut self.buffer;
     for _i in 0..cost {
       let doc = iter.next_doc()?;
       if doc == NO_MORE_DOCS {
         return Ok(());
       }
-      self.add_doc(doc)?;
+      buffer.push(doc);
     }
     let mut doc = iter.next_doc()?;
     while doc != NO_MORE_DOCS {

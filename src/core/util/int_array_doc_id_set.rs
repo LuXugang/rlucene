@@ -135,6 +135,22 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator {
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
+    if let Some(docs) = self.docs.get(..=self.length) {
+      let length = docs.len() - 1;
+      let mut bound = 1;
+      while (self.i + bound < length) && (docs[self.i + bound] < target) {
+        bound *= 2;
+      }
+      let mut start = self.i + bound / 2;
+      let end = std::cmp::min(self.i + bound + 1, length);
+      let index = docs[start..end]
+        .binary_search(&target)
+        .unwrap_or_else(|index| index);
+      start += index;
+      self.doc = docs[start];
+      self.i = start + 1;
+      return Ok(self.doc);
+    }
     let mut bound = 1;
     // given that we use this for small arrays only, this is very unlikely
     // to overflow

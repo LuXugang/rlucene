@@ -1017,25 +1017,28 @@ where
       compressed_dim * bytes_per_dim + self.common_prefix_lengths[compressed_dim];
     self.common_prefix_lengths[compressed_dim] += 1;
 
+    let num_dims = self.config.num_dims;
+    let common_prefix_lengths = &self.common_prefix_lengths[..num_dims];
+    let scratch_data_packed_value = self.scratch_data_packed_value.as_mut_slice();
+    let doc_ids = self.scratch_iterator.doc_ids.as_slice();
     let mut i = 0;
     {
       while i < count {
-        self.scratch_data_packed_value[compressed_byte_offset] = DataInput::read_byte(index_input)?;
+        scratch_data_packed_value[compressed_byte_offset] = DataInput::read_byte(index_input)?;
         let run_len = DataInput::read_byte(index_input)? as usize;
         for j in 0..run_len {
-          for dim in 0..self.config.num_dims {
-            let prefix = self.common_prefix_lengths[dim];
+          // Preserve the measured indexed loop over the bounded dimension slice.
+          #[allow(clippy::needless_range_loop)]
+          for dim in 0..num_dims {
+            let prefix = common_prefix_lengths[dim];
             DataInput::read_bytes(
               index_input,
-              &mut self.scratch_data_packed_value,
-              dim * self.config.bytes_per_dim + prefix,
-              self.config.bytes_per_dim - prefix,
+              scratch_data_packed_value,
+              dim * bytes_per_dim + prefix,
+              bytes_per_dim - prefix,
             )?;
           }
-          visitor.visit_with_packed_value(
-            self.scratch_iterator.doc_ids[i + j],
-            &self.scratch_data_packed_value,
-          )?;
+          visitor.visit_with_packed_value(doc_ids[i + j], scratch_data_packed_value)?;
         }
         i += run_len;
       }

@@ -92,6 +92,15 @@ impl ForUtil {
   }
 
   pub(crate) fn expand16(arr: &mut [i32]) {
+    if arr.len() >= Self::BLOCK_SIZE {
+      let arr = &mut arr[..Self::BLOCK_SIZE];
+      for i in 0..64 {
+        let l = arr[i] as u32;
+        arr[i] = ((l >> 16) & 0xFFFF) as i32;
+        arr[64 + i] = (l & 0xFFFF) as i32;
+      }
+      return;
+    }
     for i in 0..64 {
       let l = arr[i] as u32;
       arr[i] = ((l >> 16) & 0xFFFF) as i32;

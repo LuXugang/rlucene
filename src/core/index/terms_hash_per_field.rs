@@ -154,7 +154,8 @@ impl TermsHashPerField {
   ) -> Result<()> {
     let stream_address = (self.stream_address_offset + stream) as usize;
     let term_stream_address_buffer = int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
-    let upto = term_stream_address_buffer[stream_address];
+    let stream_address = &mut term_stream_address_buffer[stream_address];
+    let upto = *stream_address;
     let mut block_index = (upto >> BYTE_BLOCK_SHIFT) as usize;
     debug_assert!(block_index <= byte_pool.buffer_upto()?);
     let mut bytes = byte_pool.get_buffer_mut(block_index);
@@ -164,13 +165,13 @@ impl TermsHashPerField {
       offset = self
         .slice_pool
         .alloc_slice(block_index, offset, byte_pool)?;
-      term_stream_address_buffer[stream_address] = offset as i32 + byte_pool.byte_offset;
+      *stream_address = offset as i32 + byte_pool.byte_offset;
       // try update bytes
       block_index = byte_pool.buffer_upto()?;
       bytes = byte_pool.get_buffer_mut(block_index);
     }
     bytes[offset] = b;
-    term_stream_address_buffer[stream_address] += 1;
+    *stream_address += 1;
     Ok(())
   }
   pub(crate) fn write_bytes(
