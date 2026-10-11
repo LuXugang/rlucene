@@ -334,44 +334,46 @@ where
     };
     'outer: while doc < max {
       let (v, score) = {
+        let lead1 = &mut self.all_scorers[leader1_idx];
         let accepted = match accept_docs {
           None => true,
-          Some(bits) => bits.get(self.all_scorers[leader1_idx].doc as usize)?,
+          Some(bits) => bits.get(doc as usize)?,
         };
 
         if !accepted {
-          let v = self.all_scorers[leader1_idx].scorer.next_doc()?;
-          self.all_scorers[leader1_idx].doc = v;
+          let v = lead1.scorer.next_doc()?;
+          lead1.doc = v;
           doc = v;
           continue;
         }
 
-        let mut score = self.all_scorers[leader1_idx].scorer.score()? as f64;
+        let mut score = lead1.scorer.score()? as f64;
 
         if (MathUtil::sum_upper_bound(score + max_score_sum_at_lead2, all_scorers_len as i32)
           as f32)
           < self.scorable.min_competitive_score
         {
-          let v = self.all_scorers[leader1_idx].scorer.next_doc()?;
-          self.all_scorers[leader1_idx].doc = v;
+          let v = lead1.scorer.next_doc()?;
+          lead1.doc = v;
           doc = v;
           continue;
         }
 
-        if self.all_scorers[leader2_idx].doc < self.all_scorers[leader1_idx].doc {
-          let target = self.all_scorers[leader1_idx].doc;
-          let v = self.all_scorers[leader2_idx].scorer.advance(target)?;
-          self.all_scorers[leader2_idx].doc = v;
+        let lead2 = &mut self.all_scorers[leader2_idx];
+        if lead2.doc < doc {
+          let target = doc;
+          let v = lead2.scorer.advance(target)?;
+          lead2.doc = v;
         }
-        if self.all_scorers[leader2_idx].doc != self.all_scorers[leader1_idx].doc {
-          let target = self.all_scorers[leader2_idx].doc.min(max);
+        if lead2.doc != doc {
+          let target = lead2.doc.min(max);
           let v = self.all_scorers[leader1_idx].scorer.advance(target)?;
           self.all_scorers[leader1_idx].doc = v;
           doc = v;
           continue;
         }
 
-        score += self.all_scorers[leader2_idx].scorer.score()? as f64;
+        score += lead2.scorer.score()? as f64;
 
         if self.all_scorers_idx.len() >= 3 {
           for j in (self.first_required_scorer..=self.all_scorers_idx.len() - 3).rev() {
@@ -385,7 +387,7 @@ where
               continue 'outer;
             }
 
-            let leader_1_doc = self.all_scorers[leader1_idx].doc;
+            let leader_1_doc = doc;
             let scorer_idx = self.all_scorers_idx[j];
             let w = &mut self.all_scorers[scorer_idx];
             if w.doc < leader_1_doc {
@@ -402,10 +404,10 @@ where
               continue 'outer;
             }
 
-            score += self.all_scorers[scorer_idx].scorer.score()? as f64;
+            score += w.scorer.score()? as f64;
           }
         }
-        (self.all_scorers[leader1_idx].doc, score)
+        (doc, score)
       };
 
       self.score_non_essential_clauses(collector, v, score, self.first_required_scorer)?;
