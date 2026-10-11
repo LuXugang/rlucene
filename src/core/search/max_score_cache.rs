@@ -127,10 +127,10 @@ where
     Ok(())
   }
 
-  fn compute_max_score(&self, impacts: &[Impact]) -> f32 {
+  fn compute_max_score(scorer: &SS, impacts: &[Impact]) -> f32 {
     let mut max_score = 0.0;
     for impact in impacts {
-      let score = self.scorer.score(impact.freq as f32, impact.norm);
+      let score = scorer.score(impact.freq as f32, impact.norm);
       max_score = CoreHelper::max_f32(score, max_score);
     }
     max_score
@@ -165,12 +165,13 @@ where
     self.ensure_cache_size(level + 1)?;
     let impacts = self.impacts_source.get_impacts()?;
     let level_up_to = impacts.get_doc_id_upto(level);
-    if self.max_score_cache[level].upto < level_up_to {
-      let max_score = self.compute_max_score(impacts.get_impacts(level)?.as_ref());
-      self.max_score_cache[level].score = max_score;
-      self.max_score_cache[level].upto = level_up_to;
+    let cache_entry = &mut self.max_score_cache[level];
+    if cache_entry.upto < level_up_to {
+      let max_score = Self::compute_max_score(&self.scorer, impacts.get_impacts(level)?.as_ref());
+      cache_entry.score = max_score;
+      cache_entry.upto = level_up_to;
     }
-    Ok(self.max_score_cache[level].score)
+    Ok(cache_entry.score)
   }
 
   /// Return the maximum level at which scores are all less than `min_score`,
