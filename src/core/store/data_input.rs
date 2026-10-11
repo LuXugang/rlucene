@@ -24,6 +24,56 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 
+// Reserve for medium-sized metadata collections, where the benchmarks show
+// a benefit. Small and unusually large collections keep ordinary growth.
+// The entry count comes from the input file, so never reserve without a bound.
+const MAX_INITIAL_STRING_COLLECTION_CAPACITY: i32 = 1024;
+
+// Keep the extra reservation logic out of the ordinary decoding methods, so
+// their small and large collection loops can retain their original code shape.
+#[inline(never)]
+fn read_medium_string_map<DI: DataInput + ?Sized>(
+  input: &mut DI,
+  count: i32,
+) -> Result<HashMap<String, String>> {
+  let mut map = HashMap::new();
+  for i in 0..4 {
+    let key = input.read_string()?.into_owned();
+    let value = input.read_string()?.into_owned();
+    // Only reserve if the initial entries actually need a larger table.
+    if i == 3 && map.len() == 3 && !map.contains_key(&key) {
+      map.reserve(count as usize - map.len());
+    }
+    map.insert(key, value);
+  }
+  for _ in 4..count {
+    map.insert(
+      input.read_string()?.into_owned(),
+      input.read_string()?.into_owned(),
+    );
+  }
+  Ok(map)
+}
+
+#[inline(never)]
+fn read_medium_string_set<DI: DataInput + ?Sized>(
+  input: &mut DI,
+  count: i32,
+) -> Result<HashSet<String>> {
+  let mut set = HashSet::new();
+  for i in 0..4 {
+    let value = input.read_string()?.into_owned();
+    if i == 3 && set.len() == 3 && !set.contains(&value) {
+      set.reserve(count as usize - set.len());
+    }
+    set.insert(value);
+  }
+  for _ in 4..count {
+    set.insert(input.read_string()?.into_owned());
+  }
+  Ok(set)
+}
+
 /// Base trait for performing read operations on Lucene's low-level data types.
 ///
 /// # Note
@@ -254,6 +304,9 @@ pub trait DataInput: Display + DataInputExt {
   /// mutate the returned map.
   fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
     let count = self.read_vint()?;
+    if (8..=MAX_INITIAL_STRING_COLLECTION_CAPACITY).contains(&count) {
+      return read_medium_string_map(self, count);
+    }
 
     if count == 0 {
       Ok(HashMap::new())
@@ -282,6 +335,9 @@ pub trait DataInput: Display + DataInputExt {
   /// mutate the returned set.
   fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
     let count = self.read_vint()?;
+    if (8..=MAX_INITIAL_STRING_COLLECTION_CAPACITY).contains(&count) {
+      return read_medium_string_set(self, count);
+    }
     if count == 0 {
       Ok(HashSet::new())
     } else if count == 1 {

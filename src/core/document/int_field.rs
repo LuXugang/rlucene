@@ -222,9 +222,12 @@ impl IndexableField for IntField {
   fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
     match &self.parent_field.fields_data {
       FieldDataEnum::Number(Number::I32(v)) => {
-        let mut bytes = vec![0u8; BitUtil::INT_BYTES];
+        let mut bytes = [0u8; BitUtil::LONG_BYTES];
         NumericUtils::int_to_sortable_bytes(*v, &mut bytes, 0);
-        Ok(Some(BinaryValueEnum::Owned(BytesRef::from_bytes(bytes))))
+        Ok(Some(BinaryValueEnum::Inline {
+          bytes,
+          length: BitUtil::INT_BYTES,
+        }))
       },
       _ => Err(LuceneError::illegal_state(
         "parent_field's fields_data does not contain an i32 value",
@@ -233,7 +236,18 @@ impl IndexableField for IntField {
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-    Ok(self.binary_value()?.map(BinaryValueEnum::into_owned))
+    // This API requires independent Vec-backed storage, so retain its direct
+    // allocation path instead of adapting through the inline result.
+    match &self.parent_field.fields_data {
+      FieldDataEnum::Number(Number::I32(v)) => {
+        let mut bytes = vec![0u8; BitUtil::INT_BYTES];
+        NumericUtils::int_to_sortable_bytes(*v, &mut bytes, 0);
+        Ok(Some(BytesRef::from_bytes(bytes)))
+      },
+      _ => Err(LuceneError::illegal_state(
+        "parent_field's fields_data does not contain an i32 value",
+      )),
+    }
   }
 
   fn string_value(&self) -> Result<Option<Cow<'_, String>>> {

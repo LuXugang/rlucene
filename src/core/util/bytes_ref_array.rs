@@ -108,8 +108,9 @@ impl BytesRefArray {
         length,
       }));
     }
-    let physical_length = ArrayUtil::oversize(length, size_of::<u8>())?;
-    let mut bytes = Vec::with_capacity(physical_length);
+    // Keep Lucene's length validation, but this owned snapshot will not grow.
+    ArrayUtil::oversize(length, size_of::<u8>())?;
+    let mut bytes = Vec::with_capacity(length);
     let buffer_index: i32 = ((offset as i64) >> BYTE_BLOCK_SHIFT).try_convert()?;
     let mut buffer_index = buffer_index as usize;
     let mut pos = (offset as i64 & BYTE_BLOCK_MASK as i64) as usize;
@@ -121,7 +122,6 @@ impl BytesRefArray {
       buffer_index += 1;
       pos = 0;
     }
-    bytes.resize(physical_length, 0);
     Ok(BytesRefValueEnum::Buffer(Cow::Owned(BytesRef {
       bytes,
       offset: 0,

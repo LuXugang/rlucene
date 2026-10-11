@@ -573,8 +573,12 @@ impl IndexableField for Field {
         analyzer.token_stream(self.name(), reader)?,
       )))
     } else if let Some(v) = self.string_value()? {
+      let token_stream = match v {
+        Cow::Borrowed(text) => analyzer.token_stream_from_text(self.name(), text)?,
+        Cow::Owned(text) => analyzer.token_stream(self.name(), ReaderEnum::from(text))?,
+      };
       Ok(Some(IndexingTokenStreamEnum3::AnalyzerTokenStream(
-        analyzer.token_stream(self.name(), ReaderEnum::from(v.as_ref()))?,
+        token_stream,
       )))
     } else {
       Err(LuceneError::illegal_state(format!(

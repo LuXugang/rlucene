@@ -165,9 +165,13 @@ impl From<&String> for ReaderEnum {
 
 impl From<String> for ReaderEnum {
   fn from(text: String) -> Self {
-    let mut reader = ReusableStringReader::new();
-    reader.set_value(&text);
-    ReaderEnum::ReusedString(reader)
+    ReaderEnum::String(StringReader::from(text))
+  }
+}
+
+impl From<Arc<String>> for ReaderEnum {
+  fn from(text: Arc<String>) -> Self {
+    ReaderEnum::String(StringReader::from(text))
   }
 }
 impl From<ReusableStringReader> for ReaderEnum {
@@ -189,8 +193,14 @@ impl From<StringReader> for ReaderEnum {
 /// A character stream whose source is a string.
 #[derive(Debug, Clone)]
 pub struct StringReader {
-  chars: Option<Arc<Vec<char>>>,
+  source: StringReaderSource,
   next: usize,
+}
+
+#[derive(Debug, Clone)]
+enum StringReaderSource {
+  Chars(Option<Arc<Vec<char>>>),
+  Utf8(Option<Arc<String>>),
 }
 
 impl StringReader {
@@ -199,57 +209,116 @@ impl StringReader {
     T: Into<Cow<'a, str>>,
   {
     Self {
-      chars: Some(Arc::new(s.into().chars().collect())),
+      source: StringReaderSource::Chars(Some(Arc::new(s.into().chars().collect()))),
       next: 0,
     }
   }
 
-  fn ensure_open(&self) -> Result<&[char]> {
-    self
-      .chars
-      .as_ref()
-      .map(|chars| chars.as_slice())
-      .ok_or_else(|| LuceneError::illegal_state("Stream closed"))
+  fn check_range(buf_len: usize, off: usize, len: usize) -> Result<usize> {
+    let end = off
+      .checked_add(len)
+      .ok_or_else(|| LuceneError::illegal_argument("IndexOutOfBounds: off+len overflow"))?;
+    if off > buf_len || end > buf_len {
+      return Err(LuceneError::illegal_argument(
+        "IndexOutOfBounds: off+len exceeds buffer length",
+      ));
+    }
+    Ok(end)
+  }
+}
+
+impl From<Arc<String>> for StringReader {
+  fn from(text: Arc<String>) -> Self {
+    Self {
+      source: StringReaderSource::Utf8(Some(text)),
+      next: 0,
+    }
+  }
+}
+
+impl From<String> for StringReader {
+  fn from(text: String) -> Self {
+    Self::from(Arc::new(text))
   }
 }
 
 impl Reader for StringReader {
   fn read(&mut self) -> Result<i32> {
-    let chars = self.ensure_open()?;
-    if self.next >= chars.len() {
-      return Ok(-1);
+    match &mut self.source {
+      StringReaderSource::Chars(chars) => {
+        let chars = chars
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("Stream closed"))?;
+        if self.next >= chars.len() {
+          return Ok(-1);
+        }
+        let ch = chars[self.next];
+        self.next += 1;
+        Ok(ch as i32)
+      },
+      StringReaderSource::Utf8(text) => {
+        if let Some(s) = text.as_ref()
+          && self.next < s.len()
+        {
+          let ch = expect_invariant!(
+            s[self.next..].chars().next(),
+            "reader position stays on a character boundary"
+          );
+          self.next += ch.len_utf8();
+          return Ok(ch as i32);
+        }
+        *text = None;
+        Ok(-1)
+      },
     }
-
-    let ch = chars[self.next];
-    self.next += 1;
-    Ok(ch as i32)
   }
 
   fn read_range(&mut self, buf: &mut [char], off: usize, len: usize) -> Result<i32> {
-    let chars = self.ensure_open()?;
-    let end = off
-      .checked_add(len)
-      .ok_or_else(|| LuceneError::illegal_argument("IndexOutOfBounds: off+len overflow"))?;
-    if off > buf.len() || end > buf.len() {
-      return Err(LuceneError::illegal_argument(
-        "IndexOutOfBounds: off+len exceeds buffer length",
-      ));
+    match &mut self.source {
+      StringReaderSource::Chars(chars) => {
+        let chars = chars
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("Stream closed"))?;
+        Self::check_range(buf.len(), off, len)?;
+        if len == 0 {
+          return Ok(0);
+        }
+        if self.next >= chars.len() {
+          return Ok(-1);
+        }
+        let to_read = len.min(chars.len() - self.next);
+        buf[off..off + to_read].copy_from_slice(&chars[self.next..self.next + to_read]);
+        self.next += to_read;
+        Ok(to_read as i32)
+      },
+      StringReaderSource::Utf8(text) => {
+        if let Some(s) = text.as_ref()
+          && self.next < s.len()
+        {
+          Self::check_range(buf.len(), off, len)?;
+          let mut read = 0;
+          let mut chars = s[self.next..].chars();
+          for ch in chars.by_ref().take(len) {
+            buf[off + read] = ch;
+            read += 1;
+          }
+          self.next = s.len() - chars.as_str().len();
+          return Ok(read as i32);
+        }
+        *text = None;
+        Ok(-1)
+      },
     }
-    if len == 0 {
-      return Ok(0);
-    }
-    if self.next >= chars.len() {
-      return Ok(-1);
-    }
-
-    let to_read = len.min(chars.len() - self.next);
-    buf[off..off + to_read].copy_from_slice(&chars[self.next..self.next + to_read]);
-    self.next += to_read;
-    Ok(to_read as i32)
   }
 
   fn close(&mut self) -> Result<()> {
-    self.chars = None;
+    match &mut self.source {
+      StringReaderSource::Chars(chars) => *chars = None,
+      StringReaderSource::Utf8(text) => {
+        *text = None;
+        self.next = 0;
+      },
+    }
     Ok(())
   }
 }

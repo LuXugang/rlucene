@@ -41,6 +41,18 @@ impl ScorerUtil {
     I: IntoIterator<Item = i64>,
   {
     let k = num_scorers - min_should_match + 1;
+    if k == 1 {
+      return Ok(costs.into_iter().min().unwrap_or(0));
+    }
+    let costs = costs.into_iter();
+    // No selection is needed when every cost is guaranteed to fit. Retain
+    // the queue for unbounded iterators and preserve its capacity validation.
+    if min_should_match <= 1
+      && k < i32::MAX as usize
+      && costs.size_hint().1.is_some_and(|len| len <= k)
+    {
+      return Ok(costs.sum());
+    }
     let mut pq = PriorityQueue::new(k, MaxCostCmp)?;
     for c in costs {
       let _ = pq.insert_with_overflow(c)?;

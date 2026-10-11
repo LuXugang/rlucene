@@ -241,16 +241,21 @@ impl IndexableField for DoubleField {
   }
 
   fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
-    let mut encode_point = vec![0u8; BitUtil::DOUBLE_BYTES];
+    let mut encode_point = [0u8; BitUtil::DOUBLE_BYTES];
     let value = self.get_value_as_double()?;
     DoublePoint::encode_dimension(value, &mut encode_point, 0);
-    Ok(Some(BinaryValueEnum::Owned(BytesRef::from_bytes(
-      encode_point,
-    ))))
+    Ok(Some(BinaryValueEnum::Inline {
+      bytes: encode_point,
+      length: BitUtil::DOUBLE_BYTES,
+    }))
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
-    Ok(self.binary_value()?.map(BinaryValueEnum::into_owned))
+    // Keep the direct allocation path for callers requiring Vec-backed storage.
+    let mut encode_point = vec![0u8; BitUtil::DOUBLE_BYTES];
+    let value = self.get_value_as_double()?;
+    DoublePoint::encode_dimension(value, &mut encode_point, 0);
+    Ok(Some(BytesRef::from_bytes(encode_point)))
   }
 
   fn string_value(&self) -> Result<Option<Cow<'_, String>>> {

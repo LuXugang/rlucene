@@ -119,8 +119,15 @@ impl FloatPoint {
         point.len()
       )));
     }
-    let value = Self::pack(point)?;
-    self.parent_field.fields_data = value.into();
+    if let FieldDataEnum::Binary(value) = &mut self.parent_field.fields_data {
+      // Dimensions are fixed, so the existing encoding has the required size.
+      for (i, &dim) in point.iter().enumerate() {
+        Self::encode_dimension(dim, &mut value.bytes, i * BitUtil::FLOAT_BYTES);
+      }
+    } else {
+      // take_binary_value() may have transferred the previous allocation.
+      self.parent_field.fields_data = Self::pack(point)?.into();
+    }
     Ok(())
   }
 
@@ -277,7 +284,7 @@ impl FloatPoint {
 struct FloatPointSetBytesRefIterator {
   sorted_values: Vec<f32>,
   upto: usize,
-  encoded: BytesRef<Vec<u8>>,
+  encoded: BytesRef<[u8; BitUtil::FLOAT_BYTES]>,
 }
 
 impl FloatPointSetBytesRefIterator {
@@ -285,17 +292,22 @@ impl FloatPointSetBytesRefIterator {
     Self {
       sorted_values,
       upto: 0,
-      encoded: BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]),
+      encoded: BytesRef {
+        bytes: [0u8; BitUtil::FLOAT_BYTES],
+        offset: 0,
+        length: BitUtil::FLOAT_BYTES,
+      },
     }
   }
 }
 
 impl BytesRefIterator for FloatPointSetBytesRefIterator {
   type Value<'a>
-    = &'a BytesRef<Vec<u8>>
+    = &'a BytesRef<[u8; BitUtil::FLOAT_BYTES]>
   where
     Self: 'a;
 
+  #[inline]
   fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if self.upto == self.sorted_values.len() {
       Ok(None)

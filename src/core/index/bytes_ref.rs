@@ -504,6 +504,28 @@ impl<'a> BytesRefValue<'a> for BytesRef<&'a [u8]> {
   }
 }
 
+impl<'a, const N: usize> BytesRefValue<'a> for &'a BytesRef<[u8; N]>
+where
+  [u8; N]: Default,
+{
+  #[inline(always)]
+  fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
+    BytesRef {
+      bytes: &self.bytes,
+      offset: self.offset,
+      length: self.length,
+    }
+  }
+
+  fn into_value(self) -> BytesRefValueEnum<'a> {
+    BytesRefValueEnum::Slice(BytesRef {
+      bytes: &self.bytes,
+      offset: self.offset,
+      length: self.length,
+    })
+  }
+}
+
 #[derive(Debug)]
 pub struct BytesRefCow<'a>(pub Cow<'a, [u8]>);
 

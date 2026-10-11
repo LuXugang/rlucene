@@ -118,8 +118,15 @@ impl DoublePoint {
         point.len()
       )));
     }
-    let value = Self::pack(point)?;
-    self.parent_field.fields_data = value.into();
+    if let FieldDataEnum::Binary(value) = &mut self.parent_field.fields_data {
+      // Dimensions are fixed, so the existing encoding has the required size.
+      for (i, &dim) in point.iter().enumerate() {
+        Self::encode_dimension(dim, &mut value.bytes, i * BitUtil::DOUBLE_BYTES);
+      }
+    } else {
+      // take_binary_value() may have transferred the previous allocation.
+      self.parent_field.fields_data = Self::pack(point)?.into();
+    }
     Ok(())
   }
 
@@ -272,7 +279,7 @@ impl DoublePoint {
 struct DoublePointSetBytesRefIterator {
   sorted_values: Vec<f64>,
   upto: usize,
-  encoded: BytesRef<Vec<u8>>,
+  encoded: BytesRef<[u8; BitUtil::DOUBLE_BYTES]>,
 }
 
 impl DoublePointSetBytesRefIterator {
@@ -280,17 +287,22 @@ impl DoublePointSetBytesRefIterator {
     Self {
       sorted_values,
       upto: 0,
-      encoded: BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]),
+      encoded: BytesRef {
+        bytes: [0u8; BitUtil::DOUBLE_BYTES],
+        offset: 0,
+        length: BitUtil::DOUBLE_BYTES,
+      },
     }
   }
 }
 
 impl BytesRefIterator for DoublePointSetBytesRefIterator {
   type Value<'a>
-    = &'a BytesRef<Vec<u8>>
+    = &'a BytesRef<[u8; BitUtil::DOUBLE_BYTES]>
   where
     Self: 'a;
 
+  #[inline]
   fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
     if self.upto == self.sorted_values.len() {
       Ok(None)

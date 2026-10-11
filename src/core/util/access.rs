@@ -251,6 +251,15 @@ impl ByteSource for Vec<u8> {
   }
 }
 
+impl<const N: usize> ByteSource for [u8; N]
+where
+  [u8; N]: Default,
+{
+  fn as_slice(&self) -> &[u8] {
+    self
+  }
+}
+
 impl ByteSource for Rc<Vec<u8>> {
   fn as_slice(&self) -> &[u8] {
     self

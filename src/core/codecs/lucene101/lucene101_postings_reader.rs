@@ -1613,13 +1613,15 @@ pub struct ImpactsImpl<'a> {
   max_num_impacts_at_level1: usize,
 }
 impl ImpactsImpl<'_> {
-  fn read_impacts(
+  pub(crate) fn read_impacts(
     serialized: &[u8],
     serialized_len: usize,
     level_impacts_len: usize,
   ) -> Result<MutableImpactList> {
     let mut scratch = ByteArrayDataInput::with_range(serialized, 0, serialized_len);
-    let mut level_impacts = MutableImpactList::with_capacity(level_impacts_len);
+    // Each impact consumes at least one byte; an owned result cannot reuse
+    // the segment-wide maximum capacity across calls.
+    let mut level_impacts = MutableImpactList::with_capacity(level_impacts_len.min(serialized_len));
     read_impacts(&mut scratch, &mut level_impacts)?;
     Ok(level_impacts)
   }
@@ -1684,11 +1686,7 @@ pub(crate) struct MutableImpactList {
 }
 impl MutableImpactList {
   pub(crate) fn with_capacity(capacity: usize) -> Self {
-    let mut impacts = Vec::with_capacity(capacity);
-    impacts.resize_with(capacity, || Impact {
-      freq: i32::MAX,
-      norm: 1,
-    });
+    let impacts = Vec::with_capacity(capacity);
     MutableImpactList { length: 0, impacts }
   }
 }
@@ -1732,7 +1730,7 @@ pub(crate) fn read_impacts(
 ) -> Result<()> {
   let mut freq = 0;
   let mut norm = 0i64;
-  let mut length = 0;
+  reuse.impacts.clear();
 
   while in_.get_position() < in_.length() {
     let freq_delta = in_.read_vint()?;
@@ -1742,12 +1740,11 @@ pub(crate) fn read_impacts(
     } else {
       norm = norm.wrapping_add(1);
     }
-    let impact = &mut reuse.impacts[length];
-    impact.freq = freq;
-    impact.norm = norm;
-    length += 1;
+    // Preserve the fixed decode bound instead of reallocating corrupt input.
+    assert!(reuse.impacts.len() < reuse.impacts.capacity());
+    reuse.impacts.push(Impact::new(freq, norm));
   }
-  reuse.length = length;
+  reuse.length = reuse.impacts.len();
   Ok(())
 }
 fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {

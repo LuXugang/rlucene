@@ -365,10 +365,8 @@ where
   fn get_impacts(&'_ self, level: usize) -> Result<Vec<Impact>> {
     let doc_id_up_to = self.get_doc_id_upto(level);
     let impact_len = self.impacts.len();
-    let mut sub_iterators = Vec::with_capacity(impact_len);
-    let mut has_impacts = false;
-    let mut only_impact_list = false;
-    let mut pq = PriorityQueue::new(impact_len, SubIteratorCmp)?;
+    let mut sub_iterators = Vec::new();
+    let mut first_sub = None;
 
     for i in 0..impact_len {
       let Some(impacts_level) = get_level(&self.impacts[i], doc_id_up_to) else {
@@ -387,30 +385,25 @@ where
       }
 
       let sub = SubIterator::new(impact_list);
-      sub_iterators.push(sub);
-
-      if !has_impacts {
-        has_impacts = true;
-        only_impact_list = true;
+      if sub_iterators.is_empty() {
+        if let Some(first) = first_sub.take() {
+          // Keep a single useful list on the stack until a merge is needed.
+          sub_iterators.reserve_exact(impact_len);
+          sub_iterators.push(first);
+          sub_iterators.push(sub);
+        } else {
+          first_sub = Some(sub);
+        }
       } else {
-        only_impact_list = false;
+        sub_iterators.push(sub);
       }
     }
 
-    if !has_impacts {
+    if let Some(sub) = first_sub {
+      return Ok(sub.iterator);
+    }
+    if sub_iterators.is_empty() {
       return Ok(vec![Impact::new(i32::MAX, 1)]);
-    } else if only_impact_list {
-      if sub_iterators.len() != 1 {
-        return Err(LuceneError::illegal_state(
-          "only_impact_list is true but there are multiple sub iterators",
-        ));
-      }
-      return match sub_iterators.pop() {
-        Some(sub) => Ok(sub.iterator),
-        None => Err(LuceneError::illegal_state(
-          "should at least one sub iterator",
-        )),
-      };
     }
     // Idea: merge impacts by freq. The tricky thing is that we need to
     // consider freq values that are not in the impacts too. For
@@ -421,6 +414,8 @@ where
     // We walk impacts in parallel through a PQ ordered by freq. At any time,
     // the competitive impact consists of the lowest freq among all entries of
     // the PQ (the top) and the highest norm (tracked separately).
+    // The empty and single-list cases above do not need a merge queue.
+    let mut pq = PriorityQueue::new(impact_len, SubIteratorCmp)?;
     pq.add_all(sub_iterators)?;
 
     let mut merged_impacts: Vec<Impact> = Vec::new();

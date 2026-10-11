@@ -144,20 +144,27 @@ pub type ReusedIndexingTokenStream = TokenStreamEnum2<BinaryTokenStream, StringT
 ///
 /// Borrowed values reuse existing Vec-backed storage, slice values borrow external
 /// bytes, and owned values avoid wrapping a newly allocated BytesRef in a Cow.
+/// Inline values hold small encodings directly in the result.
 #[derive(Debug, PartialEq, Eq)]
 pub enum BinaryValueEnum<'a> {
   Borrowed(&'a BytesRef<Vec<u8>>),
   Owned(BytesRef<Vec<u8>>),
   Slice(BytesRef<&'a [u8]>),
+  /// Small owned encodings. `length` must not exceed eight bytes.
+  Inline {
+    bytes: [u8; 8],
+    length: usize,
+  },
 }
 
 impl<'a> BinaryValueEnum<'a> {
-  /// Adapt to an API requiring Vec-backed BytesRef, copying only a slice-backed value.
+  /// Adapt to an API requiring Vec-backed BytesRef, copying slice and inline values.
   pub fn into_cow(self) -> Cow<'a, BytesRef<Vec<u8>>> {
     match self {
       Self::Borrowed(value) => Cow::Borrowed(value),
       Self::Owned(value) => Cow::Owned(value),
       Self::Slice(value) => Cow::Owned(BytesRef::from(value.as_bytes().to_vec())),
+      Self::Inline { bytes, length } => Cow::Owned(BytesRef::from(bytes[..length].to_vec())),
     }
   }
 
@@ -167,6 +174,7 @@ impl<'a> BinaryValueEnum<'a> {
       Self::Borrowed(value) => value.clone(),
       Self::Owned(value) => value,
       Self::Slice(value) => BytesRef::from(value.as_bytes().to_vec()),
+      Self::Inline { bytes, length } => BytesRef::from(bytes[..length].to_vec()),
     }
   }
 
@@ -176,6 +184,11 @@ impl<'a> BinaryValueEnum<'a> {
       Self::Borrowed(value) => value.as_bytes_ref(),
       Self::Owned(value) => value.as_bytes_ref(),
       Self::Slice(value) => value.as_bytes_ref(),
+      Self::Inline { bytes, length } => BytesRef {
+        bytes,
+        offset: 0,
+        length: *length,
+      },
     }
   }
 
@@ -185,6 +198,7 @@ impl<'a> BinaryValueEnum<'a> {
       Self::Borrowed(value) => value.as_byte_slice(),
       Self::Owned(value) => value.as_byte_slice(),
       Self::Slice(value) => value.as_byte_slice(),
+      Self::Inline { bytes, length } => &bytes[..*length],
     }
   }
 }
@@ -198,11 +212,7 @@ impl Display for BinaryValueEnum<'_> {
 impl<'a> BytesRefValue<'a> for BinaryValueEnum<'a> {
   #[inline(always)]
   fn as_bytes_ref(&self) -> BytesRef<&[u8]> {
-    match self {
-      Self::Borrowed(value) => value.as_bytes_ref(),
-      Self::Owned(value) => value.as_bytes_ref(),
-      Self::Slice(value) => value.as_bytes_ref(),
-    }
+    BinaryValueEnum::as_bytes_ref(self)
   }
 
   fn into_value(self) -> BytesRefValueEnum<'a> {
@@ -210,6 +220,9 @@ impl<'a> BytesRefValue<'a> for BinaryValueEnum<'a> {
       Self::Borrowed(value) => BytesRefValueEnum::Buffer(Cow::Borrowed(value)),
       Self::Owned(value) => BytesRefValueEnum::Buffer(Cow::Owned(value)),
       Self::Slice(value) => BytesRefValueEnum::Slice(value),
+      Self::Inline { bytes, length } => {
+        BytesRefValueEnum::Buffer(Cow::Owned(BytesRef::from(bytes[..length].to_vec())))
+      },
     }
   }
 }

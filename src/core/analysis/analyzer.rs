@@ -34,9 +34,14 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use thread_local::ThreadLocal;
 
+// Bound retained input memory per analyzer thread. Unusually large documents
+// use independent reader storage that is released on EOF or close.
+const MAX_REUSABLE_TEXT_BYTES: usize = 64 * 1024;
+
 pub struct AnalyzerStoredValue {
   reuse_strategy: ReuseStrategyFactory,
   stored_value: ThreadLocal<RefCell<ReuseStrategyEnum>>,
+  text_buffers: ThreadLocal<RefCell<Arc<String>>>,
 }
 
 impl AnalyzerStoredValue {
@@ -48,6 +53,7 @@ impl AnalyzerStoredValue {
     Self {
       reuse_strategy: ReuseStrategyFactory::Global,
       stored_value: ThreadLocal::new(),
+      text_buffers: ThreadLocal::new(),
     }
   }
 
@@ -55,6 +61,7 @@ impl AnalyzerStoredValue {
     Self {
       reuse_strategy: ReuseStrategyFactory::PerField,
       stored_value: ThreadLocal::new(),
+      text_buffers: ThreadLocal::new(),
     }
   }
 
@@ -68,8 +75,29 @@ impl AnalyzerStoredValue {
     self.get().borrow_mut()
   }
 
+  fn reader_for_text(&self, text: &str) -> ReaderEnum {
+    if text.len() > MAX_REUSABLE_TEXT_BYTES {
+      return ReaderEnum::from(text);
+    }
+    let mut buffer = self
+      .text_buffers
+      .get_or(|| RefCell::new(Arc::new(String::new())))
+      .borrow_mut();
+    if let Some(value) = Arc::get_mut(&mut buffer) {
+      value.clear();
+      value.reserve_exact(text.len());
+      value.push_str(text);
+    } else {
+      // A reader or its clone still owns the previous text. Do not copy it
+      // before replacing it, or change the contents visible to that reader.
+      *buffer = Arc::new(text.to_owned());
+    }
+    ReaderEnum::from(Arc::clone(&buffer))
+  }
+
   pub fn close(&mut self) -> Result<()> {
     self.stored_value.clear();
+    self.text_buffers.clear();
     Ok(())
   }
 }
@@ -156,6 +184,19 @@ pub trait Analyzer: Closeable + Send + Sync {
     Ok(RefMut::map(components, |components| {
       components.get_token_stream()
     }))
+  }
+
+  /// Analyzes borrowed text using a reusable, thread-local input buffer.
+  /// The text is copied, but subsequent calls reuse the allocation after the
+  /// previous token stream and any cloned readers have released it.
+  /// Inputs up to 64 KiB use the buffer, whose capacity is retained until this
+  /// analyzer is closed. Larger inputs use independent reader storage.
+  fn token_stream_from_text(
+    &self,
+    field_name: &str,
+    text: &str,
+  ) -> Result<RefMut<'_, AnalyzerTokenStreams>> {
+    self.token_stream(field_name, self.stored_value().reader_for_text(text))
   }
 
   fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
@@ -281,6 +322,14 @@ where
     (**self).token_stream(field_name, input)
   }
 
+  fn token_stream_from_text(
+    &self,
+    field_name: &str,
+    text: &str,
+  ) -> Result<RefMut<'_, AnalyzerTokenStreams>> {
+    (**self).token_stream_from_text(field_name, text)
+  }
+
   fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {
     (**self).normalize(field_name, text)
   }
@@ -391,6 +440,18 @@ impl Analyzer for AnalyzerEnum {
       AnalyzerEnum::Whitespace(v) => v.token_stream(field_name, input),
       AnalyzerEnum::Standard(v) => v.token_stream(field_name, input),
       AnalyzerEnum::Custom(v) => v.token_stream(field_name, input),
+    }
+  }
+
+  fn token_stream_from_text(
+    &self,
+    field_name: &str,
+    text: &str,
+  ) -> Result<RefMut<'_, AnalyzerTokenStreams>> {
+    match self {
+      AnalyzerEnum::Whitespace(v) => v.token_stream_from_text(field_name, text),
+      AnalyzerEnum::Standard(v) => v.token_stream_from_text(field_name, text),
+      AnalyzerEnum::Custom(v) => v.token_stream_from_text(field_name, text),
     }
   }
 
