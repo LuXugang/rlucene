@@ -359,18 +359,20 @@ where
       let mut j = i * 2;
       let k = j + 1;
 
-      if k <= size
-        && self
-          .compare
-          .less_than(self.heap_value(k)?, self.heap_value(j)?)?
-      {
-        j = k;
-      }
+      let child = if k <= size {
+        let right = self.heap_value(k)?;
+        let left = self.heap_value(j)?;
+        if self.compare.less_than(right, left)? {
+          j = k;
+          right
+        } else {
+          left
+        }
+      } else {
+        self.heap_value(j)?
+      };
 
-      if !self
-        .compare
-        .less_than(self.heap_value(j)?, self.heap_value(i)?)?
-      {
+      if !self.compare.less_than(child, self.heap_value(i)?)? {
         break;
       }
 
