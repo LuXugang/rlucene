@@ -238,7 +238,11 @@ where
           < 0x80
       }) && tail.iter().all(|c| c.is_ascii());
       if bytes.capacity() < source.len() {
-        let encoded_len: usize = source.iter().map(|c| c.len_utf8()).sum();
+        let encoded_len = if ascii {
+          source.len()
+        } else {
+          source.iter().map(|c| c.len_utf8()).sum()
+        };
         bytes.reserve_exact(encoded_len);
       }
       if ascii {

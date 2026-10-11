@@ -107,7 +107,7 @@ impl IntSet for StateSet {
     }
 
     if let Some(array) = Arc::get_mut(&mut self.array_cache) {
-      if array.capacity() == self.inner.len() {
+      if array.capacity() >= self.inner.len() {
         array.clear();
         array.extend(self.inner.keys().copied());
       } else {
