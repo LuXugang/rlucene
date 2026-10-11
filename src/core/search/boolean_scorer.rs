@@ -71,11 +71,7 @@ where
     }
 
     let buckets = if needs_scores || min_should_match > 1 {
-      let mut v = Vec::with_capacity(SIZE);
-      for _ in 0..SIZE {
-        v.push(Bucket::new());
-      }
-      Some(v)
+      Some((0..SIZE).map(|_| Bucket::new()).collect())
     } else {
       None
     };
@@ -501,7 +497,7 @@ where
             consumer.accept(self.base | index_in_window as i32)?;
           },
         }
-        bits ^= 1u64 << ntz;
+        bits &= bits - 1;
       }
     }
     Ok(())

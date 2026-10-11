@@ -209,26 +209,24 @@ either_leaf_collector!(
     { A: A, B: B, C: C }
 );
 
-struct CollectorConsumer<'a, LC, S>
+struct CollectorConsumer<'a, LC>
 where
   LC: ?Sized,
-  S: ?Sized,
 {
   collector: &'a mut LC,
-  scorer: &'a mut S,
+  scorer: &'a mut dyn Scorable,
 }
 
-impl<'a, LC, S> DocIdStreamConsumer for CollectorConsumer<'a, LC, S>
+impl<'a, LC> DocIdStreamConsumer for CollectorConsumer<'a, LC>
 where
   LC: LeafCollector + ?Sized,
-  S: Scorable + ?Sized,
 {
   fn accept(&mut self, doc: i32) -> Result<()> {
-    self.collector.collect(doc, &mut self.scorer)
+    self.collector.collect(doc, self.scorer)
   }
 
   fn accept_with_score(&mut self, doc: i32, score: f32) -> Result<()> {
     self.scorer.set_score(score)?;
-    self.collector.collect(doc, &mut self.scorer)
+    self.collector.collect(doc, self.scorer)
   }
 }

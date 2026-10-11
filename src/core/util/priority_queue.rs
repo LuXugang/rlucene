@@ -132,10 +132,7 @@ impl<T, C> PriorityQueue<T, C> {
       // 1-based not 0-based.  heap[0] is unused.
       max_size + 1
     };
-    let mut heap: Vec<Option<T>> = Vec::with_capacity(heap_size);
-    while heap.len() < heap_size {
-      heap.push(None);
-    }
+    let mut heap: Vec<Option<T>> = (0..heap_size).map(|_| None).collect();
     if let Some(sentinel) = sentinel_object_supplier() {
       heap[1] = Some(sentinel);
       #[allow(clippy::needless_range_loop)]

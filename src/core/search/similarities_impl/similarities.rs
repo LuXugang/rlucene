@@ -120,7 +120,7 @@ pub trait Similarity: Display {
   ///
   /// # Returns
   ///
-  /// A `u8` norm value, suitable for storage in the index.
+  /// An encoded norm byte, sign-extended to `i64` as in Java.
   fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
     let num_terms = if state.get_index_options() == IndexOptions::Docs {
       state.get_unique_term_count()
@@ -129,7 +129,7 @@ pub trait Similarity: Display {
     } else {
       state.get_length()
     };
-    Ok(SmallFloat::int_to_byte4(num_terms)? as i64)
+    Ok(SmallFloat::int_to_byte4(num_terms)? as i8 as i64)
   }
 
   type SimScorer: SimScorer;
