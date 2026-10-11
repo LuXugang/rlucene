@@ -127,7 +127,7 @@ impl MathUtil {
       return 0.0;
     }
     // Machine epsilon (unit roundoff)
-    let u = f64::from_bits(0x3CA0000000000000); // 2^-52
+    let u = f64::from_bits(0x3CB0000000000000); // 2^-52
     (num_values - 1) as f64 * u
   }
 
