@@ -24,6 +24,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
+use smallvec::SmallVec;
 
 /// BulkScorer implementation of [`BlockMaxConjunctionScorer`](crate::core::search::block_max_conjunction_scorer) that focuses on top-level
 /// conjunctions over clauses that do not have two-phase iterators. Use a [`DefaultBulkScorer`](crate::core::search::weight::DefaultBulkScorer)
@@ -43,22 +44,27 @@ impl<S> BlockMaxConjunctionBulkScorer<S>
 where
   S: Scorer,
 {
-  pub(crate) fn new(max_doc: i32, scorers_list: Vec<S>) -> Result<Self> {
-    let mut temp_scorers_list = Vec::with_capacity(scorers_list.len());
-    let mut cost = Vec::with_capacity(scorers_list.len());
-    for (idx, v) in scorers_list.into_iter().enumerate() {
-      cost.push((idx, DocIdSetIterator::cost(&v)?));
-      temp_scorers_list.push(Some(v));
+  pub(crate) fn new(max_doc: i32, mut scorers_list: Vec<S>) -> Result<Self> {
+    let mut costs: SmallVec<[(usize, i64); 8]> = SmallVec::with_capacity(scorers_list.len());
+    for (index, scorer) in scorers_list.iter().enumerate() {
+      costs.push((index, DocIdSetIterator::cost(scorer)?));
     }
     // Use the least costly scorers as leads, preserving input order for equal costs.
-    cost.sort_by_key(|entry| entry.1);
-    let mut scorers = Vec::with_capacity(cost.len());
-    for (idx, _) in cost {
-      let v = temp_scorers_list[idx]
-        .take()
-        .ok_or_else(|| LuceneError::illegal_state("scorer is missing"))?;
-      scorers.push(v);
+    costs.sort_by_key(|entry| entry.1);
+    // Map each original position to its sorted destination, then resolve each cycle.
+    // Keep Scorers in their original allocation; only costs and indices use inline storage.
+    let mut destinations: SmallVec<[usize; 8]> = SmallVec::from_elem(0, scorers_list.len());
+    for (destination, &(source, _)) in costs.iter().enumerate() {
+      destinations[source] = destination;
     }
+    for source in 0..scorers_list.len() {
+      while destinations[source] != source {
+        let destination = destinations[source];
+        scorers_list.swap(source, destination);
+        destinations.swap(source, destination);
+      }
+    }
+    let scorers = scorers_list;
     Ok(Self {
       scorable: DocAndScore::new(0.0),
       sum_of_other_clauses: vec![f64::INFINITY; scorers.len()],

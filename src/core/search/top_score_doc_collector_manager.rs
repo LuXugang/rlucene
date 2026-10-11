@@ -140,7 +140,12 @@ impl CollectorManager for TopScoreDocCollectorManager {
     )
   }
 
-  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+  fn reduce(&self, mut collectors: Vec<Self::C>) -> Result<Self::T> {
+    if collectors.len() == 1
+      && let Some(mut collector) = collectors.pop()
+    {
+      return collector.top_docs();
+    }
     let len = collectors.len();
     let mut top_docs = Vec::with_capacity(len);
 

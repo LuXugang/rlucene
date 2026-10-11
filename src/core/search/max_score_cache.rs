@@ -21,6 +21,60 @@ use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
+#[derive(Clone, Copy)]
+struct CacheEntry {
+  score: f32,
+  upto: i32,
+}
+
+impl Default for CacheEntry {
+  fn default() -> Self {
+    Self {
+      score: 0.0,
+      upto: -1,
+    }
+  }
+}
+
+// Common levels have fixed addresses; unusual sources retain growable storage.
+struct CacheEntries {
+  inline: [CacheEntry; 2],
+  extra: Vec<CacheEntry>,
+}
+
+impl CacheEntries {
+  fn new() -> Self {
+    Self {
+      inline: [CacheEntry::default(); 2],
+      extra: Vec::new(),
+    }
+  }
+}
+
+impl std::ops::Index<usize> for CacheEntries {
+  type Output = CacheEntry;
+
+  #[inline]
+  fn index(&self, level: usize) -> &Self::Output {
+    if level < self.inline.len() {
+      &self.inline[level]
+    } else {
+      &self.extra[level - self.inline.len()]
+    }
+  }
+}
+
+impl std::ops::IndexMut<usize> for CacheEntries {
+  #[inline]
+  fn index_mut(&mut self, level: usize) -> &mut Self::Output {
+    if level < self.inline.len() {
+      &mut self.inline[level]
+    } else {
+      &mut self.extra[level - self.inline.len()]
+    }
+  }
+}
+
 /// Compute maximum scores based on [`Impacts`] and keep them in a cache
 /// in order not to run expensive similarity score computations multiple times
 /// on the same data.
@@ -30,8 +84,7 @@ pub struct MaxScoreCache<IS, SS> {
   pub(crate) impacts_source: IS,
   pub(crate) scorer: SS,
   global_max_score: f32,
-  max_score_cache: Vec<f32>,
-  max_score_cache_upto: Vec<i32>,
+  max_score_cache: CacheEntries,
 }
 
 impl<IS, SS> MaxScoreCache<IS, SS>
@@ -45,8 +98,7 @@ where
       impacts_source,
       scorer,
       global_max_score,
-      max_score_cache: Vec::new(),
-      max_score_cache_upto: Vec::new(),
+      max_score_cache: CacheEntries::new(),
     }
   }
 }
@@ -66,12 +118,11 @@ where
   }
 
   fn ensure_cache_size(&mut self, size: usize) -> Result<()> {
-    if self.max_score_cache.len() < size {
-      let old_len = self.max_score_cache.len();
-      ArrayUtil::grow_with_len(&mut self.max_score_cache, size)?;
-      let len = self.max_score_cache.len();
-      ArrayUtil::grow_exact(&mut self.max_score_cache_upto, len)?;
-      self.max_score_cache_upto[old_len..].fill(-1);
+    if size > self.max_score_cache.inline.len() {
+      ArrayUtil::grow_with_len(
+        &mut self.max_score_cache.extra,
+        size - self.max_score_cache.inline.len(),
+      )?;
     }
     Ok(())
   }
@@ -114,12 +165,12 @@ where
     self.ensure_cache_size(level + 1)?;
     let impacts = self.impacts_source.get_impacts()?;
     let level_up_to = impacts.get_doc_id_upto(level);
-    if self.max_score_cache_upto[level] < level_up_to {
+    if self.max_score_cache[level].upto < level_up_to {
       let max_score = self.compute_max_score(impacts.get_impacts(level)?.as_ref());
-      self.max_score_cache[level] = max_score;
-      self.max_score_cache_upto[level] = level_up_to;
+      self.max_score_cache[level].score = max_score;
+      self.max_score_cache[level].upto = level_up_to;
     }
-    Ok(self.max_score_cache[level])
+    Ok(self.max_score_cache[level].score)
   }
 
   /// Return the maximum level at which scores are all less than `min_score`,
