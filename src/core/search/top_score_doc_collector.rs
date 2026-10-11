@@ -150,6 +150,11 @@ impl TopDocsCollector for TopScoreDocCollector {
     }
   }
 
+  fn top_docs(&mut self) -> Result<Self::TopDocsLike> {
+    // The queue size bounds the valid hits; the range method clamps it after one scan.
+    self.top_docs_with_start_limit(0, self.base.pq.size() as i32)
+  }
+
   fn top_docs_size(&self) -> usize {
     self
       .base
