@@ -1413,20 +1413,15 @@ where
 {
   fn freq(&mut self) -> Result<i32> {
     if let Some(freq_fp) = self.freq_fp {
-      let doc_in = &mut self
-        .doc_in_util
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
-        .input;
-      doc_in.seek(freq_fp)?;
-      let pfor_util = self
-        .pfor_util
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("PFor decoder is missing"))?;
       let doc_in_util = self
         .doc_in_util
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?;
+      doc_in_util.input.seek(freq_fp)?;
+      let pfor_util = self
+        .pfor_util
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("PFor decoder is missing"))?;
       pfor_util.decode(doc_in_util, &mut self.freq_buffer)?;
       self.freq_fp = None;
     }

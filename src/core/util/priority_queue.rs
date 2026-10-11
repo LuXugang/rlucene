@@ -358,10 +358,16 @@ where
     while i * 2 <= size {
       let mut j = i * 2;
       let k = j + 1;
+      let (parents, children) = self.heap.split_at_mut(j);
 
       let child = if k <= size {
-        let right = self.heap_value(k)?;
-        let left = self.heap_value(j)?;
+        let (left, right) = children.split_at_mut(1);
+        let right = right[0]
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))?;
+        let left = left[0]
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))?;
         if self.compare.less_than(right, left)? {
           j = k;
           right
@@ -369,14 +375,19 @@ where
           left
         }
       } else {
-        self.heap_value(j)?
+        children[0]
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))?
       };
+      let node = parents[i]
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))?;
 
-      if !self.compare.less_than(child, self.heap_value(i)?)? {
+      if !self.compare.less_than(child, node)? {
         break;
       }
 
-      self.heap.swap(i, j);
+      std::mem::swap(node, child);
       i = j;
     }
     Ok(())
