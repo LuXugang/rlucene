@@ -1368,11 +1368,16 @@ where
   fn accumulate_pending_positions(&mut self) -> Result<()> {
     let freq = self.freq()?;
 
-    self.pos_pending_count += sum_over_range(
-      &self.freq_buffer,
-      self.pos_doc_buffer_upto,
-      self.doc_buffer_upto,
-    );
+    let pending = if self.pos_doc_buffer_upto.checked_add(1) == Some(self.doc_buffer_upto) {
+      freq
+    } else {
+      sum_over_range(
+        &self.freq_buffer,
+        self.pos_doc_buffer_upto,
+        self.doc_buffer_upto,
+      )
+    };
+    self.pos_pending_count += pending;
     self.pos_doc_buffer_upto = self.doc_buffer_upto;
 
     debug_assert!(self.pos_pending_count > 0);
