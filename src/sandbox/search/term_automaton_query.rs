@@ -36,7 +36,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::multi_phrase_query;
 use crate::core::search::phrase_query;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -538,6 +538,11 @@ impl TermAutomatonQueryDefaults {
 }
 
 impl QueryBase for TermAutomatonQuery {
+  type Weight<IRC>
+    = TermAutomatonWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     let mut value = format!("TermAutomatonQuery(field={}", self.field);
     if let Some(det) = &self.det {
@@ -553,12 +558,12 @@ impl QueryBase for TermAutomatonQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(TermAutomatonWeight::new(self, searcher, score_mode, boost)?).into())
+    TermAutomatonWeight::new(self, searcher, score_mode, boost)
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
@@ -588,7 +593,7 @@ impl QueryBase for TermAutomatonQuery {
   }
 }
 
-pub(crate) struct TermAutomatonWeight {
+pub struct TermAutomatonWeight {
   term_states: Vec<Option<TermStates>>,
   stats: Option<Arc<SimilarityEnumSimScorer>>,
   #[allow(dead_code)]

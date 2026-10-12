@@ -104,6 +104,11 @@ impl HasIdentity for IndexOrDocValuesQuery {
 }
 
 impl QueryBase for IndexOrDocValuesQuery {
+  type Weight<IRC>
+    = IndexOrDocValuesQueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!(
       "IndexOrDocValuesQuery(indexQuery={:?}, dvQuery={:?})",
@@ -117,7 +122,7 @@ impl QueryBase for IndexOrDocValuesQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
@@ -128,14 +133,11 @@ impl QueryBase for IndexOrDocValuesQuery {
       .index_query
       .create_weight(searcher, score_mode, boost)?;
     let dv_weight = self.dv_query.create_weight(searcher, score_mode, boost)?;
-    Ok(
-      Box::new(IndexOrDocValuesQueryWeight::new(
-        dv_weight,
-        index_weight,
-        query,
-      ))
-      .into(),
-    )
+    Ok(IndexOrDocValuesQueryWeight::new(
+      dv_weight,
+      index_weight,
+      query,
+    ))
   }
 
   fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

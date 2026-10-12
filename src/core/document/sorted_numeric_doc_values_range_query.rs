@@ -33,7 +33,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -91,6 +91,11 @@ impl HasIdentity for SortedNumericDocValuesRangeQuery {
   }
 }
 impl QueryBase for SortedNumericDocValuesRangeQuery {
+  type Weight<IRC>
+    = SortedNumericDocValuesRangeQueryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut out = String::new();
 
@@ -111,20 +116,17 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(
-      Box::new(SortedNumericDocValuesRangeQueryWeight::new(
-        self,
-        *score_mode,
-        boost,
-      ))
-      .into(),
-    )
+    Ok(SortedNumericDocValuesRangeQueryWeight::new(
+      self,
+      *score_mode,
+      boost,
+    ))
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

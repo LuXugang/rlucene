@@ -24,7 +24,8 @@ use crate::core::index::term_states::TermStates;
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
-  RewritingWeight, RewritingWeightBase, TermAndState, WeightOrDocIdSetIterator,
+  MultiTermRewritingWeight, RewritingWeight, RewritingWeightBase, TermAndState,
+  WeightOrDocIdSetIterator,
 };
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
@@ -39,7 +40,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, dispatch_multi_term_query,
 };
-use crate::core::search::query::{QueryBase, QueryWeight};
+use crate::core::search::query::QueryBase;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
@@ -89,6 +90,11 @@ impl HasIdentity for MultiTermQueryConstantScoreBlendedWrapper {
 }
 
 impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
+  type Weight<IRC>
+    = MultiTermRewritingWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.q.to_string(field)
   }
@@ -98,16 +104,57 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let sub = BlendedRewritingWeight;
-    dispatch_multi_term_query!(self.q, |q| Ok(
-      Box::new(RewritingWeight::new(boost, *score_mode, q, sub.into(),)).into()
-    ))
+    match self.q {
+      MultiTermQuerySet::Prefix(q) => Ok(MultiTermRewritingWeight::Prefix(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      MultiTermQuerySet::TermRange(q) => Ok(MultiTermRewritingWeight::TermRange(
+        RewritingWeight::new(boost, *score_mode, q, sub.into()),
+      )),
+      MultiTermQuerySet::Automaton(q) => Ok(MultiTermRewritingWeight::Automaton(
+        RewritingWeight::new(boost, *score_mode, q, sub.into()),
+      )),
+      MultiTermQuerySet::Fuzzy(q) => Ok(MultiTermRewritingWeight::Fuzzy(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      MultiTermQuerySet::TermInSet(q) => Ok(MultiTermRewritingWeight::TermInSet(
+        RewritingWeight::new(boost, *score_mode, q, sub.into()),
+      )),
+      MultiTermQuerySet::Wildcard(q) => Ok(MultiTermRewritingWeight::Wildcard(
+        RewritingWeight::new(boost, *score_mode, q, sub.into()),
+      )),
+      MultiTermQuerySet::Regexp(q) => Ok(MultiTermRewritingWeight::Regexp(RewritingWeight::new(
+        boost,
+        *score_mode,
+        q,
+        sub.into(),
+      ))),
+      #[cfg(test)]
+      MultiTermQuerySet::BoostChecking(q) => Ok(MultiTermRewritingWeight::BoostChecking(
+        RewritingWeight::new(boost, *score_mode, q, sub.into()),
+      )),
+      #[cfg(test)]
+      MultiTermQuerySet::DumbPrefix(q) => Ok(MultiTermRewritingWeight::DumbPrefix(
+        RewritingWeight::new(boost, *score_mode, q, sub.into()),
+      )),
+      #[cfg(test)]
+      MultiTermQuerySet::DumbRegexp(q) => Ok(MultiTermRewritingWeight::DumbRegexp(
+        RewritingWeight::new(boost, *score_mode, q, sub.into()),
+      )),
+    }
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

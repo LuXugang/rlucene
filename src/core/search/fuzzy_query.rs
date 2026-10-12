@@ -261,6 +261,11 @@ impl FuzzyQuery {
 }
 
 impl QueryBase for FuzzyQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut buffer = String::new();
     if self.term.field() != field {
@@ -285,7 +290,7 @@ impl QueryBase for FuzzyQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

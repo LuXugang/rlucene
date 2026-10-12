@@ -148,6 +148,11 @@ impl HasIdentity for TermInSetQuery {
 }
 
 impl QueryBase for TermInSetQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     let mut builder = String::new();
     builder.push_str(&self.field);
@@ -172,7 +177,7 @@ impl QueryBase for TermInSetQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

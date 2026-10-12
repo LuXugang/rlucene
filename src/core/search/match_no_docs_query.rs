@@ -19,7 +19,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -88,6 +88,11 @@ impl HasIdentity for MatchNoDocsQuery {
 }
 
 impl QueryBase for MatchNoDocsQuery {
+  type Weight<IRC>
+    = MatchNoDocsWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("MatchNoDocsQuery(\"{}\")", self.reason))
   }
@@ -97,13 +102,13 @@ impl QueryBase for MatchNoDocsQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(MatchNoDocsWeight::new(self)).into())
+    Ok(MatchNoDocsWeight::new(self))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

@@ -311,6 +311,11 @@ impl_into_box_query!(
 );
 
 pub trait QueryBase: Debug + HasIdentity + Accountable {
+  /// The concrete weight produced for this reader context.
+  type Weight<IRC>: crate::core::search::weight::Weight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String>;
 
   fn create_weight<IRC>(
@@ -318,7 +323,7 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
@@ -658,6 +663,11 @@ impl HasIdentity for Query {
   }
 }
 impl QueryBase for Query {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     dispatch_query!(self, |q| q.to_string(field))
   }
@@ -666,13 +676,135 @@ impl QueryBase for Query {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    dispatch_query!(self, |q| q.create_weight(searcher, score_mode, boost,))
+    match self {
+      Self::BinaryRangeFieldRange(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::BlendedTerm(q) => q.create_weight(searcher, score_mode, boost),
+      Self::Boolean(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::Boost(q) => q.create_weight(searcher, score_mode, boost),
+      Self::ByteVectorSimilarity(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::ConstantScore(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::DisjunctionMax(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::DocAndScore(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::Dummy(q) => q.create_weight(searcher, score_mode, boost),
+      Self::FieldExists(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::FloatVectorSimilarity(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::IndexOrDocValues(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::IndexSortSortedNumericDocValuesRange(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::KnnByteVector(q) => q.create_weight(searcher, score_mode, boost),
+      Self::KnnFloatVector(q) => q.create_weight(searcher, score_mode, boost),
+      Self::LatLonDocValues(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::LatLonDocValuesBox(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::LatLonPoint(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::LatLonPointDistance(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::LatLonPointDistanceFeature(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::MatchAllDocs(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::MatchNoDocs(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::Named(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::MultiPhrase(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::MultiTermQuery(q) => q.create_weight(searcher, score_mode, boost),
+      Self::MultiTermQueryDocValuesWrapper(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::MultiTermQueryConstantScoreBlendedWrapper(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::MultiTermQueryConstantScoreWrapper(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::NGramPhrase(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::Phrase(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::PointInSet(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::PointRange(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::RangeField(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::SortedNumericDocValuesRange(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::SortedNumericDocValuesSet(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::SortedSetDocValuesRange(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::Synonym(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::Term(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::TermAutomaton(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      Self::XYDocValuesPointInGeometry(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      Self::XYPointInGeometry(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
+      #[cfg(test)]
+      Self::Asserting(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::AssertNeedsScores(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::BitSet(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::BlockScoreQueryWrapper(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
+      #[cfg(test)]
+      Self::BrokenExplainTerm(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::Counting(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::CrazyMustUseBulkScorer(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::Dummy1(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::TestLRU(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::DVCache(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::MaxScoreWrapper(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::Random(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::RandomApproximation(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+      #[cfg(test)]
+      Self::TestRewrite(q) => q.create_weight(searcher, score_mode, boost),
+      #[cfg(test)]
+      Self::WANDScorer(q) => q
+        .create_weight(searcher, score_mode, boost)
+        .map(QueryWeight::<IRC>::fixture),
+    }
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
@@ -720,6 +852,11 @@ impl<Q> QueryBase for Arc<Q>
 where
   Q: QueryBase,
 {
+  type Weight<IRC>
+    = Q::Weight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     (**self).to_string(field)
   }
@@ -729,7 +866,7 @@ where
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

@@ -45,7 +45,7 @@ use crate::core::search::matches_utils::for_field;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, RewriteMethod, dispatch_multi_term_query,
 };
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -121,6 +121,11 @@ impl HasIdentity for MultiTermQueryDocValuesWrapper {
 }
 
 impl QueryBase for MultiTermQueryDocValuesWrapper {
+  type Weight<IRC>
+    = MultiTermQueryDocValuesWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.query.to_string(field)
   }
@@ -130,13 +135,13 @@ impl QueryBase for MultiTermQueryDocValuesWrapper {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(MultiTermQueryDocValuesWeight::new(self, boost, *score_mode)).into())
+    Ok(MultiTermQueryDocValuesWeight::new(self, boost, *score_mode))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

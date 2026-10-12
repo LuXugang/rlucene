@@ -58,6 +58,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    T::Weight<IRC>: Into<QueryWeight<IRC>>,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     // this adds assertions to the inner weights/scorers too

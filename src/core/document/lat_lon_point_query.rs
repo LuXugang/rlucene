@@ -25,7 +25,7 @@ use crate::core::geo::lat_lon_geometry::{LatLonGeometryEnum, LatLonGeometryType}
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::point_values::Relation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{QueryBase, QueryWeight};
+use crate::core::search::query::QueryBase;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::bit_util::BitUtil;
@@ -54,6 +54,11 @@ pub(crate) fn lat_lon_point_query(
 }
 
 impl QueryBase for LatLonPointQuery {
+  type Weight<IRC>
+    = crate::core::document::spatial_query::SpatialWeight<LatLonGeometryEnum, LatLonPointSpatial>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.to_string(field)
   }
@@ -63,7 +68,7 @@ impl QueryBase for LatLonPointQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

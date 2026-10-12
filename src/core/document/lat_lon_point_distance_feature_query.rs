@@ -39,7 +39,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum2, EmptyDISI};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -119,6 +119,11 @@ impl HasIdentity for LatLonPointDistanceFeatureQuery {
 }
 
 impl QueryBase for LatLonPointDistanceFeatureQuery {
+  type Weight<IRC>
+    = LatLonPointDistanceFeatureWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!(
       "LatLonPointDistanceFeatureQuery(field={field},originLat={},originLon={},pivotDistance={})",
@@ -131,13 +136,13 @@ impl QueryBase for LatLonPointDistanceFeatureQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(LatLonPointDistanceFeatureWeight::new(self, boost)).into())
+    Ok(LatLonPointDistanceFeatureWeight::new(self, boost))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

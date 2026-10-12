@@ -140,25 +140,27 @@ impl NamedQuery {
 }
 
 impl QueryBase for NamedQuery {
+  type Weight<IRC>
+    = NamedWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn create_weight<IRC>(
     self,
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let in_ = self.in_.create_weight(searcher, score_mode, boost)?;
-    Ok(
-      Box::new(NamedWeight {
-        in_,
-        name: self.name,
-      })
-      .into(),
-    )
+    Ok(NamedWeight {
+      in_,
+      name: self.name,
+    })
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
@@ -223,7 +225,7 @@ impl Accountable for NamedQuery {
   }
 }
 
-pub(crate) struct NamedWeight<IRC: IndexReaderContext + 'static> {
+pub struct NamedWeight<IRC: IndexReaderContext + 'static> {
   in_: QueryWeight<IRC>,
   name: Arc<String>,
 }

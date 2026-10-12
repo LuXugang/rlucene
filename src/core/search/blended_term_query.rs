@@ -117,6 +117,11 @@ impl HasIdentity for BlendedTermQuery {
 }
 
 impl QueryBase for BlendedTermQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut builder = String::from("Blended(");
 
@@ -142,7 +147,7 @@ impl QueryBase for BlendedTermQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

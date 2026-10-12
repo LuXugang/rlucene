@@ -32,7 +32,7 @@ use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -109,6 +109,11 @@ impl HasIdentity for SortedSetDocValuesRangeQuery {
   }
 }
 impl QueryBase for SortedSetDocValuesRangeQuery {
+  type Weight<IRC>
+    = SortedSetDocValuesRangeQueryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut b = String::new();
     if self.field.as_str() != field {
@@ -134,20 +139,17 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(
-      Box::new(SortedSetDocValuesRangeQueryWeight::new(
-        self,
-        boost,
-        *score_mode,
-      ))
-      .into(),
-    )
+    Ok(SortedSetDocValuesRangeQueryWeight::new(
+      self,
+      boost,
+      *score_mode,
+    ))
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

@@ -38,7 +38,9 @@ use crate::core::search::matches_utils::for_field;
 use crate::core::search::multi_term_query::MultiTermQuery;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::BlendedRewritingWeight;
 use crate::core::search::multi_term_query_constant_score_wrapper::StandardRewritingWeight;
+use crate::core::search::query::QueryWeightMatches;
 use crate::core::search::query::QueryWeightMatchesIterator;
+use crate::core::search::query::QueryWeightSs;
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
@@ -673,5 +675,317 @@ impl<Q: MultiTermQuery> RewritingWeight<Q> {
     let terms_enum = self.q.get_terms_enum(terms)?;
     from_terms_enum(context, doc, self.query.clone(), field, terms_enum)
       .map(|value| value.map(|iterator| Box::new(iterator).into()))
+  }
+}
+
+/// Weight returned by the actual branches of this query factory.
+pub enum MultiTermRewritingWeight {
+  Prefix(RewritingWeight<crate::core::search::prefix_query::PrefixQuery>),
+  TermRange(RewritingWeight<crate::core::search::term_range_query::TermRangeQuery>),
+  Automaton(RewritingWeight<crate::core::search::automaton_query::AutomatonQuery>),
+  Fuzzy(RewritingWeight<crate::core::search::fuzzy_query::FuzzyQuery>),
+  TermInSet(RewritingWeight<crate::core::search::term_in_set_query::TermInSetQuery>),
+  Wildcard(RewritingWeight<crate::core::search::wildcard_query::WildcardQuery>),
+  Regexp(RewritingWeight<crate::core::search::regexp_query::RegexpQuery>),
+  #[cfg(test)]
+  BoostChecking(
+    RewritingWeight<crate::test_framework::core::search::multi_term::BoostCheckingQuery>,
+  ),
+  #[cfg(test)]
+  DumbPrefix(RewritingWeight<crate::test_framework::core::search::multi_term::DumbPrefixQuery>),
+  #[cfg(test)]
+  DumbRegexp(RewritingWeight<crate::test_framework::core::search::multi_term::DumbRegexpQuery>),
+}
+impl<IRC: IndexReaderContext + 'static> SegmentCacheable<IRC> for MultiTermRewritingWeight {
+  fn is_cacheable(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    match self {
+      Self::Prefix(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::TermRange(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::Automaton(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::Fuzzy(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::TermInSet(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::Wildcard(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::Regexp(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+    }
+  }
+}
+impl<IRC: IndexReaderContext + 'static> Weight<IRC> for MultiTermRewritingWeight {
+  type ScorerSupplier = QueryWeightSs<IRC>;
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::TermRange(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::Automaton(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::Fuzzy(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::TermInSet(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::Wildcard(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::Regexp(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+    }
+  }
+  fn explain(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::TermRange(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::Automaton(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::Fuzzy(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::TermInSet(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::Wildcard(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::Regexp(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+    }
+  }
+  fn get_query(&self) -> Arc<Query> {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::get_query(inner),
+      Self::TermRange(inner) => Weight::<IRC>::get_query(inner),
+      Self::Automaton(inner) => Weight::<IRC>::get_query(inner),
+      Self::Fuzzy(inner) => Weight::<IRC>::get_query(inner),
+      Self::TermInSet(inner) => Weight::<IRC>::get_query(inner),
+      Self::Wildcard(inner) => Weight::<IRC>::get_query(inner),
+      Self::Regexp(inner) => Weight::<IRC>::get_query(inner),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::get_query(inner),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::get_query(inner),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::get_query(inner),
+    }
+  }
+  fn scorer(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightSsScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::TermRange(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Automaton(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Fuzzy(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::TermInSet(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Wildcard(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Regexp(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+    }
+  }
+  fn scorer_supplier(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::TermRange(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::Automaton(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::Fuzzy(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::TermInSet(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::Wildcard(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::Regexp(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+    }
+  }
+  fn bulk_scorer(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::TermRange(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::Automaton(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::Fuzzy(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::TermInSet(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::Wildcard(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::Regexp(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+    }
+  }
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::TermRange(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::Automaton(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::Fuzzy(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::TermInSet(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::Wildcard(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::Regexp(inner) => Weight::<IRC>::count(inner, context, searcher),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::count(inner, context, searcher),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::count(inner, context, searcher),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::count(inner, context, searcher),
+    }
+  }
+  fn default_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::TermRange(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::Automaton(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::Fuzzy(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::TermInSet(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::Wildcard(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::Regexp(inner) => Weight::<IRC>::default_count(inner, context),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::default_count(inner, context),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::default_count(inner, context),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::default_count(inner, context),
+    }
+  }
+  fn is_cache_wrapper(&self) -> bool {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::TermRange(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::Automaton(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::Fuzzy(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::TermInSet(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::Wildcard(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::Regexp(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+    }
+  }
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+    match *self {
+      Self::Prefix(_) => None,
+      Self::TermRange(_) => None,
+      Self::Automaton(_) => None,
+      Self::Fuzzy(_) => None,
+      Self::TermInSet(_) => None,
+      Self::Wildcard(_) => None,
+      Self::Regexp(_) => None,
+      #[cfg(test)]
+      Self::BoostChecking(_) => None,
+      #[cfg(test)]
+      Self::DumbPrefix(_) => None,
+      #[cfg(test)]
+      Self::DumbRegexp(_) => None,
+    }
+  }
+  #[cfg(test)]
+  fn as_any(&mut self) -> &mut dyn std::any::Any {
+    match self {
+      Self::Prefix(inner) => Weight::<IRC>::as_any(inner),
+      Self::TermRange(inner) => Weight::<IRC>::as_any(inner),
+      Self::Automaton(inner) => Weight::<IRC>::as_any(inner),
+      Self::Fuzzy(inner) => Weight::<IRC>::as_any(inner),
+      Self::TermInSet(inner) => Weight::<IRC>::as_any(inner),
+      Self::Wildcard(inner) => Weight::<IRC>::as_any(inner),
+      Self::Regexp(inner) => Weight::<IRC>::as_any(inner),
+      #[cfg(test)]
+      Self::BoostChecking(inner) => Weight::<IRC>::as_any(inner),
+      #[cfg(test)]
+      Self::DumbPrefix(inner) => Weight::<IRC>::as_any(inner),
+      #[cfg(test)]
+      Self::DumbRegexp(inner) => Weight::<IRC>::as_any(inner),
+    }
+  }
+}
+impl<IRC: IndexReaderContext + 'static> From<MultiTermRewritingWeight> for QueryWeight<IRC> {
+  fn from(value: MultiTermRewritingWeight) -> Self {
+    match value {
+      MultiTermRewritingWeight::Prefix(inner) => inner.into(),
+      MultiTermRewritingWeight::TermRange(inner) => inner.into(),
+      MultiTermRewritingWeight::Automaton(inner) => inner.into(),
+      MultiTermRewritingWeight::Fuzzy(inner) => inner.into(),
+      MultiTermRewritingWeight::TermInSet(inner) => inner.into(),
+      MultiTermRewritingWeight::Wildcard(inner) => inner.into(),
+      MultiTermRewritingWeight::Regexp(inner) => inner.into(),
+      #[cfg(test)]
+      MultiTermRewritingWeight::BoostChecking(inner) => inner.into(),
+      #[cfg(test)]
+      MultiTermRewritingWeight::DumbPrefix(inner) => inner.into(),
+      #[cfg(test)]
+      MultiTermRewritingWeight::DumbRegexp(inner) => inner.into(),
+    }
   }
 }

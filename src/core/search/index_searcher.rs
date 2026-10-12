@@ -705,6 +705,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    T::Weight<IRC>: Into<QueryWeight<IRC>>,
     Self: Sync,
   {
     self.hook.create_weight(self, query, score_mode, boost)
@@ -1278,6 +1279,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    T::Weight<IRC>: Into<QueryWeight<IRC>>,
     IndexSearcher<IRC>: Sync,
   {
     IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)
@@ -1716,6 +1718,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    T::Weight<IRC>: Into<QueryWeight<IRC>>,
     IndexSearcher<IRC>: Sync,
   {
     match self {
@@ -2067,8 +2070,9 @@ impl IndexSearcherDefaults {
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     T: QueryBase,
+    T::Weight<IRC>: Into<QueryWeight<IRC>>,
   {
-    let mut weight = query.create_weight(searcher, &score_mode, boost)?;
+    let mut weight: QueryWeight<IRC> = query.create_weight(searcher, &score_mode, boost)?.into();
     if !score_mode.needs_scores()
       && let Some(query_cache) = searcher.query_cache.as_ref()
     {

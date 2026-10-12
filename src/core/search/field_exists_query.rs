@@ -34,7 +34,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum4, DocIdSetIt
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -120,6 +120,11 @@ impl HasIdentity for FieldExistsQuery {
 }
 
 impl QueryBase for FieldExistsQuery {
+  type Weight<IRC>
+    = FieldExistsWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("FieldExistsQuery [field={}]", self.field))
   }
@@ -129,13 +134,13 @@ impl QueryBase for FieldExistsQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)).into())
+    Ok(FieldExistsWeight::new(boost, self, *score_mode))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

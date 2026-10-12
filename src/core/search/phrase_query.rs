@@ -37,7 +37,7 @@ use crate::core::search::phrase_matcher::PhraseMatcherEnum;
 use crate::core::search::phrase_weight::{
   PhraseWeight, PhraseWeightBase, PhraseWeightMeta, SimScorerImpl, SimScorerType,
 };
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -237,6 +237,11 @@ impl HasIdentity for PhraseQuery {
 }
 
 impl QueryBase for PhraseQuery {
+  type Weight<IRC>
+    = PhraseWeight<PhraseQueryWeightBase>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, f: &str) -> Result<String> {
     let mut buffer = String::new();
 
@@ -295,7 +300,7 @@ impl QueryBase for PhraseQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
@@ -310,7 +315,7 @@ impl QueryBase for PhraseQuery {
     let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
     let sub = PhraseQueryWeightBase::new(self, boost, base);
     let weight = PhraseWeight::new(searcher, sub)?;
-    Ok(Box::new(weight).into())
+    Ok(weight)
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

@@ -913,6 +913,11 @@ impl HasIdentity for CountingQuery {
 }
 
 impl QueryBase for CountingQuery {
+  type Weight<IRC>
+    = CountingWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!(
       "CountingQuery[{}]",
@@ -925,7 +930,7 @@ impl QueryBase for CountingQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
@@ -936,12 +941,10 @@ impl QueryBase for CountingQuery {
       .as_ref()
       .clone()
       .create_weight(searcher, score_mode, boost)?;
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(CountingWeight {
-        parent_query: Arc::new(self.into()),
-        delegate_weight,
-      }),
-    ))
+    Ok(CountingWeight {
+      parent_query: Arc::new(self.into()),
+      delegate_weight,
+    })
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -952,7 +955,7 @@ impl QueryBase for CountingQuery {
   }
 }
 
-struct CountingWeight<IRC: IndexReaderContext + 'static>
+pub struct CountingWeight<IRC: IndexReaderContext + 'static>
 where
   IRC: IndexReaderContext + 'static,
 {

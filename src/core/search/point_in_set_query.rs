@@ -38,9 +38,7 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSs, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -245,6 +243,11 @@ impl HasIdentity for PointInSetQuery {
 }
 
 impl QueryBase for PointInSetQuery {
+  type Weight<IRC>
+    = PointInSetWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.to_string(field)
   }
@@ -254,13 +257,13 @@ impl QueryBase for PointInSetQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(PointInSetWeight::new(boost, self, *score_mode)).into())
+    Ok(PointInSetWeight::new(boost, self, *score_mode))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

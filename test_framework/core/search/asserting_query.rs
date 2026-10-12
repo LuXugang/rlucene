@@ -17,7 +17,7 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoBoxQuery, Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::error::lucene_error::Result;
@@ -93,6 +93,11 @@ impl crate::core::util::HasIdentity for AssertingQuery {
 }
 
 impl QueryBase for AssertingQuery {
+  type Weight<IRC>
+    = crate::test_framework::core::search::asserting_weight::AssertingWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.in_.to_string(field)
   }
@@ -102,7 +107,7 @@ impl QueryBase for AssertingQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
@@ -111,9 +116,7 @@ impl QueryBase for AssertingQuery {
     assert!(boost >= 0.0);
     let mut random = random_from_seed(self.random_seed);
     let weight = self.in_.create_weight(searcher, score_mode, boost)?;
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(AssertingWeight::new(random.random(), weight, *score_mode)),
-    ))
+    Ok(AssertingWeight::new(random.random(), weight, *score_mode))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

@@ -81,6 +81,11 @@ impl PartialEq for BoostQuery {
 }
 impl Eq for BoostQuery {}
 impl QueryBase for BoostQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let inner = self.query.to_string(field)?;
     let mut s = String::new();
@@ -97,7 +102,7 @@ impl QueryBase for BoostQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,

@@ -36,7 +36,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
@@ -624,6 +624,11 @@ impl HasIdentity for DocAndScoreQuery {
 }
 
 impl QueryBase for DocAndScoreQuery {
+  type Weight<IRC>
+    = DocAndScoreQueryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!(
       "DocAndScoreQuery[{},...][{},...],{}",
@@ -636,7 +641,7 @@ impl QueryBase for DocAndScoreQuery {
     searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
@@ -647,7 +652,7 @@ impl QueryBase for DocAndScoreQuery {
         "This DocAndScore query was created by a different reader",
       ));
     }
-    Ok(Box::new(DocAndScoreQueryWeight::new(self, _boost)).into())
+    Ok(DocAndScoreQueryWeight::new(self, _boost))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

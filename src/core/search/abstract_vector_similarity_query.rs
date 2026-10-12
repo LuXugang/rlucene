@@ -61,20 +61,21 @@ use std::sync::Arc;
 pub trait AbstractVectorSimilarityQuery: QueryBase {
   fn base(&self) -> &AbstractVectorSimilarityQueryBase;
 
-  fn create_weight<IRC>(self, searcher: &IndexSearcher<IRC>, boost: f32) -> Result<QueryWeight<IRC>>
+  fn create_weight<IRC>(
+    self,
+    searcher: &IndexSearcher<IRC>,
+    boost: f32,
+  ) -> Result<
+    AbstractVectorSimilarityQueryWeight<
+      Self,
+      IRC,
+      Arc<crate::core::index::query_timeout::QueryTimeoutEnum>,
+    >,
+  >
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Clone + Into<Query> + Send + Sync + Sized + 'static,
-    QueryWeight<IRC>: From<
-      Box<
-        AbstractVectorSimilarityQueryWeight<
-          Self,
-          IRC,
-          Arc<crate::core::index::query_timeout::QueryTimeoutEnum>,
-        >,
-      >,
-    >,
   {
     let filter_weight = match self.base().filter.as_ref() {
       Some(filter) => {
@@ -84,15 +85,12 @@ pub trait AbstractVectorSimilarityQuery: QueryBase {
       None => None,
     };
 
-    Ok(
-      Box::new(AbstractVectorSimilarityQueryWeight::new(
-        self,
-        filter_weight,
-        searcher.get_timeout(),
-        boost,
-      ))
-      .into(),
-    )
+    Ok(AbstractVectorSimilarityQueryWeight::new(
+      self,
+      filter_weight,
+      searcher.get_timeout(),
+      boost,
+    ))
   }
 
   fn get_knn_collector_manager(&self) -> VectorSimilarityCollectorManager {

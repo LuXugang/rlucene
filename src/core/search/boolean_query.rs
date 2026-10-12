@@ -25,7 +25,7 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight};
+use crate::core::search::query::{IntoQuery, Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
@@ -294,6 +294,11 @@ impl HasIdentity for BooleanQuery {
   }
 }
 impl QueryBase for BooleanQuery {
+  type Weight<IRC>
+    = BooleanWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut buffer = String::new();
     let need_parens = self.minimum_number_should_match > 0;
@@ -335,14 +340,14 @@ impl QueryBase for BooleanQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let weight = self.raw_weight(searcher, score_mode, boost)?;
-    Ok(Box::new(weight).into())
+    Ok(weight)
   }
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where

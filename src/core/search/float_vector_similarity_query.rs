@@ -26,7 +26,7 @@ use crate::core::search::abstract_vector_similarity_query::{
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn_collector::KnnCollector;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
@@ -205,6 +205,15 @@ impl HasIdentity for FloatVectorSimilarityQuery {
 }
 
 impl QueryBase for FloatVectorSimilarityQuery {
+  type Weight<IRC>
+    = crate::core::search::abstract_vector_similarity_query::AbstractVectorSimilarityQueryWeight<
+    Self,
+    IRC,
+    Arc<crate::core::index::query_timeout::QueryTimeoutEnum>,
+  >
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     let target = self
       .target
@@ -233,7 +242,7 @@ impl QueryBase for FloatVectorSimilarityQuery {
     searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,

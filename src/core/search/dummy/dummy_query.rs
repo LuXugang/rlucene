@@ -63,6 +63,11 @@ impl HasIdentity for DummyQuery {
   }
 }
 impl QueryBase for DummyQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     dummy_unreachable!()
   }
@@ -72,7 +77,7 @@ impl QueryBase for DummyQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRC>>
+  ) -> crate::core::util::error::lucene_error::Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

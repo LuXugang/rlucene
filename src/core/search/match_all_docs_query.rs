@@ -25,7 +25,7 @@ use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
@@ -81,6 +81,11 @@ impl HasIdentity for MatchAllDocsQuery {
 }
 
 impl QueryBase for MatchAllDocsQuery {
+  type Weight<IRC>
+    = MatchAllWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("*:*".to_string())
   }
@@ -90,13 +95,13 @@ impl QueryBase for MatchAllDocsQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(MatchAllWeight::new(boost, self, *score_mode)).into())
+    Ok(MatchAllWeight::new(boost, self, *score_mode))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

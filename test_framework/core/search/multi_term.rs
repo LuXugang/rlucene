@@ -59,6 +59,11 @@ impl BoostCheckingQuery {
 }
 
 impl QueryBase for BoostCheckingQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("dummy".to_string())
   }
@@ -68,7 +73,7 @@ impl QueryBase for BoostCheckingQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
@@ -200,6 +205,11 @@ impl DumbPrefixQuery {
 }
 
 impl QueryBase for DumbPrefixQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     if self.field == field {
       Ok(format!("{}", self.prefix))
@@ -213,7 +223,7 @@ impl QueryBase for DumbPrefixQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
@@ -353,6 +363,11 @@ impl DumbRegexpQuery {
 }
 
 impl QueryBase for DumbRegexpQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     if self.field == field {
       Ok(self.run_automaton.base.automaton.to_string())
@@ -369,7 +384,7 @@ impl QueryBase for DumbRegexpQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

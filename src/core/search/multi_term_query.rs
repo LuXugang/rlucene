@@ -463,6 +463,11 @@ pub enum MultiTermQuerySet {
 }
 
 impl QueryBase for MultiTermQuerySet {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     dispatch_multi_term_query!(self, |q| q.to_string(field))
   }
@@ -472,7 +477,7 @@ impl QueryBase for MultiTermQuerySet {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,

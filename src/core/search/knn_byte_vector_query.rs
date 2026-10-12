@@ -158,6 +158,11 @@ impl HasIdentity for KnnByteVectorQuery {
 }
 
 impl QueryBase for KnnByteVectorQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     let mut buffer = String::new();
     let type_name = std::any::type_name::<Self>();
@@ -187,7 +192,7 @@ impl QueryBase for KnnByteVectorQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,

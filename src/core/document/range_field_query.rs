@@ -31,9 +31,7 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSs, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -166,6 +164,11 @@ impl HasIdentity for RangeFieldQuery {
 }
 
 impl QueryBase for RangeFieldQuery {
+  type Weight<IRC>
+    = RangeFieldWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
     if self.field != field {
@@ -188,13 +191,13 @@ impl QueryBase for RangeFieldQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(RangeFieldWeight::new(self, *score_mode, boost)).into())
+    Ok(RangeFieldWeight::new(self, *score_mode, boost))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

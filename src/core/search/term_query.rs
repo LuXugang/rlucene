@@ -35,7 +35,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::for_field;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
@@ -119,6 +119,11 @@ impl HasIdentity for TermQuery {
 }
 
 impl QueryBase for TermQuery {
+  type Weight<IRC>
+    = TermWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut buffer = String::new();
     if self.term.field != field {
@@ -143,7 +148,7 @@ impl QueryBase for TermQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
@@ -158,7 +163,7 @@ impl QueryBase for TermQuery {
         score_mode.needs_scores(),
       )?),
     };
-    Ok(Box::new(TermWeight::new(searcher, *score_mode, boost, ts, self)?).into())
+    TermWeight::new(searcher, *score_mode, boost, ts, self)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

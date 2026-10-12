@@ -705,7 +705,7 @@ fn test_compare_count() -> Result<()> {
       let w1 = q1.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
       let w2 = q2.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
 
-      assert_same_count(w1.as_ref(), w2.as_ref(), &searcher)?;
+      assert_same_count(&w1, &w2, &searcher)?;
     }
   }
 

@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryWeightMatches;
+use crate::core::search::query::QueryWeightSs;
+use crate::core::search::query::QueryWeightSsBulkScorer;
 use std::fmt::Write as _;
 
 use crate::core::index::BytesRef;
@@ -160,6 +163,11 @@ impl HasIdentity for SynonymQuery {
 }
 
 impl QueryBase for SynonymQuery {
+  type Weight<IRC>
+    = SynonymQueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut builder = String::from("Synonym(");
     for (i, term_and_boost) in self.terms.iter().enumerate() {
@@ -183,14 +191,14 @@ impl QueryBase for SynonymQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if score_mode.needs_scores() {
-      Ok(Box::new(SynonymWeight::new(self, searcher, *score_mode, boost)?).into())
+      SynonymWeight::new(self, searcher, *score_mode, boost).map(SynonymQueryWeight::Scoring)
     } else {
       // If scores are not needed, let BooleanWeight deal with optimizing that case.
       let mut builder = boolean_query::Builder::new();
@@ -200,11 +208,10 @@ impl QueryBase for SynonymQuery {
           Occur::Should,
         )?;
       }
-      searcher.rewrite(builder.build())?.create_weight(
-        searcher,
-        &ScoreMode::CompleteNoScores,
-        boost,
-      )
+      searcher
+        .rewrite(builder.build())?
+        .create_weight(searcher, &ScoreMode::CompleteNoScores, boost)
+        .map(SynonymQueryWeight::Rewritten)
     }
   }
 
@@ -262,7 +269,7 @@ impl Hash for TermAndBoost {
   }
 }
 
-pub(crate) struct SynonymWeight {
+pub struct SynonymWeight {
   term_states: Arc<Vec<TermStates>>,
   similarity: Arc<SimilarityEnum>,
   sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
@@ -1555,7 +1562,7 @@ type SynonymScorerEnum<ST> = ScorerEnum4<
   EmptySynonymScorer,
 >;
 
-pub(crate) struct SynonymScorerSupplier<LR>
+pub struct SynonymScorerSupplier<LR>
 where
   LR: LeafReader + 'static,
 {
@@ -1877,5 +1884,143 @@ impl SynonymWeight {
     let field = query.get_field();
     from_terms(context, doc, self.parent_query.clone(), field, terms)
       .map(|value| value.map(|iterator| Box::new(iterator).into()))
+  }
+}
+
+/// Weight returned by the actual branches of this query factory.
+pub enum SynonymQueryWeight<IRC: IndexReaderContext + 'static> {
+  Scoring(SynonymWeight),
+  Rewritten(QueryWeight<IRC>),
+}
+impl<IRC: IndexReaderContext + 'static> SegmentCacheable<IRC> for SynonymQueryWeight<IRC> {
+  fn is_cacheable(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    match self {
+      Self::Scoring(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::Rewritten(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+    }
+  }
+}
+impl<IRC: IndexReaderContext + 'static> Weight<IRC> for SynonymQueryWeight<IRC> {
+  type ScorerSupplier = QueryWeightSs<IRC>;
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::Rewritten(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+    }
+  }
+  fn explain(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::Rewritten(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+    }
+  }
+  fn get_query(&self) -> Arc<Query> {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::get_query(inner),
+      Self::Rewritten(inner) => Weight::<IRC>::get_query(inner),
+    }
+  }
+  fn scorer(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightSsScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Rewritten(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+    }
+  }
+  fn scorer_supplier(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::Rewritten(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher),
+    }
+  }
+  fn bulk_scorer(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::Rewritten(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher),
+    }
+  }
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::Rewritten(inner) => Weight::<IRC>::count(inner, context, searcher),
+    }
+  }
+  fn default_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::Rewritten(inner) => Weight::<IRC>::default_count(inner, context),
+    }
+  }
+  fn is_cache_wrapper(&self) -> bool {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::Rewritten(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+    }
+  }
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+    match *self {
+      Self::Scoring(_) => None,
+      Self::Rewritten(inner) => inner.into_inner_weight(),
+    }
+  }
+  #[cfg(test)]
+  fn as_any(&mut self) -> &mut dyn std::any::Any {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::as_any(inner),
+      Self::Rewritten(inner) => Weight::<IRC>::as_any(inner),
+    }
+  }
+}
+impl<IRC: IndexReaderContext + 'static> From<SynonymQueryWeight<IRC>> for QueryWeight<IRC> {
+  fn from(value: SynonymQueryWeight<IRC>) -> Self {
+    match value {
+      SynonymQueryWeight::Scoring(inner) => inner.into(),
+      SynonymQueryWeight::Rewritten(inner) => inner,
+    }
   }
 }

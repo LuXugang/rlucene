@@ -123,6 +123,11 @@ impl HasIdentity for DisjunctionMaxQuery {
 }
 
 impl QueryBase for DisjunctionMaxQuery {
+  type Weight<IRC>
+    = DisjunctionMaxWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut result = String::from("(");
 
@@ -155,21 +160,13 @@ impl QueryBase for DisjunctionMaxQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    Ok(
-      Box::new(DisjunctionMaxWeight::new(
-        searcher,
-        self,
-        *score_mode,
-        boost,
-      )?)
-      .into(),
-    )
+    DisjunctionMaxWeight::new(searcher, self, *score_mode, boost)
   }
 
   fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

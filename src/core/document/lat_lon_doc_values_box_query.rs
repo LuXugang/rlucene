@@ -26,7 +26,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -115,6 +115,11 @@ impl HasIdentity for LatLonDocValuesBoxQuery {
 }
 
 impl QueryBase for LatLonDocValuesBoxQuery {
+  type Weight<IRC>
+    = LatLonDocValuesBoxQueryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut out = String::new();
     if self.field != field {
@@ -154,13 +159,13 @@ impl QueryBase for LatLonDocValuesBoxQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(LatLonDocValuesBoxQueryWeight::new(self, *score_mode, boost)).into())
+    Ok(LatLonDocValuesBoxQueryWeight::new(self, *score_mode, boost))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

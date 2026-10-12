@@ -31,9 +31,7 @@ use crate::core::search::doc_id_set_iterator::{
 };
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{
-  Query, QueryRef, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryRef, QueryWeightSs, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -130,19 +128,18 @@ where
     score_mode: &ScoreMode,
     boost: f32,
     query: Arc<Query>,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<SpatialWeight<G, C>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     C: Send + Sync,
     G: Send + Sync,
     C::SpatialVisitor: Send + Sync,
-    QueryWeight<IRC>: From<Box<SpatialWeight<G, C>>>,
     IndexSearcher<IRC>: Sync,
   {
     let spatial_visitor = self.sub.get_spatial_visitor()?;
     let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode, query);
-    Ok(Box::new(spatial_weight).into())
+    Ok(spatial_weight)
   }
 
   pub(crate) fn visit<QV>(&self, visitor: &mut QV, query: QueryRef<'_>) -> Result<()>

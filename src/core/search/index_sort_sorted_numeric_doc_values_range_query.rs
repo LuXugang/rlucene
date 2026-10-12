@@ -111,6 +111,11 @@ impl HasIdentity for IndexSortSortedNumericDocValuesRangeQuery {
 }
 
 impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
+  type Weight<IRC>
+    = IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut s = String::new();
 
@@ -132,7 +137,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
@@ -140,18 +145,15 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
   {
     let fallback_query = self.fallback_query.as_ref().clone();
     let fallback_query_weight = fallback_query.create_weight(searcher, score_mode, boost)?;
-    Ok(
-      Box::new(IndexSortSortedNumericDocValuesRangeQueryWeight::new(
-        Arc::clone(&self.field),
-        self.lower_value,
-        self.upper_value,
-        Arc::new(self.into()),
-        ConstantScoreWeight::new(boost),
-        *score_mode,
-        fallback_query_weight,
-      ))
-      .into(),
-    )
+    Ok(IndexSortSortedNumericDocValuesRangeQueryWeight::new(
+      Arc::clone(&self.field),
+      self.lower_value,
+      self.upper_value,
+      Arc::new(self.into()),
+      ConstantScoreWeight::new(boost),
+      *score_mode,
+      fallback_query_weight,
+    ))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

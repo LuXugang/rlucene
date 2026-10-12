@@ -43,8 +43,14 @@ macro_rules! define_nodes {
       $( $unified(Box<$unified_ty>), )+
       #[cfg(test)] Fixture(Box<dyn Weight<IRC, ScorerSupplier=QueryWeightSs<IRC>> + Send + Sync>),
     }
+    $( $(#[$attrs])* impl<IRC: IndexReaderContext + 'static> From<$native_ty> for BuiltinQueryWeight<IRC> {
+      fn from(value: $native_ty) -> Self { Self { inner: WeightNode::$native(Box::new(value)), reader_type: std::marker::PhantomData } }
+    } )+
     $( $(#[$attrs])* impl<IRC: IndexReaderContext + 'static> From<Box<$native_ty>> for BuiltinQueryWeight<IRC> {
       fn from(value: Box<$native_ty>) -> Self { Self { inner: WeightNode::$native(value), reader_type: std::marker::PhantomData } }
+    } )+
+    $( impl<IRC: IndexReaderContext + 'static> From<$unified_ty> for BuiltinQueryWeight<IRC> {
+      fn from(value: $unified_ty) -> Self { Self { inner: WeightNode::$unified(Box::new(value)), reader_type: std::marker::PhantomData } }
     } )+
     $( impl<IRC: IndexReaderContext + 'static> From<Box<$unified_ty>> for BuiltinQueryWeight<IRC> {
       fn from(value: Box<$unified_ty>) -> Self { Self { inner: WeightNode::$unified(value), reader_type: std::marker::PhantomData } }
@@ -267,5 +273,142 @@ impl<IRC: IndexReaderContext + 'static> BuiltinQueryWeight<IRC> {
       inner: WeightNode::Fixture(Box::new(weight)),
       reader_type: std::marker::PhantomData,
     }
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::asserting_weight::AssertingWeight<IRC>>
+  for BuiltinQueryWeight<IRC>
+{
+  fn from(
+    value: crate::test_framework::core::search::asserting_weight::AssertingWeight<IRC>,
+  ) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<
+    crate::test_framework::core::search::base_vector_similarity_query_test_case::CountingWeight<
+      IRC,
+    >,
+  > for BuiltinQueryWeight<IRC>
+{
+  fn from(
+    value: crate::test_framework::core::search::base_vector_similarity_query_test_case::CountingWeight<IRC>,
+  ) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::BrokenExplainWeight<IRC>>
+  for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::BrokenExplainWeight<IRC>) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::CrazyMustUseBulkScorerWeight>
+  for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::CrazyMustUseBulkScorerWeight) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::AssertNeedsScoresWeight<IRC>>
+  for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::AssertNeedsScoresWeight<IRC>) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::BitSetQueryWeight> for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::BitSetQueryWeight) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::RandomQueryWeight> for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::RandomQueryWeight) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::DummyQueryWeight1> for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::DummyQueryWeight1) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::TestLRUWeight> for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::TestLRUWeight) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::DVCacheWeight> for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::DVCacheWeight) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::MaxScoreWrapperQueryWeight<IRC>>
+  for BuiltinQueryWeight<IRC>
+{
+  fn from(
+    value: crate::test_framework::core::search::query::MaxScoreWrapperQueryWeight<IRC>,
+  ) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<crate::test_framework::core::search::query::WANDScorerQueryWeight>
+  for BuiltinQueryWeight<IRC>
+{
+  fn from(value: crate::test_framework::core::search::query::WANDScorerQueryWeight) -> Self {
+    Self::fixture(value)
+  }
+}
+
+#[cfg(test)]
+impl<IRC: IndexReaderContext + 'static>
+  From<
+    crate::test_framework::core::search::random_approximation_query::RandomApproximationWeight<IRC>,
+  > for BuiltinQueryWeight<IRC>
+{
+  fn from(
+    value: crate::test_framework::core::search::random_approximation_query::RandomApproximationWeight<IRC>,
+  ) -> Self {
+    Self::fixture(value)
   }
 }

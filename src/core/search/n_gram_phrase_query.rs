@@ -20,7 +20,7 @@ use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
@@ -90,6 +90,11 @@ impl HasIdentity for NGramPhraseQuery {
 }
 
 impl QueryBase for NGramPhraseQuery {
+  type Weight<IRC>
+    = <PhraseQuery as QueryBase>::Weight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.phrase_query.to_string(field)
   }
@@ -99,7 +104,7 @@ impl QueryBase for NGramPhraseQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,

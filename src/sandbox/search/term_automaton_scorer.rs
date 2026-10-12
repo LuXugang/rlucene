@@ -26,7 +26,7 @@ use crate::core::util::automation::run_automaton::RunAutomaton;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
-pub(crate) struct TermAutomatonScorer<PE, SS, N> {
+pub struct TermAutomatonScorer<PE, SS, N> {
   // The original EnumAndScorer values used to create this scorer. The matching queues refer to
   // these values by index; direct access is only exposed for explain purposes.
   subs: Vec<EnumAndScorer<PE>>,

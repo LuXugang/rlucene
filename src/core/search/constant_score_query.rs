@@ -27,6 +27,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::filter_scorable::FilterScorable;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::query::QueryWeightMatches;
 use crate::core::search::query::{
   IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
   QueryWeightSsScorer,
@@ -98,6 +99,11 @@ impl HasIdentity for ConstantScoreQuery {
   }
 }
 impl QueryBase for ConstantScoreQuery {
+  type Weight<IRC>
+    = ConstantScoreQueryWeightResult<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let inner = self.query.to_string(field)?;
     Ok(format!("ConstantScore({})", inner))
@@ -108,7 +114,7 @@ impl QueryBase for ConstantScoreQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
@@ -122,16 +128,11 @@ impl QueryBase for ConstantScoreQuery {
     let query = *self.query;
     let inner_weight = searcher.create_weight(query, inner_score_mode, 1.0)?;
     if score_mode.needs_scores() {
-      Ok(
-        Box::new(ConstantScoreQueryWeight::new(
-          boost,
-          inner_weight,
-          *score_mode,
-        ))
-        .into(),
-      )
+      Ok(ConstantScoreQueryWeightResult::Scoring(
+        ConstantScoreQueryWeight::new(boost, inner_weight, *score_mode),
+      ))
     } else {
-      Ok(inner_weight)
+      Ok(ConstantScoreQueryWeightResult::Inner(inner_weight))
     }
   }
 
@@ -535,5 +536,147 @@ impl<S> crate::core::search::scorable::FixedScore for FilterScorableImpl<'_, S> 
 impl crate::core::util::accountable::Accountable for ConstantScoreQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
     Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}
+
+/// Weight returned by the actual branches of this query factory.
+pub enum ConstantScoreQueryWeightResult<IRC: IndexReaderContext + 'static> {
+  Scoring(ConstantScoreQueryWeight<IRC>),
+  Inner(QueryWeight<IRC>),
+}
+impl<IRC: IndexReaderContext + 'static> SegmentCacheable<IRC>
+  for ConstantScoreQueryWeightResult<IRC>
+{
+  fn is_cacheable(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
+    match self {
+      Self::Scoring(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+      Self::Inner(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
+    }
+  }
+}
+impl<IRC: IndexReaderContext + 'static> Weight<IRC> for ConstantScoreQueryWeightResult<IRC> {
+  type ScorerSupplier = QueryWeightSs<IRC>;
+  fn matches<'a>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &'a IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::Inner(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+    }
+  }
+  fn explain(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::Inner(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+    }
+  }
+  fn get_query(&self) -> Arc<Query> {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::get_query(inner),
+      Self::Inner(inner) => Weight::<IRC>::get_query(inner),
+    }
+  }
+  fn scorer(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightSsScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Inner(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+    }
+  }
+  fn scorer_supplier(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
+      Self::Inner(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher),
+    }
+  }
+  fn bulk_scorer(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
+      Self::Inner(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher),
+    }
+  }
+  fn count(
+    &self,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::Inner(inner) => Weight::<IRC>::count(inner, context, searcher),
+    }
+  }
+  fn default_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::Inner(inner) => Weight::<IRC>::default_count(inner, context),
+    }
+  }
+  fn is_cache_wrapper(&self) -> bool {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::Inner(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+    }
+  }
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+    match *self {
+      Self::Scoring(_) => None,
+      Self::Inner(inner) => inner.into_inner_weight(),
+    }
+  }
+  #[cfg(test)]
+  fn as_any(&mut self) -> &mut dyn std::any::Any {
+    match self {
+      Self::Scoring(inner) => Weight::<IRC>::as_any(inner),
+      Self::Inner(inner) => Weight::<IRC>::as_any(inner),
+    }
+  }
+}
+impl<IRC: IndexReaderContext + 'static> From<ConstantScoreQueryWeightResult<IRC>>
+  for QueryWeight<IRC>
+{
+  fn from(value: ConstantScoreQueryWeightResult<IRC>) -> Self {
+    match value {
+      ConstantScoreQueryWeightResult::Scoring(inner) => inner.into(),
+      ConstantScoreQueryWeightResult::Inner(inner) => inner,
+    }
   }
 }

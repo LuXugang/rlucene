@@ -123,6 +123,11 @@ impl HasIdentity for BrokenExplainTermQuery {
 }
 
 impl QueryBase for BrokenExplainTermQuery {
+  type Weight<IRC>
+    = BrokenExplainWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.term_query.to_string(field)
   }
@@ -132,7 +137,7 @@ impl QueryBase for BrokenExplainTermQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
@@ -142,9 +147,7 @@ impl QueryBase for BrokenExplainTermQuery {
       .term_query
       .clone()
       .create_weight(searcher, score_mode, boost)?;
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(BrokenExplainWeight::new(self, inner_weight)),
-    ))
+    Ok(BrokenExplainWeight::new(self, inner_weight.into()))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -161,7 +164,7 @@ impl IntoBoxQuery for BrokenExplainTermQuery {
   }
 }
 
-pub(crate) struct BrokenExplainWeight<IRC: IndexReaderContext + 'static> {
+pub struct BrokenExplainWeight<IRC: IndexReaderContext + 'static> {
   query: Arc<Query>,
   in_: QueryWeight<IRC>,
 }
@@ -300,6 +303,11 @@ impl HasIdentity for TestRewriteQuery {
 }
 
 impl QueryBase for TestRewriteQuery {
+  type Weight<IRC>
+    = QueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("TestRewriteQuery({:?})", self.num_rewrites))
   }
@@ -309,7 +317,7 @@ impl QueryBase for TestRewriteQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
@@ -402,6 +410,11 @@ impl HasIdentity for CrazyMustUseBulkScorerQuery {
 }
 
 impl QueryBase for CrazyMustUseBulkScorerQuery {
+  type Weight<IRC>
+    = CrazyMustUseBulkScorerWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("MustUseBulkScorerQuery".to_string())
   }
@@ -411,15 +424,13 @@ impl QueryBase for CrazyMustUseBulkScorerQuery {
     _searcher: &IndexSearcher<IRC>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(CrazyMustUseBulkScorerWeight::new(self)),
-    ))
+    Ok(CrazyMustUseBulkScorerWeight::new(self))
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -430,7 +441,7 @@ impl QueryBase for CrazyMustUseBulkScorerQuery {
   }
 }
 
-struct CrazyMustUseBulkScorerWeight {
+pub struct CrazyMustUseBulkScorerWeight {
   query: Arc<Query>,
 }
 
@@ -620,6 +631,11 @@ impl Hash for AssertNeedsScores {
 }
 
 impl QueryBase for AssertNeedsScores {
+  type Weight<IRC>
+    = AssertNeedsScoresWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!("asserting({})", self.query.to_string(field)?))
   }
@@ -629,7 +645,7 @@ impl QueryBase for AssertNeedsScores {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
@@ -645,9 +661,7 @@ impl QueryBase for AssertNeedsScores {
       .clone()
       .create_weight(searcher, score_mode, boost)?;
     assert_eq!(self.value, *score_mode);
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(AssertNeedsScoresWeight::new(self, inner_weight)),
-    ))
+    Ok(AssertNeedsScoresWeight::new(self, inner_weight))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
@@ -676,7 +690,7 @@ impl IntoBoxQuery for AssertNeedsScores {
   }
 }
 
-struct AssertNeedsScoresWeight<IRC: IndexReaderContext + 'static> {
+pub struct AssertNeedsScoresWeight<IRC: IndexReaderContext + 'static> {
   query: Arc<Query>,
   inner_weight: QueryWeight<IRC>,
 }
@@ -787,6 +801,11 @@ impl HasIdentity for BitSetQuery {
 }
 
 impl QueryBase for BitSetQuery {
+  type Weight<IRC>
+    = BitSetQueryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("randomBitSetFilter".to_string())
   }
@@ -796,15 +815,13 @@ impl QueryBase for BitSetQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(BitSetQueryWeight::new(boost, self, *score_mode)),
-    ))
+    Ok(BitSetQueryWeight::new(boost, self, *score_mode))
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -997,6 +1014,11 @@ impl HasIdentity for RandomQuery {
 }
 
 impl QueryBase for RandomQuery {
+  type Weight<IRC>
+    = RandomQueryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("RandomFilter(density={})", self.density))
   }
@@ -1006,15 +1028,13 @@ impl QueryBase for RandomQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(RandomQueryWeight::new(self, *score_mode, boost)),
-    ))
+    Ok(RandomQueryWeight::new(self, *score_mode, boost))
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -1025,7 +1045,7 @@ impl QueryBase for RandomQuery {
   }
 }
 
-pub(crate) struct RandomQueryWeight {
+pub struct RandomQueryWeight {
   query: Arc<Query>,
   random_query: RandomQuery,
   score_mode: ScoreMode,
@@ -1150,6 +1170,11 @@ impl HasIdentity for DummyQuery1 {
 }
 
 impl QueryBase for DummyQuery1 {
+  type Weight<IRC>
+    = DummyQueryWeight1
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("dummy".to_string())
   }
@@ -1159,16 +1184,14 @@ impl QueryBase for DummyQuery1 {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let base = ConstantScoreWeight::new(boost);
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(DummyQueryWeight1::new(*score_mode, base, self)),
-    ))
+    Ok(DummyQueryWeight1::new(*score_mode, base, self))
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -1179,7 +1202,7 @@ impl QueryBase for DummyQuery1 {
   }
 }
 
-struct DummyQueryWeight1 {
+pub struct DummyQueryWeight1 {
   score_mode: ScoreMode,
   base: ConstantScoreWeight,
   query: Arc<Query>,
@@ -1356,6 +1379,11 @@ impl HasIdentity for TestLRUQuery {
 }
 
 impl QueryBase for TestLRUQuery {
+  type Weight<IRC>
+    = TestLRUWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("{:?}", self))
   }
@@ -1365,7 +1393,7 @@ impl QueryBase for TestLRUQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
@@ -1381,15 +1409,13 @@ impl QueryBase for TestLRUQuery {
       },
     };
     let query = Arc::new(self.into());
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(TestLRUWeight {
-        query,
-        base: ConstantScoreWeight::new(boost),
-        score_mode: *score_mode,
-        cacheable,
-        kind,
-      }),
-    ))
+    Ok(TestLRUWeight {
+      query,
+      base: ConstantScoreWeight::new(boost),
+      score_mode: *score_mode,
+      cacheable,
+      kind,
+    })
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -1418,7 +1444,7 @@ enum TestLRUWeightKind {
   },
 }
 
-struct TestLRUWeight {
+pub struct TestLRUWeight {
   query: Arc<Query>,
   base: ConstantScoreWeight,
   score_mode: ScoreMode,
@@ -1591,6 +1617,11 @@ impl HasIdentity for DVCacheQuery {
 }
 
 impl QueryBase for DVCacheQuery {
+  type Weight<IRC>
+    = DVCacheWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("DVCacheQuery".to_string())
   }
@@ -1600,20 +1631,18 @@ impl QueryBase for DVCacheQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(DVCacheWeight {
-        query: Arc::new(self.clone().into()),
-        field: self.field,
-        scorer_created_count: self.scorer_created_count,
-        score_mode: *score_mode,
-      }),
-    ))
+    Ok(DVCacheWeight {
+      query: Arc::new(self.clone().into()),
+      field: self.field,
+      scorer_created_count: self.scorer_created_count,
+      score_mode: *score_mode,
+    })
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -1630,7 +1659,7 @@ impl crate::core::util::accountable::Accountable for DVCacheQuery {
   }
 }
 
-struct DVCacheWeight {
+pub struct DVCacheWeight {
   query: Arc<Query>,
   field: String,
   scorer_created_count: Arc<AtomicI32>,
@@ -1976,6 +2005,11 @@ impl PartialEq for MaxScoreWrapperQuery {
 }
 
 impl QueryBase for MaxScoreWrapperQuery {
+  type Weight<IRC>
+    = MaxScoreWrapperQueryWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("MaxScoreWrapperQuery".to_string())
   }
@@ -1985,19 +2019,17 @@ impl QueryBase for MaxScoreWrapperQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(MaxScoreWrapperQueryWeight::new(
-        self.max_range,
-        self.max_score,
-        weight,
-      )),
+    Ok(MaxScoreWrapperQueryWeight::new(
+      self.max_range,
+      self.max_score,
+      weight,
     ))
   }
 
@@ -2024,7 +2056,7 @@ impl QueryBase for MaxScoreWrapperQuery {
   }
 }
 
-struct MaxScoreWrapperQueryWeight<IRC: IndexReaderContext + 'static> {
+pub struct MaxScoreWrapperQueryWeight<IRC: IndexReaderContext + 'static> {
   max_range: i32,
   max_score: f32,
   weight: QueryWeight<IRC>,
@@ -2202,6 +2234,11 @@ impl HasIdentity for WANDScorerQuery {
 }
 
 impl QueryBase for WANDScorerQuery {
+  type Weight<IRC>
+    = WANDScorerQueryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("WANDScorerQuery".to_string())
   }
@@ -2211,19 +2248,17 @@ impl QueryBase for WANDScorerQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(WANDScorerQueryWeight::new(
-        self.query,
-        self.do_blocks,
-        *score_mode,
-        boost,
-      )),
+    Ok(WANDScorerQueryWeight::new(
+      self.query,
+      self.do_blocks,
+      *score_mode,
+      boost,
     ))
   }
 
@@ -2235,7 +2270,7 @@ impl QueryBase for WANDScorerQuery {
   }
 }
 
-struct WANDScorerQueryWeight {
+pub struct WANDScorerQueryWeight {
   minimum_number_should_match: i32,
   query: Arc<Query>,
   do_blocks: bool,
@@ -2269,7 +2304,6 @@ where
 impl<IRC> Weight<IRC> for WANDScorerQueryWeight
 where
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   fn matches<'a>(
     &'a self,

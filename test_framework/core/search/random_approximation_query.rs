@@ -86,6 +86,11 @@ impl HasIdentity for RandomApproximationQuery {
 }
 
 impl QueryBase for RandomApproximationQuery {
+  type Weight<IRC>
+    = RandomApproximationWeight<IRC>
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     self.query.to_string(field)
   }
@@ -95,7 +100,7 @@ impl QueryBase for RandomApproximationQuery {
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
@@ -103,9 +108,7 @@ impl QueryBase for RandomApproximationQuery {
   {
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
     let mut random = random_from_seed(self.random_seed);
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(RandomApproximationWeight::new(random.random(), weight)),
-    ))
+    Ok(RandomApproximationWeight::new(random.random(), weight))
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>

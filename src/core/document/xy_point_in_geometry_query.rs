@@ -31,7 +31,7 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -116,6 +116,11 @@ impl HasIdentity for XYPointInGeometryQuery {
 }
 
 impl QueryBase for XYPointInGeometryQuery {
+  type Weight<IRC>
+    = XYPointInGeometryWeight
+  where
+    IRC: IndexReaderContext + 'static;
+
   fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::from("XYPointInGeometryQuery:");
     if self.field != field {
@@ -139,13 +144,13 @@ impl QueryBase for XYPointInGeometryQuery {
     _searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<Self::Weight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(XYPointInGeometryWeight::new(self, *score_mode, boost)).into())
+    Ok(XYPointInGeometryWeight::new(self, *score_mode, boost))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
