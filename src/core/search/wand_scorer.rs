@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -93,6 +94,11 @@ impl<S> Scorable for WANDScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Child<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let disi = &mut self.disi.two_phase_iterator.approximation;
     // we need to know about all matches
@@ -128,7 +134,7 @@ where
     Ok(())
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     let disi = &mut self.disi.two_phase_iterator.approximation;
     disi.advance_all_tail()?;
     let mut current = disi.lead;
@@ -139,10 +145,7 @@ where
         .take()
         .ok_or_else(|| LuceneError::illegal_state("duplicate WAND lead"))?;
       current = wrapper.next;
-      children.push(ChildScorable::new(
-        &mut wrapper.scorer as &mut dyn Scorable,
-        "SHOULD",
-      ));
+      children.push(ChildScorable::new(&mut wrapper.scorer, "SHOULD"));
     }
     Ok(children)
   }
@@ -186,29 +189,48 @@ impl<S> Scorer for WANDScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>;
+  type OwnedTwoPhase = TwoPhaseIteratorImpl<S>;
+  type ApproximationRef<'a>
+    = <TwoPhaseIteratorImpl<S> as TwoPhaseIterator>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <TwoPhaseIteratorImpl<S> as TwoPhaseIterator>::ApproximationMut<'a>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a TwoPhaseIteratorImpl<S>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut TwoPhaseIteratorImpl<S>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.approximation.doc)
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let WANDScorer { disi, .. } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let WANDScorer { disi, .. } = self;
+    disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     Some(&self.disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     Some(&mut self.disi.two_phase_iterator)
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
   where
     Self: Sized,
   {
-    let WANDScorer { disi, .. } = *self;
-    Some(Box::new(disi.two_phase_iterator))
+    let WANDScorer { disi, .. } = self;
+    Some(disi.two_phase_iterator)
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -249,11 +271,11 @@ where
     TwoPhaseState::Yes
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.disi.two_phase_iterator.approximation()
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.disi.two_phase_iterator.approximation_mut()
   }
 }
@@ -856,11 +878,20 @@ impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
 where
   S: Scorer,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a DocIdSetIteratorImpl<S>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut DocIdSetIteratorImpl<S>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.approximation
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.approximation
   }
 

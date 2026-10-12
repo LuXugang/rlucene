@@ -18,23 +18,28 @@ use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::util::error::lucene_error::Result;
 
 /// Wraps another Scorable and asserts that scores are reasonable.
-pub(crate) struct AssertingScorable<'a> {
-  in_: &'a mut dyn Scorable,
+pub(crate) struct AssertingScorable<'a, S: ?Sized> {
+  in_: &'a mut S,
 }
 
-impl<'a> AssertingScorable<'a> {
-  pub(crate) fn wrap(in_: &'a mut dyn Scorable) -> Self {
+impl<'a, S: Scorable + ?Sized> AssertingScorable<'a, S> {
+  pub(crate) fn wrap(in_: &'a mut S) -> Self {
     Self { in_ }
   }
 }
 
-impl FixedScore for AssertingScorable<'_> {
+impl<S: Scorable + ?Sized> FixedScore for AssertingScorable<'_, S> {
   fn set_score(&mut self, score: f32) -> Result<()> {
     self.in_.set_score(score)
   }
 }
 
-impl Scorable for AssertingScorable<'_> {
+impl<S: Scorable + ?Sized> Scorable for AssertingScorable<'_, S> {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let score = self.in_.score()?;
     assert!(score >= 0.0, "score={}", score);

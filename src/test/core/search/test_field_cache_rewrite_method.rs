@@ -56,6 +56,7 @@ impl TestRegexpRandom2 for TestFieldCacheRewriteMethod {
   ) -> Result<()>
   where
     IRC: IndexReaderContext + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let field_cache = RegexpQuery::with_all(
       Term::from_text(field_name, &regexp),

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
+use crate::core::search::lru_query_cache::LRUQueryCache;
 use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
 use crate::core::util::error::lucene_error::Result;
@@ -24,7 +24,7 @@ use std::sync::Arc;
 /// A cache for queries.
 pub trait QueryCache<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   /// Return a wrapper around the provided `weight` that will cache matching documents
   /// per-segment according to the given `policy`.
@@ -41,7 +41,7 @@ where
 }
 pub type BoxQueryCache<IRC> = Box<dyn QueryCache<IRC> + Send + Sync>;
 pub enum QueryCacheEnum<IRC> {
-  Lru(Arc<LRUQueryCache<MinSegmentSizePredicate>>),
+  Lru(Arc<LRUQueryCache>),
   Custom(BoxQueryCache<IRC>),
 }
 impl<IRC> QueryCacheEnum<IRC>
@@ -65,7 +65,7 @@ where
     policy: Arc<QueryCachingPolicyEnum>,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
   {
     match self {
       QueryCacheEnum::Lru(cache) => cache.do_cache(weight, policy),
@@ -74,11 +74,11 @@ where
   }
 }
 
-impl<IRC> From<Arc<LRUQueryCache<MinSegmentSizePredicate>>> for QueryCacheEnum<IRC>
+impl<IRC> From<Arc<LRUQueryCache>> for QueryCacheEnum<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  fn from(v: Arc<LRUQueryCache<MinSegmentSizePredicate>>) -> Self {
+  fn from(v: Arc<LRUQueryCache>) -> Self {
     QueryCacheEnum::Lru(v)
   }
 }

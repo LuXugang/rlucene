@@ -712,6 +712,7 @@ fn to_doc_ids<IRC>(
 ) -> Result<HashSet<String>>
 where
   IRC: IndexReaderContext,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let mut result = HashSet::new();
   let mut stored_fields = searcher.stored_fields()?;

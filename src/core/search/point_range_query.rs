@@ -33,7 +33,7 @@ use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -241,10 +241,11 @@ impl QueryBase for PointRangeQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(PointRangeWeight::new(boost, self, *score_mode)))
+    Ok(Box::new(PointRangeWeight::new(boost, self, *score_mode)).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -398,7 +399,7 @@ impl PointRangeWeight {
 
 impl<IRC> SegmentCacheable<IRC> for PointRangeWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -407,14 +408,17 @@ where
 
 impl<IRC> Weight<IRC> for PointRangeWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -431,7 +435,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
 
     let values_opt = reader.get_point_values(&self.query.field)?;
@@ -515,19 +522,25 @@ where
     }
     let max_doc = reader.max_doc()?;
     if all_docs_match {
-      Ok(Some(Box::new(ScorerSupplierImpl::new(
-        self.base.score(),
-        self.score_mode,
-        max_doc,
-      ))))
+      Ok(Some(
+        Box::new(ScorerSupplierImpl::new(
+          self.base.score(),
+          self.score_mode,
+          max_doc,
+        ))
+        .into(),
+      ))
     } else {
       let result = DocIdSetBuilder::from_point_values(max_doc, &values, self.query.field.as_ref())?;
-      Ok(Some(Box::new(ScorerSupplierImpl1::new(
-        self.base.score(),
-        self.score_mode,
-        values,
-        Self::get_intersect_visitor(result, self),
-      ))))
+      Ok(Some(
+        Box::new(ScorerSupplierImpl1::new(
+          self.base.score(),
+          self.score_mode,
+          values,
+          Self::get_intersect_visitor(result, self),
+        ))
+        .into(),
+      ))
     }
   }
 
@@ -535,7 +548,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let query = self.point_range_query()?;
     let reader = context.reader();
 
@@ -667,18 +683,21 @@ impl<PV> ScorerSupplierImpl1<PV> {
 impl<IRC> ScorerSupplier<IRC>
   for ScorerSupplierImpl1<<IRCLeafReader<IRC> as LeafReader>::PointValues>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
     let size = self.values.size()?;
     if self.values.get_doc_count()? == reader.max_doc()?
@@ -701,34 +720,36 @@ where
       self.values.intersect(&mut visitor)?;
       let cost = visitor.cost;
       let iterator = BitSetIterator::new(result, cost)?;
-      return Ok(Box::new(ConstantScoreScorer::from_disi(
-        self.score,
-        self.score_mode,
-        iterator,
-      )));
+      return Ok(QueryWeightSsScorer::<IRC>::new(
+        ConstantScoreScorer::from_disi(self.score, self.score_mode, iterator),
+      ));
     }
     self.values.intersect(&mut self.visitor)?;
     let iterator = self.visitor.result.build()?.iterator()?;
-    Ok(Box::new(ConstantScoreScorer::from_disi(
-      self.score,
-      self.score_mode,
-      iterator,
-    )))
+    Ok(QueryWeightSsScorer::<IRC>::new(
+      ConstantScoreScorer::from_disi(self.score, self.score_mode, iterator),
+    ))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if self.cost == -1 {
       // Computing the cost may be expensive, so only do it if necessary
       self.cost = self.values.estimate_doc_count(&self.visitor)?;
@@ -753,39 +774,46 @@ impl ScorerSupplierImpl {
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     debug_assert!(context.reader().max_doc()? == self.max_doc);
-    Ok(Box::new(ConstantScoreScorer::from_disi(
-      self.score,
-      self.score_mode,
-      AllDISI::new(self.max_doc),
-    )))
+    Ok(QueryWeightSsScorer::<IRC>::new(
+      ConstantScoreScorer::from_disi(self.score, self.score_mode, AllDISI::new(self.max_doc)),
+    ))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     debug_assert!(context.reader().max_doc()? == self.max_doc);
     Ok(self.max_doc as i64)
   }

@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::queries::span::spans;
 use crate::queries::span::spans::Spans;
@@ -145,6 +145,11 @@ where
   SS: SimScorer,
   N: NumericDocValues,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     self.ensure_freq()?;
     self.score_current_doc()
@@ -230,15 +235,34 @@ where
   SS: SimScorer,
   N: NumericDocValues,
 {
+  type Iterator = S;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a Self
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = S::TwoPhaseRef<'a>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.spans.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new(self.spans)
+  fn take_iterator(self) -> Self::Iterator {
+    self.spans
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     self.spans.as_two_phase_iterator()
   }
 
@@ -254,11 +278,11 @@ where
     }
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 }

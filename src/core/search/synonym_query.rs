@@ -25,9 +25,7 @@ use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
-use crate::core::index::leaf_reader::{
-  LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermsEnum, LeafReader,
-};
+use crate::core::index::leaf_reader::{LRTermsEnum, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, PostingsEnum, PostingsEnumEnum2};
@@ -53,14 +51,13 @@ use crate::core::search::index_searcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::for_field;
 use crate::core::search::max_score_cache::MaxScoreCache;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, ScorerEnum4, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::scorer_types::{LeafScorerTypes, ScorerTypes};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
   SimScorer, Similarity, SimilarityEnum, SimilarityEnumSimScorer,
@@ -193,12 +190,7 @@ impl QueryBase for SynonymQuery {
     Self: Sized,
   {
     if score_mode.needs_scores() {
-      Ok(Box::new(SynonymWeight::new(
-        self,
-        searcher,
-        *score_mode,
-        boost,
-      )?))
+      Ok(Box::new(SynonymWeight::new(self, searcher, *score_mode, boost)?).into())
     } else {
       // If scores are not needed, let BooleanWeight deal with optimizing that case.
       let mut builder = boolean_query::Builder::new();
@@ -218,8 +210,9 @@ impl QueryBase for SynonymQuery {
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     if self.terms.is_empty() {
       return Ok(Some(boolean_query::Builder::new().build().into()));
@@ -269,7 +262,7 @@ impl Hash for TermAndBoost {
   }
 }
 
-struct SynonymWeight {
+pub(crate) struct SynonymWeight {
   term_states: Arc<Vec<TermStates>>,
   similarity: Arc<SimilarityEnum>,
   sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
@@ -285,7 +278,8 @@ impl SynonymWeight {
     boost: f32,
   ) -> Result<Self>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     debug_assert!(score_mode.needs_scores());
 
@@ -354,7 +348,10 @@ where
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let query = if let Query::Synonym(query) = self.parent_query.as_ref() {
       query
     } else {
@@ -365,15 +362,7 @@ where
     }
     let field = query.get_field();
     let terms: Arc<[Term]> = query.get_terms().into();
-    for_field(field.to_owned(), move || {
-      from_terms(
-        context,
-        doc,
-        self.parent_query.clone(),
-        field,
-        terms.clone(),
-      )
-    })
+    for_field(field.to_owned(), (self, context, doc, terms).into())
   }
 
   fn explain(
@@ -381,7 +370,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let parent_query = if let Query::Synonym(query) = self.parent_query.as_ref() {
       query
     } else {
@@ -439,13 +431,16 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = SynonymScorerSupplier<IRCLeafReader<IRC>>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     debug_assert!(
       {
         let v = ReaderUtil::get_top_level_context(context);
@@ -468,26 +463,29 @@ where
       prepare_states.push(term_states.get(context)?);
     }
 
-    Ok(Some(Box::new(SynonymScorerSupplier::new(
+    Ok(Some(SynonymScorerSupplier::new(
       -1,
       self.term_states.clone(),
       prepare_states,
       self.parent_query.clone(),
       self.sim_weight.clone(),
       self.score_mode,
-    ))))
+    )))
   }
 
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     <Self as Weight<IRC>>::default_count(self, context)
   }
 }
 
-struct SharedPostingsEnum<P> {
+pub(crate) struct SharedPostingsEnum<P> {
   inner: Rc<RefCell<P>>,
 }
 
@@ -570,7 +568,7 @@ where
   }
 }
 
-struct SharedImpactsEnum<I> {
+pub(crate) struct SharedImpactsEnum<I> {
   inner: Rc<RefCell<I>>,
 }
 
@@ -676,7 +674,7 @@ where
 impl<I> ImpactsEnum for SharedImpactsEnum<I> where I: ImpactsEnum {}
 
 #[derive(Clone)]
-struct OwnedImpacts {
+pub(crate) struct OwnedImpacts {
   doc_id_uptos: Vec<i32>,
   impacts: Vec<Vec<Impact>>,
 }
@@ -925,44 +923,46 @@ impl Compare<SynonymSubIterator> for SynonymSubIteratorCmp {
   }
 }
 
-type SynonymPostingsEnum<LR> =
-  PostingsEnumEnum2<SharedImpactsEnum<LRImpactsEnum<LR>>, SharedPostingsEnum<LRPosting<LR>>>;
-
-type SynonymImpactsEnum<LR> = ImpactsEnumEnum2<
-  SharedImpactsEnum<LRImpactsEnum<LR>>,
-  SlowImpactsEnum<SharedPostingsEnum<LRPosting<LR>>>,
+type SynonymPostingsEnum<ST> = PostingsEnumEnum2<
+  SharedImpactsEnum<<ST as ScorerTypes>::Impacts>,
+  SharedPostingsEnum<<ST as ScorerTypes>::Posting>,
 >;
 
-type SynonymTermScorer<LR> = TermScorer<
-  SynonymPostingsEnum<LR>,
+type SynonymImpactsEnum<ST> = ImpactsEnumEnum2<
+  SharedImpactsEnum<<ST as ScorerTypes>::Impacts>,
+  SlowImpactsEnum<SharedPostingsEnum<<ST as ScorerTypes>::Posting>>,
+>;
+
+pub(crate) type SynonymTermScorer<ST> = TermScorer<
+  SynonymPostingsEnum<ST>,
   Arc<SimilarityEnumSimScorer>,
-  LRNormNumericDocValues<LR>,
-  SynonymImpactsEnum<LR>,
+  <ST as ScorerTypes>::Norm,
+  SynonymImpactsEnum<ST>,
 >;
 
-type SynonymDisi<LR> = DisjunctionDISIApproximation<SynonymSubScorer<LR>>;
+type SynonymDisi<ST> = DisjunctionDISIApproximation<SynonymSubScorer<ST>>;
 
-type SynonymImpactsDISI<LR> = SeparateImpactsDISI<
-  SynonymDisi<LR>,
-  SynonymImpactsSource<SynonymImpactsEnum<LR>>,
+type SynonymImpactsDISI<ST> = SeparateImpactsDISI<
+  SynonymDisi<ST>,
+  SynonymImpactsSource<SynonymImpactsEnum<ST>>,
   Arc<SimilarityEnumSimScorer>,
 >;
 
 type EmptySynonymScorer = ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>;
 
-enum SynonymSubScorer<LR>
+pub(crate) enum SynonymSubScorer<ST>
 where
-  LR: LeafReader,
+  ST: ScorerTypes,
 {
   Term {
-    scorer: SynonymTermScorer<LR>,
+    scorer: SynonymTermScorer<ST>,
     boost: f32,
   },
 }
 
-impl<LR> SynonymSubScorer<LR>
+impl<ST> SynonymSubScorer<ST>
 where
-  LR: LeafReader,
+  ST: ScorerTypes,
 {
   fn freq(&mut self) -> Result<f32> {
     match self {
@@ -971,12 +971,17 @@ where
   }
 }
 
-impl<LR> FixedScore for SynonymSubScorer<LR> where LR: LeafReader {}
+impl<ST> FixedScore for SynonymSubScorer<ST> where ST: ScorerTypes {}
 
-impl<LR> Scorable for SynonymSubScorer<LR>
+impl<ST> Scorable for SynonymSubScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.score(),
@@ -1002,9 +1007,9 @@ where
   }
 }
 
-impl<LR> DocIdSetIterator for SynonymSubScorer<LR>
+impl<ST> DocIdSetIterator for SynonymSubScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn doc_id(&self) -> i32 {
     match self {
@@ -1032,13 +1037,13 @@ where
     }
   }
 }
-impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SynonymSubScorer<LR>
+impl<ST> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SynonymSubScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = {
+    let iterator = {
       match self {
         SynonymSubScorer::Term { scorer, .. } => scorer,
       }
@@ -1050,7 +1055,7 @@ where
   fn get_sparse_fixed_bit_set(
     &self,
   ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = {
+    let iterator = {
       match self {
         SynonymSubScorer::Term { scorer, .. } => scorer,
       }
@@ -1062,7 +1067,7 @@ where
   fn get_doc_base_fixed_bit_set(
     &self,
   ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
-    let iterator: &dyn DocIdSetIterator = {
+    let iterator = {
       match self {
         SynonymSubScorer::Term { scorer, .. } => scorer,
       }
@@ -1072,9 +1077,9 @@ where
     )
   }
 }
-impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymSubScorer<LR>
+impl<ST> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymSubScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn is_bit_iter(&self) -> bool {
     match self {
@@ -1105,19 +1110,38 @@ where
     }
   }
 }
-impl<LR> Scorer for SynonymSubScorer<LR>
+impl<ST> Scorer for SynonymSubScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
+  type Iterator = <SynonymTermScorer<ST> as Scorer>::Iterator;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a Self
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => (scorer).scoring_doc_id(),
     }
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    match *self {
-      SynonymSubScorer::Term { scorer, .. } => Box::new(scorer).take_iterator(),
+  fn take_iterator(self) -> Self::Iterator {
+    match self {
+      SynonymSubScorer::Term { scorer, .. } => scorer.take_iterator(),
     }
   }
 
@@ -1131,33 +1155,33 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 }
 
-struct SynonymScorer<LR>
+pub(crate) struct SynonymScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
-  impacts_disi: SynonymImpactsDISI<LR>,
+  impacts_disi: SynonymImpactsDISI<ST>,
   sim_weight: Arc<SimilarityEnumSimScorer>,
-  norms: Option<LRNormNumericDocValues<LR>>,
+  norms: Option<<ST as ScorerTypes>::Norm>,
   score_mode: ScoreMode,
 }
 
-impl<LR> SynonymScorer<LR>
+impl<ST> SynonymScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn new(
-    impacts_disi: SynonymImpactsDISI<LR>,
+    impacts_disi: SynonymImpactsDISI<ST>,
     sim_weight: Arc<SimilarityEnumSimScorer>,
-    norms: Option<LRNormNumericDocValues<LR>>,
+    norms: Option<<ST as ScorerTypes>::Norm>,
     score_mode: ScoreMode,
   ) -> Self {
     Self {
@@ -1185,12 +1209,17 @@ where
   }
 }
 
-impl<LR> FixedScore for SynonymScorer<LR> where LR: LeafReader + 'static {}
+impl<ST> FixedScore for SynonymScorer<ST> where ST: ScorerTypes + 'static {}
 
-impl<LR> Scorable for SynonymScorer<LR>
+impl<ST> Scorable for SynonymScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let mut norm = 1;
     let doc = if self.use_impacts_disi() {
@@ -1217,9 +1246,9 @@ where
   }
 }
 
-impl<LR> DocIdSetIterator for SynonymScorer<LR>
+impl<ST> DocIdSetIterator for SynonymScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn doc_id(&self) -> i32 {
     if self.use_impacts_disi() {
@@ -1257,18 +1286,40 @@ where
     }
   }
 }
-impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for SynonymScorer<LR> where
-  LR: LeafReader + 'static
+impl<ST> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for SynonymScorer<ST> where
+  ST: ScorerTypes + 'static
 {
 }
-impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymScorer<LR> where
-  LR: LeafReader + 'static
+impl<ST> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymScorer<ST> where
+  ST: ScorerTypes + 'static
 {
 }
-impl<LR> Scorer for SynonymScorer<LR>
+impl<ST> Scorer for SynonymScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
+  type Iterator = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    SynonymImpactsDISI<ST>,
+    SynonymDisi<ST>,
+  >;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a Self
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(if self.use_impacts_disi() {
       self.impacts_disi.doc_id()
@@ -1277,11 +1328,13 @@ where
     })
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+  fn take_iterator(self) -> Self::Iterator {
     if self.use_impacts_disi() {
-      Box::new(self.impacts_disi)
+      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self.impacts_disi)
     } else {
-      Box::new(self.impacts_disi.into_iterator())
+      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
+        self.impacts_disi.into_iterator(),
+      )
     }
   }
 
@@ -1300,34 +1353,34 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 }
 
-struct FreqBoostTermScorer<LR>
+pub(crate) struct FreqBoostTermScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   boost: f32,
-  in_: SynonymTermScorer<LR>,
+  in_: SynonymTermScorer<ST>,
   scorer: Arc<SimilarityEnumSimScorer>,
-  norms: Option<LRNormNumericDocValues<LR>>,
+  norms: Option<<ST as ScorerTypes>::Norm>,
 }
 
-impl<LR> FreqBoostTermScorer<LR>
+impl<ST> FreqBoostTermScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn new(
     boost: f32,
-    in_: SynonymTermScorer<LR>,
+    in_: SynonymTermScorer<ST>,
     sim_weight: Arc<SimilarityEnumSimScorer>,
-    norms: Option<LRNormNumericDocValues<LR>>,
+    norms: Option<<ST as ScorerTypes>::Norm>,
   ) -> Result<Self> {
     if boost.is_nan()
       || CoreHelper::compare_f32(boost, 0.0).is_lt()
@@ -1350,12 +1403,17 @@ where
   }
 }
 
-impl<LR> FixedScore for FreqBoostTermScorer<LR> where LR: LeafReader + 'static {}
+impl<ST> FixedScore for FreqBoostTermScorer<ST> where ST: ScorerTypes + 'static {}
 
-impl<LR> Scorable for FreqBoostTermScorer<LR>
+impl<ST> Scorable for FreqBoostTermScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let mut norm = 1;
     let doc = (self.in_).scoring_doc_id()?;
@@ -1373,9 +1431,9 @@ where
   }
 }
 
-impl<LR> DocIdSetIterator for FreqBoostTermScorer<LR>
+impl<ST> DocIdSetIterator for FreqBoostTermScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn doc_id(&self) -> i32 {
     DocIdSetIterator::doc_id(&self.in_)
@@ -1393,13 +1451,13 @@ where
     DocIdSetIterator::cost(&self.in_)
   }
 }
-impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for FreqBoostTermScorer<LR>
+impl<ST> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for FreqBoostTermScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = { &self.in_ };
+    let iterator = { &self.in_ };
     crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
       iterator,
     )
@@ -1407,7 +1465,7 @@ where
   fn get_sparse_fixed_bit_set(
     &self,
   ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = { &self.in_ };
+    let iterator = { &self.in_ };
     crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
       iterator,
     )
@@ -1415,15 +1473,15 @@ where
   fn get_doc_base_fixed_bit_set(
     &self,
   ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
-    let iterator: &dyn DocIdSetIterator = { &self.in_ };
+    let iterator = { &self.in_ };
     crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
       iterator,
     )
   }
 }
-impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FreqBoostTermScorer<LR>
+impl<ST> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FreqBoostTermScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
   fn is_bit_iter(&self) -> bool {
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(&self.in_)
@@ -1438,16 +1496,35 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.in_)
   }
 }
-impl<LR> Scorer for FreqBoostTermScorer<LR>
+impl<ST> Scorer for FreqBoostTermScorer<ST>
 where
-  LR: LeafReader + 'static,
+  ST: ScorerTypes + 'static,
 {
+  type Iterator = <SynonymTermScorer<ST> as Scorer>::Iterator;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a Self
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     (self.in_).scoring_doc_id()
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new(self.in_).take_iterator()
+  fn take_iterator(self) -> Self::Iterator {
+    self.in_.take_iterator()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -1462,25 +1539,25 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 }
 
-type SynonymScorerEnum<LR> = ScorerEnum4<
-  SynonymScorer<LR>,
-  FreqBoostTermScorer<LR>,
-  SynonymTermScorer<LR>,
+type SynonymScorerEnum<ST> = ScorerEnum4<
+  SynonymScorer<ST>,
+  FreqBoostTermScorer<ST>,
+  SynonymTermScorer<ST>,
   EmptySynonymScorer,
 >;
 
-struct SynonymScorerSupplier<LR>
+pub(crate) struct SynonymScorerSupplier<LR>
 where
-  LR: LeafReader,
+  LR: LeafReader + 'static,
 {
   cost: i64,
   term_states: Arc<Vec<TermStates>>,
@@ -1488,15 +1565,15 @@ where
   query: Arc<Query>,
   sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
   score_mode: ScoreMode,
-  iterators: Option<Vec<SynonymPostingsEnum<LR>>>,
-  impacts: Option<Vec<SynonymImpactsEnum<LR>>>,
+  iterators: Option<Vec<SynonymPostingsEnum<LeafScorerTypes<LR>>>>,
+  impacts: Option<Vec<SynonymImpactsEnum<LeafScorerTypes<LR>>>>,
   term_boosts: Vec<f32>,
   initialized: bool,
 }
 
 impl<LR> SynonymScorerSupplier<LR>
 where
-  LR: LeafReader,
+  LR: LeafReader + 'static,
 {
   fn new(
     cost: i64,
@@ -1573,7 +1650,10 @@ where
     Ok(())
   }
 
-  fn get_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<SynonymScorerEnum<LR>>
+  fn get_scorer(
+    &mut self,
+    context: &LeafReaderContext<LR>,
+  ) -> Result<SynonymScorerEnum<LeafScorerTypes<LR>>>
   where
     LR: 'static,
   {
@@ -1656,33 +1736,42 @@ where
 
 impl<IRC> ScorerSupplier<IRC> for SynonymScorerSupplier<IRCLeafReader<IRC>>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
-    Ok(Box::new(self.get_scorer(context)?))
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(QueryWeightSsScorer::<IRC>::new(self.get_scorer(context)?))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let result: Result<i64> = (|| {
       self.init(context)?;
       Ok(self.cost)
@@ -1771,5 +1860,22 @@ impl Builder {
 impl crate::core::util::accountable::Accountable for SynonymQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
     Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}
+
+impl SynonymWeight {
+  pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+    terms: Arc<[Term]>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
+  {
+    let Query::Synonym(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(""));
+    };
+    let field = query.get_field();
+    from_terms(context, doc, self.parent_query.clone(), field, terms)
+      .map(|value| value.map(|iterator| Box::new(iterator).into()))
   }
 }

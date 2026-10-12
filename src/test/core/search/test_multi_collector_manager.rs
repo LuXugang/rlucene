@@ -268,7 +268,7 @@ fn collect_all<CM, LR>(
 ) -> Result<CM::T>
 where
   CM: CollectorManager,
-  LR: LeafReader + Clone + 'static,
+  LR: LeafReader + Clone + Sync + 'static,
 {
   let mut random = random();
   let dummy_weight = DummyWeight::new(ctx.reader().clone());
@@ -389,6 +389,7 @@ impl Collector for SimpleListCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self)
   }
@@ -405,7 +406,12 @@ impl Display for SimpleListCollector {
 }
 
 impl LeafCollector for SimpleListCollector {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     if self.predicate.test(doc) {
       self.collected.push(doc);
     }
@@ -446,6 +452,7 @@ impl Collector for TerminatingCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self)
   }
@@ -462,7 +469,12 @@ impl Display for TerminatingCollector {
 }
 
 impl LeafCollector for TerminatingCollector {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     Err(LuceneError::collection_terminated(""))
   }
 }
@@ -542,6 +554,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::A(collector) => collector
@@ -632,6 +645,7 @@ impl Collector for ExpectedScorerCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self)
   }
@@ -648,7 +662,12 @@ impl Display for ExpectedScorerCollector {
 }
 
 impl LeafCollector for ExpectedScorerCollector {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     let type_name = scorer.scorable_test_type_name();
     assert!(
       self.expected_scorer.matches(type_name),
@@ -657,7 +676,7 @@ impl LeafCollector for ExpectedScorerCollector {
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 }

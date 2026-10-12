@@ -37,17 +37,19 @@ use crate::core::index::term::Term;
 use crate::core::index::term_vectors::EmptyTermVectors;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
-use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::Weight;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::util::bits::{Bits, MatchNoBits};
@@ -80,7 +82,8 @@ impl CheckHits {
     results: &[i32],
   ) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let d = q.to_string(default_field_name)?;
     let ignore: BTreeSet<i32> = results.iter().copied().collect();
@@ -124,8 +127,9 @@ impl CheckHits {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     QueryUtils::check_from_searcher(random, query.clone(), searcher)?;
 
@@ -166,8 +170,9 @@ impl CheckHits {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let hits = searcher
       .search(query.clone(), (10usize).max(results.len() * 2))?
@@ -252,7 +257,8 @@ impl CheckHits {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Self::check_explanations_with_deep(query, default_field_name, searcher, false)
   }
@@ -264,7 +270,8 @@ impl CheckHits {
     deep: bool,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let manager = ExplanationAsserterManager::new(query, default_field_name, searcher, deep);
     searcher.search_with_collector_manager(query.clone(), &manager)
@@ -274,7 +281,8 @@ impl CheckHits {
   /// returns a non-`None` [`Matches`](crate::core::search::matches::Matches).
   pub fn check_matches<IRC>(query: Query, searcher: &IndexSearcher<IRC>) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let manager = MatchesAsserterManager::new(&query, searcher);
     searcher.search_with_collector_manager(query.clone(), &manager)
@@ -407,8 +415,9 @@ impl CheckHits {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync,
+    IRC: IndexReaderContext + 'static + Sync,
     R: Rng + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     // Check it computed the top hits correctly
     Self::do_check_top_scores(query, searcher, 1)?;
@@ -426,7 +435,8 @@ impl CheckHits {
     num_hits: usize,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync,
+    IRC: IndexReaderContext + 'static + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let complete = TopScoreDocCollectorManager::with_after(num_hits, None, i32::MAX as usize)?;
     let top_scores = TopScoreDocCollectorManager::with_after(num_hits, None, 1)?;
@@ -448,8 +458,8 @@ impl CheckHits {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     R: Rng + ?Sized,
   {
     query = searcher.rewrite(query)?;
@@ -628,9 +638,9 @@ impl CheckHits {
     Ok(())
   }
 
-  fn advance(s: &mut QueryWeightSsScorer, target: i32) -> Result<i32> {
+  fn advance<S: Scorer>(s: &mut S, target: i32) -> Result<i32> {
     if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
-      let v = tp.approximation_mut();
+      let mut v = tp.approximation_mut();
       v.advance(target)
     } else {
       let v = &mut *s;
@@ -638,16 +648,16 @@ impl CheckHits {
     }
   }
 
-  fn next_doc(s: &mut QueryWeightSsScorer) -> Result<i32> {
+  fn next_doc<S: Scorer>(s: &mut S) -> Result<i32> {
     if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
-      let v = tp.approximation_mut();
+      let mut v = tp.approximation_mut();
       v.next_doc()
     } else {
       let v = &mut *s;
       v.next_doc()
     }
   }
-  fn matches(s: &mut QueryWeightSsScorer) -> Result<bool> {
+  fn matches<S: Scorer>(s: &mut S) -> Result<bool> {
     if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
       tp.matches()
     } else {
@@ -656,7 +666,7 @@ impl CheckHits {
   }
 }
 
-struct ExplanationAsserterManager<'a, IRC>
+struct ExplanationAsserterManager<'a, IRC: IndexReaderContext + 'static>
 where
   IRC: 'static,
 {
@@ -670,7 +680,10 @@ impl<'a, IRC> ExplanationAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn new(q: &'a Query, default_field_name: &'a str, s: &'a IndexSearcher<IRC>, deep: bool) -> Self {
+  fn new(q: &'a Query, default_field_name: &'a str, s: &'a IndexSearcher<IRC>, deep: bool) -> Self
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Self {
       q,
       default_field_name,
@@ -683,7 +696,7 @@ where
 impl<'a, IRC> CollectorManager for ExplanationAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type C = ExplanationAsserter<'a, IRC>;
   type T = ();
@@ -697,7 +710,7 @@ where
   }
 }
 
-struct MatchesAsserterManager<'a, IRC>
+struct MatchesAsserterManager<'a, IRC: IndexReaderContext + 'static>
 where
   IRC: 'static,
 {
@@ -709,7 +722,10 @@ impl<'a, IRC> MatchesAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Self {
+  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Self
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Self { query, searcher }
   }
 }
@@ -717,7 +733,7 @@ where
 impl<'a, IRC> CollectorManager for MatchesAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type C = MatchesAsserter<'a, IRC>;
   type T = ();
@@ -736,7 +752,7 @@ where
 ///
 /// NOTE: this collector should only be used with the Query and Searcher specified when it is
 /// constructed.
-struct ExplanationAsserter<'a, IRC>
+struct ExplanationAsserter<'a, IRC: IndexReaderContext + 'static>
 where
   IRC: 'static,
 {
@@ -757,7 +773,10 @@ where
     default_field_name: &str,
     s: &'a IndexSearcher<IRC>,
     deep: bool,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let d = q.to_string(default_field_name)?;
     Ok(Self {
       q,
@@ -772,7 +791,7 @@ where
 impl<IRC> Collector for ExplanationAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -789,6 +808,7 @@ where
   where
     IRC1: IndexReaderContext,
     W: Weight<IRC1> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -802,9 +822,14 @@ where
 impl<IRC> LeafCollector for ExplanationAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let doc = doc + self.base;
     let exp = self.s.explain(self.q.clone(), doc)?;
     CheckHits::verify_explanation(&self.d, doc, scorer.score()?, self.deep, &exp)?;
@@ -822,7 +847,7 @@ where
 impl<IRC> SimpleCollector for ExplanationAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -835,7 +860,7 @@ where
 
 impl<IRC> Display for ExplanationAsserter<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
@@ -847,7 +872,7 @@ where
 ///
 /// Also checks that the previous non-matching document has a `None`
 /// [`Matches`](crate::core::search::matches::Matches).
-struct MatchesAsserter<'a, IRC>
+struct MatchesAsserter<'a, IRC: IndexReaderContext + 'static>
 where
   IRC: 'static,
 {
@@ -866,7 +891,10 @@ impl<'a, IRC> MatchesAsserter<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Result<Self> {
+  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Result<Self>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let query_string = query.to_string("")?;
     Ok(Self {
       query,
@@ -882,7 +910,7 @@ where
 impl<IRC> Collector for MatchesAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -899,6 +927,7 @@ where
   where
     IRC1: IndexReaderContext,
     W: Weight<IRC1> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -912,9 +941,14 @@ where
 impl<IRC> LeafCollector for MatchesAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     let context = &self.searcher.get_leaf_contexts()?[self.context_ord];
     let query = self.searcher.rewrite(self.query.clone())?;
     let weight = self
@@ -944,7 +978,7 @@ where
 impl<IRC> SimpleCollector for MatchesAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -958,7 +992,7 @@ where
 
 impl<IRC> Display for MatchesAsserter<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
@@ -1016,8 +1050,9 @@ impl Collector for SetCollector {
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -1029,11 +1064,16 @@ impl Collector for SetCollector {
 }
 
 impl LeafCollector for SetCollector {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.bag.insert(doc + self.base);
     Ok(())
   }
@@ -1290,3 +1330,5 @@ impl StoredFields for EmptyStoredFields {
 impl RawStoredFieldsReader for EmptyStoredFields {
   type IndexInput = DummyIndexInput;
 }
+
+use crate::core::search::scorer_supplier::ScorerSupplier;

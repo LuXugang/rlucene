@@ -118,7 +118,7 @@ fn test_boolean_queries() -> Result<()> {
     10,
     i64::MAX,
     f32::INFINITY,
-    PredicateImpl,
+    crate::core::search::lru_query_cache::CachePredicate::custom(PredicateImpl),
   )?);
   searcher.set_query_cache(Some(QueryCacheEnum::custom(cache.clone())));
   searcher.set_query_caching_policy(policy);

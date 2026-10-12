@@ -3508,3 +3508,5 @@ impl BytesRefIterator for MultiDimIntSetBytesRefIterator {
     Ok(Some(Cow::Borrowed(&self.value)))
   }
 }
+
+use crate::core::search::weight::Weight;

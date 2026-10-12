@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test_framework::core::search::test_scorer::TestScorer;
+
 use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionTwoPhaseIterator};
 use crate::core::search::conjunction_scorer::{ConjunctionScorer, ConjunctionScorerDisi};
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
@@ -267,12 +269,12 @@ fn test_recursive_conjunction_approximation() -> Result<()> {
     let max_doc = TestUtil::next_usize(&mut random, 100, 10000);
     let num_iterators = TestUtil::next_usize(&mut random, 2, 5);
     let mut sets = Vec::with_capacity(num_iterators);
-    let mut conjunction: Option<Box<dyn Scorer>> = None;
+    let mut conjunction: Option<Box<dyn TestScorer>> = None;
     let mut has_approximation = false;
 
     for _ in 0..num_iterators {
       let set = Arc::new(random_set(&mut random, max_doc)?);
-      let new_iterator: Box<dyn Scorer> = match random.random_range(0..3) {
+      let new_iterator: Box<dyn TestScorer> = match random.random_range(0..3) {
         0 => {
           sets.push(set.clone());
           let it = BitDocIdSet::new(Some(set))?.iterator()?;
@@ -366,7 +368,7 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
     let max_doc = TestUtil::next_usize(&mut random, 100, 10000);
     let num_iterators = TestUtil::next_usize(&mut random, 5, 10);
     let mut sets = Vec::with_capacity(num_iterators);
-    let mut scorers: Vec<Box<dyn Scorer>> = Vec::with_capacity(num_iterators);
+    let mut scorers: Vec<Box<dyn TestScorer>> = Vec::with_capacity(num_iterators);
 
     for _ in 0..num_iterators {
       let set = Arc::new(random_set(&mut random, max_doc)?);
@@ -395,9 +397,10 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
       }
       let sub_seq_start = TestUtil::next_usize(&mut random, 0, scorers.len() - 2);
       let sub_seq_end = TestUtil::next_usize(&mut random, sub_seq_start + 2, scorers.len());
-      let sub_scorers: Vec<Box<dyn Scorer>> = scorers.drain(sub_seq_start..sub_seq_end).collect();
+      let sub_scorers: Vec<Box<dyn TestScorer>> =
+        scorers.drain(sub_seq_start..sub_seq_end).collect();
 
-      let sub_conjunction: Box<dyn Scorer> = if wrap_with_scorer {
+      let sub_conjunction: Box<dyn TestScorer> = if wrap_with_scorer {
         Box::new(ConjunctionScorer::new(sub_scorers, vec![])?)
       } else {
         let has_two_phase = sub_scorers
@@ -433,7 +436,7 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
       .iter()
       .any(|scorer| scorer.has_two_phase_iterator() == TwoPhaseState::Yes);
     let conjunction = ConjunctionDISI::from_scorer(scorers)?;
-    let mut conjunction: Box<dyn Scorer> = if has_two_phase {
+    let mut conjunction: Box<dyn TestScorer> = if has_two_phase {
       Box::new(ConstantScoreScorer::from_tpi(
         0f32,
         ScoreMode::TopScores,
@@ -543,6 +546,11 @@ impl<TPI> Scorable for ScorerImpl<TPI>
 where
   TPI: TwoPhaseIterator,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(0f32)
   }
@@ -582,26 +590,45 @@ impl<TPI> Scorer for ScorerImpl<TPI>
 where
   TPI: TwoPhaseIterator + 'static,
 {
+  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<TPI>;
+  type OwnedTwoPhase = TPI;
+  type ApproximationRef<'a>
+    = <TPI as TwoPhaseIterator>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <TPI as TwoPhaseIterator>::ApproximationMut<'a>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a TPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut TPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.tpi_disi.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let ScorerImpl { tpi_disi, .. } = *self;
-    Box::new(tpi_disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let ScorerImpl { tpi_disi, .. } = self;
+    tpi_disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     Some(&self.tpi_disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     Some(&mut self.tpi_disi.two_phase_iterator)
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    let ScorerImpl { tpi_disi, .. } = *self;
-    Some(Box::new(tpi_disi.two_phase_iterator))
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
+    let ScorerImpl { tpi_disi, .. } = self;
+    Some(tpi_disi.two_phase_iterator)
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -612,11 +639,11 @@ where
     TwoPhaseState::Yes
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.tpi_disi.two_phase_iterator.approximation()
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.tpi_disi.two_phase_iterator.approximation_mut()
   }
 }
@@ -640,11 +667,20 @@ impl<D> TwoPhaseIterator for TwoPhaseIteratorImpl<D>
 where
   D: DocIdSetIterator,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a D
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut D
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.approximation
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.approximation
   }
 

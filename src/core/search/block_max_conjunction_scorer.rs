@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -90,6 +91,11 @@ impl<S> Scorable for BlockMaxConjunctionScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Child<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     match self.disi {
       DocIdSetIteratorEnum2::A(ref mut disi) => Self::do_score(disi.scorers.as_mut()),
@@ -109,7 +115,7 @@ where
     Ok(())
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     let scorers = match &mut self.disi {
       DocIdSetIteratorEnum2::A(disi) => &mut disi.scorers,
       DocIdSetIteratorEnum2::B(wrapper) => &mut wrapper.two_phase_iterator.approx.scorers,
@@ -117,7 +123,7 @@ where
     Ok(
       scorers
         .iter_mut()
-        .map(|scorer| ChildScorable::new(scorer as &mut dyn Scorable, "MUST"))
+        .map(|scorer| ChildScorable::new(scorer, "MUST"))
         .collect(),
     )
   }
@@ -180,6 +186,31 @@ impl<S> Scorer for BlockMaxConjunctionScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Iterator = BlockMaxConjunctionScorerDisi<S>;
+  type OwnedTwoPhase = TwoPhaseIteratorImpl<S>;
+  type ApproximationRef<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    &'a Self,
+    <TwoPhaseIteratorImpl<S> as TwoPhaseIterator>::ApproximationRef<'a>,
+  >
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    &'a mut Self,
+    <TwoPhaseIteratorImpl<S> as TwoPhaseIterator>::ApproximationMut<'a>,
+  >
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a TwoPhaseIteratorImpl<S>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut TwoPhaseIteratorImpl<S>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     match self.disi {
       DocIdSetIteratorEnum2::A(ref mut v) => v.scorer_doc_id(),
@@ -187,15 +218,12 @@ where
     }
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let BlockMaxConjunctionScorer { disi, .. } = *self;
-    match disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
-    }
+  fn take_iterator(self) -> Self::Iterator {
+    let BlockMaxConjunctionScorer { disi, .. } = self;
+    disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     match self.two_phase_state {
       TwoPhaseState::No => None,
       _ => match self.disi {
@@ -208,7 +236,7 @@ where
     }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     match self.two_phase_state {
       TwoPhaseState::No => None,
       _ => match self.disi {
@@ -221,7 +249,7 @@ where
     }
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
   where
     Self: Sized,
   {
@@ -229,7 +257,7 @@ where
       disi,
       two_phase_state,
       ..
-    } = *self;
+    } = self;
     match two_phase_state {
       TwoPhaseState::No => None,
       _ => match disi {
@@ -237,7 +265,7 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        DocIdSetIteratorEnum2::B(v) => Some(Box::new(v.two_phase_iterator)),
+        DocIdSetIteratorEnum2::B(v) => Some(v.two_phase_iterator),
       },
     }
   }
@@ -264,22 +292,34 @@ where
     self.two_phase_state
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     match self.two_phase_state {
-      TwoPhaseState::No => self,
+      TwoPhaseState::No => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self),
       _ => match self.disi {
-        DocIdSetIteratorEnum2::A(_) => self,
-        DocIdSetIteratorEnum2::B(ref v) => v.two_phase_iterator.approximation(),
+        DocIdSetIteratorEnum2::A(_) => {
+          crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self)
+        },
+        DocIdSetIteratorEnum2::B(ref v) => {
+          crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
+            v.two_phase_iterator.approximation(),
+          )
+        },
       },
     }
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     match self.two_phase_state {
-      TwoPhaseState::No => self,
+      TwoPhaseState::No => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self),
       _ => match self.disi {
-        DocIdSetIteratorEnum2::A(_) => self,
-        DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
+        DocIdSetIteratorEnum2::A(_) => {
+          crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self)
+        },
+        DocIdSetIteratorEnum2::B(ref mut v) => {
+          crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
+            v.two_phase_iterator.approximation_mut(),
+          )
+        },
       },
     }
   }
@@ -351,12 +391,13 @@ where
       let len = self.scorers.len();
       // then find agreement with other iterators
       for i in 1..len {
-        let other = self.scorers[i].approximation_mut();
+        let mut other = self.scorers[i].approximation_mut();
         // other.doc may already be equal to doc if we "continued advanceHead"
         // on the previous iteration and the advance on the lead scorer exactly matched.
         if other.doc_id() < doc {
           let next = other.advance(doc)?;
           if next > doc {
+            drop(other);
             // iterator beyond the current doc - advance lead and continue to the new highest
             // doc.
             let v = self.advance_target(next)?;
@@ -456,11 +497,20 @@ impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
 where
   S: Scorer,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a DocIdSetIteratorImpl<S>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut DocIdSetIteratorImpl<S>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.approx
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.approx
   }
 

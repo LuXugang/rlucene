@@ -16,12 +16,12 @@
  */
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::matches_iterator::MatchesIterator;
-use crate::core::search::query::{Query, QueryWeightMatchesIterator};
+use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A [`MatchesIterator`] over a single term's postings list
-pub(crate) struct TermMatchesIterator<PE> {
+pub struct TermMatchesIterator<PE> {
   upto: i32,
   pos: i32,
   pe: PE,
@@ -45,6 +45,10 @@ impl<PE> MatchesIterator for TermMatchesIterator<PE>
 where
   PE: PostingsEnum,
 {
+  type SubMatches<'a>
+    = crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator
+  where
+    Self: 'a;
   fn next(&mut self) -> Result<bool> {
     let prev = self.upto;
     self.upto -= 1;
@@ -72,7 +76,7 @@ where
     self.pe.end_offset()
   }
 
-  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {
     Ok(None)
   }
 

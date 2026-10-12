@@ -30,6 +30,7 @@ use crate::core::search::boolean_query::Builder;
 use crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery;
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -263,3 +264,5 @@ fn test_query_matches_count() -> Result<()> {
   writer.close()?;
   dir.close()
 }
+
+use crate::core::search::weight::Weight;

@@ -45,7 +45,7 @@ impl CustomSearcher {
 
 impl<IRC> IndexSearcherBase<IRC> for CustomSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn search(
     &self,
@@ -54,7 +54,7 @@ where
     n_docs: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let mut bq = Builder::new();
     bq.add(query, Occur::Must)?;
@@ -73,7 +73,7 @@ where
     sort: Arc<Sort>,
   ) -> Result<TopFieldDocs>
   where
-    IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let mut bq = Builder::new();
     bq.add(query, Occur::Must)?;

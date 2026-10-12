@@ -126,6 +126,7 @@ where
 fn assert_same<IRC>(searcher: &IndexSearcher<IRC>, field_name: &str, regexp: String) -> Result<()>
 where
   IRC: crate::core::index::index_reader_context::IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let doc_values = RegexpQuery::with_all(
     Term::from_text(field_name, &regexp),

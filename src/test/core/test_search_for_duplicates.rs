@@ -161,6 +161,7 @@ fn check_hits<IRC, SD>(
 where
   IRC: crate::core::index::index_reader_context::IndexReaderContext,
   SD: ScoreDocLike,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   assert_eq!(expected_count, hits.len(), "total results");
   let mut stored_fields = searcher.stored_fields()?;

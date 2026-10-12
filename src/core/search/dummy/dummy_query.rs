@@ -74,8 +74,9 @@ impl QueryBase for DummyQuery {
     _boost: f32,
   ) -> crate::core::util::error::lucene_error::Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     dummy_unreachable!()
   }
@@ -85,7 +86,8 @@ impl QueryBase for DummyQuery {
     _searcher: &IndexSearcher<IRC>,
   ) -> crate::core::util::error::lucene_error::Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     dummy_unreachable!()
   }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
@@ -92,6 +93,11 @@ where
   DISI: DocIdSetIterator + 'static,
   TPI: TwoPhaseIterator + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)
   }
@@ -172,20 +178,50 @@ where
   DISI: DocIdSetIterator + 'static,
   TPI: TwoPhaseIterator + 'static,
 {
+  type Iterator = ConstantScoreIterator<DISI, TPI>;
+  type OwnedTwoPhase =
+    crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl<TPI>, TPI>;
+  type ApproximationRef<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3<
+    &'a Self,
+    &'a DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>,
+    TPI::ApproximationRef<'a>,
+  >
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3<
+    &'a mut Self,
+    &'a mut DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>,
+    TPI::ApproximationMut<'a>,
+  >
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
+    &'a TwoPhaseIteratorImpl<TPI>,
+    &'a TPI,
+  >
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
+    &'a mut TwoPhaseIteratorImpl<TPI>,
+    &'a mut TPI,
+  >
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    (*self).into_iterator()
-  }
-
-  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+  fn take_iterator(self) -> Self::Iterator {
     let ConstantScoreScorer { disi, .. } = self;
-    Box::new(disi)
+    disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     match self.tpi_state {
       TwoPhaseState::No => None,
       _ => match &self.disi {
@@ -193,13 +229,21 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        ConstantScoreIterator::TpiTop(iterator) => Some(&iterator.two_phase_iterator),
-        ConstantScoreIterator::Tpi(iterator) => Some(&iterator.two_phase_iterator),
+        ConstantScoreIterator::TpiTop(iterator) => Some(
+          crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::A(
+            &iterator.two_phase_iterator,
+          ),
+        ),
+        ConstantScoreIterator::Tpi(iterator) => Some(
+          crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::B(
+            &iterator.two_phase_iterator,
+          ),
+        ),
       },
     }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     match self.tpi_state {
       TwoPhaseState::No => None,
       _ => match &mut self.disi {
@@ -207,17 +251,21 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        ConstantScoreIterator::TpiTop(iterator) => Some(&mut iterator.two_phase_iterator),
-        ConstantScoreIterator::Tpi(iterator) => Some(&mut iterator.two_phase_iterator),
+        ConstantScoreIterator::TpiTop(iterator) => Some(
+          crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::A(
+            &mut iterator.two_phase_iterator,
+          ),
+        ),
+        ConstantScoreIterator::Tpi(iterator) => Some(
+          crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::B(
+            &mut iterator.two_phase_iterator,
+          ),
+        ),
       },
     }
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    (*self).into_two_phase_iterator()
-  }
-
-  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
     let ConstantScoreScorer {
       disi, tpi_state, ..
     } = self;
@@ -228,8 +276,16 @@ where
           debug_assert!(false, "should not be here");
           None
         },
-        ConstantScoreIterator::TpiTop(iterator) => Some(Box::new(iterator.two_phase_iterator)),
-        ConstantScoreIterator::Tpi(iterator) => Some(Box::new(iterator.two_phase_iterator)),
+        ConstantScoreIterator::TpiTop(iterator) => Some(
+          crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::A(
+            iterator.two_phase_iterator,
+          ),
+        ),
+        ConstantScoreIterator::Tpi(iterator) => Some(
+          crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::B(
+            iterator.two_phase_iterator,
+          ),
+        ),
       },
     }
   }
@@ -242,27 +298,41 @@ where
     self.tpi_state
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    match self.tpi_state {
-      TwoPhaseState::No => self,
-      _ => match &mut self.disi {
-        ConstantScoreIterator::DisiTop(iterator) => iterator,
-        ConstantScoreIterator::Disi(iterator) => iterator,
-        ConstantScoreIterator::TpiTop(iterator) => iterator.two_phase_iterator.approximation_mut(),
-        ConstantScoreIterator::Tpi(iterator) => iterator.two_phase_iterator.approximation_mut(),
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
+    if self.tpi_state == TwoPhaseState::No {
+      return crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::A(self);
+    }
+    match &mut self.disi {
+      ConstantScoreIterator::TpiTop(iterator) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::B(
+          iterator.two_phase_iterator.approximation_mut(),
+        )
       },
+      ConstantScoreIterator::Tpi(iterator) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::C(
+          iterator.two_phase_iterator.approximation_mut(),
+        )
+      },
+      _ => panic_invariant!(
+        "constructors keep the two-phase flag consistent with iterator storage",
+        "internal error: entered unreachable code: two-phase scorer without two-phase storage"
+      ),
     }
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
-    match self.tpi_state {
-      TwoPhaseState::No => self,
-      _ => match &self.disi {
-        ConstantScoreIterator::DisiTop(iterator) => iterator,
-        ConstantScoreIterator::Disi(iterator) => iterator,
-        ConstantScoreIterator::TpiTop(iterator) => iterator.two_phase_iterator.approximation(),
-        ConstantScoreIterator::Tpi(iterator) => iterator.two_phase_iterator.approximation(),
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
+    match &self.disi {
+      ConstantScoreIterator::TpiTop(iterator) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::B(
+          iterator.two_phase_iterator.approximation(),
+        )
       },
+      ConstantScoreIterator::Tpi(iterator) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::C(
+          iterator.two_phase_iterator.approximation(),
+        )
+      },
+      _ => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::A(self),
     }
   }
 
@@ -284,11 +354,20 @@ impl<TPI> TwoPhaseIterator for TwoPhaseIteratorImpl<TPI>
 where
   TPI: TwoPhaseIterator,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.approximation
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.approximation
   }
 
@@ -301,7 +380,8 @@ where
   }
 }
 
-enum ConstantScoreIterator<DISI, TPI> {
+#[doc(hidden)]
+pub enum ConstantScoreIterator<DISI, TPI> {
   DisiTop(DocIdSetIteratorWrapper<DisiDelegate<DISI>>),
   Disi(DISI),
   TpiTop(TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<TPI>>),
@@ -401,7 +481,8 @@ where
   }
 }
 
-enum DisiDelegate<D> {
+#[doc(hidden)]
+pub enum DisiDelegate<D> {
   Disi(D),
   Empty(EmptyDISI),
 }
@@ -454,7 +535,8 @@ where
   }
 }
 
-struct TwoPhaseDelegate<T> {
+#[doc(hidden)]
+pub struct TwoPhaseDelegate<T> {
   two_phase_iterator: T,
   empty: Option<EmptyDISI>,
 }
@@ -510,7 +592,8 @@ where
   }
 }
 
-struct DocIdSetIteratorWrapper<D> {
+#[doc(hidden)]
+pub struct DocIdSetIteratorWrapper<D> {
   doc: i32,
   delegate: D,
 }

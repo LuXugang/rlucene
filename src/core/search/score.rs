@@ -34,6 +34,11 @@ impl Score {
   }
 }
 impl Scorable for Score {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)
   }

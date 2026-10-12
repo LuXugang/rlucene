@@ -32,7 +32,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
 };
 use crate::core::search::query_cache::QueryCache;
 use crate::core::search::query_caching_policy::{QueryCachingPolicy, QueryCachingPolicyEnum};
@@ -44,7 +44,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set::BitSet;
-use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::predicate::Predicate;
@@ -99,7 +98,7 @@ const LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
 ///
 /// # Experimental
 /// This API is marked as experimental, following the original Lucene design.
-pub struct LRUQueryCache<P> {
+pub struct LRUQueryCache {
   hook: LRUQueryCacheHook,
   max_size: i32,
   max_ram_bytes_used: i64,
@@ -112,7 +111,7 @@ pub struct LRUQueryCache<P> {
   cache_count: AtomicI64,
   cache_size: AtomicI64,
   inner: RwLock<Inner>,
-  leaves_to_cache: P,
+  leaves_to_cache: CachePredicate,
 }
 pub struct Inner {
   unique_queries: Mutex<LinkedHashMap<Arc<Query>, Arc<Query>>>,
@@ -131,21 +130,18 @@ pub(crate) enum LRUQueryCacheHook {
 
 pub(crate) struct LRUQueryCacheDefaults;
 
-pub(crate) trait LRUQueryCacheBase<P>
-where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-{
-  fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+pub(crate) trait LRUQueryCacheBase {
+  fn on_hit(&self, cache: &LRUQueryCache, reader_core_key: &CacheKey, query: &Query) {
     LRUQueryCacheDefaults::on_hit(cache, reader_core_key, query);
   }
 
-  fn on_miss(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+  fn on_miss(&self, cache: &LRUQueryCache, reader_core_key: &CacheKey, query: &Query) {
     LRUQueryCacheDefaults::on_miss(cache, reader_core_key, query);
   }
 
   fn on_query_cache(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     query: &Query,
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<'_, Inner>,
@@ -155,7 +151,7 @@ where
 
   fn on_query_eviction(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     query: &Query,
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<'_, Inner>,
@@ -165,7 +161,7 @@ where
 
   fn on_doc_id_set_cache(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     reader_core_key: &CacheKey,
     ram_bytes_used: i64,
   ) {
@@ -174,7 +170,7 @@ where
 
   fn on_doc_id_set_eviction(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     reader_core_key: &CacheKey,
     num_entries: i64,
     sum_ram_bytes_used: i64,
@@ -187,16 +183,13 @@ where
     );
   }
 
-  fn on_clear(&self, cache: &LRUQueryCache<P>, guard: &RwLockWriteGuard<'_, Inner>) {
+  fn on_clear(&self, cache: &LRUQueryCache, guard: &RwLockWriteGuard<'_, Inner>) {
     LRUQueryCacheDefaults::on_clear(cache, guard);
   }
 }
 
-impl<P> LRUQueryCacheBase<P> for LRUQueryCacheHook
-where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-{
-  fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+impl LRUQueryCacheBase for LRUQueryCacheHook {
+  fn on_hit(&self, cache: &LRUQueryCache, reader_core_key: &CacheKey, query: &Query) {
     match self {
       Self::Default => LRUQueryCacheDefaults::on_hit(cache, reader_core_key, query),
       #[cfg(test)]
@@ -206,7 +199,7 @@ where
     }
   }
 
-  fn on_miss(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+  fn on_miss(&self, cache: &LRUQueryCache, reader_core_key: &CacheKey, query: &Query) {
     match self {
       Self::Default => LRUQueryCacheDefaults::on_miss(cache, reader_core_key, query),
       #[cfg(test)]
@@ -218,7 +211,7 @@ where
 
   fn on_query_cache(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     query: &Query,
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<'_, Inner>,
@@ -236,7 +229,7 @@ where
 
   fn on_query_eviction(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     query: &Query,
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<'_, Inner>,
@@ -256,7 +249,7 @@ where
 
   fn on_doc_id_set_cache(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     reader_core_key: &CacheKey,
     ram_bytes_used: i64,
   ) {
@@ -277,7 +270,7 @@ where
 
   fn on_doc_id_set_eviction(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     reader_core_key: &CacheKey,
     num_entries: i64,
     sum_ram_bytes_used: i64,
@@ -300,7 +293,7 @@ where
     }
   }
 
-  fn on_clear(&self, cache: &LRUQueryCache<P>, guard: &RwLockWriteGuard<'_, Inner>) {
+  fn on_clear(&self, cache: &LRUQueryCache, guard: &RwLockWriteGuard<'_, Inner>) {
     match self {
       Self::Default => LRUQueryCacheDefaults::on_clear(cache, guard),
       #[cfg(test)]
@@ -312,53 +305,41 @@ where
 }
 
 impl LRUQueryCacheDefaults {
-  pub(crate) fn on_hit<P>(cache: &LRUQueryCache<P>, _reader_core_key: &CacheKey, _query: &Query)
-  where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  pub(crate) fn on_hit(cache: &LRUQueryCache, _reader_core_key: &CacheKey, _query: &Query) {
     cache.hit_count.fetch_add(1, Ordering::Relaxed);
   }
 
-  pub(crate) fn on_miss<P>(cache: &LRUQueryCache<P>, _reader_core_key: &CacheKey, _query: &Query)
-  where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  pub(crate) fn on_miss(cache: &LRUQueryCache, _reader_core_key: &CacheKey, _query: &Query) {
     cache.miss_count.fetch_add(1, Ordering::Relaxed);
   }
 
-  pub(crate) fn on_query_cache<P>(
-    cache: &LRUQueryCache<P>,
+  pub(crate) fn on_query_cache(
+    cache: &LRUQueryCache,
     _query: &Query,
     ram_bytes_used: i64,
     _guard: &RwLockWriteGuard<'_, Inner>,
-  ) where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  ) {
     cache
       .ram_bytes_used
       .fetch_add(ram_bytes_used, Ordering::SeqCst);
   }
 
-  pub(crate) fn on_query_eviction<P>(
-    cache: &LRUQueryCache<P>,
+  pub(crate) fn on_query_eviction(
+    cache: &LRUQueryCache,
     _query: &Query,
     ram_bytes_used: i64,
     _guard: &RwLockWriteGuard<'_, Inner>,
-  ) where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  ) {
     cache
       .ram_bytes_used
       .fetch_sub(ram_bytes_used, Ordering::SeqCst);
   }
 
-  pub(crate) fn on_doc_id_set_cache<P>(
-    cache: &LRUQueryCache<P>,
+  pub(crate) fn on_doc_id_set_cache(
+    cache: &LRUQueryCache,
     _reader_core_key: &CacheKey,
     ram_bytes_used: i64,
-  ) where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  ) {
     cache.cache_size.fetch_add(1, Ordering::SeqCst);
     cache.cache_count.fetch_add(1, Ordering::SeqCst);
     cache
@@ -366,30 +347,25 @@ impl LRUQueryCacheDefaults {
       .fetch_add(ram_bytes_used, Ordering::SeqCst);
   }
 
-  pub(crate) fn on_doc_id_set_eviction<P>(
-    cache: &LRUQueryCache<P>,
+  pub(crate) fn on_doc_id_set_eviction(
+    cache: &LRUQueryCache,
     _reader_core_key: &CacheKey,
     num_entries: i64,
     sum_ram_bytes_used: i64,
-  ) where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  ) {
     cache
       .ram_bytes_used
       .fetch_sub(sum_ram_bytes_used, Ordering::SeqCst);
     cache.cache_size.fetch_sub(num_entries, Ordering::SeqCst);
   }
 
-  pub(crate) fn on_clear<P>(cache: &LRUQueryCache<P>, _guard: &RwLockWriteGuard<'_, Inner>)
-  where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  pub(crate) fn on_clear(cache: &LRUQueryCache, _guard: &RwLockWriteGuard<'_, Inner>) {
     cache.ram_bytes_used.store(0, Ordering::SeqCst);
     cache.cache_size.store(0, Ordering::SeqCst);
   }
 }
 
-impl LRUQueryCache<MinSegmentSizePredicate> {
+impl LRUQueryCache {
   pub fn new(max_size: i32, max_ram_bytes_used: i64) -> Result<Self> {
     Self::with_skip_cache_factor(
       max_size,
@@ -400,7 +376,7 @@ impl LRUQueryCache<MinSegmentSizePredicate> {
   }
 }
 
-impl<P> LRUQueryCache<P> {
+impl LRUQueryCache {
   /// Expert: Create a new instance that will cache at most `max_size` queries with at most
   /// `max_ram_bytes_used` bytes of memory, only on leaves that satisfy `leaves_to_cache`.
   /// The predicate receives the leaf's `max_doc` and borrowed top-level reader metadata.
@@ -408,7 +384,7 @@ impl<P> LRUQueryCache<P> {
   ///
   /// Also, clauses whose cost is `skip_cache_factor` times more than the cost of the
   /// top-level query will not be cached in order to not slow down queries too much.
-  pub fn with_skip_cache_factor(
+  pub fn with_skip_cache_factor<P: Into<CachePredicate>>(
     max_size: i32,
     max_ram_bytes_used: i64,
     skip_cache_factor: f32,
@@ -439,15 +415,12 @@ impl<P> LRUQueryCache<P> {
         unique_queries: Mutex::new(LinkedHashMap::with_capacity(16)),
         cache: HashMap::new(),
       }),
-      leaves_to_cache,
+      leaves_to_cache: leaves_to_cache.into(),
     })
   }
 }
 
-impl<P> LRUQueryCache<P>
-where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-{
+impl LRUQueryCache {
   #[cfg(test)]
   pub(crate) fn with_hook(mut self, hook: LRUQueryCacheHook) -> Self {
     self.hook = hook;
@@ -461,7 +434,7 @@ where
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_hit(&self, reader_core_key: &CacheKey, query: &Query) {
-    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_hit(&self.hook, self, reader_core_key, query);
+    <LRUQueryCacheHook as LRUQueryCacheBase>::on_hit(&self.hook, self, reader_core_key, query);
   }
   /// Expert: callback when there is a cache miss on a given query.
   ///
@@ -469,7 +442,7 @@ where
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_miss(&self, reader_core_key: &CacheKey, query: &Query) {
-    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_miss(&self.hook, self, reader_core_key, query);
+    <LRUQueryCacheHook as LRUQueryCacheBase>::on_miss(&self.hook, self, reader_core_key, query);
   }
   /// Expert: callback when a query is added to this cache.
   /// Implementing this method is typically useful in order to compute
@@ -484,7 +457,7 @@ where
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<Inner>,
   ) {
-    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_query_cache(
+    <LRUQueryCacheHook as LRUQueryCacheBase>::on_query_cache(
       &self.hook,
       self,
       query,
@@ -503,7 +476,7 @@ where
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<Inner>,
   ) {
-    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_query_eviction(
+    <LRUQueryCacheHook as LRUQueryCacheBase>::on_query_eviction(
       &self.hook,
       self,
       query,
@@ -519,7 +492,7 @@ where
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_doc_id_set_cache(&self, reader_core_key: &CacheKey, ram_bytes_used: i64) {
-    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_doc_id_set_cache(
+    <LRUQueryCacheHook as LRUQueryCacheBase>::on_doc_id_set_cache(
       &self.hook,
       self,
       reader_core_key,
@@ -538,7 +511,7 @@ where
     num_entries: i64,
     sum_ram_bytes_used: i64,
   ) {
-    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_doc_id_set_eviction(
+    <LRUQueryCacheHook as LRUQueryCacheBase>::on_doc_id_set_eviction(
       &self.hook,
       self,
       reader_core_key,
@@ -550,7 +523,7 @@ where
   ///
   /// Experimental: this API follows the original Lucene experimental status.
   pub(crate) fn on_clear(&self, guard: &RwLockWriteGuard<Inner>) {
-    <LRUQueryCacheHook as LRUQueryCacheBase<P>>::on_clear(&self.hook, self, guard);
+    <LRUQueryCacheHook as LRUQueryCacheBase>::on_clear(&self.hook, self, guard);
   }
   /// Whether evictions are required.
   pub(crate) fn requires_eviction(&self, guard: &RwLockWriteGuard<Inner>) -> bool {
@@ -611,7 +584,6 @@ where
   ) -> Result<()>
   where
     C: CacheHelper,
-    P: Send + Sync + 'static,
   {
     debug_assert!({ !matches!(query.as_ref(), Query::Boost(_)) });
     debug_assert!({ !matches!(query.as_ref(), Query::ConstantScore(_)) });
@@ -891,18 +863,14 @@ where
     uq.keys().cloned().collect()
   }
 }
-impl<P> Accountable for LRUQueryCache<P>
-where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-{
+impl Accountable for LRUQueryCache {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(self.ram_bytes_used.load(Ordering::SeqCst))
   }
 }
-impl<P, IRC> QueryCache<IRC> for Arc<LRUQueryCache<P>>
+impl<IRC> QueryCache<IRC> for Arc<LRUQueryCache>
 where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn do_cache(
     &self,
@@ -917,11 +885,7 @@ where
         LuceneError::illegal_state("cache wrapper weights must expose their inner weight")
       })?;
     }
-    Ok(Box::new(CachingWrapperWeight::new(
-      weight,
-      policy,
-      self.clone(),
-    )))
+    Ok(Box::new(CachingWrapperWeight::new(weight, policy, self.clone())).into())
   }
 }
 
@@ -938,19 +902,13 @@ impl LeafCache {
       ram_bytes_used: AtomicI64::new(0),
     }
   }
-  pub(crate) fn on_doc_id_set_cache<P>(&self, ram_bytes_used: i64, parent: &LRUQueryCache<P>)
-  where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  pub(crate) fn on_doc_id_set_cache(&self, ram_bytes_used: i64, parent: &LRUQueryCache) {
     self
       .ram_bytes_used
       .fetch_add(ram_bytes_used, std::sync::atomic::Ordering::SeqCst);
     parent.on_doc_id_set_cache(&self.key, ram_bytes_used);
   }
-  pub(crate) fn on_doc_id_set_eviction<P>(&self, ram_bytes_used: i64, parent: &LRUQueryCache<P>)
-  where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  pub(crate) fn on_doc_id_set_eviction(&self, ram_bytes_used: i64, parent: &LRUQueryCache) {
     self
       .ram_bytes_used
       .fetch_sub(ram_bytes_used, std::sync::atomic::Ordering::SeqCst);
@@ -963,15 +921,12 @@ impl LeafCache {
     self.cache.get(query.identity())
   }
 
-  pub(crate) fn put_if_absent<P>(
+  pub(crate) fn put_if_absent(
     &mut self,
     query: &Query,
     cached: CacheAndCountEnum,
-    parent: &LRUQueryCache<P>,
-  ) -> Result<()>
-  where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+    parent: &LRUQueryCache,
+  ) -> Result<()> {
     debug_assert!({ !matches!(query, Query::Boost(_)) });
     debug_assert!({ !matches!(query, Query::ConstantScore(_)) });
     if !self.cache.contains_key(query.identity()) {
@@ -987,10 +942,7 @@ impl LeafCache {
     Ok(())
   }
 
-  pub(crate) fn remove<P>(&mut self, query: &Query, parent: &LRUQueryCache<P>) -> Result<()>
-  where
-    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  {
+  pub(crate) fn remove(&mut self, query: &Query, parent: &LRUQueryCache) -> Result<()> {
     if let Some(removed) = self.cache.remove(query.identity()) {
       self.on_doc_id_set_eviction(
         Self::ram_bytes_used_for_cache_entry(removed.as_ref())?,
@@ -1013,21 +965,21 @@ impl Accountable for LeafCache {
     Ok(self.ram_bytes_used.load(Ordering::SeqCst))
   }
 }
-pub struct CachingWrapperWeight<P, IRC> {
+pub struct CachingWrapperWeight<IRC: IndexReaderContext + 'static> {
   in_: QueryWeight<IRC>,
   base: ConstantScoreWeight,
   policy: Arc<QueryCachingPolicyEnum>,
   used: AtomicBool,
-  lru_cache: Arc<LRUQueryCache<P>>,
+  lru_cache: Arc<LRUQueryCache>,
 }
-impl<P, IRC> CachingWrapperWeight<P, IRC>
+impl<IRC> CachingWrapperWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub(crate) fn new(
     in_: QueryWeight<IRC>,
     policy: Arc<QueryCachingPolicyEnum>,
-    lru_cache: Arc<LRUQueryCache<P>>,
+    lru_cache: Arc<LRUQueryCache>,
   ) -> Self {
     Self {
       in_,
@@ -1039,10 +991,9 @@ where
   }
 }
 
-impl<P, IRC> CachingWrapperWeight<P, IRC>
+impl<IRC> CachingWrapperWeight<IRC>
 where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn should_cache(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let top_context = ReaderUtil::get_top_level_context(context);
@@ -1067,27 +1018,28 @@ where
   }
 }
 
-impl<P, IRC> SegmentCacheable<IRC> for CachingWrapperWeight<P, IRC>
+impl<IRC> SegmentCacheable<IRC> for CachingWrapperWeight<IRC>
 where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     self.in_.is_cacheable(ctx)
   }
 }
 
-impl<P, IRC> Weight<IRC> for CachingWrapperWeight<P, IRC>
+impl<IRC> Weight<IRC> for CachingWrapperWeight<IRC>
 where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.in_.matches(context, doc, searcher)
   }
 
@@ -1096,7 +1048,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -1112,7 +1067,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if self
       .used
       .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -1164,7 +1122,7 @@ where
             query,
             cache_helper,
           )?;
-          let s = Box::new(ss);
+          let s = Box::new(ss).into();
           return Ok(Some(s));
         }
         self.in_.scorer_supplier(context, searcher)
@@ -1174,7 +1132,7 @@ where
           return Ok(None);
         }
         let disi = cached.iterator()?;
-        let s: QueryWeightSs<IRC> = Box::new(ScorerSupplierImpl2::new(disi)?);
+        let s: QueryWeightSs<IRC> = Box::new(ScorerSupplierImpl2::new(disi)?).into();
         Ok(Some(s))
       },
     }
@@ -1184,7 +1142,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
 
     if reader.has_deletions()? {
@@ -1235,25 +1196,25 @@ where
     Some(self.in_)
   }
 }
-pub struct ScorerSupplierImpl1<C, P, IRC> {
+pub struct ScorerSupplierImpl1<C, IRC: IndexReaderContext + 'static> {
   cost: i64,
   skip_cache_factor: f32,
   supplier: QueryWeightSs<IRC>,
   max_doc: i32,
-  lru_query_cache: Arc<LRUQueryCache<P>>,
+  lru_query_cache: Arc<LRUQueryCache>,
   query: Arc<Query>,
   cache_helper: C,
 }
-impl<C, P, IRC> ScorerSupplierImpl1<C, P, IRC>
+impl<C, IRC> ScorerSupplierImpl1<C, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub(crate) fn new(
     cost: i64,
     skip_cache_factor: f32,
     supplier: QueryWeightSs<IRC>,
     max_doc: i32,
-    lru_query_cache: Arc<LRUQueryCache<P>>,
+    lru_query_cache: Arc<LRUQueryCache>,
     query: Arc<Query>,
     cache_helper: C,
   ) -> Result<Self> {
@@ -1270,21 +1231,23 @@ where
 }
 #[allow(clippy::upper_case_acronyms)]
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, CacheAndCountDISI>;
-impl<C, P, IRC> ScorerSupplier<IRC> for ScorerSupplierImpl1<C, P, IRC>
+impl<C, IRC> ScorerSupplier<IRC> for ScorerSupplierImpl1<C, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   C: CacheHelper,
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if (self.cost as f32 / self.skip_cache_factor) > lead_cost as f32 {
       let scorer = self.supplier.get(lead_cost, context, searcher)?;
       return Ok(scorer);
@@ -1299,26 +1262,30 @@ where
       .lru_query_cache
       .put_if_absent(self.query.clone(), cached, &self.cache_helper)?;
     let disi = DISI::B(disi);
-    Ok(Box::new(ConstantScoreScorer::from_disi(
-      0.0,
-      ScoreMode::CompleteNoScores,
-      disi,
-    )))
+    Ok(QueryWeightSsScorer::<IRC>::new(
+      ConstantScoreScorer::from_disi(0.0, ScoreMode::CompleteNoScores, disi),
+    ))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }
@@ -1335,37 +1302,48 @@ impl ScorerSupplierImpl2 {
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl2
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
-    Ok(Box::new(ConstantScoreScorer::from_disi(
-      0.0,
-      ScoreMode::CompleteNoScores,
-      std::mem::take(&mut self.disi),
-    )))
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(QueryWeightSsScorer::<IRC>::new(
+      ConstantScoreScorer::from_disi(
+        0.0,
+        ScoreMode::CompleteNoScores,
+        std::mem::take(&mut self.disi),
+      ),
+    ))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }
@@ -1421,7 +1399,12 @@ where
   BS: BulkScorer,
 {
   let mut collector = LeafCollectorImpl::new(max_doc);
-  scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
   let v = BitDocIdSet::with_cost(Some(collector.bit_set), collector.count as i64)?;
   Ok(CacheAndCount::new(v, collector.count))
 }
@@ -1446,7 +1429,12 @@ impl Display for LeafCollectorImpl {
 }
 
 impl LeafCollector for LeafCollectorImpl {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.count += 1;
     self.bit_set.set(doc.try_convert()?)?;
     Ok(())
@@ -1461,7 +1449,12 @@ where
   BS: BulkScorer,
 {
   let mut collector = RoaringCollectorImpl::new(max_doc);
-  scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
   let cache = collector.builder.build()?;
   let cardinality = cache.cardinality();
   Ok(CacheAndCount::new(cache, cardinality))
@@ -1486,7 +1479,12 @@ impl Display for RoaringCollectorImpl {
 }
 
 impl LeafCollector for RoaringCollectorImpl {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.builder.add(doc)?;
     Ok(())
   }
@@ -1569,5 +1567,55 @@ impl Predicate<(i32, &TopParentMeta)> for MinSegmentSizePredicate {
     let size: i32 = context.leaves_num.try_convert()?;
     let average_total_docs = doc / size;
     Ok((max_doc * 2) > average_total_docs)
+  }
+}
+
+/// Closed built-in segment selection; arbitrary user predicates remain an explicit extension.
+pub enum CachePredicate {
+  MinSegmentSize(MinSegmentSizePredicate),
+  #[cfg(test)]
+  AllSegments(crate::test::core::search::test_lru_query_cache::CacheAllSegments),
+  #[cfg(test)]
+  RandomSegments(
+    Box<crate::test_framework::core::search::test_lru_query_cache::RandomSegmentSkippingPredicate>,
+  ),
+  Custom(Box<dyn for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync>),
+}
+impl CachePredicate {
+  pub fn custom<P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static>(
+    predicate: P,
+  ) -> Self {
+    Self::Custom(Box::new(predicate))
+  }
+  fn test(&self, context: &(i32, &TopParentMeta)) -> Result<bool> {
+    match self {
+      Self::MinSegmentSize(predicate) => predicate.test(context),
+      #[cfg(test)]
+      Self::AllSegments(predicate) => predicate.test(context),
+      #[cfg(test)]
+      Self::RandomSegments(predicate) => predicate.test(context),
+      Self::Custom(predicate) => predicate.test(context),
+    }
+  }
+}
+impl From<MinSegmentSizePredicate> for CachePredicate {
+  fn from(predicate: MinSegmentSizePredicate) -> Self {
+    Self::MinSegmentSize(predicate)
+  }
+}
+#[cfg(test)]
+impl From<crate::test::core::search::test_lru_query_cache::CacheAllSegments> for CachePredicate {
+  fn from(predicate: crate::test::core::search::test_lru_query_cache::CacheAllSegments) -> Self {
+    Self::AllSegments(predicate)
+  }
+}
+#[cfg(test)]
+impl From<crate::test_framework::core::search::test_lru_query_cache::RandomSegmentSkippingPredicate>
+  for CachePredicate
+{
+  fn from(
+    predicate: crate::test_framework::core::search::test_lru_query_cache::RandomSegmentSkippingPredicate,
+  ) -> Self {
+    Self::RandomSegments(Box::new(predicate))
   }
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::conjunction_disi::{
   ConjunctionDISI, ConjunctionDISIEnum, ConjunctionTwoPhaseIterator, ScorerDisi,
 };
@@ -70,6 +71,11 @@ impl<S> Scorable for ConjunctionScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let mut sum = 0f64;
     for x in self.scoring_idx.iter() {
@@ -102,7 +108,7 @@ where
     Ok(())
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     todo!()
   }
 
@@ -162,40 +168,62 @@ impl<S> Scorer for ConjunctionScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Iterator = ConjunctionScorerDisi<S>;
+  type OwnedTwoPhase = ConjunctionTwoPhaseIterator<S>;
+  type ApproximationRef<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    &'a Self,
+    <ConjunctionTwoPhaseIterator<S> as TwoPhaseIterator>::ApproximationRef<'a>,
+  >
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    &'a mut Self,
+    <ConjunctionTwoPhaseIterator<S> as TwoPhaseIterator>::ApproximationMut<'a>,
+  >
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a ConjunctionTwoPhaseIterator<S>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut ConjunctionTwoPhaseIterator<S>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let ConjunctionScorer { disi, .. } = *self;
-    match disi {
-      DocIdSetIteratorEnum2::A(v) => Box::new(v),
-      DocIdSetIteratorEnum2::B(v) => Box::new(v),
-    }
+  fn take_iterator(self) -> Self::Iterator {
+    let ConjunctionScorer { disi, .. } = self;
+    disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     match self.disi {
       DocIdSetIteratorEnum2::A(_) => None,
       DocIdSetIteratorEnum2::B(ref v) => Some(&v.two_phase_iterator),
     }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     match self.disi {
       DocIdSetIteratorEnum2::A(_) => None,
       DocIdSetIteratorEnum2::B(ref mut v) => Some(&mut v.two_phase_iterator),
     }
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
   where
     Self: Sized,
   {
-    let ConjunctionScorer { disi, .. } = *self;
+    let ConjunctionScorer { disi, .. } = self;
     match disi {
       DocIdSetIteratorEnum2::A(_) => None,
-      DocIdSetIteratorEnum2::B(v) => Some(Box::new(v.two_phase_iterator)),
+      DocIdSetIteratorEnum2::B(v) => Some(v.two_phase_iterator),
     }
   }
 
@@ -261,17 +289,29 @@ where
     }
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     match self.disi {
-      DocIdSetIteratorEnum2::A(_) => self,
-      DocIdSetIteratorEnum2::B(ref v) => v.two_phase_iterator.approximation(),
+      DocIdSetIteratorEnum2::A(_) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self)
+      },
+      DocIdSetIteratorEnum2::B(ref v) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
+          v.two_phase_iterator.approximation(),
+        )
+      },
     }
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     match self.disi {
-      DocIdSetIteratorEnum2::A(_) => self,
-      DocIdSetIteratorEnum2::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
+      DocIdSetIteratorEnum2::A(_) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self)
+      },
+      DocIdSetIteratorEnum2::B(ref mut v) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
+          v.two_phase_iterator.approximation_mut(),
+        )
+      },
     }
   }
 

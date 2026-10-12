@@ -110,10 +110,10 @@ use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 #[allow(dead_code)] // for quick search
 struct TestLRUQueryCache;
 
-type TestCache = LRUQueryCache<CacheAllSegments>;
+type TestCache = LRUQueryCache;
 
 #[derive(Clone, Copy)]
-struct CacheAllSegments;
+pub struct CacheAllSegments;
 
 impl Predicate<(i32, &TopParentMeta)> for CacheAllSegments {
   fn test(&self, _context: &(i32, &TopParentMeta)) -> Result<bool> {
@@ -152,6 +152,7 @@ fn never_cache() -> Arc<QueryCachingPolicyEnum> {
 fn set_cache<IRC>(searcher: &mut IndexSearcher<IRC>, cache: Arc<TestCache>)
 where
   IRC: IndexReaderContext + 'static,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   searcher.set_query_cache(Some(QueryCacheEnum::custom(cache)));
 }
@@ -192,8 +193,9 @@ impl Collector for ScoringTotalHitCountCollector {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     self.in_.get_leaf_collector(context, weight, searcher)
   }
@@ -1283,7 +1285,7 @@ fn test_propagate_bulk_scorer() -> Result<()> {
   // test that the bulk scorer is propagated when a scorer should not be cached
   let weight =
     searcher.create_weight(MatchAllDocsQuery::new(), ScoreMode::CompleteNoScores, 1.0)?;
-  let weight: QueryWeight<_> = Box::new(WeightWrapper::new(
+  let weight: QueryWeight<_> = QueryWeight::fixture(WeightWrapper::new(
     weight,
     scorer_called.clone(),
     bulk_scorer_called.clone(),
@@ -2404,7 +2406,7 @@ fn test_cache_has_fast_count() -> Result<()> {
   w.close(&mut random)
 }
 
-struct WeightWrapper<IRC> {
+struct WeightWrapper<IRC: IndexReaderContext + 'static> {
   in_: Arc<QueryWeight<IRC>>,
   scorer_called: Arc<AtomicBool>,
   bulk_scorer_called: Arc<AtomicBool>,
@@ -2412,7 +2414,7 @@ struct WeightWrapper<IRC> {
 
 impl<IRC> WeightWrapper<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn new(
     in_: QueryWeight<IRC>,
@@ -2429,7 +2431,7 @@ where
 
 impl<IRC> SegmentCacheable<IRC> for WeightWrapper<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     self.in_.is_cacheable(ctx)
@@ -2438,14 +2440,17 @@ where
 
 impl<IRC> Weight<IRC> for WeightWrapper<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     self.in_.matches(context, doc, searcher)
   }
 
@@ -2454,7 +2459,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     self.in_.explain(context, doc, searcher)
   }
 
@@ -2468,25 +2476,30 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let Some(mut scorer_supplier) = self.in_.scorer_supplier(context, searcher)? else {
       return Ok(None);
     };
     let scorer = scorer_supplier.get(i64::MAX, context, searcher)?;
     let cost = crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&scorer)?;
-    Ok(Some(Box::new(WeightWrapperScorerSupplier {
-      in_: self.in_.clone(),
-      scorer: Some(scorer),
-      cost,
-      scorer_called: self.scorer_called.clone(),
-      bulk_scorer_called: self.bulk_scorer_called.clone(),
-    })))
+    Ok(Some(
+      crate::core::search::query::QueryWeightSs::<IRC>::fixture(WeightWrapperScorerSupplier {
+        in_: self.in_.clone(),
+        scorer: Some(scorer),
+        cost,
+        scorer_called: self.scorer_called.clone(),
+        bulk_scorer_called: self.bulk_scorer_called.clone(),
+      }),
+    ))
   }
 }
 
-struct WeightWrapperScorerSupplier<IRC> {
+struct WeightWrapperScorerSupplier<IRC: IndexReaderContext + 'static> {
   in_: Arc<QueryWeight<IRC>>,
-  scorer: Option<QueryWeightSsScorer>,
+  scorer: Option<QueryWeightSsScorer<IRC>>,
   cost: i64,
   scorer_called: Arc<AtomicBool>,
   bulk_scorer_called: Arc<AtomicBool>,
@@ -2494,17 +2507,20 @@ struct WeightWrapperScorerSupplier<IRC> {
 
 impl<IRC> ScorerSupplier<IRC> for WeightWrapperScorerSupplier<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     self.scorer_called.store(true, Ordering::SeqCst);
     self
       .scorer
@@ -2516,7 +2532,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     self.bulk_scorer_called.store(true, Ordering::SeqCst);
     self.in_.bulk_scorer(context, searcher)
   }
@@ -2525,7 +2544,10 @@ where
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }

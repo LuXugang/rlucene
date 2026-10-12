@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::leaf_collector::LeafCollector;
+
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
@@ -52,10 +52,10 @@ pub trait BulkScorer {
   /// # Returns
   ///
   /// An under-estimation of the next matching doc after `max`.
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32>;
@@ -85,10 +85,10 @@ macro_rules! either_bulk_scorer {
             $( $T: BulkScorer ),+
         {
             #[inline]
-            fn score(
+            fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
                 &mut self,
-                collector: &mut dyn LeafCollector,
-                accept_docs: Option<&dyn Bits>,
+                collector: &mut CLC,
+                accept_docs: Option<&AB>,
                 min: i32,
                 max: i32,
             ) -> Result<i32> {
@@ -116,10 +116,10 @@ impl<T> BulkScorer for Box<T>
 where
   T: BulkScorer + ?Sized,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {

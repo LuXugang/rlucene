@@ -45,6 +45,7 @@ use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
+use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
@@ -1558,3 +1559,5 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
 
   Ok(())
 }
+
+use crate::core::search::weight::Weight;

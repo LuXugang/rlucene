@@ -70,6 +70,7 @@ impl TotalHitCountCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let leaf_count = match weight {
       Some(w) => w.count(context, searcher)?,
@@ -102,6 +103,7 @@ impl Collector for TotalHitCountCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     if let Some(early_terminated_map) = &self.early_terminated_map {
       let (early_terminated, first) = {
@@ -174,17 +176,22 @@ impl Display for TotalHitCountLeafCollector<'_> {
 }
 
 impl<'a> LeafCollector for TotalHitCountLeafCollector<'a> {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'view;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     self.collector.total_hit += 1;
     Ok(())
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    mut scorer: &mut SC,
   ) -> Result<()> {
-    self.collector.total_hit += stream.count(scorer)?;
+    self.collector.total_hit += stream.count(&mut scorer)?;
     Ok(())
   }
 }

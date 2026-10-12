@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::util::bits::Bits;
@@ -22,10 +23,10 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyBulkScorer;
 
 impl BulkScorer for DummyBulkScorer {
-  fn score(
+  fn score<LC: LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    _collector: &mut dyn LeafCollector,
-    _accept_docs: Option<&dyn Bits>,
+    _collector: &mut LC,
+    _accept_docs: Option<&AB>,
     _min: i32,
     _max: i32,
   ) -> Result<i32> {

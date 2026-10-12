@@ -48,6 +48,11 @@ impl SimpleScorer {
 }
 
 impl Scorable for SimpleScorer {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     // advance idx on purpose, so that consecutive calls to score will get
     // different results. This is to emulate computation of a score. If
@@ -126,12 +131,31 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SimpleSc
   }
 }
 impl Scorer for SimpleScorer {
+  type Iterator = SimpleDocIdSetIterator;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a SimpleDocIdSetIterator
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut SimpleDocIdSetIterator
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.iterator.doc.get())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new(self.iterator)
+  fn take_iterator(self) -> Self::Iterator {
+    self.iterator
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -142,11 +166,11 @@ impl Scorer for SimpleScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.iterator
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.iterator
   }
 }
@@ -226,6 +250,7 @@ impl Collector for ScoreCachingCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(ScoreCachingWrappingLeafCollector::new(self))
   }
@@ -242,7 +267,12 @@ impl Display for ScoreCachingCollector {
 }
 
 impl LeafCollector for ScoreCachingCollector {
-  fn collect(&mut self, _doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, scorer: &mut SC) -> Result<()> {
     // just a sanity check to avoid IOOB.
     if self.idx == self.mscores.len() {
       return Ok(());

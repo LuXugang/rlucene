@@ -32,7 +32,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::lru_query_cache::{LRUQueryCache, MinSegmentSizePredicate};
+use crate::core::search::lru_query_cache::LRUQueryCache;
 use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryRef, QueryWeight};
 use crate::core::search::query_cache::QueryCacheEnum;
 use crate::core::search::query_caching_policy::{QueryCachingPolicyArc, QueryCachingPolicyEnum};
@@ -110,7 +110,7 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
   debug_assert!(five_percent <= i64::MAX as u64);
   std::cmp::min(32 * (1 << 20), five_percent as i64)
 });
-pub type DefaultQueryCache = LRUQueryCache<MinSegmentSizePredicate>;
+pub type DefaultQueryCache = LRUQueryCache;
 
 fn new_default_query_cache() -> Option<Arc<DefaultQueryCache>> {
   Some(Arc::new(expect_invariant!(
@@ -217,7 +217,7 @@ pub type DefaultIndexSearcher<IRC> = IndexSearcher<IRC>;
 
 impl<IRC> DefaultIndexSearcher<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub fn new(context: IRC) -> Result<Self> {
     Self::new_with_executor(context, None)
@@ -281,7 +281,7 @@ pub fn get_default_similarity() -> Result<SimilarityEnum> {
 
 impl<IRC> IndexSearcher<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   #[cfg(test)]
   pub(crate) fn with_hook(mut self, hook: IndexSearcherHook) -> Self {
@@ -601,6 +601,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    Self: Sync,
   {
     self
       .hook
@@ -617,6 +618,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    Self: Sync,
   {
     self
       .hook
@@ -672,7 +674,10 @@ where
   /// # Errors
   ///
   /// Returns an error if a query would exceed [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count) clauses.
-  pub fn explain_from_weight(&self, weight: &QueryWeight<IRC>, doc: i32) -> Result<Explanation> {
+  pub fn explain_from_weight(&self, weight: &QueryWeight<IRC>, doc: i32) -> Result<Explanation>
+  where
+    Self: Sync,
+  {
     let leaf_contexts = self.reader_context.leaves()?;
     let n = ReaderUtil::sub_index_with_leaves(doc, leaf_contexts);
     let ctx = &leaf_contexts[n];
@@ -801,7 +806,7 @@ pub fn set_max_clause_count(value: usize) -> Result<()> {
 
 fn single_threaded_slices<IRC>(context: &IRC) -> Result<Arc<Vec<LeafSlice>>>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   let reader = context.reader();
   let leaf_contexts = context.leaves()?;
@@ -1143,7 +1148,7 @@ pub(crate) struct IndexSearcherDefaults;
 
 pub(crate) trait IndexSearcherBase<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn slices(
     &self,
@@ -1235,6 +1240,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     IndexSearcherDefaults::search_partitions(searcher, partitions, weight, collector)
   }
@@ -1251,6 +1257,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     IndexSearcherDefaults::search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
   }
@@ -1297,7 +1304,7 @@ where
 
 impl<IRC> IndexSearcherBase<IRC> for IndexSearcherHook
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn slices(
     &self,
@@ -1575,6 +1582,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::Default => {
@@ -1621,6 +1629,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::search_leaf(
@@ -1821,7 +1830,7 @@ impl IndexSearcherDefaults {
 
   pub(crate) fn count<IRC>(searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
     let mut query = searcher.rewrite(ConstantScoreQuery::new(query))?;
@@ -1857,7 +1866,7 @@ impl IndexSearcherDefaults {
     num_hits: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
     let limit = std::cmp::max(1, searcher.reader_context.reader().max_doc()?);
@@ -1884,7 +1893,7 @@ impl IndexSearcherDefaults {
     n: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
     searcher.search_after_score(None, query, n)
@@ -1896,7 +1905,7 @@ impl IndexSearcherDefaults {
     collector: &mut C,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     C: Collector,
   {
@@ -1918,7 +1927,7 @@ impl IndexSearcherDefaults {
     sort: Arc<Sort>,
   ) -> Result<TopFieldDocs>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
     searcher.search_after_field_with_score(None, query, n, sort, false)
@@ -1930,7 +1939,7 @@ impl IndexSearcherDefaults {
     collector_manager: &CM,
   ) -> Result<CM::T>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     CM: CollectorManager,
     CM::C: Send,
@@ -1950,9 +1959,10 @@ impl IndexSearcherDefaults {
     collector: &mut C,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     collector.set_weight(Some(weight))?;
 
@@ -1978,9 +1988,10 @@ impl IndexSearcherDefaults {
     collector: &mut C,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let ctx = &searcher.reader_context.leaves()?[ctx_ord];
     let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight), searcher) {
@@ -2000,7 +2011,7 @@ impl IndexSearcherDefaults {
         None => return Err(LuceneError::illegal_state("BulkScorer is None")),
       };
       let bits = ctx.reader().get_live_docs()?;
-      let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+      let live_docs = bits.as_ref();
       let result: Result<()> = (|| {
         let _ = match searcher.query_timeout {
           None => scorer.score(&mut leaf_collector, live_docs, min_doc_id, max_doc_id)?,
@@ -2032,7 +2043,7 @@ impl IndexSearcherDefaults {
 
   pub(crate) fn rewrite<IRC>(searcher: &IndexSearcher<IRC>, mut query: Query) -> Result<Query>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
     while let Some(rewritten) = query.rewrite(searcher)? {
@@ -2053,7 +2064,7 @@ impl IndexSearcherDefaults {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     T: QueryBase,
   {
@@ -2080,7 +2091,7 @@ impl IndexSearcherDefaults {
     field: &str,
   ) -> Result<Option<CollectionStatistics>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
   {
     let mut doc_count: i64 = 0;
     let mut sum_total_term_freq: i64 = 0;

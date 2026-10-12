@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
@@ -128,6 +129,7 @@ impl Collector for LeafCollectorImpl {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -139,7 +141,12 @@ impl Collector for LeafCollectorImpl {
 }
 
 impl LeafCollector for LeafCollectorImpl {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 }
@@ -190,10 +197,10 @@ impl BulkScorerImpl {
   }
 }
 impl BulkScorer for BulkScorerImpl {
-  fn score(
+  fn score<LC: LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    _collector: &mut dyn LeafCollector,
-    _accept_docs: Option<&dyn Bits>,
+    _collector: &mut LC,
+    _accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {

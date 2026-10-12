@@ -39,9 +39,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum2, EmptyDISI};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -135,10 +133,11 @@ impl QueryBase for LatLonPointDistanceFeatureQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(LatLonPointDistanceFeatureWeight::new(self, boost)))
+    Ok(Box::new(LatLonPointDistanceFeatureWeight::new(self, boost)).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -207,7 +206,7 @@ pub type SelectValue<IRC> =
 
 impl<IRC> SegmentCacheable<IRC> for LatLonPointDistanceFeatureWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(false)
@@ -216,14 +215,17 @@ where
 
 impl<IRC> Weight<IRC> for LatLonPointDistanceFeatureWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
     let mut multi_doc_values = DocValues::get_sorted_numeric(reader, &self.query_meta.field)?;
     if !multi_doc_values.advance_exact(doc)? {
@@ -268,13 +270,16 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = ScorerSupplierImpl<SelectValue<IRC>>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
     if reader.get_point_values(&self.query_meta.field)?.is_none() {
       return Ok(None);
@@ -292,7 +297,7 @@ where
       self.boost,
       Some(doc_values),
     )?;
-    Ok(Some(Box::new(v)))
+    Ok(Some(v))
   }
 }
 #[derive(Clone)]
@@ -331,17 +336,20 @@ where
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<SelectValue<IRC>>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
     let point_values = reader
       .get_point_values(&self.query_meta.field)?
@@ -363,22 +371,28 @@ where
       doc_values,
       self.query_meta.clone(),
     );
-    Ok(Box::new(v))
+    Ok(QueryWeightSsScorer::<IRC>::new(v))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }
@@ -456,6 +470,11 @@ where
   ND: NumericDocValues + 'static,
   PV: PointValues,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let doc_id = self.scoring_doc_id()?;
     if !self.disi.doc_values.advance_exact(doc_id)? {
@@ -571,13 +590,32 @@ where
   ND: NumericDocValues + 'static,
   PV: PointValues,
 {
+  type Iterator = DocIdSetIteratorImpl<ND>;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a DocIdSetIteratorImpl<ND>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut DocIdSetIteratorImpl<ND>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc)
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let DistanceScorer { disi, .. } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let DistanceScorer { disi, .. } = self;
+    disi
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -588,11 +626,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.disi
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.disi
   }
 }

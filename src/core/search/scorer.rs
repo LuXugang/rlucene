@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
+use crate::core::search::scorable::{
+  ChildScorable, FixedScore, Scorable, ScorableEnum2, ScorableEnum3, ScorableEnum4,
+};
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind::Other;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -28,6 +31,22 @@ use crate::core::util::error::lucene_error::Result;
 /// increasing order of doc ID. Its two-phase approximation shares the same cursor.
 /// Advancing and scoring borrow the same owner for one operation at a time.
 pub trait Scorer: Scorable + DocIdSetIterator {
+  /// Owned matching iterator, preserving the concrete type after consuming a scorer.
+  type Iterator: DocIdSetIterator + 'static;
+  /// Owned two-phase iterator, preserving its concrete approximation type.
+  type OwnedTwoPhase: TwoPhaseIterator + 'static;
+  type ApproximationRef<'a>: DocIdSetIterator
+  where
+    Self: 'a;
+  type ApproximationMut<'a>: DocIdSetIterator
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>: TwoPhaseIterator
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>: TwoPhaseIterator
+  where
+    Self: 'a;
   /// Returns the document currently being scored, preserving the scorer-specific view.
   /// This is distinct from the full matching iterator cursor.
   fn scoring_doc_id(&mut self) -> Result<i32>;
@@ -36,17 +55,18 @@ pub trait Scorer: Scorable + DocIdSetIterator {
   ///
   /// This method takes ownership of the
   /// underlying iterator rather than returning a view.
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator>;
+  fn take_iterator(self) -> Self::Iterator
+  where
+    Self: Sized;
 
   /// Transfer an owned scorer into its iterator without requiring callers to box it.
   ///
-  /// Boxed scorers override this method to transfer their existing allocation.
-  /// The default preserves the consuming implementation of concrete scorers.
-  fn into_iterator(self) -> Box<dyn DocIdSetIterator>
+  /// This alias delegates to [`Self::take_iterator`] without allocating.
+  fn into_iterator(self) -> Self::Iterator
   where
     Self: Sized,
   {
-    Box::new(self).take_iterator()
+    self.take_iterator()
   }
 
   /// Optional: Return a two-phase iterator view of this scorer.
@@ -61,7 +81,7 @@ pub trait Scorer: Scorable + DocIdSetIterator {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     None
   }
 
@@ -77,26 +97,29 @@ pub trait Scorer: Scorable + DocIdSetIterator {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     None
   }
 
   /// Optional: Return a two-phase iterator for this scorer, transferring ownership.
   ///
   /// By default, this returns `None`.
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
+  where
+    Self: Sized,
+  {
     None
   }
 
   /// Transfer an owned scorer into its optional two-phase iterator.
   ///
   /// Like [`Self::take_two_phase_iterator`], this consumes the scorer even when
-  /// it returns `None`. Boxed scorers reuse their existing allocation.
-  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>>
+  /// it returns `None`. This alias forwards without allocating.
+  fn into_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
   where
     Self: Sized,
   {
-    Box::new(self).take_two_phase_iterator()
+    self.take_two_phase_iterator()
   }
 
   /// Advance to the block of documents that contains `target` in order to get
@@ -137,7 +160,7 @@ pub trait Scorer: Scorable + DocIdSetIterator {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn approximation(&self) -> &dyn DocIdSetIterator;
+  fn approximation(&self) -> Self::ApproximationRef<'_>;
 
   /// Return a mutable approximation [`DocIdSetIterator`] for this scorer.
   ///
@@ -150,7 +173,7 @@ pub trait Scorer: Scorable + DocIdSetIterator {
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
   /// return iterators that share the same state.
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator;
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_>;
 
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
@@ -174,6 +197,11 @@ impl<T> Scorable for Box<T>
 where
   T: Scorable + ?Sized,
 {
+  type Child<'a>
+    = T::Child<'a>
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     (**self).score()
   }
@@ -186,7 +214,7 @@ where
     (**self).set_min_competitive_score(min_score)
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     (**self).get_children()
   }
 
@@ -212,34 +240,43 @@ impl<T> Scorer for Box<T>
 where
   T: Scorer,
 {
+  type Iterator = T::Iterator;
+  type OwnedTwoPhase = T::OwnedTwoPhase;
+  type ApproximationRef<'a>
+    = <T as Scorer>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <T as Scorer>::ApproximationMut<'a>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = T::TwoPhaseRef<'a>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = T::TwoPhaseMut<'a>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     (**self).scoring_doc_id()
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let inner: Box<T> = *self;
-    Scorer::take_iterator(inner)
+  fn take_iterator(self) -> Self::Iterator {
+    (*self).take_iterator()
   }
 
-  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
-    Scorer::take_iterator(self)
-  }
-
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     (**self).two_phase_iterator()
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     (**self).two_phase_iterator_mut()
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    let inner: Box<T> = *self;
-    Scorer::take_two_phase_iterator(inner)
-  }
-
-  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
-    Scorer::take_two_phase_iterator(self)
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
+    (*self).take_two_phase_iterator()
   }
 
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
@@ -262,11 +299,11 @@ where
     (**self).has_two_phase_iterator()
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     (**self).approximation()
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     (**self).approximation_mut()
   }
   #[cfg(test)]
@@ -275,72 +312,6 @@ where
   }
 }
 
-impl Scorer for Box<dyn Scorer> {
-  fn scoring_doc_id(&mut self) -> Result<i32> {
-    (**self).scoring_doc_id()
-  }
-
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let inner: Box<dyn Scorer> = *self;
-    Scorer::take_iterator(inner)
-  }
-
-  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
-    Scorer::take_iterator(self)
-  }
-
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
-    (**self).two_phase_iterator()
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
-    (**self).two_phase_iterator_mut()
-  }
-
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    let inner: Box<dyn Scorer> = *self;
-    Scorer::take_two_phase_iterator(inner)
-  }
-
-  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
-    Scorer::take_two_phase_iterator(self)
-  }
-
-  fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
-    (**self).advance_shallow(_target)
-  }
-
-  fn default_advance_shallow(&mut self, _target: i32) -> Result<i32> {
-    (**self).default_advance_shallow(_target)
-  }
-
-  fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
-    (**self).get_max_score(_up_to)
-  }
-
-  fn default_cost(&mut self) -> Result<i64> {
-    (**self).default_cost()
-  }
-
-  fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    (**self).has_two_phase_iterator()
-  }
-
-  fn approximation(&self) -> &dyn DocIdSetIterator {
-    (**self).approximation()
-  }
-
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-    (**self).approximation_mut()
-  }
-  #[cfg(test)]
-  fn kind(&self) -> ScorerKind {
-    (**self).kind()
-  }
-}
-pub type ScorerDisi = Box<dyn DocIdSetIterator>;
-pub type ScorerDisiMut<'a> = &'a mut dyn DocIdSetIterator;
-pub type ScorerDisiRef<'a> = &'a dyn DocIdSetIterator;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub enum TwoPhaseState {
   /// Has two_phase_iterator
@@ -366,6 +337,8 @@ macro_rules! either_scorer {
         where
             $( $T: Scorable ),+
         {
+  type Child<'a> = $scorable_ty<$( $T::Child<'a> ),+> where Self: 'a;
+
             #[inline]
             fn score(&mut self) -> Result<f32> {
                 match self { $( Self::$Variant(inner) => inner.score(), )+ }
@@ -383,9 +356,9 @@ macro_rules! either_scorer {
 
 
             #[inline]
-            fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+            fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.get_children(), )+
+                    $( Self::$Variant(inner) => inner.get_children().map(|children| children.into_iter().map(|child| ChildScorable { child: $scorable_ty::$Variant(child.child), relationship: child.relationship }).collect()), )+
                 }
             }
 
@@ -479,41 +452,47 @@ macro_rules! either_scorer {
         where
             $( $T: Scorer ),+
         {
+            type Iterator = crate::core::search::doc_id_set_iterator::$iter_ty<$( $T::Iterator ),+>;
+            type OwnedTwoPhase = crate::core::search::two_phase_iterator::$two_phase_ty<$( $T::OwnedTwoPhase ),+>;
+            type ApproximationRef<'a> = crate::core::search::doc_id_set_iterator::$iter_ty<$( $T::ApproximationRef<'a> ),+> where Self: 'a;
+            type ApproximationMut<'a> = crate::core::search::doc_id_set_iterator::$iter_ty<$( $T::ApproximationMut<'a> ),+> where Self: 'a;
+            type TwoPhaseRef<'a> = crate::core::search::two_phase_iterator::$two_phase_ty<$( $T::TwoPhaseRef<'a> ),+> where Self: 'a;
+            type TwoPhaseMut<'a> = crate::core::search::two_phase_iterator::$two_phase_ty<$( $T::TwoPhaseMut<'a> ),+> where Self: 'a;
+
             fn scoring_doc_id(&mut self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.scoring_doc_id(), )+ }
             }
 
             #[inline]
-            fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-                (*self).into_iterator()
-            }
-
-            fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+            fn take_iterator(self) -> Self::Iterator {
                 match self {
-                    $( Self::$Variant(inner) => inner.into_iterator(), )+
+                    $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::$iter_ty::$Variant(inner.take_iterator()), )+
                 }
             }
 
-            #[inline]
-            fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
-                match self { $( Self::$Variant(inner) => inner.two_phase_iterator(), )+ }
-            }
-            #[inline]
-            fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
-                match self { $( Self::$Variant(inner) => inner.two_phase_iterator_mut(), )+ }
-            }
 
 
             #[inline]
-            fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-                (*self).into_two_phase_iterator()
+            fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
+                match self { $( Self::$Variant(inner) => inner.two_phase_iterator().map(crate::core::search::two_phase_iterator::$two_phase_ty::$Variant), )+ }
+            }
+            #[inline]
+            fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
+                match self { $( Self::$Variant(inner) => inner.two_phase_iterator_mut().map(crate::core::search::two_phase_iterator::$two_phase_ty::$Variant), )+ }
             }
 
-            fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
+
+            #[inline]
+            fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
+  where
+    Self: Sized,
+  {
                 match self {
-                    $( Self::$Variant(inner) => inner.into_two_phase_iterator(), )+
+                    $( Self::$Variant(inner) => inner.take_two_phase_iterator().map(crate::core::search::two_phase_iterator::$two_phase_ty::$Variant), )+
                 }
             }
+
+
 
             #[inline]
             fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -538,12 +517,12 @@ macro_rules! either_scorer {
                 match self { $( Self::$Variant(inner) => inner.has_two_phase_iterator(), )+ }
             }
            #[inline]
-            fn approximation(&self) -> &dyn DocIdSetIterator {
-                match self { $( Self::$Variant(inner) => inner.approximation(), )+ }
+            fn approximation(&self) -> Self::ApproximationRef<'_> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::$iter_ty::$Variant(inner.approximation()), )+ }
             }
             #[inline]
-            fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
-                match self { $( Self::$Variant(inner) => inner.approximation_mut(), )+ }
+            fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
+                match self { $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::$iter_ty::$Variant(inner.approximation_mut()), )+ }
             }
             #[cfg(test)]
             fn kind(&self) -> ScorerKind{
@@ -570,9 +549,9 @@ either_scorer!(
 );
 either_scorer!(
     pub ScorerEnum4 {
-        iter = DocIdSetIteratorEnum3,
-        two_phase = TwoPhaseIteratorEnum3,
-        scorable = ScorableEnum3;
+        iter = DocIdSetIteratorEnum4,
+        two_phase = TwoPhaseIteratorEnum4,
+        scorable = ScorableEnum4;
         A: A, B: B,C: C, D:D,
     }
 );

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -97,7 +98,7 @@ fn do_test_random(two_phase: bool) -> Result<()> {
   if random.random_bool(0.5) {
     req_excl.score(
       &mut LeafCollectorImpl::new(&mut actual_matches),
-      None::<&dyn Bits>,
+      None::<&crate::core::util::bits::MatchAllBits>,
       0,
       NO_MORE_DOCS,
     )?;
@@ -108,7 +109,7 @@ fn do_test_random(two_phase: bool) -> Result<()> {
       let max = min + random.random_range(0..10);
       next = req_excl.score(
         &mut LeafCollectorImpl::new(&mut actual_matches),
-        None::<&dyn Bits>,
+        None::<&crate::core::util::bits::MatchAllBits>,
         min,
         max,
       )?;
@@ -136,6 +137,11 @@ impl<DISI> Scorable for ScorerImpl<DISI>
 where
   DISI: DocIdSetIterator,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     unreachable!("")
   }
@@ -217,19 +223,44 @@ impl<DISI> Scorer for ScorerImpl<DISI>
 where
   DISI: DocIdSetIterator + 'static,
 {
+  type Iterator = crate::core::search::doc_id_set_iterator::EmptyDISI;
+  type OwnedTwoPhase = RandomTwoPhaseView<DISI>;
+  type ApproximationRef<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    <RandomTwoPhaseView<DISI> as TwoPhaseIterator>::ApproximationRef<'a>,
+    &'a Self,
+  >
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    <RandomTwoPhaseView<DISI> as TwoPhaseIterator>::ApproximationMut<'a>,
+    &'a mut Self,
+  >
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a RandomTwoPhaseView<DISI>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut RandomTwoPhaseView<DISI>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     unreachable!("")
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
+  fn take_iterator(self) -> Self::Iterator {
     unreachable!("")
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     if self.has_tpi { Some(&self.disi) } else { None }
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     if self.has_tpi {
       Some(&mut self.disi)
     } else {
@@ -237,7 +268,7 @@ where
     }
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
     unreachable!("")
   }
 
@@ -253,19 +284,21 @@ where
     }
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     if self.has_tpi {
-      self.disi.approximation()
+      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self.disi.approximation())
     } else {
-      self
+      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(self)
     }
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     if self.has_tpi {
-      self.disi.approximation_mut()
+      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(
+        self.disi.approximation_mut(),
+      )
     } else {
-      self
+      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(self)
     }
   }
 }
@@ -286,7 +319,12 @@ impl Display for LeafCollectorImpl<'_> {
 }
 
 impl<'a> LeafCollector for LeafCollectorImpl<'a> {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'view;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.actual_matches.set(doc as usize)?;
     Ok(())
   }
@@ -306,10 +344,10 @@ impl<DISI> BulkScorer for BulkScorerImpl<DISI>
 where
   DISI: DocIdSetIterator,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {

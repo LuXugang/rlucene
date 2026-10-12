@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::bits::Bits;
@@ -83,10 +83,10 @@ impl<S> BulkScorer for ConjunctionBulkScorer<S>
 where
   S: Scorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -143,7 +143,7 @@ where
             }
             debug_assert!(DocIdSetIterator::doc_id(&it) == doc);
           }
-          if matched && let Some(it) = competitive_iterator {
+          if matched && let Some(mut it) = competitive_iterator {
             if it.doc_id() < doc {
               let next = it.advance(doc)?;
               if next != doc {
@@ -223,7 +223,7 @@ where
           }
           debug_assert!(DocIdSetIterator::doc_id(&it) == doc);
         }
-        if let Some(it) = competitive_iterator {
+        if let Some(mut it) = competitive_iterator {
           if it.doc_id() < doc {
             let next = it.advance(doc)?;
             if next != doc {
@@ -261,6 +261,11 @@ impl<S> Scorable for ScorableImpl<'_, S>
 where
   S: Scorer,
 {
+  type Child<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let mut score = 0f64;
     // Scoring clauses occupy the original input prefix, before all filter clauses.
@@ -271,7 +276,7 @@ where
     Ok(score as f32)
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     let mut scorers: Vec<_> = self.base.all_scores.iter_mut().map(Some).collect();
     self
       .base
@@ -281,7 +286,7 @@ where
         let scorer = scorers[idx]
           .take()
           .ok_or_else(|| LuceneError::illegal_state("duplicate conjunction child"))?;
-        Ok(ChildScorable::new(scorer as &mut dyn Scorable, "MUST"))
+        Ok(ChildScorable::new(scorer, "MUST"))
       })
       .collect()
   }

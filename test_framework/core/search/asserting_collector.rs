@@ -18,7 +18,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -73,6 +73,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     assert!(self.weight_set.get(), "Set the weight first");
     assert!(context.doc_base <= i32::MAX as usize);
@@ -132,11 +133,16 @@ impl<L> LeafCollector for AssertingCollectorLeafCollector<'_, L>
 where
   L: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = L::CompetitiveIterator<'a>
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.in_.set_scorer(scorer)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     assert!(
       self.doc_base + doc >= *self.max_doc,
       "collection is not in order: current doc={} while {} has already been collected",
@@ -149,15 +155,15 @@ where
     Ok(())
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    scorer: &mut SC,
   ) -> Result<()> {
     self.default_collect_stream(stream, scorer)
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     self.in_.competitive_iterator()
   }
 

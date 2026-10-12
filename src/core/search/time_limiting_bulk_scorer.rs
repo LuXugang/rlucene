@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::bulk_scorer::BulkScorer;
-use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
@@ -45,10 +45,10 @@ where
   BS: BulkScorer,
   QT: QueryTimeout,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     mut min: i32,
     max: i32,
   ) -> Result<i32> {

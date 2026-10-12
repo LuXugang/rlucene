@@ -119,7 +119,7 @@ impl QueryBase for IndexOrDocValuesQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -128,16 +128,19 @@ impl QueryBase for IndexOrDocValuesQuery {
       .index_query
       .create_weight(searcher, score_mode, boost)?;
     let dv_weight = self.dv_query.create_weight(searcher, score_mode, boost)?;
-    Ok(Box::new(IndexOrDocValuesQueryWeight::new(
-      dv_weight,
-      index_weight,
-      query,
-    )))
+    Ok(
+      Box::new(IndexOrDocValuesQueryWeight::new(
+        dv_weight,
+        index_weight,
+        query,
+      ))
+      .into(),
+    )
   }
 
   fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -186,14 +189,14 @@ impl Hash for IndexOrDocValuesQuery {
   }
 }
 
-pub struct IndexOrDocValuesQueryWeight<IRC> {
+pub struct IndexOrDocValuesQueryWeight<IRC: IndexReaderContext + 'static> {
   dv_weight: QueryWeight<IRC>,
   index_weight: QueryWeight<IRC>,
   query: Arc<Query>,
 }
 impl<IRC> IndexOrDocValuesQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub fn new(
     dv_weight: QueryWeight<IRC>,
@@ -210,7 +213,7 @@ where
 
 impl<IRC> SegmentCacheable<IRC> for IndexOrDocValuesQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     // Both index and dv query should return the same values, so we can use
@@ -221,14 +224,17 @@ where
 
 impl<IRC> Weight<IRC> for IndexOrDocValuesQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.dv_weight.matches(context, doc, searcher)
   }
 
@@ -237,7 +243,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.dv_weight.explain(context, doc, searcher)
   }
 
@@ -245,13 +254,16 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = IndexOrDocValuesQuerySs<IRC>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let index_scorer_supplier = self.index_weight.scorer_supplier(context, searcher)?;
     let dv_scorer_supplier = self.dv_weight.scorer_supplier(context, searcher)?;
 
@@ -263,17 +275,20 @@ where
         _ => return Ok(None),
       };
 
-    Ok(Some(Box::new(IndexOrDocValuesQuerySs::new(
+    Ok(Some(IndexOrDocValuesQuerySs::new(
       index_scorer_supplier,
       dv_scorer_supplier,
-    ))))
+    )))
   }
 
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let count = self.index_weight.count(context, searcher)?;
     if count != -1 {
       return Ok(count);
@@ -282,13 +297,13 @@ where
     Ok(count)
   }
 }
-pub struct IndexOrDocValuesQuerySs<IRC> {
+pub struct IndexOrDocValuesQuerySs<IRC: IndexReaderContext + 'static> {
   index_scorer_supplier: QueryWeightSs<IRC>,
   dv_scorer_supplier: QueryWeightSs<IRC>,
 }
 impl<IRC> IndexOrDocValuesQuerySs<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub fn new(
     index_scorer_supplier: QueryWeightSs<IRC>,
@@ -302,17 +317,20 @@ where
 }
 impl<IRC> ScorerSupplier<IRC> for IndexOrDocValuesQuerySs<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     // At equal costs, doc values tend to be worse than points since they
     // still need to perform one comparison per document while points can
     // do much better than that given how values are organized. So we give
@@ -329,7 +347,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     // Bulk scorers need to consume the entire set of docs, so using an
     // index structure should perform better
     self.index_scorer_supplier.bulk_scorer(context, searcher)
@@ -339,7 +360,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.index_scorer_supplier.cost(context, searcher)
   }
 }

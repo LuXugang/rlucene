@@ -64,7 +64,8 @@ pub trait Collector {
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized;
+    W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync;
 
   /// Indicates what features are required from the scorer.
   fn score_mode(&self) -> ScoreMode;

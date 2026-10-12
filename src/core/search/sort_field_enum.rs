@@ -146,6 +146,7 @@ impl SortFiledBase for SortFieldEnum {
   ) -> Result<Option<SortFieldEnum>>
   where
     IRC: crate::core::index::index_reader_context::IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     dispatch_sort_field!(self, |sort_field| sort_field.rewrite(searcher))
   }
@@ -340,3 +341,5 @@ impl IndexSorter for IndexSortEnum {
     }
   }
 }
+
+use crate::core::search::index_searcher::IndexSearcher;

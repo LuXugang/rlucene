@@ -125,6 +125,7 @@ impl Collector for LargeNumHitsTopDocsCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     Ok(LargeNumHitsTopDocsLeafCollector::new(
       self,
@@ -160,7 +161,12 @@ impl Display for LargeNumHitsTopDocsLeafCollector<'_> {
 }
 
 impl LeafCollector for LargeNumHitsTopDocsLeafCollector<'_> {
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
 
     // This collector relies on the fact that scorers produce positive values:

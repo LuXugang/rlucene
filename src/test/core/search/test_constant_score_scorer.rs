@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test_framework::core::search::test_scorer::TestScorer;
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::directory_reader;
@@ -361,7 +363,142 @@ fn test_early_termination() -> Result<()> {
   iw.close()?;
   Ok(())
 }
-type Scorers = ScorerEnum2<
-  ConstantScoreScorer<DummyDISI, Box<dyn TwoPhaseIterator>>,
-  ConstantScoreScorer<Box<dyn DocIdSetIterator>, DummyTwoPhaseIterator>,
+type ConcreteQueryScorer = crate::core::search::query::QueryWeightSsScorer<
+  crate::core::index::index_reader::IndexReaderContextType<Arc<StandardDirectoryReader<DirEnum>>>,
 >;
+type Scorers = ScorerEnum2<
+  ConstantScoreScorer<DummyDISI, <ConcreteQueryScorer as Scorer>::OwnedTwoPhase>,
+  ConstantScoreScorer<<ConcreteQueryScorer as Scorer>::Iterator, DummyTwoPhaseIterator>,
+>;
+
+struct EvenDocs {
+  approximation: crate::core::search::doc_id_set_iterator::AllDISI,
+}
+
+impl TwoPhaseIterator for EvenDocs {
+  type ApproximationRef<'a> = &'a crate::core::search::doc_id_set_iterator::AllDISI;
+  type ApproximationMut<'a> = &'a mut crate::core::search::doc_id_set_iterator::AllDISI;
+
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
+    &self.approximation
+  }
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
+    &mut self.approximation
+  }
+  fn matches(&mut self) -> Result<bool> {
+    Ok(self.approximation.doc_id() % 2 == 0)
+  }
+  fn match_cost(&self) -> f32 {
+    1.0
+  }
+}
+
+fn even_docs_scorer(mode: ScoreMode) -> ConstantScoreScorer<DummyDISI, EvenDocs> {
+  ConstantScoreScorer::from_tpi(
+    1.0,
+    mode,
+    EvenDocs {
+      approximation: crate::core::search::doc_id_set_iterator::AllDISI::new(6),
+    },
+  )
+}
+
+#[test]
+fn test_concrete_owned_iterator_keeps_cursor_and_filters_candidates() -> Result<()> {
+  use crate::core::search::constant_score_scorer::ConstantScoreIterator;
+  for mode in [
+    ScoreMode::Complete,
+    ScoreMode::CompleteNoScores,
+    ScoreMode::TopScores,
+  ] {
+    let mut scorer = even_docs_scorer(mode);
+    assert_eq!(0, scorer.next_doc()?);
+    let mut iterator: ConstantScoreIterator<DummyDISI, EvenDocs> = scorer.take_iterator();
+    assert_eq!(0, iterator.doc_id());
+    assert_eq!(2, iterator.next_doc()?);
+    assert_eq!(4, iterator.advance(3)?);
+    assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
+  }
+  Ok(())
+}
+
+#[test]
+fn test_concrete_owned_two_phase_keeps_approximation_and_confirmation_separate() -> Result<()> {
+  use crate::core::search::constant_score_scorer::TwoPhaseIteratorImpl;
+  use crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2;
+  for mode in [
+    ScoreMode::Complete,
+    ScoreMode::CompleteNoScores,
+    ScoreMode::TopScores,
+  ] {
+    let mut scorer = even_docs_scorer(mode);
+    assert_eq!(2, scorer.advance(1)?);
+    let mut iterator: TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl<EvenDocs>, EvenDocs> =
+      scorer.take_two_phase_iterator().unwrap();
+    assert_eq!(2, iterator.approximation().doc_id());
+    assert_eq!(3, iterator.approximation_mut().next_doc()?);
+    assert!(!iterator.matches()?);
+    assert_eq!(4, iterator.approximation_mut().next_doc()?);
+    assert!(iterator.matches()?);
+  }
+  Ok(())
+}
+
+#[test]
+fn test_concrete_owned_two_phase_keeps_top_scores_termination() -> Result<()> {
+  let mut scorer = even_docs_scorer(ScoreMode::TopScores);
+  assert_eq!(0, scorer.next_doc()?);
+  scorer.set_min_competitive_score(2.0)?;
+  let mut iterator = scorer.into_two_phase_iterator().unwrap();
+  assert_eq!(NO_MORE_DOCS, iterator.approximation_mut().next_doc()?);
+  Ok(())
+}
+
+#[test]
+fn test_concrete_owned_transfers_through_box_and_enum_keep_cursor() -> Result<()> {
+  use crate::core::search::constant_score_scorer::ConstantScoreIterator;
+  use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
+
+  let mut scorer = Box::new(even_docs_scorer(ScoreMode::Complete));
+  assert_eq!(2, scorer.advance(1)?);
+  let mut iterator: ConstantScoreIterator<DummyDISI, EvenDocs> = scorer.into_iterator();
+  assert_eq!(2, iterator.doc_id());
+  assert_eq!(4, iterator.next_doc()?);
+
+  type Scorers =
+    ScorerEnum2<ConstantScoreScorer<DummyDISI, EvenDocs>, ConstantScoreScorer<DummyDISI, EvenDocs>>;
+  for mut scorer in [
+    Scorers::A(even_docs_scorer(ScoreMode::Complete)),
+    Scorers::B(even_docs_scorer(ScoreMode::TopScores)),
+  ] {
+    assert_eq!(2, scorer.advance(1)?);
+    let mut iterator: DocIdSetIteratorEnum2<
+      ConstantScoreIterator<DummyDISI, EvenDocs>,
+      ConstantScoreIterator<DummyDISI, EvenDocs>,
+    > = scorer.take_iterator();
+    assert_eq!(2, iterator.doc_id());
+    assert_eq!(4, iterator.next_doc()?);
+  }
+  Ok(())
+}
+
+#[test]
+fn test_concrete_owned_transfers_through_dynamic_boundary_keep_cursor() -> Result<()> {
+  let mut scorer: Box<dyn TestScorer> = Box::new(even_docs_scorer(ScoreMode::Complete));
+  assert_eq!(2, scorer.advance(1)?);
+  let mut iterator = scorer.take_iterator();
+  assert_eq!(2, iterator.doc_id());
+  assert_eq!(4, iterator.next_doc()?);
+
+  let mut scorer: Box<dyn TestScorer> = Box::new(even_docs_scorer(ScoreMode::Complete));
+  assert_eq!(2, scorer.advance(1)?);
+  let mut iterator = scorer.take_two_phase_iterator().unwrap();
+  assert_eq!(2, iterator.approximation().doc_id());
+  assert_eq!(3, iterator.approximation_mut().next_doc()?);
+  assert!(!iterator.matches()?);
+  assert_eq!(4, iterator.approximation_mut().next_doc()?);
+  assert!(iterator.matches()?);
+  Ok(())
+}
+
+use crate::core::search::weight::Weight;

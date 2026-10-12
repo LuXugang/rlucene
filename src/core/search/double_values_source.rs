@@ -90,7 +90,9 @@ where
   /// For the same reason, implementations that cache references to the
   /// [`IndexSearcher`] should return a new object from this method.
   type Rewritten: DoubleValuesSource<IRC>;
-  fn rewrite(&self, reader: &IndexSearcher<IRC>) -> Result<Self::Rewritten>;
+  fn rewrite(&self, reader: &IndexSearcher<IRC>) -> Result<Self::Rewritten>
+  where
+    IndexSearcher<IRC>: Sync;
 
   /// Create a sort field based on the value of this producer.
   ///
@@ -131,7 +133,10 @@ where
 
   type Rewritten = T::Rewritten;
 
-  fn rewrite(&self, reader: &IndexSearcher<IRC>) -> Result<Self::Rewritten> {
+  fn rewrite(&self, reader: &IndexSearcher<IRC>) -> Result<Self::Rewritten>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.as_ref().rewrite(reader)
   }
 

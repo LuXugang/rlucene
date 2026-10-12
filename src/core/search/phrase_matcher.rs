@@ -17,8 +17,10 @@
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::leaf_reader::{LRImpactsEnum, LRPosting};
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::conjunction_disi::ConjunctionDISIEnum;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
+use crate::core::search::exact_phrase_matcher::ImpactsApproximationType;
 use crate::core::search::score_mode::ScoreMode::TopScores;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
@@ -61,33 +63,37 @@ pub enum PhraseMatcherEnum<IE, SS> {
   Exact(ExactPhraseMatcher<IE, SS>),
   Sloppy(SloppyPhraseMatcher<IE, SS>),
 }
+pub type PhraseApproximationRef<'a, IE, SS> =
+  DocIdSetIteratorEnum2<&'a ImpactsApproximationType<IE, SS>, &'a ConjunctionDISIEnum<IE>>;
+pub type PhraseApproximationMut<'a, IE, SS> =
+  DocIdSetIteratorEnum2<&'a mut ImpactsApproximationType<IE, SS>, &'a mut ConjunctionDISIEnum<IE>>;
 impl<IE, SS> PhraseMatcherEnum<IE, SS>
 where
   IE: ImpactsEnum,
   SS: SimScorer,
 {
-  pub(crate) fn approximation(&self) -> &dyn DocIdSetIterator {
+  pub(crate) fn approximation(&self) -> PhraseApproximationRef<'_, IE, SS> {
     match self {
       PhraseMatcherEnum::Exact(m) => {
         if m.score_mode == TopScores {
-          m.approximation_top_scorers()
+          DocIdSetIteratorEnum2::A(m.approximation_top_scorers())
         } else {
-          m.approximation()
+          DocIdSetIteratorEnum2::B(m.approximation())
         }
       },
-      PhraseMatcherEnum::Sloppy(m) => m.approximation(),
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIteratorEnum2::B(m.approximation()),
     }
   }
-  pub(crate) fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  pub(crate) fn approximation_mut(&mut self) -> PhraseApproximationMut<'_, IE, SS> {
     match self {
       PhraseMatcherEnum::Exact(m) => {
         if m.score_mode == TopScores {
-          m.approximation_top_scorers_mut()
+          DocIdSetIteratorEnum2::A(m.approximation_top_scorers_mut())
         } else {
-          m.approximation_mut()
+          DocIdSetIteratorEnum2::B(m.approximation_mut())
         }
       },
-      PhraseMatcherEnum::Sloppy(m) => m.approximation_mut(),
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIteratorEnum2::B(m.approximation_mut()),
     }
   }
 }

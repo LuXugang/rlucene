@@ -103,7 +103,7 @@ fn test_random() -> Result<()> {
 pub fn wrapper(
   iterator: DocIdSetIteratorImpl,
   dummy_s: &IndexSearcher<CompositeReaderContext<DummyCR>>,
-) -> Result<DisiWrapper<QueryWeightSsScorer>> {
+) -> Result<DisiWrapper<QueryWeightSsScorer<CompositeReaderContext<DummyCR>>>> {
   let q = DummyQueryImpl::new(iterator);
   let weight = q.weight();
   let lrc = &dummy_s.get_leaf_contexts()?[0];
@@ -170,8 +170,7 @@ impl Weight<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight {
     unreachable!()
   }
 
-  type ScorerSupplier =
-    DefaultScorerSupplier<ConstantScoreScorer<DocIdSetIteratorImpl, DummyTwoPhaseIterator>>;
+  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<CompositeReaderContext<DummyCR>>>;
 
   fn scorer_supplier(
     &self,
@@ -179,7 +178,9 @@ impl Weight<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight {
     _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>>,
   ) -> Result<Option<Self::ScorerSupplier>> {
     let v = ConstantScoreScorer::from_disi(1.0f32, self.score_mode, self.query.disi.clone());
-    Ok(Some(DefaultScorerSupplier::new(v)))
+    Ok(Some(DefaultScorerSupplier::new(
+      crate::core::search::query_scorer::BuiltinQueryScorer::for_test(v),
+    )))
   }
 }
 #[derive(Eq, PartialEq, Hash, Debug, Clone)]

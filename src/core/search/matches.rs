@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
+use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::util::error::lucene_error::Result;
 
 /// Reports the positions and optionally offsets of all matching terms
@@ -26,14 +26,18 @@ use crate::core::util::error::lucene_error::Result;
 /// [`Matches::get_matches`]. Note that you can call this method multiple
 /// times to retrieve new iterators, but it is not thread-safe.
 pub trait Matches {
+  type Iterator<'a>: MatchesIterator
+  where
+    Self: 'a;
+  type SubMatches: Matches;
   /// Returns a [`MatchesIterator`](crate::core::search::matches_iterator::MatchesIterator) over the
   /// matches for a single field,
   /// or `None` if there are no matches in that field.
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>>;
+  fn get_matches(&self, field: &str) -> Result<Option<Self::Iterator<'_>>>;
 
   /// Returns a collection of [`Matches`] that make up this instance;
   /// if it is not a composite, then this returns an empty list.
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>];
+  fn get_sub_matches(&self) -> &[Self::SubMatches];
 
   fn field(&self) -> &[String];
 }
@@ -42,11 +46,16 @@ impl<T> Matches for Box<T>
 where
   T: Matches + ?Sized,
 {
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  type Iterator<'a>
+    = T::Iterator<'a>
+  where
+    Self: 'a;
+  type SubMatches = T::SubMatches;
+  fn get_matches(&self, field: &str) -> Result<Option<Self::Iterator<'_>>> {
     (**self).get_matches(field)
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+  fn get_sub_matches(&self) -> &[Self::SubMatches] {
     (**self).get_sub_matches()
   }
 

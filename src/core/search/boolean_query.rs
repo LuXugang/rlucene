@@ -191,7 +191,7 @@ impl BooleanQuery {
     boost: f32,
   ) -> Result<BooleanWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -221,7 +221,7 @@ impl BooleanQuery {
     index_searcher: &IndexSearcher<IRC>,
   ) -> Result<[Query; 3]>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
   {
     if self.clauses.len() != 2 {
       return Err(LuceneError::illegal_state(
@@ -337,16 +337,16 @@ impl QueryBase for BooleanQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let weight = self.raw_weight(searcher, score_mode, boost)?;
-    Ok(Box::new(weight))
+    Ok(Box::new(weight).into())
   }
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {

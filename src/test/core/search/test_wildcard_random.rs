@@ -60,6 +60,7 @@ fn assert_pattern_hits<IRC, R>(
 where
   IRC: IndexReaderContext + Sync,
   R: RngExt,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let wq = WildcardQuery::new(Term::from_text("field", fill_pattern(pattern, random)))?;
   let docs = searcher.search(wq, 25)?;

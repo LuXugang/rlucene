@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+
 use std::fmt::Write as _;
 
 use crate::core::search::explanation::Explanation;
@@ -42,9 +45,11 @@ impl ConstantScoreWeight {
     let exists = match scorer {
       None => false,
       Some(mut s) => {
-        if let Some(two_phase) = s.two_phase_iterator_mut() {
-          let approximation = two_phase.approximation_mut();
-          let is_match = approximation.advance(doc)? == doc;
+        if let Some(mut two_phase) = s.two_phase_iterator_mut() {
+          let is_match = {
+            let mut approximation = two_phase.approximation_mut();
+            approximation.advance(doc)? == doc
+          };
           is_match && two_phase.matches()?
         } else {
           s.advance(doc)? == doc

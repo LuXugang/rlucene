@@ -70,16 +70,18 @@ impl QueryBase for BoostCheckingQuery {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     unreachable!("BoostCheckingQuery must be rewritten before weighting")
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     self
       .rewrite_method
@@ -213,16 +215,18 @@ impl QueryBase for DumbPrefixQuery {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     ConstantScoreBlendedRewrite
       .rewrite(searcher, self)
@@ -367,16 +371,18 @@ impl QueryBase for DumbRegexpQuery {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     ConstantScoreBlendedRewrite
       .rewrite(searcher, self)

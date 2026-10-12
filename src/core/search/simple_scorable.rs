@@ -23,6 +23,11 @@ pub struct SimpleScorable {
   pub(crate) min_competitive_score: f32,
 }
 impl Scorable for SimpleScorable {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)
   }

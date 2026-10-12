@@ -941,6 +941,11 @@ struct Score {
   min_competitive_score: Option<f32>,
 }
 impl Scorable for Score {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)
   }
@@ -986,12 +991,17 @@ impl<LC> LeafCollector for LeafCollectorImpl<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     let mut s = FilterScorableImpl::new(scorer, self.current_doc);
     self.in_.set_scorer(&mut s)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     self.current_doc = doc;
     let mut s = FilterScorableImpl::new(scorer, self.current_doc);
     self.in_.collect(doc, &mut s)?;
@@ -1023,6 +1033,7 @@ impl Collector for CollectorImpl {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let in_ = self
       .top_collector
@@ -1084,6 +1095,11 @@ impl<'a, S> Scorable for FilterScorableImpl<'a, S>
 where
   S: Scorable + ?Sized,
 {
+  type Child<'b>
+    = <FilterScorable<'a, S> as Scorable>::Child<'b>
+  where
+    Self: 'b;
+
   fn score(&mut self) -> Result<f32> {
     if self.last_computed_doc == self.current_doc {
       return Err(LuceneError::illegal_state(format!(
@@ -1103,7 +1119,7 @@ where
     self.base.set_min_competitive_score(min_score)
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     self.base.get_children()
   }
 

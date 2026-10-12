@@ -14,41 +14,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::bulk_scorer::BulkScorerKind;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::QueryWeightSsBulkScorer;
+use crate::core::search::query_bulk_scorer::BuiltinQueryBulkScorer;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer_types::ScorerTypes;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::asserting_leaf_collector::AssertingLeafCollector;
+use crate::test_framework::core::search::test_collector::TestBulkScorer;
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 use rand::RngExt;
 
 /// Wraps a BulkScorer with additional checks.
 pub(crate) struct AssertingBulkScorer {
   random_seed: u64,
-  in_: QueryWeightSsBulkScorer,
+  in_: Box<dyn TestBulkScorer>,
   max_doc: i32,
   _score_mode: ScoreMode,
   max: i32,
 }
 
 impl AssertingBulkScorer {
-  pub(crate) fn wrap(
+  pub(crate) fn wrap<ST: ScorerTypes>(
     random_seed: u64,
-    in_: QueryWeightSsBulkScorer,
+    in_: BuiltinQueryBulkScorer<ST>,
     max_doc: i32,
     score_mode: ScoreMode,
-  ) -> QueryWeightSsBulkScorer {
+  ) -> BuiltinQueryBulkScorer<ST> {
     if matches!(in_.kind(), BulkScorerKind::Asserting) {
       return in_;
     }
-    Box::new(Self {
+    BuiltinQueryBulkScorer::for_test(Self {
       random_seed,
-      in_,
+      in_: Box::new(in_),
       max_doc,
       _score_mode: score_mode,
       max: 0,
@@ -56,16 +58,16 @@ impl AssertingBulkScorer {
   }
 
   #[allow(unused)]
-  pub(crate) fn get_in(&self) -> &QueryWeightSsBulkScorer {
-    &self.in_
+  pub(crate) fn get_in(&self) -> &dyn TestBulkScorer {
+    self.in_.as_ref()
   }
 }
 
 impl BulkScorer for AssertingBulkScorer {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {

@@ -135,7 +135,12 @@ impl<'a> Display for LeafCollectorImpl<'a> {
 }
 
 impl<'a> LeafCollector for LeafCollectorImpl<'a> {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'view;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.base.base.total_hits += 1;
     let sd = ScoreDoc::new(
       doc + self.doc_base as i32,
@@ -172,6 +177,7 @@ impl Collector for MyTopDocsCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let base = context.doc_base;
     Ok(LeafCollectorImpl::new(self, base, SCORES))
@@ -416,6 +422,11 @@ impl Score {
   }
 }
 impl Scorable for Score {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)
   }

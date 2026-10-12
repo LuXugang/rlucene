@@ -141,6 +141,7 @@ where
   IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let irc = searcher.get_top_reader_context();
   let max_doc = irc.reader().max_doc()?;
@@ -273,6 +274,7 @@ fn assert_number_of_hits<IRC, T>(
 where
   IRC: IndexReaderContext + Sync,
   T: Into<Query>,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let query = query.into();
 
@@ -719,6 +721,7 @@ where
   W1: Weight<IRC> + ?Sized,
   W2: Weight<IRC> + ?Sized,
   IRC: IndexReaderContext,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   for ctx in searcher.get_leaf_contexts()? {
     let c1 = weight1.count(ctx, searcher)?;

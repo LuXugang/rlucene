@@ -204,7 +204,7 @@ fn check_boolean_terms<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let rewritten = searcher.rewrite(query)?;
 

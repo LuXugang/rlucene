@@ -28,10 +28,9 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -139,14 +138,11 @@ impl QueryBase for BinaryRangeFieldRangeQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(BinaryRangeFieldRangeWeight::new(
-      self,
-      *score_mode,
-      boost,
-    )))
+    Ok(Box::new(BinaryRangeFieldRangeWeight::new(self, *score_mode, boost)).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -185,7 +181,7 @@ impl BinaryRangeFieldRangeWeight {
 
 impl<IRC> SegmentCacheable<IRC> for BinaryRangeFieldRangeWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field = [self.query.sub.field()];
@@ -195,14 +191,17 @@ where
 
 impl<IRC> Weight<IRC> for BinaryRangeFieldRangeWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -213,13 +212,21 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ConstantScoreScorer<
+      crate::core::search::dummy::dummy_disi::DummyDISI,
+      BinaryRangeFieldRangeTPI<crate::core::index::doc_values::Binary<IRCLeafReader<IRC>>>,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let field_infos = context.reader().get_field_infos()?;
     let field_info = field_infos.field_info_by_name(self.query.sub.field())?;
     if field_info.is_none() {
@@ -240,7 +247,7 @@ where
       self.query.comparator.clone(),
     );
     let scorer = ConstantScoreScorer::from_tpi(self.boost, self.score_mode, tpi);
-    Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+    Ok(Some(DefaultScorerSupplier::new(scorer)))
   }
 }
 
@@ -282,11 +289,20 @@ impl<T> TwoPhaseIterator for BinaryRangeFieldRangeTPI<T>
 where
   T: BinaryDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a BinaryRangeDocValues<T>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut BinaryRangeDocValues<T>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 

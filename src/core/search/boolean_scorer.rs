@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_stream::{DocIdStream, DocIdStreamConsumer};
-use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::scorer::Scorer;
@@ -109,10 +109,10 @@ where
       needs_scores,
     })
   }
-  fn score_disi_wrapper_into_bitset(
+  fn score_disi_wrapper_into_bitset<AB: Bits + ?Sized>(
     &mut self,
     w: &mut DisiWrapper<S>,
-    accept_docs: Option<&dyn Bits>,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<()> {
@@ -147,10 +147,13 @@ where
     Ok(())
   }
   #[allow(clippy::too_many_arguments)]
-  fn score_window_into_bitset_and_replay(
+  fn score_window_into_bitset_and_replay<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     base: i32,
     min: i32,
     max: i32,
@@ -223,10 +226,13 @@ where
     }
   }
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn score_window_multiple_scorers(
+  pub(crate) fn score_window_multiple_scorers<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     window_base: i32,
     window_min: i32,
     window_max: i32,
@@ -281,11 +287,14 @@ where
 
     Ok(())
   }
-  pub(crate) fn score_window_single_scorer(
+  pub(crate) fn score_window_single_scorer<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
     w: &mut DisiWrapper<S>,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     window_min: i32,
     window_max: i32,
     max_doc: i32,
@@ -323,11 +332,14 @@ where
     collector.set_scorer(&mut self.score)?;
     Ok(())
   }
-  pub(crate) fn score_window(
+  pub(crate) fn score_window<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
     top_doc: i32,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<&DisiWrapper<S>> {
@@ -399,10 +411,10 @@ impl<S> BulkScorer for BooleanScorer<S>
 where
   S: Scorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -476,7 +488,7 @@ impl<'a, S> DocIdStream for DocIdStreamView<'a, S>
 where
   S: Scorer,
 {
-  fn for_each(&mut self, consumer: &mut dyn DocIdStreamConsumer) -> Result<()> {
+  fn for_each<DC: DocIdStreamConsumer + ?Sized>(&mut self, consumer: &mut DC) -> Result<()> {
     for (idx, bits_ref) in self.scorer.matching.iter().enumerate() {
       let mut bits = *bits_ref;
 
@@ -503,7 +515,7 @@ where
     Ok(())
   }
 
-  fn count(&mut self, scorer: &mut dyn Scorable) -> Result<i32> {
+  fn count<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<i32> {
     if self.scorer.min_should_match > 1 {
       return self.default_count(scorer);
     }

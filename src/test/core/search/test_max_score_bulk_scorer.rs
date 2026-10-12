@@ -124,7 +124,12 @@ fn test_basics_with_two_disjunction_clauses() -> Result<()> {
 
   let mut collector = LeafCollectorImpl1::new();
 
-  bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  bulk_scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   Ok(())
 }
@@ -170,7 +175,12 @@ fn test_filtered_disjunction() -> Result<()> {
 
   let mut collector = LeafCollectorImpl2::new();
 
-  bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  bulk_scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   Ok(())
 }
@@ -212,7 +222,12 @@ fn test_filtered_disjunction_with_skipping() -> Result<()> {
 
   let mut collector = LeafCollectorImpl3::new();
 
-  bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  bulk_scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   Ok(())
 }
@@ -247,7 +262,12 @@ fn test_basics_with_two_disjunction_clauses_and_skipping() -> Result<()> {
 
   let mut collector = LeafCollectorImpl4::new();
 
-  bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  bulk_scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   Ok(())
 }
@@ -290,7 +310,12 @@ fn test_basics_with_three_disjunction_clauses() -> Result<()> {
 
   let mut collector = LeafCollectorImpl5::new();
 
-  bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  bulk_scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   Ok(())
 }
@@ -333,7 +358,12 @@ fn test_basics_with_three_disjunction_clauses_and_skipping() -> Result<()> {
 
   let mut collector = LeafCollectorImpl6::new();
 
-  bulk_scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  bulk_scorer.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   Ok(())
 }
@@ -585,6 +615,11 @@ impl FakeScorer {
 }
 
 impl Scorable for FakeScorer {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -649,13 +684,32 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FakeScor
   }
 }
 impl Scorer for FakeScorer {
+  type Iterator = AllDISI;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a AllDISI
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut AllDISI
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.doc_id)
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let FakeScorer { disi, .. } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let FakeScorer { disi, .. } = self;
+    disi
   }
 
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
@@ -670,11 +724,11 @@ impl Scorer for FakeScorer {
     No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.disi
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.disi
   }
 }
@@ -695,11 +749,16 @@ impl Display for LeafCollectorImpl1 {
 }
 
 impl LeafCollector for LeafCollectorImpl1 {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let idx = self.i;
     self.i += 1;
 
@@ -748,11 +807,16 @@ impl Display for LeafCollectorImpl2 {
 }
 
 impl LeafCollector for LeafCollectorImpl2 {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let idx = self.i;
     self.i += 1;
 
@@ -794,11 +858,16 @@ impl Display for LeafCollectorImpl3 {
 }
 
 impl LeafCollector for LeafCollectorImpl3 {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let idx = self.i;
     self.i += 1;
 
@@ -839,11 +908,16 @@ impl Display for LeafCollectorImpl4 {
 }
 
 impl LeafCollector for LeafCollectorImpl4 {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let idx = self.i;
     self.i += 1;
 
@@ -887,11 +961,16 @@ impl Display for LeafCollectorImpl5 {
 }
 
 impl LeafCollector for LeafCollectorImpl5 {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let idx = self.i;
     self.i += 1;
 
@@ -941,11 +1020,16 @@ impl Display for LeafCollectorImpl6 {
 }
 
 impl LeafCollector for LeafCollectorImpl6 {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let idx = self.i;
     self.i += 1;
 
@@ -998,12 +1082,17 @@ impl Display for LeafCollectorImpl7 {
 }
 
 impl LeafCollector for LeafCollectorImpl7 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     scorer.set_min_competitive_score(self.min_competitive_score)?;
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     assert_eq!(1, doc);
     assert_eq!(0, self.i);
     self.i += 1;
@@ -1042,3 +1131,5 @@ impl Bits for BitsImpl {
     3
   }
 }
+
+use crate::core::search::weight::Weight;

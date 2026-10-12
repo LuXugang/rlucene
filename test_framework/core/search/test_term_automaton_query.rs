@@ -34,6 +34,7 @@ impl TermAutomatonQueryBase for CustomTermAutomatonQuery {
   ) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(None)
   }

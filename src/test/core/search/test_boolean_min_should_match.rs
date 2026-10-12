@@ -110,6 +110,7 @@ where
   R: Rng + ?Sized,
   T: Into<Query>,
   <IRC as IndexReaderContext>::LeafReader: Clone + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let q = q.into();
   let h = s.search(q.clone(), 1000)?.score_docs;
@@ -545,6 +546,7 @@ fn test_flatten_inner_disjunctions() -> Result<()> {
 fn print_hits<IRC>(_hits: &[ScoreDoc], _searcher: &IndexSearcher<IRC>) -> Result<()>
 where
   IRC: IndexReaderContext,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   // not required in Rust Lucene
   Ok(())

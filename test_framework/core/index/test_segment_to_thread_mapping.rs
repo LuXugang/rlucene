@@ -27,7 +27,7 @@ pub(crate) struct IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 
 impl<IRC> IndexSearcherBase<IRC> for IntraSliceDocIdOrderWithPartitionsIndexSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn slices(
     &self,

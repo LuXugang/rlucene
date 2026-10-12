@@ -523,6 +523,7 @@ where
   IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let irc = searcher.get_top_reader_context();
   let max_doc = irc.reader().max_doc()?;
@@ -936,3 +937,5 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
 
   Ok(())
 }
+
+use crate::core::search::weight::Weight;

@@ -30,7 +30,7 @@ pub(crate) struct GetSlicesIndexSearcher;
 
 impl<IRC> IndexSearcherBase<IRC> for GetSlicesIndexSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn slices(
     &self,
@@ -46,7 +46,7 @@ pub(crate) struct SlicesOffloadedToExecutorIndexSearcher;
 
 impl<IRC> IndexSearcherBase<IRC> for SlicesOffloadedToExecutorIndexSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn slices(
     &self,
@@ -68,7 +68,7 @@ pub(crate) struct SegmentPartitionsSameSliceIndexSearcher;
 
 impl<IRC> IndexSearcherBase<IRC> for SegmentPartitionsSameSliceIndexSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn slices(
     &self,

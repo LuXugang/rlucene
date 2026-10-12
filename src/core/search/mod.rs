@@ -53,8 +53,10 @@ pub mod named_matches;
 pub mod positive_scores_only_collector;
 pub mod pruning;
 pub mod query;
+pub mod query_bulk_scorer;
 pub(crate) mod query_cache;
 pub mod query_caching_policy;
+pub mod query_scorer;
 pub mod query_visitor;
 pub mod scorable;
 pub mod score;
@@ -63,6 +65,7 @@ pub mod score_doc;
 pub mod score_mode;
 pub mod scorer;
 pub mod scorer_supplier;
+pub mod scorer_types;
 pub mod segment_cacheable;
 pub mod similarities_impl;
 pub mod simple_collector;
@@ -184,3 +187,8 @@ pub(crate) mod vector_similarity_collector;
 pub(crate) mod wand_scorer;
 pub mod weight;
 pub mod wildcard_query;
+
+pub mod query_scorer_supplier;
+pub mod query_weight;
+
+pub mod query_matches;

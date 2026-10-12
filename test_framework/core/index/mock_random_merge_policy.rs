@@ -270,7 +270,7 @@ impl MockRandomOneMerge {
     } else if thing_to_do == 1 {
       // Renumber fields.
       // NOTE: currently this only "blocks" bulk merges just by
-      // being a FilterReader. But it might find bugs elsewhere,
+      // being a FilterReader. But it might find bugs elsewhere
       // and maybe the situation can be improved in the future.
       MockRandomWrappedReader::mismatched(reader, &mut *random)
     } else {

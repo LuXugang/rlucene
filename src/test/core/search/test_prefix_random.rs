@@ -117,6 +117,7 @@ where
 fn assert_same<IRC>(searcher: &IndexSearcher<IRC>, prefix: String) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let smart = PrefixQuery::new(Term::from_text("field", &prefix))?;
   let dumb = DumbPrefixQuery::new(Term::from_text("field", prefix));

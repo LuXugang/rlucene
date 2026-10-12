@@ -121,6 +121,7 @@ fn assert_pattern_hits<IRC, R>(
 where
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let wq = RegexpQuery::new(Term::from_text("field", fill_pattern(random, pattern)))?;
   let docs = searcher.search(wq, 25)?;

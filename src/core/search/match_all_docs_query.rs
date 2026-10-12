@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -24,10 +25,7 @@ use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::leaf_collector::LeafCollector;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
@@ -94,10 +92,11 @@ impl QueryBase for MatchAllDocsQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(MatchAllWeight::new(boost, self, *score_mode)))
+    Ok(Box::new(MatchAllWeight::new(boost, self, *score_mode)).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -125,7 +124,7 @@ impl MatchAllWeight {
 
 impl<IRC> SegmentCacheable<IRC> for MatchAllWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -134,14 +133,17 @@ where
 
 impl<IRC> Weight<IRC> for MatchAllWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -152,18 +154,21 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = MatchAllDocsScorerSupplier;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
-    let v = Box::new(MatchAllDocsScorerSupplier::new(
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    let v = MatchAllDocsScorerSupplier::new(
       self.score_mode,
       self.base.clone(),
       context.reader().max_doc()?,
-    ));
+    );
     Ok(Some(v))
   }
 
@@ -171,7 +176,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     context.reader().num_docs()
   }
 }
@@ -196,42 +204,51 @@ impl MatchAllDocsScorerSupplier {
 }
 impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = MatchAllBulkScorerEnum<IRC>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let score = self.weight.score();
     let v = ConstantScoreScorer::from_disi(score, self.score_mode, AllDISI::new(self.max_doc));
-    Ok(Box::new(v))
+    Ok(QueryWeightSsScorer::<IRC>::new(v))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let v = if !self.score_mode.is_exhaustive() {
       let opt = self.default_bulk_scorer(context, searcher)?;
-      MatchAllBulkScorerEnum::B(opt)
+      MatchAllBulkScorerEnum::<IRC>::B(opt)
     } else {
       let score = self.weight.score();
-      MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(self.max_doc, score))
+      MatchAllBulkScorerEnum::<IRC>::A(MatchAllBulkScorer::new(self.max_doc, score))
     };
-    Ok(Some(Box::new(v)))
+    Ok(Some(v))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.max_doc as i64)
   }
 }
@@ -245,10 +262,10 @@ impl MatchAllBulkScorer {
   }
 }
 impl BulkScorer for MatchAllBulkScorer {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -274,8 +291,8 @@ impl BulkScorer for MatchAllBulkScorer {
     Ok(self.max_doc as i64)
   }
 }
-pub type MatchAllBulkScorerEnum =
-  BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<QueryWeightSsScorer>>;
+pub type MatchAllBulkScorerEnum<IRC> =
+  BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<QueryWeightSsScorer<IRC>>>;
 
 impl crate::core::util::accountable::Accountable for MatchAllDocsQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {

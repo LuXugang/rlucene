@@ -36,7 +36,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::multi_phrase_query;
 use crate::core::search::phrase_query;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -384,7 +384,8 @@ pub trait TermAutomatonQueryBase {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -397,7 +398,8 @@ impl TermAutomatonQueryBase for TermAutomatonQueryDefault {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     TermAutomatonQueryDefaults::rewrite(query, searcher)
   }
@@ -417,7 +419,8 @@ impl TermAutomatonQueryBase for TermAutomatonQueryHook {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::Default(hook) => hook.rewrite(query, searcher),
@@ -435,7 +438,8 @@ impl TermAutomatonQueryDefaults {
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     let det = query
       .det
@@ -551,16 +555,16 @@ impl QueryBase for TermAutomatonQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(TermAutomatonWeight::new(
-      self, searcher, score_mode, boost,
-    )?))
+    Ok(Box::new(TermAutomatonWeight::new(self, searcher, score_mode, boost)?).into())
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     self.hook.rewrite(self, searcher)
   }
@@ -584,7 +588,7 @@ impl QueryBase for TermAutomatonQuery {
   }
 }
 
-struct TermAutomatonWeight {
+pub(crate) struct TermAutomatonWeight {
   term_states: Vec<Option<TermStates>>,
   stats: Option<Arc<SimilarityEnumSimScorer>>,
   #[allow(dead_code)]
@@ -609,7 +613,8 @@ impl TermAutomatonWeight {
     boost: f32,
   ) -> Result<Self>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     query
       .det
@@ -734,7 +739,7 @@ impl TermAutomatonWeight {
 
 impl<IRC> SegmentCacheable<IRC> for TermAutomatonWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -743,14 +748,17 @@ where
 
 impl<IRC> Weight<IRC> for TermAutomatonWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let Some(mut scorer) = self.build_scorer(context)? else {
       return Ok(Explanation::no_match_no_details(
         "No matching terms in the document",
@@ -814,16 +822,25 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    TermAutomatonScorer<
+      LRPosting<IRCLeafReader<IRC>>,
+      SimilarityEnumSimScorer,
+      LRNormNumericDocValues<IRCLeafReader<IRC>>,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let Some(scorer) = self.build_scorer(context)? else {
       return Ok(None);
     };
-    Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+    Ok(Some(DefaultScorerSupplier::new(scorer)))
   }
 }

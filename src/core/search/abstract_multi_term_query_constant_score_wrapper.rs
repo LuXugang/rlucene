@@ -38,8 +38,9 @@ use crate::core::search::matches_utils::for_field;
 use crate::core::search::multi_term_query::MultiTermQuery;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::BlendedRewritingWeight;
 use crate::core::search::multi_term_query_constant_score_wrapper::StandardRewritingWeight;
+use crate::core::search::query::QueryWeightMatchesIterator;
 use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryBase, QueryWeight, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum4;
@@ -124,7 +125,7 @@ where
 
 impl<IRC, Q> SegmentCacheable<IRC> for RewritingWeight<Q>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   Q: MultiTermQuery,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -135,29 +136,30 @@ where
 impl<IRC, Q> Weight<IRC> for RewritingWeight<Q>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
   Q: MultiTermQuery,
   <Q as MultiTermQuery>::TermsEnum<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms>:
     'static,
   <Q as MultiTermQuery>::TermsEnum<
     Rc<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms>,
   >: 'static,
+  for<'a> crate::core::search::query_matches::FieldMatchesSupplier<'a, IRC>: From<(&'a RewritingWeight<Q>, &'a LeafReaderContext<IRCLeafReader<IRC>>, i32, Rc<<IRCLeafReader<IRC> as LeafReader>::Terms>)>,
+  for<'a> QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>: From<Box<crate::core::search::disjunction_matches_iterator::TermsEnumDisjunctionMatchesIterator<crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty<<<IRCLeafReader<IRC> as LeafReader>::Terms as crate::core::index::terms::Terms>::TermsEnum>, Q::TermsEnum<Rc<<IRCLeafReader<IRC> as LeafReader>::Terms>>>>>,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let field = self.q.get_field();
     let Some(terms) = context.reader().terms(field)? else {
       return Ok(None);
     };
     let terms = Rc::new(terms);
-    for_field(field.to_owned(), move || {
-      let terms_enum = self.q.get_terms_enum(terms.clone())?;
-      from_terms_enum(context, doc, self.query.clone(), field, terms_enum)
-    })
+    for_field(field.to_owned(), (self, context, doc, terms).into())
   }
 
   fn explain(
@@ -165,7 +167,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self.base.explain(scorer, doc, self.query.to_string("")?)
   }
@@ -174,13 +179,20 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = ScorerSupplierImpl<
+    Rc<<IRCLeafReader<IRC> as LeafReader>::Terms>,
+    Q::TermsEnum<Rc<<IRCLeafReader<IRC> as LeafReader>::Terms>>,
+    Q,
+  >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let terms = match context.reader().terms(self.q.get_field())? {
       Some(t) => t,
       None => return Ok(None),
@@ -206,7 +218,7 @@ where
     } else {
       estimate_cost(&terms, self.q.get_terms_count())?
     };
-    let v = ScorerSupplierImpl::new(
+    let v = ScorerSupplierImpl::<_, _, Q>::new(
       cost,
       self.score_mode,
       terms,
@@ -217,7 +229,7 @@ where
       self.q.get_field().to_string(),
       self.sub.clone(),
     );
-    Ok(Some(Box::new(v)))
+    Ok(Some(v))
   }
 }
 fn rewrite_as_boolean_query<IRC>(
@@ -229,7 +241,7 @@ fn rewrite_as_boolean_query<IRC>(
   field: &str,
 ) -> Result<WeightOrDocIdSetIterator<IRC, DummyDISI>>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IndexSearcher<IRC>: Sync,
 {
   let mut builder = Builder::new();
@@ -309,7 +321,7 @@ pub trait RewritingWeightBase {
   where
     T: Terms,
     TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync;
 }
 
@@ -323,7 +335,8 @@ impl_from_for_enum!(
     BlendedRewritingWeight => Blended,
     StandardRewritingWeight => Standard,
 );
-pub struct ScorerSupplierImpl<T, TE> {
+pub struct ScorerSupplierImpl<T, TE, Q> {
+  query_type: std::marker::PhantomData<fn() -> Q>,
   cost: i64,
   score_mode: ScoreMode,
   terms: T,
@@ -334,7 +347,7 @@ pub struct ScorerSupplierImpl<T, TE> {
   field: String,
   sub: RewritingWeightBaseEnum,
 }
-impl<T, TE> ScorerSupplierImpl<T, TE> {
+impl<T, TE, Q> ScorerSupplierImpl<T, TE, Q> {
   #[allow(clippy::too_many_arguments)]
   fn new(
     cost: i64,
@@ -348,6 +361,7 @@ impl<T, TE> ScorerSupplierImpl<T, TE> {
     sub: RewritingWeightBaseEnum,
   ) -> Self {
     Self {
+      query_type: std::marker::PhantomData,
       cost,
       score_mode,
       terms,
@@ -361,23 +375,48 @@ impl<T, TE> ScorerSupplierImpl<T, TE> {
   }
 }
 
-impl<IRC, T, TE> ScorerSupplier<IRC> for ScorerSupplierImpl<T, TE>
+impl<IRC, T, TE, Q> ScorerSupplier<IRC> for ScorerSupplierImpl<T, TE, Q>
 where
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
-  T: Terms,
+  T: Terms<TermsEnum = <<IRCLeafReader<IRC> as LeafReader>::Terms as Terms>::TermsEnum>,
   TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
   TermsPosting<T>: 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = BulkScorerEnum4<
+    DefaultBulkScorer<ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>>,
+    QueryWeightSsBulkScorer<IRC>,
+    DefaultBulkScorer<
+      ConstantScoreScorer<
+        crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation<
+          ConstantScoreScorer<
+            crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+              crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+              TermsPosting<T>,
+            >,
+            DummyTwoPhaseIterator,
+          >,
+        >,
+        DummyTwoPhaseIterator,
+      >,
+    >,
+    DefaultBulkScorer<
+      ConstantScoreScorer<
+        crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+        DummyTwoPhaseIterator,
+      >,
+    >,
+  >;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let s = match self.collect_result {
       true => {
         let v = rewrite_as_boolean_query(
@@ -454,7 +493,7 @@ where
         },
       },
     };
-    Ok(Box::new(s))
+    Ok(QueryWeightSsScorer::<IRC>::new(s))
   }
 
   fn bulk_scorer(
@@ -464,6 +503,7 @@ where
   ) -> Result<Option<Self::BulkScorer>>
   where
     <<T as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'static,
+    IndexSearcher<IRC>: Sync,
   {
     let bs = match self.collect_result {
       true => {
@@ -548,14 +588,17 @@ where
         },
       },
     };
-    Ok(Some(Box::new(bs)))
+    Ok(Some(bs))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }
@@ -597,14 +640,14 @@ impl TermAndState {
     }
   }
 }
-pub(crate) struct WeightOrDocIdSetIterator<IRC, D> {
+pub(crate) struct WeightOrDocIdSetIterator<IRC: IndexReaderContext + 'static, D> {
   pub(crate) weight: Option<QueryWeight<IRC>>,
   pub(crate) iterator: Option<D>,
 }
 
 impl<IRC, D> WeightOrDocIdSetIterator<IRC, D>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   D: DocIdSetIterator,
 {
   pub(crate) fn from_weight(weight: QueryWeight<IRC>) -> Self {
@@ -619,5 +662,16 @@ where
       weight: None,
       iterator: Some(iterator),
     }
+  }
+}
+
+impl<Q: MultiTermQuery> RewritingWeight<Q> {
+  pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(&'a self, context: &'a LeafReaderContext<IRCLeafReader<IRC>>, doc: i32, terms: Rc<<IRCLeafReader<IRC> as LeafReader>::Terms>) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
+  where QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>: From<Box<crate::core::search::disjunction_matches_iterator::TermsEnumDisjunctionMatchesIterator<crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty<<<IRCLeafReader<IRC> as LeafReader>::Terms as crate::core::index::terms::Terms>::TermsEnum>, Q::TermsEnum<Rc<<IRCLeafReader<IRC> as LeafReader>::Terms>>>>>
+  {
+    let field = self.q.get_field();
+    let terms_enum = self.q.get_terms_enum(terms)?;
+    from_terms_enum(context, doc, self.query.clone(), field, terms_enum)
+      .map(|value| value.map(|iterator| Box::new(iterator).into()))
   }
 }

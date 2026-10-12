@@ -111,6 +111,7 @@ impl Sort {
   pub fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Self>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     let mut rewritten_fields = None;
     for (i, field) in self.fields.iter().enumerate() {

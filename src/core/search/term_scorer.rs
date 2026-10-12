@@ -133,6 +133,11 @@ where
   PE: PostingsEnum + 'static,
   SS: SimScorer + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let mut postings = Self::postings(&mut self.state);
     let mut norm = 1;
@@ -165,7 +170,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.approximation().cost()
+    DocIdSetIterator::cost(self.approximation())
   }
 }
 
@@ -236,44 +241,48 @@ where
   IE: ImpactsEnum + 'static,
 {
   fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = {
-      match &self.state {
-        TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
-        TermScorerState::Impacts(inner) => &inner.impacts_source,
-        TermScorerState::Postings(inner) => &inner.impacts_source.delegate,
-      }
-    };
-    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
-      iterator,
-    )
+    use crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions;
+    match &self.state {
+      TermScorerState::ImpactsDisi(inner) => DocIdSetIteratorExtensions::get_fixed_bit_set(inner),
+      TermScorerState::Impacts(inner) => {
+        DocIdSetIteratorExtensions::get_fixed_bit_set(&inner.impacts_source)
+      },
+      TermScorerState::Postings(inner) => {
+        DocIdSetIteratorExtensions::get_fixed_bit_set(&inner.impacts_source.delegate)
+      },
+    }
   }
   fn get_sparse_fixed_bit_set(
     &self,
   ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = {
-      match &self.state {
-        TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
-        TermScorerState::Impacts(inner) => &inner.impacts_source,
-        TermScorerState::Postings(inner) => &inner.impacts_source.delegate,
-      }
-    };
-    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
-      iterator,
-    )
+    use crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions;
+    match &self.state {
+      TermScorerState::ImpactsDisi(inner) => {
+        DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(inner)
+      },
+      TermScorerState::Impacts(inner) => {
+        DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(&inner.impacts_source)
+      },
+      TermScorerState::Postings(inner) => {
+        DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(&inner.impacts_source.delegate)
+      },
+    }
   }
   fn get_doc_base_fixed_bit_set(
     &self,
   ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
-    let iterator: &dyn DocIdSetIterator = {
-      match &self.state {
-        TermScorerState::ImpactsDisi(impacts_disi) => impacts_disi,
-        TermScorerState::Impacts(inner) => &inner.impacts_source,
-        TermScorerState::Postings(inner) => &inner.impacts_source.delegate,
-      }
-    };
-    crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
-      iterator,
-    )
+    use crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions;
+    match &self.state {
+      TermScorerState::ImpactsDisi(inner) => {
+        DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(inner)
+      },
+      TermScorerState::Impacts(inner) => {
+        DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(&inner.impacts_source)
+      },
+      TermScorerState::Postings(inner) => {
+        DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(&inner.impacts_source.delegate)
+      },
+    }
   }
 }
 impl<PE, SS, N, IE> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
@@ -367,17 +376,48 @@ where
   N: NumericDocValues,
   IE: ImpactsEnum + 'static,
 {
+  type Iterator = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3<
+    SourceImpactsDISI<IE, SS>,
+    IE,
+    PE,
+  >;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a Self
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     let mut postings = Self::postings(&mut self.state);
     postings.doc_id()
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let this = *self;
+  fn take_iterator(self) -> Self::Iterator {
+    let this = self;
     match this.state {
-      TermScorerState::ImpactsDisi(impacts_disi) => Box::new(impacts_disi),
-      TermScorerState::Impacts(inner) => Box::new(inner.impacts_source),
-      TermScorerState::Postings(inner) => Box::new(inner.impacts_source.delegate),
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::A(impacts_disi)
+      },
+      TermScorerState::Impacts(inner) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::B(inner.impacts_source)
+      },
+      TermScorerState::Postings(inner) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum3::C(
+          inner.impacts_source.delegate,
+        )
+      },
     }
   }
 
@@ -405,11 +445,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 }

@@ -47,6 +47,7 @@ pub trait ScoringRewrite: TermCollectingRewrite {
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let reader = index_searcher.get_index_reader();
     let mut builder = self.get_top_level_builder()?;
@@ -131,6 +132,7 @@ impl RewriteMethod for ScoringBooleanRewrite {
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     self.default_rewrite(index_searcher, query)
   }
@@ -157,6 +159,7 @@ impl RewriteMethod for ConstantScoreBooleanRewrite {
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     let bq = ScoringBooleanRewrite.rewrite(index_searcher, query)?;
     Ok(ConstantScoreQuery::new(bq).into())

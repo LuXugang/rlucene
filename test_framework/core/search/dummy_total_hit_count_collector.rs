@@ -64,6 +64,7 @@ impl Collector for DummyTotalHitCountCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(DummyLeafCollectorImpl::new(self))
   }
@@ -88,7 +89,12 @@ impl Display for DummyLeafCollectorImpl<'_> {
 }
 
 impl<'a> LeafCollector for DummyLeafCollectorImpl<'a> {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'view;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     self.base.total_hits += 1;
     Ok(())
   }

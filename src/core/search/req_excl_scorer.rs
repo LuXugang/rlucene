@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 #[cfg(test)]
@@ -69,6 +70,11 @@ where
   S1: Scorer + 'static,
   S2: Scorer + 'static,
 {
+  type Child<'a>
+    = &'a mut S1
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     match self.disi.two_phase_iterator {
       TwoPhaseIteratorEnum2::A(ref mut tpi) => tpi.req_scorer.score(),
@@ -83,8 +89,8 @@ where
     }
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
-    let req: &mut dyn Scorable = match &mut self.disi.two_phase_iterator {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
+    let req: &mut S1 = match &mut self.disi.two_phase_iterator {
       TwoPhaseIteratorEnum2::A(tpi) => &mut tpi.req_scorer,
       TwoPhaseIteratorEnum2::B(tpi) => &mut tpi.req_scorer,
     };
@@ -138,6 +144,40 @@ where
   S1: Scorer + 'static,
   S2: Scorer + 'static,
 {
+  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
+    TwoPhaseIteratorImpl1<S1, S2>,
+    TwoPhaseIteratorImpl2<S1, S2>,
+  >;
+  type ApproximationRef<'a>
+    = <crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
+    TwoPhaseIteratorImpl1<S1, S2>,
+    TwoPhaseIteratorImpl2<S1, S2>,
+  > as TwoPhaseIterator>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
+    TwoPhaseIteratorImpl1<S1, S2>,
+    TwoPhaseIteratorImpl2<S1, S2>,
+  > as TwoPhaseIterator>::ApproximationMut<'a>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
+    TwoPhaseIteratorImpl1<S1, S2>,
+    TwoPhaseIteratorImpl2<S1, S2>,
+  >
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
+    TwoPhaseIteratorImpl1<S1, S2>,
+    TwoPhaseIteratorImpl2<S1, S2>,
+  >
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     match self.disi.two_phase_iterator {
       TwoPhaseIteratorEnum2::A(ref mut tpi) => (tpi.req_scorer).scoring_doc_id(),
@@ -145,25 +185,25 @@ where
     }
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let ReqExclScorer { disi, .. } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let ReqExclScorer { disi, .. } = self;
+    disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     Some(&self.disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     Some(&mut self.disi.two_phase_iterator)
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
   where
     Self: Sized,
   {
-    let ReqExclScorer { disi, .. } = *self;
-    Some(Box::new(disi.two_phase_iterator))
+    let ReqExclScorer { disi, .. } = self;
+    Some(disi.two_phase_iterator)
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -184,11 +224,11 @@ where
     Yes
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.disi.two_phase_iterator.approximation_mut()
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.disi.two_phase_iterator.approximation()
   }
   #[cfg(test)]
@@ -216,11 +256,20 @@ where
   S1: Scorer,
   S2: Scorer,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = <S1 as Scorer>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <S1 as Scorer>::ApproximationMut<'a>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.req_scorer.approximation_mut()
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.req_scorer.approximation()
   }
 
@@ -234,19 +283,19 @@ where
       }
       if excl_doc != doc {
         return match self.req_scorer.two_phase_iterator_mut() {
-          Some(req_tpi) => req_tpi.matches(),
+          Some(mut req_tpi) => req_tpi.matches(),
           None => Ok(true),
         };
       }
     }
     let req_match = match self.req_scorer.two_phase_iterator_mut() {
-      Some(req_tpi) => req_tpi.matches()?,
+      Some(mut req_tpi) => req_tpi.matches()?,
       None => true,
     };
     match req_match {
       true => {
         let v = match self.excl_scorer.two_phase_iterator_mut() {
-          Some(excl_tpi) => excl_tpi.matches()?,
+          Some(mut excl_tpi) => excl_tpi.matches()?,
           None => true,
         };
         Ok(!v)
@@ -279,11 +328,20 @@ where
   S1: Scorer,
   S2: Scorer,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = <S1 as Scorer>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <S1 as Scorer>::ApproximationMut<'a>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.req_scorer.approximation_mut()
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.req_scorer.approximation()
   }
 
@@ -292,7 +350,7 @@ where
 
     // check if doc is excluded
     {
-      let excl_approximation = self.excl_scorer.approximation_mut();
+      let mut excl_approximation = self.excl_scorer.approximation_mut();
       let mut excl_doc = excl_approximation.doc_id();
       if excl_doc < doc {
         excl_doc = excl_approximation.advance(doc)?;
@@ -300,14 +358,14 @@ where
 
       if excl_doc != doc {
         return match self.req_scorer.two_phase_iterator_mut() {
-          Some(req_tpi) => req_tpi.matches(),
+          Some(mut req_tpi) => req_tpi.matches(),
           None => Ok(true),
         };
       }
     }
 
     let excl_not_match = match self.excl_scorer.two_phase_iterator_mut() {
-      Some(excl_tpi) => !excl_tpi.matches()?,
+      Some(mut excl_tpi) => !excl_tpi.matches()?,
       None => false,
     };
 
@@ -316,7 +374,7 @@ where
     }
 
     let req_match = match self.req_scorer.two_phase_iterator_mut() {
-      Some(req_tpi) => req_tpi.matches()?,
+      Some(mut req_tpi) => req_tpi.matches()?,
       None => true,
     };
 

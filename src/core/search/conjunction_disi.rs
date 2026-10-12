@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -492,11 +493,20 @@ impl<S> TwoPhaseIterator for ConjunctionTwoPhaseIterator<S>
 where
   S: Scorer,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a ConjunctionDISIEnum<ScorerDisi<S>>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut ConjunctionDISIEnum<ScorerDisi<S>>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.approximation
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.approximation
   }
 
@@ -522,17 +532,17 @@ where
     self.match_cost
   }
 }
-struct TwoPhaseIteratorCmp<'a, T: ?Sized> {
-  tpis: &'a [Option<&'a T>],
+struct TwoPhaseIteratorCmp<'a, T> {
+  tpis: &'a [Option<T>],
 }
-impl<'a, T: ?Sized> TwoPhaseIteratorCmp<'a, T> {
-  fn new(tpis: &'a [Option<&'a T>]) -> Self {
+impl<'a, T> TwoPhaseIteratorCmp<'a, T> {
+  fn new(tpis: &'a [Option<T>]) -> Self {
     TwoPhaseIteratorCmp { tpis }
   }
 }
 impl<T> Comparator<usize> for TwoPhaseIteratorCmp<'_, T>
 where
-  T: TwoPhaseIterator + ?Sized,
+  T: TwoPhaseIterator,
 {
   const TYPE: &'static str = "TwoPhaseIteratorCmp";
 
@@ -674,6 +684,11 @@ impl<S> Scorable for ScorerDisi<S>
 where
   S: Scorer,
 {
+  type Child<'a>
+    = S::Child<'a>
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     self.scorer.score()
   }
@@ -686,7 +701,7 @@ where
     self.scorer.set_min_competitive_score(min_score)
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     self.scorer.get_children()
   }
 
@@ -707,10 +722,10 @@ impl<S: Scorer> ScorerDisi<S> {
   pub(crate) fn get_max_score(&mut self, upto: i32) -> Result<f32> {
     self.scorer.get_max_score(upto)
   }
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<S::TwoPhaseRef<'_>> {
     self.scorer.two_phase_iterator()
   }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<S::TwoPhaseMut<'_>> {
     self.scorer.two_phase_iterator_mut()
   }
 }

@@ -46,6 +46,7 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
     Q: MultiTermQuery,
     IRC: IndexReaderContext,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let max_size = std::cmp::min(self.get_size(), self.get_max_size());
     let mut builder = self.get_top_level_builder()?;

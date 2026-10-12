@@ -202,15 +202,16 @@ impl QueryBase for KnnFloatVectorQuery {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -242,7 +243,8 @@ impl AbstractKnnVectorQuery for KnnFloatVectorQuery {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::KnnCollectorManager>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     self.default_get_knn_collector_manager(k, searcher)
   }

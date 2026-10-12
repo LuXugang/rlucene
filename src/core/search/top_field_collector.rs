@@ -337,6 +337,7 @@ impl Collector for TopFieldCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     Err(LuceneError::unreachable(
       "should call Simple/PagingFieldCollector instead",
@@ -600,7 +601,12 @@ impl<'a, LR> LeafCollector for TopFieldLeafCollector<'a, LR>
 where
   LR: LeafReader,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = TopFieldLeafComparatorEnumIterRef<'view, LR>
+  where
+    Self: 'view;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     let comparators = self.base.comparators_mut();
     self.comparator.set_scorer(scorer, comparators)?;
 
@@ -613,32 +619,21 @@ where
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     Err(LuceneError::unsupported_operation("should not here"))
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    _stream: &mut dyn DocIdStream,
-    _scorer: &mut dyn Scorable,
+    _stream: &mut DS,
+    _scorer: &mut SC,
   ) -> Result<()> {
     Err(LuceneError::unsupported_operation("should not here"))
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     let comparators = self.base.comparators_mut();
-    Ok(
-      self
-        .comparator
-        .competitive_iterator(comparators)?
-        .map(|it| -> &mut dyn DocIdSetIterator {
-          match it {
-            LeafFieldComparatorDocIdSetIteratorRef::A(it) => it,
-            LeafFieldComparatorDocIdSetIteratorRef::B(it) => it,
-            LeafFieldComparatorDocIdSetIteratorRef::C(it) => it,
-          }
-        }),
-    )
+    self.comparator.competitive_iterator(comparators)
   }
 }
 
@@ -712,6 +707,7 @@ impl Collector for SimpleFieldCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     self.base.min_competitive_score = 0.0;
     self.base.doc_base = context.doc_base as i32;
@@ -802,11 +798,16 @@ impl<'a, LR> LeafCollector for SimpleFieldLeafCollector<'a, LR>
 where
   LR: LeafReader,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = TopFieldLeafComparatorEnumIterRef<'view, LR>
+  where
+    Self: 'view;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.base.set_scorer(scorer)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     self.base.count_hit(scorer, doc)?;
     if self.base.is_queue_full() {
       if self.base.threshold_check(doc, scorer)? {
@@ -820,7 +821,7 @@ where
     Ok(())
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     self.base.competitive_iterator()
   }
 
@@ -888,6 +889,7 @@ impl Collector for PagingFieldCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     self.base.min_competitive_score = 0.0;
     self.base.doc_base = context.doc_base as i32;
@@ -998,11 +1000,16 @@ impl<'a, LR> LeafCollector for PagingFieldLeafCollector<'a, LR>
 where
   LR: LeafReader,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = TopFieldLeafComparatorEnumIterRef<'view, LR>
+  where
+    Self: 'view;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.base.set_scorer(scorer)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     self.base.count_hit(scorer, doc)?;
     if self.base.is_queue_full() && self.base.threshold_check(doc, scorer)? {
       return Ok(());
@@ -1032,7 +1039,7 @@ where
     Ok(())
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     self.base.competitive_iterator()
   }
 
@@ -1088,24 +1095,32 @@ impl<'a, LR> LeafCollector for FieldLeafCollectorEnum<'a, LR>
 where
   LR: LeafReader,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    TopFieldLeafComparatorEnumIterRef<'view, LR>,
+    TopFieldLeafComparatorEnumIterRef<'view, LR>,
+  >
+  where
+    Self: 'view;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     match self {
       Self::Simple(inner) => inner.set_scorer(scorer),
       Self::Paging(inner) => inner.set_scorer(scorer),
     }
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     match self {
       Self::Simple(inner) => inner.collect(doc, scorer),
       Self::Paging(inner) => inner.collect(doc, scorer),
     }
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    scorer: &mut SC,
   ) -> Result<()> {
     match self {
       Self::Simple(inner) => inner.collect_stream(stream, scorer),
@@ -1113,7 +1128,7 @@ where
     }
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     match self {
       Self::Simple(inner) => inner.competitive_iterator(),
       Self::Paging(inner) => inner.competitive_iterator(),
@@ -1144,6 +1159,7 @@ impl Collector for TopFieldCollectorEnum {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::Simple(inner) => inner
@@ -1354,3 +1370,5 @@ where
   }
 }
 pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = LeafFieldComparatorDocIdSetIteratorRef<'a, LR>;
+
+use crate::core::search::scorer_supplier::ScorerSupplier;

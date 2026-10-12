@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::Result;
@@ -29,14 +28,19 @@ impl Display for DummyLeafCollector {
 }
 
 impl LeafCollector for DummyLeafCollector {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     dummy_unreachable!()
   }
 
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     dummy_unreachable!()
   }
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     dummy_unreachable!()
   }
 

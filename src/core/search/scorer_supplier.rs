@@ -47,7 +47,9 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer>;
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync;
 
   /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
   ///
@@ -58,12 +60,17 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>>;
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync;
   fn default_bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<DefaultBulkScorer<Self::Scorer>> {
+  ) -> Result<DefaultBulkScorer<Self::Scorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.get(i64::MAX, context, searcher)?;
     Ok(DefaultBulkScorer::new(scorer))
   }
@@ -76,7 +83,9 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64>;
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync;
 
   /// Inform this [`ScorerSupplier`] that its returned scorers produce scores that get passed
   /// to the collector, as opposed to partial scores that then need to get combined (e.g. summed up).
@@ -107,7 +116,10 @@ where
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).get(lead_cost, context, searcher)
   }
 
@@ -115,7 +127,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).bulk_scorer(context, searcher)
   }
 
@@ -123,7 +138,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<DefaultBulkScorer<Self::Scorer>> {
+  ) -> Result<DefaultBulkScorer<Self::Scorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).default_bulk_scorer(context, searcher)
   }
 
@@ -131,7 +149,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).cost(context, searcher)
   }
 

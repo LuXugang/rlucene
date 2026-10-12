@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -70,10 +71,10 @@ impl<BS> BulkScorer for DisjunctionMaxBulkScorer<BS>
 where
   BS: BulkScorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -204,14 +205,19 @@ impl Display for LeafCollectorImpl<'_> {
 }
 
 impl<'a> LeafCollector for LeafCollectorImpl<'a> {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'view;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     if self.top_level_scorable.min_competitive_score != 0.0 {
       scorer.set_min_competitive_score(self.top_level_scorable.min_competitive_score)?
     }
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let delta = (doc - self.window_min) as usize;
     self.window_matches.set(delta)?;
     self.window_scores[delta] = CoreHelper::max_f32(self.window_scores[delta], scorer.score()?);

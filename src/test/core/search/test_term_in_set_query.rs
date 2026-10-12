@@ -346,6 +346,7 @@ fn assert_same_matches<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   if scores {
@@ -1259,3 +1260,5 @@ fn test_terms_iterator() -> Result<()> {
   assert!(iterator.next()?.is_none());
   Ok(())
 }
+
+use crate::core::search::weight::Weight;

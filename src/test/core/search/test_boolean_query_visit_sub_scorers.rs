@@ -46,7 +46,10 @@ fn set_up<R: Rng + ?Sized>(
 ) -> Result<(
   DefaultIndexSearchCRShared,
   ScorerIndexSearcher<DefaultCRReaderShared>,
-)> {
+)>
+where
+  crate::core::search::index_searcher::IndexSearcher<DefaultCRReaderShared>: Sync,
+{
   let analyzer = MockAnalyzer::new(random);
   let dir = new_directory_shared(random)?;
 
@@ -93,7 +96,10 @@ fn set_up<R: Rng + ?Sized>(
 fn get_doc_counts(
   _searcher: &ScorerIndexSearcher<DefaultCRReaderShared>,
   _query: Query,
-) -> Result<HashMap<usize, usize>> {
+) -> Result<HashMap<usize, usize>>
+where
+  crate::core::search::index_searcher::IndexSearcher<DefaultCRReaderShared>: Sync,
+{
   // TODO IMPORTANT getChildren未实现
   todo!()
 }

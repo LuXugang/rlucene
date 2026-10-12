@@ -184,7 +184,7 @@ where
 
 impl<T> Bits for Arc<T>
 where
-  T: Bits,
+  T: Bits + ?Sized,
 {
   fn get(&self, index: usize) -> Result<bool> {
     (**self).get(index)
@@ -204,7 +204,7 @@ where
 
 impl<T> Bits for &T
 where
-  T: Bits,
+  T: Bits + ?Sized,
 {
   fn get(&self, index: usize) -> Result<bool> {
     <T as Bits>::get(*self, index)

@@ -621,3 +621,5 @@ where
     true,
   )?))
 }
+
+use crate::core::search::weight::Weight;

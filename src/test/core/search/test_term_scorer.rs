@@ -30,6 +30,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -138,7 +139,12 @@ fn test() -> Result<()> {
 
   let mut collector = SimpleCollectorImpl::new();
 
-  ts.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  ts.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   let docs = collector.docs;
   assert_eq!(2, docs.len(), "docs Size: {} is not: 2", docs.len());
@@ -637,6 +643,7 @@ impl Collector for SimpleCollectorImpl {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -648,7 +655,12 @@ impl Collector for SimpleCollectorImpl {
 }
 
 impl LeafCollector for SimpleCollectorImpl {
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
     let doc = doc + self.base;
     self.docs.push(TestHit::new(doc, score));

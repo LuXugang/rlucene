@@ -34,6 +34,7 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
 };
@@ -81,6 +82,7 @@ fn test_csq() -> Result<()> {
 fn check_hits<IRC>(searcher: &IndexSearcher<IRC>, q: Query, expected_score: f32) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let count = Arc::new(AtomicI32::new(0));
   let manager = CollectorManagerImpl::new(expected_score, count.clone());
@@ -287,6 +289,7 @@ impl Collector for SimpleCollectorImpl {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -298,11 +301,16 @@ impl Collector for SimpleCollectorImpl {
 }
 
 impl LeafCollector for SimpleCollectorImpl {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
     assert!(
       (score - self.expected_score).abs() <= 0.00001f32,

@@ -43,14 +43,19 @@ use std::sync::Arc;
 /// Individual subqueries may be wrapped using [`NamedMatches::wrap_query`], and the matching
 /// queries for a particular document can then be pulled from the parent query's [`Matches`]
 /// value by calling [`NamedMatches::find_named_matches`].
-pub struct NamedMatches<'a> {
-  in_: QueryWeightMatches<'a>,
+pub struct NamedMatches<
+  'a,
+  IRC: IndexReaderContext + 'static = LeafReaderContext<
+    crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader,
+  >,
+> {
+  in_: QueryWeightMatches<'a, IRC>,
   name: Cow<'a, str>,
 }
 
-impl<'a> NamedMatches<'a> {
+impl<'a, IRC: IndexReaderContext + 'static> NamedMatches<'a, IRC> {
   /// Wraps a [`Matches`] value and associates a name with it.
-  pub fn new<FName>(name: FName, in_: QueryWeightMatches<'a>) -> Self
+  pub fn new<FName>(name: FName, in_: QueryWeightMatches<'a, IRC>) -> Self
   where
     FName: Into<Cow<'a, str>>,
   {
@@ -64,12 +69,20 @@ impl<'a> NamedMatches<'a> {
   }
 }
 
-impl Matches for NamedMatches<'_> {
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+impl<'a, IRC: IndexReaderContext + 'static> Matches for NamedMatches<'a, IRC> {
+  type Iterator<'b>
+    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>>
+  where
+    Self: 'b;
+  type SubMatches = QueryWeightMatches<'a, IRC>;
+  fn get_matches(
+    &self,
+    field: &str,
+  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>>>> {
     self.in_.get_matches(field)
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC>] {
     std::slice::from_ref(&self.in_)
   }
 
@@ -87,11 +100,12 @@ impl NamedMatches<'_> {
   {
     NamedQuery::new(Arc::new(name.into()), in_.into_box_query()).into()
   }
-
+}
+impl<IRC: IndexReaderContext + 'static> NamedMatches<'_, IRC> {
   /// Finds all [`NamedMatches`] in a [`Matches`] tree.
   pub fn find_named_matches<'a, 'b>(
-    matches: &'b QueryWeightMatches<'a>,
-  ) -> Vec<&'b NamedMatches<'b>>
+    matches: &'b QueryWeightMatches<'a, IRC>,
+  ) -> Vec<&'b NamedMatches<'a, IRC>>
   where
     'a: 'b,
   {
@@ -133,20 +147,23 @@ impl QueryBase for NamedQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let in_ = self.in_.create_weight(searcher, score_mode, boost)?;
-    Ok(Box::new(NamedWeight {
-      in_,
-      name: self.name,
-    }))
+    Ok(
+      Box::new(NamedWeight {
+        in_,
+        name: self.name,
+      })
+      .into(),
+    )
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -206,14 +223,14 @@ impl Accountable for NamedQuery {
   }
 }
 
-struct NamedWeight<IRC> {
+pub(crate) struct NamedWeight<IRC: IndexReaderContext + 'static> {
   in_: QueryWeight<IRC>,
   name: Arc<String>,
 }
 
 impl<IRC> SegmentCacheable<IRC> for NamedWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     self.in_.is_cacheable(ctx)
@@ -222,14 +239,17 @@ where
 
 impl<IRC> Weight<IRC> for NamedWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightMatches<'a>>> {
+  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let Some(matches) = self.in_.matches(context, doc, searcher)? else {
       return Ok(None);
     };
@@ -243,7 +263,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.in_.explain(context, doc, searcher)
   }
 
@@ -257,7 +280,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.in_.scorer_supplier(context, searcher)
   }
 }

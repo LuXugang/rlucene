@@ -646,6 +646,8 @@ impl TestMatchesIterator {
     }
 
     impl MatchesIterator for CountIterator {
+      type SubMatches<'a> =
+        crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator;
       fn next(&mut self) -> Result<bool> {
         if self.count == 0 {
           Ok(false)
@@ -671,7 +673,7 @@ impl TestMatchesIterator {
         panic!("end_offset should not be called")
       }
 
-      fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+      fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {
         panic!("get_sub_matches should not be called")
       }
 
@@ -698,7 +700,12 @@ impl TestMatchesIterator {
     for counts in checks {
       let iterators = counts
         .iter()
-        .map(|count| Box::new(CountIterator::new(*count)) as QueryWeightMatchesIterator<'_>)
+        .map(|count| {
+          QueryWeightMatchesIterator::<
+              crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader,
+            >::from(Box::new(CountIterator::new(*count))
+              as Box<dyn crate::core::search::query_matches::TestMatchesIterator>)
+        })
         .collect();
       let expected_count: i32 = counts.iter().sum();
       let mut merged = from_sub_iterators(iterators)?.expect("expected merged iterator");
@@ -1310,3 +1317,5 @@ fn test_minimal_seeking_with_wildcards() -> Result<()> {
 fn test_from_sub_iterators_method() -> Result<()> {
   run_case(TestMatchesIterator::test_from_sub_iterators_method)
 }
+
+use crate::core::search::weight::Weight;

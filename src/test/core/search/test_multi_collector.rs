@@ -83,6 +83,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let Self {
       in_,
@@ -140,11 +141,16 @@ impl<LC> LeafCollector for TerminateAfterLeafCollector<'_, LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.in_.set_scorer(scorer)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     if *self.count >= self.terminate_after {
       return Err(LuceneError::collection_terminated(""));
     }
@@ -185,13 +191,18 @@ impl<LC> LeafCollector for SetScorerLeafCollector<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.in_.set_scorer(scorer)?;
     self.set_scorer_called.store(true, Ordering::SeqCst);
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     self.in_.collect(doc, scorer)
   }
 
@@ -225,6 +236,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::A(collector) => collector
@@ -281,6 +293,7 @@ impl Collector for SetMinScoreCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self)
   }
@@ -297,11 +310,16 @@ impl Display for SetMinScoreCollector {
 }
 
 impl LeafCollector for SetMinScoreCollector {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, scorer: &mut SC) -> Result<()> {
     self.min_score = self.min_score.next_up();
     scorer.set_min_competitive_score(self.min_score)
   }
@@ -340,6 +358,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let leaf_collector = self.in_.get_leaf_collector(context, weight, searcher)?;
     Ok(SetScorerLeafCollector::new(
@@ -362,6 +381,11 @@ impl<C> Display for SetScorerCollector<C> {
 struct PanicOnMinCompetitiveScoreScorable;
 
 impl Scorable for PanicOnMinCompetitiveScoreScorable {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(0.0)
   }
@@ -386,6 +410,11 @@ impl MinCompetitiveScoreScorable {
 }
 
 impl Scorable for MinCompetitiveScoreScorable {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(0.0)
   }
@@ -445,6 +474,7 @@ impl Collector for ExpectedScorerCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self)
   }
@@ -461,7 +491,12 @@ impl Display for ExpectedScorerCollector {
 }
 
 impl LeafCollector for ExpectedScorerCollector {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     let type_name = scorer.scorable_test_type_name();
     assert!(
       self.expected_scorer.matches(type_name),
@@ -470,7 +505,7 @@ impl LeafCollector for ExpectedScorerCollector {
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 }
@@ -507,6 +542,7 @@ impl Collector for DummyCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     self.set_next_reader_called.set(true);
     Ok(self)
@@ -524,12 +560,17 @@ impl Display for DummyCollector {
 }
 
 impl LeafCollector for DummyCollector {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     self.set_scorer_called.set(true);
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     self.collect_called.set(true);
     Ok(())
   }
@@ -567,6 +608,7 @@ impl Collector for TerminatingDummyCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     self.base.set_next_reader_called.set(true);
     Ok(self)
@@ -584,11 +626,16 @@ impl Display for TerminatingDummyCollector {
 }
 
 impl LeafCollector for TerminatingDummyCollector {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.base.set_scorer(scorer)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     if doc == self.terminate_on_doc {
       return Err(LuceneError::collection_terminated(""));
     }

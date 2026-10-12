@@ -1318,6 +1318,7 @@ pub trait BaseKnnVectorQueryTestCase {
   where
     IRC: crate::core::index::index_reader_context::IndexReaderContext + Sync,
     T: Into<Query>,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let result = searcher.search(q, 1000)?.score_docs;
     assert_eq!(expected_matches, result.len());
@@ -1859,3 +1860,5 @@ impl QueryTimeout for CountingQueryTimeout {
     previous == 0
   }
 }
+
+use crate::core::search::weight::Weight;

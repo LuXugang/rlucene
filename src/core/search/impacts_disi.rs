@@ -25,7 +25,8 @@ use crate::core::util::error::lucene_error::Result;
 /// iterator the ability to skip low-scoring documents.
 ///
 /// @lucene.internal
-pub(crate) struct ImpactsDISI<M> {
+#[doc(hidden)]
+pub struct ImpactsDISI<M> {
   mode: M,
   state: CompetitiveScoreState,
 }
@@ -37,14 +38,16 @@ pub(crate) struct SeparateIteratorMode<D, IS, SS> {
 }
 
 /// Iterates the impacts source itself when Rust owns only one value for both roles.
-pub(crate) struct SourceIteratorMode<IS, SS> {
+#[doc(hidden)]
+pub struct SourceIteratorMode<IS, SS> {
   max_score_cache: MaxScoreCache<IS, SS>,
 }
 
 pub(crate) type SeparateImpactsDISI<D, IS, SS> = ImpactsDISI<SeparateIteratorMode<D, IS, SS>>;
 pub(crate) type SourceImpactsDISI<IS, SS> = ImpactsDISI<SourceIteratorMode<IS, SS>>;
 
-pub(crate) trait ImpactsDISIMode {
+#[doc(hidden)]
+pub trait ImpactsDISIMode {
   type Iterator: DocIdSetIterator;
   type ImpactsSource: ImpactsSource;
   type Scorer: SimScorer;

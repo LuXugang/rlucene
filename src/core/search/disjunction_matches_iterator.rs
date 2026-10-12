@@ -24,6 +24,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::matches_iterator::MatchesIterator;
+use crate::core::search::matches_iterator::MatchesIteratorEnum2;
 use crate::core::search::query::{Query, QueryWeightMatchesIterator};
 use crate::core::search::term_matches_iterator::TermMatchesIterator;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -65,6 +66,10 @@ impl<M> MatchesIterator for DisjunctionMatchesIterator<M>
 where
   M: MatchesIterator,
 {
+  type SubMatches<'b>
+    = M::SubMatches<'b>
+  where
+    Self: 'b;
   fn next(&mut self) -> Result<bool> {
     if !self.started {
       self.started = true;
@@ -120,7 +125,7 @@ where
       .end_offset()
   }
 
-  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {
     self
       .queue
       .top_mut()
@@ -159,22 +164,20 @@ where
 }
 // MatchesIterator over a set of terms that only loads the first matching term at construction,
 // waiting until the iterator is actually used before it loads all other matching terms.
-pub(crate) struct TermsEnumDisjunctionMatchesIterator<'a, TE, BRI>
+pub struct TermsEnumDisjunctionMatchesIterator<TE, BRI>
 where
   TE: TermsEnum,
-  TE::PostingsEnum: 'a,
 {
   first: Option<TermMatchesIterator<TE::PostingsEnum>>,
   terms: BRI,
   te: TE,
   doc: i32,
   query: Arc<Query>,
-  it: Option<QueryWeightMatchesIterator<'a>>,
+  it: Option<TermDisjunction<TE>>,
 }
-impl<'a, TE, BRI> TermsEnumDisjunctionMatchesIterator<'a, TE, BRI>
+impl<TE, BRI> TermsEnumDisjunctionMatchesIterator<TE, BRI>
 where
   TE: TermsEnum,
-  TE::PostingsEnum: 'a,
   BRI: BytesRefIterator,
 {
   pub fn new(
@@ -195,37 +198,39 @@ where
   }
 
   fn init(&mut self) -> Result<()> {
-    let mut matches: Vec<QueryWeightMatchesIterator<'a>> =
-      vec![Box::new(self.first.take().ok_or_else(|| {
-        LuceneError::illegal_state("first matches iterator is missing")
-      })?)];
+    let mut matches: Vec<TermMatchesIterator<TE::PostingsEnum>> = vec![
+      self
+        .first
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("first matches iterator is missing"))?,
+    ];
     let mut reuse = None;
     while let Some(term) = self.terms.next()? {
       if self.te.seek_exact(&term.as_bytes_ref())? {
         let mut postings = self.te.postings_with_flags(reuse, OFFSETS as i32)?;
         if postings.advance(self.doc)? == self.doc {
-          matches.push(Box::new(TermMatchesIterator::new(
-            postings,
-            self.query.clone(),
-          )?));
+          matches.push(TermMatchesIterator::new(postings, self.query.clone())?);
           reuse = None;
         } else {
           reuse = Some(postings);
         }
       }
     }
-    self.it = from_sub_iterators(matches)?;
+    self.it = combine_iterators(matches)?;
     debug_assert!(self.it.is_some());
     Ok(())
   }
 }
 
-impl<'a, TE, BRI> MatchesIterator for TermsEnumDisjunctionMatchesIterator<'a, TE, BRI>
+impl<TE, BRI> MatchesIterator for TermsEnumDisjunctionMatchesIterator<TE, BRI>
 where
   TE: TermsEnum,
-  TE::PostingsEnum: 'a,
   BRI: BytesRefIterator,
 {
+  type SubMatches<'b>
+    = <TermDisjunction<TE> as MatchesIterator>::SubMatches<'b>
+  where
+    Self: 'b;
   fn next(&mut self) -> Result<bool> {
     if self.it.is_none() {
       self.init()?;
@@ -269,7 +274,7 @@ where
       .end_offset()
   }
 
-  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {
     self
       .it
       .as_mut()
@@ -286,7 +291,7 @@ where
   }
 }
 
-struct TermBytesRefIterator {
+pub struct TermBytesRefIterator {
   terms: Arc<[Term]>,
   index: usize,
 }
@@ -306,6 +311,11 @@ impl BytesRefIterator for TermBytesRefIterator {
   }
 }
 
+pub(crate) type LeafTermsMatchesIterator<LR, BRI> = TermsEnumDisjunctionMatchesIterator<
+  <crate::core::index::terms::TermsWithEmpty<<LR as LeafReader>::Terms> as Terms>::TermsEnum,
+  BRI,
+>;
+
 /// Create a [`MatchesIterator`] over a list of terms.
 ///
 /// Only terms that have at least one match in the given document will be included.
@@ -315,7 +325,7 @@ pub(crate) fn from_terms<'a, LR>(
   query: Arc<Query>,
   field: &str,
   terms: Arc<[Term]>,
-) -> Result<Option<QueryWeightMatchesIterator<'a>>>
+) -> Result<Option<LeafTermsMatchesIterator<LR, TermBytesRefIterator>>>
 where
   LR: LeafReader,
   <LR::Terms as Terms>::TermsEnum: 'a,
@@ -348,7 +358,7 @@ pub(crate) fn from_terms_enum<'a, LR, BRI>(
   query: Arc<Query>,
   field: &str,
   mut terms: BRI,
-) -> Result<Option<QueryWeightMatchesIterator<'a>>>
+) -> Result<Option<LeafTermsMatchesIterator<LR, BRI>>>
 where
   LR: LeafReader,
   BRI: BytesRefIterator + 'a,
@@ -369,13 +379,13 @@ where
     if found {
       let mut postings = terms_enum.postings_with_flags(reuse, OFFSETS as i32)?;
       if postings.advance(doc)? == doc {
-        return Ok(Some(Box::new(TermsEnumDisjunctionMatchesIterator::new(
+        return Ok(Some(TermsEnumDisjunctionMatchesIterator::new(
           TermMatchesIterator::new(postings, query.clone())?,
           terms,
           terms_enum,
           doc,
           query,
-        ))));
+        )));
       }
       reuse = Some(postings);
     }
@@ -383,14 +393,31 @@ where
   Ok(None)
 }
 
-pub fn from_sub_iterators<'a>(
-  mut mis: Vec<QueryWeightMatchesIterator<'a>>,
-) -> Result<Option<QueryWeightMatchesIterator<'a>>> {
+type TermDisjunction<TE> = MatchesIteratorEnum2<
+  TermMatchesIterator<<TE as TermsEnum>::PostingsEnum>,
+  DisjunctionMatchesIterator<TermMatchesIterator<<TE as TermsEnum>::PostingsEnum>>,
+>;
+fn combine_iterators<M: MatchesIterator>(
+  mut mis: Vec<M>,
+) -> Result<Option<MatchesIteratorEnum2<M, DisjunctionMatchesIterator<M>>>> {
+  if mis.is_empty() {
+    return Ok(None);
+  }
+  if mis.len() == 1 {
+    return Ok(mis.pop().map(MatchesIteratorEnum2::A));
+  }
+  Ok(Some(MatchesIteratorEnum2::B(
+    DisjunctionMatchesIterator::new(mis)?,
+  )))
+}
+pub fn from_sub_iterators<'a, LR: LeafReader>(
+  mut mis: Vec<QueryWeightMatchesIterator<'a, LR>>,
+) -> Result<Option<QueryWeightMatchesIterator<'a, LR>>> {
   if mis.is_empty() {
     return Ok(None);
   }
   if mis.len() == 1 {
     return Ok(mis.pop());
   }
-  Ok(Some(Box::new(DisjunctionMatchesIterator::new(mis)?)))
+  Ok(Some(Box::new(DisjunctionMatchesIterator::new(mis)?).into()))
 }

@@ -76,6 +76,7 @@ pub(crate) trait TestRegexpRandom2 {
   ) -> Result<()>
   where
     IRC: IndexReaderContext + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let smart = RegexpQuery::with_flags(Term::from_text(field_name, &regexp), RegExp::NONE)?;
     let nfa_query = RegexpQuery::with_all_and_determinization(

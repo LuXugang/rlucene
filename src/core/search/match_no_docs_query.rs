@@ -99,10 +99,11 @@ impl QueryBase for MatchNoDocsQuery {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(MatchNoDocsWeight::new(self)))
+    Ok(Box::new(MatchNoDocsWeight::new(self)).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -127,7 +128,7 @@ impl MatchNoDocsWeight {
 
 impl<IRC> SegmentCacheable<IRC> for MatchNoDocsWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -136,14 +137,17 @@ where
 
 impl<IRC> Weight<IRC> for MatchNoDocsWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let parent_query = if let Query::MatchNoDocs(v) = self.parent_query.as_ref() {
       v
     } else {
@@ -164,7 +168,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(None)
   }
 
@@ -172,7 +179,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(0)
   }
 }

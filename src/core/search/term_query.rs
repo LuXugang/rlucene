@@ -35,9 +35,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::for_field;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
@@ -147,8 +145,9 @@ impl QueryBase for TermQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let context = searcher.get_top_reader_context();
     let ts = match self.per_reader_term_state.take() {
@@ -159,13 +158,7 @@ impl QueryBase for TermQuery {
         score_mode.needs_scores(),
       )?),
     };
-    Ok(Box::new(TermWeight::new(
-      searcher,
-      *score_mode,
-      boost,
-      ts,
-      self,
-    )?))
+    Ok(Box::new(TermWeight::new(searcher, *score_mode, boost, ts, self)?).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -194,7 +187,8 @@ impl TermWeight {
     query: TermQuery,
   ) -> Result<Self>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     debug_assert!(query.per_reader_term_state.is_none());
     let similarity = searcher.get_similarity();
@@ -297,7 +291,7 @@ impl TermWeight {
 
 impl<IRC> SegmentCacheable<IRC> for TermWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -306,32 +300,23 @@ where
 
 impl<IRC> Weight<IRC> for TermWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let parent_query = if let Query::Term(query) = self.parent_query.as_ref() {
       query
     } else {
       return Err(LuceneError::illegal_state(""));
     };
-    for_field(&parent_query.term.field, move || {
-      let Some(mut terms_enum) = self.get_terms_enum(context)? else {
-        return Ok(None);
-      };
-      let mut postings = terms_enum.postings_with_flags(None, OFFSETS as i32)?;
-      if postings.advance(doc)? != doc {
-        return Ok(None);
-      }
-      Ok(Some(Box::new(TermMatchesIterator::new(
-        postings,
-        self.parent_query.clone(),
-      )?)))
-    })
+    for_field(&parent_query.term.field, (self, context, doc).into())
   }
 
   fn explain(
@@ -339,7 +324,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
       v
     } else {
@@ -396,13 +384,16 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = TermScorerSupplier<IRCLeafReader<IRC>>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     debug_assert!(
       {
         let v = ReaderUtil::get_top_level_context(context);
@@ -432,7 +423,6 @@ where
           sim_scorer.clone(),
           self.score_mode,
         );
-        let v = Box::new(v);
         Ok(Some(v))
       },
     }
@@ -442,7 +432,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if !context.reader().has_deletions()? {
       if let Some(mut terms_enum) = self.get_terms_enum(context)? {
         terms_enum.doc_freq()
@@ -571,17 +564,21 @@ where
 }
 impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRCLeafReader<IRC>>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer =
+    crate::core::search::weight::DefaultBulkScorer<TermScorerEnum<IRCLeafReader<IRC>>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.get_terms_enum(context)?;
     let scorer = TermWeight::build_term_scorer(
       context,
@@ -591,22 +588,39 @@ where
       self.score_mode,
       self.top_level_scoring_clause,
     )?;
-    Ok(Box::new(scorer))
+    Ok(QueryWeightSsScorer::<IRC>::new(scorer))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    self.get_terms_enum(context)?;
+    let scorer = TermWeight::build_term_scorer(
+      context,
+      self.terms_enum.as_mut(),
+      self.term.as_ref(),
+      Some(self.sim_scorer.clone()),
+      self.score_mode,
+      self.top_level_scoring_clause,
+    )?;
+    Ok(Some(crate::core::search::weight::DefaultBulkScorer::new(
+      scorer,
+    )))
   }
 
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let result: Result<i32> = (|| match self.get_terms_enum(context)? {
       None => Ok(0),
       Some(_) => Ok(
@@ -649,5 +663,29 @@ pub type TermScorerEnum<LR> = ScorerEnum2<
 impl crate::core::util::accountable::Accountable for TermQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
     Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}
+
+impl TermWeight {
+  pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
+  {
+    let Some(mut terms_enum) = self.get_terms_enum(context)? else {
+      return Ok(None);
+    };
+    let mut postings = terms_enum.postings_with_flags(None, OFFSETS as i32)?;
+    if postings.advance(doc)? != doc {
+      return Ok(None);
+    }
+    Ok(Some(
+      Box::new(TermMatchesIterator::new(
+        postings,
+        self.parent_query.clone(),
+      )?)
+      .into(),
+    ))
   }
 }

@@ -35,6 +35,7 @@ impl TopKnnCollectorManager {
   pub fn new<IRC>(k: usize, index_searcher: &IndexSearcher<IRC>) -> Result<TopKnnCollectorManager>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     let is_multi_segments = index_searcher.get_leaf_contexts()?.len() > 1;
     let global_score_queue = if is_multi_segments {

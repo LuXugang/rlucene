@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::{DocIdStream, DocIdStreamConsumer};
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
@@ -56,11 +55,16 @@ impl<L> LeafCollector for AssertingLeafCollector<L>
 where
   L: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = L::CompetitiveIterator<'a>
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.in_.set_scorer(&mut AssertingScorable::wrap(scorer))
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     assert!(
       doc > self.last_collected,
       "Out of order : {} {}",
@@ -76,10 +80,10 @@ where
     Ok(())
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    scorer: &mut SC,
   ) -> Result<()> {
     let mut asserting_stream =
       AssertingDocIdStream::new(stream, &mut self.last_collected, self.min, self.max);
@@ -89,7 +93,7 @@ where
       .collect_stream(&mut asserting_stream, &mut asserting_scorable)
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     // Forward once; re-fetching the iterator on next_doc/advance would change
     // accessor calls and error ordering.
     self.in_.competitive_iterator()
@@ -102,16 +106,16 @@ where
   }
 }
 
-struct AssertingDocIdStream<'a> {
-  stream: &'a mut dyn DocIdStream,
+struct AssertingDocIdStream<'a, DS: ?Sized> {
+  stream: &'a mut DS,
   last_collected: &'a mut i32,
   min: i32,
   max: i32,
   consumed: bool,
 }
 
-impl<'a> AssertingDocIdStream<'a> {
-  fn new(stream: &'a mut dyn DocIdStream, last_collected: &'a mut i32, min: i32, max: i32) -> Self {
+impl<'a, DS: DocIdStream + ?Sized> AssertingDocIdStream<'a, DS> {
+  fn new(stream: &'a mut DS, last_collected: &'a mut i32, min: i32, max: i32) -> Self {
     Self {
       stream,
       last_collected,
@@ -122,8 +126,8 @@ impl<'a> AssertingDocIdStream<'a> {
   }
 }
 
-impl DocIdStream for AssertingDocIdStream<'_> {
-  fn for_each(&mut self, consumer: &mut dyn DocIdStreamConsumer) -> Result<()> {
+impl<DS: DocIdStream + ?Sized> DocIdStream for AssertingDocIdStream<'_, DS> {
+  fn for_each<DC: DocIdStreamConsumer + ?Sized>(&mut self, consumer: &mut DC) -> Result<()> {
     assert!(
       !self.consumed,
       "A terminal operation has already been called"
@@ -139,7 +143,7 @@ impl DocIdStream for AssertingDocIdStream<'_> {
     Ok(())
   }
 
-  fn count(&mut self, scorer: &mut dyn Scorable) -> Result<i32> {
+  fn count<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<i32> {
     assert!(
       !self.consumed,
       "A terminal operation has already been called"
@@ -150,14 +154,14 @@ impl DocIdStream for AssertingDocIdStream<'_> {
   }
 }
 
-struct AssertingDocIdStreamConsumer<'a> {
-  consumer: &'a mut dyn DocIdStreamConsumer,
+struct AssertingDocIdStreamConsumer<'a, DC: ?Sized> {
+  consumer: &'a mut DC,
   last_collected: &'a mut i32,
   min: i32,
   max: i32,
 }
 
-impl AssertingDocIdStreamConsumer<'_> {
+impl<DC: DocIdStreamConsumer + ?Sized> AssertingDocIdStreamConsumer<'_, DC> {
   fn check_doc(&self, doc: i32) {
     assert!(
       doc > *self.last_collected,
@@ -170,7 +174,9 @@ impl AssertingDocIdStreamConsumer<'_> {
   }
 }
 
-impl DocIdStreamConsumer for AssertingDocIdStreamConsumer<'_> {
+impl<DC: DocIdStreamConsumer + ?Sized> DocIdStreamConsumer
+  for AssertingDocIdStreamConsumer<'_, DC>
+{
   fn accept(&mut self, doc: i32) -> Result<()> {
     self.check_doc(doc);
     self.consumer.accept(doc)?;

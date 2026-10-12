@@ -157,21 +157,24 @@ impl QueryBase for DisjunctionMaxQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    Ok(Box::new(DisjunctionMaxWeight::new(
-      searcher,
-      self,
-      *score_mode,
-      boost,
-    )?))
+    Ok(
+      Box::new(DisjunctionMaxWeight::new(
+        searcher,
+        self,
+        *score_mode,
+        boost,
+      )?)
+      .into(),
+    )
   }
 
   fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -281,7 +284,7 @@ impl Hash for DisjunctionMaxQuery {
   }
 }
 /// the Weight for DisjunctionMaxQuery, used to normalize, score and explain these queries
-pub struct DisjunctionMaxWeight<IRC> {
+pub struct DisjunctionMaxWeight<IRC: IndexReaderContext + 'static> {
   parent_query: Arc<Query>,
   tie_breaker_multiplier: f32,
   score_mode: ScoreMode,
@@ -297,7 +300,10 @@ where
     query: DisjunctionMaxQuery,
     score_mode: ScoreMode,
     boost: f32,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut weights = Vec::with_capacity(query.get_disjuncts().len());
     for query in query.disjuncts.keys().cloned() {
       let weight = query.create_weight(searcher, &score_mode, boost)?;
@@ -315,7 +321,7 @@ where
 
 impl<IRC> SegmentCacheable<IRC> for DisjunctionMaxWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     if self.weights.len() > BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD {
@@ -337,14 +343,17 @@ where
 
 impl<IRC> Weight<IRC> for DisjunctionMaxWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut matches = Vec::with_capacity(self.weights.len());
     for weight in &self.weights {
       if let Some(weight_matches) = weight.matches(context, doc, searcher)? {
@@ -359,7 +368,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut matched = false;
     let mut max = 0.0f64;
     let mut other_sum = 0.0f64;
@@ -417,7 +429,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut scorer_suppliers = Vec::with_capacity(self.weights.len());
     for w in &self.weights {
       let ss = w.scorer_supplier(context, searcher)?;
@@ -437,12 +452,12 @@ where
         self.tie_breaker_multiplier,
         self.score_mode,
       );
-      Ok(Some(Box::new(v)))
+      Ok(Some(Box::new(v).into()))
     }
   }
 }
 
-pub struct ScorerSupplierImpl<IRC> {
+pub struct ScorerSupplierImpl<IRC: IndexReaderContext + 'static> {
   cost: i64,
   scorer_suppliers: Vec<QueryWeightSs<IRC>>,
   tie_breaker_multiplier: f32,
@@ -450,7 +465,7 @@ pub struct ScorerSupplierImpl<IRC> {
 }
 impl<IRC> ScorerSupplierImpl<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub fn new(
     cost: i64,
@@ -468,17 +483,23 @@ where
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::bulk_scorer::BulkScorerEnum2<
+    DisjunctionMaxBulkScorer<QueryWeightSsBulkScorer<IRC>>,
+    crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>,
+  >;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut scorers = Vec::with_capacity(self.scorer_suppliers.len());
     for ss in self.scorer_suppliers.iter_mut() {
       scorers.push(ss.get(lead_cost, context, searcher)?);
@@ -486,14 +507,17 @@ where
     let sub =
       DisjunctionMaxScorer::new(self.tie_breaker_multiplier, &mut scorers, self.score_mode)?;
     let v = DisjunctionScorer::new(scorers, self.score_mode, sub)?;
-    Ok(Box::new(v))
+    Ok(QueryWeightSsScorer::<IRC>::new(v))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if self.tie_breaker_multiplier == 0.0 && self.score_mode == ScoreMode::TopScores {
       let mut scorers = Vec::with_capacity(self.scorer_suppliers.len());
       for ss in self.scorer_suppliers.iter_mut() {
@@ -501,16 +525,23 @@ where
           scorers.push(scorer);
         }
       }
-      return Ok(Some(Box::new(DisjunctionMaxBulkScorer::new(scorers)?)));
+      return Ok(Some(crate::core::search::bulk_scorer::BulkScorerEnum2::A(
+        DisjunctionMaxBulkScorer::new(scorers)?,
+      )));
     }
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+    Ok(Some(crate::core::search::bulk_scorer::BulkScorerEnum2::B(
+      self.default_bulk_scorer(context, searcher)?,
+    )))
   }
 
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if self.cost == -1 {
       let mut cost = 0i64;
       for ss in self.scorer_suppliers.iter_mut() {

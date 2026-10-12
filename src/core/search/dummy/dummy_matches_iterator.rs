@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 use crate::core::search::matches_iterator::MatchesIterator;
-use crate::core::search::query::{Query, QueryWeightMatchesIterator};
+use crate::core::search::query::Query;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 pub struct DummyMatchesIterator;
 impl MatchesIterator for DummyMatchesIterator {
+  type SubMatches<'a>
+    = crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator
+  where
+    Self: 'a;
   fn next(&mut self) -> crate::core::util::error::lucene_error::Result<bool> {
     dummy_unreachable!()
   }
@@ -41,7 +45,7 @@ impl MatchesIterator for DummyMatchesIterator {
     dummy_unreachable!()
   }
 
-  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {
     dummy_unreachable!()
   }
 

@@ -27,9 +27,12 @@ pub(crate) struct NoRewriteIndexSearcher;
 
 impl<IRC> IndexSearcherBase<IRC> for NoRewriteIndexSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  fn rewrite(&self, _searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
+  fn rewrite(&self, _searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     // no-op: disable rewriting
     Ok(original)
   }

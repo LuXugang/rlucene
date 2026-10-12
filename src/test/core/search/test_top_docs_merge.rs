@@ -61,7 +61,7 @@ pub struct TestTopDocsMerge;
 
 struct ShardSearcher<'a, IRC>
 where
-  IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + Sync + 'static,
 {
   ctx_ord: usize,
   searcher: &'a DefaultIndexSearcher<IRC>,
@@ -69,12 +69,12 @@ where
 
 impl<'a, IRC> ShardSearcher<'a, IRC>
 where
-  IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + Sync + 'static,
 {
-  fn new(
-    ctx: &LeafReaderContext<IRC::LeafReader>,
-    searcher: &'a DefaultIndexSearcher<IRC>,
-  ) -> Self {
+  fn new(ctx: &LeafReaderContext<IRC::LeafReader>, searcher: &'a DefaultIndexSearcher<IRC>) -> Self
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Self {
       ctx_ord: ctx.ord,
       searcher,
@@ -104,7 +104,7 @@ where
 
 impl<IRC> fmt::Display for ShardSearcher<'_, IRC>
 where
-  IRC: IndexReaderContext + 'static,
+  IRC: IndexReaderContext + Sync + 'static,
 {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())

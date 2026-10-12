@@ -281,8 +281,9 @@ impl QueryBase for MultiPhraseQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let similarity = searcher.get_similarity();
     let field = self
@@ -293,13 +294,14 @@ impl QueryBase for MultiPhraseQuery {
     let base = PhraseWeightMeta::new(field, *score_mode, similarity, self.clone().into());
     let sub = MultiPhraseQueryWeightBase::new(self, boost, base);
     let weight = PhraseWeight::new(searcher, sub)?;
-    Ok(Box::new(weight))
+    Ok(Box::new(weight).into())
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     if self.term_arrays.is_empty() {
       Ok(Some(
@@ -360,7 +362,7 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
 
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
   {
     let mut all_term_stats = Vec::with_capacity(if self.base.score_mode.needs_scores() {
       self.query.term_arrays.len()

@@ -810,6 +810,7 @@ fn assert_norms_count_without_shortcut<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let q = FieldExistsQuery::new(field);
   let weight = searcher.create_weight(q.clone(), ScoreMode::Complete, 1.0)?;
@@ -828,6 +829,7 @@ fn assert_norms_count_with_shortcut<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let q = FieldExistsQuery::new(field);
 
@@ -1152,6 +1154,7 @@ where
   IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let irc = searcher.get_top_reader_context();
   let max_doc = irc.reader().max_doc()?;
@@ -1193,6 +1196,7 @@ fn assert_same_count<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let test_query: Query = FieldExistsQuery::new(field).into();
   assert_eq!(searcher.count(test_query.clone())?, num_matching_docs);
@@ -1205,3 +1209,5 @@ where
 
   Ok(())
 }
+
+use crate::core::search::weight::Weight;

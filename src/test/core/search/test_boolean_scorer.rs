@@ -53,7 +53,7 @@ use crate::core::search::query::{
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
-use crate::core::search::scorer::ScorerKind;
+use crate::core::search::scorer::{Scorer, ScorerKind};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::HasIdentity;

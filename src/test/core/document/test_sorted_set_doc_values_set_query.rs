@@ -301,6 +301,7 @@ where
   IRC: IndexReaderContext + std::marker::Sync,
   T1: Into<Query>,
   T2: Into<Query>,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()?;
   let sort = if scores {

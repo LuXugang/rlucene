@@ -68,6 +68,11 @@ impl SimpleScorer {
 impl FixedScore for SimpleScorer {}
 
 impl Scorable for SimpleScorer {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let idx = self.idx.get();
     if idx == SCORES_LEN {
@@ -83,14 +88,33 @@ impl Scorable for SimpleScorer {
 }
 
 impl Scorer for SimpleScorer {
+  type Iterator = OwnedSimpleScorerIterator;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a Self
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.idx.get())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new(OwnedSimpleScorerIterator {
+  fn take_iterator(self) -> Self::Iterator {
+    OwnedSimpleScorerIterator {
       idx: self.idx.get(),
-    })
+    }
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -101,11 +125,11 @@ impl Scorer for SimpleScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 }

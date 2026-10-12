@@ -14,18 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyTwoPhaseIterator;
 
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     dummy_unreachable!()
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     dummy_unreachable!()
   }
 

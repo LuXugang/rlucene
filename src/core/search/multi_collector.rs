@@ -17,7 +17,6 @@
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::filter_scorable::FilterScorable;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -135,6 +134,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let global_score_mode = self.score_mode();
     let mut leaf_collectors = Vec::with_capacity(self.collectors.len());
@@ -238,7 +238,15 @@ impl<LC> LeafCollector for OneOrMultiLeafCollector<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    LC::CompetitiveIterator<'a>,
+    crate::core::search::doc_id_set_iterator::EmptyDISI,
+  >
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     match self {
       Self::One(collector) | Self::MultiSingle(collector) => collector.set_scorer(scorer),
       Self::Multi(collector) => collector.set_scorer(scorer),
@@ -246,7 +254,7 @@ where
     }
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     match self {
       Self::One(collector) | Self::MultiSingle(collector) => collector.collect(doc, scorer),
       Self::Multi(collector) => collector.collect(doc, scorer),
@@ -254,10 +262,10 @@ where
     }
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    scorer: &mut SC,
   ) -> Result<()> {
     match self {
       Self::One(collector) | Self::MultiSingle(collector) => {
@@ -268,11 +276,23 @@ where
     }
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     match self {
-      Self::One(collector) | Self::MultiSingle(collector) => collector.competitive_iterator(),
-      Self::Multi(collector) => collector.competitive_iterator(),
-      Self::MultiCached(collector) => collector.competitive_iterator(),
+      Self::One(collector) | Self::MultiSingle(collector) => Ok(
+        collector
+          .competitive_iterator()?
+          .map(crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A),
+      ),
+      Self::Multi(collector) => Ok(
+        collector
+          .competitive_iterator()?
+          .map(crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B),
+      ),
+      Self::MultiCached(collector) => Ok(
+        collector
+          .competitive_iterator()?
+          .map(crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B),
+      ),
     }
   }
 
@@ -304,6 +324,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::One(collector) => collector
@@ -374,7 +395,12 @@ impl<LC> LeafCollector for MultiLeafCollector<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     if self.skip_non_competitive_scores {
       let min_scores = self.min_scores.as_mut().ok_or_else(|| {
         LuceneError::illegal_state("min scores exist when non-competitive scores are skipped")
@@ -395,7 +421,7 @@ where
   }
 
   // NOTE: not propagating collect(DocIdStream) since DocIdStreams may only be consumed once.
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     if self.skip_non_competitive_scores {
       let min_scores = self.min_scores.as_mut().ok_or_else(|| {
         LuceneError::illegal_state("min scores exist when non-competitive scores are skipped")
@@ -480,6 +506,11 @@ impl<S> Scorable for MinCompetitiveScoreAwareScorable<'_, S>
 where
   S: Scorable + ?Sized,
 {
+  type Child<'a>
+    = S::Child<'a>
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     self.in_.score()
   }
@@ -496,7 +527,7 @@ where
     Ok(())
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     self.in_.get_children()
   }
 

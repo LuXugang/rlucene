@@ -34,7 +34,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum4, DocIdSetIt
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -131,16 +131,18 @@ impl QueryBase for FieldExistsQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)))
+    Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)).into())
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let mut all_readers_rewritable = true;
 
@@ -253,7 +255,7 @@ impl FieldExistsWeight {
 
 impl<IRC> SegmentCacheable<IRC> for FieldExistsWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field_infos = ctx.reader().get_field_infos()?;
@@ -277,14 +279,17 @@ pub type Disi<LR> = DocIdSetIteratorEnum4<
 >;
 impl<IRC> Weight<IRC> for FieldExistsWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -295,13 +300,26 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ConstantScoreScorer<
+      DocIdSetIteratorEnum4<
+        IRCByteVectorIter<IRCLeafReader<IRC>>,
+        IRCFloatVectorIter<IRCLeafReader<IRC>>,
+        LRNormNumericDocValues<IRCLeafReader<IRC>>,
+        LRDisis<IRCLeafReader<IRC>>,
+      >,
+      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
     let query = self.query()?;
     let field = query.get_field();
@@ -360,9 +378,9 @@ where
       ));
     };
     match disi_opt {
-      Some(disi) => Ok(Some(Box::new(DefaultScorerSupplier::new(
+      Some(disi) => Ok(Some(DefaultScorerSupplier::new(
         ConstantScoreScorer::from_disi(self.score, self.score_mode, disi),
-      )))),
+      ))),
       None => Ok(None),
     }
   }
@@ -371,7 +389,10 @@ where
     &self,
     ctx: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = ctx.reader();
 
     let field_infos = reader.get_field_infos()?;

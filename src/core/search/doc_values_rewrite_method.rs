@@ -45,9 +45,7 @@ use crate::core::search::matches_utils::for_field;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, RewriteMethod, dispatch_multi_term_query,
 };
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -78,7 +76,8 @@ impl RewriteMethod for DocValuesRewriteMethod {
   fn rewrite<IRC, Q>(&self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     Ok(ConstantScoreQuery::new(MultiTermQueryDocValuesWrapper::new(query.clone())).into())
   }
@@ -133,14 +132,11 @@ impl QueryBase for MultiTermQueryDocValuesWrapper {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(MultiTermQueryDocValuesWeight::new(
-      self,
-      boost,
-      *score_mode,
-    )))
+    Ok(Box::new(MultiTermQueryDocValuesWeight::new(self, boost, *score_mode)).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -195,7 +191,7 @@ impl MultiTermQueryDocValuesWeight {
 
 impl<IRC> SegmentCacheable<IRC> for MultiTermQueryDocValuesWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
@@ -210,14 +206,17 @@ where
 
 impl<IRC> Weight<IRC> for MultiTermQueryDocValuesWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
       return Err(LuceneError::illegal_state(
         "expected MultiTermQueryDocValuesWrapper in doc values weight",
@@ -225,11 +224,7 @@ where
     };
     let query = &wrapper.query;
     let field = dispatch_multi_term_query!(query, |query| query.get_field());
-    for_field(field.to_owned(), move || {
-      let values = DocValues::get_sorted_set(context.reader(), field)?;
-      let terms_enum = get_terms_enum(query, values)?;
-      from_terms_enum(context, doc, self.matches_query.clone(), field, terms_enum)
-    })
+    for_field(field.to_owned(), (self, context, doc).into())
   }
 
   fn explain(
@@ -237,7 +232,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -248,13 +246,16 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DocValuesScorerSupplier;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
       return Err(LuceneError::illegal_state(
         "expected MultiTermQueryDocValuesWrapper in doc values weight",
@@ -265,12 +266,12 @@ where
     if values.get_value_count()? == 0 {
       return Ok(None);
     }
-    Ok(Some(Box::new(DocValuesScorerSupplier::new(
+    Ok(Some(DocValuesScorerSupplier::new(
       self.parent_query.clone(),
       values.cost()?,
       self.base.score(),
       self.score_mode,
-    ))))
+    )))
   }
 }
 
@@ -294,17 +295,20 @@ impl DocValuesScorerSupplier {
 
 impl<IRC> ScorerSupplier<IRC> for DocValuesScorerSupplier
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.query.as_ref() else {
       return Err(LuceneError::illegal_state(
         "expected MultiTermQueryDocValuesWrapper in doc values scorer supplier",
@@ -317,7 +321,7 @@ where
 
     if terms_enum.next()?.is_none() {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-      return Ok(Box::new(v));
+      return Ok(QueryWeightSsScorer::<IRC>::new(v));
     }
 
     let mut skipper_opt = context.reader().get_doc_values_skipper(field)?;
@@ -344,7 +348,7 @@ where
       && (min_ord > skipper.max_value() || max_ord < skipper.min_value())
     {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-      return Ok(Box::new(v));
+      return Ok(QueryWeightSsScorer::<IRC>::new(v));
     }
 
     let iterator = if values.is_single_valued() {
@@ -359,17 +363,13 @@ where
     match skipper_opt.take() {
       Some(skipper) => {
         let v = DocValuesRangeIterator::new(iterator, skipper, min_ord, max_ord, true);
-        Ok(Box::new(ConstantScoreScorer::from_tpi(
-          self.score,
-          self.score_mode,
-          v,
-        )))
+        Ok(QueryWeightSsScorer::<IRC>::new(
+          ConstantScoreScorer::from_tpi(self.score, self.score_mode, v),
+        ))
       },
-      None => Ok(Box::new(ConstantScoreScorer::from_tpi(
-        self.score,
-        self.score_mode,
-        iterator,
-      ))),
+      None => Ok(QueryWeightSsScorer::<IRC>::new(
+        ConstantScoreScorer::from_tpi(self.score, self.score_mode, iterator),
+      )),
     }
   }
 
@@ -377,21 +377,27 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }
 /// Create a [`TermsEnum`] that provides the intersection of the query terms with the terms
 /// present in the doc values.
-fn get_terms_enum<S>(
+pub(crate) fn get_terms_enum<S>(
   query: &MultiTermQuerySet,
   values: S,
 ) -> Result<MultiTermQueryDocValuesTermsEnum<S>>
@@ -454,11 +460,20 @@ impl<S> TwoPhaseIterator for SingletonTermSetTwoPhaseIterator<S>
 where
   S: SortedDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.singleton
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.singleton
   }
 
@@ -491,11 +506,20 @@ impl<S> TwoPhaseIterator for SortedSetTermSetTwoPhaseIterator<S>
 where
   S: SortedSetDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 
@@ -750,5 +774,26 @@ where
 impl crate::core::util::accountable::Accountable for MultiTermQueryDocValuesWrapper {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
     Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
+  }
+}
+
+impl MultiTermQueryDocValuesWeight {
+  pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
+  {
+    let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected MultiTermQueryDocValuesWrapper in doc values weight",
+      ));
+    };
+    let query = &wrapper.query;
+    let field = dispatch_multi_term_query!(query, |q| q.get_field());
+    let values = DocValues::get_sorted_set(context.reader(), field)?;
+    let terms_enum = get_terms_enum(query, values)?;
+    from_terms_enum(context, doc, self.matches_query.clone(), field, terms_enum)
+      .map(|value| value.map(|iterator| Box::new(iterator).into()))
   }
 }

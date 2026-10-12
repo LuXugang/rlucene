@@ -43,11 +43,11 @@ impl CountingIndexSearcher {
 
 impl<IRC> IndexSearcherBase<IRC> for CountingIndexSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn count(&self, searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     self.count_invocations.fetch_add(1, Ordering::Relaxed);
     IndexSearcherDefaults::count(searcher, query)

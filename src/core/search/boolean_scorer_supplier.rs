@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionBulkScorer;
@@ -41,7 +42,6 @@ use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::bits::Bits;
@@ -51,7 +51,7 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-pub struct BooleanScorerSupplier<IRC> {
+pub struct BooleanScorerSupplier<IRC: IndexReaderContext + 'static> {
   pub(crate) subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
   score_mode: ScoreMode,
   min_should_match: i32,
@@ -61,7 +61,7 @@ pub struct BooleanScorerSupplier<IRC> {
 }
 impl<IRC> BooleanScorerSupplier<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub(crate) fn new(
     subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
@@ -125,7 +125,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut min_required_cost: Option<i64> = None;
 
     if let Some(v) = self.subs.get_mut(&Occur::Must) {
@@ -175,7 +178,10 @@ where
     mut lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<QueryWeightSsScorer> {
+  ) -> Result<QueryWeightSsScorer<IRC>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     // three cases: conjunction, disjunction, or mix
     lead_cost = std::cmp::min(lead_cost, self.cost(context, searcher)?);
     let should_empty = self
@@ -307,7 +313,7 @@ where
         searcher,
       )?;
       let v = ConjunctionScorer::new(vec![req, opt], vec![0, 1])?;
-      Ok(Box::new(v))
+      Ok(QueryWeightSsScorer::<IRC>::new(v))
     } else {
       debug_assert!(self.score_mode.needs_scores());
       let req = Self::excl(
@@ -337,7 +343,7 @@ where
       )?;
 
       let v = ReqOptSumScorer::new(req, opt, self.score_mode)?;
-      Ok(Box::new(v))
+      Ok(QueryWeightSsScorer::<IRC>::new(v))
     }
   }
   #[allow(clippy::type_complexity)]
@@ -345,7 +351,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer>> {
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let num_optional = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
     let num_must = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
     let num_required = num_must + self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
@@ -411,14 +420,17 @@ where
       )?)
     };
     let v = ReqExclBulkScorer::new(positive, prohibited_scorer);
-    Ok(Some(Box::new(v)))
+    Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(v)))
   }
   #[allow(clippy::type_complexity)]
   fn optional_bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer>> {
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
 
     if should_len == 0 {
@@ -443,7 +455,7 @@ where
       for ss in should.iter_mut() {
         optional_scorers.push(ss.get(i64::MAX, context, searcher)?);
       }
-      let v = Box::new(MaxScoreBulkScorer::with_no_filter(
+      let v = QueryWeightSsBulkScorer::<IRC>::new(MaxScoreBulkScorer::with_no_filter(
         self.max_doc,
         optional_scorers,
       )?);
@@ -460,7 +472,7 @@ where
     }
 
     let msm = std::cmp::max(1, self.min_should_match);
-    let v = Box::new(BooleanScorer::new(
+    let v = QueryWeightSsBulkScorer::<IRC>::new(BooleanScorer::new(
       optional,
       msm as usize,
       self.score_mode.needs_scores(),
@@ -471,7 +483,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer>> {
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let must_len = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
     let filter_len = self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
     let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
@@ -507,10 +522,10 @@ where
       ScorerEnum2::B(ConjunctionScorer::new(filters, vec![])?)
     };
 
-    let v = Box::new(MaxScoreBulkScorer::new(
+    let v = QueryWeightSsBulkScorer::<IRC>::new(MaxScoreBulkScorer::new(
       self.max_doc,
       optional_scorers,
-      Some(filter_scorer),
+      Some(QueryWeightSsScorer::<IRC>::new(filter_scorer)),
     )?);
     Ok(Some(v))
   }
@@ -519,7 +534,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer>> {
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let must_len = {
       self
         .subs
@@ -557,7 +575,7 @@ where
             None => Err(LuceneError::illegal_state("bulk_scorer is None"))?,
             Some(s) => {
               let v = disable_scoring(s);
-              Ok(Some(Box::new(v)))
+              Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(v)))
             },
           }
         } else {
@@ -634,10 +652,15 @@ where
             filter_scorer.take_iterator(),
           )));
         }
-        return Ok(Some(Box::new(BlockMaxConjunctionBulkScorer::new(
-          self.max_doc,
-          wrap_required_scoring,
-        )?)));
+        return Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+          BlockMaxConjunctionBulkScorer::new(
+            self.max_doc,
+            wrap_required_scoring
+              .into_iter()
+              .map(QueryWeightSsScorer::<IRC>::new)
+              .collect(),
+          )?,
+        )));
       }
     }
 
@@ -661,26 +684,20 @@ where
       }
 
       if all_scoring_no_two_phase && all_no_scoring_no_two_phase {
-        return Ok(Some(Box::new(ConjunctionBulkScorer::new(
-          required_scoring,
-          required_no_scoring,
-        )?)));
+        return Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+          ConjunctionBulkScorer::new(required_scoring, required_no_scoring)?,
+        )));
       }
     }
 
     let mut required_scoring =
       if self.score_mode == ScoreMode::TopScores && required_scoring.len() > 1 {
         let v = BlockMaxConjunctionScorer::new(required_scoring)?;
-        vec![ScorerEnum2::B(v)]
+        vec![QueryWeightSsScorer::<IRC>::new(v)]
       } else {
-        required_scoring.into_iter().map(ScorerEnum2::A).collect()
+        required_scoring
       };
-    let mut required_no_scoring: Vec<
-      ScorerEnum2<QueryWeightSsScorer, BlockMaxConjunctionScorer<QueryWeightSsScorer>>,
-    > = required_no_scoring
-      .into_iter()
-      .map(ScorerEnum2::A)
-      .collect();
+    let mut required_no_scoring = required_no_scoring;
 
     let conjunction_scorer = if required_scoring.len() + required_no_scoring.len() == 1 {
       if required_scoring.len() == 1 {
@@ -715,7 +732,9 @@ where
       ScorerEnum3::C(ConjunctionScorer::new(required, scoring_scorers_idx)?)
     };
 
-    Ok(Some(Box::new(DefaultBulkScorer::new(conjunction_scorer))))
+    Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+      DefaultBulkScorer::new(conjunction_scorer),
+    )))
   }
   /// Create a new scorer for the given required clauses.
   /// Note that requiredScoring is a subset of required containing required clauses that should participate in scoring.
@@ -727,7 +746,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
     score_mode: &ScoreMode,
-  ) -> Result<QueryWeightSsScorer> {
+  ) -> Result<QueryWeightSsScorer<IRC>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if required_no_scoring.len() + required_scoring.len() == 1 {
       let req = if required_no_scoring.is_empty() {
         required_scoring[0].get(lead_cost, context, searcher)?
@@ -743,7 +765,7 @@ where
         // Scores are needed but we only have a filter clause
         // BooleanWeight expects that calling score() is ok so we need to wrap
         // to prevent score() from being propagated
-        return Ok(Box::new(FilterScorerImpl::new(req)));
+        return Ok(QueryWeightSsScorer::<IRC>::new(FilterScorerImpl::new(req)));
       }
 
       return Ok(req);
@@ -754,7 +776,7 @@ where
     let mut scoring_scorers = Vec::with_capacity(required_scoring.len());
 
     for s in required_no_scoring.iter_mut() {
-      required_scorers.push(ScorerEnum2::A(s.get(lead_cost, context, searcher)?));
+      required_scorers.push(s.get(lead_cost, context, searcher)?);
     }
 
     for s in required_scoring.iter_mut() {
@@ -767,27 +789,30 @@ where
     {
       let block_max_scorer = BlockMaxConjunctionScorer::new(scoring_scorers)?;
       if required_scorers.is_empty() {
-        return Ok(Box::new(block_max_scorer));
+        return Ok(QueryWeightSsScorer::<IRC>::new(block_max_scorer));
       } else {
-        required_scorers.push(ScorerEnum2::B(block_max_scorer));
+        required_scorers.push(QueryWeightSsScorer::<IRC>::new(block_max_scorer));
       }
       vec![required_scorers.len() - 1]
     } else {
       let base = required_scorers.len();
       let scoring_scorers_idx = (0..scoring_scorers.len()).map(|i| base + i).collect();
-      required_scorers.extend(scoring_scorers.into_iter().map(ScorerEnum2::A));
+      required_scorers.extend(scoring_scorers);
       scoring_scorers_idx
     };
     let v = ConjunctionScorer::new(required_scorers, scoring_scorers_idx)?;
-    Ok(Box::new(v))
+    Ok(QueryWeightSsScorer::<IRC>::new(v))
   }
   fn excl(
-    main: QueryWeightSsScorer,
+    main: QueryWeightSsScorer<IRC>,
     prohibited: &mut [QueryWeightSs<IRC>],
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<QueryWeightSsScorer> {
+  ) -> Result<QueryWeightSsScorer<IRC>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if prohibited.is_empty() {
       Ok(main)
     } else {
@@ -800,7 +825,9 @@ where
         context,
         searcher,
       )?;
-      Ok(Box::new(ReqExclScorer::new(main, opt)?))
+      Ok(QueryWeightSsScorer::<IRC>::new(ReqExclScorer::new(
+        main, opt,
+      )?))
     }
   }
 
@@ -812,7 +839,10 @@ where
     top_level_scoring_clause: bool,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<QueryWeightSsScorer> {
+  ) -> Result<QueryWeightSsScorer<IRC>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if optional.len() == 1 {
       return optional[0].get(lead_cost, context, searcher);
     }
@@ -829,14 +859,14 @@ where
     // However, as WANDScorer uses more complex algorithm and data structure, we would like to
     // still use DisjunctionSumScorer to handle exhaustive pure disjunctions, which may be faster
     if (score_mode == ScoreMode::TopScores && top_level_scoring_clause) || min_should_match > 1 {
-      Ok(Box::new(WANDScorer::new(
+      Ok(QueryWeightSsScorer::<IRC>::new(WANDScorer::new(
         optional_scorers,
         min_should_match,
         score_mode,
         lead_cost,
       )?))
     } else {
-      Ok(Box::new(DisjunctionScorer::new(
+      Ok(QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::new(
         optional_scorers,
         score_mode,
         DisjunctionSumScorer,
@@ -850,15 +880,18 @@ where
   IRC: IndexReaderContext + 'static,
 {
   // type Scorer = GetType<SsScorer<LR>>;
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.get_internal(lead_cost, context, searcher)?;
 
     if self.score_mode == ScoreMode::TopScores {
@@ -881,18 +914,14 @@ where
             Some(v) => v,
             None => return Err(LuceneError::illegal_state("already taken?")),
           };
-          return Ok(Box::new(ConstantScoreScorer::from_tpi(
-            0.0,
-            self.score_mode,
-            tpi,
-          )));
+          return Ok(QueryWeightSsScorer::<IRC>::new(
+            ConstantScoreScorer::from_tpi(0.0, self.score_mode, tpi),
+          ));
         } else {
           let disi = scorer.take_iterator();
-          return Ok(Box::new(ConstantScoreScorer::from_disi(
-            0.0,
-            self.score_mode,
-            disi,
-          )));
+          return Ok(QueryWeightSsScorer::<IRC>::new(
+            ConstantScoreScorer::from_disi(0.0, self.score_mode, disi),
+          ));
         };
       }
     }
@@ -903,14 +932,17 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if let Some(bs) = self.boolean_scorer(context, searcher)? {
       return Ok(Some(bs));
     }
 
     // use a Scorer-based impl (BS2)
     match self.default_bulk_scorer(context, searcher).map(Some)? {
-      Some(v) => Ok(Some(Box::new(v))),
+      Some(v) => Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(v))),
       None => Ok(None),
     }
   }
@@ -919,7 +951,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if self.cost == -1 {
       self.cost = self.compute_cost(context, searcher)?;
     }
@@ -966,6 +1001,11 @@ impl<S> Scorable for FilterScorerImpl<S>
 where
   S: Scorer,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(0f32)
   }
@@ -1002,7 +1042,7 @@ where
   S: Scorer,
 {
   fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = { &self.inner };
+    let iterator = { &self.inner };
     crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_fixed_bit_set(
       iterator,
     )
@@ -1010,7 +1050,7 @@ where
   fn get_sparse_fixed_bit_set(
     &self,
   ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
-    let iterator: &dyn DocIdSetIterator = { &self.inner };
+    let iterator = { &self.inner };
     crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_sparse_fixed_bit_set(
       iterator,
     )
@@ -1018,7 +1058,7 @@ where
   fn get_doc_base_fixed_bit_set(
     &self,
   ) -> Option<(usize, &crate::core::util::fixed_bit_set::FixedBitSet)> {
-    let iterator: &dyn DocIdSetIterator = { &self.inner };
+    let iterator = { &self.inner };
     crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions::get_doc_base_fixed_bit_set(
       iterator,
     )
@@ -1045,35 +1085,46 @@ impl<S> Scorer for FilterScorerImpl<S>
 where
   S: Scorer,
 {
+  type Iterator = S::Iterator;
+  type OwnedTwoPhase = S::OwnedTwoPhase;
+  type ApproximationRef<'a>
+    = <S as Scorer>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <S as Scorer>::ApproximationMut<'a>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = S::TwoPhaseRef<'a>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = S::TwoPhaseMut<'a>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     (self.inner).scoring_doc_id()
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    (*self).into_iterator()
-  }
-
-  fn into_iterator(self) -> Box<dyn DocIdSetIterator> {
+  fn take_iterator(self) -> Self::Iterator {
     let FilterScorerImpl { inner: base } = self;
     base.into_iterator()
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     self.inner.two_phase_iterator()
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     self.inner.two_phase_iterator_mut()
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>>
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
   where
     Self: Sized,
   {
-    (*self).into_two_phase_iterator()
-  }
-
-  fn into_two_phase_iterator(self) -> Option<Box<dyn TwoPhaseIterator>> {
     let FilterScorerImpl { inner: base } = self;
     base.into_two_phase_iterator()
   }
@@ -1098,11 +1149,11 @@ where
     self.inner.has_two_phase_iterator()
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.inner.approximation()
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.inner.approximation_mut()
   }
 }
@@ -1112,7 +1163,7 @@ pub(crate) fn disable_scoring<BS>(scorer: BS) -> BulkScorerImpl<BS> {
 }
 
 pub struct BulkScorerImpl<BS> {
-  scorer: BS,
+  pub(crate) scorer: BS,
 }
 impl<BS> BulkScorerImpl<BS> {
   fn new(scorer: BS) -> Self {
@@ -1123,10 +1174,10 @@ impl<BS> BulkScorer for BulkScorerImpl<BS>
 where
   BS: BulkScorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -1167,11 +1218,16 @@ impl<LC> LeafCollector for LeafCollectorImpl<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     self.collector.set_scorer(&mut self.fake)
   }
 
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.collector.collect(doc, &mut self.fake)
   }
 }

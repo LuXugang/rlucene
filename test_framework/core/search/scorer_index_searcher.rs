@@ -52,7 +52,7 @@ pub(crate) struct ScorerIndexSearcherHook;
 
 impl<IRC> IndexSearcherBase<IRC> for ScorerIndexSearcherHook
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn search_leaf<W, C>(
     &self,
@@ -66,6 +66,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     // the default slices method does not create segment partitions, and we don't provide an
     // executor to this searcher in our codebase, so we should not run into this problem. This type

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -59,6 +60,11 @@ where
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     {
       let tpi = &mut self.disi.two_phase_iterator;
@@ -150,26 +156,45 @@ where
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
 {
+  type Iterator = Disi<IE, SS, N>;
+  type OwnedTwoPhase = TwoPhaseIteratorImpl<IE, SS, N>;
+  type ApproximationRef<'a>
+    = <TwoPhaseIteratorImpl<IE, SS, N> as TwoPhaseIterator>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <TwoPhaseIteratorImpl<IE, SS, N> as TwoPhaseIterator>::ApproximationMut<'a>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a TwoPhaseIteratorImpl<IE, SS, N>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut TwoPhaseIteratorImpl<IE, SS, N>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let PhraseScorer { disi, .. } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let PhraseScorer { disi, .. } = self;
+    disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     Some(&self.disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     Some(&mut self.disi.two_phase_iterator)
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    let PhraseScorer { disi, .. } = *self;
-    Some(Box::new(disi.two_phase_iterator))
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
+    let PhraseScorer { disi, .. } = self;
+    Some(disi.two_phase_iterator)
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -202,11 +227,11 @@ where
     TwoPhaseState::Yes
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.disi.two_phase_iterator.approximation()
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.disi.two_phase_iterator.approximation_mut()
   }
   #[cfg(test)]
@@ -258,11 +283,20 @@ where
   SS: SimScorer,
   N: NumericDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = crate::core::search::phrase_matcher::PhraseApproximationRef<'a, IE, SS>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = crate::core::search::phrase_matcher::PhraseApproximationMut<'a, IE, SS>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.matcher.approximation_mut()
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.matcher.approximation()
   }
 

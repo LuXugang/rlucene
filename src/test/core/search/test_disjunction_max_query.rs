@@ -982,3 +982,5 @@ fn tq_with_boost(field: &str, term: &str, boost: f32) -> Result<BoostQuery> {
   let q = tq(field, term);
   BoostQuery::new(q, boost)
 }
+
+use crate::core::search::weight::Weight;

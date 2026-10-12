@@ -857,3 +857,5 @@ impl AsRef<FrozenBufferedUpdates> for FrozenBufferedUpdates {
     self
   }
 }
+
+use crate::core::search::weight::Weight;

@@ -33,7 +33,7 @@ use crate::core::search::filtered_doc_id_set_iterator::{
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
 };
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_doc::ScoreDoc;
@@ -63,9 +63,18 @@ pub trait AbstractVectorSimilarityQuery: QueryBase {
 
   fn create_weight<IRC>(self, searcher: &IndexSearcher<IRC>, boost: f32) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Clone + Into<Query> + Send + Sync + Sized + 'static,
+    QueryWeight<IRC>: From<
+      Box<
+        AbstractVectorSimilarityQueryWeight<
+          Self,
+          IRC,
+          Arc<crate::core::index::query_timeout::QueryTimeoutEnum>,
+        >,
+      >,
+    >,
   {
     let filter_weight = match self.base().filter.as_ref() {
       Some(filter) => {
@@ -75,12 +84,15 @@ pub trait AbstractVectorSimilarityQuery: QueryBase {
       None => None,
     };
 
-    Ok(Box::new(AbstractVectorSimilarityQueryWeight::new(
-      self,
-      filter_weight,
-      searcher.get_timeout(),
-      boost,
-    )))
+    Ok(
+      Box::new(AbstractVectorSimilarityQueryWeight::new(
+        self,
+        filter_weight,
+        searcher.get_timeout(),
+        boost,
+      ))
+      .into(),
+    )
   }
 
   fn get_knn_collector_manager(&self) -> VectorSimilarityCollectorManager {
@@ -90,14 +102,10 @@ pub trait AbstractVectorSimilarityQuery: QueryBase {
     )
   }
 
-  type VectorScorer<LR>: VectorScorer
-  where
-    LR: LeafReader;
-
   fn create_vector_scorer<LR>(
     &self,
     context: &LeafReaderContext<LR>,
-  ) -> Result<Option<Self::VectorScorer<LR>>>
+  ) -> Result<Option<crate::core::search::vector_scorer::LeafVectorScorer<LR>>>
   where
     LR: LeafReader;
 
@@ -213,7 +221,7 @@ impl KnnCollectorManager for VectorSimilarityCollectorManager {
   }
 }
 
-struct AbstractVectorSimilarityQueryWeight<Q, IRC, QT> {
+pub struct AbstractVectorSimilarityQueryWeight<Q, IRC: IndexReaderContext + 'static, QT> {
   parent_query: Arc<Query>,
   query: Q,
   filter_weight: Option<QueryWeight<IRC>>,
@@ -225,9 +233,8 @@ struct AbstractVectorSimilarityQueryWeight<Q, IRC, QT> {
 impl<Q, IRC, QT> AbstractVectorSimilarityQueryWeight<Q, IRC, QT>
 where
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
-  Q::VectorScorer<<IRC as IndexReaderContext>::LeafReader>: 'static,
 {
   fn new(
     query: Q,
@@ -253,7 +260,7 @@ where
 impl<Q, IRC, QT> SegmentCacheable<IRC> for AbstractVectorSimilarityQueryWeight<Q, IRC, QT>
 where
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -264,16 +271,18 @@ where
 impl<Q, IRC, QT> Weight<IRC> for AbstractVectorSimilarityQueryWeight<Q, IRC, QT>
 where
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
-  Q::VectorScorer<<IRC as IndexReaderContext>::LeafReader>: 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if let Some(filter_weight) = &self.filter_weight {
       let mut filter_scorer = match filter_weight.scorer(context, searcher)? {
         Some(scorer) => scorer,
@@ -328,7 +337,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
     let live_docs = reader.get_live_docs()?;
     match &self.filter_weight {
@@ -341,7 +353,7 @@ where
         )?;
         Ok(
           VectorSimilarityScorerSupplier::from_score_docs(self.boost, results.score_docs)
-            .map(|supplier| Box::new(supplier) as QueryWeightSs<IRC>),
+            .map(|supplier| Box::new(supplier).into()),
         )
       },
       Some(filter_weight) => {
@@ -374,7 +386,7 @@ where
         {
           Ok(
             VectorSimilarityScorerSupplier::from_score_docs(self.boost, results.score_docs)
-              .map(|supplier| Box::new(supplier) as QueryWeightSs<IRC>),
+              .map(|supplier| Box::new(supplier).into()),
           )
         } else {
           let vector_scorer = self.query.create_vector_scorer(context)?;
@@ -385,7 +397,7 @@ where
               BitSetIterator::new(accept_docs, cardinality as i64)?,
               self.query.base().result_similarity,
             )?
-            .map(|supplier| Box::new(supplier) as QueryWeightSs<IRC>),
+            .map(|supplier| Box::new(supplier).into()),
           )
         }
       },
@@ -393,46 +405,58 @@ where
   }
 }
 
-struct VectorSimilarityScorerSupplier<I> {
+pub(crate) struct VectorSimilarityScorerSupplier<I> {
   iterator: Option<I>,
   fixed_cost: Option<i64>,
 }
 
 impl<IRC, I> ScorerSupplier<IRC> for VectorSimilarityScorerSupplier<I>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   I: DocIdSetIterator + CachedScoreHelper + 'static,
+  ScorerImpl<I>: crate::core::search::query_scorer::IntoQueryScorer<
+      crate::core::search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>,
+    >,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let iterator = self
       .iterator
       .take()
       .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get called more than once"))?;
-    Ok(Box::new(ScorerImpl::new(iterator)))
+    Ok(QueryWeightSsScorer::<IRC>::new(ScorerImpl::new(iterator)))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.get(i64::MAX, context, searcher)?;
-    Ok(Some(Box::new(DefaultBulkScorer::new(scorer))))
+    Ok(Some(DefaultBulkScorer::new(scorer)))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if let Some(cost) = self.fixed_cost {
       return Ok(cost);
     }
@@ -498,6 +522,11 @@ impl<I> Scorable for ScorerImpl<I>
 where
   I: DocIdSetIterator + CachedScoreHelper,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.iterator.cached_score())
   }
@@ -573,12 +602,31 @@ impl<I> Scorer for ScorerImpl<I>
 where
   I: DocIdSetIterator + CachedScoreHelper + 'static,
 {
+  type Iterator = I;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a I
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut I
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.iterator.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new(self.iterator)
+  fn take_iterator(self) -> Self::Iterator {
+    self.iterator
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -589,11 +637,11 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.iterator
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.iterator
   }
 }
@@ -661,7 +709,7 @@ pub trait CachedScoreHelper {
   fn cached_score(&self) -> f32;
 }
 
-struct FilteredDocIdSetIteratorImpl1<V, B> {
+pub(crate) struct FilteredDocIdSetIteratorImpl1<V, B> {
   boost: f32,
   threshold: f32,
   cached_score: f32,

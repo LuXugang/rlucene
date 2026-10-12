@@ -20,6 +20,11 @@ use crate::core::util::error::lucene_error::Result;
 pub struct DummyScorable;
 
 impl Scorable for DummyScorable {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     dummy_unreachable!()
   }
@@ -32,7 +37,7 @@ impl Scorable for DummyScorable {
     dummy_unreachable!()
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     dummy_unreachable!()
   }
 

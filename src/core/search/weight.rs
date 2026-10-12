@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -26,11 +29,8 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{
-  Query, QueryWeight, QueryWeightMatches, QueryWeightSsBulkScorer, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryWeight, QueryWeightMatches, QueryWeightSsScorer};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
@@ -77,7 +77,10 @@ where
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightMatches<'a>>> {
+  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer_supplier = self.scorer_supplier(context, searcher)?;
     let mut scorer_supplier = match scorer_supplier {
       None => return Ok(None),
@@ -85,7 +88,7 @@ where
     };
 
     let mut scorer = scorer_supplier.get(1, context, searcher)?;
-    if let Some(two_phase) = scorer.two_phase_iterator_mut() {
+    if let Some(mut two_phase) = scorer.two_phase_iterator_mut() {
       if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
         return Ok(None);
       }
@@ -105,7 +108,9 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation>;
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync;
 
   fn get_query(&self) -> Arc<Query>;
 
@@ -136,7 +141,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>> {
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut scorer_supplier = match self.scorer_supplier(context, searcher)? {
       None => return Ok(None),
       Some(s) => s,
@@ -175,7 +183,9 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>>;
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync;
   /// Helper method that delegates to [`Weight::scorer_supplier`].
   ///
   /// A bulk scorer for the same [`LeafReaderContext`] instance may be requested
@@ -184,7 +194,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>> {
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut scorer_supplier = match self.scorer_supplier(context, searcher)? {
       None => return Ok(None),
       Some(s) => s,
@@ -226,7 +239,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.default_count(context)
   }
   fn default_count(&self, _context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
@@ -237,7 +253,10 @@ where
     false
   }
 
-  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>>
+  where
+    IRC: 'static,
+  {
     None
   }
 
@@ -256,7 +275,10 @@ where
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightMatches<'a>>> {
+  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).matches(context, doc, searcher)
   }
 
@@ -265,7 +287,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).explain(context, doc, searcher)
   }
 
@@ -277,7 +302,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>> {
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).scorer(context, searcher)
   }
 
@@ -287,7 +315,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).scorer_supplier(context, searcher)
   }
 
@@ -295,7 +326,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>> {
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).bulk_scorer(context, searcher)
   }
 
@@ -303,7 +337,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     (**self).count(context, searcher)
   }
 
@@ -315,7 +352,10 @@ where
     (**self).is_cache_wrapper()
   }
 
-  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>>
+  where
+    IRC: 'static,
+  {
     (*self).into_inner_weight()
   }
 
@@ -327,7 +367,7 @@ where
 
 /// Just wraps a Scorer and performs top scoring using it.
 pub struct DefaultBulkScorer<S> {
-  scorer: S,
+  pub(crate) scorer: S,
 }
 impl<S> DefaultBulkScorer<S> {
   pub fn new(scorer: S) -> Self {
@@ -338,10 +378,10 @@ impl<S> BulkScorer for DefaultBulkScorer<S>
 where
   S: Scorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -386,7 +426,7 @@ where
   }
 }
 pub struct DefaultScorerSupplier<S> {
-  scorer: Option<S>,
+  pub(crate) scorer: Option<S>,
 }
 impl<S> DefaultScorerSupplier<S> {
   pub fn new(scorer: S) -> Self {
@@ -397,39 +437,56 @@ impl<S> DefaultScorerSupplier<S> {
 }
 impl<S, IRC> ScorerSupplier<IRC> for DefaultScorerSupplier<S>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
-  S: Scorer + 'static,
+  S: Scorer
+    + crate::core::search::query_scorer::IntoQueryScorer<
+      crate::core::search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>,
+    > + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = DefaultBulkScorer<S>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let v = self
       .scorer
       .take()
       .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get returned None"))?;
-    Ok(Box::new(v))
+    Ok(QueryWeightSsScorer::<IRC>::new(v))
   }
 
   fn bulk_scorer(
     &mut self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    // Select the concrete bulk scorer before document iteration.
+    let scorer = self
+      .scorer
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get returned None"))?;
+    Ok(Some(DefaultBulkScorer::new(scorer)))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self
       .scorer
       .as_mut()
@@ -439,9 +496,9 @@ where
 }
 /// Specialized method to bulk-score all hits;
 /// we separate this from scoreRange to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
-fn score_all<S>(
-  collector: &mut dyn LeafCollector,
-  accept_docs: Option<&dyn Bits>,
+fn score_all<S, CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
+  collector: &mut CLC,
+  accept_docs: Option<&AB>,
   scorer: &mut S,
   has_two_phase: bool,
 ) -> Result<()>
@@ -478,7 +535,7 @@ where
         let matches = {
           let tpi = scorer.two_phase_iterator_mut();
           match tpi {
-            Some(two_phase) => two_phase.matches()?,
+            Some(mut two_phase) => two_phase.matches()?,
             None => {
               return Err(LuceneError::illegal_state(
                 "TwoPhaseIterator should not None",
@@ -496,9 +553,9 @@ where
 }
 /// Specialized method to bulk-score a range of hits;
 /// we separate this from scoreAll to help out hotspot. See [`LUCENE-5487`](https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487)
-fn score_range<S>(
-  collector: &mut dyn LeafCollector,
-  accept_docs: Option<&dyn Bits>,
+fn score_range<S, CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
+  collector: &mut CLC,
+  accept_docs: Option<&AB>,
   mut min: i32,
   max: i32,
   scorer: &mut S,
@@ -522,7 +579,7 @@ where
     }
   }
   let mut doc = {
-    let iterator = scorer.approximation_mut();
+    let mut iterator = scorer.approximation_mut();
     let mut doc = iterator.doc_id();
     if doc < min {
       if doc == min - 1 {
@@ -549,7 +606,7 @@ where
   } else {
     while doc < max {
       // Reborrow a present iterator after collecting, but retain initial absence for the window.
-      if has_competitive && let Some(competitive_iterator) = collector.competitive_iterator()? {
+      if has_competitive && let Some(mut competitive_iterator) = collector.competitive_iterator()? {
         debug_assert!(competitive_iterator.doc_id() <= doc);
         let mut competitive_doc = competitive_iterator.doc_id();
         if competitive_doc < doc {
@@ -566,7 +623,7 @@ where
       };
       if is_accept {
         let matches = if has_two_phase {
-          let Some(two_phase) = scorer.two_phase_iterator_mut() else {
+          let Some(mut two_phase) = scorer.two_phase_iterator_mut() else {
             return Err(LuceneError::illegal_state(
               "scorer reported a two-phase iterator but did not provide one",
             ));

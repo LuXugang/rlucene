@@ -89,8 +89,8 @@ impl QueryBase for BlockScoreQueryWrapper {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query = (*self.query).clone();
@@ -98,13 +98,15 @@ impl QueryBase for BlockScoreQueryWrapper {
     if !score_mode.needs_scores() {
       return Ok(in_weight);
     }
-    Ok(Box::new(BlockScoreWeight::new(self, in_weight)))
+    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
+      Box::new(BlockScoreWeight::new(self, in_weight)),
+    ))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     match self.query.rewrite(searcher)? {
@@ -123,9 +125,9 @@ impl QueryBase for BlockScoreQueryWrapper {
   }
 }
 
-struct BlockScoreWeight<IRC>
+struct BlockScoreWeight<IRC: IndexReaderContext + 'static>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   query: Arc<Query>,
   in_weight: QueryWeight<IRC>,
@@ -133,7 +135,7 @@ where
 }
 impl<IRC> BlockScoreWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn new(query: BlockScoreQueryWrapper, in_weight: QueryWeight<IRC>) -> Self {
     Self {
@@ -146,7 +148,7 @@ where
 
 impl<IRC> SegmentCacheable<IRC> for BlockScoreWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     self.in_weight.is_cacheable(ctx)
@@ -155,14 +157,17 @@ where
 
 impl<IRC> Weight<IRC> for BlockScoreWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     self.in_weight.matches(context, doc, searcher)
   }
 
@@ -171,7 +176,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     self.in_weight.explain(context, doc, searcher)
   }
 
@@ -185,7 +193,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let in_scorer = self.in_weight.scorer(context, searcher)?;
     let Some(mut in_scorer) = in_scorer else {
       return Ok(None);
@@ -216,7 +227,12 @@ where
     tmp_docs.truncate(i);
     tmp_scores.truncate(i);
     let ss = BlockScoreScorer::new(tmp_docs, tmp_scores, self.block_length);
-    Ok(Some(Box::new(DefaultScorerSupplier::new(ss))))
+    Ok(Some(
+      DefaultScorerSupplier::new(
+        crate::core::search::query_scorer::BuiltinQueryScorer::for_test(ss),
+      )
+      .into(),
+    ))
   }
 }
 
@@ -258,6 +274,11 @@ impl BlockScoreScorer {
 }
 
 impl Scorable for BlockScoreScorer {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.scores[self.i.get()])
   }
@@ -270,13 +291,32 @@ impl Scorable for BlockScoreScorer {
 impl FixedScore for BlockScoreScorer {}
 
 impl Scorer for BlockScoreScorer {
+  type Iterator = BlockScoreOwnedIterator;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a Self
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut Self
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.docs[self.i.get()])
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let BlockScoreScorer { docs, i, .. } = *self;
-    Box::new(BlockScoreOwnedIterator { docs, i: i.get() })
+  fn take_iterator(self) -> Self::Iterator {
+    let BlockScoreScorer { docs, i, .. } = self;
+    BlockScoreOwnedIterator { docs, i: i.get() }
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -308,11 +348,11 @@ impl Scorer for BlockScoreScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 }

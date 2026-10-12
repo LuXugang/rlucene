@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::disjunction_matches_iterator::from_sub_iterators;
 use crate::core::search::matches::Matches;
 use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
+use crate::core::search::query_matches::FieldMatchesSupplier;
 use crate::core::util::error::lucene_error::Result;
 use std::cell::{OnceCell, RefCell};
 use std::sync::LazyLock;
@@ -27,11 +29,13 @@ pub struct MatchesUtils;
 pub static MATCH_WITH_NO_TERMS: LazyLock<MatchWithNoTerms> = LazyLock::new(|| MatchWithNoTerms);
 pub struct MatchWithNoTerms;
 impl Matches for MatchWithNoTerms {
-  fn get_matches(&self, _field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  type Iterator<'a> = crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator;
+  type SubMatches = Self;
+  fn get_matches(&self, _field: &str) -> Result<Option<Self::Iterator<'_>>> {
     Ok(None)
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+  fn get_sub_matches(&self) -> &[Self::SubMatches] {
     &[]
   }
 
@@ -40,12 +44,12 @@ impl Matches for MatchWithNoTerms {
   }
 }
 
-pub struct CombinedMatch<'a> {
-  sub: Vec<QueryWeightMatches<'a>>,
+pub struct CombinedMatch<'a, IRC: IndexReaderContext + 'static> {
+  sub: Vec<QueryWeightMatches<'a, IRC>>,
   fields: OnceCell<Vec<String>>,
 }
-impl<'a> CombinedMatch<'a> {
-  pub fn new(sub: Vec<QueryWeightMatches<'a>>) -> Self {
+impl<'a, IRC: IndexReaderContext + 'static> CombinedMatch<'a, IRC> {
+  pub fn new(sub: Vec<QueryWeightMatches<'a, IRC>>) -> Self {
     CombinedMatch {
       sub,
       fields: OnceCell::new(),
@@ -53,8 +57,16 @@ impl<'a> CombinedMatch<'a> {
   }
 }
 
-impl Matches for CombinedMatch<'_> {
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+impl<'a, IRC: IndexReaderContext + 'static> Matches for CombinedMatch<'a, IRC> {
+  type Iterator<'b>
+    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>>
+  where
+    Self: 'b;
+  type SubMatches = QueryWeightMatches<'a, IRC>;
+  fn get_matches(
+    &self,
+    field: &str,
+  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>>>> {
     let mut sub_iterators = Vec::with_capacity(self.sub.len());
     for matches in &self.sub {
       if let Some(iterator) = matches.get_matches(field)? {
@@ -64,7 +76,7 @@ impl Matches for CombinedMatch<'_> {
     from_sub_iterators(sub_iterators)
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC>] {
     &self.sub
   }
 
@@ -83,9 +95,9 @@ impl Matches for CombinedMatch<'_> {
   }
 }
 
-pub fn from_sub_matches<'a>(
-  mut sub_matches: Vec<QueryWeightMatches<'a>>,
-) -> Option<QueryWeightMatches<'a>> {
+pub fn from_sub_matches<'a, IRC: IndexReaderContext + 'static>(
+  mut sub_matches: Vec<QueryWeightMatches<'a, IRC>>,
+) -> Option<QueryWeightMatches<'a, IRC>> {
   if sub_matches.is_empty() {
     return None;
   }
@@ -105,33 +117,38 @@ pub fn from_sub_matches<'a>(
   if match_count == 1 {
     return Some(sub_matches.swap_remove(match_index));
   }
-  Some(QueryWeightMatches::Matches(Box::new(CombinedMatch::new(
+  Some(QueryWeightMatches::Combined(Box::new(CombinedMatch::new(
     sub_matches,
   ))))
 }
 
-pub struct FieldMatches<'a, F> {
+pub struct FieldMatches<'a, IRC: IndexReaderContext + 'static> {
   field: FieldName<'a>,
-  supplier: F,
-  cached: RefCell<Option<QueryWeightMatchesIterator<'a>>>,
+  supplier: FieldMatchesSupplier<'a, IRC>,
+  cached: RefCell<Option<QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>,
 }
 
-impl<'a, F> Matches for FieldMatches<'a, F>
-where
-  F: Fn() -> Result<Option<QueryWeightMatchesIterator<'a>>>,
-{
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+impl<'a, IRC: IndexReaderContext + 'static> Matches for FieldMatches<'a, IRC> {
+  type Iterator<'b>
+    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>>
+  where
+    Self: 'b;
+  type SubMatches = QueryWeightMatches<'a, IRC>;
+  fn get_matches(
+    &self,
+    field: &str,
+  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>>>> {
     if field != self.field.as_ref().as_str() {
       return Ok(None);
     }
     if let Some(iterator) = self.cached.borrow_mut().take() {
       Ok(Some(iterator))
     } else {
-      (self.supplier)()
+      self.supplier.get()
     }
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC>] {
     &[]
   }
 
@@ -166,17 +183,19 @@ impl From<String> for FieldName<'_> {
   }
 }
 
-pub fn for_field<'a, F, FName>(field: FName, supplier: F) -> Result<Option<QueryWeightMatches<'a>>>
+pub fn for_field<'a, IRC: IndexReaderContext + 'static, FName>(
+  field: FName,
+  supplier: FieldMatchesSupplier<'a, IRC>,
+) -> Result<Option<QueryWeightMatches<'a, IRC>>>
 where
-  F: Fn() -> Result<Option<QueryWeightMatchesIterator<'a>>> + 'a,
   FName: Into<FieldName<'a>>,
 {
   let field = field.into();
-  let first = supplier()?;
+  let first = supplier.get()?;
   let Some(first) = first else {
     return Ok(None);
   };
-  Ok(Some(QueryWeightMatches::Matches(Box::new(FieldMatches {
+  Ok(Some(QueryWeightMatches::Field(Box::new(FieldMatches {
     field,
     supplier,
     cached: RefCell::new(Some(first)),

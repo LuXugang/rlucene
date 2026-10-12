@@ -61,7 +61,10 @@ where
     _context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     dummy_unreachable!()
   }
 
@@ -70,7 +73,10 @@ where
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     dummy_unreachable!()
   }
 
@@ -82,7 +88,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>> {
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     dummy_unreachable!()
   }
 
@@ -92,7 +101,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     dummy_unreachable!()
   }
 
@@ -100,7 +112,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>> {
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     dummy_unreachable!()
   }
 
@@ -108,7 +123,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     dummy_unreachable!()
   }
 

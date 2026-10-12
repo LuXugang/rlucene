@@ -32,9 +32,7 @@ use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -138,20 +136,25 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(SortedSetDocValuesRangeQueryWeight::new(
-      self,
-      boost,
-      *score_mode,
-    )))
+    Ok(
+      Box::new(SortedSetDocValuesRangeQueryWeight::new(
+        self,
+        boost,
+        *score_mode,
+      ))
+      .into(),
+    )
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     if self.lower_value.is_none() && self.upper_value.is_none() {
       return Ok(Some(FieldExistsQuery::new(&self.field).into()));
@@ -196,7 +199,7 @@ impl SortedSetDocValuesRangeQueryWeight {
 
 impl<IRC> SegmentCacheable<IRC> for SortedSetDocValuesRangeQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field = [self.query.field.as_str()];
@@ -206,14 +209,17 @@ where
 
 impl<IRC> Weight<IRC> for SortedSetDocValuesRangeQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -224,13 +230,16 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = ScorerSupplierImpl3<SortedSet<IRCLeafReader<IRC>>>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if context
       .reader()
       .get_field_infos()?
@@ -241,12 +250,12 @@ where
     }
 
     let values = DocValues::get_sorted_set(context.reader(), &self.query.field)?;
-    Ok(Some(Box::new(ScorerSupplierImpl3::new(
+    Ok(Some(ScorerSupplierImpl3::new(
       self.query.clone(),
       values,
       self.base.score(),
       self.score_mode,
-    )?)))
+    )?))
   }
 }
 fn get_doc_id_set_iterator_or_null_for_primary_sort<LR, SDV, SK>(
@@ -376,17 +385,20 @@ where
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl3<SortedSet<IRCLeafReader<IRC>>>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;
     let mut values = match self.values.take() {
       Some(v) => v,
@@ -423,14 +435,14 @@ where
     // no terms matched
     if min_ord > max_ord {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-      return Ok(Box::new(v));
+      return Ok(QueryWeightSsScorer::<IRC>::new(v));
     }
 
     if let Some(ref skipper) = skipper_opt
       && (min_ord > skipper.max_value() || max_ord < skipper.min_value())
     {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-      return Ok(Box::new(v));
+      return Ok(QueryWeightSsScorer::<IRC>::new(v));
     }
 
     if let Some(ref skipper) = skipper_opt
@@ -443,7 +455,7 @@ where
         self.score_mode,
         AllDISI::new(skipper.doc_count()),
       );
-      return Ok(Box::new(v));
+      return Ok(QueryWeightSsScorer::<IRC>::new(v));
     }
     let iterator = if values.is_single_valued() {
       let mut singleton = DocValues::unwrap_singleton_sorted(&mut values)?;
@@ -460,7 +472,7 @@ where
           match ps_iterator_opt {
             Some(ps_iterator) => {
               let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, ps_iterator);
-              return Ok(Box::new(v));
+              return Ok(QueryWeightSsScorer::<IRC>::new(v));
             },
             None => TwoPhaseIteratorEnum2::A(TwoPhaseIterator5::new(singleton, min_ord, max_ord)),
           }
@@ -474,11 +486,11 @@ where
       Some(skipper) => {
         let v = DocValuesRangeIterator::new(iterator, skipper, min_ord, max_ord, false);
         let scorer = ConstantScoreScorer::from_tpi(self.score, self.score_mode, v);
-        Ok(Box::new(scorer))
+        Ok(QueryWeightSsScorer::<IRC>::new(scorer))
       },
       None => {
         let scorer = ConstantScoreScorer::from_tpi(self.score, self.score_mode, iterator);
-        Ok(Box::new(scorer))
+        Ok(QueryWeightSsScorer::<IRC>::new(scorer))
       },
     }
   }
@@ -487,15 +499,21 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }
@@ -519,11 +537,20 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator5<S>
 where
   S: SortedDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.singleton
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.singleton
   }
 
@@ -556,11 +583,20 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator6<S>
 where
   S: SortedSetDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 

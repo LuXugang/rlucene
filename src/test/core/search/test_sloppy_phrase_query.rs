@@ -339,6 +339,7 @@ impl Collector for MaxFreqCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -350,7 +351,12 @@ impl Collector for MaxFreqCollector {
 }
 
 impl LeafCollector for MaxFreqCollector {
-  fn collect(&mut self, _doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, scorer: &mut SC) -> Result<()> {
     self.total_hits += 1;
     let ps = scorer
       .as_any()
@@ -417,6 +423,7 @@ impl Collector for SaneScoringCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -428,7 +435,12 @@ impl Collector for SaneScoringCollector {
 }
 
 impl LeafCollector for SaneScoringCollector {
-  fn collect(&mut self, _doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, scorer: &mut SC) -> Result<()> {
     assert!(!scorer.score()?.is_infinite());
     Ok(())
   }

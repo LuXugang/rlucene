@@ -56,17 +56,14 @@ impl Predicate<(i32, &TopParentMeta)> for RandomSegmentSkippingPredicate {
   }
 }
 
-pub struct CachingSearcherFactory<P> {
-  query_cache: Arc<LRUQueryCache<P>>,
+pub struct CachingSearcherFactory {
+  query_cache: Arc<LRUQueryCache>,
   query_caching_policy: Arc<QueryCachingPolicyEnum>,
 }
 
-impl<P> CachingSearcherFactory<P>
-where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-{
+impl CachingSearcherFactory {
   pub fn new(
-    query_cache: Arc<LRUQueryCache<P>>,
+    query_cache: Arc<LRUQueryCache>,
     query_caching_policy: Arc<QueryCachingPolicyEnum>,
   ) -> Self {
     Self {
@@ -76,12 +73,11 @@ where
   }
 }
 
-impl<IR, P> SearcherFactoryBase<IR> for CachingSearcherFactory<P>
+impl<IR> SearcherFactoryBase<IR> for CachingSearcherFactory
 where
   IR: IndexReader + 'static,
   IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
   IndexReaderContextType<Arc<IR>>: Sync + 'static,
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
 {
   fn new_searcher(
     &self,
@@ -144,11 +140,8 @@ impl FineGrainedStatsLRUQueryCache {
   }
 }
 
-impl<P> LRUQueryCacheBase<P> for FineGrainedStatsLRUQueryCache
-where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-{
-  fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+impl LRUQueryCacheBase for FineGrainedStatsLRUQueryCache {
+  fn on_hit(&self, cache: &LRUQueryCache, reader_core_key: &CacheKey, query: &Query) {
     LRUQueryCacheDefaults::on_hit(cache, reader_core_key, query);
     match self.index_id.get(reader_core_key) {
       Some(1) => {
@@ -161,7 +154,7 @@ where
     }
   }
 
-  fn on_miss(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
+  fn on_miss(&self, cache: &LRUQueryCache, reader_core_key: &CacheKey, query: &Query) {
     LRUQueryCacheDefaults::on_miss(cache, reader_core_key, query);
     match self.index_id.get(reader_core_key) {
       Some(1) => {
@@ -176,7 +169,7 @@ where
 
   fn on_query_cache(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     query: &Query,
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<'_, Inner>,
@@ -189,7 +182,7 @@ where
 
   fn on_query_eviction(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     query: &Query,
     ram_bytes_used: i64,
     guard: &RwLockWriteGuard<'_, Inner>,
@@ -202,7 +195,7 @@ where
 
   fn on_doc_id_set_cache(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     reader_core_key: &CacheKey,
     ram_bytes_used: i64,
   ) {
@@ -215,7 +208,7 @@ where
 
   fn on_doc_id_set_eviction(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     reader_core_key: &CacheKey,
     num_entries: i64,
     sum_ram_bytes_used: i64,
@@ -232,7 +225,7 @@ where
     self.cache_size.fetch_sub(num_entries, Ordering::SeqCst);
   }
 
-  fn on_clear(&self, cache: &LRUQueryCache<P>, guard: &RwLockWriteGuard<'_, Inner>) {
+  fn on_clear(&self, cache: &LRUQueryCache, guard: &RwLockWriteGuard<'_, Inner>) {
     LRUQueryCacheDefaults::on_clear(cache, guard);
     self.ram_bytes_usage.store(0, Ordering::SeqCst);
     self.cache_size.store(0, Ordering::SeqCst);
@@ -242,13 +235,10 @@ where
 #[derive(Clone, Default)]
 pub struct EvictEmptySegmentCacheLRUQueryCache;
 
-impl<P> LRUQueryCacheBase<P> for EvictEmptySegmentCacheLRUQueryCache
-where
-  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
-{
+impl LRUQueryCacheBase for EvictEmptySegmentCacheLRUQueryCache {
   fn on_doc_id_set_eviction(
     &self,
-    cache: &LRUQueryCache<P>,
+    cache: &LRUQueryCache,
     reader_core_key: &CacheKey,
     num_entries: i64,
     sum_ram_bytes_used: i64,

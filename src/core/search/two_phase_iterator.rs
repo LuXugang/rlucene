@@ -19,12 +19,18 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::util::error::lucene_error::Result;
 
 pub trait TwoPhaseIterator {
+  type ApproximationRef<'a>: DocIdSetIterator
+  where
+    Self: 'a;
+  type ApproximationMut<'a>: DocIdSetIterator
+  where
+    Self: 'a;
   /// Return the approximation [`DocIdSetIterator`].
   ///
   /// The returned iterator must advance synchronously with this
   /// [`TwoPhaseIterator`].
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator;
-  fn approximation(&self) -> &dyn DocIdSetIterator;
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_>;
+  fn approximation(&self) -> Self::ApproximationRef<'_>;
 
   /// Return whether the current doc ID that `approximation()` is on matches.
   ///
@@ -48,13 +54,22 @@ pub struct EmptyTPI {
   approximation: EmptyDISI,
 }
 impl TwoPhaseIterator for EmptyTPI {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a EmptyDISI
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut EmptyDISI
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     // Preserve the fresh empty cursor returned by this placeholder on every access.
     self.approximation = EmptyDISI::new();
     &mut self.approximation
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     static EMPTY: std::sync::LazyLock<EmptyDISI> = std::sync::LazyLock::new(EmptyDISI::new);
     &*EMPTY
   }
@@ -72,13 +87,22 @@ impl<T> TwoPhaseIterator for &mut T
 where
   T: TwoPhaseIterator + ?Sized,
 {
+  type ApproximationRef<'a>
+    = <T as TwoPhaseIterator>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <T as TwoPhaseIterator>::ApproximationMut<'a>
+  where
+    Self: 'a;
+
   #[inline]
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     (**self).approximation_mut()
   }
 
   #[inline]
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     (**self).approximation()
   }
 
@@ -97,13 +121,22 @@ impl<T> TwoPhaseIterator for Box<T>
 where
   T: TwoPhaseIterator + ?Sized,
 {
+  type ApproximationRef<'a>
+    = <T as TwoPhaseIterator>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <T as TwoPhaseIterator>::ApproximationMut<'a>
+  where
+    Self: 'a;
+
   #[inline]
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     (**self).approximation_mut()
   }
 
   #[inline]
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     (**self).approximation()
   }
 
@@ -198,7 +231,7 @@ where
 
 macro_rules! either_two_phase_iterator_gat {
     (
-        $vis:vis $name:ident
+        $vis:vis $name:ident, $iter:ident
         { $( $Variant:ident : $T:ident ),+ $(,)? }
     ) => {
         $vis enum $name<$( $T ),+> {
@@ -209,17 +242,20 @@ macro_rules! either_two_phase_iterator_gat {
         where
             $( $T: TwoPhaseIterator ),+
         {
+            type ApproximationRef<'a> = crate::core::search::doc_id_set_iterator::$iter<$( $T::ApproximationRef<'a> ),+> where Self: 'a;
+            type ApproximationMut<'a> = crate::core::search::doc_id_set_iterator::$iter<$( $T::ApproximationMut<'a> ),+> where Self: 'a;
+
             #[inline]
-            fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+            fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
                 match self {
-                    $( Self::$Variant(inner) => inner.approximation_mut(), )+
+                    $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::$iter::$Variant(inner.approximation_mut()), )+
                 }
             }
 
             #[inline]
-            fn approximation(&self) -> &dyn DocIdSetIterator {
+            fn approximation(&self) -> Self::ApproximationRef<'_> {
                 match self {
-                    $( Self::$Variant(inner) => inner.approximation(), )+
+                    $( Self::$Variant(inner) => crate::core::search::doc_id_set_iterator::$iter::$Variant(inner.approximation()), )+
                 }
             }
 
@@ -240,6 +276,35 @@ macro_rules! either_two_phase_iterator_gat {
     };
 }
 either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum2
+    pub TwoPhaseIteratorEnum2, DocIdSetIteratorEnum2
     { A: A, B: B}
 );
+
+either_two_phase_iterator_gat!(pub TwoPhaseIteratorEnum3, DocIdSetIteratorEnum3 { A: A, B: B, C: C });
+either_two_phase_iterator_gat!(pub TwoPhaseIteratorEnum4, DocIdSetIteratorEnum4 { A: A, B: B, C: C, D: D });
+impl<T: TwoPhaseIterator + ?Sized> TwoPhaseIterator for &T {
+  type ApproximationRef<'a>
+    = T::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = T::ApproximationRef<'a>
+  where
+    Self: 'a;
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
+    (**self).approximation()
+  }
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
+    (**self).approximation()
+  }
+  fn matches(&mut self) -> Result<bool> {
+    Err(
+      crate::core::util::error::lucene_error::LuceneError::unsupported_operation(
+        "immutable two-phase view",
+      ),
+    )
+  }
+  fn match_cost(&self) -> f32 {
+    (**self).match_cost()
+  }
+}

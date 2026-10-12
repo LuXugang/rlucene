@@ -451,6 +451,7 @@ impl LatLonPoint {
   ) -> Result<TopFieldDocs>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     GeoUtils::check_latitude(latitude)?;
     GeoUtils::check_longitude(longitude)?;

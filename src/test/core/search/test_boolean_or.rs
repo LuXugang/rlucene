@@ -264,7 +264,12 @@ fn test_boolean_scorer_max() -> Result<()> {
     let inc = TestUtil::next_int(&mut random, 1, 1000);
     let max = min + inc;
     c.end = max;
-    scorer.score(&mut c, None::<&dyn Bits>, min, max)?;
+    scorer.score(
+      &mut c,
+      None::<&crate::core::util::bits::MatchAllBits>,
+      min,
+      max,
+    )?;
   }
 
   assert_eq!(expected_hits, hits.cardinality());
@@ -306,6 +311,7 @@ impl Collector for SimpleCollectorImpl<'_> {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -317,7 +323,12 @@ impl Collector for SimpleCollectorImpl<'_> {
 }
 
 impl LeafCollector for SimpleCollectorImpl<'_> {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     assert!(doc < self.end);
     self.hits.set(doc as usize)?;
     Ok(())
@@ -349,7 +360,12 @@ fn test_sub_scorer_next_is_not_match() -> Result<()> {
   let matches = Vec::with_capacity(7);
   let mut collector = LeafCollectorImpl::new(matches);
 
-  bs.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
+  bs.score(
+    &mut collector,
+    None::<&crate::core::util::bits::MatchAllBits>,
+    0,
+    NO_MORE_DOCS,
+  )?;
 
   let expected = [4000, 5000, 100000, 1000001, 1000051, 9_999_998, 9_999_999];
   assert_eq!(collector.matches, expected);
@@ -373,7 +389,12 @@ impl Display for LeafCollectorImpl {
 }
 
 impl LeafCollector for LeafCollectorImpl {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.matches.push(doc);
     Ok(())
   }
@@ -389,6 +410,11 @@ impl ScorerImpl {
 }
 
 impl Scorable for ScorerImpl {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(0.0)
   }
@@ -453,13 +479,32 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerIm
   }
 }
 impl Scorer for ScorerImpl {
+  type Iterator = IntArrayDocIdSetIterator;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a IntArrayDocIdSetIterator
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut IntArrayDocIdSetIterator
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.it.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let ScorerImpl { it } = *self;
-    Box::new(it)
+  fn take_iterator(self) -> Self::Iterator {
+    let ScorerImpl { it } = self;
+    it
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -470,11 +515,11 @@ impl Scorer for ScorerImpl {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.it
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.it
   }
 }

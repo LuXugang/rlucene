@@ -30,10 +30,9 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -159,14 +158,11 @@ impl QueryBase for LatLonDocValuesQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(LatLonDocValuesQueryWeight::new(
-      self,
-      *score_mode,
-      boost,
-    )?))
+    Ok(Box::new(LatLonDocValuesQueryWeight::new(self, *score_mode, boost)?).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -216,7 +212,7 @@ impl LatLonDocValuesQueryWeight {
 
 impl<IRC> SegmentCacheable<IRC> for LatLonDocValuesQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field = [self.query.field.as_str()];
@@ -226,14 +222,17 @@ where
 
 impl<IRC> Weight<IRC> for LatLonDocValuesQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -244,13 +243,24 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ConstantScoreScorer<
+      crate::core::search::dummy::dummy_disi::DummyDISI,
+      LatLonDocValuesTwoPhaseIterator<
+        <IRCLeafReader<IRC> as LeafReader>::SortedNumericDocValues,
+        Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>,
+      >,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let component2d_predicate = self.component2d_predicate.clone();
     match context
       .reader()
@@ -284,7 +294,7 @@ where
           )?),
         };
         let scorer = ConstantScoreScorer::from_tpi(self.boost, self.score_mode, iterator);
-        Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+        Ok(Some(DefaultScorerSupplier::new(scorer)))
       },
       None => Ok(None),
     }
@@ -308,11 +318,20 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 
@@ -350,10 +369,19 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
   fn matches(&mut self) -> Result<bool> {
@@ -390,10 +418,19 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 
@@ -419,7 +456,7 @@ pub struct ContainsTPI<S> {
   component2ds: Vec<LatLonGeometryType<<LatLonGeometryEnum as Geometry>::Component2D>>,
 }
 
-enum LatLonDocValuesTwoPhaseIterator<S, C> {
+pub enum LatLonDocValuesTwoPhaseIterator<S, C> {
   Intersects(IntersectsTPI<S, C>),
   Within(WithinTPI<S, C>),
   Disjoint(DisjointTPI<S, C>),
@@ -431,7 +468,16 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     match self {
       Self::Intersects(iterator) => iterator.approximation_mut(),
       Self::Within(iterator) => iterator.approximation_mut(),
@@ -440,7 +486,7 @@ where
     }
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     match self {
       Self::Intersects(iterator) => iterator.approximation(),
       Self::Within(iterator) => iterator.approximation(),
@@ -484,10 +530,19 @@ impl<S> TwoPhaseIterator for ContainsTPI<S>
 where
   S: SortedNumericDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 

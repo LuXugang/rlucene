@@ -18,6 +18,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Allows access to the score of a query.
 pub trait Scorable: FixedScore {
+  type Child<'a>: Scorable
+  where
+    Self: 'a;
   /// Returns the score of the current document matching the query.
   ///
   /// # Errors
@@ -58,7 +61,7 @@ pub trait Scorable: FixedScore {
   ///
   /// Children borrow their existing scorers. This may advance child iterators
   /// to resolve all matches before returning them.
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     Ok(vec![])
   }
 
@@ -124,6 +127,11 @@ impl<T> Scorable for &mut T
 where
   T: Scorable + ?Sized,
 {
+  type Child<'a>
+    = T::Child<'a>
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     (**self).score()
   }
@@ -136,7 +144,7 @@ where
     (**self).set_min_competitive_score(min_score)
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     (**self).get_children()
   }
 
@@ -167,6 +175,8 @@ macro_rules! either_scorable {
         where
             $( $T: Scorable ),+
         {
+  type Child<'a> = $name<$( $T::Child<'a> ),+> where Self: 'a;
+
             fn score(&mut self) -> Result<f32> {
                 match self { $( Self::$Variant(inner) => inner.score(), )+ }
             }
@@ -179,9 +189,9 @@ macro_rules! either_scorable {
                 match self { $( Self::$Variant(inner) => inner.set_min_competitive_score(min_score), )+ }
             }
 
-            fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+            fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
                 match self {
-                    $( Self::$Variant(inner) => inner.get_children(), )+
+                    $( Self::$Variant(inner) => inner.get_children().map(|children| children.into_iter().map(|child| ChildScorable { child: $name::$Variant(child.child), relationship: child.relationship }).collect()), )+
                 }
             }
 
@@ -207,3 +217,6 @@ macro_rules! either_scorable {
 either_scorable!(
     pub ScorableEnum2 { A: A, B: B }
 );
+
+either_scorable!(pub ScorableEnum3 { A: A, B: B, C: C });
+either_scorable!(pub ScorableEnum4 { A: A, B: B, C: C, D: D });

@@ -519,11 +519,11 @@ fn req_opt_scorer<IRC, Q>(
   req_q: Q,
   opt_q: Q,
   with_block_score: bool,
-) -> Result<ReqOptSumScorer<QueryWeightSsScorer, QueryWeightSsScorer>>
+) -> Result<ReqOptSumScorer<QueryWeightSsScorer<IRC>, QueryWeightSsScorer<IRC>>>
 where
   Q: Into<Query>,
-  IRC: IndexReaderContext,
-  IndexSearcher<IRC>: Sync,
+  IRC: IndexReaderContext + 'static,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let req_q = req_q.into();
   let opt_q = opt_q.into();
@@ -608,3 +608,7 @@ impl AttributeSource for TermFreqTokenStream {
     self.attr.clear_attributes()
   }
 }
+
+use crate::core::search::weight::Weight;
+
+use crate::core::search::scorer_supplier::ScorerSupplier;

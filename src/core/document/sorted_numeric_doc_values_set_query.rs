@@ -24,11 +24,10 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -99,20 +98,25 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(SortedNumericDocValuesSetQueryWeight::new(
-      self,
-      *score_mode,
-      boost,
-    )))
+    Ok(
+      Box::new(SortedNumericDocValuesSetQueryWeight::new(
+        self,
+        *score_mode,
+        boost,
+      ))
+      .into(),
+    )
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     if self.numbers.size() == 0 {
       return Ok(Some(MatchNoDocsQuery::new().into()));
@@ -169,7 +173,7 @@ impl SortedNumericDocValuesSetQueryWeight {
 
 impl<IRC> SegmentCacheable<IRC> for SortedNumericDocValuesSetQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field = [self.query.field.as_str()];
@@ -179,14 +183,17 @@ where
 
 impl<IRC> Weight<IRC> for SortedNumericDocValuesSetQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -197,13 +204,22 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<ConstantScoreScorer<
+    crate::core::search::dummy::dummy_disi::DummyDISI,
+    TwoPhaseIteratorEnum2<
+      TwoPhaseIterator1<<crate::core::index::doc_values::SortedNumeric<IRCLeafReader<IRC>> as SortedNumericDocValues>::NumericDocValues>,
+      TwoPhaseIterator2<crate::core::index::doc_values::SortedNumeric<IRCLeafReader<IRC>>>,
+    >,
+  >>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if context
       .reader()
       .get_field_infos()?
@@ -223,7 +239,7 @@ where
       TwoPhaseIteratorEnum2::B(TwoPhaseIterator2::new(values, self.query.numbers.clone()))
     };
     let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
-    Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+    Ok(Some(DefaultScorerSupplier::new(scorer)))
   }
 }
 
@@ -232,7 +248,7 @@ pub struct TwoPhaseIterator1<N> {
   numbers: Arc<DocValuesLongHashSet>,
 }
 impl<N> TwoPhaseIterator1<N> {
-  pub fn new(singleton: N, numbers: Arc<DocValuesLongHashSet>) -> Self {
+  pub(crate) fn new(singleton: N, numbers: Arc<DocValuesLongHashSet>) -> Self {
     TwoPhaseIterator1 { singleton, numbers }
   }
 }
@@ -240,11 +256,20 @@ impl<N> TwoPhaseIterator for TwoPhaseIterator1<N>
 where
   N: NumericDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a N
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut N
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.singleton
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.singleton
   }
 
@@ -264,7 +289,7 @@ pub struct TwoPhaseIterator2<S> {
 }
 
 impl<S> TwoPhaseIterator2<S> {
-  pub fn new(value: S, numbers: Arc<DocValuesLongHashSet>) -> Self {
+  pub(crate) fn new(value: S, numbers: Arc<DocValuesLongHashSet>) -> Self {
     TwoPhaseIterator2 { value, numbers }
   }
 }
@@ -273,11 +298,20 @@ impl<S> TwoPhaseIterator for TwoPhaseIterator2<S>
 where
   S: SortedNumericDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.value
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.value
   }
 

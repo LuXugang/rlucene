@@ -311,9 +311,12 @@ pub(crate) struct ShardIndexSearcherHook {
 
 impl<IRC> IndexSearcherBase<IRC> for ShardIndexSearcherHook
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  fn rewrite(&self, _searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
+  fn rewrite(&self, _searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let local_searcher = IndexSearcher::new(self.local_reader.clone().get_context()?)?;
     let original = local_searcher.rewrite(original)?;
     let mut terms = HashSet::new();

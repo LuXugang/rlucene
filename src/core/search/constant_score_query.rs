@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -21,7 +22,6 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::filter_scorable::FilterScorable;
@@ -110,7 +110,7 @@ impl QueryBase for ConstantScoreQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -122,11 +122,14 @@ impl QueryBase for ConstantScoreQuery {
     let query = *self.query;
     let inner_weight = searcher.create_weight(query, inner_score_mode, 1.0)?;
     if score_mode.needs_scores() {
-      Ok(Box::new(ConstantScoreQueryWeight::new(
-        boost,
-        inner_weight,
-        *score_mode,
-      )))
+      Ok(
+        Box::new(ConstantScoreQueryWeight::new(
+          boost,
+          inner_weight,
+          *score_mode,
+        ))
+        .into(),
+      )
     } else {
       Ok(inner_weight)
     }
@@ -134,7 +137,7 @@ impl QueryBase for ConstantScoreQuery {
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
     let query = self.get_query();
@@ -199,14 +202,14 @@ impl QueryBase for ConstantScoreQuery {
   }
 }
 
-pub struct ConstantScoreQueryWeight<IRC> {
+pub struct ConstantScoreQueryWeight<IRC: IndexReaderContext + 'static> {
   base: ConstantScoreWeight,
   inner_weight: QueryWeight<IRC>,
   score_mode: ScoreMode,
 }
 impl<IRC> ConstantScoreQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub fn new(boost: f32, inner_weight: QueryWeight<IRC>, score_mode: ScoreMode) -> Self {
     Self {
@@ -218,7 +221,7 @@ where
 }
 impl<IRC> SegmentCacheable<IRC> for ConstantScoreQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     self.inner_weight.is_cacheable(ctx)
@@ -227,14 +230,17 @@ where
 
 impl<IRC> Weight<IRC> for ConstantScoreQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.inner_weight.matches(context, doc, searcher)
   }
 
@@ -243,7 +249,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -254,19 +263,22 @@ where
     self.inner_weight.get_query()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = ScorerSupplierImpl<IRC>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     match self.inner_weight.scorer_supplier(context, searcher)? {
-      Some(inner_scorer_supplier) => Ok(Some(Box::new(ScorerSupplierImpl::new(
+      Some(inner_scorer_supplier) => Ok(Some(ScorerSupplierImpl::new(
         self.score_mode,
         inner_scorer_supplier,
         self.base.score(),
-      )))),
+      ))),
       None => Ok(None),
     }
   }
@@ -275,18 +287,21 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.inner_weight.count(context, searcher)
   }
 }
-pub struct ScorerSupplierImpl<IRC> {
+pub struct ScorerSupplierImpl<IRC: IndexReaderContext + 'static> {
   score_mode: ScoreMode,
   inner_scorer_supplier: QueryWeightSs<IRC>,
   score: f32,
 }
 impl<IRC> ScorerSupplierImpl<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn new(score_mode: ScoreMode, inner_scorer_supplier: QueryWeightSs<IRC>, score: f32) -> Self {
     Self {
@@ -298,17 +313,23 @@ where
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::bulk_scorer::BulkScorerEnum2<
+    crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>,
+    ConstantBulkScorer<QueryWeightSsBulkScorer<IRC>>,
+  >;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let inner_scorer = self
       .inner_scorer_supplier
       .get(lead_cost, context, searcher)?;
@@ -318,12 +339,12 @@ where
           .take_two_phase_iterator()
           .ok_or_else(|| LuceneError::illegal_state("no tpi?"))?;
         let v = ConstantScoreScorer::from_tpi(self.score, self.score_mode, tpi);
-        Ok(Box::new(v))
+        Ok(QueryWeightSsScorer::<IRC>::new(v))
       },
       TwoPhaseState::No => {
         let disi = inner_scorer.take_iterator();
         let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
-        Ok(Box::new(v))
+        Ok(QueryWeightSsScorer::<IRC>::new(v))
       },
     }
   }
@@ -332,15 +353,22 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     if !self.score_mode.is_exhaustive() {
       let v = self.default_bulk_scorer(context, searcher)?;
-      return Ok(Some(Box::new(v)));
+      return Ok(Some(crate::core::search::bulk_scorer::BulkScorerEnum2::A(
+        v,
+      )));
     }
     match self.inner_scorer_supplier.bulk_scorer(context, searcher)? {
       Some(v) => {
         let v = ConstantBulkScorer::new(v, self.score);
-        Ok(Some(Box::new(v)))
+        Ok(Some(crate::core::search::bulk_scorer::BulkScorerEnum2::B(
+          v,
+        )))
       },
       None => Ok(None),
     }
@@ -350,14 +378,17 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.inner_scorer_supplier.cost(context, searcher)
   }
 }
 /// We return this as our BulkScorer so that if the CSQ wraps a query with its own optimized top-level scorer (e.g. BooleanScorer) we can use that top-level scorer.
 pub struct ConstantBulkScorer<BS> {
-  bulk_scorer: BS,
-  the_score: f32,
+  pub(crate) bulk_scorer: BS,
+  pub(crate) the_score: f32,
 }
 impl<BS> ConstantBulkScorer<BS> {
   pub fn new(bulk_scorer: BS, the_score: f32) -> Self {
@@ -377,10 +408,10 @@ impl<BS> BulkScorer for ConstantBulkScorer<BS>
 where
   BS: BulkScorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -399,7 +430,7 @@ where
 
 pub struct FilterLeafCollectorImpl<LC> {
   in_: LC,
-  the_score: f32,
+  pub(crate) the_score: f32,
 }
 
 impl<LC> FilterLeafCollectorImpl<LC> {
@@ -421,26 +452,31 @@ impl<LC> LeafCollector for FilterLeafCollectorImpl<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = LC::CompetitiveIterator<'a>
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     let mut v = FilterScorableImpl::new(self.the_score, scorer);
     self.in_.set_scorer(&mut v)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let mut v = FilterScorableImpl::new(self.the_score, scorer);
     self.in_.collect(doc, &mut v)
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    scorer: &mut SC,
   ) -> Result<()> {
     let mut v = FilterScorableImpl::new(self.the_score, scorer);
     self.in_.collect_stream(stream, &mut v)
   }
 
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     self.in_.competitive_iterator()
   }
 
@@ -453,7 +489,7 @@ pub struct FilterScorableImpl<'a, S>
 where
   S: ?Sized,
 {
-  the_score: f32,
+  pub(crate) the_score: f32,
   base: FilterScorable<'a, S>,
 }
 impl<'a, S> FilterScorableImpl<'a, S>
@@ -469,6 +505,11 @@ impl<'a, S> Scorable for FilterScorableImpl<'a, S>
 where
   S: Scorable + ?Sized,
 {
+  type Child<'b>
+    = <FilterScorable<'a, S> as Scorable>::Child<'b>
+  where
+    Self: 'b;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.the_score)
   }
@@ -481,7 +522,7 @@ where
     self.base.set_min_competitive_score(min_score)
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     self.base.get_children()
   }
 

@@ -60,6 +60,7 @@ where
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let v = PositiveScoresOnlyLeafCollector::new(
       self.inner.get_leaf_collector(context, weight, searcher)?,
@@ -104,11 +105,16 @@ impl<LC> LeafCollector for PositiveScoresOnlyLeafCollector<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.inner.set_scorer(scorer)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     if scorer.score()? > 0.0 {
       self.inner.collect(doc, scorer)?;
     }

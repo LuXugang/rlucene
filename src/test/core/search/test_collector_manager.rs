@@ -101,7 +101,7 @@ fn collect_all<R, CM, LR>(
 where
   R: Rng + ?Sized,
   CM: CollectorManager,
-  LR: LeafReader + Clone + 'static,
+  LR: LeafReader + Clone + Sync + 'static,
 {
   let dummy_weight = DummyWeight::new(ctx.reader().clone());
   let searcher = IndexSearcher::new(ctx.reader().clone().get_context()?)?;
@@ -230,6 +230,7 @@ impl Collector for SimpleListCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self)
   }
@@ -246,7 +247,12 @@ impl Display for SimpleListCollector {
 }
 
 impl LeafCollector for SimpleListCollector {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     if self.predicate.test(doc) {
       self.collected.push(doc);
     }

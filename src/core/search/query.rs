@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::IRCLeafReader;
+use crate::core::search::query_bulk_scorer::BuiltinQueryBulkScorer;
+use crate::core::search::query_scorer::QueryScorer;
+use crate::core::search::scorer_types::LeafScorerTypes;
+
 use crate::core::document::binary_range_field_range_query::BinaryRangeFieldRangeQuery;
 use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
 use crate::core::document::lat_lon_doc_values_query::LatLonDocValuesQuery;
@@ -40,7 +45,6 @@ use crate::core::document::lat_lon_point_query::LatLonPointQuery;
 use crate::core::search::abstract_knn_vector_query::DocAndScoreQuery;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::blended_term_query::BlendedTermQuery;
-use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::byte_vector_similarity_query::ByteVectorSimilarityQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::fuzzy_query::FuzzyQuery;
@@ -50,15 +54,12 @@ use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::matches::Matches;
-use crate::core::search::matches_iterator::MatchesIterator;
-use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::multi_term_query::MultiTermQuerySet;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::MultiTermQueryConstantScoreBlendedWrapper;
 use crate::core::search::multi_term_query_constant_score_wrapper::MultiTermQueryConstantScoreWrapper;
 use crate::core::search::n_gram_phrase_query::NGramPhraseQuery;
-use crate::core::search::named_matches::{NamedMatches, NamedQuery};
+use crate::core::search::named_matches::NamedQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::point_in_set_query::PointInSetQuery;
 use crate::core::search::point_range_query::PointRangeQuery;
@@ -66,13 +67,10 @@ use crate::core::search::prefix_query::PrefixQuery;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::synonym_query::SynonymQuery;
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
-use crate::core::search::weight::Weight;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::HasIdentity;
@@ -114,42 +112,12 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub type QueryWeight<IRC> = Box<dyn Weight<IRC, ScorerSupplier = QueryWeightSs<IRC>> + Send + Sync>;
-pub enum QueryWeightMatches<'a> {
-  MatchWithNoTerms(MatchWithNoTerms),
-  NamedMatches(Box<NamedMatches<'a>>),
-  Matches(Box<dyn Matches + 'a>),
-}
-impl Matches for QueryWeightMatches<'_> {
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
-    match self {
-      QueryWeightMatches::MatchWithNoTerms(matches) => matches.get_matches(field),
-      QueryWeightMatches::NamedMatches(matches) => matches.get_matches(field),
-      QueryWeightMatches::Matches(matches) => matches.get_matches(field),
-    }
-  }
-
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
-    match self {
-      QueryWeightMatches::MatchWithNoTerms(matches) => matches.get_sub_matches(),
-      QueryWeightMatches::NamedMatches(matches) => matches.get_sub_matches(),
-      QueryWeightMatches::Matches(matches) => matches.get_sub_matches(),
-    }
-  }
-
-  fn field(&self) -> &[String] {
-    match self {
-      QueryWeightMatches::MatchWithNoTerms(matches) => matches.field(),
-      QueryWeightMatches::NamedMatches(matches) => matches.field(),
-      QueryWeightMatches::Matches(matches) => matches.field(),
-    }
-  }
-}
-pub type QueryWeightMatchesIterator<'a> = Box<dyn MatchesIterator + 'a>;
+pub type QueryWeight<IRC> = crate::core::search::query_weight::BuiltinQueryWeight<IRC>;
+pub use crate::core::search::query_matches::{QueryWeightMatches, QueryWeightMatchesIterator};
 pub type QueryWeightSs<IRC> =
-  Box<dyn ScorerSupplier<IRC, BulkScorer = QueryWeightSsBulkScorer, Scorer = QueryWeightSsScorer>>;
-pub type QueryWeightSsBulkScorer = Box<dyn BulkScorer>;
-pub type QueryWeightSsScorer = Box<dyn Scorer>;
+  crate::core::search::query_scorer_supplier::BuiltinQueryScorerSupplier<IRC>;
+pub type QueryWeightSsBulkScorer<IRC> = BuiltinQueryBulkScorer<LeafScorerTypes<IRCLeafReader<IRC>>>;
+pub type QueryWeightSsScorer<IRC> = QueryScorer<IRCLeafReader<IRC>>;
 macro_rules! impl_into_box_query {
     ($($ty:ty),* $(,)?) => {
         $(
@@ -352,7 +320,7 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized;
 
@@ -361,7 +329,7 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
   /// the rewrite call and its observable side effects.
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -700,7 +668,7 @@ impl QueryBase for Query {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -709,7 +677,7 @@ impl QueryBase for Query {
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
   {
     dispatch_query!(self, |q| q.rewrite(searcher))
@@ -763,8 +731,9 @@ where
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     Err(LuceneError::unsupported_operation(format!(
       "Arc<QueryBase> cannot be used to create_weight directly: {}",
@@ -774,7 +743,8 @@ where
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     Err(LuceneError::unsupported_operation(format!(
       "Arc<QueryBase> cannot be used to rewrite directly: {}",

@@ -103,6 +103,7 @@ impl Collector for SimpleCollectorImpl {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -120,7 +121,12 @@ impl Display for SimpleCollectorImpl {
 }
 
 impl LeafCollector for SimpleCollectorImpl {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     assert!(!self.collection_terminated);
     if rarely(&mut random()) {
       self.collection_terminated = true;

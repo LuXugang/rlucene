@@ -27,10 +27,9 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -128,14 +127,18 @@ impl QueryBase for XYDocValuesPointInGeometryQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
-    Ok(Box::new(XYDocValuesPointInGeometryQueryWeight::new(
-      self,
-      *score_mode,
-      boost,
-    )))
+    Ok(
+      Box::new(XYDocValuesPointInGeometryQueryWeight::new(
+        self,
+        *score_mode,
+        boost,
+      ))
+      .into(),
+    )
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -174,7 +177,7 @@ impl XYDocValuesPointInGeometryQueryWeight {
 
 impl<IRC> SegmentCacheable<IRC> for XYDocValuesPointInGeometryQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let field = [self.query.field.as_str()];
@@ -184,14 +187,17 @@ where
 
 impl<IRC> Weight<IRC> for XYDocValuesPointInGeometryQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -202,13 +208,24 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ConstantScoreScorer<
+      crate::core::search::dummy::dummy_disi::DummyDISI,
+      XYDocValuesPointInGeometryTPI<
+        <IRCLeafReader<IRC> as LeafReader>::SortedNumericDocValues,
+        Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>,
+      >,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     match context
       .reader()
       .get_sorted_numeric_doc_values(&self.query.field)?
@@ -216,7 +233,7 @@ where
       Some(values) => {
         let iterator = XYDocValuesPointInGeometryTPI::new(values, self.query.component2d.clone());
         let scorer = ConstantScoreScorer::from_tpi(self.boost, self.score_mode, iterator);
-        Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+        Ok(Some(DefaultScorerSupplier::new(scorer)))
       },
       None => Ok(None),
     }
@@ -242,11 +259,20 @@ where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a S
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut S
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 

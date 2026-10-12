@@ -14,30 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::matches::Matches;
 use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::asserting_matches_iterator::AssertingMatchesIterator;
 
 /// An implementation of [`Matches`] with additional consistency checks.
-pub struct AssertingMatches<'a> {
-  in_: QueryWeightMatches<'a>,
+pub struct AssertingMatches<'a, IRC: IndexReaderContext + 'static> {
+  in_: QueryWeightMatches<'a, IRC>,
 }
 
-impl<'a> AssertingMatches<'a> {
-  pub fn new(in_: QueryWeightMatches<'a>) -> Self {
+impl<'a, IRC: IndexReaderContext + 'static> AssertingMatches<'a, IRC> {
+  pub fn new(in_: QueryWeightMatches<'a, IRC>) -> Self {
     Self { in_ }
   }
 }
 
-impl Matches for AssertingMatches<'_> {
-  fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
-    Ok(self.in_.get_matches(field)?.map(|matches| {
-      Box::new(AssertingMatchesIterator::new(matches)) as QueryWeightMatchesIterator
-    }))
+impl<'a, IRC: IndexReaderContext + 'static> Matches for AssertingMatches<'a, IRC> {
+  type Iterator<'b>
+    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>>
+  where
+    Self: 'b;
+  type SubMatches = QueryWeightMatches<'a, IRC>;
+  fn get_matches(
+    &self,
+    field: &str,
+  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>>>> {
+    Ok(
+      self
+        .in_
+        .get_matches(field)?
+        .map(|matches| Box::new(AssertingMatchesIterator::new(matches)).into()),
+    )
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC>] {
     std::slice::from_ref(&self.in_)
   }
 

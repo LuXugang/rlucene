@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};

@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::query::{Query, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-pub(crate) struct AssertingMatchesIterator<'a> {
-  in_: QueryWeightMatchesIterator<'a>,
+pub struct AssertingMatchesIterator<'a, LR: LeafReader> {
+  in_: QueryWeightMatchesIterator<'a, LR>,
   state: State,
 }
 
@@ -31,8 +32,8 @@ enum State {
   Exhausted,
 }
 
-impl<'a> AssertingMatchesIterator<'a> {
-  pub(crate) fn new(in_: QueryWeightMatchesIterator<'a>) -> Self {
+impl<'a, LR: LeafReader> AssertingMatchesIterator<'a, LR> {
+  pub(crate) fn new(in_: QueryWeightMatchesIterator<'a, LR>) -> Self {
     Self {
       in_,
       state: State::Unpositioned,
@@ -40,7 +41,11 @@ impl<'a> AssertingMatchesIterator<'a> {
   }
 }
 
-impl MatchesIterator for AssertingMatchesIterator<'_> {
+impl<LR: LeafReader> MatchesIterator for AssertingMatchesIterator<'_, LR> {
+  type SubMatches<'a>
+    = QueryWeightMatchesIterator<'a, LR>
+  where
+    Self: 'a;
   fn next(&mut self) -> Result<bool> {
     assert_ne!(self.state, State::Exhausted);
     let more = self.in_.next()?;
@@ -72,7 +77,7 @@ impl MatchesIterator for AssertingMatchesIterator<'_> {
     self.in_.end_offset()
   }
 
-  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_, LR>>> {
     assert_eq!(self.state, State::Iterating);
     self.in_.get_sub_matches()
   }

@@ -122,6 +122,7 @@ fn do_conjunctions<R, IRC>(
 where
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   for _ in 0..iter {
     let n_clauses = random.random_range(2..=max_clauses);
@@ -152,6 +153,7 @@ fn do_nested_conjunctions<R, IRC>(
 where
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let mut n_matches = 0usize;
 
@@ -280,6 +282,7 @@ impl Collector for CountingHitCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -291,7 +294,12 @@ impl Collector for CountingHitCollector {
 }
 
 impl LeafCollector for CountingHitCollector {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.count += 1;
     self.sum += doc as usize + self.doc_base;
     Ok(())

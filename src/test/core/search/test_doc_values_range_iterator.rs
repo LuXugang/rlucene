@@ -364,11 +364,20 @@ impl<NDV> TwoPhaseIterator for TwoPhaseIteratorImpl<NDV>
 where
   NDV: NumericDocValues,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a NDV
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut NDV
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.values
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.values
   }
 

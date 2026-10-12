@@ -100,17 +100,14 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let sub = BlendedRewritingWeight;
-    dispatch_multi_term_query!(self.q, |q| Ok(Box::new(RewritingWeight::new(
-      boost,
-      *score_mode,
-      q,
-      sub.into(),
-    ))))
+    dispatch_multi_term_query!(self.q, |q| Ok(
+      Box::new(RewritingWeight::new(boost, *score_mode, q, sub.into(),)).into()
+    ))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -170,7 +167,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
   where
     T: Terms,
     TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     TermsPosting<T>: 'static,
   {

@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::TryIntoInt;
@@ -94,10 +94,10 @@ where
 
     Ok(max_window_score as f32)
   }
-  fn score_window(
+  fn score_window<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
     max_window_score: f32,
@@ -228,10 +228,10 @@ impl<S> BulkScorer for BlockMaxConjunctionBulkScorer<S>
 where
   S: Scorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -287,6 +287,11 @@ impl DocAndScore {
 }
 
 impl Scorable for DocAndScore {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)
   }

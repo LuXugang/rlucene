@@ -869,7 +869,7 @@ pub trait BaseGeoPointTestCase {
             lats,
             lons,
             &query,
-            live_docs.as_ref().map(|live_docs| live_docs as &dyn Bits),
+            live_docs.as_ref(),
             |b| b.push_str(&format!("  rect={rect}")),
           );
           fail = true;
@@ -954,7 +954,7 @@ pub trait BaseGeoPointTestCase {
             lats,
             lons,
             &query,
-            live_docs.as_ref().map(|live_docs| live_docs as &dyn Bits),
+            live_docs.as_ref(),
             |b| {
               if !lats[id].is_nan() {
                 let distance_meters =
@@ -1042,7 +1042,7 @@ pub trait BaseGeoPointTestCase {
             lats,
             lons,
             &query,
-            live_docs.as_ref().map(|live_docs| live_docs as &dyn Bits),
+            live_docs.as_ref(),
             |b| b.push_str(&format!("  polygon={polygon}")),
           );
           fail = true;
@@ -1125,7 +1125,7 @@ pub trait BaseGeoPointTestCase {
             lats,
             lons,
             &query,
-            live_docs.as_ref().map(|live_docs| live_docs as &dyn Bits),
+            live_docs.as_ref(),
             |b| {
               let geometries = geometries
                 .iter()
@@ -1186,11 +1186,12 @@ pub trait BaseGeoPointTestCase {
   ) -> Result<FixedBitSet>
   where
     IRC: IndexReaderContext + 'static + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     s.search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))
   }
   #[allow(clippy::too_many_arguments)]
-  fn build_error<E>(
+  fn build_error<E, AB: Bits + ?Sized>(
     &self,
     doc_id: i32,
     expected: bool,
@@ -1198,7 +1199,7 @@ pub trait BaseGeoPointTestCase {
     lats: &[f64],
     lons: &[f64],
     query: &Query,
-    live_docs: Option<&dyn Bits>,
+    live_docs: Option<&AB>,
     explain: E,
   ) where
     E: FnOnce(&mut String),

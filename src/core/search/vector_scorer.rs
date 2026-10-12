@@ -39,3 +39,55 @@ pub trait VectorScorer {
     Self: 'a;
   fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_>;
 }
+
+/// Concrete vector scorer for either indexed vector encoding.
+pub enum VectorScorerEnum2<A, B> {
+  Byte(A),
+  Float(B),
+}
+impl<A: VectorScorer, B: VectorScorer> VectorScorer for VectorScorerEnum2<A, B> {
+  type DocIdSetIteratorRef<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    A::DocIdSetIteratorRef<'a>,
+    B::DocIdSetIteratorRef<'a>,
+  >
+  where
+    Self: 'a;
+  type DocIdSetIteratorMut<'a>
+    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+    A::DocIdSetIteratorMut<'a>,
+    B::DocIdSetIteratorMut<'a>,
+  >
+  where
+    Self: 'a;
+  fn score(&self) -> Result<f32> {
+    match self {
+      Self::Byte(s) => s.score(),
+      Self::Float(s) => s.score(),
+    }
+  }
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+    match self {
+      Self::Byte(s) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(s.iterator())
+      },
+      Self::Float(s) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(s.iterator())
+      },
+    }
+  }
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    match self {
+      Self::Byte(s) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(s.iterator_mut())
+      },
+      Self::Float(s) => {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(s.iterator_mut())
+      },
+    }
+  }
+}
+pub type LeafVectorScorer<LR> = VectorScorerEnum2<
+  <<LR as crate::core::index::leaf_reader::LeafReader>::ByteVectorValues as crate::core::index::byte_vector_values::ByteVectorValues>::VectorScorer,
+  <<LR as crate::core::index::leaf_reader::LeafReader>::FloatVectorValues as crate::core::index::float_vector_values::FloatVectorValues>::VectorScorer,
+>;

@@ -159,6 +159,7 @@ fn automaton_query_nr_hits<IRC>(
 ) -> Result<usize>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   Ok(searcher.search(query, 5)?.total_hits().value())
 }
@@ -170,6 +171,7 @@ fn assert_automaton_hits<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   assert_eq!(
     expected,

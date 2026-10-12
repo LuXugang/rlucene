@@ -144,16 +144,18 @@ impl QueryBase for BlendedTermQuery {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
   fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let term_len = self.terms.len();
     let top_reader_context = index_searcher.get_top_reader_context();
@@ -461,7 +463,7 @@ fn adjust_frequencies<IRC>(
   artificial_ttf: i64,
 ) -> Result<TermStates>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   let leaves = reader_context.leaves()?;
   let mut new_ctx = TermStates::new(reader_context)?;

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -69,6 +68,11 @@ impl<S> Scorable for ScoreCachingWrappingScorer<'_, S>
 where
   S: Scorable,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     if !self.cache.score_is_cached.get() {
       self.cache.cur_score.set(self.in_.score()?);
@@ -81,7 +85,7 @@ where
     self.in_.set_min_competitive_score(min_score)
   }
 
-  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut dyn Scorable>>> {
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     todo!()
   }
 
@@ -122,18 +126,23 @@ impl<LC> LeafCollector for ScoreCachingWrappingLeafCollector<LC>
 where
   LC: LeafCollector,
 {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = LC::CompetitiveIterator<'a>
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     self.cache.init();
     let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, &self.cache);
     self.inner.set_scorer(&mut wrapper)
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let mut wrapper = ScoreCachingWrappingScorer::new_with_cache(scorer, &self.cache);
     self.cache.init();
     self.inner.collect(doc, &mut wrapper)
   }
-  fn competitive_iterator(&mut self) -> Result<Option<&mut dyn DocIdSetIterator>> {
+  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
     self.inner.competitive_iterator()
   }
 

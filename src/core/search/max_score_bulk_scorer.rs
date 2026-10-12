@@ -14,12 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
-use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
@@ -116,10 +116,13 @@ where
       min_window_size: -1,
     })
   }
-  fn score_inner_window(
+  fn score_inner_window<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     max: i32,
   ) -> Result<()> {
     if let Some(mut filter) = self.filter.take() {
@@ -159,10 +162,13 @@ where
     Ok(())
   }
 
-  fn score_inner_window_with_filter(
+  fn score_inner_window_with_filter<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     max: i32,
     filter: &mut DisiWrapper<S2>,
   ) -> Result<()> {
@@ -249,10 +255,13 @@ where
 
     Ok(())
   }
-  fn score_inner_window_single_essential_clause(
+  fn score_inner_window_single_essential_clause<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     upto: i32,
   ) -> Result<()> {
     let top_index = self
@@ -301,10 +310,13 @@ where
   ///                                   ^       ^       ^
   ///                                   |       |       |
   ///                                block B  lead2   lead1
-  fn score_inner_window_as_conjunction(
+  fn score_inner_window_as_conjunction<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     max: i32,
   ) -> Result<()> {
     debug_assert!(self.first_essential_scorer == self.all_scorers_idx.len() - 1);
@@ -420,10 +432,13 @@ where
     Ok(())
   }
 
-  fn score_inner_window_multiple_essential_clauses(
+  fn score_inner_window_multiple_essential_clauses<
+    CLC: crate::core::search::leaf_collector::LeafCollector,
+    AB: Bits + ?Sized,
+  >(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     max: i32,
   ) -> Result<()> {
     let top_index = self
@@ -545,9 +560,9 @@ where
     }
     Ok(())
   }
-  fn score_non_essential_clauses(
+  fn score_non_essential_clauses<CLC: crate::core::search::leaf_collector::LeafCollector>(
     &mut self,
-    collector: &mut dyn LeafCollector,
+    collector: &mut CLC,
     doc: i32,
     essential_score: f64,
     num_non_essential_clauses: usize,
@@ -703,10 +718,10 @@ where
   S1: Scorer,
   S2: Scorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {
@@ -809,6 +824,11 @@ impl Score {
   }
 }
 impl Scorable for Score {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)
   }

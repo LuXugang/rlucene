@@ -14,20 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+
 use crate::core::search::bulk_scorer::BulkScorer;
 #[cfg(test)]
 use crate::core::search::bulk_scorer::BulkScorerKind;
 #[cfg(test)]
 use crate::core::search::bulk_scorer::BulkScorerKind::ReqExcl;
-use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct ReqExclBulkScorer<BS, S> {
-  req: BS,
-  excl: S,
+  pub(crate) req: BS,
+  pub(crate) excl: S,
 }
 impl<BS, S> ReqExclBulkScorer<BS, S> {
   pub(crate) fn new(req: BS, excl: S) -> Self {
@@ -39,10 +41,10 @@ where
   BS: BulkScorer,
   S: Scorer,
 {
-  fn score(
+  fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
     &mut self,
-    collector: &mut dyn LeafCollector,
-    accept_docs: Option<&dyn Bits>,
+    collector: &mut CLC,
+    accept_docs: Option<&AB>,
     min: i32,
     max: i32,
   ) -> Result<i32> {

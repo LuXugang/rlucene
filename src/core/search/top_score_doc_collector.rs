@@ -85,6 +85,7 @@ impl Collector for TopScoreDocCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    IndexSearcher<IRC>: Sync,
   {
     let doc_base = context.doc_base as i32;
     let after_score: f32;
@@ -263,7 +264,12 @@ impl Display for TopScoreDocLeafCollector<'_> {
 }
 
 impl LeafCollector for TopScoreDocLeafCollector<'_> {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     if self.base.min_score_acc.is_none() {
       self.update_min_competitive_score(scorer)?;
     } else {
@@ -272,7 +278,7 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
     Ok(())
   }
 
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
     self.base.base.total_hits += 1;
     let hit_count_so_far = self.base.base.total_hits;

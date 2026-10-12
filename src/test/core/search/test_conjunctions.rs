@@ -219,6 +219,7 @@ impl Collector for TestCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -268,7 +269,12 @@ impl Collector for TestCollector {
 }
 
 impl LeafCollector for TestCollector {
-  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
     let _children = scorer.get_children()?;
     self.set_scorer_called.store(true, Ordering::SeqCst);
     // TODO IMPORTANT Restore the child-count assertion after ConjunctionScorer::get_children is
@@ -278,7 +284,7 @@ impl LeafCollector for TestCollector {
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 }

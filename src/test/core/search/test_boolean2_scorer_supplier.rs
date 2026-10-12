@@ -56,6 +56,11 @@ impl FakeScorer {
 }
 
 impl Scorable for FakeScorer {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Ok(1f32)
   }
@@ -120,13 +125,32 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FakeScor
   }
 }
 impl Scorer for FakeScorer {
+  type Iterator = AllDISI;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a AllDISI
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut AllDISI
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.it.doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let FakeScorer { it, .. } = *self;
-    Box::new(it)
+  fn take_iterator(self) -> Self::Iterator {
+    let FakeScorer { it, .. } = self;
+    it
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -137,11 +161,11 @@ impl Scorer for FakeScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.it
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.it
   }
 }
@@ -158,7 +182,7 @@ impl FakeScorerSupplier {
       lead_cost,
       top_level_scoring_clause: false,
     };
-    Box::new(v)
+    crate::core::search::query::QueryWeightSs::<DummyIRC>::fixture(v)
   }
 }
 fn new_fake_scorer_supplier(cost: i64) -> QueryWeightSs<DummyIRC> {
@@ -167,39 +191,52 @@ fn new_fake_scorer_supplier(cost: i64) -> QueryWeightSs<DummyIRC> {
     lead_cost: None,
     top_level_scoring_clause: false,
   };
-  Box::new(v)
+  crate::core::search::query::QueryWeightSs::<DummyIRC>::fixture(v)
 }
 impl ScorerSupplier<DummyIRC> for FakeScorerSupplier {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<DummyIRC>;
+  type BulkScorer = QueryWeightSsBulkScorer<DummyIRC>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<DummyIRC>>,
     _searcher: &IndexSearcher<DummyIRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    crate::core::search::index_searcher::IndexSearcher<DummyIRC>: Sync,
+  {
     if let Some(v) = self.lead_cost
       && v != lead_cost
     {
       return Err(LuceneError::illegal_state("triggers assert"));
     }
-    Ok(Box::new(FakeScorer::new(self.cost)))
+    Ok(QueryWeightSsScorer::<DummyIRC>::for_test(FakeScorer::new(
+      self.cost,
+    )))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<DummyIRC>>,
     searcher: &IndexSearcher<DummyIRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<DummyIRC>: Sync,
+  {
+    Ok(Some(QueryWeightSsBulkScorer::<DummyIRC>::for_test(
+      self.default_bulk_scorer(context, searcher)?,
+    )))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<DummyIRC>>,
     _searcher: &IndexSearcher<DummyIRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    crate::core::search::index_searcher::IndexSearcher<DummyIRC>: Sync,
+  {
     Ok(self.cost)
   }
 

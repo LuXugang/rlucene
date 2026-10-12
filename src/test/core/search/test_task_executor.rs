@@ -358,6 +358,7 @@ impl Collector for NestedInvocationCollector<'_> {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self)
   }
@@ -368,7 +369,12 @@ impl Collector for NestedInvocationCollector<'_> {
 }
 
 impl LeafCollector for NestedInvocationCollector<'_> {
-  fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn set_scorer<SC: Scorable + ?Sized>(&mut self, _scorer: &mut SC) -> Result<()> {
     match &self.invocation {
       NestedInvocation::SameSearcher(task_executor) => {
         task_executor.invoke_all(vec![|| -> Result<()> {
@@ -390,7 +396,7 @@ impl LeafCollector for NestedInvocationCollector<'_> {
     Ok(())
   }
 
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     Ok(())
   }
 }

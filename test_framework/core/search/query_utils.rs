@@ -14,11 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test_framework::core::search::test_scorer::TestScorer;
+
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::collector::Collector;
-use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -56,9 +59,10 @@ impl QueryUtils {
   pub fn check_from_searcher<T, IRC, R>(random: &mut R, q1: T, s: &IndexSearcher<IRC>) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
     T: Into<Query>,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Self::check_from_searcher_with_wrap(random, q1, s, true)
   }
@@ -71,9 +75,10 @@ impl QueryUtils {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
     T: Into<Query>,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let q = q.into();
     Self::check_from_query(&q);
@@ -96,7 +101,8 @@ impl QueryUtils {
   ) -> Result<&'a IndexSearcher<IRC>>
   where
     R: Rng + ?Sized,
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     // TODO IMPORTANT
     Ok(s)
@@ -122,7 +128,8 @@ impl QueryUtils {
 
   pub fn check_explanations<IRC>(query: &Query, searcher: &IndexSearcher<IRC>) -> Result<()>
   where
-    IRC: IndexReaderContext + Sync + 'static,
+    IRC: IndexReaderContext + 'static + Sync + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     CheckHits::check_explanations_with_deep(query, "", searcher, true)
   }
@@ -131,7 +138,7 @@ impl QueryUtils {
   where
     IRC: IndexReaderContext + 'static,
     IRC::LeafReader: Clone + Sync,
-    IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let reader_context_array = s.get_leaf_contexts()?;
 
@@ -174,7 +181,7 @@ impl QueryUtils {
             let bits = reader_context_array[last_reader_idx]
               .reader()
               .get_live_docs()?;
-            let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+            let live_docs = bits.as_ref();
 
             let mut d = iterator.advance(collector.last_doc + 1)?;
 
@@ -208,7 +215,7 @@ impl QueryUtils {
   where
     IRC: IndexReaderContext + 'static,
     IRC::LeafReader: Clone + Sync,
-    IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let max_diff: f32 = 1e-3f32;
     let rewritten = s.rewrite(q.clone())?;
@@ -227,7 +234,7 @@ impl QueryUtils {
         let bits = s.get_leaf_contexts()?[last_reader_idx]
           .reader()
           .get_live_docs()?;
-        let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+        let live_docs = bits.as_ref();
         {
           let iterator = &mut scorer;
           let mut d = iterator.advance(collector.last_doc + 1)?;
@@ -261,8 +268,8 @@ impl QueryUtils {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<()>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     R: Rng + ?Sized,
   {
     let query = searcher.rewrite(query)?;
@@ -302,7 +309,12 @@ impl QueryUtils {
 
         let mut collector = LeafCollectorImpl4::new(scorer, min, max);
 
-        let next = bulk_scorer.score(&mut collector, None::<&dyn Bits>, min, max)?;
+        let next = bulk_scorer.score(
+          &mut collector,
+          None::<&crate::core::util::bits::MatchAllBits>,
+          min,
+          max,
+        )?;
 
         assert!(max <= next);
         assert!(next <= (scorer).scoring_doc_id()?);
@@ -311,7 +323,12 @@ impl QueryUtils {
 
         if (scorer).scoring_doc_id()? == NO_MORE_DOCS {
           let mut collector = LeafCollectorImpl3;
-          bulk_scorer.score(&mut collector, None::<&dyn Bits>, up_to, NO_MORE_DOCS)?;
+          bulk_scorer.score(
+            &mut collector,
+            None::<&crate::core::util::bits::MatchAllBits>,
+            up_to,
+            NO_MORE_DOCS,
+          )?;
           break;
         }
       }
@@ -322,8 +339,8 @@ impl QueryUtils {
 
   pub fn check_count<IRC>(query: Query, searcher: &IndexSearcher<IRC>) -> Result<()>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let query = searcher.rewrite(query)?;
     let weight = searcher.create_weight(query, ScoreMode::CompleteNoScores, 1.0)?;
@@ -336,7 +353,7 @@ impl QueryUtils {
 
       let mut collector = LeafCollectorImpl2::new();
       let bits = ctx.reader().get_live_docs()?;
-      let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+      let live_docs = bits.as_ref();
       scorer.score(&mut collector, live_docs, 0, NO_MORE_DOCS)?;
 
       let expected_count = collector.expected_count;
@@ -356,7 +373,7 @@ impl QueryUtils {
 
       let mut collector = LeafCollectorImpl::new();
       let bits = ctx.reader().get_live_docs()?;
-      let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+      let live_docs = bits.as_ref();
       scorer.score(&mut collector, live_docs, 0, NO_MORE_DOCS)?;
 
       assert_eq!(expected_count, collector.actual_count);
@@ -382,17 +399,22 @@ impl Display for LeafCollectorImpl {
 }
 
 impl LeafCollector for LeafCollectorImpl {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     self.actual_count += 1;
     Ok(())
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    mut scorer: &mut SC,
   ) -> Result<()> {
-    self.actual_count += stream.count(scorer)?;
+    self.actual_count += stream.count(&mut scorer)?;
     Ok(())
   }
 }
@@ -418,15 +440,20 @@ impl Display for LeafCollectorImpl2 {
 }
 
 impl LeafCollector for LeafCollectorImpl2 {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     self.expected_count += 1;
     Ok(())
   }
 
-  fn collect_stream(
+  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
     &mut self,
-    stream: &mut dyn DocIdStream,
-    scorer: &mut dyn Scorable,
+    stream: &mut DS,
+    scorer: &mut SC,
   ) -> Result<()> {
     self.doc_id_stream = true;
     self.default_collect_stream(stream, scorer)
@@ -441,7 +468,12 @@ impl Display for LeafCollectorImpl3 {
 }
 
 impl LeafCollector for LeafCollectorImpl3 {
-  fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, _scorer: &mut SC) -> Result<()> {
     panic!();
   }
 }
@@ -472,7 +504,12 @@ impl<'a, S> LeafCollector for LeafCollectorImpl4<'a, S>
 where
   S: Scorer,
 {
-  fn collect(&mut self, doc: i32, scorer2: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'view>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'view;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer2: &mut SC) -> Result<()> {
     assert!(doc >= self.min);
     assert!(doc < self.max);
 
@@ -484,7 +521,7 @@ where
   }
 }
 
-struct SimpleCollectorImp<'a, IRC>
+struct SimpleCollectorImp<'a, IRC: IndexReaderContext + 'static>
 where
   IRC: 'static,
 {
@@ -499,7 +536,7 @@ where
 }
 impl<'a, IRC> SimpleCollectorImp<'a, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
   fn new(
@@ -507,7 +544,10 @@ where
     max_diff: f32,
     rewritten: Query,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Self {
+  ) -> Self
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Self {
       weight,
       leaf_ptr: 0,
@@ -522,7 +562,7 @@ where
 }
 impl<IRC> Display for SimpleCollectorImp<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -532,9 +572,9 @@ where
 
 impl<IRC> Collector for SimpleCollectorImp<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -551,6 +591,7 @@ where
   where
     IRC1: IndexReaderContext,
     W: Weight<IRC1> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
   {
     SimpleCollectorImp::do_set_next_reader(self, context)?;
     Ok(self)
@@ -563,11 +604,16 @@ where
 
 impl<IRC> LeafCollector for SimpleCollectorImp<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
-  fn collect(&mut self, doc: i32, scorable: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorable: &mut SC) -> Result<()> {
     let score = scorable.score()?;
     let mut i = self.last_doc + 1;
     while i <= doc {
@@ -624,9 +670,9 @@ where
 
 impl<IRC> SimpleCollector for SimpleCollectorImp<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, _context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -651,7 +697,7 @@ where
         let bits = self.s.get_leaf_contexts()?[context_ord]
           .reader()
           .get_live_docs()?;
-        let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+        let live_docs = bits.as_ref();
 
         {
           let iterator = &mut scorer;
@@ -687,12 +733,12 @@ where
     Ok(())
   }
 }
-struct SimpleCollectorImpl2<'a, IRC>
+struct SimpleCollectorImpl2<'a, IRC: IndexReaderContext + 'static>
 where
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
-  scorer: Option<Box<dyn Scorer>>,
+  scorer: Option<Box<dyn TestScorer>>,
   leaf_ptr: usize,
 
   q: &'a Query,
@@ -711,7 +757,7 @@ where
 
 impl<'a, IRC> SimpleCollectorImpl2<'a, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
   fn new(
@@ -721,7 +767,10 @@ where
     order: &'a [i32],
     skip_op: i32,
     reader_context_array: &'a [LeafReaderContext<IRCLeafReader<IRC>>],
-  ) -> Self {
+  ) -> Self
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Self {
       scorer: None,
       leaf_ptr: 0,
@@ -740,7 +789,7 @@ where
 
 impl<IRC> Display for SimpleCollectorImpl2<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -750,9 +799,9 @@ where
 
 impl<IRC> Collector for SimpleCollectorImpl2<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -769,6 +818,7 @@ where
   where
     IRC1: IndexReaderContext,
     W: Weight<IRC1> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
   {
     self.do_set_next_reader(context)?;
     Ok(self)
@@ -781,11 +831,16 @@ where
 
 impl<IRC> LeafCollector for SimpleCollectorImpl2<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
-  fn collect(&mut self, doc: i32, sc: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, sc: &mut SC) -> Result<()> {
     let score = sc.score()?;
 
     self.last_doc = doc;
@@ -796,7 +851,7 @@ where
       let ctx = &self.reader_context_array[self.leaf_ptr];
 
       let scorer = w.scorer(ctx, self.s)?.unwrap();
-      self.scorer = Some(scorer);
+      self.scorer = Some(Box::new(scorer));
     }
 
     let op = self.order[self.opidx % self.order.len()];
@@ -827,9 +882,9 @@ where
 
 impl<IRC> SimpleCollector for SimpleCollectorImpl2<'_, IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -858,7 +913,7 @@ where
           let bits = self.s.get_leaf_contexts()?[context_ord]
             .reader()
             .get_live_docs()?;
-          let live_docs = bits.as_ref().map(|b| b as &dyn Bits);
+          let live_docs = bits.as_ref();
 
           let mut d = iterator.advance(self.last_doc + 1)?;
 
@@ -895,3 +950,5 @@ where
     Ok(())
   }
 }
+
+use crate::core::search::scorer_supplier::ScorerSupplier;

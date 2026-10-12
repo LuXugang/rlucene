@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
@@ -25,6 +26,9 @@ use crate::queries::span::span_collector::SpanCollector;
 /// document number, within that by increasing start position and finally
 /// by increasing end position.
 pub trait Spans: DocIdSetIterator {
+  type TwoPhaseRef<'a>: TwoPhaseIterator
+  where
+    Self: 'a;
   /// Returns the next start position for the current doc.
   /// There is always at least one start/end position per doc.
   /// After the last start/end position at the current doc this returns
@@ -76,7 +80,7 @@ pub trait Spans: DocIdSetIterator {
   /// `None` indicates that two-phase iteration is not supported.
   ///
   /// See [`Scorer::two_phase_iterator`](crate::core::search::scorer::Scorer::two_phase_iterator).
-  fn as_two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn as_two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     None
   }
 

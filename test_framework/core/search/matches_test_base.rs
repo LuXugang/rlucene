@@ -106,9 +106,9 @@ pub trait MatchesTestBase {
   }
 
   /// Given a matches iterator, check its start/end positions and offsets.
-  fn check_field_matches(
+  fn check_field_matches<M: crate::core::search::matches_iterator::MatchesIterator>(
     &self,
-    mut iterator: crate::core::search::query::QueryWeightMatchesIterator<'_>,
+    mut iterator: M,
     expected: &[i32],
   ) -> Result<()> {
     let mut pos = 1;
@@ -227,7 +227,12 @@ pub trait MatchesTestBase {
 
   /// Check each document's term submatches against the expected matches.
   #[allow(unused)]
-  fn check_term_matches(&self, q: Query, field: &str, expected: &[&[&[TermMatch]]]) -> Result<()> {
+  fn check_term_matches<M: crate::core::search::matches_iterator::MatchesIterator>(
+    &self,
+    q: Query,
+    field: &str,
+    expected: &[&[&[TermMatch]]],
+  ) -> Result<()> {
     let searcher = &self.context().searcher;
     let rewritten = searcher.rewrite(q)?;
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
@@ -252,10 +257,10 @@ pub trait MatchesTestBase {
   }
 
   #[allow(unused)]
-  fn check_terms(
+  fn check_terms<M: crate::core::search::matches_iterator::MatchesIterator>(
     &self,
     expected: &[&[TermMatch]],
-    mut iterator: crate::core::search::query::QueryWeightMatchesIterator<'_>,
+    mut iterator: M,
   ) -> Result<()> {
     let mut up_to = 0;
     while iterator.next()? {
@@ -420,3 +425,7 @@ impl Hash for TermMatch {
     self.end_offset.hash(state);
   }
 }
+
+use crate::core::search::weight::Weight;
+
+use crate::core::search::matches_iterator::MatchesIterator;

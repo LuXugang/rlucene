@@ -47,7 +47,7 @@ impl AssertingIndexSearcher {
 
 impl<IRC> IndexSearcherBase<IRC> for AssertingIndexSearcher
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn create_weight<T>(
     &self,
@@ -58,20 +58,22 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
-    IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     // this adds assertions to the inner weights/scorers too
     let weight = IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)?;
-    Ok(Box::new(AssertingWeight::new(
-      self.random.lock().random(),
-      weight,
-      score_mode,
-    )))
+    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
+      Box::new(AssertingWeight::new(
+        self.random.lock().random(),
+        weight,
+        score_mode,
+      )),
+    ))
   }
 
   fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
   where
-    IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     QueryUtils::check_from_query(&original);
     let rewritten = IndexSearcherDefaults::rewrite(searcher, original)?;
@@ -89,6 +91,7 @@ where
   where
     C: Collector,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let mut asserting_collector = AssertingCollector::wrap(collector);
     IndexSearcherDefaults::search_partitions(

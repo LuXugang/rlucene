@@ -1054,6 +1054,7 @@ pub trait BaseXYPointTestCase {
   ) -> Result<FixedBitSet>
   where
     IRC: IndexReaderContext + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     s.search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))
   }

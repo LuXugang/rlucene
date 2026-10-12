@@ -423,6 +423,7 @@ pub trait BaseSpatialTestCase {
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -495,6 +496,7 @@ pub trait BaseSpatialTestCase {
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -551,6 +553,7 @@ pub trait BaseSpatialTestCase {
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -607,6 +610,7 @@ pub trait BaseSpatialTestCase {
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -673,6 +677,7 @@ pub trait BaseSpatialTestCase {
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -725,6 +730,7 @@ pub trait BaseSpatialTestCase {
   ) -> Result<FixedBitSet>
   where
     IRC: IndexReaderContext + Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     searcher.search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))
   }

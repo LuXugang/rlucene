@@ -40,8 +40,7 @@ use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldC
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::query::{
-  IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
-  QueryWeightSsScorer,
+  IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -135,14 +134,14 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let fallback_query = self.fallback_query.as_ref().clone();
     let fallback_query_weight = fallback_query.create_weight(searcher, score_mode, boost)?;
-    Ok(Box::new(
-      IndexSortSortedNumericDocValuesRangeQueryWeight::new(
+    Ok(
+      Box::new(IndexSortSortedNumericDocValuesRangeQueryWeight::new(
         Arc::clone(&self.field),
         self.lower_value,
         self.upper_value,
@@ -150,13 +149,14 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
         ConstantScoreWeight::new(boost),
         *score_mode,
         fallback_query_weight,
-      ),
-    ))
+      ))
+      .into(),
+    )
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -195,7 +195,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
   }
 }
 
-pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<IRC> {
+pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<IRC: IndexReaderContext + 'static> {
   field: Arc<String>,
   lower_value: i64,
   upper_value: i64,
@@ -206,7 +206,7 @@ pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<IRC> {
 }
 impl<IRC> IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub fn new(
     field: Arc<String>,
@@ -232,7 +232,7 @@ pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocVal
 
 impl<IRC> SegmentCacheable<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     // Both queries should always return the same values, so we can just check
@@ -243,14 +243,17 @@ where
 
 impl<IRC> Weight<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -267,7 +270,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     match get_doc_id_set_iterator_or_null(context, self.lower_value, self.upper_value, &self.field)?
     {
       Some(it_and_count) => {
@@ -280,7 +286,7 @@ where
           Arc::clone(&self.field),
           self.base.score(),
         )?;
-        Ok(Some(Box::new(scorer_supplier)))
+        Ok(Some(Box::new(scorer_supplier).into()))
       },
       None => match self
         .fallback_query_weight
@@ -297,7 +303,9 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
   ) -> Result<i32>
-where {
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
 
     if !reader.has_deletions()? {
@@ -421,17 +429,20 @@ where
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<Disi<IRCLeafReader<IRC>>>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let disi = match self.disi.take() {
       Some(disi) => disi,
       None => {
@@ -447,22 +458,28 @@ where
       },
     };
     let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
-    Ok(Box::new(v))
+    Ok(QueryWeightSsScorer::<IRC>::new(v))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.cost)
   }
 }

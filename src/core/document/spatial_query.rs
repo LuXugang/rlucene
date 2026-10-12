@@ -32,7 +32,7 @@ use crate::core::search::doc_id_set_iterator::{
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{
-  Query, QueryRef, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  Query, QueryRef, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -132,15 +132,17 @@ where
     query: Arc<Query>,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
     C: Send + Sync,
     G: Send + Sync,
     C::SpatialVisitor: Send + Sync,
+    QueryWeight<IRC>: From<Box<SpatialWeight<G, C>>>,
+    IndexSearcher<IRC>: Sync,
   {
     let spatial_visitor = self.sub.get_spatial_visitor()?;
     let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode, query);
-    Ok(Box::new(spatial_weight))
+    Ok(Box::new(spatial_weight).into())
   }
 
   pub(crate) fn visit<QV>(&self, visitor: &mut QV, query: QueryRef<'_>) -> Result<()>
@@ -234,7 +236,7 @@ impl<G, C, IRC> SegmentCacheable<IRC> for SpatialWeight<G, C>
 where
   C: SpatialQueryBase,
   G: Geometry,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -245,14 +247,25 @@ impl<G, C, IRC> Weight<IRC> for SpatialWeight<G, C>
 where
   C: SpatialQueryBase + 'static,
   G: Geometry + 'static,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
+  QueryWeightSs<IRC>: From<
+    Box<
+      RelationScorerSupplier<
+        <IRCLeafReader<IRC> as LeafReader>::PointValues,
+        Arc<C::SpatialVisitor>,
+      >,
+    >,
+  >,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let scorer = self.scorer(context, searcher)?;
     self
       .base
@@ -269,7 +282,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let reader = context.reader();
     let field = self.parent_query.field.as_str();
     let values = match reader.get_point_values(field)? {
@@ -300,11 +316,9 @@ where
     {
       Ok(None)
     } else if values.get_doc_count()? == reader.max_doc()? && rel == Relation::CellInsideQuery {
-      Ok(Some(Box::new(ScorerSupplierImpl::new(
-        score,
-        self.score_mode,
-        max_doc,
-      ))))
+      Ok(Some(
+        Box::new(ScorerSupplierImpl::new(score, self.score_mode, max_doc)).into(),
+      ))
     } else {
       if query_relation != QueryRelation::Intersects
         && query_relation != QueryRelation::Contains
@@ -316,15 +330,18 @@ where
         return Ok(None);
       }
 
-      Ok(Some(Box::new(RelationScorerSupplier::new(
-        values,
-        self.spatial_visitor.clone(),
-        query_relation,
-        field.to_string(),
-        score,
-        self.score_mode,
-        max_doc,
-      ))))
+      Ok(Some(
+        Box::new(RelationScorerSupplier::new(
+          values,
+          self.spatial_visitor.clone(),
+          query_relation,
+          field.to_string(),
+          score,
+          self.score_mode,
+          max_doc,
+        ))
+        .into(),
+      ))
     }
   }
 }
@@ -471,6 +488,20 @@ pub struct RelationScorerSupplier<PV, V> {
   cost: i64,
 }
 
+type SpatialScorer = crate::core::search::scorer::ScorerEnum3<
+  ConstantScoreScorer<
+    BitSetIterator<FixedBitSet>,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >,
+  ConstantScoreScorer<
+    DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >,
+  ConstantScoreScorer<
+    crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >,
+>;
 impl<PV, V> RelationScorerSupplier<PV, V> {
   #[allow(clippy::too_many_arguments)]
   pub fn new<FName>(
@@ -504,7 +535,7 @@ where
   PV: PointValues,
   V: SpatialVisitor,
 {
-  fn get_scorer(&mut self) -> Result<QueryWeightSsScorer> {
+  fn get_scorer(&mut self) -> Result<SpatialScorer> {
     match self.query_relation {
       QueryRelation::Intersects => self.get_sparse_scorer(),
       QueryRelation::Contains => self.get_contains_dense_scorer(),
@@ -518,7 +549,7 @@ where
     }
   }
 
-  fn get_sparse_scorer(&mut self) -> Result<QueryWeightSsScorer> {
+  fn get_sparse_scorer(&mut self) -> Result<SpatialScorer> {
     let max_doc = self.max_doc as usize;
     if self.query_relation == QueryRelation::Disjoint
       && self.values.get_doc_count()? == self.max_doc
@@ -541,7 +572,7 @@ where
         visitor.cost
       };
       let iterator = BitSetIterator::new(result, cost)?;
-      Ok(Box::new(ConstantScoreScorer::from_disi(
+      Ok(SpatialScorer::A(ConstantScoreScorer::from_disi(
         self.score,
         self.score_mode,
         iterator,
@@ -559,7 +590,7 @@ where
       } else {
         DocIdSetIteratorEnum2::B(BitSetIterator::new(result, cost)?)
       };
-      Ok(Box::new(ConstantScoreScorer::from_disi(
+      Ok(SpatialScorer::B(ConstantScoreScorer::from_disi(
         self.score,
         self.score_mode,
         iterator,
@@ -573,7 +604,7 @@ where
         &mut doc_id_set_builder,
       ))?;
       let iterator = doc_id_set_builder.build()?.iterator()?;
-      Ok(Box::new(ConstantScoreScorer::from_disi(
+      Ok(SpatialScorer::C(ConstantScoreScorer::from_disi(
         self.score,
         self.score_mode,
         iterator,
@@ -581,7 +612,7 @@ where
     }
   }
 
-  fn get_dense_scorer(&mut self) -> Result<QueryWeightSsScorer> {
+  fn get_dense_scorer(&mut self) -> Result<SpatialScorer> {
     let max_doc = self.max_doc as usize;
     let mut result = FixedBitSet::new(max_doc);
     let cost;
@@ -625,14 +656,14 @@ where
     } else {
       DocIdSetIteratorEnum2::B(BitSetIterator::new(result, cost)?)
     };
-    Ok(Box::new(ConstantScoreScorer::from_disi(
+    Ok(SpatialScorer::B(ConstantScoreScorer::from_disi(
       self.score,
       self.score_mode,
       iterator,
     )))
   }
 
-  fn get_contains_dense_scorer(&mut self) -> Result<QueryWeightSsScorer> {
+  fn get_contains_dense_scorer(&mut self) -> Result<SpatialScorer> {
     let max_doc = self.max_doc as usize;
     let mut result = FixedBitSet::new(max_doc);
     let mut excluded = FixedBitSet::new(max_doc);
@@ -652,7 +683,7 @@ where
     } else {
       DocIdSetIteratorEnum2::B(BitSetIterator::new(result, cost)?)
     };
-    Ok(Box::new(ConstantScoreScorer::from_disi(
+    Ok(SpatialScorer::B(ConstantScoreScorer::from_disi(
       self.score,
       self.score_mode,
       iterator,
@@ -673,35 +704,44 @@ where
 
 impl<IRC, PV, V> ScorerSupplier<IRC> for RelationScorerSupplier<PV, V>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   PV: PointValues,
   V: SpatialVisitor,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
-    self.get_scorer()
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(QueryWeightSsScorer::<IRC>::new(self.get_scorer()?))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     self.cost_value()
   }
 }
@@ -721,37 +761,44 @@ impl ScorerSupplierImpl {
 }
 impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = QueryWeightSsScorer<IRC>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
-    Ok(Box::new(ConstantScoreScorer::from_disi(
-      self.score,
-      self.score_mode,
-      AllDISI::new(self.max_doc),
-    )))
+  ) -> Result<Self::Scorer>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(QueryWeightSsScorer::<IRC>::new(
+      ConstantScoreScorer::from_disi(self.score, self.score_mode, AllDISI::new(self.max_doc)),
+    ))
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
-    Ok(Some(Box::new(self.default_bulk_scorer(context, searcher)?)))
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     Ok(self.max_doc as i64)
   }
 }

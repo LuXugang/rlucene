@@ -634,7 +634,7 @@ pub trait HasIdentity {
 
 impl<T> HasIdentity for Arc<T>
 where
-  T: HasIdentity,
+  T: HasIdentity + ?Sized,
 {
   fn identity(&self) -> &Identity {
     (**self).identity()
@@ -642,7 +642,7 @@ where
 }
 impl<T> HasIdentity for &T
 where
-  T: HasIdentity,
+  T: HasIdentity + ?Sized,
 {
   fn identity(&self) -> &Identity {
     (**self).identity()

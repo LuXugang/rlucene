@@ -28,12 +28,12 @@ pub trait DocIdStream {
   /// Iterate over doc IDs contained in this stream in order,
   /// calling the given consumer on them.
   /// This is a terminal operation.
-  fn for_each(&mut self, f: &mut dyn DocIdStreamConsumer) -> Result<()>;
+  fn for_each<DC: DocIdStreamConsumer + ?Sized>(&mut self, f: &mut DC) -> Result<()>;
 
   /// Count the number of entries in this stream.
   /// This is a terminal operation.
-  fn count(&mut self, scorer: &mut dyn Scorable) -> Result<i32>;
-  fn default_count(&mut self, scorer: &mut dyn Scorable) -> Result<i32> {
+  fn count<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<i32>;
+  fn default_count<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<i32> {
     let mut counter = CountConsumer { cnt: 0, scorer };
     self.for_each(&mut counter)?;
     Ok(counter.cnt)
@@ -60,5 +60,22 @@ where
     self.cnt += 1;
     self.scorer.set_score(score)?;
     Ok(())
+  }
+}
+
+impl<DC: DocIdStreamConsumer + ?Sized> DocIdStreamConsumer for &mut DC {
+  fn accept(&mut self, doc: i32) -> Result<()> {
+    (**self).accept(doc)
+  }
+  fn accept_with_score(&mut self, doc: i32, score: f32) -> Result<()> {
+    (**self).accept_with_score(doc, score)
+  }
+}
+impl<DS: DocIdStream + ?Sized> DocIdStream for &mut DS {
+  fn for_each<DC: DocIdStreamConsumer + ?Sized>(&mut self, consumer: &mut DC) -> Result<()> {
+    (**self).for_each(consumer)
+  }
+  fn count<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<i32> {
+    (**self).count(scorer)
   }
 }

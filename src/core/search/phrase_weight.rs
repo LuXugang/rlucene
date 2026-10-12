@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -26,7 +28,7 @@ use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::matches_utils::for_field;
 use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::phrase_scorer::PhraseScorer;
-use crate::core::search::query::{Query, QueryBase, QueryWeightMatchesIterator, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeightMatchesIterator};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
@@ -46,7 +48,7 @@ pub type PhraseWeightScorer<S, IRC> = PhraseScorer<
 
 pub type PhraseMatcherResult<IE, SS> = Result<Option<PhraseMatcherEnum<IE, SS>>>;
 
-struct PhraseMatchesIterator<IE, SS> {
+pub struct PhraseMatchesIterator<IE, SS> {
   matcher: PhraseMatcherEnum<IE, SS>,
   started: bool,
   query: Arc<Query>,
@@ -56,6 +58,10 @@ where
   IE: ImpactsEnum,
   SS: SimScorer,
 {
+  type SubMatches<'a>
+    = crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator
+  where
+    Self: 'a;
   fn next(&mut self) -> Result<bool> {
     if !self.started {
       self.started = true;
@@ -81,7 +87,7 @@ where
     self.matcher.end_offset()
   }
 
-  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {
     // Phrases are treated as leaves.
     Ok(None)
   }
@@ -104,7 +110,8 @@ where
 {
   pub(crate) fn new<IRC>(searcher: &IndexSearcher<IRC>, mut sub: S) -> Result<Self>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     let stats = sub.get_stats(searcher)?;
     Ok(Self { stats, sub })
@@ -113,7 +120,7 @@ where
 impl<S, IRC> SegmentCacheable<IRC> for PhraseWeight<S>
 where
   S: PhraseWeightBase,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -123,36 +130,30 @@ where
 impl<S, IRC> Weight<IRC> for PhraseWeight<S>
 where
   S: PhraseWeightBase,
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
   <S as PhraseWeightBase>::SimScorer: 'static,
   <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>: 'static,
+  PhraseWeightScorer<S, IRC>: crate::core::search::query_scorer::IntoQueryScorer<
+      crate::core::search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>,
+    >,
+  for<'a> crate::core::search::query_matches::FieldMatchesSupplier<'a, IRC>: From<(
+    &'a PhraseWeight<S>,
+    &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    i32,
+  )>,
+  for<'a> QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>:
+    From<Box<PhraseMatchesIterator<S::IE<IRCLeafReader<IRC>>, S::SimScorer>>>,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
-    for_field(&self.sub.base().field, move || {
-      let Some(mut matcher) = self
-        .sub
-        .get_phrase_matcher(context, self.stats.clone(), true)?
-      else {
-        return Ok(None);
-      };
-      if matcher.approximation_mut().advance(doc)? != doc {
-        return Ok(None);
-      }
-      matcher.reset()?;
-      if !matcher.next_match()? {
-        return Ok(None);
-      }
-      Ok(Some(Box::new(PhraseMatchesIterator {
-        matcher,
-        started: false,
-        query: <Self as Weight<IRC>>::get_query(self),
-      })))
-    })
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
+    for_field(&self.sub.base().field, (self, context, doc).into())
   }
 
   fn explain(
@@ -160,7 +161,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let mut matcher = match self
       .sub
       .get_phrase_matcher(context, self.stats.clone(), false)?
@@ -220,13 +224,16 @@ where
     self.sub.base().query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<PhraseWeightScorer<S, IRC>>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     match self
       .sub
       .get_phrase_matcher(context, self.stats.clone(), false)?
@@ -243,7 +250,7 @@ where
           self.stats.clone(),
           norms,
         );
-        Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+        Ok(Some(DefaultScorerSupplier::new(scorer)))
       },
       None => Ok(None),
     }
@@ -256,7 +263,7 @@ pub trait PhraseWeightBase {
 
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
   where
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'static;
 
   fn get_phrase_matcher<LR>(
     &self,
@@ -294,5 +301,39 @@ pub struct SimScorerImpl;
 impl SimScorer for SimScorerImpl {
   fn score(&self, _freq: f32, _norm: i64) -> f32 {
     1f32
+  }
+}
+
+impl<S: PhraseWeightBase> PhraseWeight<S> {
+  pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
+    &'a self,
+    context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
+  where
+    QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>:
+      From<Box<PhraseMatchesIterator<S::IE<IRCLeafReader<IRC>>, S::SimScorer>>>,
+  {
+    let Some(mut matcher) = self
+      .sub
+      .get_phrase_matcher(context, self.stats.clone(), true)?
+    else {
+      return Ok(None);
+    };
+    if matcher.approximation_mut().advance(doc)? != doc {
+      return Ok(None);
+    }
+    matcher.reset()?;
+    if !matcher.next_match()? {
+      return Ok(None);
+    }
+    Ok(Some(
+      Box::new(PhraseMatchesIterator {
+        matcher,
+        started: false,
+        query: self.sub.base().query.clone(),
+      })
+      .into(),
+    ))
   }
 }

@@ -271,6 +271,7 @@ fn assert_query<IRC, R>(
 where
   IRC: IndexReaderContext + Sync,
   R: Rng,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   let page_size = TestUtil::next_usize(random, 1, max_doc * 2);
@@ -375,6 +376,7 @@ fn assert_page<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   assert_eq!(all.total_hits().value(), paged.total_hits().value());
 

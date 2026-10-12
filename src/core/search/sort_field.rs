@@ -1178,6 +1178,7 @@ pub trait SortFiledBase: Display {
   fn rewrite<IRC>(&self, _reader: &IndexSearcher<IRC>) -> Result<Option<SortFieldEnum>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     Ok(None)
   }

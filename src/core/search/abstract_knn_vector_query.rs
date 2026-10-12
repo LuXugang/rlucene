@@ -36,7 +36,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::top_knn_collector_manager::TopKnnCollectorManager;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
@@ -167,7 +167,7 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
   fn base(&self) -> &AbstractKnnVectorQueryBase;
   fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
@@ -220,10 +220,11 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     K: KnnCollectorManager,
     Q: QueryTimeout,
     W: Weight<IRC>,
+    IndexSearcher<IRC>: Sync,
   {
     let mut results = self.get_leaf_results(
       ctx,
@@ -248,10 +249,11 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
     search: &IndexSearcher<IRC>,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     K: KnnCollectorManager,
     Q: QueryTimeout,
     W: Weight<IRC>,
+    IndexSearcher<IRC>: Sync,
   {
     let reader = ctx.reader();
     let live_docs = reader.get_live_docs()?;
@@ -315,14 +317,16 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::KnnCollectorManager>
   where
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync;
   fn default_get_knn_collector_manager<IRC>(
     &self,
     k: usize,
     searcher: &IndexSearcher<IRC>,
   ) -> Result<TopKnnCollectorManager>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
   {
     TopKnnCollectorManager::new(k, searcher)
   }
@@ -634,15 +638,16 @@ impl QueryBase for DocAndScoreQuery {
     _boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
+    IRC: IndexReaderContext + 'static,
     Self: Sized,
+    IndexSearcher<IRC>: Sync,
   {
     if searcher.get_top_reader_context().base().id() != &self.context_identity {
       return Err(LuceneError::illegal_state(
         "This DocAndScore query was created by a different reader",
       ));
     }
-    Ok(Box::new(DocAndScoreQueryWeight::new(self, _boost)))
+    Ok(Box::new(DocAndScoreQueryWeight::new(self, _boost)).into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -695,7 +700,7 @@ impl DocAndScoreQueryWeight {
 
 impl<IRC> SegmentCacheable<IRC> for DocAndScoreQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -704,14 +709,17 @@ where
 
 impl<IRC> Weight<IRC> for DocAndScoreQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let target = doc + context.doc_base as i32;
 
     let query = self.query()?;
@@ -732,13 +740,16 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<ScorerImpl>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let query = self.query()?;
     if query.segment_starts[context.ord] == query.segment_starts[context.ord + 1] {
       return Ok(None);
@@ -750,14 +761,17 @@ where
       context.doc_base,
     );
     let scorer = ScorerImpl::new(disi, query.max_score, self.boost, query.scores.clone());
-    Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+    Ok(Some(DefaultScorerSupplier::new(scorer)))
   }
 
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     let query = self.query()?;
     Ok((query.segment_starts[context.ord + 1] - query.segment_starts[context.ord]) as i32)
   }
@@ -843,6 +857,11 @@ impl ScorerImpl {
 }
 
 impl Scorable for ScorerImpl {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     let upto = self
       .disi
@@ -875,6 +894,25 @@ impl DocIdSetIterator for ScorerImpl {
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ScorerImpl {}
 impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerImpl {}
 impl Scorer for ScorerImpl {
+  type Iterator = DocIdSetIteratorImpl;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a DocIdSetIteratorImpl
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut DocIdSetIteratorImpl
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(doc_id_no_shadow(
       self.disi.upto,
@@ -884,9 +922,9 @@ impl Scorer for ScorerImpl {
     ))
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let ScorerImpl { disi, .. } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let ScorerImpl { disi, .. } = self;
+    disi
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -897,11 +935,11 @@ impl Scorer for ScorerImpl {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.disi
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.disi
   }
 }

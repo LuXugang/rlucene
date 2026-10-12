@@ -17,7 +17,7 @@
 use crate::core::index::byte_vector_values::{ByteVectorValues, check_field};
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::{LRByteVectorValues, LeafReader};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::abstract_vector_similarity_query::{
   AbstractVectorSimilarityQuery, AbstractVectorSimilarityQueryBase,
@@ -252,15 +252,10 @@ impl AbstractVectorSimilarityQuery for ByteVectorSimilarityQuery {
     &self.base
   }
 
-  type VectorScorer<LR>
-    = <LRByteVectorValues<LR> as ByteVectorValues>::VectorScorer
-  where
-    LR: LeafReader;
-
   fn create_vector_scorer<LR>(
     &self,
     context: &LeafReaderContext<LR>,
-  ) -> Result<Option<Self::VectorScorer<LR>>>
+  ) -> Result<Option<crate::core::search::vector_scorer::LeafVectorScorer<LR>>>
   where
     LR: LeafReader,
   {
@@ -278,7 +273,9 @@ impl AbstractVectorSimilarityQuery for ByteVectorSimilarityQuery {
         return Ok(None);
       },
     };
-    vector_values.scorer(self.target.as_ref().clone())
+    vector_values
+      .scorer(self.target.as_ref().clone())
+      .map(|scorer| scorer.map(crate::core::search::vector_scorer::VectorScorerEnum2::Byte))
   }
 
   fn approximate_search<LR, B, K>(

@@ -1002,3 +1002,5 @@ where
     )?))
   }
 }
+
+use crate::core::search::weight::Weight;

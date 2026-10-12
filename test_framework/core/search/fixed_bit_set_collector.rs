@@ -66,6 +66,7 @@ impl Collector for FixedBitSetCollector {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -77,7 +78,12 @@ impl Collector for FixedBitSetCollector {
 }
 
 impl LeafCollector for FixedBitSetCollector {
-  fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, _scorer: &mut SC) -> Result<()> {
     self.bit_set.set(self.doc_base + doc as usize)?;
     Ok(())
   }

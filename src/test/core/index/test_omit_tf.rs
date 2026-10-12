@@ -353,6 +353,7 @@ impl Collector for ScoreAssertingCollectorImpl {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -364,7 +365,12 @@ impl Collector for ScoreAssertingCollectorImpl {
 }
 
 impl LeafCollector for ScoreAssertingCollectorImpl {
-  fn collect(&mut self, _doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
     assert!((score - 1.0f32).abs() <= 0.00001f32, "got score={}", score);
     Ok(())
@@ -418,6 +424,7 @@ impl Collector for ScoreAssertingCollectorImpl1 {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -429,7 +436,12 @@ impl Collector for ScoreAssertingCollectorImpl1 {
 }
 
 impl LeafCollector for ScoreAssertingCollectorImpl1 {
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
     let expected = 1.0f32 + doc as f32;
     assert!(
@@ -489,6 +501,7 @@ impl Collector for ScoreAssertingCollectorImpl2 {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -500,7 +513,12 @@ impl Collector for ScoreAssertingCollectorImpl2 {
 }
 
 impl LeafCollector for ScoreAssertingCollectorImpl2 {
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
     assert!((score - 1.0f32).abs() <= 0.00001f32);
     assert_ne!(doc % 2, 0);
@@ -554,6 +572,7 @@ impl Collector for ScoreAssertingCollectorImpl3 {
   where
     IRC: IndexReaderContext,
     W: Weight<IRC> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -565,7 +584,12 @@ impl Collector for ScoreAssertingCollectorImpl3 {
 }
 
 impl LeafCollector for ScoreAssertingCollectorImpl3 {
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let score = scorer.score()?;
     assert!((score - 1.0f32).abs() <= 0.00001f32);
     assert!(doc % 2 == 0);

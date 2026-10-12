@@ -104,24 +104,22 @@ impl QueryBase for AssertingQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     assert!(boost >= 0.0);
     let mut random = random_from_seed(self.random_seed);
     let weight = self.in_.create_weight(searcher, score_mode, boost)?;
-    Ok(Box::new(AssertingWeight::new(
-      random.random(),
-      weight,
-      *score_mode,
-    )))
+    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
+      Box::new(AssertingWeight::new(random.random(), weight, *score_mode)),
+    ))
   }
 
   fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if let Some(rewritten) = self.in_.rewrite(searcher)? {

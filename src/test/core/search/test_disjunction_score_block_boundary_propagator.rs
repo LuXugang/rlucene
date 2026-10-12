@@ -82,6 +82,11 @@ impl FakeScorer {
 }
 
 impl Scorable for FakeScorer {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -146,13 +151,32 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FakeScor
   }
 }
 impl Scorer for FakeScorer {
+  type Iterator = EmptyDISI;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a EmptyDISI
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut EmptyDISI
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(0)
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let FakeScorer { disi, .. } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let FakeScorer { disi, .. } = self;
+    disi
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -168,11 +192,11 @@ impl Scorer for FakeScorer {
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.disi
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.disi
   }
 }

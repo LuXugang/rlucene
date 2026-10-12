@@ -312,6 +312,7 @@ fn assert_matches<IRC, Q>(
 where
   IRC: IndexReaderContext + Sync,
   Q: IntoQuery,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let result = searcher.search(q, 1000)?.score_docs;
   assert_eq!(expected_matches, result.len());
@@ -542,3 +543,7 @@ fn test_cost_estimate() -> Result<()> {
 
   Ok(())
 }
+
+use crate::core::search::weight::Weight;
+
+use crate::core::search::scorer_supplier::ScorerSupplier;

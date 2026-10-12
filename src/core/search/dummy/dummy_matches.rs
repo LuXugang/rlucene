@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 use crate::core::search::matches::Matches;
-use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyMatches;
 
 impl Matches for DummyMatches {
-  fn get_matches(&self, _field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
+  type Iterator<'a> = crate::core::search::dummy::dummy_matches_iterator::DummyMatchesIterator;
+  type SubMatches = Self;
+  fn get_matches(&self, _field: &str) -> Result<Option<Self::Iterator<'_>>> {
     dummy_unreachable!()
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'_>] {
+  fn get_sub_matches(&self) -> &[Self::SubMatches] {
     dummy_unreachable!()
   }
 

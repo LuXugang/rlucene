@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -96,22 +97,21 @@ impl QueryBase for RandomApproximationQuery {
     boost: f32,
   ) -> Result<QueryWeight<IRC>>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
     let mut random = random_from_seed(self.random_seed);
-    Ok(Box::new(RandomApproximationWeight::new(
-      random.random(),
-      weight,
-    )))
+    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
+      Box::new(RandomApproximationWeight::new(random.random(), weight)),
+    ))
   }
 
   fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
-    IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IRC: IndexReaderContext + 'static,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     match self.query.rewrite(_searcher)? {
@@ -133,7 +133,7 @@ impl QueryBase for RandomApproximationQuery {
   }
 }
 
-pub struct RandomApproximationWeight<LR> {
+pub struct RandomApproximationWeight<LR: IndexReaderContext + 'static> {
   random_seed: u64,
   in_: QueryWeight<LR>,
 }
@@ -170,7 +170,10 @@ where
     context: &'a LeafReaderContext<IRCLeafReader<LR>>,
     doc: i32,
     searcher: &'a IndexSearcher<LR>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, LR>>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<LR>: Sync,
+  {
     self.in_.matches(context, doc, searcher)
   }
 
@@ -179,7 +182,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<LR>>,
     doc: i32,
     searcher: &IndexSearcher<LR>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    crate::core::search::index_searcher::IndexSearcher<LR>: Sync,
+  {
     self.in_.explain(context, doc, searcher)
   }
 
@@ -193,7 +199,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<LR>>,
     searcher: &IndexSearcher<LR>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<LR>: Sync,
+  {
     let scorer_supplier = self.in_.scorer_supplier(context, searcher)?;
 
     if let Some(mut scorer_supplier) = scorer_supplier {
@@ -201,7 +210,12 @@ where
       let mut random = random_from_seed(self.random_seed);
       let scorer = RandomApproximationScorer::new(random.random(), sub_scorer);
 
-      Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
+      Ok(Some(
+        DefaultScorerSupplier::new(
+          crate::core::search::query_scorer::BuiltinQueryScorer::for_test(scorer),
+        )
+        .into(),
+      ))
     } else {
       Ok(None)
     }
@@ -229,6 +243,11 @@ impl<S> Scorable for RandomApproximationScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     self.disi.two_phase_iterator.disi_mut().scorer.score()
   }
@@ -279,24 +298,43 @@ impl<S> Scorer for RandomApproximationScorer<S>
 where
   S: Scorer + 'static,
 {
+  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<RandomTwoPhaseView<ScorerDISI<S>>>;
+  type OwnedTwoPhase = RandomTwoPhaseView<ScorerDISI<S>>;
+  type ApproximationRef<'a>
+    = <RandomTwoPhaseView<ScorerDISI<S>> as TwoPhaseIterator>::ApproximationRef<'a>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = <RandomTwoPhaseView<ScorerDISI<S>> as TwoPhaseIterator>::ApproximationMut<'a>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = &'a RandomTwoPhaseView<ScorerDISI<S>>
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = &'a mut RandomTwoPhaseView<ScorerDISI<S>>
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.approximation().doc_id())
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new(self.disi)
+  fn take_iterator(self) -> Self::Iterator {
+    self.disi
   }
 
-  fn two_phase_iterator(&self) -> Option<&dyn TwoPhaseIterator> {
+  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     Some(&self.disi.two_phase_iterator)
   }
 
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut dyn TwoPhaseIterator> {
+  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     Some(&mut self.disi.two_phase_iterator)
   }
 
-  fn take_two_phase_iterator(self: Box<Self>) -> Option<Box<dyn TwoPhaseIterator>> {
-    Some(Box::new(self.disi.two_phase_iterator))
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
+    Some(self.disi.two_phase_iterator)
   }
 
   fn advance_shallow(&mut self, mut target: i32) -> Result<i32> {
@@ -329,11 +367,11 @@ where
     TwoPhaseState::Yes
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.disi.two_phase_iterator.approximation()
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.disi.two_phase_iterator.approximation_mut()
   }
 }
@@ -371,11 +409,20 @@ impl<DISI> TwoPhaseIterator for RandomTwoPhaseView<DISI>
 where
   DISI: DocIdSetIterator,
 {
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  type ApproximationRef<'a>
+    = &'a RandomApproximation<StdRng, DISI>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut RandomApproximation<StdRng, DISI>
+  where
+    Self: 'a;
+
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.approximation
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.approximation
   }
 
@@ -521,3 +568,5 @@ impl crate::core::util::accountable::Accountable for RandomApproximationQuery {
     Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)
   }
 }
+
+use crate::core::search::scorer_supplier::ScorerSupplier;

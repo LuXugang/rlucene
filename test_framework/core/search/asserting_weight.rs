@@ -34,7 +34,7 @@ use crate::test_framework::core::util::lucene_test_case::{random_from_seed, usua
 use rand::RngExt;
 use std::sync::Arc;
 
-pub(crate) struct AssertingWeight<IRC> {
+pub(crate) struct AssertingWeight<IRC: IndexReaderContext + 'static> {
   random_seed: u64,
   in_: QueryWeight<IRC>,
   _score_mode: ScoreMode,
@@ -42,7 +42,7 @@ pub(crate) struct AssertingWeight<IRC> {
 
 impl<IRC> AssertingWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   pub(crate) fn new(random_seed: u64, in_: QueryWeight<IRC>, score_mode: ScoreMode) -> Self {
     Self {
@@ -55,7 +55,7 @@ where
 
 impl<IRC> SegmentCacheable<IRC> for AssertingWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     self.in_.is_cacheable(ctx)
@@ -64,19 +64,22 @@ where
 
 impl<IRC> Weight<IRC> for AssertingWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a>>> {
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Ok(
       self
         .in_
         .matches(context, doc, searcher)?
-        .map(|matches| QueryWeightMatches::Matches(Box::new(AssertingMatches::new(matches)))),
+        .map(|matches| QueryWeightMatches::Asserting(Box::new(AssertingMatches::new(matches)))),
     )
   }
 
@@ -85,7 +88,10 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Explanation> {
+  ) -> Result<Explanation>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     self.in_.explain(context, doc, searcher)
   }
 
@@ -99,27 +105,35 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::ScorerSupplier>> {
+  ) -> Result<Option<Self::ScorerSupplier>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let in_scorer_supplier = self.in_.scorer_supplier(context, searcher)?;
     let in_scorer_supplier = match in_scorer_supplier {
       None => return Ok(None),
       Some(in_scorer_supplier) => in_scorer_supplier,
     };
     let mut random = random_from_seed(self.random_seed);
-    Ok(Some(Box::new(AssertingScorerSupplier {
-      random_seed: random.random(),
-      score_mode: self._score_mode,
-      in_scorer_supplier,
-      get_called: false,
-      top_level_scoring_clause: false,
-    })))
+    Ok(Some(
+      crate::core::search::query::QueryWeightSs::<IRC>::fixture(AssertingScorerSupplier {
+        random_seed: random.random(),
+        score_mode: self._score_mode,
+        in_scorer_supplier,
+        get_called: false,
+        top_level_scoring_clause: false,
+      }),
+    ))
   }
 
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let count = self.in_.count(context, searcher)?;
     let num_docs = context.reader().num_docs()?;
     assert!(
@@ -132,7 +146,7 @@ where
   }
 }
 
-struct AssertingScorerSupplier<IRC> {
+struct AssertingScorerSupplier<IRC: IndexReaderContext + 'static> {
   random_seed: u64,
   score_mode: ScoreMode,
   in_scorer_supplier: QueryWeightSs<IRC>,
@@ -142,34 +156,42 @@ struct AssertingScorerSupplier<IRC> {
 
 impl<IRC> ScorerSupplier<IRC> for AssertingScorerSupplier<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
 {
-  type Scorer = crate::core::search::query::QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
+  type Scorer = crate::core::search::query::QueryWeightSsScorer<IRC>;
+  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  ) -> Result<Self::Scorer>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     assert!(!self.get_called);
     self.get_called = true;
     assert!(lead_cost >= 0, "{}", lead_cost);
     let scorer = self.in_scorer_supplier.get(lead_cost, context, searcher)?;
-    Ok(Box::new(AssertingScorer::wrap(
-      self.random_seed,
-      scorer,
-      self.score_mode,
-      self.top_level_scoring_clause,
-    )))
+    Ok(
+      crate::core::search::query::QueryWeightSsScorer::<IRC>::for_test(AssertingScorer::wrap(
+        self.random_seed,
+        scorer,
+        self.score_mode,
+        self.top_level_scoring_clause,
+      )),
+    )
   }
 
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<Self::BulkScorer>> {
+  ) -> Result<Option<Self::BulkScorer>>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     assert!(!self.get_called);
 
     let mut random = random_from_seed(self.random_seed);
@@ -196,7 +218,7 @@ where
       assert!(self.get_called);
       Ok(Some(AssertingBulkScorer::wrap(
         random.random(),
-        Box::new(scorer),
+        QueryWeightSsBulkScorer::<IRC>::for_test(scorer),
         context.reader().max_doc()?,
         self.score_mode,
       )))
@@ -207,7 +229,10 @@ where
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     searcher: &IndexSearcher<IRC>,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     let cost = self.in_scorer_supplier.cost(context, searcher)?;
     assert!(cost >= 0);
     Ok(cost)

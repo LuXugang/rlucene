@@ -60,6 +60,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::simple_collector::SimpleCollector;
@@ -568,6 +569,7 @@ fn get_matches<IRC, T>(searcher: &IndexSearcher<IRC>, query: T) -> Result<FixedB
 where
   IRC: IndexReaderContext + Sync + 'static,
   T: Into<Query>,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()?;
   let manager = FixedBitSetCollector::create_manager(max_doc);
@@ -635,6 +637,7 @@ fn assert_same_scores_without_filters<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync + 'static,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let mut bq2_builder = Builder::new();
   let min_should_match = bq.get_minimum_number_should_match();
@@ -1812,7 +1815,10 @@ impl<'a, IRC> CollectorManagerImpl<'a, IRC>
 where
   IRC: IndexReaderContext,
 {
-  fn new(searcher: &'a IndexSearcher<IRC>, matched: Arc<AtomicBool>, bq2: BooleanQuery) -> Self {
+  fn new(searcher: &'a IndexSearcher<IRC>, matched: Arc<AtomicBool>, bq2: BooleanQuery) -> Self
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Self {
       searcher,
       matched,
@@ -1823,7 +1829,7 @@ where
 impl<'a, IRC> CollectorManager for CollectorManagerImpl<'a, IRC>
 where
   IRC: IndexReaderContext,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type C = SimpleCollectorImpl<'a, IRC>;
   type T = ();
@@ -1854,7 +1860,10 @@ impl<'a, IRC> SimpleCollectorImpl<'a, IRC>
 where
   IRC: IndexReaderContext,
 {
-  fn new(matched: Arc<AtomicBool>, bq2: BooleanQuery, searcher: &'a IndexSearcher<IRC>) -> Self {
+  fn new(matched: Arc<AtomicBool>, bq2: BooleanQuery, searcher: &'a IndexSearcher<IRC>) -> Self
+  where
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  {
     Self {
       doc_base: 0,
       matched,
@@ -1867,7 +1876,7 @@ where
 impl<IRC> Collector for SimpleCollectorImpl<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -1884,6 +1893,7 @@ where
   where
     IRC1: IndexReaderContext,
     W: Weight<IRC1> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -1897,9 +1907,14 @@ where
 impl<IRC> LeafCollector for SimpleCollectorImpl<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
-  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+  type CompetitiveIterator<'a>
+    = crate::core::search::doc_id_set_iterator::EmptyDISI
+  where
+    Self: 'a;
+
+  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
     let actual_score = scorer.score()?;
     let q = self.bq2.clone();
     let expected_score = self
@@ -1926,7 +1941,7 @@ where
 impl<IRC> SimpleCollector for SimpleCollectorImpl<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where

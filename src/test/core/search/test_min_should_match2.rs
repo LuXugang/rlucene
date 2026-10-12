@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test_framework::core::search::test_scorer::TestScorer;
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
@@ -136,11 +138,11 @@ fn scorer<R, IRC>(
   min_should_match: i32,
   mode: Mode,
   searcher: &IndexSearcher<IRC>,
-) -> Result<Option<Box<dyn Scorer>>>
+) -> Result<Option<Box<dyn TestScorer>>>
 where
   R: Rng + ?Sized,
   IRC: IndexReaderContext<IndexReader = IRCLeafReader<IRC>>,
-  IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
 {
   let mut bq = Builder::new();
   for value in values {
@@ -166,7 +168,11 @@ where
     },
     Mode::Scorer => {
       let ctx = &searcher.get_leaf_contexts()?[0];
-      weight.scorer(ctx, searcher)
+      Ok(
+        weight
+          .scorer(ctx, searcher)?
+          .map(|scorer| Box::new(scorer) as Box<dyn TestScorer>),
+      )
     },
     Mode::BulkScorer => {
       let ctx = &searcher.get_leaf_contexts()?[0];
@@ -549,6 +555,7 @@ where
   pub fn new(weight: &BooleanWeight<IRC>, searcher: &IndexSearcher<IRC>) -> Result<Self>
   where
     IRC: IndexReaderContext<IndexReader = IRCLeafReader<IRC>>,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let reader = searcher.get_index_reader();
     let mut dv = reader.get_sorted_set_doc_values("dv")?.unwrap();
@@ -600,6 +607,11 @@ impl<IRC> Scorable for SlowMinShouldMatchScorer<IRC>
 where
   IRC: IndexReaderContext,
 {
+  type Child<'a>
+    = crate::core::search::dummy::dummy_scorable::DummyScorable
+  where
+    Self: 'a;
+
   fn score(&mut self) -> Result<f32> {
     assert!(self.disi.score != 0.0, "{}", self.disi.current_matched);
     Ok(self.disi.score as f32)
@@ -675,13 +687,32 @@ impl<IRC> Scorer for SlowMinShouldMatchScorer<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
+  type Iterator = DocIdSetIteratorImpl<IRC>;
+  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
+  type ApproximationRef<'a>
+    = &'a DocIdSetIteratorImpl<IRC>
+  where
+    Self: 'a;
+  type ApproximationMut<'a>
+    = &'a mut DocIdSetIteratorImpl<IRC>
+  where
+    Self: 'a;
+  type TwoPhaseRef<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+  type TwoPhaseMut<'a>
+    = crate::core::search::two_phase_iterator::EmptyTPI
+  where
+    Self: 'a;
+
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.current_doc)
   }
 
-  fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let SlowMinShouldMatchScorer { disi } = *self;
-    Box::new(disi)
+  fn take_iterator(self) -> Self::Iterator {
+    let SlowMinShouldMatchScorer { disi } = self;
+    disi
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -692,16 +723,17 @@ where
     TwoPhaseState::No
   }
 
-  fn approximation(&self) -> &dyn DocIdSetIterator {
+  fn approximation(&self) -> Self::ApproximationRef<'_> {
     &self.disi
   }
 
-  fn approximation_mut(&mut self) -> &mut dyn DocIdSetIterator {
+  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.disi
   }
 }
 
-struct DocIdSetIteratorImpl<IRC>
+#[doc(hidden)]
+pub struct DocIdSetIteratorImpl<IRC>
 where
   IRC: IndexReaderContext,
 {
@@ -820,3 +852,5 @@ where
     Ok(self.max_doc as i64)
   }
 }
+
+use crate::core::search::scorer_supplier::ScorerSupplier;
