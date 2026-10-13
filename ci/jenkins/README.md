@@ -94,8 +94,8 @@ repository file, or console log.
 
 Run the new job once using **Build Now**. That run installs the Pipeline's
 schedule and options: every minute (`* * * * *`), no concurrent builds,
-500 retained builds, and a 30-minute overall timeout. The schedule is defined
-directly in `Jenkinsfile`. After a schedule change is pushed, the next build
+500 retained builds, and a 45-minute execution-stage timeout. The schedule is
+defined directly in `Jenkinsfile`. After a schedule change is pushed, the next build
 loads the updated file and applies it without restarting the controller.
 The former `RLUCENE_CRON` environment setting is no longer used.
 
@@ -122,6 +122,11 @@ no longer used. Do not combine it with lock waiters, which Jenkins already
 considers running. See the deployment README for the required plugin and
 maintenance-window rollout. Serialization prevents overlapping builds; it
 does not cap a single build's memory or its internal test parallelism.
+
+The scheduled release job sets `CARGO_BUILD_JOBS=4` to bound compiler
+parallelism on the 30 GiB CI VM. This also bounds Rust compiler backend work
+that shares Cargo's jobserver. Nextest test parallelism is configured separately
+and remains unchanged. Release optimization settings are unchanged.
 
 ## Checkout and caching
 
@@ -238,9 +243,10 @@ documented in `ci/jenkins/deployment/README.md`.
 An individual Jenkins release test is terminated and reported as `TIMEOUT`
 after 60 seconds. Nextest first sends `SIGTERM`, waits for a 30-second grace
 period, and then sends `SIGKILL` if necessary. Non-release runs keep the default
-60-second slow threshold and 360-second timeout. The Pipeline adds a 20-minute
-outer timeout for the complete nextest run, a 4-minute timeout for doctests, and
-a 30-minute timeout for the complete build.
+60-second slow threshold and 360-second timeout. The Pipeline adds a 40-minute
+outer timeout for the complete nextest build and test run, a 4-minute timeout
+for doctests, and a 45-minute timeout for the execution stage, including checkout
+and post actions. Waiting for the shared build lock is outside that budget.
 
 Jenkins archives `nextest.log`, `nextest-junit.xml`,
 `nextest-diagnostics.log`, and `doctest.log`. When `RLUCENE_FAILURE_EMAIL` is
