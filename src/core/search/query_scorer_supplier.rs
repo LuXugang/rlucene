@@ -43,12 +43,12 @@ type FilteredVectorSupplier<IRC> = search::abstract_vector_similarity_query::Vec
   >,
 >;
 pub struct BuiltinQueryScorerSupplier<IRC: IndexReaderContext + 'static> {
-  inner: SupplierNode<IRC>,
+  pub(crate) inner: SupplierNode<IRC>,
 }
 macro_rules! define_nodes {
   (boxed { $( $(#[$attrs:meta])* $variant:ident: $ty:ty, )+ }
    inline { $( $inline:ident: $inline_ty:ty, )+ }) => {
-    enum SupplierNode<IRC: IndexReaderContext + 'static> {
+    pub(crate) enum SupplierNode<IRC: IndexReaderContext + 'static> {
       $( $(#[$attrs])* $variant(Box<$ty>), )+
       $( $inline($inline_ty), )+
       Default(search::weight::DefaultScorerSupplier<QueryWeightSsScorer<IRC>>),

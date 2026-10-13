@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-//! The closed set of built-in scorers. Recursive query nodes own concrete boxes.
+//! Built-in scorer owners dispatch directly to concrete implementations through a vtable.
 use crate::core::document::{
   binary_range_field_range_query, lat_lon_doc_values_box_query, lat_lon_doc_values_query,
   lat_lon_point_distance_feature_query, sorted_numeric_doc_values_range_query,
@@ -77,10 +77,10 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::sandbox::search::term_automaton_scorer::TermAutomatonScorer;
 use std::sync::Arc;
 
-/// A concrete scorer shared by heterogeneous and recursive built-in queries.
-/// Its private variants retain the actual implementation type.
+/// A scorer owner shared by heterogeneous and recursive built-in queries.
+/// The dynamic boundary preserves the concrete iterator and borrowed-view interfaces.
 pub struct BuiltinQueryScorer<ST: ScorerTypes> {
-  inner: ScorerNode<ST>,
+  inner: Box<dyn ScorerDispatch<ST>>,
 }
 
 pub trait IntoQueryScorer<ST: ScorerTypes> {
@@ -93,6 +93,131 @@ pub trait IntoQueryScorer<ST: ScorerTypes> {
   {
     (*self).into_query_scorer()
   }
+}
+
+// Scorer's GATs remain on the concrete implementations. This private vtable
+// exposes their operations while public borrowed views retain the same owner.
+trait ScorerDispatch<ST: ScorerTypes>: DocIdSetIterator {
+  fn score(&mut self) -> Result<f32>;
+  fn smoothing_score(&mut self, doc: i32) -> Result<f32>;
+  fn set_min_competitive_score(&mut self, min: f32) -> Result<()>;
+  fn scorable_cost(&self) -> Result<i64>;
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<QueryChildScorable<'_, ST>>>>;
+  fn scoring_doc_id(&mut self) -> Result<i32>;
+  fn advance_shallow(&mut self, target: i32) -> Result<i32>;
+  fn default_advance_shallow(&mut self, target: i32) -> Result<i32>;
+  fn get_max_score(&mut self, upto: i32) -> Result<f32>;
+  fn default_cost(&mut self) -> Result<i64>;
+  fn has_two_phase_iterator(&self) -> TwoPhaseState;
+  fn has_two_phase_view(&self) -> bool;
+  fn matches(&mut self) -> Result<bool>;
+  fn match_cost(&self) -> f32;
+  fn approximation_doc_id(&self) -> i32;
+  fn approximation_cost(&self) -> Result<i64>;
+  fn approximation_next_doc(&mut self) -> Result<i32>;
+  fn approximation_advance(&mut self, target: i32) -> Result<i32>;
+  fn approximation_slow_advance(&mut self, target: i32) -> Result<i32>;
+  fn approximation_is_bit_iter(&self) -> bool;
+  fn approximation_get(&self, index: usize) -> Result<bool>;
+  fn approximation_set_doc_id(&mut self, doc: i32) -> Result<()>;
+  fn approximation_bit_set_length(&self) -> Result<usize>;
+  fn into_default_bulk(self: Box<Self>) -> DefaultQueryBulkScorer<ST>;
+  #[cfg(test)]
+  fn kind(&self) -> crate::core::search::scorer::ScorerKind;
+}
+
+macro_rules! scorer_dispatch {
+  ($ty:ty, $variant:ident, $owner:ident, $bulk:expr) => {
+    impl<ST: ScorerTypes> ScorerDispatch<ST> for $ty {
+      fn score(&mut self) -> Result<f32> {
+        Scorable::score(self)
+      }
+      fn smoothing_score(&mut self, doc: i32) -> Result<f32> {
+        Scorable::smoothing_score(self, doc)
+      }
+      fn set_min_competitive_score(&mut self, min: f32) -> Result<()> {
+        Scorable::set_min_competitive_score(self, min)
+      }
+      fn scorable_cost(&self) -> Result<i64> {
+        Scorable::cost(self)
+      }
+      fn get_children(&mut self) -> Result<Vec<ChildScorable<QueryChildScorable<'_, ST>>>> {
+        Scorable::get_children(self).map(|children| {
+          children
+            .into_iter()
+            .map(|child| ChildScorable {
+              child: child.child.into_query_child(),
+              relationship: child.relationship,
+            })
+            .collect()
+        })
+      }
+      fn scoring_doc_id(&mut self) -> Result<i32> {
+        Scorer::scoring_doc_id(self)
+      }
+      fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+        Scorer::advance_shallow(self, target)
+      }
+      fn default_advance_shallow(&mut self, target: i32) -> Result<i32> {
+        Scorer::default_advance_shallow(self, target)
+      }
+      fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+        Scorer::get_max_score(self, upto)
+      }
+      fn default_cost(&mut self) -> Result<i64> {
+        Scorer::default_cost(self)
+      }
+      fn has_two_phase_iterator(&self) -> TwoPhaseState {
+        Scorer::has_two_phase_iterator(self)
+      }
+      fn has_two_phase_view(&self) -> bool {
+        Scorer::two_phase_iterator(self).is_some()
+      }
+      fn matches(&mut self) -> Result<bool> {
+        Scorer::two_phase_iterator_mut(self)
+          .ok_or_else(|| LuceneError::illegal_state("scorer has no two-phase iterator"))?
+          .matches()
+      }
+      fn match_cost(&self) -> f32 {
+        Scorer::two_phase_iterator(self).map_or(0.0, |iterator| iterator.match_cost())
+      }
+      fn approximation_doc_id(&self) -> i32 {
+        Scorer::approximation(self).doc_id()
+      }
+      fn approximation_cost(&self) -> Result<i64> {
+        DocIdSetIterator::cost(&Scorer::approximation(self))
+      }
+      fn approximation_next_doc(&mut self) -> Result<i32> {
+        Scorer::approximation_mut(self).next_doc()
+      }
+      fn approximation_advance(&mut self, target: i32) -> Result<i32> {
+        Scorer::approximation_mut(self).advance(target)
+      }
+      fn approximation_slow_advance(&mut self, target: i32) -> Result<i32> {
+        Scorer::approximation_mut(self).slow_advance(target)
+      }
+      fn approximation_is_bit_iter(&self) -> bool {
+        Scorer::approximation(self).is_bit_iter()
+      }
+      fn approximation_get(&self, index: usize) -> Result<bool> {
+        Scorer::approximation(self).get(index)
+      }
+      fn approximation_set_doc_id(&mut self, doc: i32) -> Result<()> {
+        Scorer::approximation_mut(self).set_doc_id(doc)
+      }
+      fn approximation_bit_set_length(&self) -> Result<usize> {
+        Scorer::approximation(self).bit_set_length()
+      }
+      fn into_default_bulk(self: Box<Self>) -> DefaultQueryBulkScorer<ST> {
+        let $owner = self;
+        DefaultQueryBulkScorer::$variant($bulk)
+      }
+      #[cfg(test)]
+      fn kind(&self) -> crate::core::search::scorer::ScorerKind {
+        Scorer::kind(self)
+      }
+    }
+  };
 }
 
 macro_rules! scorer_nodes {
@@ -113,35 +238,32 @@ macro_rules! scorer_nodes {
     }
     impl<ST: ScorerTypes> BuiltinQueryScorer<ST> {
       pub(crate) fn into_default_bulk(self) -> DefaultQueryBulkScorer<ST> {
-        match self.inner { $( $(#[$attrs])* ScorerNode::$variant(scorer) => DefaultQueryBulkScorer::$variant(crate::core::search::weight::DefaultBulkScorer::new(scorer)), )+ $( ScorerNode::$inline(scorer) => DefaultQueryBulkScorer::$inline(crate::core::search::weight::DefaultBulkScorer::new(scorer)), )+ #[cfg(test)] ScorerNode::Fixture(scorer) => DefaultQueryBulkScorer::Fixture(crate::core::search::weight::DefaultBulkScorer::new(scorer)), }
+        self.inner.into_default_bulk()
       }
     }
-    enum ScorerNode<ST: ScorerTypes> {
-      #[cfg(test)] Fixture(Box<dyn crate::test_framework::core::search::test_scorer::TestScorer>),
-      $( $(#[$attrs])* $variant(Box<$ty>), )+
-      $( $inline($inline_ty), )+
-    }
+    $( $(#[$attrs])* scorer_dispatch!($ty, $variant, owner, crate::core::search::weight::DefaultBulkScorer::new(owner)); )+
+    $( scorer_dispatch!($inline_ty, $inline, owner, crate::core::search::weight::DefaultBulkScorer::new(*owner)); )+
+    #[cfg(test)]
+    scorer_dispatch!(Box<dyn crate::test_framework::core::search::test_scorer::TestScorer>, Fixture, owner, crate::core::search::weight::DefaultBulkScorer::new(*owner));
 
     $( $(#[$attrs])* impl<ST: ScorerTypes> IntoQueryScorer<ST> for $ty {
       fn into_query_scorer(self) -> BuiltinQueryScorer<ST> {
-        BuiltinQueryScorer { inner: ScorerNode::$variant(Box::new(self)) }
+        BuiltinQueryScorer { inner: Box::new(self) }
       }
       fn into_query_scorer_from_box(self: Box<Self>) -> BuiltinQueryScorer<ST> {
-        BuiltinQueryScorer { inner: ScorerNode::$variant(self) }
+        BuiltinQueryScorer { inner: self }
       }
     } )+
 
     $( impl<ST: ScorerTypes> IntoQueryScorer<ST> for $inline_ty {
       fn into_query_scorer(self) -> BuiltinQueryScorer<ST> {
-        BuiltinQueryScorer { inner: ScorerNode::$inline(self) }
+        BuiltinQueryScorer { inner: Box::new(self) }
+      }
+      fn into_query_scorer_from_box(self: Box<Self>) -> BuiltinQueryScorer<ST> {
+        BuiltinQueryScorer { inner: self }
       }
     } )+
 
-    macro_rules! dispatch_scorer {
-      ($node:expr, |$inner:ident| $body:expr) => {
-        match $node { $( $(#[$attrs])* ScorerNode::$variant($inner) => $body, )+ $( ScorerNode::$inline($inner) => $body, )+ #[cfg(test)] ScorerNode::Fixture($inner) => $body, }
-      };
-    }
   };
 }
 
@@ -256,23 +378,13 @@ impl<ST: ScorerTypes> BuiltinQueryScorer<ST> {
   }
 
   fn has_two_phase_view(&self) -> bool {
-    dispatch_scorer!(&self.inner, |scorer| scorer.two_phase_iterator().is_some())
+    self.inner.has_two_phase_view()
   }
-
   fn matches(&mut self) -> Result<bool> {
-    dispatch_scorer!(&mut self.inner, |scorer| {
-      #[allow(unused_mut)]
-      let mut iterator = scorer
-        .two_phase_iterator_mut()
-        .ok_or_else(|| LuceneError::illegal_state("scorer has no two-phase iterator"))?;
-      iterator.matches()
-    })
+    self.inner.matches()
   }
-
   fn match_cost(&self) -> f32 {
-    dispatch_scorer!(&self.inner, |scorer| scorer
-      .two_phase_iterator()
-      .map_or(0.0, |iterator| iterator.match_cost()))
+    self.inner.match_cost()
   }
 }
 
@@ -282,7 +394,7 @@ impl<ST: ScorerTypes> IntoQueryScorer<ST>
 {
   fn into_query_scorer(self) -> BuiltinQueryScorer<ST> {
     BuiltinQueryScorer {
-      inner: ScorerNode::Fixture(self),
+      inner: Box::new(self),
     }
   }
 }
@@ -317,46 +429,46 @@ convert_scorer_enum!(ScorerEnum4, A: S1, B: S2, C: S3, D: S4);
 
 impl<ST: ScorerTypes> DocIdSetIteratorExtensions for BuiltinQueryScorer<ST> {
   fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
-    dispatch_scorer!(&self.inner, |scorer| scorer.get_fixed_bit_set())
+    self.inner.get_fixed_bit_set()
   }
   fn get_sparse_fixed_bit_set(
     &self,
   ) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> {
-    dispatch_scorer!(&self.inner, |scorer| scorer.get_sparse_fixed_bit_set())
+    self.inner.get_sparse_fixed_bit_set()
   }
   fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
-    dispatch_scorer!(&self.inner, |scorer| scorer.get_doc_base_fixed_bit_set())
+    self.inner.get_doc_base_fixed_bit_set()
   }
 }
 impl<ST: ScorerTypes> BitSetIteratorAccess for BuiltinQueryScorer<ST> {
   fn is_bit_iter(&self) -> bool {
-    dispatch_scorer!(&self.inner, |scorer| scorer.is_bit_iter())
+    self.inner.is_bit_iter()
   }
   fn get(&self, index: usize) -> Result<bool> {
-    dispatch_scorer!(&self.inner, |scorer| scorer.get(index))
+    self.inner.get(index)
   }
   fn set_doc_id(&mut self, doc: i32) -> Result<()> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.set_doc_id(doc))
+    self.inner.set_doc_id(doc)
   }
   fn bit_set_length(&self) -> Result<usize> {
-    dispatch_scorer!(&self.inner, |scorer| scorer.bit_set_length())
+    self.inner.bit_set_length()
   }
 }
 impl<ST: ScorerTypes> DocIdSetIterator for BuiltinQueryScorer<ST> {
   fn doc_id(&self) -> i32 {
-    dispatch_scorer!(&self.inner, |scorer| scorer.doc_id())
+    self.inner.doc_id()
   }
   fn next_doc(&mut self) -> Result<i32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.next_doc())
+    self.inner.next_doc()
   }
   fn advance(&mut self, target: i32) -> Result<i32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.advance(target))
+    self.inner.advance(target)
   }
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.slow_advance(target))
+    self.inner.slow_advance(target)
   }
   fn cost(&self) -> Result<i64> {
-    dispatch_scorer!(&self.inner, |scorer| DocIdSetIterator::cost(scorer))
+    DocIdSetIterator::cost(&self.inner)
   }
 }
 impl<ST: ScorerTypes> Scorable for BuiltinQueryScorer<ST> {
@@ -366,28 +478,19 @@ impl<ST: ScorerTypes> Scorable for BuiltinQueryScorer<ST> {
     Self: 'a;
 
   fn score(&mut self) -> Result<f32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.score())
+    self.inner.score()
   }
   fn smoothing_score(&mut self, doc: i32) -> Result<f32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.smoothing_score(doc))
+    self.inner.smoothing_score(doc)
   }
   fn set_min_competitive_score(&mut self, min: f32) -> Result<()> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer
-      .set_min_competitive_score(min))
+    self.inner.set_min_competitive_score(min)
   }
   fn cost(&self) -> Result<i64> {
-    dispatch_scorer!(&self.inner, |scorer| Scorable::cost(scorer))
+    self.inner.scorable_cost()
   }
   fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.get_children().map(
-      |children| children
-        .into_iter()
-        .map(|child| ChildScorable {
-          child: child.child.into_query_child(),
-          relationship: child.relationship
-        })
-        .collect()
-    ))
+    self.inner.get_children()
   }
   #[cfg(test)]
   fn as_any(&mut self) -> &mut dyn std::any::Any {
@@ -415,7 +518,7 @@ impl<ST: ScorerTypes> Scorer for BuiltinQueryScorer<ST> {
   where
     Self: 'a;
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.scoring_doc_id())
+    self.inner.scoring_doc_id()
   }
   fn take_iterator(self) -> Self::Iterator {
     self
@@ -442,24 +545,23 @@ impl<ST: ScorerTypes> Scorer for BuiltinQueryScorer<ST> {
       .then_some(QueryTwoPhaseMut { owner: self })
   }
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    dispatch_scorer!(&self.inner, |scorer| scorer.has_two_phase_iterator())
+    self.inner.has_two_phase_iterator()
   }
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.advance_shallow(target))
+    self.inner.advance_shallow(target)
   }
   fn default_advance_shallow(&mut self, target: i32) -> Result<i32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer
-      .default_advance_shallow(target))
+    self.inner.default_advance_shallow(target)
   }
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.get_max_score(upto))
+    self.inner.get_max_score(upto)
   }
   fn default_cost(&mut self) -> Result<i64> {
-    dispatch_scorer!(&mut self.inner, |scorer| scorer.default_cost())
+    self.inner.default_cost()
   }
   #[cfg(test)]
   fn kind(&self) -> crate::core::search::scorer::ScorerKind {
-    dispatch_scorer!(&self.inner, |scorer| scorer.kind())
+    self.inner.kind()
   }
 }
 
@@ -479,19 +581,13 @@ macro_rules! approximation_view {
     impl<ST: ScorerTypes> BitSetIteratorAccess for $view<'_, ST> {
       $( $setter )*
       fn is_bit_iter(&self) -> bool {
-        dispatch_scorer!(&self.owner.inner, |scorer| scorer
-          .approximation()
-          .is_bit_iter())
+        self.owner.inner.approximation_is_bit_iter()
       }
       fn get(&self, index: usize) -> Result<bool> {
-        dispatch_scorer!(&self.owner.inner, |scorer| scorer
-          .approximation()
-          .get(index))
+        self.owner.inner.approximation_get(index)
       }
       fn bit_set_length(&self) -> Result<usize> {
-        dispatch_scorer!(&self.owner.inner, |scorer| scorer
-          .approximation()
-          .bit_set_length())
+        self.owner.inner.approximation_bit_set_length()
       }
     }
   };
@@ -500,19 +596,15 @@ approximation_view!(QueryApproximationRef,);
 approximation_view!(
   QueryApproximationMut,
   fn set_doc_id(&mut self, doc: i32) -> Result<()> {
-    dispatch_scorer!(&mut self.owner.inner, |scorer| scorer
-      .approximation_mut()
-      .set_doc_id(doc))
+    self.owner.inner.approximation_set_doc_id(doc)
   }
 );
 impl<ST: ScorerTypes> DocIdSetIterator for QueryApproximationRef<'_, ST> {
   fn doc_id(&self) -> i32 {
-    dispatch_scorer!(&self.owner.inner, |scorer| scorer.approximation().doc_id())
+    self.owner.inner.approximation_doc_id()
   }
   fn cost(&self) -> Result<i64> {
-    dispatch_scorer!(&self.owner.inner, |scorer| DocIdSetIterator::cost(
-      &scorer.approximation()
-    ))
+    self.owner.inner.approximation_cost()
   }
   fn next_doc(&mut self) -> Result<i32> {
     Err(LuceneError::unsupported_operation(
@@ -522,27 +614,19 @@ impl<ST: ScorerTypes> DocIdSetIterator for QueryApproximationRef<'_, ST> {
 }
 impl<ST: ScorerTypes> DocIdSetIterator for QueryApproximationMut<'_, ST> {
   fn doc_id(&self) -> i32 {
-    dispatch_scorer!(&self.owner.inner, |scorer| scorer.approximation().doc_id())
+    self.owner.inner.approximation_doc_id()
   }
   fn cost(&self) -> Result<i64> {
-    dispatch_scorer!(&self.owner.inner, |scorer| DocIdSetIterator::cost(
-      &scorer.approximation()
-    ))
+    self.owner.inner.approximation_cost()
   }
   fn next_doc(&mut self) -> Result<i32> {
-    dispatch_scorer!(&mut self.owner.inner, |scorer| scorer
-      .approximation_mut()
-      .next_doc())
+    self.owner.inner.approximation_next_doc()
   }
   fn advance(&mut self, target: i32) -> Result<i32> {
-    dispatch_scorer!(&mut self.owner.inner, |scorer| scorer
-      .approximation_mut()
-      .advance(target))
+    self.owner.inner.approximation_advance(target)
   }
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    dispatch_scorer!(&mut self.owner.inner, |scorer| scorer
-      .approximation_mut()
-      .slow_advance(target))
+    self.owner.inner.approximation_slow_advance(target)
   }
 }
 

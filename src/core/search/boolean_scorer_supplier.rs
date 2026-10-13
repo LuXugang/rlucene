@@ -462,11 +462,38 @@ where
       return Ok(Some(v));
     }
 
-    let mut optional = Vec::with_capacity(should_len);
     let should = self
       .subs
       .get_mut(&Occur::Should)
       .ok_or_else(|| LuceneError::illegal_state("SHOULD clauses are missing"))?;
+    if should.iter().all(|supplier| {
+      matches!(
+        &supplier.inner,
+        crate::core::search::query_scorer_supplier::SupplierNode::Term(_)
+      )
+    }) {
+      let mut optional = Vec::with_capacity(should_len);
+      for supplier in should.iter_mut() {
+        let crate::core::search::query_scorer_supplier::SupplierNode::Term(term) =
+          &mut supplier.inner
+        else {
+          return Err(LuceneError::illegal_state(
+            "all optional suppliers were checked to be terms",
+          ));
+        };
+        // Preserve get's Term/Empty result without the global scorer conversion.
+        optional.push(Box::new(term.get(i64::MAX, context, searcher)?));
+      }
+      return Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+        BooleanScorer::new(
+          optional,
+          std::cmp::max(1, self.min_should_match) as usize,
+          self.score_mode.needs_scores(),
+        )?,
+      )));
+    }
+
+    let mut optional = Vec::with_capacity(should_len);
     for ss in should.iter_mut() {
       optional.push(ss.get(i64::MAX, context, searcher)?);
     }

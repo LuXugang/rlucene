@@ -30,11 +30,13 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
+use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSs, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
@@ -43,7 +45,7 @@ use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayCom
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
+use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
@@ -684,7 +686,10 @@ where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = ScorerEnum2<
+    ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
+    ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
+  >;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
@@ -718,15 +723,19 @@ where
       self.values.intersect(&mut visitor)?;
       let cost = visitor.cost;
       let iterator = BitSetIterator::new(result, cost)?;
-      return Ok(QueryWeightSsScorer::<IRC>::new(
-        ConstantScoreScorer::from_disi(self.score, self.score_mode, iterator),
-      ));
+      return Ok(ScorerEnum2::A(ConstantScoreScorer::from_disi(
+        self.score,
+        self.score_mode,
+        iterator,
+      )));
     }
     self.values.intersect(&mut self.visitor)?;
     let iterator = self.visitor.result.build()?.iterator()?;
-    Ok(QueryWeightSsScorer::<IRC>::new(
-      ConstantScoreScorer::from_disi(self.score, self.score_mode, iterator),
-    ))
+    Ok(ScorerEnum2::B(ConstantScoreScorer::from_disi(
+      self.score,
+      self.score_mode,
+      iterator,
+    )))
   }
 
   fn bulk_scorer(
