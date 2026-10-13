@@ -33,7 +33,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -304,7 +304,7 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<IRC>>;
 
   fn scorer_supplier(
     &self,
@@ -336,7 +336,9 @@ where
       {
         let iter = AllDISI::new(skipper.doc_count());
         let scorer = ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, iter);
-        return Ok(Some(DefaultScorerSupplier::new(scorer).into()));
+        return Ok(Some(DefaultScorerSupplier::new(
+          QueryWeightSsScorer::<IRC>::new(scorer),
+        )));
       }
     }
     let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
@@ -350,12 +352,10 @@ where
             skipper,
           )?;
           if let Some(ps_iterator) = ps_iterator_opt {
-            let v = DefaultScorerSupplier::new(ConstantScoreScorer::from_disi(
-              self.base.score(),
-              self.score_mode,
-              ps_iterator,
+            let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC>::new(
+              ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, ps_iterator),
             ));
-            return Ok(Some(v.into()));
+            return Ok(Some(v));
           } else {
             TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, &self.query))
           }
@@ -375,13 +375,13 @@ where
           false,
         );
         let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, v);
-        let v = DefaultScorerSupplier::new(scorer);
-        Ok(Some(v.into()))
+        let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC>::new(scorer));
+        Ok(Some(v))
       },
       None => {
         let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
-        let v = DefaultScorerSupplier::new(scorer);
-        Ok(Some(v.into()))
+        let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC>::new(scorer));
+        Ok(Some(v))
       },
     }
   }

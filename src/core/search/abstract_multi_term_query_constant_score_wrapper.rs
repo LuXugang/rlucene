@@ -384,7 +384,26 @@ where
   TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
   TermsPosting<T>: 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = ScorerEnum4<
+    ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
+    QueryWeightSsScorer<IRC>,
+    ConstantScoreScorer<
+      crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation<
+        ConstantScoreScorer<
+          crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+            crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+            TermsPosting<T>,
+          >,
+          DummyTwoPhaseIterator,
+        >,
+      >,
+      DummyTwoPhaseIterator,
+    >,
+    ConstantScoreScorer<
+      crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+      DummyTwoPhaseIterator,
+    >,
+  >;
   type BulkScorer = BulkScorerEnum4<
     DefaultBulkScorer<ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>>,
     QueryWeightSsBulkScorer<IRC>,
@@ -495,7 +514,7 @@ where
         },
       },
     };
-    Ok(QueryWeightSsScorer::<IRC>::new(s))
+    Ok(s)
   }
 
   fn bulk_scorer(
@@ -793,19 +812,29 @@ impl<IRC: IndexReaderContext + 'static> Weight<IRC> for MultiTermRewritingWeight
     IndexSearcher<IRC>: Sync,
   {
     match self {
-      Self::Prefix(inner) => Weight::<IRC>::scorer(inner, context, searcher),
-      Self::TermRange(inner) => Weight::<IRC>::scorer(inner, context, searcher),
-      Self::Automaton(inner) => Weight::<IRC>::scorer(inner, context, searcher),
-      Self::Fuzzy(inner) => Weight::<IRC>::scorer(inner, context, searcher),
-      Self::TermInSet(inner) => Weight::<IRC>::scorer(inner, context, searcher),
-      Self::Wildcard(inner) => Weight::<IRC>::scorer(inner, context, searcher),
-      Self::Regexp(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Prefix(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
+      Self::TermRange(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
+      Self::Automaton(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
+      Self::Fuzzy(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
+      Self::TermInSet(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
+      Self::Wildcard(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
+      Self::Regexp(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
       #[cfg(test)]
-      Self::BoostChecking(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::BoostChecking(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
       #[cfg(test)]
-      Self::DumbPrefix(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::DumbPrefix(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
       #[cfg(test)]
-      Self::DumbRegexp(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::DumbRegexp(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
     }
   }
   fn scorer_supplier(

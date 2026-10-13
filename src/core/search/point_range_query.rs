@@ -526,12 +526,7 @@ where
     let max_doc = reader.max_doc()?;
     if all_docs_match {
       Ok(Some(
-        Box::new(ScorerSupplierImpl::new(
-          self.base.score(),
-          self.score_mode,
-          max_doc,
-        ))
-        .into(),
+        ScorerSupplierImpl::new(self.base.score(), self.score_mode, max_doc).into(),
       ))
     } else {
       let result = DocIdSetBuilder::from_point_values(max_doc, &values, self.query.field.as_ref())?;
@@ -690,7 +685,7 @@ where
   IRCLeafReader<IRC>: LeafReader,
 {
   type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -780,8 +775,11 @@ where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = ConstantScoreScorer<
+    AllDISI,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -793,8 +791,10 @@ where
     IndexSearcher<IRC>: Sync,
   {
     debug_assert!(context.reader().max_doc()? == self.max_doc);
-    Ok(QueryWeightSsScorer::<IRC>::new(
-      ConstantScoreScorer::from_disi(self.score, self.score_mode, AllDISI::new(self.max_doc)),
+    Ok(ConstantScoreScorer::from_disi(
+      self.score,
+      self.score_mode,
+      AllDISI::new(self.max_doc),
     ))
   }
 

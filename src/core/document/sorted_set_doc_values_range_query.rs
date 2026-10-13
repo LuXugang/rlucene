@@ -390,7 +390,7 @@ where
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,

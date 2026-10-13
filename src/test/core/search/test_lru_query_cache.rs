@@ -1285,11 +1285,8 @@ fn test_propagate_bulk_scorer() -> Result<()> {
   // test that the bulk scorer is propagated when a scorer should not be cached
   let weight =
     searcher.create_weight(MatchAllDocsQuery::new(), ScoreMode::CompleteNoScores, 1.0)?;
-  let weight: QueryWeight<_> = QueryWeight::fixture(WeightWrapper::new(
-    weight,
-    scorer_called.clone(),
-    bulk_scorer_called.clone(),
-  ));
+  let weight: QueryWeight<_> =
+    WeightWrapper::new(weight, scorer_called.clone(), bulk_scorer_called.clone()).into();
   let weight = cache.do_cache(weight, never_cache())?;
   let _ = weight.bulk_scorer(leaf, &searcher)?;
   assert!(bulk_scorer_called.load(Ordering::SeqCst));
@@ -2406,7 +2403,7 @@ fn test_cache_has_fast_count() -> Result<()> {
   w.close(&mut random)
 }
 
-struct WeightWrapper<IRC: IndexReaderContext + 'static> {
+pub(crate) struct WeightWrapper<IRC: IndexReaderContext + 'static> {
   in_: Arc<QueryWeight<IRC>>,
   scorer_called: Arc<AtomicBool>,
   bulk_scorer_called: Arc<AtomicBool>,
@@ -2470,7 +2467,7 @@ where
     self.in_.get_query()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = WeightWrapperScorerSupplier<IRC>;
 
   fn scorer_supplier(
     &self,
@@ -2485,19 +2482,17 @@ where
     };
     let scorer = scorer_supplier.get(i64::MAX, context, searcher)?;
     let cost = crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&scorer)?;
-    Ok(Some(
-      crate::core::search::query::QueryWeightSs::<IRC>::fixture(WeightWrapperScorerSupplier {
-        in_: self.in_.clone(),
-        scorer: Some(scorer),
-        cost,
-        scorer_called: self.scorer_called.clone(),
-        bulk_scorer_called: self.bulk_scorer_called.clone(),
-      }),
-    ))
+    Ok(Some(WeightWrapperScorerSupplier {
+      in_: self.in_.clone(),
+      scorer: Some(scorer),
+      cost,
+      scorer_called: self.scorer_called.clone(),
+      bulk_scorer_called: self.bulk_scorer_called.clone(),
+    }))
   }
 }
 
-struct WeightWrapperScorerSupplier<IRC: IndexReaderContext + 'static> {
+pub(crate) struct WeightWrapperScorerSupplier<IRC: IndexReaderContext + 'static> {
   in_: Arc<QueryWeight<IRC>>,
   scorer: Option<QueryWeightSsScorer<IRC>>,
   cost: i64,

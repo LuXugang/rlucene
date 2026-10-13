@@ -492,7 +492,8 @@ where
   }
 }
 
-pub(crate) struct SharedPostingsEnum<P> {
+#[doc(hidden)]
+pub struct SharedPostingsEnum<P> {
   inner: Rc<RefCell<P>>,
 }
 
@@ -575,7 +576,8 @@ where
   }
 }
 
-pub(crate) struct SharedImpactsEnum<I> {
+#[doc(hidden)]
+pub struct SharedImpactsEnum<I> {
   inner: Rc<RefCell<I>>,
 }
 
@@ -681,7 +683,8 @@ where
 impl<I> ImpactsEnum for SharedImpactsEnum<I> where I: ImpactsEnum {}
 
 #[derive(Clone)]
-pub(crate) struct OwnedImpacts {
+#[doc(hidden)]
+pub struct OwnedImpacts {
   doc_id_uptos: Vec<i32>,
   impacts: Vec<Vec<Impact>>,
 }
@@ -718,7 +721,8 @@ impl Impacts for OwnedImpacts {
   }
 }
 
-pub(crate) struct SynonymImpactsSource<IE> {
+#[doc(hidden)]
+pub struct SynonymImpactsSource<IE> {
   impacts_enums: Vec<IE>,
   boosts: Vec<f32>,
 }
@@ -775,7 +779,8 @@ where
   }
 }
 
-pub(crate) struct SynonymImpacts<'a, I, IE> {
+#[doc(hidden)]
+pub struct SynonymImpacts<'a, I, IE> {
   impacts: Vec<I>,
   impacts_enums: &'a [IE],
   boosts: &'a [f32],
@@ -957,7 +962,8 @@ type SynonymImpactsDISI<ST> = SeparateImpactsDISI<
 
 type EmptySynonymScorer = ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>;
 
-pub(crate) enum SynonymSubScorer<ST>
+#[doc(hidden)]
+pub enum SynonymSubScorer<ST>
 where
   ST: ScorerTypes,
 {
@@ -1171,7 +1177,8 @@ where
   }
 }
 
-pub(crate) struct SynonymScorer<ST>
+#[doc(hidden)]
+pub struct SynonymScorer<ST>
 where
   ST: ScorerTypes + 'static,
 {
@@ -1369,7 +1376,8 @@ where
   }
 }
 
-pub(crate) struct FreqBoostTermScorer<ST>
+#[doc(hidden)]
+pub struct FreqBoostTermScorer<ST>
 where
   ST: ScorerTypes + 'static,
 {
@@ -1745,8 +1753,8 @@ impl<IRC> ScorerSupplier<IRC> for SynonymScorerSupplier<IRCLeafReader<IRC>>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = SynonymScorerEnum<LeafScorerTypes<IRCLeafReader<IRC>>>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -1757,7 +1765,7 @@ where
   where
     IndexSearcher<IRC>: Sync,
   {
-    Ok(QueryWeightSsScorer::<IRC>::new(self.get_scorer(context)?))
+    self.get_scorer(context)
   }
 
   fn bulk_scorer(
@@ -1945,7 +1953,8 @@ impl<IRC: IndexReaderContext + 'static> Weight<IRC> for SynonymQueryWeight<IRC> 
     IndexSearcher<IRC>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Scoring(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
       Self::Rewritten(inner) => Weight::<IRC>::scorer(inner, context, searcher),
     }
   }

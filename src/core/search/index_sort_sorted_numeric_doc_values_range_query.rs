@@ -39,9 +39,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_field_comparator::{LeafFieldComparator, LeafFieldComparatorEnum};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::pruning::Pruning;
-use crate::core::search::query::{
-  IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
-};
+use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -433,8 +431,11 @@ impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<Disi<IRCLeafReader<IRC>>>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = ConstantScoreScorer<
+    IteratorAndCountDisi<Disi<IRCLeafReader<IRC>>>,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -460,7 +461,7 @@ where
       },
     };
     let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
-    Ok(QueryWeightSsScorer::<IRC>::new(v))
+    Ok(v)
   }
 
   fn bulk_scorer(

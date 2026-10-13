@@ -30,7 +30,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryWeight, QueryWeightMatches, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryWeight, QueryWeightMatches};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
@@ -439,12 +439,9 @@ impl<S, IRC> ScorerSupplier<IRC> for DefaultScorerSupplier<S>
 where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
-  S: Scorer
-    + crate::core::search::query_scorer::IntoQueryScorer<
-      crate::core::search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>,
-    > + 'static,
+  S: Scorer + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = S;
   type BulkScorer = DefaultBulkScorer<S>;
 
   fn get(
@@ -460,7 +457,7 @@ where
       .scorer
       .take()
       .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get returned None"))?;
-    Ok(QueryWeightSsScorer::<IRC>::new(v))
+    Ok(v)
   }
 
   fn bulk_scorer(

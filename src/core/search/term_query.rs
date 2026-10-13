@@ -35,7 +35,7 @@ use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::for_field;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
@@ -571,7 +571,7 @@ impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRCLeafReader<IRC>>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = TermScorerEnum<IRCLeafReader<IRC>>;
   type BulkScorer =
     crate::core::search::weight::DefaultBulkScorer<TermScorerEnum<IRCLeafReader<IRC>>>;
 
@@ -593,7 +593,7 @@ where
       self.score_mode,
       self.top_level_scoring_clause,
     )?;
-    Ok(QueryWeightSsScorer::<IRC>::new(scorer))
+    Ok(scorer)
   }
 
   fn bulk_scorer(

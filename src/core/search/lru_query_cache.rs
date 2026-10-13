@@ -1237,7 +1237,7 @@ where
   C: CacheHelper,
 {
   type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -1304,8 +1304,11 @@ impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl2
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = ConstantScoreScorer<
+    CacheAndCountDISI,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -1316,12 +1319,10 @@ where
   where
     IndexSearcher<IRC>: Sync,
   {
-    Ok(QueryWeightSsScorer::<IRC>::new(
-      ConstantScoreScorer::from_disi(
-        0.0,
-        ScoreMode::CompleteNoScores,
-        std::mem::take(&mut self.disi),
-      ),
+    Ok(ConstantScoreScorer::from_disi(
+      0.0,
+      ScoreMode::CompleteNoScores,
+      std::mem::take(&mut self.disi),
     ))
   }
 

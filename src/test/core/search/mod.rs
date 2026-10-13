@@ -18,7 +18,7 @@ pub(crate) mod knn;
 pub(crate) mod similarities;
 mod test_automaton_query;
 pub(crate) mod test_boolean2;
-mod test_boolean2_scorer_supplier;
+pub(crate) mod test_boolean2_scorer_supplier;
 mod test_boolean_or;
 mod test_boolean_query;
 pub(crate) mod test_boolean_scorer;

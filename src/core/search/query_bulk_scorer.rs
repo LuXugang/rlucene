@@ -39,14 +39,24 @@ pub struct BuiltinQueryBulkScorer<ST: ScorerTypes> {
 }
 pub trait IntoQueryBulkScorer<ST: ScorerTypes> {
   fn into_query_bulk_scorer(self) -> BuiltinQueryBulkScorer<ST>;
+
+  /// Consume an existing box, retaining its allocation when the destination is boxed.
+  fn into_query_bulk_scorer_from_box(self: Box<Self>) -> BuiltinQueryBulkScorer<ST>
+  where
+    Self: Sized,
+  {
+    (*self).into_query_bulk_scorer()
+  }
 }
 
 macro_rules! bulk_nodes {
-  ($( $(#[$attrs:meta])* $variant:ident: $ty:ty ),+ $(,)?) => {
+  (boxed { $( $(#[$attrs:meta])* $variant:ident: $ty:ty, )+ }
+   inline { $( $inline:ident: $inline_ty:ty, )+ }) => {
     enum BulkNode<ST: ScorerTypes> {
       #[cfg(test)] Fixture(Box<dyn crate::test_framework::core::search::test_collector::TestBulkScorer>),
       Default(DefaultQueryBulkScorer<ST>),
       $( $(#[$attrs])* $variant(Box<$ty>), )+
+      $( $inline($inline_ty), )+
       Constant { inner: Box<BuiltinQueryBulkScorer<ST>>, score: f32 },
       Disabled(Box<BuiltinQueryBulkScorer<ST>>),
       RequiredExcluded { required: Box<BuiltinQueryBulkScorer<ST>>, excluded: BuiltinQueryScorer<ST> },
@@ -55,11 +65,20 @@ macro_rules! bulk_nodes {
       fn into_query_bulk_scorer(self) -> BuiltinQueryBulkScorer<ST> {
         BuiltinQueryBulkScorer { inner: BulkNode::$variant(Box::new(self)) }
       }
+      fn into_query_bulk_scorer_from_box(self: Box<Self>) -> BuiltinQueryBulkScorer<ST> {
+        BuiltinQueryBulkScorer { inner: BulkNode::$variant(self) }
+      }
+    } )+
+    $( impl<ST: ScorerTypes> IntoQueryBulkScorer<ST> for $inline_ty {
+      fn into_query_bulk_scorer(self) -> BuiltinQueryBulkScorer<ST> {
+        BuiltinQueryBulkScorer { inner: BulkNode::$inline(self) }
+      }
     } )+
     impl<ST: ScorerTypes> BuiltinQueryBulkScorer<ST> {
       fn score_internal<CLC: LeafCollector, AB: Bits + ?Sized>(&mut self, collector: &mut CLC, accept_docs: Option<&AB>, min: i32, max: i32, overlay: CollectorOverlay) -> Result<i32> {
         match &mut self.inner {
           $( $(#[$attrs])* BulkNode::$variant(scorer) => scorer.score(&mut OverlayCollector { collector, overlay, fake: crate::core::search::score::Score::new(0.0) }, accept_docs, min, max), )+
+          $( BulkNode::$inline(scorer) => scorer.score(&mut OverlayCollector { collector, overlay, fake: crate::core::search::score::Score::new(0.0) }, accept_docs, min, max), )+
           #[cfg(test)] BulkNode::Fixture(scorer) => scorer.score(&mut OverlayCollector { collector, overlay, fake: crate::core::search::score::Score::new(0.0) }, accept_docs, min, max),
           BulkNode::Default(scorer) => scorer.score(&mut OverlayCollector { collector, overlay, fake: crate::core::search::score::Score::new(0.0) }, accept_docs, min, max),
           BulkNode::Constant { inner, score } => {
@@ -94,6 +113,7 @@ macro_rules! bulk_nodes {
         match &mut self.inner {
           $( $(#[$attrs])* BulkNode::$variant(scorer) => scorer.cost(), )+
           #[cfg(test)] BulkNode::Fixture(scorer) => scorer.cost(),
+          $( BulkNode::$inline(scorer) => scorer.cost(), )+
           BulkNode::Default(scorer) => scorer.cost(),
           BulkNode::Constant { inner, .. } | BulkNode::Disabled(inner) => inner.cost(),
           BulkNode::RequiredExcluded { required, .. } => required.cost(),
@@ -105,6 +125,7 @@ macro_rules! bulk_nodes {
         match &self.inner {
           BulkNode::Fixture(scorer) => scorer.kind(),
           $( $(#[$attrs])* BulkNode::$variant(_) => crate::core::search::bulk_scorer::BulkScorerKind::Default, )+
+          $( BulkNode::$inline(_) => crate::core::search::bulk_scorer::BulkScorerKind::Default, )+
           BulkNode::Default(_) => crate::core::search::bulk_scorer::BulkScorerKind::Default,
           BulkNode::Constant { inner, .. } | BulkNode::Disabled(inner) => inner.kind(),
           BulkNode::RequiredExcluded { .. } => crate::core::search::bulk_scorer::BulkScorerKind::ReqExcl,
@@ -114,13 +135,17 @@ macro_rules! bulk_nodes {
   }
 }
 bulk_nodes! {
-  MatchAll: crate::core::search::match_all_docs_query::MatchAllBulkScorer,
-  Boolean: crate::core::search::boolean_scorer::BooleanScorer<BuiltinQueryScorer<ST>>,
-  Conjunction: crate::core::search::conjunction_bulk_scorer::ConjunctionBulkScorer<BuiltinQueryScorer<ST>>,
-  BlockMaxConjunction: crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionBulkScorer<BuiltinQueryScorer<ST>>,
-  MaxScore: crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
-  MaxScoreUnfiltered: crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer<BuiltinQueryScorer<ST>, crate::core::search::dummy::dummy_scorer::DummyScorer>,
-  DisjunctionMax: crate::core::search::disjunction_max_bulk_scorer::DisjunctionMaxBulkScorer<BuiltinQueryBulkScorer<ST>>,
+  boxed {
+    Boolean: crate::core::search::boolean_scorer::BooleanScorer<BuiltinQueryScorer<ST>>,
+    Conjunction: crate::core::search::conjunction_bulk_scorer::ConjunctionBulkScorer<BuiltinQueryScorer<ST>>,
+    BlockMaxConjunction: crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionBulkScorer<BuiltinQueryScorer<ST>>,
+    MaxScore: crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
+    MaxScoreUnfiltered: crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer<BuiltinQueryScorer<ST>, crate::core::search::dummy::dummy_scorer::DummyScorer>,
+    DisjunctionMax: crate::core::search::disjunction_max_bulk_scorer::DisjunctionMaxBulkScorer<BuiltinQueryBulkScorer<ST>>,
+  }
+  inline {
+    MatchAll: crate::core::search::match_all_docs_query::MatchAllBulkScorer,
+  }
 }
 impl<ST: ScorerTypes> BuiltinQueryBulkScorer<ST> {
   pub fn new<BS: IntoQueryBulkScorer<ST>>(scorer: BS) -> Self {
@@ -152,6 +177,9 @@ impl<ST: ScorerTypes> IntoQueryBulkScorer<ST> for DefaultQueryBulkScorer<ST> {
 }
 impl<ST: ScorerTypes, BS: IntoQueryBulkScorer<ST>> IntoQueryBulkScorer<ST> for Box<BS> {
   fn into_query_bulk_scorer(self) -> BuiltinQueryBulkScorer<ST> {
+    BS::into_query_bulk_scorer_from_box(self)
+  }
+  fn into_query_bulk_scorer_from_box(self: Box<Self>) -> BuiltinQueryBulkScorer<ST> {
     (*self).into_query_bulk_scorer()
   }
 }

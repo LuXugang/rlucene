@@ -99,7 +99,7 @@ where
     self.in_.get_query()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = AssertingScorerSupplier<IRC>;
 
   fn scorer_supplier(
     &self,
@@ -115,15 +115,13 @@ where
       Some(in_scorer_supplier) => in_scorer_supplier,
     };
     let mut random = random_from_seed(self.random_seed);
-    Ok(Some(
-      crate::core::search::query::QueryWeightSs::<IRC>::fixture(AssertingScorerSupplier {
-        random_seed: random.random(),
-        score_mode: self._score_mode,
-        in_scorer_supplier,
-        get_called: false,
-        top_level_scoring_clause: false,
-      }),
-    ))
+    Ok(Some(AssertingScorerSupplier {
+      random_seed: random.random(),
+      score_mode: self._score_mode,
+      in_scorer_supplier,
+      get_called: false,
+      top_level_scoring_clause: false,
+    }))
   }
 
   fn count(
@@ -146,7 +144,7 @@ where
   }
 }
 
-struct AssertingScorerSupplier<IRC: IndexReaderContext + 'static> {
+pub struct AssertingScorerSupplier<IRC: IndexReaderContext + 'static> {
   random_seed: u64,
   score_mode: ScoreMode,
   in_scorer_supplier: QueryWeightSs<IRC>,
@@ -158,7 +156,7 @@ impl<IRC> ScorerSupplier<IRC> for AssertingScorerSupplier<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = crate::core::search::query::QueryWeightSsScorer<IRC>;
+  type Scorer = AssertingScorer;
   type BulkScorer = QueryWeightSsBulkScorer<IRC>;
 
   fn get(
@@ -174,14 +172,12 @@ where
     self.get_called = true;
     assert!(lead_cost >= 0, "{}", lead_cost);
     let scorer = self.in_scorer_supplier.get(lead_cost, context, searcher)?;
-    Ok(
-      crate::core::search::query::QueryWeightSsScorer::<IRC>::for_test(AssertingScorer::wrap(
-        self.random_seed,
-        scorer,
-        self.score_mode,
-        self.top_level_scoring_clause,
-      )),
-    )
+    Ok(AssertingScorer::wrap(
+      self.random_seed,
+      scorer,
+      self.score_mode,
+      self.top_level_scoring_clause,
+    ))
   }
 
   fn bulk_scorer(

@@ -63,13 +63,7 @@ where
   {
     // this adds assertions to the inner weights/scorers too
     let weight = IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)?;
-    Ok(crate::core::search::query::QueryWeight::<IRC>::fixture(
-      Box::new(AssertingWeight::new(
-        self.random.lock().random(),
-        weight,
-        score_mode,
-      )),
-    ))
+    Ok(AssertingWeight::new(self.random.lock().random(), weight, score_mode).into())
   }
 
   fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>

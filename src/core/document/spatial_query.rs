@@ -31,7 +31,7 @@ use crate::core::search::doc_id_set_iterator::{
 };
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryRef, QueryWeightSs, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryRef, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -314,7 +314,7 @@ where
       Ok(None)
     } else if values.get_doc_count()? == reader.max_doc()? && rel == Relation::CellInsideQuery {
       Ok(Some(
-        Box::new(ScorerSupplierImpl::new(score, self.score_mode, max_doc)).into(),
+        ScorerSupplierImpl::new(score, self.score_mode, max_doc).into(),
       ))
     } else {
       if query_relation != QueryRelation::Intersects
@@ -705,8 +705,8 @@ where
   PV: PointValues,
   V: SpatialVisitor,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = SpatialScorer;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -717,7 +717,7 @@ where
   where
     IndexSearcher<IRC>: Sync,
   {
-    Ok(QueryWeightSsScorer::<IRC>::new(self.get_scorer()?))
+    self.get_scorer()
   }
 
   fn bulk_scorer(
@@ -760,8 +760,11 @@ impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = ConstantScoreScorer<
+    AllDISI,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -772,8 +775,10 @@ where
   where
     IndexSearcher<IRC>: Sync,
   {
-    Ok(QueryWeightSsScorer::<IRC>::new(
-      ConstantScoreScorer::from_disi(self.score, self.score_mode, AllDISI::new(self.max_doc)),
+    Ok(ConstantScoreScorer::from_disi(
+      self.score,
+      self.score_mode,
+      AllDISI::new(self.max_doc),
     ))
   }
 

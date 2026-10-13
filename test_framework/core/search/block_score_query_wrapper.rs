@@ -195,7 +195,7 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<BlockScoreScorer>;
 
   fn scorer_supplier(
     &self,
@@ -235,16 +235,11 @@ where
     tmp_docs.truncate(i);
     tmp_scores.truncate(i);
     let ss = BlockScoreScorer::new(tmp_docs, tmp_scores, self.block_length);
-    Ok(Some(
-      DefaultScorerSupplier::new(
-        crate::core::search::query_scorer::BuiltinQueryScorer::for_test(ss),
-      )
-      .into(),
-    ))
+    Ok(Some(DefaultScorerSupplier::new(ss)))
   }
 }
 
-struct BlockScoreScorer {
+pub struct BlockScoreScorer {
   docs: Vec<i32>,
   scores: Vec<f32>,
   block_length: usize,
@@ -391,7 +386,7 @@ impl DocIdSetIterator for BlockScoreScorer {
   }
 }
 
-struct BlockScoreOwnedIterator {
+pub struct BlockScoreOwnedIterator {
   docs: Vec<i32>,
   i: usize,
 }
@@ -489,7 +484,8 @@ impl<IRC: IndexReaderContext + 'static> Weight<IRC> for BlockScoreQueryWeight<IR
     IndexSearcher<IRC>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Scoring(inner) => Weight::<IRC>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(crate::core::search::query::QueryWeightSsScorer::<IRC>::new)),
       Self::Inner(inner) => Weight::<IRC>::scorer(inner, context, searcher),
     }
   }
@@ -502,7 +498,8 @@ impl<IRC: IndexReaderContext + 'static> Weight<IRC> for BlockScoreQueryWeight<IR
     IndexSearcher<IRC>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher),
+      Self::Scoring(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+        .map(|supplier| supplier.map(Into::into)),
       Self::Inner(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher),
     }
   }
@@ -515,7 +512,8 @@ impl<IRC: IndexReaderContext + 'static> Weight<IRC> for BlockScoreQueryWeight<IR
     IndexSearcher<IRC>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher),
+      Self::Scoring(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
       Self::Inner(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher),
     }
   }
@@ -561,7 +559,7 @@ impl<IRC: IndexReaderContext + 'static> Weight<IRC> for BlockScoreQueryWeight<IR
 impl<IRC: IndexReaderContext + 'static> From<BlockScoreQueryWeight<IRC>> for QueryWeight<IRC> {
   fn from(value: BlockScoreQueryWeight<IRC>) -> Self {
     match value {
-      BlockScoreQueryWeight::Scoring(inner) => Self::fixture(inner),
+      BlockScoreQueryWeight::Scoring(inner) => inner.into(),
       BlockScoreQueryWeight::Inner(inner) => inner,
     }
   }

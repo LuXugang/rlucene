@@ -19,7 +19,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -167,7 +167,12 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = crate::core::search::weight::DefaultScorerSupplier<
+    crate::core::search::constant_score_scorer::ConstantScoreScorer<
+      crate::core::search::doc_id_set_iterator::EmptyDISI,
+      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,

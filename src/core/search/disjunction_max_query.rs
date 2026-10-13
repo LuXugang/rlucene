@@ -482,10 +482,10 @@ impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = DisjunctionScorer<QueryWeightSsScorer<IRC>, DisjunctionMaxScorer>;
   type BulkScorer = crate::core::search::bulk_scorer::BulkScorerEnum2<
     DisjunctionMaxBulkScorer<QueryWeightSsBulkScorer<IRC>>,
-    crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>,
+    crate::core::search::weight::DefaultBulkScorer<Self::Scorer>,
   >;
 
   fn get(
@@ -504,7 +504,7 @@ where
     let sub =
       DisjunctionMaxScorer::new(self.tie_breaker_multiplier, &mut scorers, self.score_mode)?;
     let v = DisjunctionScorer::new(scorers, self.score_mode, sub)?;
-    Ok(QueryWeightSsScorer::<IRC>::new(v))
+    Ok(v)
   }
 
   fn bulk_scorer(

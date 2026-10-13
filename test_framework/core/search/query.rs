@@ -33,8 +33,7 @@ use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, NO_MOR
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{
-  IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
-  QueryWeightSsScorer,
+  IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
@@ -194,7 +193,7 @@ impl<IRC> Weight<IRC> for BrokenExplainWeight<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<IRC>>;
 
   fn matches<'a>(
     &'a self,
@@ -258,12 +257,7 @@ where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     match self.in_.scorer(context, searcher)? {
-      Some(scorer) => Ok(Some(
-        DefaultScorerSupplier::new(
-          crate::core::search::query_scorer::BuiltinQueryScorer::for_test(scorer),
-        )
-        .into(),
-      )),
+      Some(scorer) => Ok(Some(DefaultScorerSupplier::new(scorer))),
       None => Ok(None),
     }
   }
@@ -494,7 +488,7 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = CrazyMustUseBulkScorerSupplier;
 
   fn scorer_supplier(
     &self,
@@ -504,20 +498,18 @@ where
   where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(Some(
-      crate::core::search::query::QueryWeightSs::<IRC>::fixture(CrazyMustUseBulkScorerSupplier),
-    ))
+    Ok(Some(CrazyMustUseBulkScorerSupplier))
   }
 }
 
-struct CrazyMustUseBulkScorerSupplier;
+pub struct CrazyMustUseBulkScorerSupplier;
 
 impl<IRC> ScorerSupplier<IRC> for CrazyMustUseBulkScorerSupplier
 where
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
+  type BulkScorer = CrazyMustUseBulkScorer;
 
   fn get(
     &mut self,
@@ -539,9 +531,7 @@ where
   where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(Some(QueryWeightSsBulkScorer::<IRC>::for_test(
-      CrazyMustUseBulkScorer,
-    )))
+    Ok(Some(CrazyMustUseBulkScorer))
   }
 
   fn cost(
@@ -556,7 +546,17 @@ where
   }
 }
 
-struct CrazyMustUseBulkScorer;
+pub struct CrazyMustUseBulkScorer;
+
+impl<ST: crate::core::search::scorer_types::ScorerTypes>
+  crate::core::search::query_bulk_scorer::IntoQueryBulkScorer<ST> for CrazyMustUseBulkScorer
+{
+  fn into_query_bulk_scorer(
+    self,
+  ) -> crate::core::search::query_bulk_scorer::BuiltinQueryBulkScorer<ST> {
+    crate::core::search::query_bulk_scorer::BuiltinQueryBulkScorer::for_test(self)
+  }
+}
 
 impl BulkScorer for CrazyMustUseBulkScorer {
   fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: Bits + ?Sized>(
@@ -898,7 +898,12 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ConstantScoreScorer<
+      BitSetIterator<Arc<FixedBitSet>>,
+      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
@@ -913,10 +918,8 @@ where
       self.docs.approximate_cardinality() as i64,
     )?;
     let s = ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, iter);
-    let ss = DefaultScorerSupplier::new(
-      crate::core::search::query_scorer::BuiltinQueryScorer::for_test(s),
-    );
-    Ok(Some(ss.into()))
+    let ss = DefaultScorerSupplier::new(s);
+    Ok(Some(ss))
   }
 }
 
@@ -1093,7 +1096,12 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ConstantScoreScorer<
+      BitSetIterator<Arc<FixedBitSet>>,
+      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
@@ -1110,12 +1118,7 @@ where
       self.score_mode,
       BitSetIterator::new(bits, cost)?,
     );
-    Ok(Some(
-      DefaultScorerSupplier::new(
-        crate::core::search::query_scorer::BuiltinQueryScorer::for_test(scorer),
-      )
-      .into(),
-    ))
+    Ok(Some(DefaultScorerSupplier::new(scorer)))
   }
 }
 
@@ -1249,7 +1252,12 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ConstantScoreScorer<
+      AllDISI,
+      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+    >,
+  >;
 
   fn scorer_supplier(
     &self,
@@ -1261,12 +1269,7 @@ where
   {
     let scorer =
       ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, AllDISI::new(1));
-    Ok(Some(
-      DefaultScorerSupplier::new(
-        crate::core::search::query_scorer::BuiltinQueryScorer::for_test(scorer),
-      )
-      .into(),
-    ))
+    Ok(Some(DefaultScorerSupplier::new(scorer)))
   }
 }
 
@@ -1482,7 +1485,7 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = TestLRUScorerSupplier;
 
   fn scorer_supplier(
     &self,
@@ -1497,19 +1500,17 @@ where
       TestLRUWeightKind::AllDocs {
         max_doc,
         scorer_created,
-      } => Ok(Some(
-        crate::core::search::query::QueryWeightSs::<IRC>::fixture(TestLRUScorerSupplier {
-          score: self.base.score(),
-          score_mode: self.score_mode,
-          max_doc: *max_doc,
-          scorer_created: scorer_created.clone(),
-        }),
-      )),
+      } => Ok(Some(TestLRUScorerSupplier {
+        score: self.base.score(),
+        score_mode: self.score_mode,
+        max_doc: *max_doc,
+        scorer_created: scorer_created.clone(),
+      })),
     }
   }
 }
 
-struct TestLRUScorerSupplier {
+pub struct TestLRUScorerSupplier {
   score: f32,
   score_mode: ScoreMode,
   max_doc: i32,
@@ -1520,8 +1521,11 @@ impl<IRC> ScorerSupplier<IRC> for TestLRUScorerSupplier
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
+  type Scorer = ConstantScoreScorer<
+    AllDISI,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -1535,8 +1539,10 @@ where
     if let Some(scorer_created) = &self.scorer_created {
       scorer_created.store(true, Ordering::SeqCst);
     }
-    Ok(QueryWeightSsScorer::<IRC>::for_test(
-      ConstantScoreScorer::from_disi(self.score, self.score_mode, AllDISI::new(self.max_doc)),
+    Ok(ConstantScoreScorer::from_disi(
+      self.score,
+      self.score_mode,
+      AllDISI::new(self.max_doc),
     ))
   }
 
@@ -1549,9 +1555,7 @@ where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let scorer = self.get(i64::MAX, context, searcher)?;
-    Ok(Some(QueryWeightSsBulkScorer::<IRC>::for_test(
-      DefaultBulkScorer::new(scorer),
-    )))
+    Ok(Some(DefaultBulkScorer::new(scorer)))
   }
 
   fn cost(
@@ -1696,7 +1700,7 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DVCacheScorerSupplier;
 
   fn scorer_supplier(
     &self,
@@ -1706,17 +1710,15 @@ where
   where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(Some(
-      crate::core::search::query::QueryWeightSs::<IRC>::fixture(DVCacheScorerSupplier {
-        max_doc: context.reader().max_doc()?,
-        scorer_created_count: self.scorer_created_count.clone(),
-        score_mode: self.score_mode,
-      }),
-    ))
+    Ok(Some(DVCacheScorerSupplier {
+      max_doc: context.reader().max_doc()?,
+      scorer_created_count: self.scorer_created_count.clone(),
+      score_mode: self.score_mode,
+    }))
   }
 }
 
-struct DVCacheScorerSupplier {
+pub struct DVCacheScorerSupplier {
   max_doc: i32,
   scorer_created_count: Arc<AtomicI32>,
   score_mode: ScoreMode,
@@ -1726,8 +1728,11 @@ impl<IRC> ScorerSupplier<IRC> for DVCacheScorerSupplier
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
+  type Scorer = ConstantScoreScorer<
+    AllDISI,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -1739,8 +1744,10 @@ where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     self.scorer_created_count.fetch_add(1, Ordering::SeqCst);
-    Ok(QueryWeightSsScorer::<IRC>::for_test(
-      ConstantScoreScorer::from_disi(1.0, self.score_mode, AllDISI::new(self.max_doc)),
+    Ok(ConstantScoreScorer::from_disi(
+      1.0,
+      self.score_mode,
+      AllDISI::new(self.max_doc),
     ))
   }
 
@@ -1753,9 +1760,7 @@ where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     let scorer = self.get(i64::MAX, context, searcher)?;
-    Ok(Some(QueryWeightSsBulkScorer::<IRC>::for_test(
-      DefaultBulkScorer::new(scorer),
-    )))
+    Ok(Some(DefaultBulkScorer::new(scorer)))
   }
 
   fn cost(
@@ -1770,7 +1775,7 @@ where
   }
 }
 
-struct MaxScoreWrapperScorer<S> {
+pub struct MaxScoreWrapperScorer<S> {
   max_range: i32,
   max_score: f32,
   last_shallow_target: i32,
@@ -2116,7 +2121,7 @@ where
     self.weight.get_query()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = ScorerSupplierImpl<IRC>;
 
   fn scorer_supplier(
     &self,
@@ -2127,19 +2132,17 @@ where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     match self.weight.scorer_supplier(context, searcher)? {
-      Some(s) => Ok(Some(
-        crate::core::search::query::QueryWeightSs::<IRC>::fixture(ScorerSupplierImpl::new(
-          s,
-          self.max_range,
-          self.max_score,
-        )),
-      )),
+      Some(s) => Ok(Some(ScorerSupplierImpl::new(
+        s,
+        self.max_range,
+        self.max_score,
+      ))),
       None => Ok(None),
     }
   }
 }
 
-struct ScorerSupplierImpl<IRC: IndexReaderContext + 'static> {
+pub struct ScorerSupplierImpl<IRC: IndexReaderContext + 'static> {
   supplier: QueryWeightSs<IRC>,
   max_range: i32,
   max_score: f32,
@@ -2163,8 +2166,8 @@ where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
+  type Scorer = MaxScoreWrapperScorer<QueryWeightSsScorer<IRC>>;
+  type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -2177,7 +2180,7 @@ where
   {
     let v = self.supplier.get(lead_cost, context, searcher)?;
     let s = MaxScoreWrapperScorer::new(v, self.max_range, self.max_score);
-    Ok(QueryWeightSsScorer::<IRC>::for_test(s))
+    Ok(s)
   }
 
   fn bulk_scorer(
@@ -2188,9 +2191,7 @@ where
   where
     crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(Some(QueryWeightSsBulkScorer::<IRC>::for_test(
-      self.default_bulk_scorer(context, searcher)?,
-    )))
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
@@ -2333,7 +2334,9 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    ScorerEnum2<WANDScorer<QueryWeightSsScorer<IRC>>, QueryWeightSsScorer<IRC>>,
+  >;
 
   fn scorer_supplier(
     &self,
@@ -2372,10 +2375,8 @@ where
         None => return Ok(None),
       }
     };
-    let v = DefaultScorerSupplier::new(
-      crate::core::search::query_scorer::BuiltinQueryScorer::for_test(scorer),
-    );
-    Ok(Some(v.into()))
+    let v = DefaultScorerSupplier::new(scorer);
+    Ok(Some(v))
   }
 }
 

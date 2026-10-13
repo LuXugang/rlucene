@@ -54,7 +54,7 @@ impl AssertingScorerState {
 }
 
 /// Wraps a Scorer with additional checks.
-pub(crate) struct AssertingScorer {
+pub struct AssertingScorer {
   iterator_view: AssertingDocIdSetIterator,
   approximation_view: AssertingDocIdSetIterator,
   two_phase_view: AssertingTwoPhaseIterator,

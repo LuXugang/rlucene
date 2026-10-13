@@ -32,7 +32,8 @@ pub struct ImpactsDISI<M> {
 }
 
 /// Keeps document iteration separate from the impacts source for phrase and synonym scorers.
-pub(crate) struct SeparateIteratorMode<D, IS, SS> {
+#[doc(hidden)]
+pub struct SeparateIteratorMode<D, IS, SS> {
   iterator: D,
   max_score_cache: MaxScoreCache<IS, SS>,
 }

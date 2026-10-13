@@ -747,63 +747,43 @@ impl QueryBase for Query {
       },
       Self::XYPointInGeometry(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
-      Self::Asserting(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::Asserting(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
       Self::AssertNeedsScores(q) => q
         .create_weight(searcher, score_mode, boost)
         .map(QueryWeight::<IRC>::fixture),
       #[cfg(test)]
-      Self::BitSet(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::BitSet(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
       Self::BlockScoreQueryWrapper(q) => {
         q.create_weight(searcher, score_mode, boost).map(Into::into)
       },
       #[cfg(test)]
-      Self::BrokenExplainTerm(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::BrokenExplainTerm(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
       Self::Counting(q) => q
         .create_weight(searcher, score_mode, boost)
         .map(QueryWeight::<IRC>::fixture),
       #[cfg(test)]
-      Self::CrazyMustUseBulkScorer(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::CrazyMustUseBulkScorer(q) => {
+        q.create_weight(searcher, score_mode, boost).map(Into::into)
+      },
       #[cfg(test)]
-      Self::Dummy1(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::Dummy1(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
-      Self::TestLRU(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::TestLRU(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
-      Self::DVCache(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::DVCache(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
-      Self::MaxScoreWrapper(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::MaxScoreWrapper(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
-      Self::Random(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::Random(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
-      Self::RandomApproximation(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::RandomApproximation(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
       Self::TestRewrite(q) => q.create_weight(searcher, score_mode, boost),
       #[cfg(test)]
-      Self::WANDScorer(q) => q
-        .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+      Self::WANDScorer(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
     }
   }
 

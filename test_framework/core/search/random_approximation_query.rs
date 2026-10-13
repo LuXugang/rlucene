@@ -22,7 +22,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs};
+use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
@@ -196,7 +196,9 @@ where
     self.in_.get_query()
   }
 
-  type ScorerSupplier = QueryWeightSs<LR>;
+  type ScorerSupplier = DefaultScorerSupplier<
+    RandomApproximationScorer<crate::core::search::query::QueryWeightSsScorer<LR>>,
+  >;
 
   fn scorer_supplier(
     &self,
@@ -213,12 +215,7 @@ where
       let mut random = random_from_seed(self.random_seed);
       let scorer = RandomApproximationScorer::new(random.random(), sub_scorer);
 
-      Ok(Some(
-        DefaultScorerSupplier::new(
-          crate::core::search::query_scorer::BuiltinQueryScorer::for_test(scorer),
-        )
-        .into(),
-      ))
+      Ok(Some(DefaultScorerSupplier::new(scorer)))
     } else {
       Ok(None)
     }

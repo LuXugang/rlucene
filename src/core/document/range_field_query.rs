@@ -31,7 +31,7 @@ use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSs, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -302,12 +302,8 @@ where
 
     if all_docs_match {
       Ok(Some(
-        Box::new(RangeFieldAllScorerSupplier::new(
-          self.base.score(),
-          self.score_mode,
-          reader.max_doc()?,
-        ))
-        .into(),
+        RangeFieldAllScorerSupplier::new(self.base.score(), self.score_mode, reader.max_doc()?)
+          .into(),
       ))
     } else {
       let result =
@@ -357,8 +353,11 @@ where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = ConstantScoreScorer<
+    crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -371,8 +370,10 @@ where
   {
     self.values.intersect(&mut self.visitor)?;
     let iterator = self.visitor.result.build()?.iterator()?;
-    Ok(QueryWeightSsScorer::<IRC>::new(
-      ConstantScoreScorer::from_disi(self.score, self.score_mode, iterator),
+    Ok(ConstantScoreScorer::from_disi(
+      self.score,
+      self.score_mode,
+      iterator,
     ))
   }
 
@@ -424,8 +425,11 @@ where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = ConstantScoreScorer<
+    AllDISI,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -437,8 +441,10 @@ where
     IndexSearcher<IRC>: Sync,
   {
     debug_assert!(context.reader().max_doc()? == self.max_doc);
-    Ok(QueryWeightSsScorer::<IRC>::new(
-      ConstantScoreScorer::from_disi(self.score, self.score_mode, AllDISI::new(self.max_doc)),
+    Ok(ConstantScoreScorer::from_disi(
+      self.score,
+      self.score_mode,
+      AllDISI::new(self.max_doc),
     ))
   }
 

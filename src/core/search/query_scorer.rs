@@ -85,41 +85,61 @@ pub struct BuiltinQueryScorer<ST: ScorerTypes> {
 
 pub trait IntoQueryScorer<ST: ScorerTypes> {
   fn into_query_scorer(self) -> BuiltinQueryScorer<ST>;
+
+  /// Consume an existing box, retaining its allocation when the destination is boxed.
+  fn into_query_scorer_from_box(self: Box<Self>) -> BuiltinQueryScorer<ST>
+  where
+    Self: Sized,
+  {
+    (*self).into_query_scorer()
+  }
 }
 
 macro_rules! scorer_nodes {
-  ($( $(#[$attrs:meta])* $variant:ident: $ty:ty ),+ $(,)?) => {
+  (boxed { $( $(#[$attrs:meta])* $variant:ident: $ty:ty, )+ }
+   inline { $( $inline:ident: $inline_ty:ty, )+ }) => {
     pub(crate) enum DefaultQueryBulkScorer<ST: ScorerTypes> {
       #[cfg(test)] Fixture(crate::core::search::weight::DefaultBulkScorer<Box<dyn crate::test_framework::core::search::test_scorer::TestScorer>>),
       $( $(#[$attrs])* $variant(crate::core::search::weight::DefaultBulkScorer<Box<$ty>>), )+
+      $( $inline(crate::core::search::weight::DefaultBulkScorer<$inline_ty>), )+
     }
     impl<ST: ScorerTypes> crate::core::search::bulk_scorer::BulkScorer for DefaultQueryBulkScorer<ST> {
       fn score<CLC: crate::core::search::leaf_collector::LeafCollector, AB: crate::core::util::bits::Bits + ?Sized>(&mut self, collector: &mut CLC, accept_docs: Option<&AB>, min: i32, max: i32) -> Result<i32> {
-        match self { $( $(#[$attrs])* Self::$variant(scorer) => scorer.score(collector, accept_docs, min, max), )+ #[cfg(test)] Self::Fixture(scorer) => scorer.score(collector, accept_docs, min, max), }
+        match self { $( $(#[$attrs])* Self::$variant(scorer) => scorer.score(collector, accept_docs, min, max), )+ $( Self::$inline(scorer) => scorer.score(collector, accept_docs, min, max), )+ #[cfg(test)] Self::Fixture(scorer) => scorer.score(collector, accept_docs, min, max), }
       }
-      fn cost(&mut self) -> Result<i64> { match self { $( $(#[$attrs])* Self::$variant(scorer) => scorer.cost(), )+ #[cfg(test)] Self::Fixture(scorer) => scorer.cost(), } }
+      fn cost(&mut self) -> Result<i64> { match self { $( $(#[$attrs])* Self::$variant(scorer) => scorer.cost(), )+ $( Self::$inline(scorer) => scorer.cost(), )+ #[cfg(test)] Self::Fixture(scorer) => scorer.cost(), } }
       #[cfg(test)]
       fn kind(&self) -> crate::core::search::bulk_scorer::BulkScorerKind { crate::core::search::bulk_scorer::BulkScorerKind::Default }
     }
     impl<ST: ScorerTypes> BuiltinQueryScorer<ST> {
       pub(crate) fn into_default_bulk(self) -> DefaultQueryBulkScorer<ST> {
-        match self.inner { $( $(#[$attrs])* ScorerNode::$variant(scorer) => DefaultQueryBulkScorer::$variant(crate::core::search::weight::DefaultBulkScorer::new(scorer)), )+ #[cfg(test)] ScorerNode::Fixture(scorer) => DefaultQueryBulkScorer::Fixture(crate::core::search::weight::DefaultBulkScorer::new(scorer)), }
+        match self.inner { $( $(#[$attrs])* ScorerNode::$variant(scorer) => DefaultQueryBulkScorer::$variant(crate::core::search::weight::DefaultBulkScorer::new(scorer)), )+ $( ScorerNode::$inline(scorer) => DefaultQueryBulkScorer::$inline(crate::core::search::weight::DefaultBulkScorer::new(scorer)), )+ #[cfg(test)] ScorerNode::Fixture(scorer) => DefaultQueryBulkScorer::Fixture(crate::core::search::weight::DefaultBulkScorer::new(scorer)), }
       }
     }
     enum ScorerNode<ST: ScorerTypes> {
       #[cfg(test)] Fixture(Box<dyn crate::test_framework::core::search::test_scorer::TestScorer>),
       $( $(#[$attrs])* $variant(Box<$ty>), )+
+      $( $inline($inline_ty), )+
     }
 
     $( $(#[$attrs])* impl<ST: ScorerTypes> IntoQueryScorer<ST> for $ty {
       fn into_query_scorer(self) -> BuiltinQueryScorer<ST> {
         BuiltinQueryScorer { inner: ScorerNode::$variant(Box::new(self)) }
       }
+      fn into_query_scorer_from_box(self: Box<Self>) -> BuiltinQueryScorer<ST> {
+        BuiltinQueryScorer { inner: ScorerNode::$variant(self) }
+      }
+    } )+
+
+    $( impl<ST: ScorerTypes> IntoQueryScorer<ST> for $inline_ty {
+      fn into_query_scorer(self) -> BuiltinQueryScorer<ST> {
+        BuiltinQueryScorer { inner: ScorerNode::$inline(self) }
+      }
     } )+
 
     macro_rules! dispatch_scorer {
       ($node:expr, |$inner:ident| $body:expr) => {
-        match $node { $( $(#[$attrs])* ScorerNode::$variant($inner) => $body, )+ #[cfg(test)] ScorerNode::Fixture($inner) => $body, }
+        match $node { $( $(#[$attrs])* ScorerNode::$variant($inner) => $body, )+ $( ScorerNode::$inline($inner) => $body, )+ #[cfg(test)] ScorerNode::Fixture($inner) => $body, }
       };
     }
   };
@@ -175,52 +195,61 @@ type BlendedIterator<ST> = DisjunctionDISIApproximation<
 >;
 
 scorer_nodes! {
-  Synonym: crate::core::search::synonym_query::SynonymScorer<ST>,
-  SynonymTerm: crate::core::search::synonym_query::SynonymTermScorer<ST>,
-  BoostedSynonymTerm: crate::core::search::synonym_query::FreqBoostTermScorer<ST>,
+  boxed {
+    #[cfg(test)] SharedBitSet: ConstantScoreScorer<BitSetIterator<Arc<FixedBitSet>>, DummyTwoPhaseIterator>,
+    #[cfg(test)] BlockScore: crate::test_framework::core::search::block_score_query_wrapper::BlockScoreScorer,
+    #[cfg(test)] RandomApproximation: crate::test_framework::core::search::random_approximation_query::RandomApproximationScorer<BuiltinQueryScorer<ST>>,
+    #[cfg(test)] MaxScoreWrapper: crate::test_framework::core::search::query::MaxScoreWrapperScorer<BuiltinQueryScorer<ST>>,
+    #[cfg(test)] Asserting: crate::test_framework::core::search::asserting_scorer::AssertingScorer,
+    #[cfg(test)] Fake: crate::test::core::search::test_boolean2_scorer_supplier::FakeScorer,
+    Synonym: crate::core::search::synonym_query::SynonymScorer<ST>,
+    SynonymTerm: crate::core::search::synonym_query::SynonymTermScorer<ST>,
+    BoostedSynonymTerm: crate::core::search::synonym_query::FreqBoostTermScorer<ST>,
 
-  Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
-  MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
-  SpatialSet: ConstantScoreScorer<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>, DummyTwoPhaseIterator>,
-  CachedSet: ConstantScoreScorer<lru_query_cache::CacheAndCountDISI, DummyTwoPhaseIterator>,
-  CachedSetOrEmpty: ConstantScoreScorer<lru_query_cache::DISI, DummyTwoPhaseIterator>,
-  SortedRangeIterator: ConstantScoreScorer<sorted_numeric_doc_values_range_query::DISI, DummyTwoPhaseIterator>,
-  IndexSortedIterator: ConstantScoreScorer<index_sort_sorted_numeric_doc_values_range_query::IteratorAndCountDisi<SingletonNumeric<ST>>, DummyTwoPhaseIterator>,
-  FieldExists: ConstantScoreScorer<FieldExistsIterator<ST>, DummyTwoPhaseIterator>,
-  BlendedTerms: ConstantScoreScorer<BlendedIterator<ST>, DummyTwoPhaseIterator>,
-  BinaryRange: ConstantScoreScorer<DummyDISI, binary_range_field_range_query::BinaryRangeFieldRangeTPI<BinaryDocValuesWithEmpty<ST::Binary>>>,
-  LatLonBox: ConstantScoreScorer<DummyDISI, lat_lon_doc_values_box_query::LatLonDocValuesBoxTwoPhaseIterator<ST::SortedNumeric>>,
-  LatLonShape: ConstantScoreScorer<DummyDISI, lat_lon_doc_values_query::LatLonDocValuesTwoPhaseIterator<ST::SortedNumeric, Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>>>,
-  XYShape: ConstantScoreScorer<DummyDISI, xy_doc_values_point_in_geometry_query::XYDocValuesPointInGeometryTPI<ST::SortedNumeric, Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>>>,
-  NumericRange: ConstantScoreScorer<DummyDISI, NumericRangeTwoPhase<ST>>,
-  NumericRangeWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<NumericRangeTwoPhase<ST>, ST::Skipper>>,
-  NumericSet: ConstantScoreScorer<DummyDISI, NumericSetTwoPhase<ST>>,
-  SortedRange: ConstantScoreScorer<DummyDISI, SortedRangeTwoPhase<ST>>,
-  SortedRangeWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<SortedRangeTwoPhase<ST>, ST::Skipper>>,
-  SortedTerms: ConstantScoreScorer<DummyDISI, SortedTermSetTwoPhase<ST>>,
-  SortedTermsWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<SortedTermSetTwoPhase<ST>, ST::Skipper>>,
-  DistanceFeature: lat_lon_point_distance_feature_query::DistanceScorer<ST::PointValues, DistanceValues<ST>>,
-  VectorMatches: abstract_knn_vector_query::ScorerImpl,
-  FilteredVectors: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::FilteredDocIdSetIteratorImpl1<crate::core::search::vector_scorer::VectorScorerEnum2<ST::ByteScorer, ST::FloatScorer>, crate::core::util::bit_set::SparseFixedBitSetBitSet>>,
-  VectorScores: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::DocsIteratorImpl>,
-  TermAutomaton: TermAutomatonScorer<ST::Posting, SimilaritySimScorer, ST::Norm>,
-  Term: TermScorer<ST::Posting, Arc<TermQuerySimScorer>, ST::Norm, ST::Impacts>,
-  MatchAll: ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>,
-  Empty: ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
-  BuiltSet: ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
-  BitSet: ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
-  ConstantIterator: ConstantScoreScorer<BuiltinQueryScorer<ST>, DummyTwoPhaseIterator>,
-  ConstantTwoPhase: ConstantScoreScorer<DummyDISI, QueryOwnedTwoPhase<ST>>,
-  Conjunction: ConjunctionScorer<BuiltinQueryScorer<ST>>,
-  BlockMaxConjunction: BlockMaxConjunctionScorer<BuiltinQueryScorer<ST>>,
-  DisjunctionSum: DisjunctionScorer<BuiltinQueryScorer<ST>, DisjunctionSumScorer>,
-  DisjunctionMax: DisjunctionScorer<BuiltinQueryScorer<ST>, DisjunctionMaxScorer>,
-  Wand: WANDScorer<BuiltinQueryScorer<ST>>,
-  RequiredOptional: ReqOptSumScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
-  RequiredExcluded: ReqExclScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
-  Filter: FilterScorerImpl<BuiltinQueryScorer<ST>>,
+    Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
+    MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
+    SpatialSet: ConstantScoreScorer<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>, DummyTwoPhaseIterator>,
+    CachedSet: ConstantScoreScorer<lru_query_cache::CacheAndCountDISI, DummyTwoPhaseIterator>,
+    CachedSetOrEmpty: ConstantScoreScorer<lru_query_cache::DISI, DummyTwoPhaseIterator>,
+    SortedRangeIterator: ConstantScoreScorer<sorted_numeric_doc_values_range_query::DISI, DummyTwoPhaseIterator>,
+    IndexSortedIterator: ConstantScoreScorer<index_sort_sorted_numeric_doc_values_range_query::IteratorAndCountDisi<SingletonNumeric<ST>>, DummyTwoPhaseIterator>,
+    FieldExists: ConstantScoreScorer<FieldExistsIterator<ST>, DummyTwoPhaseIterator>,
+    BlendedTerms: ConstantScoreScorer<BlendedIterator<ST>, DummyTwoPhaseIterator>,
+    BinaryRange: ConstantScoreScorer<DummyDISI, binary_range_field_range_query::BinaryRangeFieldRangeTPI<BinaryDocValuesWithEmpty<ST::Binary>>>,
+    LatLonBox: ConstantScoreScorer<DummyDISI, lat_lon_doc_values_box_query::LatLonDocValuesBoxTwoPhaseIterator<ST::SortedNumeric>>,
+    LatLonShape: ConstantScoreScorer<DummyDISI, lat_lon_doc_values_query::LatLonDocValuesTwoPhaseIterator<ST::SortedNumeric, Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>>>,
+    XYShape: ConstantScoreScorer<DummyDISI, xy_doc_values_point_in_geometry_query::XYDocValuesPointInGeometryTPI<ST::SortedNumeric, Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>>>,
+    NumericRange: ConstantScoreScorer<DummyDISI, NumericRangeTwoPhase<ST>>,
+    NumericRangeWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<NumericRangeTwoPhase<ST>, ST::Skipper>>,
+    NumericSet: ConstantScoreScorer<DummyDISI, NumericSetTwoPhase<ST>>,
+    SortedRange: ConstantScoreScorer<DummyDISI, SortedRangeTwoPhase<ST>>,
+    SortedRangeWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<SortedRangeTwoPhase<ST>, ST::Skipper>>,
+    SortedTerms: ConstantScoreScorer<DummyDISI, SortedTermSetTwoPhase<ST>>,
+    SortedTermsWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<SortedTermSetTwoPhase<ST>, ST::Skipper>>,
+    DistanceFeature: lat_lon_point_distance_feature_query::DistanceScorer<ST::PointValues, DistanceValues<ST>>,
+    VectorMatches: abstract_knn_vector_query::ScorerImpl,
+    FilteredVectors: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::FilteredDocIdSetIteratorImpl1<crate::core::search::vector_scorer::VectorScorerEnum2<ST::ByteScorer, ST::FloatScorer>, crate::core::util::bit_set::SparseFixedBitSetBitSet>>,
+    VectorScores: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::DocsIteratorImpl>,
+    TermAutomaton: TermAutomatonScorer<ST::Posting, SimilaritySimScorer, ST::Norm>,
+    Term: TermScorer<ST::Posting, Arc<TermQuerySimScorer>, ST::Norm, ST::Impacts>,
+    BuiltSet: ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
+    BitSet: ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
+    ConstantIterator: ConstantScoreScorer<BuiltinQueryScorer<ST>, DummyTwoPhaseIterator>,
+    ConstantTwoPhase: ConstantScoreScorer<DummyDISI, QueryOwnedTwoPhase<ST>>,
+    Conjunction: ConjunctionScorer<BuiltinQueryScorer<ST>>,
+    BlockMaxConjunction: BlockMaxConjunctionScorer<BuiltinQueryScorer<ST>>,
+    DisjunctionSum: DisjunctionScorer<BuiltinQueryScorer<ST>, DisjunctionSumScorer>,
+    DisjunctionMax: DisjunctionScorer<BuiltinQueryScorer<ST>, DisjunctionMaxScorer>,
+    Wand: WANDScorer<BuiltinQueryScorer<ST>>,
+    RequiredOptional: ReqOptSumScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
+    RequiredExcluded: ReqExclScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
+    Filter: FilterScorerImpl<BuiltinQueryScorer<ST>>,
+  }
+  inline {
+    MatchAll: ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>,
+    Empty: ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
+  }
 }
-
 impl<ST: ScorerTypes> BuiltinQueryScorer<ST> {
   pub fn new<S: IntoQueryScorer<ST>>(scorer: S) -> Self {
     scorer.into_query_scorer()
@@ -266,6 +295,9 @@ impl<ST: ScorerTypes> IntoQueryScorer<ST> for BuiltinQueryScorer<ST> {
 
 impl<ST: ScorerTypes, S: IntoQueryScorer<ST>> IntoQueryScorer<ST> for Box<S> {
   fn into_query_scorer(self) -> BuiltinQueryScorer<ST> {
+    S::into_query_scorer_from_box(self)
+  }
+  fn into_query_scorer_from_box(self: Box<Self>) -> BuiltinQueryScorer<ST> {
     (*self).into_query_scorer()
   }
 }

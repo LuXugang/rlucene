@@ -25,7 +25,7 @@ use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
@@ -211,8 +211,11 @@ impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = MatchAllBulkScorerEnum<IRC>;
+  type Scorer = ConstantScoreScorer<
+    AllDISI,
+    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+  >;
+  type BulkScorer = MatchAllBulkScorerEnum;
 
   fn get(
     &mut self,
@@ -225,7 +228,7 @@ where
   {
     let score = self.weight.score();
     let v = ConstantScoreScorer::from_disi(score, self.score_mode, AllDISI::new(self.max_doc));
-    Ok(QueryWeightSsScorer::<IRC>::new(v))
+    Ok(v)
   }
 
   fn bulk_scorer(
@@ -238,10 +241,10 @@ where
   {
     let v = if !self.score_mode.is_exhaustive() {
       let opt = self.default_bulk_scorer(context, searcher)?;
-      MatchAllBulkScorerEnum::<IRC>::B(opt)
+      MatchAllBulkScorerEnum::B(opt)
     } else {
       let score = self.weight.score();
-      MatchAllBulkScorerEnum::<IRC>::A(MatchAllBulkScorer::new(self.max_doc, score))
+      MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(self.max_doc, score))
     };
     Ok(Some(v))
   }
@@ -296,8 +299,15 @@ impl BulkScorer for MatchAllBulkScorer {
     Ok(self.max_doc as i64)
   }
 }
-pub type MatchAllBulkScorerEnum<IRC> =
-  BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<QueryWeightSsScorer<IRC>>>;
+pub type MatchAllBulkScorerEnum = BulkScorerEnum2<
+  MatchAllBulkScorer,
+  DefaultBulkScorer<
+    ConstantScoreScorer<
+      AllDISI,
+      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
+    >,
+  >,
+>;
 
 impl crate::core::util::accountable::Accountable for MatchAllDocsQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {

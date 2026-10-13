@@ -32,9 +32,7 @@ use crate::core::search::filtered_doc_id_set_iterator::{
 };
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
-use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsScorer,
-};
+use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
@@ -412,12 +410,9 @@ impl<IRC, I> ScorerSupplier<IRC> for VectorSimilarityScorerSupplier<I>
 where
   IRC: IndexReaderContext + 'static,
   I: DocIdSetIterator + CachedScoreHelper + 'static,
-  ScorerImpl<I>: crate::core::search::query_scorer::IntoQueryScorer<
-      crate::core::search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>,
-    >,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = ScorerImpl<I>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -432,7 +427,7 @@ where
       .iterator
       .take()
       .ok_or_else(|| LuceneError::illegal_state("ScorerSupplier::get called more than once"))?;
-    Ok(QueryWeightSsScorer::<IRC>::new(ScorerImpl::new(iterator)))
+    Ok(ScorerImpl::new(iterator))
   }
 
   fn bulk_scorer(

@@ -39,7 +39,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum2, EmptyDISI};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
+use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -343,8 +343,8 @@ impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<SelectValue<IRC>>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = DistanceScorer<<IRCLeafReader<IRC> as LeafReader>::PointValues, SelectValue<IRC>>;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
@@ -376,7 +376,7 @@ where
       doc_values,
       self.query_meta.clone(),
     );
-    Ok(QueryWeightSsScorer::<IRC>::new(v))
+    Ok(v)
   }
 
   fn bulk_scorer(

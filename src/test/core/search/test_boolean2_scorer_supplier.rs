@@ -45,7 +45,7 @@ struct TestBoolean2ScorerSupplier;
 type DummyIRC =
   CompositeReaderContext<StandardDirectoryReader<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>>;
 
-struct FakeScorer {
+pub(crate) struct FakeScorer {
   it: AllDISI,
 }
 impl FakeScorer {
@@ -170,7 +170,7 @@ impl Scorer for FakeScorer {
   }
 }
 #[derive(Clone)]
-struct FakeScorerSupplier {
+pub(crate) struct FakeScorerSupplier {
   cost: i64,
   lead_cost: Option<i64>,
   top_level_scoring_clause: bool,
@@ -182,7 +182,7 @@ impl FakeScorerSupplier {
       lead_cost,
       top_level_scoring_clause: false,
     };
-    crate::core::search::query::QueryWeightSs::<DummyIRC>::fixture(v)
+    v.into()
   }
 }
 fn new_fake_scorer_supplier(cost: i64) -> QueryWeightSs<DummyIRC> {
@@ -191,51 +191,49 @@ fn new_fake_scorer_supplier(cost: i64) -> QueryWeightSs<DummyIRC> {
     lead_cost: None,
     top_level_scoring_clause: false,
   };
-  crate::core::search::query::QueryWeightSs::<DummyIRC>::fixture(v)
+  v.into()
 }
-impl ScorerSupplier<DummyIRC> for FakeScorerSupplier {
-  type Scorer = QueryWeightSsScorer<DummyIRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<DummyIRC>;
+impl<IRC: crate::core::index::index_reader_context::IndexReaderContext + 'static>
+  ScorerSupplier<IRC> for FakeScorerSupplier
+{
+  type Scorer = FakeScorer;
+  type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
     lead_cost: i64,
-    _context: &LeafReaderContext<IRCLeafReader<DummyIRC>>,
-    _searcher: &IndexSearcher<DummyIRC>,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer>
   where
-    crate::core::search::index_searcher::IndexSearcher<DummyIRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     if let Some(v) = self.lead_cost
       && v != lead_cost
     {
       return Err(LuceneError::illegal_state("triggers assert"));
     }
-    Ok(QueryWeightSsScorer::<DummyIRC>::for_test(FakeScorer::new(
-      self.cost,
-    )))
+    Ok(FakeScorer::new(self.cost))
   }
 
   fn bulk_scorer(
     &mut self,
-    context: &LeafReaderContext<IRCLeafReader<DummyIRC>>,
-    searcher: &IndexSearcher<DummyIRC>,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    crate::core::search::index_searcher::IndexSearcher<DummyIRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
-    Ok(Some(QueryWeightSsBulkScorer::<DummyIRC>::for_test(
-      self.default_bulk_scorer(context, searcher)?,
-    )))
+    Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
 
   fn cost(
     &mut self,
-    _context: &LeafReaderContext<IRCLeafReader<DummyIRC>>,
-    _searcher: &IndexSearcher<DummyIRC>,
+    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
   ) -> Result<i64>
   where
-    crate::core::search::index_searcher::IndexSearcher<DummyIRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
   {
     Ok(self.cost)
   }
