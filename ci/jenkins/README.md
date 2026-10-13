@@ -145,6 +145,21 @@ The persistent Cargo target is
 scheduled build. Before and after every build, Jenkins logs free space for
 Jenkins home and `/tmp`, plus the target directory size.
 
+Before every nextest run, including an unchanged successful commit, the
+Pipeline checks the `CARGO_MANIFEST_DIR` recorded in rlucene release dependency
+files against the current checkout. If another source directory populated the
+cache, it invalidates only rlucene's release artifacts with
+`cargo clean --release -p rlucene`; dependency artifacts remain cached. Rust
+tests embed their source directory when locating fixture files, so binaries
+from a deleted diagnostic checkout must not be reused. The check is logged in
+`release-cache-check.log` and runs under the existing global build lock.
+When the commit and source directory are unchanged, the check preserves the
+cache; it does not touch source timestamps or force recompilation.
+
+Temporary diagnostics must use their own `CARGO_TARGET_DIR` and must not borrow
+the persistent target of `rlucene-ci` or another job. Deleting a diagnostic
+checkout is safe only when its target is also isolated from persistent jobs.
+
 Rust test temporary files are isolated per build under
 `$WORKSPACE_TMP/rlucene-ci-build-tmp/$BUILD_NUMBER` by setting `TMPDIR`. The
 Pipeline removes stale data under its dedicated temporary root before a build
@@ -211,7 +226,7 @@ CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true \
 
 Jenkins sets `CARGO_TARGET_DIR` to the persistent
 `/var/jenkins_home/cargo-target/rlucene-ci` directory. Builds must not run
-`cargo clean` or otherwise remove this directory: Cargo keeps release
+unconditional `cargo clean` or otherwise remove this directory: Cargo keeps release
 artifacts there and reuses them when the commit is unchanged or when source
 dependencies are unchanged.
 

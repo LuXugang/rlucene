@@ -143,6 +143,16 @@ pipeline {
           }
         }
 
+        stage('Release cache source check') {
+          steps {
+            sh '''#!/bin/bash
+              set -euo pipefail
+              bash ci/jenkins/check-release-cache-source.sh \
+                2>&1 | tee release-cache-check.log
+            '''
+          }
+        }
+
         stage('Cargo nextest') {
           steps {
             script {
@@ -318,7 +328,8 @@ pipeline {
           }
           archiveArtifacts(
             artifacts:
-              'nextest.log,nextest-junit.xml,nextest-diagnostics.log,doctest.log',
+              'release-cache-check.log,nextest.log,nextest-junit.xml,' +
+              'nextest-diagnostics.log,doctest.log',
             allowEmptyArchive: true
           )
           script {
