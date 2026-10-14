@@ -23,9 +23,7 @@ use crate::core::search::scorable::{ChildScorable, Scorable};
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::two_phase_iterator::{
-  TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
-};
+use crate::core::search::two_phase_iterator::TwoPhaseIteratorAsDocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
 
 pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
@@ -34,16 +32,13 @@ pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
 >;
 // TODO IMPORTANT: Review conjunction performance; it is worse in some scenarios.
 /// Scorer for conjunctions, sets of queries, all of which are required.
-pub struct ConjunctionScorer<S> {
-  disi: ConjunctionScorerDisi<S>,
+pub struct ConjunctionScorer<D: DocIdSetIterator> {
+  disi: D,
   scoring_idx: Vec<usize>,
 }
-impl<S> ConjunctionScorer<S>
-where
-  S: Scorer,
-{
-  /// Create a new [`ConjunctionScorer`], note that `scorers` must be a subset of `required`.
-  pub(crate) fn new(required: Vec<S>, scorers: Vec<usize>) -> Result<Self> {
+impl<S: Scorer> ConjunctionScorer<ConjunctionDISIEnum<ScorerDisi<S>>> {
+  /// Select the iterator before entering a document loop.
+  pub(crate) fn prepare(required: Vec<S>, scorers: &[usize]) -> Result<ConjunctionScorerDisi<S>> {
     debug_assert!({ scorers.iter().all(|v| *v < required.len()) });
     let mut has_tpi = false;
     for v in required.iter() {
@@ -53,268 +48,218 @@ where
       }
     }
     let v = ConjunctionDISI::from_scorer(required)?;
-    let disi = match has_tpi {
-      false => ConjunctionScorerDisi::A(v),
-      true => {
-        let v = TwoPhaseIteratorAsDocIdSetIterator::new(ConjunctionTwoPhaseIterator::new(v)?);
-        ConjunctionScorerDisi::B(v)
-      },
-    };
-    Ok(Self {
-      disi,
-      scoring_idx: scorers,
-    })
+    if has_tpi {
+      Ok(ConjunctionScorerDisi::B(
+        TwoPhaseIteratorAsDocIdSetIterator::new(ConjunctionTwoPhaseIterator::new(v)?),
+      ))
+    } else {
+      Ok(ConjunctionScorerDisi::A(v))
+    }
+  }
+  pub(crate) fn from_disi(
+    disi: ConjunctionDISIEnum<ScorerDisi<S>>,
+    scoring_idx: Vec<usize>,
+  ) -> Self {
+    Self { disi, scoring_idx }
+  }
+}
+impl<S: Scorer>
+  ConjunctionScorer<TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<S>>>
+{
+  pub(crate) fn from_tpi(
+    disi: TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<S>>,
+    scoring_idx: Vec<usize>,
+  ) -> Self {
+    Self { disi, scoring_idx }
   }
 }
 
-impl<S> Scorable for ConjunctionScorer<S>
-where
-  S: Scorer + 'static,
+/// Access to the conjunction owned by the selected iterator.
+#[doc(hidden)]
+pub trait ConjunctionState: DocIdSetIterator + 'static {
+  type SubScorer: Scorer + 'static;
+  fn conjunction(&self) -> &ConjunctionDISIEnum<ScorerDisi<Self::SubScorer>>;
+  fn conjunction_mut(&mut self) -> &mut ConjunctionDISIEnum<ScorerDisi<Self::SubScorer>>;
+  fn two_phase_iterator(&self) -> Option<&ConjunctionTwoPhaseIterator<Self::SubScorer>>;
+  fn two_phase_iterator_mut(&mut self)
+  -> Option<&mut ConjunctionTwoPhaseIterator<Self::SubScorer>>;
+  fn take_two_phase_iterator(self) -> Option<ConjunctionTwoPhaseIterator<Self::SubScorer>>;
+  fn has_two_phase_iterator(&self) -> TwoPhaseState;
+}
+impl<S: Scorer + 'static> ConjunctionState for ConjunctionDISIEnum<ScorerDisi<S>> {
+  type SubScorer = S;
+  fn conjunction(&self) -> &Self {
+    self
+  }
+  fn conjunction_mut(&mut self) -> &mut Self {
+    self
+  }
+  fn two_phase_iterator(&self) -> Option<&ConjunctionTwoPhaseIterator<S>> {
+    None
+  }
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut ConjunctionTwoPhaseIterator<S>> {
+    None
+  }
+  fn take_two_phase_iterator(self) -> Option<ConjunctionTwoPhaseIterator<S>> {
+    None
+  }
+  fn has_two_phase_iterator(&self) -> TwoPhaseState {
+    TwoPhaseState::No
+  }
+}
+impl<S: Scorer + 'static> ConjunctionState
+  for TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<S>>
 {
+  type SubScorer = S;
+  fn conjunction(&self) -> &ConjunctionDISIEnum<ScorerDisi<S>> {
+    &self.two_phase_iterator.approximation
+  }
+  fn conjunction_mut(&mut self) -> &mut ConjunctionDISIEnum<ScorerDisi<S>> {
+    &mut self.two_phase_iterator.approximation
+  }
+  fn two_phase_iterator(&self) -> Option<&ConjunctionTwoPhaseIterator<S>> {
+    Some(&self.two_phase_iterator)
+  }
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut ConjunctionTwoPhaseIterator<S>> {
+    Some(&mut self.two_phase_iterator)
+  }
+  fn take_two_phase_iterator(self) -> Option<ConjunctionTwoPhaseIterator<S>> {
+    Some(self.two_phase_iterator)
+  }
+  fn has_two_phase_iterator(&self) -> TwoPhaseState {
+    TwoPhaseState::Yes
+  }
+}
+
+impl<D: ConjunctionState> Scorable for ConjunctionScorer<D> {
   type Child<'a>
     = crate::core::search::dummy::dummy_scorable::DummyScorable
   where
     Self: 'a;
-
   fn score(&mut self) -> Result<f32> {
     let mut sum = 0f64;
     for x in self.scoring_idx.iter() {
-      let score = match self.disi {
-        DocIdSetIteratorEnum2::A(ref mut v) => v.iterator_at_mut(*x).score()?,
-        DocIdSetIteratorEnum2::B(ref mut v) => v
-          .two_phase_iterator
-          .approximation
-          .iterator_at_mut(*x)
-          .score()?,
-      };
+      let score = self.disi.conjunction_mut().iterator_at_mut(*x).score()?;
       sum += score as f64;
     }
     Ok(sum as f32)
   }
-
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
     // This scorer is only used for TOP_SCORES when there is a single scoring clause
     if self.scoring_idx.len() == 1 {
       let i = self.scoring_idx[0];
-      match &mut self.disi {
-        DocIdSetIteratorEnum2::A(v) => v.iterator_at_mut(i).set_min_competitive_score(min_score)?,
-        DocIdSetIteratorEnum2::B(v) => v
-          .two_phase_iterator
-          .approximation
-          .iterator_at_mut(i)
-          .set_min_competitive_score(min_score)?,
-      }
+      self
+        .disi
+        .conjunction_mut()
+        .iterator_at_mut(i)
+        .set_min_competitive_score(min_score)?;
     }
     Ok(())
   }
-
   fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     todo!()
   }
-
   fn cost(&self) -> Result<i64> {
     self.disi.cost()
   }
 }
-
-impl<S> crate::core::search::scorable::FixedScore for ConjunctionScorer<S> {}
-
-impl<S> DocIdSetIterator for ConjunctionScorer<S>
-where
-  S: Scorer + 'static,
-{
+impl<D: DocIdSetIterator> crate::core::search::scorable::FixedScore for ConjunctionScorer<D> {}
+impl<D: DocIdSetIterator> DocIdSetIterator for ConjunctionScorer<D> {
   fn doc_id(&self) -> i32 {
-    match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::doc_id(v),
-      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::doc_id(v),
-    }
+    self.disi.doc_id()
   }
   fn next_doc(&mut self) -> Result<i32> {
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::next_doc(v),
-      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::next_doc(v),
-    }
+    self.disi.next_doc()
   }
   fn advance(&mut self, target: i32) -> Result<i32> {
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::advance(v, target),
-      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::advance(v, target),
-    }
+    self.disi.advance(target)
   }
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::slow_advance(v, target),
-      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::slow_advance(v, target),
-    }
+    self.disi.slow_advance(target)
   }
   fn cost(&self) -> Result<i64> {
-    match &self.disi {
-      DocIdSetIteratorEnum2::A(v) => DocIdSetIterator::cost(v),
-      DocIdSetIteratorEnum2::B(v) => DocIdSetIterator::cost(v),
-    }
+    self.disi.cost()
   }
 }
-impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for ConjunctionScorer<S>
-where
-  S: Scorer + 'static,
+impl<D: DocIdSetIterator> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ConjunctionScorer<D>
 {
 }
-impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ConjunctionScorer<S> where
-  S: Scorer + 'static
+impl<D: DocIdSetIterator> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for ConjunctionScorer<D>
 {
 }
-impl<S> Scorer for ConjunctionScorer<S>
-where
-  S: Scorer + 'static,
-{
-  type Iterator = ConjunctionScorerDisi<S>;
-  type OwnedTwoPhase = ConjunctionTwoPhaseIterator<S>;
+impl<D: ConjunctionState> Scorer for ConjunctionScorer<D> {
+  type Iterator = D;
+  type OwnedTwoPhase = ConjunctionTwoPhaseIterator<D::SubScorer>;
   type ApproximationRef<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    &'a Self,
-    <ConjunctionTwoPhaseIterator<S> as TwoPhaseIterator>::ApproximationRef<'a>,
-  >
+    = &'a ConjunctionDISIEnum<ScorerDisi<D::SubScorer>>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    &'a mut Self,
-    <ConjunctionTwoPhaseIterator<S> as TwoPhaseIterator>::ApproximationMut<'a>,
-  >
+    = &'a mut ConjunctionDISIEnum<ScorerDisi<D::SubScorer>>
   where
     Self: 'a;
   type TwoPhaseRef<'a>
-    = &'a ConjunctionTwoPhaseIterator<S>
+    = &'a Self::OwnedTwoPhase
   where
     Self: 'a;
   type TwoPhaseMut<'a>
-    = &'a mut ConjunctionTwoPhaseIterator<S>
+    = &'a mut Self::OwnedTwoPhase
   where
     Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc_id())
   }
-
   fn take_iterator(self) -> Self::Iterator {
-    let ConjunctionScorer { disi, .. } = self;
-    disi
+    self.disi
   }
-
   fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    match self.disi {
-      DocIdSetIteratorEnum2::A(_) => None,
-      DocIdSetIteratorEnum2::B(ref v) => Some(&v.two_phase_iterator),
-    }
+    self.disi.two_phase_iterator()
   }
-
   fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    match self.disi {
-      DocIdSetIteratorEnum2::A(_) => None,
-      DocIdSetIteratorEnum2::B(ref mut v) => Some(&mut v.two_phase_iterator),
-    }
+    self.disi.two_phase_iterator_mut()
   }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
-  where
-    Self: Sized,
-  {
-    let ConjunctionScorer { disi, .. } = self;
-    match disi {
-      DocIdSetIteratorEnum2::A(_) => None,
-      DocIdSetIteratorEnum2::B(v) => Some(v.two_phase_iterator),
-    }
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
+    self.disi.take_two_phase_iterator()
   }
-
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     if self.scoring_idx.len() == 1 {
       let i = self.scoring_idx[0];
-      return match &mut self.disi {
-        DocIdSetIteratorEnum2::A(v) => v.iterator_at_mut(i).advance_shallow(target),
-        DocIdSetIteratorEnum2::B(v) => v
-          .two_phase_iterator
-          .approximation
-          .iterator_at_mut(i)
-          .advance_shallow(target),
-      };
+      return self
+        .disi
+        .conjunction_mut()
+        .iterator_at_mut(i)
+        .advance_shallow(target);
     }
-
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => {
-        for &idx in &self.scoring_idx {
-          let s = v.iterator_at_mut(idx);
-          s.advance_shallow(target)?;
-        }
-      },
-      DocIdSetIteratorEnum2::B(v) => {
-        for &idx in &self.scoring_idx {
-          let s = v.two_phase_iterator.approximation.iterator_at_mut(idx);
-          s.advance_shallow(target)?;
-        }
-      },
+    for &idx in &self.scoring_idx {
+      self
+        .disi
+        .conjunction_mut()
+        .iterator_at_mut(idx)
+        .advance_shallow(target)?;
     }
-
     self.default_advance_shallow(target)
   }
-
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
     let mut max_score = 0f64;
-
-    match &mut self.disi {
-      DocIdSetIteratorEnum2::A(v) => {
-        for &idx in &self.scoring_idx {
-          let s = v.iterator_at_mut(idx);
-          if s.scoring_doc_id()? <= upto {
-            max_score += s.get_max_score(upto)? as f64;
-          }
-        }
-      },
-      DocIdSetIteratorEnum2::B(v) => {
-        for &idx in &self.scoring_idx {
-          let s = v.two_phase_iterator.approximation.iterator_at_mut(idx);
-          if s.scoring_doc_id()? <= upto {
-            max_score += s.get_max_score(upto)? as f64;
-          }
-        }
-      },
+    for &idx in &self.scoring_idx {
+      let s = self.disi.conjunction_mut().iterator_at_mut(idx);
+      if s.scoring_doc_id()? <= upto {
+        max_score += s.get_max_score(upto)? as f64;
+      }
     }
-
     Ok(max_score as f32)
   }
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    match self.disi {
-      DocIdSetIteratorEnum2::A(_) => TwoPhaseState::No,
-      DocIdSetIteratorEnum2::B(_) => TwoPhaseState::Yes,
-    }
+    self.disi.has_two_phase_iterator()
   }
-
   fn approximation(&self) -> Self::ApproximationRef<'_> {
-    match self.disi {
-      DocIdSetIteratorEnum2::A(_) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self)
-      },
-      DocIdSetIteratorEnum2::B(ref v) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
-          v.two_phase_iterator.approximation(),
-        )
-      },
-    }
+    self.disi.conjunction()
   }
-
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    match self.disi {
-      DocIdSetIteratorEnum2::A(_) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self)
-      },
-      DocIdSetIteratorEnum2::B(ref mut v) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
-          v.two_phase_iterator.approximation_mut(),
-        )
-      },
-    }
+    self.disi.conjunction_mut()
   }
-
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::Conjunction

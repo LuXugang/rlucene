@@ -401,7 +401,10 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
         scorers.drain(sub_seq_start..sub_seq_end).collect();
 
       let sub_conjunction: Box<dyn TestScorer> = if wrap_with_scorer {
-        Box::new(ConjunctionScorer::new(sub_scorers, vec![])?)
+        match ConjunctionScorer::prepare(sub_scorers, &[])? {
+          ConjunctionScorerDisi::A(disi) => Box::new(ConjunctionScorer::from_disi(disi, vec![])),
+          ConjunctionScorerDisi::B(disi) => Box::new(ConjunctionScorer::from_tpi(disi, vec![])),
+        }
       } else {
         let has_two_phase = sub_scorers
           .iter()

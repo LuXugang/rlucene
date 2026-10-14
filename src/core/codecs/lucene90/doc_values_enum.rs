@@ -35,6 +35,7 @@ pub mod norms {
   where
     I: IndexInput,
   {
+    #[inline]
     fn advance_exact(&mut self, target: i32) -> Result<bool> {
       match self {
         Self::Dense(dense) => dense.advance_exact(target),

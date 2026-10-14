@@ -27,7 +27,7 @@ use crate::core::search::conjunction_scorer::ConjunctionScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
@@ -312,8 +312,17 @@ where
         context,
         searcher,
       )?;
-      let v = ConjunctionScorer::new(vec![req, opt], vec![0, 1])?;
-      Ok(QueryWeightSsScorer::<IRC>::new(v))
+      let scoring_idx = vec![0, 1];
+      Ok(
+        match ConjunctionScorer::prepare(vec![req, opt], &scoring_idx)? {
+          DocIdSetIteratorEnum2::A(disi) => {
+            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_idx))
+          },
+          DocIdSetIteratorEnum2::B(disi) => {
+            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_idx))
+          },
+        },
+      )
     } else {
       debug_assert!(self.score_mode.needs_scores());
       let req = Self::excl(
@@ -572,15 +581,22 @@ where
     }
 
     let filter_scorer = if filters.len() == 1 {
-      ScorerEnum2::A(filters.remove(0))
+      filters.remove(0)
     } else {
-      ScorerEnum2::B(ConjunctionScorer::new(filters, vec![])?)
+      match ConjunctionScorer::prepare(filters, &[])? {
+        DocIdSetIteratorEnum2::A(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, vec![]))
+        },
+        DocIdSetIteratorEnum2::B(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, vec![]))
+        },
+      }
     };
 
     let v = QueryWeightSsBulkScorer::<IRC>::new(MaxScoreBulkScorer::new(
       self.max_doc,
       optional_scorers,
-      Some(QueryWeightSsScorer::<IRC>::new(filter_scorer)),
+      Some(filter_scorer),
     )?);
     Ok(Some(v))
   }
@@ -764,7 +780,7 @@ where
             ));
           },
         };
-        ScorerEnum3::A(v)
+        ScorerEnum2::A(v)
       } else {
         let inner = match required_no_scoring.pop() {
           Some(v) => v,
@@ -775,16 +791,25 @@ where
           },
         };
         if self.score_mode.needs_scores() {
-          ScorerEnum3::B(FilterScorerImpl::new(inner))
+          ScorerEnum2::B(FilterScorerImpl::new(inner))
         } else {
-          ScorerEnum3::A(inner)
+          ScorerEnum2::A(inner)
         }
       }
     } else {
       let mut required = required_scoring;
-      let scoring_scorers_idx = (0..required.len()).collect();
+      let scoring_scorers_idx: Vec<usize> = (0..required.len()).collect();
       required.extend(required_no_scoring);
-      ScorerEnum3::C(ConjunctionScorer::new(required, scoring_scorers_idx)?)
+      return Ok(Some(
+        match ConjunctionScorer::prepare(required, &scoring_scorers_idx)? {
+          DocIdSetIteratorEnum2::A(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+            DefaultBulkScorer::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx)),
+          ),
+          DocIdSetIteratorEnum2::B(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+            DefaultBulkScorer::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx)),
+          ),
+        },
+      ));
     };
 
     Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
@@ -855,8 +880,16 @@ where
       required_scorers.extend(scoring_scorers);
       scoring_scorers_idx
     };
-    let v = ConjunctionScorer::new(required_scorers, scoring_scorers_idx)?;
-    Ok(QueryWeightSsScorer::<IRC>::new(v))
+    Ok(
+      match ConjunctionScorer::prepare(required_scorers, &scoring_scorers_idx)? {
+        DocIdSetIteratorEnum2::A(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx))
+        },
+        DocIdSetIteratorEnum2::B(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx))
+        },
+      },
+    )
   }
   fn excl(
     main: QueryWeightSsScorer<IRC>,
