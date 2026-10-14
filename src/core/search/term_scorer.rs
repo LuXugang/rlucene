@@ -139,6 +139,17 @@ where
     Self: 'a;
 
   fn score(&mut self) -> Result<f32> {
+    if let TermScorerState::Postings(inner) = &mut self.state {
+      let postings = &mut inner.impacts_source.delegate;
+      let mut norm = 1;
+      if let Some(ref mut norms) = self.norms
+        && norms.advance_exact(postings.doc_id())?
+      {
+        norm = norms.long_value()?;
+      }
+      let freq = postings.freq()?;
+      return Ok(inner.scorer.score(freq as f32, norm));
+    }
     let mut postings = Self::postings(&mut self.state);
     let mut norm = 1;
     if let Some(ref mut norms) = self.norms

@@ -645,6 +645,13 @@ where
   R: RandomAccessInput,
 {
   fn long_value(&mut self) -> Result<i64> {
+    if let DenseNormsIteratorBaseEnum::Dense1(inner) = &self.sub_dense_norms {
+      let slice = match &inner.slice {
+        RandomAccessSliceEnum::Owned(slice) => slice,
+        RandomAccessSliceEnum::Shared(slice) => slice.as_ref(),
+      };
+      return Ok((slice.read_byte(self.doc.try_convert()?)? as i8) as i64);
+    }
     self.sub_dense_norms.long_value(self.doc)
   }
 }
