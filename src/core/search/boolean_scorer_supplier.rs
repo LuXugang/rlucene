@@ -990,12 +990,18 @@ where
     // However, as WANDScorer uses more complex algorithm and data structure, we would like to
     // still use DisjunctionSumScorer to handle exhaustive pure disjunctions, which may be faster
     if (score_mode == ScoreMode::TopScores && top_level_scoring_clause) || min_should_match > 1 {
-      Ok(QueryWeightSsScorer::<IRC>::new(WANDScorer::new(
-        optional_scorers,
-        min_should_match,
-        score_mode,
-        lead_cost,
-      )?))
+      if score_mode == ScoreMode::TopScores {
+        Ok(QueryWeightSsScorer::<IRC>::new(WANDScorer::<_, true>::new(
+          optional_scorers,
+          min_should_match,
+          score_mode,
+          lead_cost,
+        )?))
+      } else {
+        Ok(QueryWeightSsScorer::<IRC>::new(
+          WANDScorer::<_, false>::new(optional_scorers, min_should_match, score_mode, lead_cost)?,
+        ))
+      }
     } else {
       match DisjunctionScorer::<_, DisjunctionSumScorer>::prepare(optional_scorers, score_mode)? {
         crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(disi) => Ok(

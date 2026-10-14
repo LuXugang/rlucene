@@ -40,7 +40,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::{Scorer, ScorerEnum2, TwoPhaseState};
+use crate::core::search::scorer::{Scorer, ScorerEnum3, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::TermQuery;
@@ -2317,7 +2317,11 @@ where
   }
 
   type ScorerSupplier = DefaultScorerSupplier<
-    ScorerEnum2<WANDScorer<QueryWeightSsScorer<IRC>>, QueryWeightSsScorer<IRC>>,
+    ScorerEnum3<
+      WANDScorer<QueryWeightSsScorer<IRC>, true>,
+      WANDScorer<QueryWeightSsScorer<IRC>, false>,
+      QueryWeightSsScorer<IRC>,
+    >,
   >;
 
   fn scorer_supplier(
@@ -2345,15 +2349,24 @@ where
     }
 
     let scorer = if !optional_scorers.is_empty() {
-      ScorerEnum2::A(WANDScorer::new(
-        optional_scorers,
-        self.minimum_number_should_match,
-        self.score_mode,
-        if self.do_blocks { i64::MAX } else { 0 },
-      )?)
+      if self.score_mode == ScoreMode::TopScores {
+        ScorerEnum3::A(WANDScorer::<_, true>::new(
+          optional_scorers,
+          self.minimum_number_should_match,
+          self.score_mode,
+          if self.do_blocks { i64::MAX } else { 0 },
+        )?)
+      } else {
+        ScorerEnum3::B(WANDScorer::<_, false>::new(
+          optional_scorers,
+          self.minimum_number_should_match,
+          self.score_mode,
+          if self.do_blocks { i64::MAX } else { 0 },
+        )?)
+      }
     } else {
       match weight.scorer(context, searcher)? {
-        Some(ss) => ScorerEnum2::B(ss),
+        Some(ss) => ScorerEnum3::C(ss),
         None => return Ok(None),
       }
     };

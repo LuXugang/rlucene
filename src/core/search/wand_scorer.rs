@@ -68,11 +68,13 @@ use crate::core::util::math_util::MathUtil;
 ///    constraints:
 ///    - `freq >= minShouldMatch`
 ///    - and/or `∑ max_score >= minCompetitiveScore`.
-pub struct WANDScorer<S> {
-  disi: TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>,
+///
+/// `TOP_SCORES` is selected from the score mode before document iteration starts.
+pub struct WANDScorer<S, const TOP_SCORES: bool> {
+  disi: TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S, TOP_SCORES>>,
 }
 
-impl<S> WANDScorer<S>
+impl<S, const TOP_SCORES: bool> WANDScorer<S, TOP_SCORES>
 where
   S: Scorer,
 {
@@ -81,7 +83,7 @@ where
     min_should_match: i32,
     score_mode: ScoreMode,
     lead_cost: i64,
-  ) -> Result<WANDScorer<S>> {
+  ) -> Result<WANDScorer<S, TOP_SCORES>> {
     let v = DocIdSetIteratorImpl::new(scorers, min_should_match, score_mode, lead_cost)?;
     let tpi = TwoPhaseIteratorImpl::new(v);
     Ok(WANDScorer {
@@ -90,7 +92,7 @@ where
   }
 }
 
-impl<S> Scorable for WANDScorer<S>
+impl<S, const TOP_SCORES: bool> Scorable for WANDScorer<S, TOP_SCORES>
 where
   S: Scorer + 'static,
 {
@@ -105,7 +107,7 @@ where
     disi.advance_all_tail()?;
     let mut lead_score = disi.lead_score;
 
-    if disi.score_mode != ScoreMode::TopScores {
+    if !TOP_SCORES {
       // With TOP_SCORES, the score was already computed on the fly.
       let mut cur = disi.lead;
       while let Some(idx) = cur {
@@ -155,9 +157,12 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for WANDScorer<S> {}
+impl<S, const TOP_SCORES: bool> crate::core::search::scorable::FixedScore
+  for WANDScorer<S, TOP_SCORES>
+{
+}
 
-impl<S> DocIdSetIterator for WANDScorer<S>
+impl<S, const TOP_SCORES: bool> DocIdSetIterator for WANDScorer<S, TOP_SCORES>
 where
   S: Scorer + 'static,
 {
@@ -177,34 +182,38 @@ where
     DocIdSetIterator::cost(&self.disi)
   }
 }
-impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for WANDScorer<S> where
-  S: Scorer + 'static
-{
-}
-impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for WANDScorer<S> where
-  S: Scorer + 'static
-{
-}
-impl<S> Scorer for WANDScorer<S>
+impl<S, const TOP_SCORES: bool> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for WANDScorer<S, TOP_SCORES>
 where
   S: Scorer + 'static,
 {
-  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>;
-  type OwnedTwoPhase = TwoPhaseIteratorImpl<S>;
+}
+impl<S, const TOP_SCORES: bool> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for WANDScorer<S, TOP_SCORES>
+where
+  S: Scorer + 'static,
+{
+}
+impl<S, const TOP_SCORES: bool> Scorer for WANDScorer<S, TOP_SCORES>
+where
+  S: Scorer + 'static,
+{
+  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S, TOP_SCORES>>;
+  type OwnedTwoPhase = TwoPhaseIteratorImpl<S, TOP_SCORES>;
   type ApproximationRef<'a>
-    = <TwoPhaseIteratorImpl<S> as TwoPhaseIterator>::ApproximationRef<'a>
+    = <TwoPhaseIteratorImpl<S, TOP_SCORES> as TwoPhaseIterator>::ApproximationRef<'a>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = <TwoPhaseIteratorImpl<S> as TwoPhaseIterator>::ApproximationMut<'a>
+    = <TwoPhaseIteratorImpl<S, TOP_SCORES> as TwoPhaseIterator>::ApproximationMut<'a>
   where
     Self: 'a;
   type TwoPhaseRef<'a>
-    = &'a TwoPhaseIteratorImpl<S>
+    = &'a TwoPhaseIteratorImpl<S, TOP_SCORES>
   where
     Self: 'a;
   type TwoPhaseMut<'a>
-    = &'a mut TwoPhaseIteratorImpl<S>
+    = &'a mut TwoPhaseIteratorImpl<S, TOP_SCORES>
   where
     Self: 'a;
 
@@ -280,7 +289,7 @@ where
   }
 }
 
-pub struct DocIdSetIteratorImpl<S> {
+pub struct DocIdSetIteratorImpl<S, const TOP_SCORES: bool> {
   all_scorers: Vec<DisiWrapper<S>>,
   doc: i32,
   score_mode: ScoreMode,
@@ -310,7 +319,7 @@ pub struct DocIdSetIteratorImpl<S> {
   /// scalingFactor in Lucene
   scaling_factor: i32,
 }
-impl<S> DocIdSetIteratorImpl<S>
+impl<S, const TOP_SCORES: bool> DocIdSetIteratorImpl<S, TOP_SCORES>
 where
   S: Scorer,
 {
@@ -319,7 +328,8 @@ where
     min_should_match: i32,
     score_mode: ScoreMode,
     lead_cost: i64,
-  ) -> Result<DocIdSetIteratorImpl<S>> {
+  ) -> Result<DocIdSetIteratorImpl<S, TOP_SCORES>> {
+    debug_assert_eq!(TOP_SCORES, score_mode == ScoreMode::TopScores);
     let num_scorers = scorers.len();
 
     if i64::from(min_should_match) >= num_scorers as i64 {
@@ -334,7 +344,7 @@ where
       min_should_match
     );
 
-    let scaling_factor = if score_mode == ScoreMode::TopScores {
+    let scaling_factor = if TOP_SCORES {
       // To avoid accuracy issues with floating-point numbers, this scorer operates on scaled longs.
       // How do you choose the scaling factor? The thing is that we want to retain as many
       // significant bits as possible, but not too many, otherwise operations on longs would be more
@@ -403,7 +413,7 @@ where
     self.all_scorers[lead_idx].next = self.lead;
     self.lead = Some(lead_idx);
     self.freq += 1;
-    if self.score_mode == ScoreMode::TopScores {
+    if TOP_SCORES {
       let scorer = self.all_scorers[lead_idx].scorer.score()?;
       self.lead_score += scorer as f64;
     }
@@ -604,7 +614,7 @@ where
     self.all_scorers[lead_idx].next = None;
     self.freq = 1;
 
-    if self.score_mode == ScoreMode::TopScores {
+    if TOP_SCORES {
       self.lead_score = self.all_scorers[lead_idx].scorer.score()? as f64;
     }
     while self.head.size() > 0 {
@@ -748,7 +758,7 @@ where
   // Returns a `bool` so it can be called from an assertion.
   // the return value is useless: it always returns true
   fn ensure_consistent(&mut self) -> Result<bool> {
-    if self.score_mode == ScoreMode::TopScores {
+    if TOP_SCORES {
       let mut max_score_sum: i64 = 0;
 
       for i in 0..self.tail_size {
@@ -814,18 +824,20 @@ where
     Ok(true)
   }
 }
-impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for DocIdSetIteratorImpl<S>
+impl<S, const TOP_SCORES: bool> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorImpl<S, TOP_SCORES>
 where
   S: Scorer,
 {
 }
-impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIdSetIteratorImpl<S> where
-  S: Scorer
+impl<S, const TOP_SCORES: bool> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DocIdSetIteratorImpl<S, TOP_SCORES>
+where
+  S: Scorer,
 {
 }
 
-impl<S> DocIdSetIterator for DocIdSetIteratorImpl<S>
+impl<S, const TOP_SCORES: bool> DocIdSetIterator for DocIdSetIteratorImpl<S, TOP_SCORES>
 where
   S: Scorer,
 {
@@ -843,9 +855,7 @@ where
     // Make sure `head` is also on or beyond `target`
     let mut head_top = self.advance_head(target)?;
 
-    if self.score_mode == ScoreMode::TopScores
-      && head_top.is_none_or(|idx| self.all_scorers[idx].doc > self.upto)
-    {
+    if TOP_SCORES && head_top.is_none_or(|idx| self.all_scorers[idx].doc > self.upto) {
       // Update score bounds if necessary
       self.move_to_next_block(target)?;
       debug_assert!(self.upto >= target);
@@ -866,24 +876,24 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl<S> {
-  approximation: DocIdSetIteratorImpl<S>,
+pub struct TwoPhaseIteratorImpl<S, const TOP_SCORES: bool> {
+  approximation: DocIdSetIteratorImpl<S, TOP_SCORES>,
 }
-impl<S> TwoPhaseIteratorImpl<S> {
-  pub fn new(approximation: DocIdSetIteratorImpl<S>) -> Self {
+impl<S, const TOP_SCORES: bool> TwoPhaseIteratorImpl<S, TOP_SCORES> {
+  pub fn new(approximation: DocIdSetIteratorImpl<S, TOP_SCORES>) -> Self {
     Self { approximation }
   }
 }
-impl<S> TwoPhaseIterator for TwoPhaseIteratorImpl<S>
+impl<S, const TOP_SCORES: bool> TwoPhaseIterator for TwoPhaseIteratorImpl<S, TOP_SCORES>
 where
   S: Scorer,
 {
   type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl<S>
+    = &'a DocIdSetIteratorImpl<S, TOP_SCORES>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl<S>
+    = &'a mut DocIdSetIteratorImpl<S, TOP_SCORES>
   where
     Self: 'a;
 
@@ -904,7 +914,7 @@ where
 
     let mut scaled_lead_score: i64 = 0;
 
-    if approx.score_mode == ScoreMode::TopScores {
+    if TOP_SCORES {
       scaled_lead_score = scale_max_score(
         MathUtil::sum_upper_bound(approx.lead_score, FLOAT_MANTISSA_BITS) as f32,
         approx.scaling_factor,
@@ -925,7 +935,7 @@ where
         let prev_lead = approx.lead;
         approx.advance_tail_top()?;
 
-        if approx.score_mode == ScoreMode::TopScores && approx.lead != prev_lead {
+        if TOP_SCORES && approx.lead != prev_lead {
           debug_assert!(match approx.lead {
             Some(lead) => prev_lead == approx.all_scorers[lead].next,
             None => false,
