@@ -763,8 +763,15 @@ where
 
     let mut required_scoring =
       if self.score_mode == ScoreMode::TopScores && required_scoring.len() > 1 {
-        let v = BlockMaxConjunctionScorer::new(required_scoring)?;
-        vec![QueryWeightSsScorer::<IRC>::new(v)]
+        let v = match BlockMaxConjunctionScorer::prepare(required_scoring)? {
+          DocIdSetIteratorEnum2::A(disi) => {
+            QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_disi(disi))
+          },
+          DocIdSetIteratorEnum2::B(disi) => {
+            QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_tpi(disi))
+          },
+        };
+        vec![v]
       } else {
         required_scoring
       };
@@ -867,11 +874,18 @@ where
       && scoring_scorers.len() > 1
       && top_level_scoring_clause
     {
-      let block_max_scorer = BlockMaxConjunctionScorer::new(scoring_scorers)?;
+      let block_max_scorer = match BlockMaxConjunctionScorer::prepare(scoring_scorers)? {
+        DocIdSetIteratorEnum2::A(disi) => {
+          QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_disi(disi))
+        },
+        DocIdSetIteratorEnum2::B(disi) => {
+          QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_tpi(disi))
+        },
+      };
       if required_scorers.is_empty() {
-        return Ok(QueryWeightSsScorer::<IRC>::new(block_max_scorer));
+        return Ok(block_max_scorer);
       } else {
-        required_scorers.push(QueryWeightSsScorer::<IRC>::new(block_max_scorer));
+        required_scorers.push(block_max_scorer);
       }
       vec![required_scorers.len() - 1]
     } else {
