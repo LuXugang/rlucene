@@ -23,7 +23,7 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_scorer::BooleanScorer;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::conjunction_bulk_scorer::ConjunctionBulkScorer;
-use crate::core::search::conjunction_scorer::ConjunctionScorer;
+use crate::core::search::conjunction_scorer::{ConjunctionScorer, ConjunctionScorerDisi};
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disjunction_scorer::DisjunctionScorer;
 use crate::core::search::disjunction_sum_scorer::DisjunctionSumScorer;
@@ -315,10 +315,16 @@ where
       let scoring_idx = vec![0, 1];
       Ok(
         match ConjunctionScorer::prepare(vec![req, opt], &scoring_idx)? {
-          DocIdSetIteratorEnum2::A(disi) => {
+          ConjunctionScorerDisi::A(disi) => {
             QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_idx))
           },
-          DocIdSetIteratorEnum2::B(disi) => {
+          ConjunctionScorerDisi::B(disi) => {
+            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_idx))
+          },
+          ConjunctionScorerDisi::C(disi) => {
+            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_idx))
+          },
+          ConjunctionScorerDisi::D(disi) => {
             QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_idx))
           },
         },
@@ -584,10 +590,16 @@ where
       filters.remove(0)
     } else {
       match ConjunctionScorer::prepare(filters, &[])? {
-        DocIdSetIteratorEnum2::A(disi) => {
+        ConjunctionScorerDisi::A(disi) => {
           QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, vec![]))
         },
-        DocIdSetIteratorEnum2::B(disi) => {
+        ConjunctionScorerDisi::B(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, vec![]))
+        },
+        ConjunctionScorerDisi::C(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, vec![]))
+        },
+        ConjunctionScorerDisi::D(disi) => {
           QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, vec![]))
         },
       }
@@ -809,10 +821,16 @@ where
       required.extend(required_no_scoring);
       return Ok(Some(
         match ConjunctionScorer::prepare(required, &scoring_scorers_idx)? {
-          DocIdSetIteratorEnum2::A(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+          ConjunctionScorerDisi::A(disi) => QueryWeightSsBulkScorer::<IRC>::new(
             DefaultBulkScorer::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx)),
           ),
-          DocIdSetIteratorEnum2::B(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+          ConjunctionScorerDisi::B(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+            DefaultBulkScorer::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx)),
+          ),
+          ConjunctionScorerDisi::C(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+            DefaultBulkScorer::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx)),
+          ),
+          ConjunctionScorerDisi::D(disi) => QueryWeightSsBulkScorer::<IRC>::new(
             DefaultBulkScorer::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx)),
           ),
         },
@@ -896,10 +914,16 @@ where
     };
     Ok(
       match ConjunctionScorer::prepare(required_scorers, &scoring_scorers_idx)? {
-        DocIdSetIteratorEnum2::A(disi) => {
+        ConjunctionScorerDisi::A(disi) => {
           QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx))
         },
-        DocIdSetIteratorEnum2::B(disi) => {
+        ConjunctionScorerDisi::B(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx))
+        },
+        ConjunctionScorerDisi::C(disi) => {
+          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx))
+        },
+        ConjunctionScorerDisi::D(disi) => {
           QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx))
         },
       },

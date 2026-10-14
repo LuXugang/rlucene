@@ -437,21 +437,78 @@ where
     Ok(left.cost()?.cmp(&right.cost()?).to_int())
   }
 }
+/// Access to sub-scorers in their original logical order.
+#[doc(hidden)]
+pub trait ConjunctionScorers: DocIdSetIterator {
+  type SubScorer: Scorer;
+  fn iterator_count(&self) -> usize;
+  fn iterator_at(&self, index: usize) -> &ScorerDisi<Self::SubScorer>;
+  fn iterator_at_mut(&mut self, index: usize) -> &mut ScorerDisi<Self::SubScorer>;
+}
+impl<S: Scorer> ConjunctionScorers for ConjunctionDISI<ScorerDisi<S>> {
+  type SubScorer = S;
+  fn iterator_count(&self) -> usize {
+    self.all_disi.len()
+  }
+  fn iterator_at(&self, index: usize) -> &ScorerDisi<S> {
+    &self.all_disi[index]
+  }
+  fn iterator_at_mut(&mut self, index: usize) -> &mut ScorerDisi<S> {
+    &mut self.all_disi[index]
+  }
+}
+impl<S: Scorer> ConjunctionScorers for BitSetConjunctionDISI<ScorerDisi<S>> {
+  type SubScorer = S;
+  fn iterator_count(&self) -> usize {
+    self.iterator_locations.len()
+  }
+  fn iterator_at(&self, index: usize) -> &ScorerDisi<S> {
+    match self.iterator_locations[index] {
+      IteratorLocation::Lead(index) => match &self.lead {
+        DocIdSetIteratorEnum2::A(iterator) => iterator,
+        DocIdSetIteratorEnum2::B(lead) => &lead.all_disi[index],
+      },
+      IteratorLocation::BitSet(index) => &self.bit_set_iterators[index],
+    }
+  }
+  fn iterator_at_mut(&mut self, index: usize) -> &mut ScorerDisi<S> {
+    match self.iterator_locations[index] {
+      IteratorLocation::Lead(index) => match &mut self.lead {
+        DocIdSetIteratorEnum2::A(iterator) => iterator,
+        DocIdSetIteratorEnum2::B(lead) => &mut lead.all_disi[index],
+      },
+      IteratorLocation::BitSet(index) => &mut self.bit_set_iterators[index],
+    }
+  }
+}
+impl<S: Scorer> ConjunctionScorers for ConjunctionDISIEnum<ScorerDisi<S>> {
+  type SubScorer = S;
+  fn iterator_count(&self) -> usize {
+    self.len()
+  }
+  fn iterator_at(&self, index: usize) -> &ScorerDisi<S> {
+    self.iterator_at(index)
+  }
+  fn iterator_at_mut(&mut self, index: usize) -> &mut ScorerDisi<S> {
+    self.iterator_at_mut(index)
+  }
+}
+
 /// [`TwoPhaseIterator`] implementing a conjunction.
-pub struct ConjunctionTwoPhaseIterator<S> {
+pub struct ConjunctionTwoPhaseIterator<C> {
   two_phase_iterator_idx: Vec<usize>,
-  pub(crate) approximation: ConjunctionDISIEnum<ScorerDisi<S>>,
+  pub(crate) approximation: C,
   match_cost: f32,
 }
-impl<S> ConjunctionTwoPhaseIterator<S>
+impl<C> ConjunctionTwoPhaseIterator<C>
 where
-  S: Scorer,
+  C: ConjunctionScorers,
 {
-  pub(crate) fn new(approximation: ConjunctionDISIEnum<ScorerDisi<S>>) -> Result<Self> {
+  pub(crate) fn new(approximation: C) -> Result<Self> {
     debug_assert!(
       {
         let mut has_tpi = false;
-        for idx in 0..approximation.len() {
+        for idx in 0..approximation.iterator_count() {
           let x = approximation.iterator_at(idx);
           if x.two_phase_iterator().is_some() {
             has_tpi = true;
@@ -463,9 +520,9 @@ where
       "ConjunctionTwoPhaseIterator requires at least one TwoPhaseIterator"
     );
     let (two_phase_iterator_idx, total_match_cost) = {
-      let mut tpis = Vec::with_capacity(approximation.len());
-      let mut two_phase_iterator_idx = Vec::with_capacity(approximation.len());
-      for idx in 0..approximation.len() {
+      let mut tpis = Vec::with_capacity(approximation.iterator_count());
+      let mut two_phase_iterator_idx = Vec::with_capacity(approximation.iterator_count());
+      for idx in 0..approximation.iterator_count() {
         if let Some(tpi) = approximation.iterator_at(idx).two_phase_iterator() {
           two_phase_iterator_idx.push(idx);
           tpis.push(Some(tpi));
@@ -489,16 +546,16 @@ where
     })
   }
 }
-impl<S> TwoPhaseIterator for ConjunctionTwoPhaseIterator<S>
+impl<C> TwoPhaseIterator for ConjunctionTwoPhaseIterator<C>
 where
-  S: Scorer,
+  C: ConjunctionScorers,
 {
   type ApproximationRef<'a>
-    = &'a ConjunctionDISIEnum<ScorerDisi<S>>
+    = &'a C
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = &'a mut ConjunctionDISIEnum<ScorerDisi<S>>
+    = &'a mut C
   where
     Self: 'a;
 

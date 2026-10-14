@@ -179,11 +179,11 @@ fn test_conjunction() -> Result<()> {
     }
     let conjunction = ConjunctionDISI::from_scorer(iterators)?;
     let mut disi = match has_tpi {
-      false => ConjunctionScorerDisi::A(conjunction),
+      false => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(conjunction),
       true => {
         let v =
           TwoPhaseIteratorAsDocIdSetIterator::new(ConjunctionTwoPhaseIterator::new(conjunction)?);
-        ConjunctionScorerDisi::B(v)
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(v)
       },
     };
 
@@ -249,10 +249,10 @@ fn test_conjunction_approximation() -> Result<()> {
     assert_eq!(has_approximation, has_tpi);
     let v = ConjunctionDISI::from_scorer(iterators)?;
     let mut disi = match has_tpi {
-      false => ConjunctionScorerDisi::A(v),
+      false => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(v),
       true => {
         let v = TwoPhaseIteratorAsDocIdSetIterator::new(ConjunctionTwoPhaseIterator::new(v)?);
-        ConjunctionScorerDisi::B(v)
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(v)
       },
     };
     assert_eq!(intersect(&sets), to_bit_set(max_doc, &mut disi)?);
@@ -403,7 +403,9 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
       let sub_conjunction: Box<dyn TestScorer> = if wrap_with_scorer {
         match ConjunctionScorer::prepare(sub_scorers, &[])? {
           ConjunctionScorerDisi::A(disi) => Box::new(ConjunctionScorer::from_disi(disi, vec![])),
-          ConjunctionScorerDisi::B(disi) => Box::new(ConjunctionScorer::from_tpi(disi, vec![])),
+          ConjunctionScorerDisi::B(disi) => Box::new(ConjunctionScorer::from_disi(disi, vec![])),
+          ConjunctionScorerDisi::C(disi) => Box::new(ConjunctionScorer::from_tpi(disi, vec![])),
+          ConjunctionScorerDisi::D(disi) => Box::new(ConjunctionScorer::from_tpi(disi, vec![])),
         }
       } else {
         let has_two_phase = sub_scorers
