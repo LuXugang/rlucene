@@ -927,9 +927,14 @@ where
         context,
         searcher,
       )?;
-      Ok(QueryWeightSsScorer::<IRC>::new(ReqExclScorer::new(
-        main, opt,
-      )?))
+      match ReqExclScorer::prepare(main, opt)? {
+        crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::A(tpi) => {
+          Ok(QueryWeightSsScorer::<IRC>::new(ReqExclScorer::new(tpi)))
+        },
+        crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::B(tpi) => {
+          Ok(QueryWeightSsScorer::<IRC>::new(ReqExclScorer::new(tpi)))
+        },
+      }
     }
   }
 

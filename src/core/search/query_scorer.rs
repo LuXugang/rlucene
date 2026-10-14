@@ -396,7 +396,8 @@ scorer_nodes! {
     Wand: WANDScorer<BuiltinQueryScorer<ST>>,
     RequiredOptional: ReqOptSumScorer<crate::core::search::req_opt_sum_scorer::DocIdSetIteratorImpl<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>>,
     RequiredOptionalTwoPhase: ReqOptSumScorer<TwoPhaseIteratorAsDocIdSetIterator<crate::core::search::req_opt_sum_scorer::TwoPhaseIteratorImpl<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>>>,
-    RequiredExcluded: ReqExclScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
+    RequiredExcludedFirst: ReqExclScorer<crate::core::search::req_excl_scorer::TwoPhaseIteratorImpl1<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>>,
+    RequiredExcludedLast: ReqExclScorer<crate::core::search::req_excl_scorer::TwoPhaseIteratorImpl2<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>>,
     Filter: FilterScorerImpl<BuiltinQueryScorer<ST>>,
   }
   inline {

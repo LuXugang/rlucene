@@ -27,16 +27,19 @@ use crate::core::search::two_phase_iterator::{
 };
 use crate::core::util::error::lucene_error::Result;
 
-/// A Scorer for queries with a required subscorer and an excluding (prohibited) sub [`Scorer`](crate::core::search::scorer::Scorer).
-pub struct ReqExclScorer<S1, S2> {
-  disi: TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>,
+/// A scorer whose required/excluded matching order is selected at construction.
+pub struct ReqExclScorer<T> {
+  disi: TwoPhaseIteratorAsDocIdSetIterator<T>,
 }
-impl<S1, S2> ReqExclScorer<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
-  pub(crate) fn new(mut req_scorer: S1, mut excl_scorer: S2) -> Result<Self> {
+impl<T> ReqExclScorer<T> {
+  pub(crate) fn new(two_phase_iterator: T) -> Self {
+    Self {
+      disi: TwoPhaseIteratorAsDocIdSetIterator::new(two_phase_iterator),
+    }
+  }
+}
+impl<S1: Scorer, S2: Scorer> ReqExclScorer<TwoPhaseIteratorImpl1<S1, S2>> {
+  pub(crate) fn prepare(mut req_scorer: S1, mut excl_scorer: S2) -> Result<Tpi<S1, S2>> {
     let match_cost = match_cost(&mut req_scorer, &mut excl_scorer)?;
 
     let check_req = match req_scorer.two_phase_iterator_mut() {
@@ -60,174 +63,137 @@ where
         match_cost,
       ))
     };
-    let disi = TwoPhaseIteratorAsDocIdSetIterator::new(two_phase_iterator);
-    Ok(Self { disi })
+    Ok(two_phase_iterator)
   }
 }
 
-impl<S1, S2> Scorable for ReqExclScorer<S1, S2>
-where
-  S1: Scorer + 'static,
-  S2: Scorer + 'static,
-{
+/// Access to the required scorer owned by either concrete matching order.
+#[doc(hidden)]
+pub trait ReqExclState: TwoPhaseIterator + 'static {
+  type Required: Scorer + 'static;
+  fn req_scorer_mut(&mut self) -> &mut Self::Required;
+}
+impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqExclState for TwoPhaseIteratorImpl1<S1, S2> {
+  type Required = S1;
+  fn req_scorer_mut(&mut self) -> &mut S1 {
+    &mut self.req_scorer
+  }
+}
+impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqExclState for TwoPhaseIteratorImpl2<S1, S2> {
+  type Required = S1;
+  fn req_scorer_mut(&mut self) -> &mut S1 {
+    &mut self.req_scorer
+  }
+}
+impl<T: ReqExclState> Scorable for ReqExclScorer<T> {
   type Child<'a>
-    = &'a mut S1
+    = &'a mut T::Required
   where
     Self: 'a;
-
   fn score(&mut self) -> Result<f32> {
-    match self.disi.two_phase_iterator {
-      TwoPhaseIteratorEnum2::A(ref mut tpi) => tpi.req_scorer.score(),
-      TwoPhaseIteratorEnum2::B(ref mut tpi) => tpi.req_scorer.score(),
-    }
+    self.disi.two_phase_iterator.req_scorer_mut().score()
   }
-
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-    match self.disi.two_phase_iterator {
-      TwoPhaseIteratorEnum2::A(ref mut tpi) => tpi.req_scorer.set_min_competitive_score(min_score),
-      TwoPhaseIteratorEnum2::B(ref mut tpi) => tpi.req_scorer.set_min_competitive_score(min_score),
-    }
+    self
+      .disi
+      .two_phase_iterator
+      .req_scorer_mut()
+      .set_min_competitive_score(min_score)
   }
-
   fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
-    let req: &mut S1 = match &mut self.disi.two_phase_iterator {
-      TwoPhaseIteratorEnum2::A(tpi) => &mut tpi.req_scorer,
-      TwoPhaseIteratorEnum2::B(tpi) => &mut tpi.req_scorer,
-    };
-    Ok(vec![ChildScorable::new(req, "MUST")])
+    Ok(vec![ChildScorable::new(
+      self.disi.two_phase_iterator.req_scorer_mut(),
+      "MUST",
+    )])
   }
-
   fn cost(&self) -> Result<i64> {
     self.disi.cost()
   }
 }
-
-impl<S1, S2> crate::core::search::scorable::FixedScore for ReqExclScorer<S1, S2> {}
-
-impl<S1, S2> DocIdSetIterator for ReqExclScorer<S1, S2>
-where
-  S1: Scorer + 'static,
-  S2: Scorer + 'static,
+impl<T> crate::core::search::scorable::FixedScore for ReqExclScorer<T> {}
+impl<T: TwoPhaseIterator> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ReqExclScorer<T>
 {
+}
+impl<T: TwoPhaseIterator> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for ReqExclScorer<T>
+{
+}
+impl<T: TwoPhaseIterator> DocIdSetIterator for ReqExclScorer<T> {
   fn doc_id(&self) -> i32 {
-    DocIdSetIterator::doc_id(&self.disi)
+    self.disi.doc_id()
   }
   fn next_doc(&mut self) -> Result<i32> {
-    DocIdSetIterator::next_doc(&mut self.disi)
+    self.disi.next_doc()
   }
   fn advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::advance(&mut self.disi, target)
+    self.disi.advance(target)
   }
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::slow_advance(&mut self.disi, target)
+    self.disi.slow_advance(target)
   }
   fn cost(&self) -> Result<i64> {
-    DocIdSetIterator::cost(&self.disi)
+    self.disi.cost()
   }
 }
-impl<S1, S2> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for ReqExclScorer<S1, S2>
-where
-  S1: Scorer + 'static,
-  S2: Scorer + 'static,
-{
-}
-impl<S1, S2> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for ReqExclScorer<S1, S2>
-where
-  S1: Scorer + 'static,
-  S2: Scorer + 'static,
-{
-}
-impl<S1, S2> Scorer for ReqExclScorer<S1, S2>
-where
-  S1: Scorer + 'static,
-  S2: Scorer + 'static,
-{
-  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
-    TwoPhaseIteratorImpl1<S1, S2>,
-    TwoPhaseIteratorImpl2<S1, S2>,
-  >;
+impl<T: ReqExclState> Scorer for ReqExclScorer<T> {
+  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<T>;
+  type OwnedTwoPhase = T;
   type ApproximationRef<'a>
-    = <crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
-    TwoPhaseIteratorImpl1<S1, S2>,
-    TwoPhaseIteratorImpl2<S1, S2>,
-  > as TwoPhaseIterator>::ApproximationRef<'a>
+    = T::ApproximationRef<'a>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = <crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
-    TwoPhaseIteratorImpl1<S1, S2>,
-    TwoPhaseIteratorImpl2<S1, S2>,
-  > as TwoPhaseIterator>::ApproximationMut<'a>
+    = T::ApproximationMut<'a>
   where
     Self: 'a;
   type TwoPhaseRef<'a>
-    = &'a crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
-    TwoPhaseIteratorImpl1<S1, S2>,
-    TwoPhaseIteratorImpl2<S1, S2>,
-  >
+    = &'a T
   where
     Self: 'a;
   type TwoPhaseMut<'a>
-    = &'a mut crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2<
-    TwoPhaseIteratorImpl1<S1, S2>,
-    TwoPhaseIteratorImpl2<S1, S2>,
-  >
+    = &'a mut T
   where
     Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    match self.disi.two_phase_iterator {
-      TwoPhaseIteratorEnum2::A(ref mut tpi) => (tpi.req_scorer).scoring_doc_id(),
-      TwoPhaseIteratorEnum2::B(ref mut tpi) => (tpi.req_scorer).scoring_doc_id(),
-    }
+    self
+      .disi
+      .two_phase_iterator
+      .req_scorer_mut()
+      .scoring_doc_id()
   }
-
   fn take_iterator(self) -> Self::Iterator {
-    let ReqExclScorer { disi, .. } = self;
-    disi
+    self.disi
   }
-
   fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
     Some(&self.disi.two_phase_iterator)
   }
-
   fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
     Some(&mut self.disi.two_phase_iterator)
   }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
-  where
-    Self: Sized,
-  {
-    let ReqExclScorer { disi, .. } = self;
-    Some(disi.two_phase_iterator)
+  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
+    Some(self.disi.two_phase_iterator)
   }
-
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-    match self.disi.two_phase_iterator {
-      TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.advance_shallow(target)?),
-      TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.advance_shallow(target)?),
-    }
+    self
+      .disi
+      .two_phase_iterator
+      .req_scorer_mut()
+      .advance_shallow(target)
   }
-
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    match self.disi.two_phase_iterator {
-      TwoPhaseIteratorEnum2::A(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(upto)?),
-      TwoPhaseIteratorEnum2::B(ref mut tpi) => Ok(tpi.req_scorer.get_max_score(upto)?),
-    }
+    self
+      .disi
+      .two_phase_iterator
+      .req_scorer_mut()
+      .get_max_score(upto)
   }
-
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     Yes
   }
-
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self.disi.two_phase_iterator.approximation_mut()
   }
-
   fn approximation(&self) -> Self::ApproximationRef<'_> {
     self.disi.two_phase_iterator.approximation()
   }
