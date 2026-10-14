@@ -25,6 +25,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointValues, Relation};
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::DocIdSet;
@@ -286,10 +287,8 @@ where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = ConstantScoreScorer<
-    crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
-    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-  >;
+  type Scorer =
+    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(

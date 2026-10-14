@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::query::QueryWeightMatches;
 use crate::core::search::query::QueryWeightSs;
 use crate::core::search::query::QueryWeightSsBulkScorer;
@@ -47,7 +48,6 @@ use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
 use crate::core::search::disjunction_matches_iterator::from_terms;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::impacts_disi::SeparateImpactsDISI;
 use crate::core::search::index_searcher;
@@ -961,7 +961,7 @@ type SynonymImpactsDISI<ST> = SeparateImpactsDISI<
   Arc<SimilarityEnumSimScorer>,
 >;
 
-type EmptySynonymScorer = ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>;
+type EmptySynonymScorer = ConstantScoreDisiScorer<EmptyDISI>;
 
 #[doc(hidden)]
 pub enum SynonymSubScorer<ST>

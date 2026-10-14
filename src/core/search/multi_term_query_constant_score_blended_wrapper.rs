@@ -35,7 +35,6 @@ use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, dispatch_multi_term_query,
@@ -43,7 +42,6 @@ use crate::core::search::multi_term_query::{
 use crate::core::search::query::QueryBase;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
@@ -191,8 +189,9 @@ impl RewritingWeightBase for BlendedRewritingWeight {
   type Iter<T>
     = DisjunctionDISIApproximation<
     ConstantScoreScorer<
-      DocIdSetIteratorEnum2<DocIdSetBuilderIterator, TermsPosting<T>>,
-      DummyTwoPhaseIterator,
+      crate::core::search::constant_score_scorer::DisiState<
+        DocIdSetIteratorEnum2<DocIdSetBuilderIterator, TermsPosting<T>>,
+      >,
     >,
   >
   where
@@ -324,11 +323,13 @@ impl RewritingWeightBase for BlendedRewritingWeight {
 ///
 /// The actual [`Scorer`](crate::core::search::scorer::Scorer) ultimately returned by the weight provides the real constant
 /// boost and reflects the effective score mode.
-fn wrap_with_dummy_scorer<D>(disi: D) -> ConstantScoreScorer<D, DummyTwoPhaseIterator>
+fn wrap_with_dummy_scorer<D>(
+  disi: D,
+) -> ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<D>>
 where
   D: DocIdSetIterator,
 {
-  ConstantScoreScorer::from_disi(1.0f32, CompleteNoScores, disi)
+  ConstantScoreScorer::from_plain_disi(1.0f32, disi)
 }
 const POSTINGS_PRE_PROCESS_THRESHOLD: i32 = 16;
 struct PostingsEnumCmp<PE> {

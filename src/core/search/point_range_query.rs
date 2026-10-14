@@ -26,11 +26,11 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
@@ -687,8 +687,8 @@ where
   IRCLeafReader<IRC>: LeafReader,
 {
   type Scorer = ScorerEnum2<
-    ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
-    ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
+    ConstantScoreDisiScorer<BitSetIterator<FixedBitSet>>,
+    ConstantScoreDisiScorer<DocIdSetBuilderIterator>,
   >;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
@@ -784,10 +784,7 @@ where
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = ConstantScoreScorer<
-    AllDISI,
-    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-  >;
+  type Scorer = ConstantScoreDisiScorer<AllDISI>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(

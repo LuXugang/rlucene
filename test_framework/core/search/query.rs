@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values::DocValues;
@@ -898,12 +899,8 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = DefaultScorerSupplier<
-    ConstantScoreScorer<
-      BitSetIterator<Arc<FixedBitSet>>,
-      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-    >,
-  >;
+  type ScorerSupplier =
+    DefaultScorerSupplier<ConstantScoreDisiScorer<BitSetIterator<Arc<FixedBitSet>>>>;
 
   fn scorer_supplier(
     &self,
@@ -1096,12 +1093,8 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = DefaultScorerSupplier<
-    ConstantScoreScorer<
-      BitSetIterator<Arc<FixedBitSet>>,
-      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-    >,
-  >;
+  type ScorerSupplier =
+    DefaultScorerSupplier<ConstantScoreDisiScorer<BitSetIterator<Arc<FixedBitSet>>>>;
 
   fn scorer_supplier(
     &self,
@@ -1252,12 +1245,7 @@ where
     self.query.clone()
   }
 
-  type ScorerSupplier = DefaultScorerSupplier<
-    ConstantScoreScorer<
-      AllDISI,
-      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-    >,
-  >;
+  type ScorerSupplier = DefaultScorerSupplier<ConstantScoreDisiScorer<AllDISI>>;
 
   fn scorer_supplier(
     &self,
@@ -1521,10 +1509,7 @@ impl<IRC> ScorerSupplier<IRC> for TestLRUScorerSupplier
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = ConstantScoreScorer<
-    AllDISI,
-    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-  >;
+  type Scorer = ConstantScoreDisiScorer<AllDISI>;
   type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
   fn get(
@@ -1728,10 +1713,7 @@ impl<IRC> ScorerSupplier<IRC> for DVCacheScorerSupplier
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = ConstantScoreScorer<
-    AllDISI,
-    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-  >;
+  type Scorer = ConstantScoreDisiScorer<AllDISI>;
   type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
   fn get(

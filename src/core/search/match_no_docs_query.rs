@@ -168,9 +168,8 @@ where
   }
 
   type ScorerSupplier = crate::core::search::weight::DefaultScorerSupplier<
-    crate::core::search::constant_score_scorer::ConstantScoreScorer<
+    crate::core::search::constant_score_scorer::ConstantScoreDisiScorer<
       crate::core::search::doc_id_set_iterator::EmptyDISI,
-      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
     >,
   >;
 

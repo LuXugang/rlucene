@@ -23,6 +23,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
+use crate::core::search::constant_score_scorer::ConstantScoreTwoPhaseScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -234,8 +235,7 @@ where
   }
 
   type ScorerSupplier = DefaultScorerSupplier<
-    ConstantScoreScorer<
-      crate::core::search::dummy::dummy_disi::DummyDISI,
+    ConstantScoreTwoPhaseScorer<
       LatLonDocValuesBoxTwoPhaseIterator<
         <IRCLeafReader<IRC> as LeafReader>::SortedNumericDocValues,
       >,

@@ -20,6 +20,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set::{DocIdSet, EmptyDocIdSet};
@@ -1304,10 +1305,7 @@ impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl2
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = ConstantScoreScorer<
-    CacheAndCountDISI,
-    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-  >;
+  type Scorer = ConstantScoreDisiScorer<CacheAndCountDISI>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(

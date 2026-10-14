@@ -27,6 +27,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
+use crate::core::search::constant_score_scorer::ConstantScoreTwoPhaseScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -218,8 +219,7 @@ where
   }
 
   type ScorerSupplier = DefaultScorerSupplier<
-    ConstantScoreScorer<
-      crate::core::search::dummy::dummy_disi::DummyDISI,
+    ConstantScoreTwoPhaseScorer<
       BinaryRangeFieldRangeTPI<crate::core::index::doc_values::Binary<IRCLeafReader<IRC>>>,
     >,
   >;

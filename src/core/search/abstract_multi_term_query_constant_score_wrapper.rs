@@ -26,12 +26,12 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::bulk_scorer::BulkScorerEnum4;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::disjunction_matches_iterator::from_terms_enum;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::{IndexSearcher, get_max_clause_count};
 use crate::core::search::matches_utils::for_field;
@@ -385,47 +385,41 @@ where
   TermsPosting<T>: 'static,
 {
   type Scorer = ScorerEnum4<
-    ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
+    ConstantScoreDisiScorer<EmptyDISI>,
     QueryWeightSsScorer<IRC>,
-    ConstantScoreScorer<
+    ConstantScoreDisiScorer<
       crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation<
         ConstantScoreScorer<
-          crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-            crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
-            TermsPosting<T>,
-          >,
-          DummyTwoPhaseIterator,
-        >,
-      >,
-      DummyTwoPhaseIterator,
-    >,
-    ConstantScoreScorer<
-      crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
-      DummyTwoPhaseIterator,
-    >,
-  >;
-  type BulkScorer = BulkScorerEnum4<
-    DefaultBulkScorer<ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>>,
-    QueryWeightSsBulkScorer<IRC>,
-    DefaultBulkScorer<
-      ConstantScoreScorer<
-        crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation<
-          ConstantScoreScorer<
+          crate::core::search::constant_score_scorer::DisiState<
             crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
               crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
               TermsPosting<T>,
             >,
-            DummyTwoPhaseIterator,
           >,
         >,
-        DummyTwoPhaseIterator,
+      >,
+    >,
+    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>,
+  >;
+  type BulkScorer = BulkScorerEnum4<
+    DefaultBulkScorer<ConstantScoreDisiScorer<EmptyDISI>>,
+    QueryWeightSsBulkScorer<IRC>,
+    DefaultBulkScorer<
+      ConstantScoreDisiScorer<
+        crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation<
+          ConstantScoreScorer<
+            crate::core::search::constant_score_scorer::DisiState<
+              crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
+                crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+                TermsPosting<T>,
+              >,
+            >,
+          >,
+        >,
       >,
     >,
     DefaultBulkScorer<
-      ConstantScoreScorer<
-        crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
-        DummyTwoPhaseIterator,
-      >,
+      ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>,
     >,
   >;
 
@@ -623,17 +617,14 @@ where
     Ok(self.cost)
   }
 }
-fn empty_scorer(
-  score_mode: ScoreMode,
-  score: f32,
-) -> ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator> {
+fn empty_scorer(score_mode: ScoreMode, score: f32) -> ConstantScoreDisiScorer<EmptyDISI> {
   ConstantScoreScorer::from_disi(score, score_mode, EmptyDISI::default())
 }
 fn scorer_for_iterator<D>(
   iterator: D,
   score_mode: ScoreMode,
   score: f32,
-) -> ConstantScoreScorer<D, DummyTwoPhaseIterator>
+) -> ConstantScoreDisiScorer<D>
 where
   D: DocIdSetIterator,
 {

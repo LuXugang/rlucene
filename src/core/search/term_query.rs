@@ -29,9 +29,9 @@ use crate::core::index::term_states::{PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::for_field;
@@ -680,7 +680,7 @@ pub type TermScorerEnum<LR> = ScorerEnum4<
     >,
     LRNormNumericDocValues<LR>,
   >,
-  ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
+  ConstantScoreDisiScorer<EmptyDISI>,
 >;
 
 impl crate::core::util::accountable::Accountable for TermQuery {

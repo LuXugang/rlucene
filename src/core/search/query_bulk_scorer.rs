@@ -137,7 +137,7 @@ macro_rules! bulk_nodes {
 bulk_nodes! {
   boxed {
     Boolean: crate::core::search::boolean_scorer::BooleanScorer<BuiltinQueryScorer<ST>>,
-    BooleanTerm: crate::core::search::boolean_scorer::BooleanScorer<Box<crate::core::search::scorer::ScorerEnum2<crate::core::search::term_scorer::TermScorer<crate::core::search::term_scorer::PostingsTermState<ST::Posting, std::sync::Arc<crate::core::search::term_query::TermQuerySimScorer>>, ST::Norm>, crate::core::search::constant_score_scorer::ConstantScoreScorer<crate::core::search::doc_id_set_iterator::EmptyDISI, crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator>>>>,
+    BooleanTerm: crate::core::search::boolean_scorer::BooleanScorer<Box<crate::core::search::scorer::ScorerEnum2<crate::core::search::term_scorer::TermScorer<crate::core::search::term_scorer::PostingsTermState<ST::Posting, std::sync::Arc<crate::core::search::term_query::TermQuerySimScorer>>, ST::Norm>, crate::core::search::constant_score_scorer::ConstantScoreDisiScorer<crate::core::search::doc_id_set_iterator::EmptyDISI>>>>,
     Conjunction: crate::core::search::conjunction_bulk_scorer::ConjunctionBulkScorer<BuiltinQueryScorer<ST>>,
     BlockMaxConjunction: crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionBulkScorer<BuiltinQueryScorer<ST>>,
     MaxScore: crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,

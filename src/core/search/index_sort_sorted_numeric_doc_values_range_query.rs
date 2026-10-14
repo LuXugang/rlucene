@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use std::fmt::Write as _;
 
 use crate::core::document::int_point::IntPoint;
@@ -431,10 +432,7 @@ impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<Disi<IRCLeafReader<IRC>>>
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = ConstantScoreScorer<
-    IteratorAndCountDisi<Disi<IRCLeafReader<IRC>>>,
-    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-  >;
+  type Scorer = ConstantScoreDisiScorer<IteratorAndCountDisi<Disi<IRCLeafReader<IRC>>>>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(

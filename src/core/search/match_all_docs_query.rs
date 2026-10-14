@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -211,10 +212,7 @@ impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier
 where
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = ConstantScoreScorer<
-    AllDISI,
-    crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-  >;
+  type Scorer = ConstantScoreDisiScorer<AllDISI>;
   type BulkScorer = MatchAllBulkScorerEnum;
 
   fn get(
@@ -299,15 +297,8 @@ impl BulkScorer for MatchAllBulkScorer {
     Ok(self.max_doc as i64)
   }
 }
-pub type MatchAllBulkScorerEnum = BulkScorerEnum2<
-  MatchAllBulkScorer,
-  DefaultBulkScorer<
-    ConstantScoreScorer<
-      AllDISI,
-      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
-    >,
-  >,
->;
+pub type MatchAllBulkScorerEnum =
+  BulkScorerEnum2<MatchAllBulkScorer, DefaultBulkScorer<ConstantScoreDisiScorer<AllDISI>>>;
 
 impl crate::core::util::accountable::Accountable for MatchAllDocsQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {

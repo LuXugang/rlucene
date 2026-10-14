@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 //! Built-in scorer owners dispatch directly to concrete implementations through a vtable.
 use crate::core::document::{
   binary_range_field_range_query, lat_lon_doc_values_box_query, lat_lon_doc_values_query,
@@ -50,8 +51,6 @@ use crate::core::search::doc_id_set_iterator::{
   DocIdSetIteratorEnum2, DocIdSetIteratorEnum4, DocIdSetIteratorEnum5,
 };
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::multi_phrase_query::MultiPhrasePostingsEnum;
 use crate::core::search::phrase_scorer::PhraseScorer;
 use crate::core::search::phrase_weight::SimScorerType;
@@ -311,14 +310,16 @@ type FieldExistsIterator<ST> = DocIdSetIteratorEnum4<
 >;
 type BlendedIterator<ST> = DisjunctionDISIApproximation<
   ConstantScoreScorer<
-    DocIdSetIteratorEnum2<DocIdSetBuilderIterator, <ST as ScorerTypes>::Posting>,
-    DummyTwoPhaseIterator,
+    crate::core::search::constant_score_scorer::DisiState<
+      DocIdSetIteratorEnum2<DocIdSetBuilderIterator, <ST as ScorerTypes>::Posting>,
+    >,
   >,
 >;
 
 scorer_nodes! {
   boxed {
-    #[cfg(test)] SharedBitSet: ConstantScoreScorer<BitSetIterator<Arc<FixedBitSet>>, DummyTwoPhaseIterator>,
+    #[cfg(test)] SharedBitSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BitSetIterator<Arc<FixedBitSet>>>>,
+    #[cfg(test)] SharedBitSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<BitSetIterator<Arc<FixedBitSet>>>>,
     #[cfg(test)] BlockScore: crate::test_framework::core::search::block_score_query_wrapper::BlockScoreScorer,
     #[cfg(test)] RandomApproximation: crate::test_framework::core::search::random_approximation_query::RandomApproximationScorer<BuiltinQueryScorer<ST>>,
     #[cfg(test)] MaxScoreWrapper: crate::test_framework::core::search::query::MaxScoreWrapperScorer<BuiltinQueryScorer<ST>>,
@@ -330,24 +331,42 @@ scorer_nodes! {
 
     Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
     MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
-    SpatialSet: ConstantScoreScorer<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>, DummyTwoPhaseIterator>,
-    CachedSet: ConstantScoreScorer<lru_query_cache::CacheAndCountDISI, DummyTwoPhaseIterator>,
-    CachedSetOrEmpty: ConstantScoreScorer<lru_query_cache::DISI, DummyTwoPhaseIterator>,
-    SortedRangeIterator: ConstantScoreScorer<sorted_numeric_doc_values_range_query::DISI, DummyTwoPhaseIterator>,
-    IndexSortedIterator: ConstantScoreScorer<index_sort_sorted_numeric_doc_values_range_query::IteratorAndCountDisi<SingletonNumeric<ST>>, DummyTwoPhaseIterator>,
-    FieldExists: ConstantScoreScorer<FieldExistsIterator<ST>, DummyTwoPhaseIterator>,
-    BlendedTerms: ConstantScoreScorer<BlendedIterator<ST>, DummyTwoPhaseIterator>,
-    BinaryRange: ConstantScoreScorer<DummyDISI, binary_range_field_range_query::BinaryRangeFieldRangeTPI<BinaryDocValuesWithEmpty<ST::Binary>>>,
-    LatLonBox: ConstantScoreScorer<DummyDISI, lat_lon_doc_values_box_query::LatLonDocValuesBoxTwoPhaseIterator<ST::SortedNumeric>>,
-    LatLonShape: ConstantScoreScorer<DummyDISI, lat_lon_doc_values_query::LatLonDocValuesTwoPhaseIterator<ST::SortedNumeric, Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>>>,
-    XYShape: ConstantScoreScorer<DummyDISI, xy_doc_values_point_in_geometry_query::XYDocValuesPointInGeometryTPI<ST::SortedNumeric, Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>>>,
-    NumericRange: ConstantScoreScorer<DummyDISI, NumericRangeTwoPhase<ST>>,
-    NumericRangeWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<NumericRangeTwoPhase<ST>, ST::Skipper>>,
-    NumericSet: ConstantScoreScorer<DummyDISI, NumericSetTwoPhase<ST>>,
-    SortedRange: ConstantScoreScorer<DummyDISI, SortedRangeTwoPhase<ST>>,
-    SortedRangeWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<SortedRangeTwoPhase<ST>, ST::Skipper>>,
-    SortedTerms: ConstantScoreScorer<DummyDISI, SortedTermSetTwoPhase<ST>>,
-    SortedTermsWithSkip: ConstantScoreScorer<DummyDISI, DocValuesRangeIterator<SortedTermSetTwoPhase<ST>, ST::Skipper>>,
+    SpatialSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
+    SpatialSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
+    CachedSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<lru_query_cache::CacheAndCountDISI>>,
+    CachedSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<lru_query_cache::CacheAndCountDISI>>,
+    CachedSetOrEmpty: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<lru_query_cache::DISI>>,
+    CachedSetOrEmptyTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<lru_query_cache::DISI>>,
+    SortedRangeIterator: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<sorted_numeric_doc_values_range_query::DISI>>,
+    SortedRangeIteratorTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<sorted_numeric_doc_values_range_query::DISI>>,
+    IndexSortedIterator: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<index_sort_sorted_numeric_doc_values_range_query::IteratorAndCountDisi<SingletonNumeric<ST>>>>,
+    IndexSortedIteratorTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<index_sort_sorted_numeric_doc_values_range_query::IteratorAndCountDisi<SingletonNumeric<ST>>>>,
+    FieldExists: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<FieldExistsIterator<ST>>>,
+    FieldExistsTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<FieldExistsIterator<ST>>>,
+    BlendedTerms: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BlendedIterator<ST>>>,
+    BlendedTermsTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<BlendedIterator<ST>>>,
+    BinaryRange: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<binary_range_field_range_query::BinaryRangeFieldRangeTPI<BinaryDocValuesWithEmpty<ST::Binary>>>>,
+    BinaryRangeTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<binary_range_field_range_query::BinaryRangeFieldRangeTPI<BinaryDocValuesWithEmpty<ST::Binary>>>>,
+    LatLonBox: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<lat_lon_doc_values_box_query::LatLonDocValuesBoxTwoPhaseIterator<ST::SortedNumeric>>>,
+    LatLonBoxTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<lat_lon_doc_values_box_query::LatLonDocValuesBoxTwoPhaseIterator<ST::SortedNumeric>>>,
+    LatLonShape: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<lat_lon_doc_values_query::LatLonDocValuesTwoPhaseIterator<ST::SortedNumeric, Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>>>>,
+    LatLonShapeTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<lat_lon_doc_values_query::LatLonDocValuesTwoPhaseIterator<ST::SortedNumeric, Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>>>>,
+    XYShape: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<xy_doc_values_point_in_geometry_query::XYDocValuesPointInGeometryTPI<ST::SortedNumeric, Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>>>>,
+    XYShapeTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<xy_doc_values_point_in_geometry_query::XYDocValuesPointInGeometryTPI<ST::SortedNumeric, Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>>>>,
+    NumericRange: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<NumericRangeTwoPhase<ST>>>,
+    NumericRangeTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<NumericRangeTwoPhase<ST>>>,
+    NumericRangeWithSkip: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<DocValuesRangeIterator<NumericRangeTwoPhase<ST>, ST::Skipper>>>,
+    NumericRangeWithSkipTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<DocValuesRangeIterator<NumericRangeTwoPhase<ST>, ST::Skipper>>>,
+    NumericSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<NumericSetTwoPhase<ST>>>,
+    NumericSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<NumericSetTwoPhase<ST>>>,
+    SortedRange: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<SortedRangeTwoPhase<ST>>>,
+    SortedRangeTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<SortedRangeTwoPhase<ST>>>,
+    SortedRangeWithSkip: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<DocValuesRangeIterator<SortedRangeTwoPhase<ST>, ST::Skipper>>>,
+    SortedRangeWithSkipTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<DocValuesRangeIterator<SortedRangeTwoPhase<ST>, ST::Skipper>>>,
+    SortedTerms: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<SortedTermSetTwoPhase<ST>>>,
+    SortedTermsTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<SortedTermSetTwoPhase<ST>>>,
+    SortedTermsWithSkip: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<DocValuesRangeIterator<SortedTermSetTwoPhase<ST>, ST::Skipper>>>,
+    SortedTermsWithSkipTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<DocValuesRangeIterator<SortedTermSetTwoPhase<ST>, ST::Skipper>>>,
     DistanceFeature: lat_lon_point_distance_feature_query::DistanceScorer<ST::PointValues, DistanceValues<ST>>,
     VectorMatches: abstract_knn_vector_query::ScorerImpl,
     FilteredVectors: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::FilteredDocIdSetIteratorImpl1<crate::core::search::vector_scorer::VectorScorerEnum2<ST::ByteScorer, ST::FloatScorer>, crate::core::util::bit_set::SparseFixedBitSetBitSet>>,
@@ -356,10 +375,14 @@ scorer_nodes! {
     TermPostings: TermScorer<PostingsTermState<ST::Posting, Arc<TermQuerySimScorer>>, ST::Norm>,
     TermImpacts: TermScorer<ImpactsTermState<ST::Impacts, Arc<TermQuerySimScorer>>, ST::Norm>,
     TermCompetitive: TermScorer<crate::core::search::impacts_disi::SourceImpactsDISI<ST::Impacts, Arc<TermQuerySimScorer>>, ST::Norm>,
-    BuiltSet: ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
-    BitSet: ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
-    ConstantIterator: ConstantScoreScorer<BuiltinQueryScorer<ST>, DummyTwoPhaseIterator>,
-    ConstantTwoPhase: ConstantScoreScorer<DummyDISI, QueryOwnedTwoPhase<ST>>,
+    BuiltSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<DocIdSetBuilderIterator>>,
+    BuiltSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<DocIdSetBuilderIterator>>,
+    BitSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BitSetIterator<FixedBitSet>>>,
+    BitSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<BitSetIterator<FixedBitSet>>>,
+    ConstantIterator: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BuiltinQueryScorer<ST>>>,
+    ConstantIteratorTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<BuiltinQueryScorer<ST>>>,
+    ConstantTwoPhase: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<QueryOwnedTwoPhase<ST>>>,
+    ConstantTwoPhaseTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<QueryOwnedTwoPhase<ST>>>,
     Conjunction: ConjunctionScorer<BuiltinQueryScorer<ST>>,
     BlockMaxConjunction: BlockMaxConjunctionScorer<BuiltinQueryScorer<ST>>,
     DisjunctionSum: DisjunctionScorer<BuiltinQueryScorer<ST>, DisjunctionSumScorer>,
@@ -370,8 +393,10 @@ scorer_nodes! {
     Filter: FilterScorerImpl<BuiltinQueryScorer<ST>>,
   }
   inline {
-    MatchAll: ConstantScoreScorer<AllDISI, DummyTwoPhaseIterator>,
-    Empty: ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
+    MatchAll: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<AllDISI>>,
+    MatchAllTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<AllDISI>>,
+    Empty: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<EmptyDISI>>,
+    EmptyTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<EmptyDISI>>,
   }
 }
 impl<ST: ScorerTypes> BuiltinQueryScorer<ST> {

@@ -28,6 +28,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::point_values::PointValues;
 use crate::core::index::terms::Terms;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum4, DocIdSetIteratorEnum5};
@@ -306,14 +307,13 @@ where
   }
 
   type ScorerSupplier = DefaultScorerSupplier<
-    ConstantScoreScorer<
+    ConstantScoreDisiScorer<
       DocIdSetIteratorEnum4<
         IRCByteVectorIter<IRCLeafReader<IRC>>,
         IRCFloatVectorIter<IRCLeafReader<IRC>>,
         LRNormNumericDocValues<IRCLeafReader<IRC>>,
         LRDisis<IRCLeafReader<IRC>>,
       >,
-      crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator,
     >,
   >;
 

@@ -23,6 +23,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
+use crate::core::search::constant_score_scorer::ConstantScoreTwoPhaseScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -206,13 +207,10 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = DefaultScorerSupplier<ConstantScoreScorer<
-    crate::core::search::dummy::dummy_disi::DummyDISI,
-    TwoPhaseIteratorEnum2<
+  type ScorerSupplier = DefaultScorerSupplier<ConstantScoreTwoPhaseScorer<TwoPhaseIteratorEnum2<
       TwoPhaseIterator1<<crate::core::index::doc_values::SortedNumeric<IRCLeafReader<IRC>> as SortedNumericDocValues>::NumericDocValues>,
       TwoPhaseIterator2<crate::core::index::doc_values::SortedNumeric<IRCLeafReader<IRC>>>,
-    >,
-  >>;
+    >>>;
 
   fn scorer_supplier(
     &self,
