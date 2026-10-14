@@ -35,7 +35,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryWeightSsScorer};
-use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
+use crate::core::search::req_opt_sum_scorer::{self, ReqOptSumScorer};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -519,7 +519,7 @@ fn req_opt_scorer<IRC, Q>(
   req_q: Q,
   opt_q: Q,
   with_block_score: bool,
-) -> Result<ReqOptSumScorer<QueryWeightSsScorer<IRC>, QueryWeightSsScorer<IRC>>>
+) -> Result<QueryWeightSsScorer<IRC>>
 where
   Q: Into<Query>,
   IRC: IndexReaderContext + 'static,
@@ -538,11 +538,22 @@ where
     .create_weight(opt_q, ScoreMode::TopScores, 1.0)?
     .scorer(ctx, searcher)?
     .expect("optional scorer");
-  let v = match with_block_score {
-    true => ReqOptSumScorer::new(req_scorer, opt_scorer, ScoreMode::TopScores)?,
-    false => ReqOptSumScorer::with_fixed_max_score(req_scorer, opt_scorer, ScoreMode::TopScores)?,
+  let (disi, has_tpi) =
+    req_opt_sum_scorer::DocIdSetIteratorImpl::new(req_scorer, opt_scorer, ScoreMode::TopScores)?;
+  let disi = if with_block_score {
+    disi
+  } else {
+    disi.with_fixed_max_score()
   };
-  Ok(v)
+  if has_tpi {
+    Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_tpi(
+      req_opt_sum_scorer::TwoPhaseIteratorImpl::new(disi),
+    )))
+  } else {
+    Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_disi(
+      disi,
+    )))
+  }
 }
 
 pub struct TermFreqTokenStream {

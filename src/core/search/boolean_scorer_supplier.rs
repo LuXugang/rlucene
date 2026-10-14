@@ -34,7 +34,7 @@ use crate::core::search::max_score_bulk_scorer::MaxScoreBulkScorer;
 use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
 use crate::core::search::req_excl_bulk_scorer::ReqExclBulkScorer;
 use crate::core::search::req_excl_scorer::ReqExclScorer;
-use crate::core::search::req_opt_sum_scorer::ReqOptSumScorer;
+use crate::core::search::req_opt_sum_scorer::{self, ReqOptSumScorer};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
@@ -342,8 +342,17 @@ where
         searcher,
       )?;
 
-      let v = ReqOptSumScorer::new(req, opt, self.score_mode)?;
-      Ok(QueryWeightSsScorer::<IRC>::new(v))
+      let (disi, has_tpi) =
+        req_opt_sum_scorer::DocIdSetIteratorImpl::new(req, opt, self.score_mode)?;
+      if has_tpi {
+        Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_tpi(
+          req_opt_sum_scorer::TwoPhaseIteratorImpl::new(disi),
+        )))
+      } else {
+        Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_disi(
+          disi,
+        )))
+      }
     }
   }
   #[allow(clippy::type_complexity)]

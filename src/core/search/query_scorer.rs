@@ -62,8 +62,10 @@ use crate::core::search::scorer_types::{LeafScorerTypes, ScorerTypes};
 use crate::core::search::similarities_impl::similarities::SimilaritySimScorer;
 use crate::core::search::term_query::TermQuerySimScorer;
 use crate::core::search::term_scorer::{ImpactsTermState, PostingsTermState, TermScorer};
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2;
+use crate::core::search::two_phase_iterator::{
+  TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+};
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::{
   abstract_knn_vector_query, abstract_vector_similarity_query, doc_values_rewrite_method,
@@ -388,7 +390,8 @@ scorer_nodes! {
     DisjunctionSum: DisjunctionScorer<BuiltinQueryScorer<ST>, DisjunctionSumScorer>,
     DisjunctionMax: DisjunctionScorer<BuiltinQueryScorer<ST>, DisjunctionMaxScorer>,
     Wand: WANDScorer<BuiltinQueryScorer<ST>>,
-    RequiredOptional: ReqOptSumScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
+    RequiredOptional: ReqOptSumScorer<crate::core::search::req_opt_sum_scorer::DocIdSetIteratorImpl<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>>,
+    RequiredOptionalTwoPhase: ReqOptSumScorer<TwoPhaseIteratorAsDocIdSetIterator<crate::core::search::req_opt_sum_scorer::TwoPhaseIteratorImpl<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>>>,
     RequiredExcluded: ReqExclScorer<BuiltinQueryScorer<ST>, BuiltinQueryScorer<ST>>,
     Filter: FilterScorerImpl<BuiltinQueryScorer<ST>>,
   }
