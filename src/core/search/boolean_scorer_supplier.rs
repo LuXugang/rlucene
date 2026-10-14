@@ -420,13 +420,19 @@ where
     }
 
     let prohibited_scorer = if prohibited.len() == 1 {
-      ScorerEnum2::A(prohibited.remove(0))
+      ScorerEnum3::A(prohibited.remove(0))
     } else {
-      ScorerEnum2::B(DisjunctionScorer::new(
+      match DisjunctionScorer::<_, DisjunctionSumScorer>::prepare(
         prohibited,
         ScoreMode::CompleteNoScores,
-        DisjunctionSumScorer,
-      )?)
+      )? {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(disi) => {
+          ScorerEnum3::B(DisjunctionScorer::from_disi(disi, DisjunctionSumScorer))
+        },
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(disi) => {
+          ScorerEnum3::C(DisjunctionScorer::from_tpi(disi, DisjunctionSumScorer))
+        },
+      }
     };
     let v = ReqExclBulkScorer::new(positive, prohibited_scorer);
     Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(v)))
@@ -915,11 +921,14 @@ where
         lead_cost,
       )?))
     } else {
-      Ok(QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::new(
-        optional_scorers,
-        score_mode,
-        DisjunctionSumScorer,
-      )?))
+      match DisjunctionScorer::<_, DisjunctionSumScorer>::prepare(optional_scorers, score_mode)? {
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(disi) => Ok(
+          QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::from_disi(disi, DisjunctionSumScorer)),
+        ),
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(disi) => Ok(
+          QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::from_tpi(disi, DisjunctionSumScorer)),
+        ),
+      }
     }
   }
 }

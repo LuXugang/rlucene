@@ -30,23 +30,23 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
-pub type Disi<S> = DocIdSetIteratorEnum2<
-  DisjunctionDISIApproximation<S>,
-  TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>,
->;
-/// Base trait for scorers that score disjunctions.
-pub struct DisjunctionScorer<S, T> {
-  disi: Disi<S>,
+/// A disjunction whose iterator implementation is selected during construction.
+pub struct DisjunctionScorer<D: DocIdSetIterator, T> {
+  disi: D,
   sub: T,
-  tpi_state: TwoPhaseState,
 }
 
-impl<S, T> DisjunctionScorer<S, T>
-where
-  S: Scorer,
-  T: DisjunctionScorerBase,
-{
-  pub(crate) fn new(sub_scorers: Vec<S>, score_mode: ScoreMode, sub: T) -> Result<Self> {
+impl<S: Scorer, T> DisjunctionScorer<DisjunctionDISIApproximation<S>, T> {
+  /// Prepare the shared queue and choose the iterator before entering a document loop.
+  pub(crate) fn prepare(
+    sub_scorers: Vec<S>,
+    score_mode: ScoreMode,
+  ) -> Result<
+    DocIdSetIteratorEnum2<
+      DisjunctionDISIApproximation<S>,
+      TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>,
+    >,
+  > {
     let sub_scorers_len = sub_scorers.len();
     if sub_scorers_len <= 1 {
       return Err(LuceneError::illegal_argument(
@@ -79,293 +79,194 @@ where
         sum_match_cost += w.match_cost * cost_weight as f32;
       }
     }
-    let (disi, tpi_state) = if !has_approximation {
-      (Disi::A(approximation), TwoPhaseState::No)
+    if !has_approximation {
+      Ok(DocIdSetIteratorEnum2::A(approximation))
     } else {
       let match_cost = sum_match_cost / sum_approx_cost as f32;
       let two_phase = TwoPhase::new(approximation, match_cost, needs_scores)?;
-      let v = as_doc_id_set_iterator(two_phase);
-      (Disi::B(v), TwoPhaseState::Yes)
-    };
-    Ok(Self {
-      disi,
-      sub,
-      tpi_state,
-    })
+      Ok(DocIdSetIteratorEnum2::B(as_doc_id_set_iterator(two_phase)))
+    }
   }
 
-  fn get_sub_matched(&mut self) -> Result<Option<usize>> {
-    match self.disi {
-      Disi::A(ref mut v) => Ok(Some(v.top_list_root())),
-      Disi::B(ref mut v) => {
-        let two_phase = &mut v.two_phase_iterator;
-        two_phase.get_sub_matches()
-      },
-    }
+  pub(crate) fn from_disi(disi: DisjunctionDISIApproximation<S>, sub: T) -> Self {
+    Self { disi, sub }
+  }
+}
+impl<S: Scorer, T> DisjunctionScorer<TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>, T> {
+  pub(crate) fn from_tpi(disi: TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>, sub: T) -> Self {
+    Self { disi, sub }
   }
 }
 
-impl<S, T> Scorable for DisjunctionScorer<S, T>
-where
-  S: Scorer + 'static,
-  T: DisjunctionScorerBase,
-{
+/// Static access to the queue and matching state owned by the selected iterator.
+#[doc(hidden)]
+pub trait DisjunctionState: DocIdSetIterator + 'static {
+  type SubScorer: Scorer + 'static;
+  fn get_sub_matched(&mut self) -> Result<Option<usize>>;
+  fn all_scores_mut(&mut self) -> &mut [DisiWrapper<Self::SubScorer>];
+  fn approximation(&self) -> &DisjunctionDISIApproximation<Self::SubScorer>;
+  fn approximation_mut(&mut self) -> &mut DisjunctionDISIApproximation<Self::SubScorer>;
+  fn two_phase_iterator(&self) -> Option<&TwoPhase<Self::SubScorer>>;
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhase<Self::SubScorer>>;
+  fn take_two_phase_iterator(self) -> Option<TwoPhase<Self::SubScorer>>;
+  fn has_two_phase_iterator(&self) -> TwoPhaseState;
+}
+impl<S: Scorer + 'static> DisjunctionState for DisjunctionDISIApproximation<S> {
+  type SubScorer = S;
+  fn get_sub_matched(&mut self) -> Result<Option<usize>> {
+    Ok(Some(self.top_list_root()))
+  }
+  fn all_scores_mut(&mut self) -> &mut [DisiWrapper<S>] {
+    self.all_scores_mut()
+  }
+  fn approximation(&self) -> &Self {
+    self
+  }
+  fn approximation_mut(&mut self) -> &mut Self {
+    self
+  }
+  fn two_phase_iterator(&self) -> Option<&TwoPhase<S>> {
+    None
+  }
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhase<S>> {
+    None
+  }
+  fn take_two_phase_iterator(self) -> Option<TwoPhase<S>> {
+    None
+  }
+  fn has_two_phase_iterator(&self) -> TwoPhaseState {
+    TwoPhaseState::No
+  }
+}
+impl<S: Scorer + 'static> DisjunctionState for TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>> {
+  type SubScorer = S;
+  fn get_sub_matched(&mut self) -> Result<Option<usize>> {
+    self.two_phase_iterator.get_sub_matches()
+  }
+  fn all_scores_mut(&mut self) -> &mut [DisiWrapper<S>] {
+    self.two_phase_iterator.all_scores_mut()
+  }
+  fn approximation(&self) -> &DisjunctionDISIApproximation<S> {
+    self.two_phase_iterator.approximation()
+  }
+  fn approximation_mut(&mut self) -> &mut DisjunctionDISIApproximation<S> {
+    self.two_phase_iterator.approximation_mut()
+  }
+  fn two_phase_iterator(&self) -> Option<&TwoPhase<S>> {
+    Some(&self.two_phase_iterator)
+  }
+  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhase<S>> {
+    Some(&mut self.two_phase_iterator)
+  }
+  fn take_two_phase_iterator(self) -> Option<TwoPhase<S>> {
+    Some(self.two_phase_iterator)
+  }
+  fn has_two_phase_iterator(&self) -> TwoPhaseState {
+    TwoPhaseState::Yes
+  }
+}
+
+impl<D: DisjunctionState, T: DisjunctionScorerBase> Scorable for DisjunctionScorer<D, T> {
   type Child<'a>
     = crate::core::search::dummy::dummy_scorable::DummyScorable
   where
     Self: 'a;
-
   fn score(&mut self) -> Result<f32> {
-    let idx = self.get_sub_matched()?;
-    match self.disi {
-      Disi::A(ref mut v) => self.sub.score(v.all_scores_mut(), idx),
-      Disi::B(ref mut v) => self.sub.score(
-        v.two_phase_iterator
-          .unverified_matches
-          .compare
-          .approximation
-          .all_scores_mut(),
-        idx,
-      ),
-    }
+    let idx = self.disi.get_sub_matched()?;
+    self.sub.score(self.disi.all_scores_mut(), idx)
   }
-
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-    match self.disi {
-      Disi::A(ref mut v) => self
-        .sub
-        .set_min_competitive_score(min_score, v.all_scores_mut()),
-      Disi::B(ref mut v) => self.sub.set_min_competitive_score(
-        min_score,
-        v.two_phase_iterator
-          .unverified_matches
-          .compare
-          .approximation
-          .all_scores_mut(),
-      ),
-    }
+    self
+      .sub
+      .set_min_competitive_score(min_score, self.disi.all_scores_mut())
   }
-
   fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
     todo!()
   }
-
   fn cost(&self) -> Result<i64> {
     self.disi.cost()
   }
 }
-
-impl<S, T> crate::core::search::scorable::FixedScore for DisjunctionScorer<S, T> {}
-
-impl<S, T> DocIdSetIterator for DisjunctionScorer<S, T>
-where
-  S: Scorer + 'static,
-  T: DisjunctionScorerBase,
-{
+impl<D: DocIdSetIterator, T> crate::core::search::scorable::FixedScore for DisjunctionScorer<D, T> {}
+impl<D: DocIdSetIterator, T> DocIdSetIterator for DisjunctionScorer<D, T> {
   fn doc_id(&self) -> i32 {
-    match &self.disi {
-      Disi::A(v) => DocIdSetIterator::doc_id(v),
-      Disi::B(v) => DocIdSetIterator::doc_id(v),
-    }
+    self.disi.doc_id()
   }
   fn next_doc(&mut self) -> Result<i32> {
-    match &mut self.disi {
-      Disi::A(v) => DocIdSetIterator::next_doc(v),
-      Disi::B(v) => DocIdSetIterator::next_doc(v),
-    }
+    self.disi.next_doc()
   }
   fn advance(&mut self, target: i32) -> Result<i32> {
-    match &mut self.disi {
-      Disi::A(v) => DocIdSetIterator::advance(v, target),
-      Disi::B(v) => DocIdSetIterator::advance(v, target),
-    }
+    self.disi.advance(target)
   }
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    match &mut self.disi {
-      Disi::A(v) => DocIdSetIterator::slow_advance(v, target),
-      Disi::B(v) => DocIdSetIterator::slow_advance(v, target),
-    }
+    self.disi.slow_advance(target)
   }
   fn cost(&self) -> Result<i64> {
-    match &self.disi {
-      Disi::A(v) => DocIdSetIterator::cost(v),
-      Disi::B(v) => DocIdSetIterator::cost(v),
-    }
+    self.disi.cost()
   }
 }
-impl<S, T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for DisjunctionScorer<S, T>
-where
-  S: Scorer + 'static,
-  T: DisjunctionScorerBase,
+impl<D: DocIdSetIterator, T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DisjunctionScorer<D, T>
 {
 }
-impl<S, T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for DisjunctionScorer<S, T>
-where
-  S: Scorer + 'static,
-  T: DisjunctionScorerBase,
+impl<D: DocIdSetIterator, T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DisjunctionScorer<D, T>
 {
 }
-impl<S, T> Scorer for DisjunctionScorer<S, T>
-where
-  S: Scorer + 'static,
-  T: DisjunctionScorerBase,
-{
-  type Iterator = Disi<S>;
-  type OwnedTwoPhase = TwoPhase<S>;
+impl<D: DisjunctionState, T: DisjunctionScorerBase> Scorer for DisjunctionScorer<D, T> {
+  type Iterator = D;
+  type OwnedTwoPhase = TwoPhase<D::SubScorer>;
   type ApproximationRef<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    &'a Self,
-    <TwoPhase<S> as TwoPhaseIterator>::ApproximationRef<'a>,
-  >
+    = &'a DisjunctionDISIApproximation<D::SubScorer>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    &'a mut Self,
-    <TwoPhase<S> as TwoPhaseIterator>::ApproximationMut<'a>,
-  >
+    = &'a mut DisjunctionDISIApproximation<D::SubScorer>
   where
     Self: 'a;
   type TwoPhaseRef<'a>
-    = &'a TwoPhase<S>
+    = &'a Self::OwnedTwoPhase
   where
     Self: 'a;
   type TwoPhaseMut<'a>
-    = &'a mut TwoPhase<S>
+    = &'a mut Self::OwnedTwoPhase
   where
     Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    match self.disi {
-      Disi::A(ref v) => Ok(v.doc_id()),
-      Disi::B(ref v) => {
-        let approximation = &v
-          .two_phase_iterator
-          .unverified_matches
-          .compare
-          .approximation;
-        Ok(approximation.doc_id())
-      },
-    }
+    Ok(self.disi.approximation().doc_id())
   }
-
   fn take_iterator(self) -> Self::Iterator {
-    let DisjunctionScorer { disi, .. } = self;
-    disi
+    self.disi
   }
-
   fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    match self.tpi_state {
-      TwoPhaseState::No => None,
-      _ => match self.disi {
-        Disi::B(ref v) => Some(&v.two_phase_iterator),
-        _ => {
-          debug_assert!(false, "should not be here");
-          None
-        },
-      },
-    }
+    self.disi.two_phase_iterator()
   }
-
   fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    match self.tpi_state {
-      TwoPhaseState::No => None,
-      _ => match self.disi {
-        Disi::B(ref mut v) => Some(&mut v.two_phase_iterator),
-        _ => {
-          debug_assert!(false, "should not be here");
-          None
-        },
-      },
-    }
+    self.disi.two_phase_iterator_mut()
   }
-
   fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    let DisjunctionScorer {
-      disi, tpi_state, ..
-    } = self;
-    match tpi_state {
-      TwoPhaseState::No => None,
-      _ => match disi {
-        Disi::B(v) => Some(v.two_phase_iterator),
-        _ => {
-          debug_assert!(false, "should not be here");
-          None
-        },
-      },
-    }
+    self.disi.take_two_phase_iterator()
   }
-
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-    match self.disi {
-      Disi::A(ref mut v) => match self.sub.advance_shallow(target, v.all_scores_mut()) {
-        Ok(doc) => Ok(doc),
-        Err(e) => match e {
-          LuceneError::NotImplemented(_) => self.default_advance_shallow(target),
-          _ => Err(e),
-        },
-      },
-      Disi::B(ref mut v) => {
-        match self.sub.advance_shallow(
-          target,
-          v.two_phase_iterator
-            .unverified_matches
-            .compare
-            .approximation
-            .all_scores_mut(),
-        ) {
-          Ok(doc) => Ok(doc),
-          Err(e) => match e {
-            LuceneError::NotImplemented(_) => self.default_advance_shallow(target),
-            _ => Err(e),
-          },
-        }
+    match self.sub.advance_shallow(target, self.disi.all_scores_mut()) {
+      Ok(doc) => Ok(doc),
+      Err(e) => match e {
+        LuceneError::NotImplemented(_) => self.default_advance_shallow(target),
+        _ => Err(e),
       },
     }
   }
-
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    match self.disi {
-      Disi::A(ref mut v) => self.sub.get_max_score(upto, v.all_scores_mut()),
-      Disi::B(ref mut v) => self.sub.get_max_score(
-        upto,
-        v.two_phase_iterator
-          .unverified_matches
-          .compare
-          .approximation
-          .all_scores_mut(),
-      ),
-    }
+    self.sub.get_max_score(upto, self.disi.all_scores_mut())
   }
-
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
-    self.tpi_state
+    self.disi.has_two_phase_iterator()
   }
-
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    match self.tpi_state {
-      TwoPhaseState::No => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self),
-      _ => match self.disi {
-        Disi::A(_) => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self),
-        Disi::B(ref mut v) => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
-          v.two_phase_iterator.approximation_mut(),
-        ),
-      },
-    }
+    self.disi.approximation_mut()
   }
-
   fn approximation(&self) -> Self::ApproximationRef<'_> {
-    match self.tpi_state {
-      TwoPhaseState::No => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self),
-      _ => match self.disi {
-        Disi::A(_) => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self),
-        Disi::B(ref v) => crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
-          v.two_phase_iterator.approximation(),
-        ),
-      },
-    }
+    self.disi.approximation()
   }
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
