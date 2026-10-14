@@ -62,7 +62,7 @@ use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4,
 use crate::core::search::scorer_types::{LeafScorerTypes, ScorerTypes};
 use crate::core::search::similarities_impl::similarities::SimilaritySimScorer;
 use crate::core::search::term_query::TermQuerySimScorer;
-use crate::core::search::term_scorer::TermScorer;
+use crate::core::search::term_scorer::{ImpactsTermState, PostingsTermState, TermScorer};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2;
 use crate::core::search::wand_scorer::WANDScorer;
@@ -353,7 +353,9 @@ scorer_nodes! {
     FilteredVectors: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::FilteredDocIdSetIteratorImpl1<crate::core::search::vector_scorer::VectorScorerEnum2<ST::ByteScorer, ST::FloatScorer>, crate::core::util::bit_set::SparseFixedBitSetBitSet>>,
     VectorScores: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::DocsIteratorImpl>,
     TermAutomaton: TermAutomatonScorer<ST::Posting, SimilaritySimScorer, ST::Norm>,
-    Term: TermScorer<ST::Posting, Arc<TermQuerySimScorer>, ST::Norm, ST::Impacts>,
+    TermPostings: TermScorer<PostingsTermState<ST::Posting, Arc<TermQuerySimScorer>>, ST::Norm>,
+    TermImpacts: TermScorer<ImpactsTermState<ST::Impacts, Arc<TermQuerySimScorer>>, ST::Norm>,
+    TermCompetitive: TermScorer<crate::core::search::impacts_disi::SourceImpactsDISI<ST::Impacts, Arc<TermQuerySimScorer>>, ST::Norm>,
     BuiltSet: ConstantScoreScorer<DocIdSetBuilderIterator, DummyTwoPhaseIterator>,
     BitSet: ConstantScoreScorer<BitSetIterator<FixedBitSet>, DummyTwoPhaseIterator>,
     ConstantIterator: ConstantScoreScorer<BuiltinQueryScorer<ST>, DummyTwoPhaseIterator>,

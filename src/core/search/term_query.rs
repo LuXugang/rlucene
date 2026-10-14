@@ -38,14 +38,16 @@ use crate::core::search::matches_utils::for_field;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::scorer::ScorerEnum2;
+use crate::core::search::scorer::{ScorerEnum2, ScorerEnum4};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
   SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
 };
 use crate::core::search::term_matches_iterator::TermMatchesIterator;
-use crate::core::search::term_scorer::TermScorer;
+use crate::core::search::term_scorer::{
+  ImpactsTermState, PostingsTermState, TermScorer, TermScorerState,
+};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
@@ -350,8 +352,10 @@ where
     let new_doc = scorer.advance(doc)?;
     if new_doc == doc {
       let freq = match &mut scorer {
-        ScorerEnum2::A(ts) => ts.freq()?,
-        ScorerEnum2::B(_) => {
+        ScorerEnum4::A(ts) => ts.state.freq()?,
+        ScorerEnum4::B(ts) => ts.state.freq()?,
+        ScorerEnum4::C(ts) => ts.state.freq()?,
+        ScorerEnum4::D(_) => {
           return Err(LuceneError::illegal_state("should TermScorer here"));
         },
       };
@@ -476,20 +480,23 @@ impl TermWeight {
           .ok_or_else(|| LuceneError::illegal_state("TermQuery similarity scorer is missing"))?;
 
         if score_mode == ScoreMode::TopScores {
-          let v = ScorerEnum2::A(TermScorer::from_impacts(
+          let v = TermScorer::from_impacts(
             terms_enum.impacts(FREQS as i32)?,
             sim_scorer,
             norms,
             top_level_scoring_clause,
-          ));
-          Ok(v)
+          );
+          Ok(match v {
+            ScorerEnum2::A(scorer) => ScorerEnum4::B(scorer),
+            ScorerEnum2::B(scorer) => ScorerEnum4::C(scorer),
+          })
         } else {
           let flags = if score_mode.needs_scores() {
             FREQS
           } else {
             NONE
           };
-          let v = ScorerEnum2::A(TermScorer::from_postings(
+          let v = ScorerEnum4::A(TermScorer::from_postings(
             terms_enum.postings_with_flags(None, flags as i32)?,
             sim_scorer,
             norms,
@@ -498,7 +505,7 @@ impl TermWeight {
         }
       },
       None => {
-        let v = ScorerEnum2::B(ConstantScoreScorer::from_disi(
+        let v = ScorerEnum4::D(ConstantScoreScorer::from_disi(
           0.0,
           score_mode,
           EmptyDISI::default(),
@@ -517,7 +524,7 @@ where
   prepare_state: PrepareState<LRTermsEnum<LR>>,
   term: Arc<Term>,
   sim_scorer: Arc<TermQuerySimScorer>,
-  score_mode: ScoreMode,
+  pub(crate) score_mode: ScoreMode,
   terms_enum: Option<LRTermsEnum<LR>>,
 }
 impl<LR> TermScorerSupplier<LR>
@@ -660,8 +667,19 @@ impl SimScorer for SimScorerImpl {
 }
 pub(crate) type TermQuerySimScorer = SimScorerEnum2<SimilaritySimScorer, SimScorerImpl>;
 
-pub type TermScorerEnum<LR> = ScorerEnum2<
-  TermScorer<LRPosting<LR>, Arc<TermQuerySimScorer>, LRNormNumericDocValues<LR>, LRImpactsEnum<LR>>,
+pub type TermScorerEnum<LR> = ScorerEnum4<
+  TermScorer<PostingsTermState<LRPosting<LR>, Arc<TermQuerySimScorer>>, LRNormNumericDocValues<LR>>,
+  TermScorer<
+    ImpactsTermState<LRImpactsEnum<LR>, Arc<TermQuerySimScorer>>,
+    LRNormNumericDocValues<LR>,
+  >,
+  TermScorer<
+    crate::core::search::impacts_disi::SourceImpactsDISI<
+      LRImpactsEnum<LR>,
+      Arc<TermQuerySimScorer>,
+    >,
+    LRNormNumericDocValues<LR>,
+  >,
   ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
 >;
 

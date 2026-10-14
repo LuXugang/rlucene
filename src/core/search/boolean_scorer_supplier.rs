@@ -466,11 +466,11 @@ where
       .subs
       .get_mut(&Occur::Should)
       .ok_or_else(|| LuceneError::illegal_state("SHOULD clauses are missing"))?;
-    if should.iter().all(|supplier| {
-      matches!(
-        &supplier.inner,
-        crate::core::search::query_scorer_supplier::SupplierNode::Term(_)
-      )
+    if should.iter().all(|supplier| match &supplier.inner {
+      crate::core::search::query_scorer_supplier::SupplierNode::Term(term) => {
+        term.score_mode != ScoreMode::TopScores
+      },
+      _ => false,
     }) {
       let mut optional = Vec::with_capacity(should_len);
       for supplier in should.iter_mut() {
@@ -482,7 +482,20 @@ where
           ));
         };
         // Preserve get's Term/Empty result without the global scorer conversion.
-        optional.push(Box::new(term.get(i64::MAX, context, searcher)?));
+        let scorer = match term.get(i64::MAX, context, searcher)? {
+          crate::core::search::scorer::ScorerEnum4::A(scorer) => {
+            crate::core::search::scorer::ScorerEnum2::A(scorer)
+          },
+          crate::core::search::scorer::ScorerEnum4::D(scorer) => {
+            crate::core::search::scorer::ScorerEnum2::B(scorer)
+          },
+          _ => {
+            return Err(LuceneError::illegal_state(
+              "non-TopScores term supplier returned impacts scorer",
+            ));
+          },
+        };
+        optional.push(Box::new(scorer));
       }
       return Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
         BooleanScorer::new(

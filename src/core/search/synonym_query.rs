@@ -66,7 +66,7 @@ use crate::core::search::similarities_impl::similarities::{
   SimScorer, Similarity, SimilarityEnum, SimilarityEnumSimScorer,
 };
 use crate::core::search::term_query::TermQuery;
-use crate::core::search::term_scorer::TermScorer;
+use crate::core::search::term_scorer::{TermScorer, TermScorerState};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
 use crate::core::util::bit_util::BitUtil;
@@ -407,7 +407,7 @@ where
     let freq = match &mut scorer {
       SynonymScorerEnum::A(scorer) => scorer.freq()?,
       SynonymScorerEnum::B(scorer) => scorer.freq()?,
-      SynonymScorerEnum::C(scorer) => scorer.freq()? as f32,
+      SynonymScorerEnum::C(scorer) => scorer.state.freq()? as f32,
       SynonymScorerEnum::D(_) => {
         return Ok(Explanation::no_match_no_details("no matching term"));
       },
@@ -946,10 +946,11 @@ type SynonymImpactsEnum<ST> = ImpactsEnumEnum2<
 >;
 
 pub(crate) type SynonymTermScorer<ST> = TermScorer<
-  SynonymPostingsEnum<ST>,
-  Arc<SimilarityEnumSimScorer>,
+  crate::core::search::term_scorer::PostingsTermState<
+    SynonymPostingsEnum<ST>,
+    Arc<SimilarityEnumSimScorer>,
+  >,
   <ST as ScorerTypes>::Norm,
-  SynonymImpactsEnum<ST>,
 >;
 
 type SynonymDisi<ST> = DisjunctionDISIApproximation<SynonymSubScorer<ST>>;
@@ -979,7 +980,7 @@ where
 {
   fn freq(&mut self) -> Result<f32> {
     match self {
-      SynonymSubScorer::Term { scorer, boost } => Ok(*boost * scorer.freq()? as f32),
+      SynonymSubScorer::Term { scorer, boost } => Ok(*boost * scorer.state.freq()? as f32),
     }
   }
 }
@@ -1414,7 +1415,7 @@ where
   }
 
   fn freq(&mut self) -> Result<f32> {
-    Ok(self.boost * self.in_.freq()? as f32)
+    Ok(self.boost * self.in_.state.freq()? as f32)
   }
 }
 
