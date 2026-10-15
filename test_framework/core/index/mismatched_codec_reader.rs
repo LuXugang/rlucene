@@ -549,6 +549,7 @@ impl<NP> NormsProducer for MismatchedNormsProducer<NP>
 where
   NP: NormsProducer,
 {
+  type MergeInstance = Self;
   type NumericDocValues = NP::NumericDocValues;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {

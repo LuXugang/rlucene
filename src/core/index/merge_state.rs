@@ -17,7 +17,7 @@
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
-use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
@@ -59,7 +59,14 @@ where
   /// Term vector producers being merged
   pub(crate) term_vectors_readers: Vec<Option<CRTermVectorsReader<CR>>>,
   /// Norms producers being merged
-  pub(crate) norms_producers: Vec<Option<CRNormsProducer<CR>>>,
+  pub(crate) norms_producers: Vec<
+    Option<
+      NormsProducerEnum2<
+        CRNormsProducer<CR>,
+        <CRNormsProducer<CR> as NormsProducer>::MergeInstance,
+      >,
+    >,
+  >,
   /// DocValues producers being merged
   pub(crate) doc_values_producers: Vec<Option<CRDocValuesProducer<CR>>>,
   /// Postings to merge
@@ -202,9 +209,9 @@ where
 
       let norms = if let Some(norms_reader) = reader.get_norms_reader()? {
         if let Some(n) = norms_reader.get_merge_instance()? {
-          Some(n)
+          Some(NormsProducerEnum2::B(n))
         } else {
-          Some(norms_reader)
+          Some(NormsProducerEnum2::A(norms_reader))
         }
       } else {
         None

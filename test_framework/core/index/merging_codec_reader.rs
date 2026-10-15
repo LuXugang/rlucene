@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
-use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
 use crate::core::index::field_infos::FieldInfos;
@@ -176,7 +176,8 @@ where
     CodecReader::get_sorted_set_doc_values(self, field)
   }
 
-  type NormNumericDocValues = <CR::NormsProducer as NormsProducer>::NumericDocValues;
+  type NormNumericDocValues =
+    <<Self as CodecReader>::NormsProducer as NormsProducer>::NumericDocValues;
 
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
     CodecReader::get_norm_values(self, field)
@@ -263,7 +264,8 @@ where
 {
   type StoredFieldsReader = CR::StoredFieldsReader;
   type TermVectorsReader = CR::TermVectorsReader;
-  type NormsProducer = CR::NormsProducer;
+  type NormsProducer =
+    NormsProducerEnum2<CR::NormsProducer, <CR::NormsProducer as NormsProducer>::MergeInstance>;
   type DocValuesProducer = CR::DocValuesProducer;
   type FieldsProducer = CR::FieldsProducer;
   type PointsReader = CR::PointsReader;
@@ -287,7 +289,10 @@ where
     match self.in_.get_norms_reader()? {
       Some(reader) => {
         let merge_instance = reader.get_merge_instance()?;
-        Ok(Some(merge_instance.unwrap_or(reader)))
+        Ok(Some(match merge_instance {
+          Some(merge) => NormsProducerEnum2::B(merge),
+          None => NormsProducerEnum2::A(reader),
+        }))
       },
       None => Ok(None),
     }
@@ -507,13 +512,11 @@ where
     }
   }
 
-  type NormNumericDocValues = <CR::NormsProducer as NormsProducer>::NumericDocValues;
+  type NormNumericDocValues =
+    <<Self as CodecReader>::NormsProducer as NormsProducer>::NumericDocValues;
 
   fn get_norm_values(&self, field: &str) -> Result<Option<Self::NormNumericDocValues>> {
-    match self {
-      Self::Default(reader) => CodecReader::get_norm_values(reader, field),
-      Self::Merging(reader) => CodecReader::get_norm_values(reader, field),
-    }
+    CodecReader::get_norm_values(self, field)
   }
 
   type DocValuesSkipper = <CR::DocValuesProducer as DocValuesProducer>::DocValuesSkipper;
@@ -628,7 +631,7 @@ where
 {
   type StoredFieldsReader = CR::StoredFieldsReader;
   type TermVectorsReader = CR::TermVectorsReader;
-  type NormsProducer = CR::NormsProducer;
+  type NormsProducer = <MergingCodecReader<CR> as CodecReader>::NormsProducer;
   type DocValuesProducer = CR::DocValuesProducer;
   type FieldsProducer = CR::FieldsProducer;
   type PointsReader = CR::PointsReader;
@@ -650,7 +653,7 @@ where
 
   fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
     match self {
-      Self::Default(reader) => reader.get_norms_reader(),
+      Self::Default(reader) => Ok(reader.get_norms_reader()?.map(NormsProducerEnum2::A)),
       Self::Merging(reader) => reader.get_norms_reader(),
     }
   }

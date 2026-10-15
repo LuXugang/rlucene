@@ -2093,6 +2093,10 @@ impl<I: IndexInput> NumericDocValues for CodecNormNumericDocValues<I> {
 
 #[cfg(test)]
 impl<I: IndexInput> NormsProducer for CodecNormsProducer<I> {
+  type MergeInstance = crate::core::codecs::norms_producer::NormsProducerEnum2<
+    <Lucene90CodecNormsProducer<I> as NormsProducer>::MergeInstance,
+    <AssertingCodecNormsProducer<I> as NormsProducer>::MergeInstance,
+  >;
   type NumericDocValues = CodecNormNumericDocValues<I>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -2113,14 +2117,14 @@ impl<I: IndexInput> NormsProducer for CodecNormsProducer<I> {
     }
   }
 
-  fn get_merge_instance(&self) -> Result<Option<Self>> {
+  fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>> {
     match self {
       Self::Lucene90(producer) => producer
         .get_merge_instance()
-        .map(|producer| producer.map(Self::Lucene90)),
+        .map(|producer| producer.map(crate::core::codecs::norms_producer::NormsProducerEnum2::A)),
       Self::Asserting(producer) => producer
         .get_merge_instance()
-        .map(|producer| producer.map(Self::Asserting)),
+        .map(|producer| producer.map(crate::core::codecs::norms_producer::NormsProducerEnum2::B)),
     }
   }
 }

@@ -118,6 +118,7 @@ impl<LR> NormsProducer for ReaderNormsProducer<'_, LR>
 where
   LR: LeafReader,
 {
+  type MergeInstance = Self;
   type NumericDocValues = LR::NormNumericDocValues;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -254,6 +255,7 @@ struct OneDocNormsProducer;
 impl CloseableRef for OneDocNormsProducer {}
 
 impl NormsProducer for OneDocNormsProducer {
+  type MergeInstance = Self;
   type NumericDocValues = OneDocNormValues;
 
   fn get_norms(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {

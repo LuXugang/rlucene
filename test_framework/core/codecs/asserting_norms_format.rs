@@ -170,6 +170,10 @@ impl<NP> NormsProducer for AssertingNormsProducer<NP>
 where
   NP: NormsProducer,
 {
+  type MergeInstance = crate::core::codecs::norms_producer::NormsProducerEnum2<
+    AssertingNormsProducer<NP::MergeInstance>,
+    Self,
+  >;
   type NumericDocValues = AssertingNumericDocValues<NP::NumericDocValues>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -187,19 +191,24 @@ where
     self.in_.check_integrity()
   }
 
-  fn get_merge_instance(&self) -> Result<Option<Self>>
+  fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>>
   where
     Self: Sized,
   {
-    let in_ = match self.in_.get_merge_instance()? {
-      Some(in_) => in_,
-      None => self.in_.clone(),
-    };
-    Ok(Some(Self {
-      in_,
-      max_doc: self.max_doc,
-      merging: true,
-      creation_thread: std::thread::current().id(),
+    use crate::core::codecs::norms_producer::NormsProducerEnum2;
+    Ok(Some(match self.in_.get_merge_instance()? {
+      Some(in_) => NormsProducerEnum2::A(AssertingNormsProducer {
+        in_,
+        max_doc: self.max_doc,
+        merging: true,
+        creation_thread: std::thread::current().id(),
+      }),
+      None => NormsProducerEnum2::B(Self {
+        in_: self.in_.clone(),
+        max_doc: self.max_doc,
+        merging: true,
+        creation_thread: std::thread::current().id(),
+      }),
     }))
   }
 }

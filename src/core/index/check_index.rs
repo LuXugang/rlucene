@@ -20,7 +20,7 @@ use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
-use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
@@ -1781,7 +1781,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if let Some(reader) = norms_reader.as_ref() {
         merge_norms_reader = reader.get_merge_instance()?;
       }
-      let norms_reader = merge_norms_reader.as_ref().or(norms_reader.as_ref());
+      let norms_reader = merge_norms_reader
+        .as_ref()
+        .map(NormsProducerEnum2::B)
+        .or_else(|| norms_reader.as_ref().map(NormsProducerEnum2::A));
       for info in reader.get_field_infos()?.iter() {
         if info.has_norms() {
           let norms_reader = norms_reader.as_ref().ok_or_else(|| {
@@ -2960,14 +2963,17 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if let Some(norms_reader) = norms_reader.as_ref() {
         merge_norms_reader = norms_reader.get_merge_instance()?;
       }
-      let norms_producer = merge_norms_reader.as_ref().or(norms_reader.as_ref());
+      let norms_producer = merge_norms_reader
+        .as_ref()
+        .map(NormsProducerEnum2::B)
+        .or_else(|| norms_reader.as_ref().map(NormsProducerEnum2::A));
       let live_docs = reader.get_live_docs()?;
       Self::check_fields(
         fields,
         live_docs.as_ref(),
         max_doc,
         field_infos.as_ref(),
-        norms_producer,
+        norms_producer.as_ref(),
         true,
         false,
         info_stream.as_deref_mut(),

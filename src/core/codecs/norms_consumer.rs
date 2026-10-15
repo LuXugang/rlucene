@@ -172,8 +172,12 @@ impl<D, CR> NormsProducer for NormsProducerMerge<'_, D, CR>
 where
   CR: CodecReader,
 {
+  type MergeInstance = Self;
   type NumericDocValues = NumericDocValuesMerge<
-    <CRNormsProducer<CR> as NormsProducer>::NumericDocValues,
+    crate::core::index::numeric_doc_values::NumericDocValuesEnum2<
+      <CRNormsProducer<CR> as NormsProducer>::NumericDocValues,
+      <<CRNormsProducer<CR> as NormsProducer>::MergeInstance as NormsProducer>::NumericDocValues,
+    >,
     MergeStateDocMap<CR>,
   >;
 

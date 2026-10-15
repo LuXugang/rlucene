@@ -620,6 +620,7 @@ struct NormsProducerImpl {
 impl CloseableRef for NormsProducerImpl {}
 
 impl NormsProducer for NormsProducerImpl {
+  type MergeInstance = Self;
   type NumericDocValues = NumericDocValuesImpl;
 
   fn get_norms(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {

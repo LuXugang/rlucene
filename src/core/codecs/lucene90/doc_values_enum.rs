@@ -21,17 +21,18 @@ pub mod norms {
   use crate::core::index::numeric_doc_values::NumericDocValues;
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
   use crate::core::store::IndexInput;
+  use crate::core::store::random_access_input::RandomAccessInput;
   use crate::core::util::error::lucene_error::Result;
-  pub enum Lucene90NormNumericDocValuesEnum<I>
+  pub enum Lucene90NormNumericDocValuesEnum<I, R = <I as IndexInput>::RandomAccessSlice>
   where
     I: IndexInput,
   {
-    Dense(DenseNormsIterator<I::RandomAccessSlice>),
-    Sparse(SparseNormsIterator<I>),
+    Dense(DenseNormsIterator<R>),
+    Sparse(SparseNormsIterator<I, R>),
     Empty(EmptyNumeric),
   }
 
-  impl<I> DocValuesIterator for Lucene90NormNumericDocValuesEnum<I>
+  impl<I, R: RandomAccessInput> DocValuesIterator for Lucene90NormNumericDocValuesEnum<I, R>
   where
     I: IndexInput,
   {
@@ -45,20 +46,20 @@ pub mod norms {
     }
   }
 
-  impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-    for Lucene90NormNumericDocValuesEnum<I>
+  impl<I, R: RandomAccessInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+    for Lucene90NormNumericDocValuesEnum<I, R>
   where
     I: IndexInput,
   {
   }
-  impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-    for Lucene90NormNumericDocValuesEnum<I>
+  impl<I, R: RandomAccessInput> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+    for Lucene90NormNumericDocValuesEnum<I, R>
   where
     I: IndexInput,
   {
   }
 
-  impl<I> DocIdSetIterator for Lucene90NormNumericDocValuesEnum<I>
+  impl<I, R: RandomAccessInput> DocIdSetIterator for Lucene90NormNumericDocValuesEnum<I, R>
   where
     I: IndexInput,
   {
@@ -103,7 +104,7 @@ pub mod norms {
     }
   }
 
-  impl<I> NumericDocValues for Lucene90NormNumericDocValuesEnum<I>
+  impl<I, R: RandomAccessInput> NumericDocValues for Lucene90NormNumericDocValuesEnum<I, R>
   where
     I: IndexInput,
   {

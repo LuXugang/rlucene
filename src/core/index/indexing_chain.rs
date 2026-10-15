@@ -20,7 +20,7 @@ use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::norms_format::NormsFormat;
-use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::document::fields::Fields;
@@ -442,7 +442,10 @@ where
         Some(norms) => norms.get_merge_instance()?,
         None => None,
       };
-      let norms_for_flush = norms_merge_instance.as_ref().or(norms.as_ref());
+      let norms_for_flush = norms_merge_instance
+        .as_ref()
+        .map(NormsProducerEnum2::B)
+        .or_else(|| norms.as_ref().map(NormsProducerEnum2::A));
 
       // flush postings + vectors
       let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
@@ -451,7 +454,7 @@ where
         fields_to_flush,
         state,
         sort_map.as_ref(),
-        norms_for_flush,
+        norms_for_flush.as_ref(),
         index_writer_config.get_codec(),
         segment_info,
         seg_updates,

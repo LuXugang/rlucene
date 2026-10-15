@@ -45,7 +45,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Reader for [`Lucene90NormsFormat`]
-pub struct Lucene90NormsProducer<I>
+pub struct Lucene90NormsProducer<I, const MERGING: bool = false>
 where
   I: IndexInput,
 {
@@ -53,7 +53,6 @@ where
   norms: Arc<HashMap<i32, NormsEntry>>,
   max_doc: i32,
   data: I,
-  merging: bool,
 
   // reused slice while merging
   disi_inputs: Mutex<HashMap<i32, Arc<Mutex<I::IndexInput>>>>,
@@ -62,7 +61,7 @@ where
   data_inputs: Mutex<HashMap<i32, Arc<I::RandomAccessSlice>>>,
 }
 
-impl<I> Lucene90NormsProducer<I>
+impl<I, const MERGING: bool> Lucene90NormsProducer<I, MERGING>
 where
   I: IndexInput,
 {
@@ -154,7 +153,6 @@ where
         norms: Arc::new(norms),
         max_doc,
         data,
-        merging: false,
         disi_inputs: HashMap::new().into(),
         disi_jump_tables: HashMap::new().into(),
         data_inputs: HashMap::new().into(),
@@ -232,9 +230,7 @@ where
     field: &FieldInfo,
     entry: &NormsEntry,
   ) -> Result<RandomAccessSliceEnum<I::RandomAccessSlice>> {
-    if self.merging
-      && let Some(existing) = self.data_inputs.lock().get(&field.number)
-    {
+    if MERGING && let Some(existing) = self.data_inputs.lock().get(&field.number) {
       return Ok(RandomAccessSliceEnum::Shared(Arc::clone(existing)));
     }
 
@@ -248,9 +244,9 @@ where
       slice.prefetch(0, 1)?;
     }
 
-    if self.merging {
+    if MERGING {
       let slice_rc = Arc::new(slice);
-      if self.merging {
+      if MERGING {
         self
           .data_inputs
           .lock()
@@ -270,7 +266,7 @@ where
     let docs_with_field_offset = entry.docs_with_field_offset as usize;
     let docs_with_field_length = entry.docs_with_field_length;
     let jump_table_entry_count = entry.jump_table_entry_count as i32;
-    if self.merging {
+    if MERGING {
       if let Some(cached) = {
         let map = self.disi_jump_tables.lock();
         map.get(&field.number).cloned()
@@ -309,7 +305,7 @@ pub enum RandomAccessSliceEnum<R> {
   Shared(Arc<R>),
   Owned(R),
 }
-impl<I> Lucene90NormsProducer<I>
+impl<I, const MERGING: bool> Lucene90NormsProducer<I, MERGING>
 where
   I: IndexInput,
 {
@@ -321,7 +317,7 @@ where
     let docs_with_field_offset = entry.docs_with_field_offset as usize;
     let docs_with_field_length = entry.docs_with_field_length;
     let jump_table_entry_count = entry.jump_table_entry_count as i32;
-    if self.merging {
+    if MERGING {
       if let Some(existing) = {
         let map = self.disi_inputs.lock();
         map.get(&field.number).cloned()
@@ -361,7 +357,7 @@ pub enum SliceEnum<I> {
   Shared(IndexInputImpl<I>),
   Owned(I),
 }
-impl<I> Display for Lucene90NormsProducer<I>
+impl<I, const MERGING: bool> Display for Lucene90NormsProducer<I, MERGING>
 where
   I: IndexInput,
 {
@@ -370,7 +366,7 @@ where
   }
 }
 
-impl<I> CloseableRef for Lucene90NormsProducer<I>
+impl<I, const MERGING: bool> CloseableRef for Lucene90NormsProducer<I, MERGING>
 where
   I: IndexInput,
 {
@@ -379,194 +375,217 @@ where
   }
 }
 
-impl<I> NormsProducer for Lucene90NormsProducer<I>
-where
-  I: IndexInput,
-{
-  type NumericDocValues = Lucene90NormNumericDocValuesEnum<I>;
+// Keep one get_norms implementation while fixing its value carrier for each mode.
+macro_rules! impl_norms_producer {
+  ($merging:literal, $slice:ty, $variant:ident) => {
+    impl<I> NormsProducer for Lucene90NormsProducer<I, $merging>
+    where
+      I: IndexInput,
+    {
+      type NumericDocValues = Lucene90NormNumericDocValuesEnum<I, $slice>;
+      type MergeInstance = Lucene90NormsProducer<I, true>;
 
-  fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
-    // copy on stack is acceptable, of course we could have a better way
-    let entry = self
-      .norms
-      .get(&field.number)
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!("norms entry is missing for field {}", field.name))
-      })?
-      .clone();
-    if entry.docs_with_field_offset == -2 {
-      // empty
-      return Ok(Lucene90NormNumericDocValuesEnum::Empty(
-        DocValues::empty_numeric(),
-      ));
-    }
+      fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+        // copy on stack is acceptable, of course we could have a better way
+        let entry = self
+          .norms
+          .get(&field.number)
+          .ok_or_else(|| {
+            LuceneError::illegal_state(format!("norms entry is missing for field {}", field.name))
+          })?
+          .clone();
+        if entry.docs_with_field_offset == -2 {
+          // empty
+          return Ok(Lucene90NormNumericDocValuesEnum::Empty(
+            DocValues::empty_numeric(),
+          ));
+        }
 
-    if entry.docs_with_field_offset == -1 {
-      // dense
-      if entry.bytes_per_norm == 0 {
-        let sub_dense_norms = DenseNormsIteratorBaseEnum::Dense(DenseNormsIteratorBaseImpl {
-          norms_offset: entry.norms_offset,
-        });
-        let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-        return Ok(Lucene90NormNumericDocValuesEnum::Dense(
-          dense_norms_iterator,
-        ));
+        if entry.docs_with_field_offset == -1 {
+          // dense
+          if entry.bytes_per_norm == 0 {
+            let sub_dense_norms = DenseNormsIteratorBaseEnum::Dense(DenseNormsIteratorBaseImpl {
+              norms_offset: entry.norms_offset,
+            });
+            let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
+            return Ok(Lucene90NormNumericDocValuesEnum::Dense(
+              dense_norms_iterator,
+            ));
+          }
+          let slice = match self.get_data_input(field, &entry)? {
+            RandomAccessSliceEnum::$variant(slice) => slice,
+            _ => {
+              return Err(LuceneError::illegal_state(
+                "norm slice ownership does not match producer mode",
+              ));
+            },
+          };
+
+          return match entry.bytes_per_norm {
+            1 => {
+              let sub_dense_norms =
+                DenseNormsIteratorBaseEnum::Dense1(DenseNormsIteratorBaseImpl1 { slice });
+              let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
+              Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                dense_norms_iterator,
+              ))
+            },
+            2 => {
+              let sub_dense_norms =
+                DenseNormsIteratorBaseEnum::Dense2(DenseNormsIteratorBaseImpl2 { slice });
+              let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
+              Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                dense_norms_iterator,
+              ))
+            },
+            4 => {
+              let sub_dense_norms =
+                DenseNormsIteratorBaseEnum::Dense3(DenseNormsIteratorBaseImpl4 { slice });
+              let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
+              Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                dense_norms_iterator,
+              ))
+            },
+            8 => {
+              let sub_dense_norms =
+                DenseNormsIteratorBaseEnum::Dense4(DenseNormsIteratorBaseImpl8 { slice });
+              let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
+              Ok(Lucene90NormNumericDocValuesEnum::Dense(
+                dense_norms_iterator,
+              ))
+            },
+            _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
+          };
+        }
+        // sparse
+        let disi = match (
+          self.get_disi_jump_table(field, &entry)?,
+          self.get_disi_input(field, &entry)?,
+        ) {
+          (Some(RandomAccessSliceEnum::Shared(jt)), SliceEnum::Shared(input)) => {
+            IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
+              input,
+              Some(jt),
+              entry.jump_table_entry_count as i32,
+              entry.dense_rank_power,
+              entry.num_docs_with_field as i64,
+            )?)
+          },
+
+          (Some(RandomAccessSliceEnum::Owned(jt)), SliceEnum::Owned(input)) => {
+            IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
+              input,
+              Some(jt),
+              entry.jump_table_entry_count as i32,
+              entry.dense_rank_power,
+              entry.num_docs_with_field as i64,
+            )?)
+          },
+          (None, SliceEnum::Shared(input)) => {
+            IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
+              input,
+              None,
+              entry.jump_table_entry_count as i32,
+              entry.dense_rank_power,
+              entry.num_docs_with_field as i64,
+            )?)
+          },
+
+          (None, SliceEnum::Owned(input)) => {
+            IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
+              input,
+              None,
+              entry.jump_table_entry_count as i32,
+              entry.dense_rank_power,
+              entry.num_docs_with_field as i64,
+            )?)
+          },
+          _ => {
+            return Err(LuceneError::illegal_state(
+              "should have same ownership: Shared or Owned",
+            ));
+          },
+        };
+
+        if entry.bytes_per_norm == 0 {
+          let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse(SparseNormsIteratorBaseImpl {
+            norms_offset: entry.norms_offset,
+          });
+          let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+          return Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+            sparse_norms_iterator,
+          ));
+        }
+
+        let slice = match self.get_data_input(field, &entry)? {
+          RandomAccessSliceEnum::$variant(slice) => slice,
+          _ => {
+            return Err(LuceneError::illegal_state(
+              "norm slice ownership does not match producer mode",
+            ));
+          },
+        };
+
+        match entry.bytes_per_norm {
+          1 => {
+            let sub_sparse_norms =
+              SparseNormsIteratorBaseEnum::Sparse1(SparseNormsIteratorBaseImpl1 { slice });
+            let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+            Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+              sparse_norms_iterator,
+            ))
+          },
+          2 => {
+            let sub_sparse_norms =
+              SparseNormsIteratorBaseEnum::Sparse2(SparseNormsIteratorBaseImpl2 { slice });
+            let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+            Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+              sparse_norms_iterator,
+            ))
+          },
+          4 => {
+            let sub_sparse_norms =
+              SparseNormsIteratorBaseEnum::Sparse3(SparseNormsIteratorBaseImpl4 { slice });
+            let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+            Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+              sparse_norms_iterator,
+            ))
+          },
+          8 => {
+            let sub_sparse_norms =
+              SparseNormsIteratorBaseEnum::Sparse4(SparseNormsIteratorBaseImpl8 { slice });
+            let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+            Ok(Lucene90NormNumericDocValuesEnum::Sparse(
+              sparse_norms_iterator,
+            ))
+          },
+          _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
+        }
       }
-      let slice = self.get_data_input(field, &entry)?;
 
-      return match entry.bytes_per_norm {
-        1 => {
-          let sub_dense_norms =
-            DenseNormsIteratorBaseEnum::Dense1(DenseNormsIteratorBaseImpl1 { slice });
-          let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnum::Dense(
-            dense_norms_iterator,
-          ))
-        },
-        2 => {
-          let sub_dense_norms =
-            DenseNormsIteratorBaseEnum::Dense2(DenseNormsIteratorBaseImpl2 { slice });
-          let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnum::Dense(
-            dense_norms_iterator,
-          ))
-        },
-        4 => {
-          let sub_dense_norms =
-            DenseNormsIteratorBaseEnum::Dense3(DenseNormsIteratorBaseImpl4 { slice });
-          let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnum::Dense(
-            dense_norms_iterator,
-          ))
-        },
-        8 => {
-          let sub_dense_norms =
-            DenseNormsIteratorBaseEnum::Dense4(DenseNormsIteratorBaseImpl8 { slice });
-          let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnum::Dense(
-            dense_norms_iterator,
-          ))
-        },
-        _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
-      };
+      fn check_integrity(&self) -> Result<()> {
+        CodecUtil::checksum_entire_file(&self.data)?;
+        Ok(())
+      }
+
+      fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>>
+      where
+        Self: Sized,
+      {
+        Ok(Some(Lucene90NormsProducer {
+          norms: self.norms.clone(),
+          max_doc: self.max_doc,
+          data: self.data.try_clone()?,
+          disi_inputs: HashMap::new().into(),
+          disi_jump_tables: HashMap::new().into(),
+          data_inputs: HashMap::new().into(),
+        }))
+      }
     }
-    // sparse
-    let disi = match (
-      self.get_disi_jump_table(field, &entry)?,
-      self.get_disi_input(field, &entry)?,
-    ) {
-      (Some(RandomAccessSliceEnum::Shared(jt)), SliceEnum::Shared(input)) => {
-        IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
-          input,
-          Some(jt),
-          entry.jump_table_entry_count as i32,
-          entry.dense_rank_power,
-          entry.num_docs_with_field as i64,
-        )?)
-      },
-
-      (Some(RandomAccessSliceEnum::Owned(jt)), SliceEnum::Owned(input)) => {
-        IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
-          input,
-          Some(jt),
-          entry.jump_table_entry_count as i32,
-          entry.dense_rank_power,
-          entry.num_docs_with_field as i64,
-        )?)
-      },
-      (None, SliceEnum::Shared(input)) => {
-        IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
-          input,
-          None,
-          entry.jump_table_entry_count as i32,
-          entry.dense_rank_power,
-          entry.num_docs_with_field as i64,
-        )?)
-      },
-
-      (None, SliceEnum::Owned(input)) => IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
-        input,
-        None,
-        entry.jump_table_entry_count as i32,
-        entry.dense_rank_power,
-        entry.num_docs_with_field as i64,
-      )?),
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "should have same ownership: Shared or Owned",
-        ));
-      },
-    };
-
-    if entry.bytes_per_norm == 0 {
-      let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse(SparseNormsIteratorBaseImpl {
-        norms_offset: entry.norms_offset,
-      });
-      let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-      return Ok(Lucene90NormNumericDocValuesEnum::Sparse(
-        sparse_norms_iterator,
-      ));
-    }
-
-    let slice = self.get_data_input(field, &entry)?;
-
-    match entry.bytes_per_norm {
-      1 => {
-        let sub_sparse_norms =
-          SparseNormsIteratorBaseEnum::Sparse1(SparseNormsIteratorBaseImpl1 { slice });
-        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
-          sparse_norms_iterator,
-        ))
-      },
-      2 => {
-        let sub_sparse_norms =
-          SparseNormsIteratorBaseEnum::Sparse2(SparseNormsIteratorBaseImpl2 { slice });
-        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
-          sparse_norms_iterator,
-        ))
-      },
-      4 => {
-        let sub_sparse_norms =
-          SparseNormsIteratorBaseEnum::Sparse3(SparseNormsIteratorBaseImpl4 { slice });
-        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
-          sparse_norms_iterator,
-        ))
-      },
-      8 => {
-        let sub_sparse_norms =
-          SparseNormsIteratorBaseEnum::Sparse4(SparseNormsIteratorBaseImpl8 { slice });
-        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
-          sparse_norms_iterator,
-        ))
-      },
-      _ => Err(LuceneError::unreachable("invalid bytes_per_norm")),
-    }
-  }
-
-  fn check_integrity(&self) -> Result<()> {
-    CodecUtil::checksum_entire_file(&self.data)?;
-    Ok(())
-  }
-
-  fn get_merge_instance(&self) -> Result<Option<Self>>
-  where
-    Self: Sized,
-  {
-    Ok(Some(Self {
-      norms: self.norms.clone(),
-      max_doc: self.max_doc,
-      data: self.data.try_clone()?,
-      merging: true,
-      disi_inputs: HashMap::new().into(),
-      disi_jump_tables: HashMap::new().into(),
-      data_inputs: HashMap::new().into(),
-    }))
-  }
+  };
 }
+impl_norms_producer!(false, I::RandomAccessSlice, Owned);
+impl_norms_producer!(true, Arc<I::RandomAccessSlice>, Shared);
 
 #[derive(Clone)]
 struct NormsEntry {
@@ -647,10 +666,7 @@ where
   #[inline]
   fn long_value(&mut self) -> Result<i64> {
     if let DenseNormsIteratorBaseEnum::Dense1(inner) = &self.sub_dense_norms {
-      let slice = match &inner.slice {
-        RandomAccessSliceEnum::Owned(slice) => slice,
-        RandomAccessSliceEnum::Shared(slice) => slice.as_ref(),
-      };
+      let slice = &inner.slice;
       return Ok((slice.read_byte(self.doc.try_convert()?)? as i8) as i64);
     }
     self.sub_dense_norms.long_value(self.doc)
@@ -669,62 +685,50 @@ impl DenseNormsIteratorBase for DenseNormsIteratorBaseImpl {
 }
 // case 1
 struct DenseNormsIteratorBaseImpl1<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl1<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, doc: i32) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => Ok((v.read_byte(doc.try_convert()?)? as i8) as i64),
-      RandomAccessSliceEnum::Shared(v) => Ok((v.read_byte(doc.try_convert()?)? as i8) as i64),
-    }
+    Ok((self.slice.read_byte(doc.try_convert()?)? as i8) as i64)
   }
 }
 // case 2
 struct DenseNormsIteratorBaseImpl2<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl2<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, doc: i32) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => Ok(v.read_short((doc.try_convert()?) << 1)? as i64),
-      RandomAccessSliceEnum::Shared(v) => Ok(v.read_short((doc.try_convert()?) << 1)? as i64),
-    }
+    Ok(self.slice.read_short((doc.try_convert()?) << 1)? as i64)
   }
 }
 // case 4
 struct DenseNormsIteratorBaseImpl4<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl4<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, doc: i32) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
-      RandomAccessSliceEnum::Shared(v) => Ok(v.read_int((doc.try_convert()?) << 2)? as i64),
-    }
+    Ok(self.slice.read_int((doc.try_convert()?) << 2)? as i64)
   }
 }
 // case 8
 struct DenseNormsIteratorBaseImpl8<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl8<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, doc: i32) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
-      RandomAccessSliceEnum::Shared(v) => Ok(v.read_long((doc.try_convert()?) << 3)?),
-    }
+    Ok(self.slice.read_long((doc.try_convert()?) << 3)?)
   }
 }
 enum DenseNormsIteratorBaseEnum<R> {
@@ -749,22 +753,19 @@ where
   }
 }
 
-pub struct SparseNormsIterator<I>
+pub struct SparseNormsIterator<I, R = <I as IndexInput>::RandomAccessSlice>
 where
   I: IndexInput,
 {
-  sub_sparse_norms: SparseNormsIteratorBaseEnum<I::RandomAccessSlice>,
+  sub_sparse_norms: SparseNormsIteratorBaseEnum<R>,
   disi: IndexedDISIEnum<I>,
 }
 
-impl<I> SparseNormsIterator<I>
+impl<I, R> SparseNormsIterator<I, R>
 where
   I: IndexInput,
 {
-  fn new(
-    sub_sparse_norms: SparseNormsIteratorBaseEnum<I::RandomAccessSlice>,
-    disi: IndexedDISIEnum<I>,
-  ) -> Self {
+  fn new(sub_sparse_norms: SparseNormsIteratorBaseEnum<R>, disi: IndexedDISIEnum<I>) -> Self {
     Self {
       sub_sparse_norms,
       disi,
@@ -772,7 +773,7 @@ where
   }
 }
 
-impl<I> DocValuesIterator for SparseNormsIterator<I>
+impl<I, R: RandomAccessInput> DocValuesIterator for SparseNormsIterator<I, R>
 where
   I: IndexInput,
 {
@@ -781,18 +782,20 @@ where
   }
 }
 
-impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SparseNormsIterator<I>
+impl<I, R: RandomAccessInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SparseNormsIterator<I, R>
 where
   I: IndexInput,
 {
 }
-impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SparseNormsIterator<I> where
-  I: IndexInput
+impl<I, R: RandomAccessInput> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SparseNormsIterator<I, R>
+where
+  I: IndexInput,
 {
 }
 
-impl<I> DocIdSetIterator for SparseNormsIterator<I>
+impl<I, R: RandomAccessInput> DocIdSetIterator for SparseNormsIterator<I, R>
 where
   I: IndexInput,
 {
@@ -813,7 +816,7 @@ where
   }
 }
 
-impl<I> NumericDocValues for SparseNormsIterator<I>
+impl<I, R: RandomAccessInput> NumericDocValues for SparseNormsIterator<I, R>
 where
   I: IndexInput,
 {
@@ -837,62 +840,50 @@ impl SparseNormsIteratorBase for SparseNormsIteratorBaseImpl {
 }
 // case 1
 struct SparseNormsIteratorBaseImpl1<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl1<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, index: usize) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => Ok((v.read_byte(index)? as i8) as i64),
-      RandomAccessSliceEnum::Shared(v) => Ok((v.read_byte(index)? as i8) as i64),
-    }
+    Ok((self.slice.read_byte(index)? as i8) as i64)
   }
 }
 // case 2
 struct SparseNormsIteratorBaseImpl2<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl2<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, index: usize) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => Ok(v.read_short(index << 1)? as i64),
-      RandomAccessSliceEnum::Shared(v) => Ok(v.read_short(index << 1)? as i64),
-    }
+    Ok(self.slice.read_short(index << 1)? as i64)
   }
 }
 // case 4
 struct SparseNormsIteratorBaseImpl4<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl4<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, index: usize) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => Ok(v.read_int(index << 2)? as i64),
-      RandomAccessSliceEnum::Shared(v) => Ok(v.read_int(index << 2)? as i64),
-    }
+    Ok(self.slice.read_int(index << 2)? as i64)
   }
 }
 // case 8
 struct SparseNormsIteratorBaseImpl8<R> {
-  slice: RandomAccessSliceEnum<R>,
+  slice: R,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl8<R>
 where
   R: RandomAccessInput,
 {
   fn long_value(&self, index: usize) -> Result<i64> {
-    match &self.slice {
-      RandomAccessSliceEnum::Owned(v) => v.read_long(index << 3),
-      RandomAccessSliceEnum::Shared(v) => v.read_long(index << 3),
-    }
+    self.slice.read_long(index << 3)
   }
 }
 enum SparseNormsIteratorBaseEnum<R> {

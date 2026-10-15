@@ -26,7 +26,7 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
-use crate::core::codecs::norms_producer::NormsProducer;
+use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
@@ -60,6 +60,8 @@ use crate::test_framework::core::index::mismatched_leaf_reader::{
 type BaseStoredFieldsReader<D> = <DefaultLeafReader<D> as CodecReader>::StoredFieldsReader;
 type BaseTermVectorsReader<D> = <DefaultLeafReader<D> as CodecReader>::TermVectorsReader;
 type BaseNormsProducer<D> = <DefaultLeafReader<D> as CodecReader>::NormsProducer;
+type NormsChoice<D> =
+  NormsProducerEnum2<BaseNormsProducer<D>, <BaseNormsProducer<D> as NormsProducer>::MergeInstance>;
 type BaseDocValuesProducer<D> = <DefaultLeafReader<D> as CodecReader>::DocValuesProducer;
 type BaseFieldsProducer<D> = <DefaultLeafReader<D> as CodecReader>::FieldsProducer;
 type BasePointsReader<D> = <DefaultLeafReader<D> as CodecReader>::PointsReader;
@@ -77,7 +79,7 @@ where
   D: Directory,
 {
   fields: Option<BaseFieldsProducer<D>>,
-  norms: Option<BaseNormsProducer<D>>,
+  norms: Option<NormsChoice<D>>,
   doc_values: Option<BaseDocValuesProducer<D>>,
   store: Option<Arc<Mutex<BaseStoredFieldsReader<D>>>>,
   vectors: Option<BaseTermVectorsReader<D>>,
@@ -99,7 +101,10 @@ where
     let norms = match reader.get_norms_reader()? {
       Some(norms) => {
         let merge_instance = norms.get_merge_instance()?;
-        Some(merge_instance.unwrap_or(norms))
+        Some(match merge_instance {
+          Some(merge) => NormsProducerEnum2::B(merge),
+          None => NormsProducerEnum2::A(norms),
+        })
       },
       None => None,
     };
@@ -605,7 +610,7 @@ pub(crate) struct MockRandomNormsProducer<D>
 where
   D: Directory,
 {
-  inner: BaseNormsProducer<D>,
+  inner: NormsChoice<D>,
   mode: ReaderMode,
   shuffled: Option<Arc<FieldInfos>>,
   original: Option<Arc<FieldInfos>>,
@@ -651,7 +656,8 @@ impl<D> NormsProducer for MockRandomNormsProducer<D>
 where
   D: Directory,
 {
-  type NumericDocValues = <BaseNormsProducer<D> as NormsProducer>::NumericDocValues;
+  type MergeInstance = <NormsChoice<D> as NormsProducer>::MergeInstance;
+  type NumericDocValues = <NormsChoice<D> as NormsProducer>::NumericDocValues;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     self.inner.get_norms(&self.remap_field_info(field)?)
@@ -664,16 +670,11 @@ where
     }
   }
 
-  fn get_merge_instance(&self) -> Result<Option<Self>> {
+  fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>> {
     if self.mode != ReaderMode::Default {
       return Ok(None);
     }
-    Ok(self.inner.get_merge_instance()?.map(|inner| Self {
-      inner,
-      mode: self.mode,
-      shuffled: None,
-      original: None,
-    }))
+    self.inner.get_merge_instance()
   }
 }
 
@@ -1168,7 +1169,7 @@ where
   type SortedNumericDocValues =
     <BaseDocValuesProducer<D> as DocValuesProducer>::SortedNumericDocValues;
   type SortedSetDocValues = <BaseDocValuesProducer<D> as DocValuesProducer>::SortedSetDocValues;
-  type NormNumericDocValues = <BaseNormsProducer<D> as NormsProducer>::NumericDocValues;
+  type NormNumericDocValues = <NormsChoice<D> as NormsProducer>::NumericDocValues;
   type DocValuesSkipper = <BaseDocValuesProducer<D> as DocValuesProducer>::DocValuesSkipper;
   type FloatVectorValues = <BaseKnnVectorsReader<D> as KnnVectorsReader>::FloatVectorValues;
   type ByteVectorValues = <BaseKnnVectorsReader<D> as KnnVectorsReader>::ByteVectorValues;
@@ -1359,7 +1360,9 @@ where
     };
     let inner = match &self.hook {
       ReaderHook::Slow(state) => state.norms.clone(),
-      ReaderHook::Default | ReaderHook::Mismatched(_) => self.reader.get_norms_reader()?,
+      ReaderHook::Default | ReaderHook::Mismatched(_) => {
+        self.reader.get_norms_reader()?.map(NormsProducerEnum2::A)
+      },
     };
     Ok(inner.map(|inner| MockRandomNormsProducer {
       inner,

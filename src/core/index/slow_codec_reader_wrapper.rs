@@ -394,6 +394,7 @@ impl<LR> NormsProducer for NormsProducerImpl<LR>
 where
   LR: LeafReader,
 {
+  type MergeInstance = Self;
   type NumericDocValues = LR::NormNumericDocValues;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {

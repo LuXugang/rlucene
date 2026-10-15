@@ -1501,6 +1501,7 @@ impl<CR> NormsProducer for SlowCompositeNormsProducer<CR>
 where
   CR: CodecReader + Clone,
 {
+  type MergeInstance = Self;
   type NumericDocValues = MultiNormNumericDocValues<MultiReader<CR>>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {

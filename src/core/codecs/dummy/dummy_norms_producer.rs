@@ -25,6 +25,7 @@ pub struct DummyNormsProducer;
 impl CloseableRef for DummyNormsProducer {}
 
 impl NormsProducer for DummyNormsProducer {
+  type MergeInstance = Self;
   type NumericDocValues = DummyNumericDocValues;
 
   fn get_norms(

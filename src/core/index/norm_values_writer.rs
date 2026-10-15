@@ -140,6 +140,7 @@ impl<'a> NormsProducerImpl<'a> {
 impl CloseableRef for NormsProducerImpl<'_> {}
 
 impl<'a> NormsProducer for NormsProducerImpl<'a> {
+  type MergeInstance = Self;
   type NumericDocValues = BufferedSortingNorms<&'a PackedLongValues>;
 
   fn get_norms(&self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {

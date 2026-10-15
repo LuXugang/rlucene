@@ -693,6 +693,7 @@ where
   NP: NormsProducer,
   DM: DocMap,
 {
+  type MergeInstance = Self;
   type NumericDocValues = SortingNumericDocValues<FixedBitSet>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -748,6 +749,10 @@ where
   NP: NormsProducer,
   DM: DocMap,
 {
+  type MergeInstance = crate::core::codecs::norms_producer::NormsProducerEnum2<
+    NP::MergeInstance,
+    NormsProducerImpl<NP, DM>,
+  >;
   type NumericDocValues = SortingCodecReaderNumericDocValues<NP::NumericDocValues>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -768,10 +773,18 @@ where
     }
   }
 
-  fn get_merge_instance(&self) -> Result<Option<Self>> {
+  fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>> {
     match self {
-      Self::A(producer) => Ok(producer.get_merge_instance()?.map(Self::A)),
-      Self::B(producer) => Ok(producer.get_merge_instance()?.map(Self::B)),
+      Self::A(producer) => Ok(
+        producer
+          .get_merge_instance()?
+          .map(crate::core::codecs::norms_producer::NormsProducerEnum2::A),
+      ),
+      Self::B(producer) => Ok(
+        producer
+          .get_merge_instance()?
+          .map(crate::core::codecs::norms_producer::NormsProducerEnum2::B),
+      ),
     }
   }
 }

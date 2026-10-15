@@ -25,6 +25,8 @@ use std::sync::Arc;
 /// A trait that produces field normalization values.
 pub trait NormsProducer: CloseableRef {
   type NumericDocValues: NumericDocValues;
+  /// Producer used for merging; it may carry shared inputs unlike the query producer.
+  type MergeInstance: NormsProducer;
   /// Returns [`NumericDocValues`] for the given field.
   ///
   /// The returned instance is not required to be thread-safe:
@@ -46,7 +48,7 @@ pub trait NormsProducer: CloseableRef {
   /// By default, this method returns `None`, which indicates that no new
   /// `NormsProducerEnum` is required for merging, and the current instance
   /// should be used directly during merge operations.
-  fn get_merge_instance(&self) -> Result<Option<Self>>
+  fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>>
   where
     Self: Sized,
   {
@@ -62,6 +64,7 @@ impl<T> NormsProducer for Arc<T>
 where
   T: NormsProducer,
 {
+  type MergeInstance = Arc<T::MergeInstance>;
   type NumericDocValues = T::NumericDocValues;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -72,7 +75,7 @@ where
     (**self).check_integrity()
   }
 
-  fn get_merge_instance(&self) -> Result<Option<Self>>
+  fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>>
   where
     Self: Sized,
   {
@@ -84,8 +87,23 @@ where
   }
 }
 
+impl<T: NormsProducer> NormsProducer for &T {
+  type NumericDocValues = T::NumericDocValues;
+  type MergeInstance = T::MergeInstance;
+  fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    (**self).get_norms(field)
+  }
+  fn check_integrity(&self) -> Result<()> {
+    (**self).check_integrity()
+  }
+  fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>> {
+    (**self).get_merge_instance()
+  }
+}
+
 macro_rules! either_normsproducer {
     ($vis:vis $name:ident { A: $A:ident, B: $B:ident $(,)? }) => {
+        #[derive(Clone)]
         $vis enum $name<$A, $B> {
             A($A),
             B($B),
@@ -96,6 +114,7 @@ macro_rules! either_normsproducer {
             $A: NormsProducer,
             $B: NormsProducer,
         {
+            type MergeInstance = $name<$A::MergeInstance, $B::MergeInstance>;
             type NumericDocValues =
                 NumericDocValuesEnum2<$A::NumericDocValues, $B::NumericDocValues>;
 
@@ -113,17 +132,17 @@ macro_rules! either_normsproducer {
                 }
             }
 
-            fn get_merge_instance(&self) -> Result<Option<Self>>
+            fn get_merge_instance(&self) -> Result<Option<Self::MergeInstance>>
             where
                 Self: Sized,
             {
                 match self {
                     Self::A(inner) => match inner.get_merge_instance()? {
-                        Some(instance) => Ok(Some(Self::A(instance))),
+                        Some(instance) => Ok(Some($name::A(instance))),
                         None => Ok(None),
                     },
                     Self::B(inner) => match inner.get_merge_instance()? {
-                        Some(instance) => Ok(Some(Self::B(instance))),
+                        Some(instance) => Ok(Some($name::B(instance))),
                         None => Ok(None),
                     },
                 }
