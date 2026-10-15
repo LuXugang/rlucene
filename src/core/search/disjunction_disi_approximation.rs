@@ -18,7 +18,6 @@ use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct DisjunctionDISIApproximation<S> {
@@ -138,7 +137,7 @@ where
 
     loop {
       let top = &mut self.all_scores[top_idx];
-      let v = ScorerUtil::next_doc(&mut top.scorer)?;
+      let v = top.scorer.approx_next_doc()?;
       top.doc = v;
       top_idx = self.sub_iterators.update_top(&self.all_scores);
       #[cfg(debug_assertions)]
@@ -154,7 +153,7 @@ where
     let mut top_idx = self.top_idx();
     loop {
       let top = &mut self.all_scores[top_idx];
-      let v = ScorerUtil::advance(&mut top.scorer, target)?;
+      let v = top.scorer.approx_advance(target)?;
       top.doc = v;
       top_idx = self.sub_iterators.update_top(&self.all_scores);
       #[cfg(debug_assertions)]

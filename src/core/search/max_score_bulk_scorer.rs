@@ -22,7 +22,6 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::util::CoreHelper;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
@@ -185,7 +184,7 @@ where
     {
       let top = &mut self.all_scorers[top_index];
       if top.doc < filter_doc {
-        let v = ScorerUtil::advance(&mut top.scorer, filter_doc)?;
+        let v = top.scorer.approx_advance(filter_doc)?;
         top.doc = v;
       }
     }
@@ -198,7 +197,7 @@ where
       debug_assert!(filter.doc <= top_doc);
 
       if filter.doc < top_doc {
-        let v = ScorerUtil::advance(&mut filter.scorer, top_doc)?;
+        let v = filter.scorer.approx_advance(top_doc)?;
         filter.doc = v;
       }
 

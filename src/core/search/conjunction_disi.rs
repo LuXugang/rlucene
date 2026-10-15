@@ -21,7 +21,6 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
-use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::array_util::ArrayUtil;
@@ -727,23 +726,23 @@ where
   S: Scorer,
 {
   fn doc_id(&self) -> i32 {
-    ScorerUtil::doc_id(&self.scorer)
+    self.scorer.approx_doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    ScorerUtil::next_doc(&mut self.scorer)
+    self.scorer.approx_next_doc()
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    ScorerUtil::advance(&mut self.scorer, target)
+    self.scorer.approx_advance(target)
   }
 
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    ScorerUtil::slow_advance(&mut self.scorer, target)
+    self.scorer.approx_slow_advance(target)
   }
 
   fn cost(&self) -> Result<i64> {
-    ScorerUtil::cost(&self.scorer)
+    self.scorer.approx_cost()
   }
 }
 

@@ -35,7 +35,6 @@ use crate::core::search::matches_utils::MatchWithNoTerms;
 use crate::core::search::query::{Query, QueryWeight, QueryWeightMatches};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
-use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -525,7 +524,7 @@ where
     // The scorer has an approximation, so run the approximation first, then check acceptDocs,
     // then confirm
     loop {
-      let doc = ScorerUtil::next_doc(scorer)?;
+      let doc = scorer.approx_next_doc()?;
       if doc == NO_MORE_DOCS {
         break;
       }
@@ -604,7 +603,7 @@ where
           competitive_doc = competitive_iterator.advance(doc)?;
         }
         if competitive_doc != doc {
-          doc = ScorerUtil::advance(scorer, competitive_doc)?;
+          doc = scorer.approx_advance(competitive_doc)?;
           continue;
         }
       }
@@ -618,7 +617,7 @@ where
           collector.collect(doc, scorer)?;
         }
       }
-      doc = ScorerUtil::next_doc(scorer)?;
+      doc = scorer.approx_next_doc()?;
     }
   }
 

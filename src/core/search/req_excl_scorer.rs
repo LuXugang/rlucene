@@ -24,7 +24,6 @@ use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::TwoPhaseState::Yes;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::{
   TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
 };
@@ -284,12 +283,12 @@ where
   S2: Scorer,
 {
   fn matches(&mut self) -> Result<bool> {
-    let doc = ScorerUtil::doc_id(&self.req_scorer);
+    let doc = self.req_scorer.approx_doc_id();
     // check if the doc is not excluded
     {
-      let mut excl_doc = ScorerUtil::doc_id(&self.excl_scorer);
+      let mut excl_doc = self.excl_scorer.approx_doc_id();
       if excl_doc < doc {
-        excl_doc = ScorerUtil::advance(&mut self.excl_scorer, doc)?;
+        excl_doc = self.excl_scorer.approx_advance(doc)?;
       }
       if excl_doc != doc {
         return self.req_scorer.matches();
@@ -381,7 +380,7 @@ where
   S2: Scorer,
 {
   fn matches(&mut self) -> Result<bool> {
-    let doc = ScorerUtil::doc_id(&self.req_scorer);
+    let doc = self.req_scorer.approx_doc_id();
 
     // check if doc is excluded
     {
@@ -438,8 +437,8 @@ where
   };
   // upper value for the ratio of documents that reqApproximation matches that
   // exclApproximation also matches
-  let req_cost = ScorerUtil::cost(req_scorer)?;
-  let excl_cost = ScorerUtil::cost(excl_scorer)?;
+  let req_cost = req_scorer.approx_cost()?;
+  let excl_cost = excl_scorer.approx_cost()?;
 
   let ratio = if req_cost <= 0 {
     1.0
