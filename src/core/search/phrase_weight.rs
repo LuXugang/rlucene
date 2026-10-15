@@ -30,6 +30,7 @@ use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::phrase_scorer::PhraseScorer;
 use crate::core::search::query::{Query, QueryBase, QueryWeightMatchesIterator};
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
   SimScorer, SimScorerEnum2, Similarity, SimilarityEnum,
@@ -40,10 +41,19 @@ use std::sync::Arc;
 
 pub type SimScorerType = SimScorerEnum2<<SimilarityEnum as Similarity>::SimScorer, SimScorerImpl>;
 
-pub type PhraseWeightScorer<S, IRC> = PhraseScorer<
-  <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>,
-  <S as PhraseWeightBase>::SimScorer,
-  LRNormNumericDocValues<IRCLeafReader<IRC>>,
+pub type PhraseWeightScorer<S, IRC> = ScorerEnum2<
+  PhraseScorer<
+    <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>,
+    <S as PhraseWeightBase>::SimScorer,
+    LRNormNumericDocValues<IRCLeafReader<IRC>>,
+    true,
+  >,
+  PhraseScorer<
+    <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>,
+    <S as PhraseWeightBase>::SimScorer,
+    LRNormNumericDocValues<IRCLeafReader<IRC>>,
+    false,
+  >,
 >;
 
 pub type PhraseMatcherResult<IE, SS> = Result<Option<PhraseMatcherEnum<IE, SS>>>;
@@ -244,12 +254,12 @@ where
         } else {
           None
         };
-        let scorer: PhraseWeightScorer<S, IRC> = PhraseScorer::new(
-          matcher,
-          self.sub.base().score_mode,
-          self.stats.clone(),
-          norms,
-        );
+        let scorer: PhraseWeightScorer<S, IRC> =
+          if self.sub.base().score_mode == ScoreMode::TopScores {
+            ScorerEnum2::A(PhraseScorer::new(matcher, self.stats.clone(), norms))
+          } else {
+            ScorerEnum2::B(PhraseScorer::new(matcher, self.stats.clone(), norms))
+          };
         Ok(Some(DefaultScorerSupplier::new(scorer)))
       },
       None => Ok(None),

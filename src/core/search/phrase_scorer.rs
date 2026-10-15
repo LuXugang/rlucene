@@ -17,11 +17,10 @@
 
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::conjunction_disi::ConjunctionDISIEnum;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::scorable::Scorable;
-use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::score_mode::ScoreMode::TopScores;
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -32,33 +31,31 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use std::any::Any;
-pub type Disi<IE, SS, N> = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<IE, SS, N>>;
-pub struct PhraseScorer<IE, SS, N> {
-  pub(crate) disi: Disi<IE, SS, N>,
+pub type Disi<IE, SS, N, const TOP_SCORES: bool = false> =
+  TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>>;
+pub struct PhraseScorer<IE, SS, N, const TOP_SCORES: bool = false> {
+  pub(crate) disi: Disi<IE, SS, N, TOP_SCORES>,
 }
-impl<IE, SS, N> PhraseScorer<IE, SS, N>
+impl<IE, SS, N, const TOP_SCORES: bool> PhraseScorer<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum,
   SS: SimScorer,
   N: NumericDocValues,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
-  pub(crate) fn new(
-    matcher: PhraseMatcherEnum<IE, SS>,
-    score_mode: ScoreMode,
-    sim_scorer: SS,
-    norms: Option<N>,
-  ) -> Self {
-    let v = TwoPhaseIteratorImpl::new(matcher, score_mode, sim_scorer, norms);
+  pub(crate) fn new(matcher: PhraseMatcherEnum<IE, SS>, sim_scorer: SS, norms: Option<N>) -> Self {
+    let v = TwoPhaseIteratorImpl::new(matcher, sim_scorer, norms);
     let disi = TwoPhaseIteratorAsDocIdSetIterator::new(v);
     Self { disi }
   }
 }
 
-impl<IE, SS, N> Scorable for PhraseScorer<IE, SS, N>
+impl<IE, SS, N, const TOP_SCORES: bool> Scorable for PhraseScorer<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
   type Child<'a>
     = crate::core::search::dummy::dummy_scorable::DummyScorable
@@ -110,13 +107,17 @@ where
   }
 }
 
-impl<IE, SS, N> crate::core::search::scorable::FixedScore for PhraseScorer<IE, SS, N> {}
+impl<IE, SS, N, const TOP_SCORES: bool> crate::core::search::scorable::FixedScore
+  for PhraseScorer<IE, SS, N, TOP_SCORES>
+{
+}
 
-impl<IE, SS, N> DocIdSetIterator for PhraseScorer<IE, SS, N>
+impl<IE, SS, N, const TOP_SCORES: bool> DocIdSetIterator for PhraseScorer<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
   fn doc_id(&self) -> i32 {
     DocIdSetIterator::doc_id(&self.disi)
@@ -134,44 +135,49 @@ where
     DocIdSetIterator::cost(&self.disi)
   }
 }
-impl<IE, SS, N> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for PhraseScorer<IE, SS, N>
+impl<IE, SS, N, const TOP_SCORES: bool>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for PhraseScorer<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
 }
-impl<IE, SS, N> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for PhraseScorer<IE, SS, N>
+impl<IE, SS, N, const TOP_SCORES: bool>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for PhraseScorer<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
 }
-impl<IE, SS, N> Scorer for PhraseScorer<IE, SS, N>
+impl<IE, SS, N, const TOP_SCORES: bool> Scorer for PhraseScorer<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
-  type Iterator = Disi<IE, SS, N>;
-  type OwnedTwoPhase = TwoPhaseIteratorImpl<IE, SS, N>;
+  type Iterator = Disi<IE, SS, N, TOP_SCORES>;
+  type OwnedTwoPhase = TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>;
   type ApproximationRef<'a>
-    = <TwoPhaseIteratorImpl<IE, SS, N> as TwoPhaseIterator>::ApproximationRef<'a>
+    = <TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES> as TwoPhaseIterator>::ApproximationRef<'a>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = <TwoPhaseIteratorImpl<IE, SS, N> as TwoPhaseIterator>::ApproximationMut<'a>
+    = <TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES> as TwoPhaseIterator>::ApproximationMut<'a>
   where
     Self: 'a;
   type TwoPhaseRef<'a>
-    = &'a TwoPhaseIteratorImpl<IE, SS, N>
+    = &'a TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>
   where
     Self: 'a;
   type TwoPhaseMut<'a>
-    = &'a mut TwoPhaseIteratorImpl<IE, SS, N>
+    = &'a mut TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>
   where
     Self: 'a;
 
@@ -240,27 +246,21 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl<IE, SS, N> {
+pub struct TwoPhaseIteratorImpl<IE, SS, N, const TOP_SCORES: bool = false> {
   pub(crate) matcher: PhraseMatcherEnum<IE, SS>,
   sim_scorer: SS,
   norms: Option<N>,
   match_cost: f32,
   freq: f32,
   min_competitive_score: f32,
-  score_mode: ScoreMode,
 }
-impl<IE, SS, N> TwoPhaseIteratorImpl<IE, SS, N>
+impl<IE, SS, N, const TOP_SCORES: bool> TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum,
   SS: SimScorer,
   N: NumericDocValues,
 {
-  fn new(
-    matcher: PhraseMatcherEnum<IE, SS>,
-    score_mode: ScoreMode,
-    sim_scorer: SS,
-    norms: Option<N>,
-  ) -> Self {
+  fn new(matcher: PhraseMatcherEnum<IE, SS>, sim_scorer: SS, norms: Option<N>) -> Self {
     let match_cost = matcher.get_match_cost();
     Self {
       matcher,
@@ -269,62 +269,95 @@ where
       match_cost,
       freq: 0.0,
       min_competitive_score: 0.0,
-      score_mode,
     }
   }
 
-  fn doc_id(&self) -> i32 {
+  fn doc_id(&self) -> i32
+  where
+    Self: TwoPhaseIterator,
+  {
     self.approximation().doc_id()
   }
 }
-impl<IE, SS, N> TwoPhaseIterator for TwoPhaseIteratorImpl<IE, SS, N>
-where
-  IE: ImpactsEnum,
-  SS: SimScorer,
-  N: NumericDocValues,
-{
-  type ApproximationRef<'a>
-    = crate::core::search::phrase_matcher::PhraseApproximationRef<'a, IE, SS>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = crate::core::search::phrase_matcher::PhraseApproximationMut<'a, IE, SS>
-  where
-    Self: 'a;
+macro_rules! impl_two_phase_iterator {
+  ($top_scores:literal, ($ie:ident, $ss:ident, $n:ident, $a:lifetime), $approximation_ref:ty, $approximation_mut:ty,
+   $this:ident, $get_ref:block, $get_mut:block) => {
+    impl<$ie, $ss, $n> TwoPhaseIterator for TwoPhaseIteratorImpl<$ie, $ss, $n, $top_scores>
+    where
+      $ie: ImpactsEnum,
+      $ss: SimScorer,
+      $n: NumericDocValues,
+    {
+      type ApproximationRef<$a> = $approximation_ref where Self: $a;
+      type ApproximationMut<$a> = $approximation_mut where Self: $a;
+      fn approximation(&$this) -> Self::ApproximationRef<'_> $get_ref
+      fn approximation_mut(&mut $this) -> Self::ApproximationMut<'_> $get_mut
+      fn matches(&mut self) -> Result<bool> {
+        self.matcher.reset()?;
 
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.matcher.approximation_mut()
-  }
+        if $top_scores && self.min_competitive_score > 0.0 {
+          let max_freq = self.matcher.max_freq()?;
 
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.matcher.approximation()
-  }
+          let mut norm: i64 = 1;
+          let doc_id = self.doc_id();
+          if let Some(norms) = self.norms.as_mut()
+            && norms.advance_exact(doc_id)?
+          {
+            norm = norms.long_value()?;
+          }
 
-  fn matches(&mut self) -> Result<bool> {
-    self.matcher.reset()?;
+          if self.sim_scorer.score(max_freq, norm) < self.min_competitive_score {
+            // The maximum score we could get is less than the min competitive score
+            return Ok(false);
+          }
+        }
 
-    if self.score_mode == TopScores && self.min_competitive_score > 0.0 {
-      let max_freq = self.matcher.max_freq()?;
-
-      let mut norm: i64 = 1;
-      let doc_id = self.doc_id();
-      if let Some(norms) = self.norms.as_mut()
-        && norms.advance_exact(doc_id)?
-      {
-        norm = norms.long_value()?;
+        self.freq = 0.0;
+        self.matcher.next_match()
       }
 
-      if self.sim_scorer.score(max_freq, norm) < self.min_competitive_score {
-        // The maximum score we could get is less than the min competitive score
-        return Ok(false);
+      fn match_cost(&self) -> f32 {
+        self.match_cost
       }
     }
-
-    self.freq = 0.0;
-    self.matcher.next_match()
-  }
-
-  fn match_cost(&self) -> f32 {
-    self.match_cost
-  }
+  };
 }
+
+impl_two_phase_iterator!(
+  false,
+  (IE, SS, N, 'a),
+  &'a ConjunctionDISIEnum<IE>,
+  &'a mut ConjunctionDISIEnum<IE>,
+  self,
+  {
+    match &self.matcher {
+      PhraseMatcherEnum::Exact(m) => m.approximation(),
+      PhraseMatcherEnum::Sloppy(m) => m.approximation(),
+    }
+  },
+  {
+    match &mut self.matcher {
+      PhraseMatcherEnum::Exact(m) => m.approximation_mut(),
+      PhraseMatcherEnum::Sloppy(m) => m.approximation_mut(),
+    }
+  }
+);
+impl_two_phase_iterator!(
+  true,
+  (IE, SS, N, 'a),
+  crate::core::search::phrase_matcher::PhraseApproximationRef<'a, IE, SS>,
+  crate::core::search::phrase_matcher::PhraseApproximationMut<'a, IE, SS>,
+  self,
+  {
+    match &self.matcher {
+      PhraseMatcherEnum::Exact(m) => DocIdSetIteratorEnum2::A(m.approximation_top_scorers()),
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIteratorEnum2::B(m.approximation()),
+    }
+  },
+  {
+    match &mut self.matcher {
+      PhraseMatcherEnum::Exact(m) => DocIdSetIteratorEnum2::A(m.approximation_top_scorers_mut()),
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIteratorEnum2::B(m.approximation_mut()),
+    }
+  }
+);

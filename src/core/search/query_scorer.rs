@@ -331,8 +331,10 @@ scorer_nodes! {
     SynonymTerm: crate::core::search::synonym_query::SynonymTermScorer<ST>,
     BoostedSynonymTerm: crate::core::search::synonym_query::FreqBoostTermScorer<ST>,
 
-    Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
-    MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm>,
+    Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, false>,
+    PhraseTop: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, true>,
+    MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, false>,
+    MultiPhraseTop: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, true>,
     SpatialSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
     SpatialSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
     CachedSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<lru_query_cache::CacheAndCountDISI>>,

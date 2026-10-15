@@ -72,18 +72,6 @@ where
   IE: ImpactsEnum,
   SS: SimScorer,
 {
-  pub(crate) fn approximation(&self) -> PhraseApproximationRef<'_, IE, SS> {
-    match self {
-      PhraseMatcherEnum::Exact(m) => {
-        if m.score_mode == TopScores {
-          DocIdSetIteratorEnum2::A(m.approximation_top_scorers())
-        } else {
-          DocIdSetIteratorEnum2::B(m.approximation())
-        }
-      },
-      PhraseMatcherEnum::Sloppy(m) => DocIdSetIteratorEnum2::B(m.approximation()),
-    }
-  }
   pub(crate) fn approximation_mut(&mut self) -> PhraseApproximationMut<'_, IE, SS> {
     match self {
       PhraseMatcherEnum::Exact(m) => {
