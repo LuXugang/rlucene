@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::test_framework::core::search::test_scorer::TestScorer;
 
 use crate::core::document::document::Document;
@@ -707,37 +712,66 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.disi)
   }
 }
+impl<IRC, SIM> ApproximationDISI for SlowMinShouldMatchScorer<IRC, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  IRC: IndexReaderContext + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.disi })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.disi })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.disi })
+  }
+}
+impl<IRC, SIM> ApproximationBitSetAccess for SlowMinShouldMatchScorer<IRC, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  IRC: IndexReaderContext + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.disi })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.disi }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.disi }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.disi })
+  }
+}
+
+impl<IRC, SIM> TwoPhaseIterator for SlowMinShouldMatchScorer<IRC, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  IRC: IndexReaderContext + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
 impl<IRC, SIM> Scorer for SlowMinShouldMatchScorer<IRC, SIM>
 where
   SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Iterator = DocIdSetIteratorImpl<IRC, SIM>;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl<IRC, SIM>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl<IRC, SIM>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.current_doc)
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let SlowMinShouldMatchScorer { disi } = self;
-    disi
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -746,14 +780,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.disi
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.disi
   }
 }
 

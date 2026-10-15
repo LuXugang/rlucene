@@ -96,7 +96,7 @@ fn test_use_index_for_selective_queries() -> Result<()> {
   let w1 = searcher.create_weight(rewritten_q1, ScoreMode::Complete, 1.0)?;
   let leaves = searcher.get_leaf_contexts()?;
   let s1 = w1.scorer(&leaves[0], &searcher)?.unwrap();
-  assert!(s1.two_phase_iterator().is_some()); // means we use doc values
+  assert!(s1.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes); // means we use doc values
 
   // The term query is less selective, so the IndexOrDocValuesQuery should use points
   let mut q2 = Builder::new();
@@ -117,7 +117,7 @@ fn test_use_index_for_selective_queries() -> Result<()> {
   let s2 = w2
     .scorer(&leaves[0], &searcher)?
     .ok_or_else(|| LuceneError::illegal_state("scorer is None"))?;
-  assert!(s2.two_phase_iterator().is_none()); // means we use points
+  assert!(s2.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::No); // means we use points
 
   searcher.get_index_reader().close()?;
   writer.close()?;
@@ -176,7 +176,7 @@ fn test_use_index_for_selective_multi_value_queries() -> Result<()> {
   let w1 = searcher.create_weight(rewritten_q1, ScoreMode::Complete, 1.0)?;
   let leaves = searcher.get_leaf_contexts()?;
   let s1 = w1.scorer(&leaves[0], &searcher)?.unwrap();
-  assert!(s1.two_phase_iterator().is_none()); // means we use points
+  assert!(s1.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::No); // means we use points
 
   // The term query is less selective, so the IndexOrDocValuesQuery should use points
   let mut q2 = Builder::new();
@@ -195,7 +195,7 @@ fn test_use_index_for_selective_multi_value_queries() -> Result<()> {
   let rewritten_q2 = searcher.rewrite(q2)?;
   let w2 = searcher.create_weight(rewritten_q2, ScoreMode::Complete, 1.0)?;
   let s2 = w2.scorer(&leaves[0], &searcher)?.unwrap();
-  assert!(s2.two_phase_iterator().is_none()); // means we use points
+  assert!(s2.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::No); // means we use points
 
   // The term query is more selective, so the IndexOrDocValuesQuery should use doc values
   let mut q3 = Builder::new();
@@ -214,7 +214,7 @@ fn test_use_index_for_selective_multi_value_queries() -> Result<()> {
   let rewritten_q3 = searcher.rewrite(q3)?;
   let w3 = searcher.create_weight(rewritten_q3, ScoreMode::Complete, 1.0)?;
   let s3 = w3.scorer(&leaves[0], &searcher)?.unwrap();
-  assert!(s3.two_phase_iterator().is_some()); // means we use doc values
+  assert!(s3.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes); // means we use doc values
 
   searcher.get_index_reader().close()?;
   writer.close()?;

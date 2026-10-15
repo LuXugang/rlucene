@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -194,52 +197,62 @@ where
   S: Scorer + 'static,
 {
 }
+impl<S, const TOP_SCORES: bool> ApproximationDISI for WANDScorer<S, TOP_SCORES>
+where
+  S: Scorer + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.disi.two_phase_iterator.approx_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.disi.two_phase_iterator.approx_cost()
+  }
+}
+impl<S, const TOP_SCORES: bool> ApproximationBitSetAccess for WANDScorer<S, TOP_SCORES>
+where
+  S: Scorer + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.disi.two_phase_iterator.approx_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.disi.two_phase_iterator.approx_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.disi.two_phase_iterator.approx_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.disi.two_phase_iterator.approx_bit_set_length()
+  }
+}
+
+impl<S, const TOP_SCORES: bool> TwoPhaseIterator for WANDScorer<S, TOP_SCORES>
+where
+  S: Scorer + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    self.disi.two_phase_iterator.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.disi.two_phase_iterator.match_cost()
+  }
+}
+
 impl<S, const TOP_SCORES: bool> Scorer for WANDScorer<S, TOP_SCORES>
 where
   S: Scorer + 'static,
 {
-  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S, TOP_SCORES>>;
-  type OwnedTwoPhase = TwoPhaseIteratorImpl<S, TOP_SCORES>;
-  type ApproximationRef<'a>
-    = <TwoPhaseIteratorImpl<S, TOP_SCORES> as TwoPhaseIterator>::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = <TwoPhaseIteratorImpl<S, TOP_SCORES> as TwoPhaseIterator>::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a TwoPhaseIteratorImpl<S, TOP_SCORES>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut TwoPhaseIteratorImpl<S, TOP_SCORES>
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.approximation.doc)
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let WANDScorer { disi, .. } = self;
-    disi
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    Some(&self.disi.two_phase_iterator)
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    Some(&mut self.disi.two_phase_iterator)
-  }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
-  where
-    Self: Sized,
-  {
-    let WANDScorer { disi, .. } = self;
-    Some(disi.two_phase_iterator)
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -278,14 +291,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.disi.two_phase_iterator.approximation()
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.disi.two_phase_iterator.approximation_mut()
   }
 }
 
@@ -884,27 +889,55 @@ impl<S, const TOP_SCORES: bool> TwoPhaseIteratorImpl<S, TOP_SCORES> {
     Self { approximation }
   }
 }
+impl<S, const TOP_SCORES: bool> ApproximationDISI for TwoPhaseIteratorImpl<S, TOP_SCORES>
+where
+  S: Scorer,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.approximation.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.approximation.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.approximation.cost()
+  }
+}
+impl<S, const TOP_SCORES: bool> ApproximationBitSetAccess for TwoPhaseIteratorImpl<S, TOP_SCORES>
+where
+  S: Scorer,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.approximation.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.approximation.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.approximation.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.approximation.bit_set_length()
+  }
+}
+
 impl<S, const TOP_SCORES: bool> TwoPhaseIterator for TwoPhaseIteratorImpl<S, TOP_SCORES>
 where
   S: Scorer,
 {
-  type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl<S, TOP_SCORES>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl<S, TOP_SCORES>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.approximation
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.approximation
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let approx = &mut self.approximation;
 

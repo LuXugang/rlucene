@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::Result;
@@ -71,35 +70,35 @@ impl ScorerUtil {
   where
     T: Scorer,
   {
-    s.approximation().doc_id()
+    s.approx_doc_id()
   }
   #[inline]
   pub fn next_doc<T>(s: &mut T) -> Result<i32>
   where
     T: Scorer,
   {
-    s.approximation_mut().next_doc()
+    s.approx_next_doc()
   }
   #[inline]
   pub fn advance<T>(s: &mut T, target: i32) -> Result<i32>
   where
     T: Scorer,
   {
-    s.approximation_mut().advance(target)
+    s.approx_advance(target)
   }
   #[inline]
   pub fn slow_advance<T>(s: &mut T, target: i32) -> Result<i32>
   where
     T: Scorer,
   {
-    s.approximation_mut().slow_advance(target)
+    s.approx_slow_advance(target)
   }
   #[inline]
   pub fn cost<T>(s: &T) -> Result<i64>
   where
     T: Scorer,
   {
-    s.approximation().cost()
+    s.approx_cost()
   }
 }
 struct MaxCostCmp;

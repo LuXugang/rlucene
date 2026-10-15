@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::collector::Collector;
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -30,6 +33,7 @@ use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::top_docs_collector::TopDocsCollector;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
@@ -87,34 +91,51 @@ impl Scorable for SimpleScorer {
   }
 }
 
-impl Scorer for SimpleScorer {
-  type Iterator = OwnedSimpleScorerIterator;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
+impl ApproximationDISI for SimpleScorer {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
 
+impl ApproximationBitSetAccess for SimpleScorer {
+  fn approx_is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+
+impl TwoPhaseIterator for SimpleScorer {
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
+impl Scorer for SimpleScorer {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.idx.get())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    OwnedSimpleScorerIterator {
-      idx: self.idx.get(),
-    }
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -123,14 +144,6 @@ impl Scorer for SimpleScorer {
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self
   }
 }
 
@@ -160,46 +173,6 @@ impl DocIdSetIterator for SimpleScorer {
     } else {
       Ok(NO_MORE_DOCS)
     }
-  }
-
-  fn cost(&self) -> Result<i64> {
-    Ok(SCORES.len() as i64)
-  }
-}
-
-struct OwnedSimpleScorerIterator {
-  idx: i32,
-}
-
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for OwnedSimpleScorerIterator
-{
-}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for OwnedSimpleScorerIterator {}
-
-impl DocIdSetIterator for OwnedSimpleScorerIterator {
-  fn doc_id(&self) -> i32 {
-    self.idx
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    let next = self.idx + 1;
-    if next == SCORES_LEN {
-      self.idx = NO_MORE_DOCS;
-      Ok(NO_MORE_DOCS)
-    } else {
-      self.idx = next;
-      Ok(next)
-    }
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.idx = if target < SCORES_LEN {
-      target
-    } else {
-      NO_MORE_DOCS
-    };
-    Ok(self.idx)
   }
 
   fn cost(&self) -> Result<i64> {

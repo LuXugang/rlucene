@@ -16,10 +16,10 @@
  */
 
 //! Built-in bulk scoring with concrete collectors across recursive query nodes.
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::boolean_scorer_supplier::BulkScorerImpl;
 use crate::core::search::bulk_scorer::{BulkScorer, BulkScorerEnum2};
 use crate::core::search::constant_score_query::{ConstantBulkScorer, FilterScorableImpl};
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::query_scorer::{
@@ -88,13 +88,13 @@ macro_rules! bulk_nodes {
           BulkNode::Disabled(inner) => inner.score_internal(collector, accept_docs, min, max, overlay.with_disabled()),
           BulkNode::RequiredExcluded { required, excluded } => {
             let mut upto = min;
-            let mut excluded_doc = excluded.approximation().doc_id();
+            let mut excluded_doc = excluded.approx_doc_id();
             while upto < max {
-              if excluded_doc < upto { excluded_doc = excluded.approximation_mut().advance(upto)?; }
+              if excluded_doc < upto { excluded_doc = excluded.approx_advance(upto)?; }
               if excluded_doc == upto {
-                let is_excluded = match excluded.two_phase_iterator_mut() { None => true, Some(mut iterator) => iterator.matches()? };
+                let is_excluded = excluded.matches()?;
                 if is_excluded { upto += 1; }
-                excluded_doc = excluded.approximation_mut().next_doc()?;
+                excluded_doc = excluded.approx_next_doc()?;
               } else {
                 upto = required.score_internal(collector, accept_docs, upto, excluded_doc.min(max), overlay)?;
               }

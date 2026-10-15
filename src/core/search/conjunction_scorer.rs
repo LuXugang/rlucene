@@ -15,15 +15,19 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::conjunction_disi::{
   BitSetConjunctionDISI, ConjunctionDISI, ConjunctionDISIEnum, ConjunctionScorers,
   ConjunctionTwoPhaseIterator, ScorerDisi,
 };
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum4};
 use crate::core::search::scorable::{ChildScorable, Scorable};
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::two_phase_iterator::TwoPhaseIteratorAsDocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
 
@@ -47,7 +51,7 @@ impl<S: Scorer> ConjunctionScorer<ConjunctionDISIEnum<ScorerDisi<S>>> {
     debug_assert!({ scorers.iter().all(|v| *v < required.len()) });
     let mut has_tpi = false;
     for v in required.iter() {
-      if v.two_phase_iterator().is_some() {
+      if v.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
         has_tpi = true;
         break;
       }
@@ -84,17 +88,25 @@ impl<C: ConjunctionScorers>
 /// Access to the conjunction owned by the selected iterator.
 #[doc(hidden)]
 pub trait ConjunctionState: DocIdSetIterator + 'static {
+  fn match_cost(&self) -> f32;
+
+  fn matches(&mut self) -> Result<bool>;
+
   type Conjunction: ConjunctionScorers + 'static;
   fn conjunction(&self) -> &Self::Conjunction;
   fn conjunction_mut(&mut self) -> &mut Self::Conjunction;
-  fn two_phase_iterator(&self) -> Option<&ConjunctionTwoPhaseIterator<Self::Conjunction>>;
-  fn two_phase_iterator_mut(
-    &mut self,
-  ) -> Option<&mut ConjunctionTwoPhaseIterator<Self::Conjunction>>;
-  fn take_two_phase_iterator(self) -> Option<ConjunctionTwoPhaseIterator<Self::Conjunction>>;
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
 impl<S: Scorer + 'static> ConjunctionState for ConjunctionDISI<ScorerDisi<S>> {
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+
   type Conjunction = Self;
   fn conjunction(&self) -> &Self {
     self
@@ -102,20 +114,20 @@ impl<S: Scorer + 'static> ConjunctionState for ConjunctionDISI<ScorerDisi<S>> {
   fn conjunction_mut(&mut self) -> &mut Self {
     self
   }
-  fn two_phase_iterator(&self) -> Option<&ConjunctionTwoPhaseIterator<Self>> {
-    None
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut ConjunctionTwoPhaseIterator<Self>> {
-    None
-  }
-  fn take_two_phase_iterator(self) -> Option<ConjunctionTwoPhaseIterator<Self>> {
-    None
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
   }
 }
 impl<S: Scorer + 'static> ConjunctionState for BitSetConjunctionDISI<ScorerDisi<S>> {
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+
   type Conjunction = Self;
   fn conjunction(&self) -> &Self {
     self
@@ -123,15 +135,7 @@ impl<S: Scorer + 'static> ConjunctionState for BitSetConjunctionDISI<ScorerDisi<
   fn conjunction_mut(&mut self) -> &mut Self {
     self
   }
-  fn two_phase_iterator(&self) -> Option<&ConjunctionTwoPhaseIterator<Self>> {
-    None
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut ConjunctionTwoPhaseIterator<Self>> {
-    None
-  }
-  fn take_two_phase_iterator(self) -> Option<ConjunctionTwoPhaseIterator<Self>> {
-    None
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
   }
@@ -139,6 +143,14 @@ impl<S: Scorer + 'static> ConjunctionState for BitSetConjunctionDISI<ScorerDisi<
 impl<C: ConjunctionScorers + 'static> ConjunctionState
   for TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<C>>
 {
+  fn match_cost(&self) -> f32 {
+    self.two_phase_iterator.match_cost()
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    self.two_phase_iterator.matches()
+  }
+
   type Conjunction = C;
   fn conjunction(&self) -> &C {
     &self.two_phase_iterator.approximation
@@ -146,15 +158,7 @@ impl<C: ConjunctionScorers + 'static> ConjunctionState
   fn conjunction_mut(&mut self) -> &mut C {
     &mut self.two_phase_iterator.approximation
   }
-  fn two_phase_iterator(&self) -> Option<&ConjunctionTwoPhaseIterator<C>> {
-    Some(&self.two_phase_iterator)
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut ConjunctionTwoPhaseIterator<C>> {
-    Some(&mut self.two_phase_iterator)
-  }
-  fn take_two_phase_iterator(self) -> Option<ConjunctionTwoPhaseIterator<C>> {
-    Some(self.two_phase_iterator)
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
   }
@@ -218,40 +222,52 @@ impl<D: DocIdSetIterator> crate::core::search::doc_id_set_iterator::BitSetIterat
   for ConjunctionScorer<D>
 {
 }
+impl<D: ConjunctionState> ApproximationDISI for ConjunctionScorer<D> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ self.disi.conjunction() })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { self.disi.conjunction_mut() })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { self.disi.conjunction_mut() }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { self.disi.conjunction_mut() }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ self.disi.conjunction() })
+  }
+}
+impl<D: ConjunctionState> ApproximationBitSetAccess for ConjunctionScorer<D> {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ self.disi.conjunction() })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ self.disi.conjunction() }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { self.disi.conjunction_mut() }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ self.disi.conjunction() })
+  }
+}
+
+impl<D: ConjunctionState> TwoPhaseIterator for ConjunctionScorer<D> {
+  fn matches(&mut self) -> Result<bool> {
+    self.disi.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.disi.match_cost()
+  }
+}
+
 impl<D: ConjunctionState> Scorer for ConjunctionScorer<D> {
-  type Iterator = D;
-  type OwnedTwoPhase = ConjunctionTwoPhaseIterator<D::Conjunction>;
-  type ApproximationRef<'a>
-    = &'a D::Conjunction
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut D::Conjunction
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a Self::OwnedTwoPhase
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut Self::OwnedTwoPhase
-  where
-    Self: 'a;
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc_id())
   }
-  fn take_iterator(self) -> Self::Iterator {
-    self.disi
-  }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self.disi.two_phase_iterator()
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    self.disi.two_phase_iterator_mut()
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    self.disi.take_two_phase_iterator()
-  }
+
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     if self.scoring_idx.len() == 1 {
       let i = self.scoring_idx[0];
@@ -283,12 +299,7 @@ impl<D: ConjunctionState> Scorer for ConjunctionScorer<D> {
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.disi.has_two_phase_iterator()
   }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.disi.conjunction()
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.disi.conjunction_mut()
-  }
+
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::Conjunction

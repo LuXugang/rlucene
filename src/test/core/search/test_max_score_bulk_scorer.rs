@@ -14,12 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::string_field::StringField;
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_log_merge_policy, new_searcher_with_reader,
   random,
@@ -683,33 +688,50 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FakeScor
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.disi)
   }
 }
-impl Scorer for FakeScorer {
-  type Iterator = AllDISI;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a AllDISI
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut AllDISI
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
+impl ApproximationDISI for FakeScorer {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.disi })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.disi })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.disi })
+  }
+}
+impl ApproximationBitSetAccess for FakeScorer {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.disi })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.disi }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.disi }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.disi })
+  }
+}
 
+impl TwoPhaseIterator for FakeScorer {
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
+impl Scorer for FakeScorer {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.doc_id)
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let FakeScorer { disi, .. } = self;
-    disi
   }
 
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
@@ -722,14 +744,6 @@ impl Scorer for FakeScorer {
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.disi
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.disi
   }
 }
 

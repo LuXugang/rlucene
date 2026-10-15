@@ -16,7 +16,6 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorer::Scorer;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[derive(Default)]
 pub struct DisiWrapper<S> {
@@ -35,12 +34,9 @@ impl<S> DisiWrapper<S>
 where
   S: Scorer,
 {
-  pub fn new(mut scorer: S) -> Result<Self> {
+  pub fn new(scorer: S) -> Result<Self> {
     let cost = DocIdSetIterator::cost(&scorer)?;
-    let match_cost = match scorer.two_phase_iterator_mut() {
-      Some(tpi) => tpi.match_cost(),
-      None => 0.0,
-    };
+    let match_cost = scorer.match_cost();
     Ok(Self {
       scorer,
       next: None,
@@ -53,17 +49,14 @@ where
   }
 
   pub fn matches(&mut self) -> Result<bool> {
-    match self.scorer.two_phase_iterator_mut() {
-      Some(mut tpi) => tpi.matches(),
-      None => Err(LuceneError::illegal_state(
+    if self.scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::No {
+      return Err(LuceneError::illegal_state(
         "this scorer does not support two-phase iteration",
-      )),
+      ));
     }
+    self.scorer.matches()
   }
   pub fn matches_may_none(&mut self) -> Result<bool> {
-    match self.scorer.two_phase_iterator_mut() {
-      Some(mut tpi) => tpi.matches(),
-      None => Ok(true),
-    }
+    self.scorer.matches()
   }
 }

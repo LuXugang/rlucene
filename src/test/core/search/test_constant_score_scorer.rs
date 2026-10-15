@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::constant_score_scorer::{
   ConstantScoreDisiScorer, ConstantScoreTwoPhaseScorer,
 };
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 
 use crate::test_framework::core::search::test_scorer::TestScorer;
 
@@ -294,15 +297,11 @@ impl TestConstantScoreScorerIndex {
     let has_tpi = scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
     if has_tpi {
       Ok(ScorerEnum2::A(ConstantScoreScorer::from_tpi(
-        score,
-        score_mode,
-        scorer.take_two_phase_iterator().unwrap(),
+        score, score_mode, scorer,
       )))
     } else {
       Ok(ScorerEnum2::B(ConstantScoreScorer::from_disi(
-        score,
-        score_mode,
-        scorer.take_iterator(),
+        score, score_mode, scorer,
       )))
     }
   }
@@ -380,24 +379,55 @@ type ConcreteQueryScorer<
 >;
 type Scorers<SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity> =
   ScorerEnum2<
-    ConstantScoreTwoPhaseScorer<<ConcreteQueryScorer<SIM> as Scorer>::OwnedTwoPhase>,
-    ConstantScoreDisiScorer<<ConcreteQueryScorer<SIM> as Scorer>::Iterator>,
+    ConstantScoreTwoPhaseScorer<ConcreteQueryScorer<SIM>>,
+    ConstantScoreDisiScorer<ConcreteQueryScorer<SIM>>,
   >;
 
 struct EvenDocs {
   approximation: crate::core::search::doc_id_set_iterator::AllDISI,
 }
 
-impl TwoPhaseIterator for EvenDocs {
-  type ApproximationRef<'a> = &'a crate::core::search::doc_id_set_iterator::AllDISI;
-  type ApproximationMut<'a> = &'a mut crate::core::search::doc_id_set_iterator::AllDISI;
+impl ApproximationDISI for EvenDocs {
+  fn approx_doc_id(&self) -> i32 {
+    self.approximation.doc_id()
+  }
 
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.approximation
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.approximation.next_doc()
   }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.approximation
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.advance(target)
   }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.approximation.cost()
+  }
+}
+
+impl ApproximationBitSetAccess for EvenDocs {
+  fn approx_is_bit_iter(&self) -> bool {
+    self.approximation.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.approximation.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.approximation.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.approximation.bit_set_length()
+  }
+}
+
+impl TwoPhaseIterator for EvenDocs {
   fn matches(&mut self) -> Result<bool> {
     Ok(self.approximation.doc_id() % 2 == 0)
   }
@@ -425,8 +455,7 @@ fn test_concrete_owned_iterator_keeps_cursor_and_filters_candidates() -> Result<
   ] {
     let mut scorer = even_docs_scorer(mode);
     assert_eq!(0, scorer.next_doc()?);
-    let mut iterator: <ConstantScoreTwoPhaseScorer<EvenDocs> as Scorer>::Iterator =
-      scorer.take_iterator();
+    let mut iterator = scorer;
     assert_eq!(0, iterator.doc_id());
     assert_eq!(2, iterator.next_doc()?);
     assert_eq!(4, iterator.advance(3)?);
@@ -437,8 +466,6 @@ fn test_concrete_owned_iterator_keeps_cursor_and_filters_candidates() -> Result<
 
 #[test]
 fn test_concrete_owned_two_phase_keeps_approximation_and_confirmation_separate() -> Result<()> {
-  use crate::core::search::constant_score_scorer::TwoPhaseIteratorImpl;
-  use crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2;
   for mode in [
     ScoreMode::Complete,
     ScoreMode::CompleteNoScores,
@@ -446,12 +473,11 @@ fn test_concrete_owned_two_phase_keeps_approximation_and_confirmation_separate()
   ] {
     let mut scorer = even_docs_scorer(mode);
     assert_eq!(2, scorer.advance(1)?);
-    let mut iterator: TwoPhaseIteratorEnum2<EvenDocs, TwoPhaseIteratorImpl<EvenDocs>> =
-      scorer.take_two_phase_iterator().unwrap();
-    assert_eq!(2, iterator.approximation().doc_id());
-    assert_eq!(3, iterator.approximation_mut().next_doc()?);
+    let mut iterator = scorer;
+    assert_eq!(2, iterator.approx_doc_id());
+    assert_eq!(3, iterator.approx_next_doc()?);
     assert!(!iterator.matches()?);
-    assert_eq!(4, iterator.approximation_mut().next_doc()?);
+    assert_eq!(4, iterator.approx_next_doc()?);
     assert!(iterator.matches()?);
   }
   Ok(())
@@ -462,19 +488,16 @@ fn test_concrete_owned_two_phase_keeps_top_scores_termination() -> Result<()> {
   let mut scorer = even_docs_scorer(ScoreMode::TopScores);
   assert_eq!(0, scorer.next_doc()?);
   scorer.set_min_competitive_score(2.0)?;
-  let mut iterator = scorer.into_two_phase_iterator().unwrap();
-  assert_eq!(NO_MORE_DOCS, iterator.approximation_mut().next_doc()?);
+  let mut iterator = scorer;
+  assert_eq!(NO_MORE_DOCS, iterator.approx_next_doc()?);
   Ok(())
 }
 
 #[test]
 fn test_concrete_owned_transfers_through_box_and_enum_keep_cursor() -> Result<()> {
-  use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
-
   let mut scorer = Box::new(even_docs_scorer(ScoreMode::Complete));
   assert_eq!(2, scorer.advance(1)?);
-  let mut iterator: <ConstantScoreTwoPhaseScorer<EvenDocs> as Scorer>::Iterator =
-    scorer.into_iterator();
+  let mut iterator = scorer;
   assert_eq!(2, iterator.doc_id());
   assert_eq!(4, iterator.next_doc()?);
 
@@ -485,10 +508,7 @@ fn test_concrete_owned_transfers_through_box_and_enum_keep_cursor() -> Result<()
     Scorers::B(even_docs_scorer(ScoreMode::TopScores)),
   ] {
     assert_eq!(2, scorer.advance(1)?);
-    let mut iterator: DocIdSetIteratorEnum2<
-      <ConstantScoreTwoPhaseScorer<EvenDocs> as Scorer>::Iterator,
-      <ConstantScoreTwoPhaseScorer<EvenDocs> as Scorer>::Iterator,
-    > = scorer.take_iterator();
+    let mut iterator = scorer;
     assert_eq!(2, iterator.doc_id());
     assert_eq!(4, iterator.next_doc()?);
   }
@@ -499,17 +519,17 @@ fn test_concrete_owned_transfers_through_box_and_enum_keep_cursor() -> Result<()
 fn test_concrete_owned_transfers_through_dynamic_boundary_keep_cursor() -> Result<()> {
   let mut scorer: Box<dyn TestScorer> = Box::new(even_docs_scorer(ScoreMode::Complete));
   assert_eq!(2, scorer.advance(1)?);
-  let mut iterator = scorer.take_iterator();
+  let mut iterator = scorer;
   assert_eq!(2, iterator.doc_id());
   assert_eq!(4, iterator.next_doc()?);
 
   let mut scorer: Box<dyn TestScorer> = Box::new(even_docs_scorer(ScoreMode::Complete));
   assert_eq!(2, scorer.advance(1)?);
-  let mut iterator = scorer.take_two_phase_iterator().unwrap();
-  assert_eq!(2, iterator.approximation().doc_id());
-  assert_eq!(3, iterator.approximation_mut().next_doc()?);
+  let mut iterator = scorer;
+  assert_eq!(2, iterator.approx_doc_id());
+  assert_eq!(3, iterator.approx_next_doc()?);
   assert!(!iterator.matches()?);
-  assert_eq!(4, iterator.approximation_mut().next_doc()?);
+  assert_eq!(4, iterator.approx_next_doc()?);
   assert!(iterator.matches()?);
   Ok(())
 }

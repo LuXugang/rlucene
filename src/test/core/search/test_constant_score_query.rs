@@ -229,7 +229,7 @@ fn test_propagates_approximations() -> Result<()> {
   let ctx = &searcher.get_leaf_contexts()?[0];
   let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
-  assert!(scorer.two_phase_iterator().is_some());
+  assert!(scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes);
 
   Ok(())
 }

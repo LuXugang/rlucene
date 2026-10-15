@@ -14,29 +14,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyTwoPhaseIterator;
 
+impl ApproximationDISI for DummyTwoPhaseIterator {
+  fn approx_doc_id(&self) -> i32 {
+    dummy_unreachable!()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    dummy_unreachable!()
+  }
+
+  fn approx_advance(&mut self, _target: i32) -> Result<i32> {
+    dummy_unreachable!()
+  }
+
+  fn approx_slow_advance(&mut self, _target: i32) -> Result<i32> {
+    dummy_unreachable!()
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    dummy_unreachable!()
+  }
+}
+
+impl ApproximationBitSetAccess for DummyTwoPhaseIterator {
+  fn approx_is_bit_iter(&self) -> bool {
+    dummy_unreachable!()
+  }
+
+  fn approx_get(&self, _index: usize) -> Result<bool> {
+    dummy_unreachable!()
+  }
+
+  fn approx_set_doc_id(&mut self, _doc: i32) -> Result<()> {
+    dummy_unreachable!()
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    dummy_unreachable!()
+  }
+}
+
 impl TwoPhaseIterator for DummyTwoPhaseIterator {
-  type ApproximationRef<'a>
-    = &'a crate::core::search::doc_id_set_iterator::EmptyDISI
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut crate::core::search::doc_id_set_iterator::EmptyDISI
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    dummy_unreachable!()
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    dummy_unreachable!()
-  }
-
   fn matches(&mut self) -> Result<bool> {
     dummy_unreachable!()
   }

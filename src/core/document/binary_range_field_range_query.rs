@@ -26,9 +26,12 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreTwoPhaseScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
+use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIterator};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase};
@@ -294,27 +297,56 @@ impl<T> BinaryRangeFieldRangeTPI<T> {
   }
 }
 
+impl<T> ApproximationDISI for BinaryRangeFieldRangeTPI<T>
+where
+  T: BinaryDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+
+impl<T> ApproximationBitSetAccess for BinaryRangeFieldRangeTPI<T>
+where
+  T: BinaryDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<T> TwoPhaseIterator for BinaryRangeFieldRangeTPI<T>
 where
   T: BinaryDocValues,
 {
-  type ApproximationRef<'a>
-    = &'a BinaryRangeDocValues<T>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut BinaryRangeDocValues<T>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let packed_value = self.values.get_packed_value();
     self.query_type.matches(
@@ -330,6 +362,7 @@ where
     self.query_packed_value.len() as f32
   }
 }
+
 #[derive(Clone)]
 pub enum BinaryRangeFieldRangeQueryEnum {
   Double(DoubleRangeSlowRangeQuery),

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -510,7 +512,7 @@ where
         let mut has_tpi = false;
         for idx in 0..approximation.iterator_count() {
           let x = approximation.iterator_at(idx);
-          if x.two_phase_iterator().is_some() {
+          if x.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
             has_tpi = true;
             break;
           }
@@ -520,21 +522,18 @@ where
       "ConjunctionTwoPhaseIterator requires at least one TwoPhaseIterator"
     );
     let (two_phase_iterator_idx, total_match_cost) = {
-      let mut tpis = Vec::with_capacity(approximation.iterator_count());
       let mut two_phase_iterator_idx = Vec::with_capacity(approximation.iterator_count());
+      let mut total_match_cost = 0.0;
       for idx in 0..approximation.iterator_count() {
-        if let Some(tpi) = approximation.iterator_at(idx).two_phase_iterator() {
+        let scorer = approximation.iterator_at(idx);
+        if scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
           two_phase_iterator_idx.push(idx);
-          tpis.push(Some(tpi));
-        } else {
-          tpis.push(None);
+          total_match_cost += scorer.match_cost();
         }
       }
-      let mut total_match_cost = 0.0;
-      for x in tpis.iter_mut().flatten() {
-        total_match_cost += x.match_cost();
-      }
-      let cmp = TwoPhaseIteratorCmp::new(tpis.as_mut());
+      let cmp = TwoPhaseIteratorCmp {
+        approximation: &approximation,
+      };
       ArrayUtil::tim_sort_with_comparator(&mut two_phase_iterator_idx, cmp)?;
       (two_phase_iterator_idx, total_match_cost)
     };
@@ -546,40 +545,59 @@ where
     })
   }
 }
+impl<C> ApproximationDISI for ConjunctionTwoPhaseIterator<C>
+where
+  C: ConjunctionScorers,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.approximation.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.approximation.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.approximation.cost()
+  }
+}
+impl<C> ApproximationBitSetAccess for ConjunctionTwoPhaseIterator<C>
+where
+  C: ConjunctionScorers,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.approximation.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.approximation.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.approximation.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.approximation.bit_set_length()
+  }
+}
+
 impl<C> TwoPhaseIterator for ConjunctionTwoPhaseIterator<C>
 where
   C: ConjunctionScorers,
 {
-  type ApproximationRef<'a>
-    = &'a C
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut C
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.approximation
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.approximation
-  }
-
   fn matches(&mut self) -> Result<bool> {
     for idx in self.two_phase_iterator_idx.iter() {
-      match self
-        .approximation
-        .iterator_at_mut(*idx)
-        .two_phase_iterator_mut()
-      {
-        Some(ref mut tpi) => {
-          if !tpi.matches()? {
-            return Ok(false);
-          }
-        },
-        None => return Err(LuceneError::illegal_state("TwoPhaseIterator is None")),
+      if !self.approximation.iterator_at_mut(*idx).matches()? {
+        return Ok(false);
       }
     }
     Ok(true)
@@ -589,28 +607,20 @@ where
     self.match_cost
   }
 }
-struct TwoPhaseIteratorCmp<'a, T> {
-  tpis: &'a [Option<T>],
-}
-impl<'a, T> TwoPhaseIteratorCmp<'a, T> {
-  fn new(tpis: &'a [Option<T>]) -> Self {
-    TwoPhaseIteratorCmp { tpis }
-  }
-}
-impl<T> Comparator<usize> for TwoPhaseIteratorCmp<'_, T>
-where
-  T: TwoPhaseIterator,
-{
-  const TYPE: &'static str = "TwoPhaseIteratorCmp";
 
+struct TwoPhaseIteratorCmp<'a, C> {
+  approximation: &'a C,
+}
+impl<C: ConjunctionScorers> Comparator<usize> for TwoPhaseIteratorCmp<'_, C> {
+  const TYPE: &'static str = "TwoPhaseIteratorCmp";
   fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-    let l = self.tpis[*a]
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("tpi is None"))?;
-    let r = self.tpis[*b]
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("tpi is None"))?;
-    Ok(CoreHelper::compare_f32(l.match_cost(), r.match_cost()).to_int())
+    Ok(
+      CoreHelper::compare_f32(
+        self.approximation.iterator_at(*a).match_cost(),
+        self.approximation.iterator_at(*b).match_cost(),
+      )
+      .to_int(),
+    )
   }
 }
 
@@ -699,16 +709,16 @@ where
   S: Scorer,
 {
   fn is_bit_iter(&self) -> bool {
-    self.scorer.approximation().is_bit_iter()
+    self.scorer.approx_is_bit_iter()
   }
   fn get(&self, index: usize) -> Result<bool> {
-    self.scorer.approximation().get(index)
+    self.scorer.approx_get(index)
   }
   fn set_doc_id(&mut self, doc: i32) -> Result<()> {
-    self.scorer.approximation_mut().set_doc_id(doc)
+    self.scorer.approx_set_doc_id(doc)
   }
   fn bit_set_length(&self) -> Result<usize> {
-    self.scorer.approximation().bit_set_length()
+    self.scorer.approx_bit_set_length()
   }
 }
 
@@ -779,10 +789,14 @@ impl<S: Scorer> ScorerDisi<S> {
   pub(crate) fn get_max_score(&mut self, upto: i32) -> Result<f32> {
     self.scorer.get_max_score(upto)
   }
-  fn two_phase_iterator(&self) -> Option<S::TwoPhaseRef<'_>> {
-    self.scorer.two_phase_iterator()
+  fn has_two_phase_iterator(&self) -> crate::core::search::scorer::TwoPhaseState {
+    self.scorer.has_two_phase_iterator()
   }
-  fn two_phase_iterator_mut(&mut self) -> Option<S::TwoPhaseMut<'_>> {
-    self.scorer.two_phase_iterator_mut()
+  fn match_cost(&self) -> f32 {
+    self.scorer.match_cost()
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    self.scorer.matches()
   }
 }

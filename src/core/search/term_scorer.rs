@@ -14,16 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::impacts_disi::SourceImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, ScorerEnum2, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 
 /// Expert: A Scorer for documents matching a Term.
@@ -487,36 +491,66 @@ where
     self.state.bit_set_length()
   }
 }
+impl<S, N> ApproximationDISI for TermScorer<S, N>
+where
+  S: TermScorerState,
+  N: NumericDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<S, N> ApproximationBitSetAccess for TermScorer<S, N>
+where
+  S: TermScorerState,
+  N: NumericDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+
+impl<S, N> TwoPhaseIterator for TermScorer<S, N>
+where
+  S: TermScorerState,
+  N: NumericDocValues,
+{
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
 impl<S, N> Scorer for TermScorer<S, N>
 where
   S: TermScorerState,
   N: NumericDocValues,
 {
-  type Iterator = S::Iterator;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.state.doc_id())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    self.state.into_iterator()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -529,13 +563,5 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self
   }
 }

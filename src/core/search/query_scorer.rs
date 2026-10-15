@@ -36,6 +36,8 @@ use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
 use crate::core::search::boolean_scorer_supplier::FilterScorerImpl;
 use crate::core::search::conjunction_scorer::ConjunctionScorer;
@@ -73,7 +75,7 @@ use crate::core::search::{
 };
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::sandbox::search::term_automaton_scorer::TermAutomatonScorer;
 use std::sync::Arc;
@@ -110,7 +112,7 @@ trait ScorerDispatch<ST: ScorerTypes>: DocIdSetIterator {
   fn get_max_score(&mut self, upto: i32) -> Result<f32>;
   fn default_cost(&mut self) -> Result<i64>;
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
-  fn has_two_phase_view(&self) -> bool;
+
   fn matches(&mut self) -> Result<bool>;
   fn match_cost(&self) -> f32;
   fn approximation_doc_id(&self) -> i32;
@@ -171,43 +173,39 @@ macro_rules! scorer_dispatch {
       fn has_two_phase_iterator(&self) -> TwoPhaseState {
         Scorer::has_two_phase_iterator(self)
       }
-      fn has_two_phase_view(&self) -> bool {
-        Scorer::two_phase_iterator(self).is_some()
-      }
+
       fn matches(&mut self) -> Result<bool> {
-        Scorer::two_phase_iterator_mut(self)
-          .ok_or_else(|| LuceneError::illegal_state("scorer has no two-phase iterator"))?
-          .matches()
+        TwoPhaseIterator::matches(self)
       }
       fn match_cost(&self) -> f32 {
-        Scorer::two_phase_iterator(self).map_or(0.0, |iterator| iterator.match_cost())
+        TwoPhaseIterator::match_cost(self)
       }
       fn approximation_doc_id(&self) -> i32 {
-        Scorer::approximation(self).doc_id()
+        ApproximationDISI::approx_doc_id(self)
       }
       fn approximation_cost(&self) -> Result<i64> {
-        DocIdSetIterator::cost(&Scorer::approximation(self))
+        ApproximationDISI::approx_cost(self)
       }
       fn approximation_next_doc(&mut self) -> Result<i32> {
-        Scorer::approximation_mut(self).next_doc()
+        ApproximationDISI::approx_next_doc(self)
       }
       fn approximation_advance(&mut self, target: i32) -> Result<i32> {
-        Scorer::approximation_mut(self).advance(target)
+        ApproximationDISI::approx_advance(self, target)
       }
       fn approximation_slow_advance(&mut self, target: i32) -> Result<i32> {
-        Scorer::approximation_mut(self).slow_advance(target)
+        ApproximationDISI::approx_slow_advance(self, target)
       }
       fn approximation_is_bit_iter(&self) -> bool {
-        Scorer::approximation(self).is_bit_iter()
+        ApproximationBitSetAccess::approx_is_bit_iter(self)
       }
       fn approximation_get(&self, index: usize) -> Result<bool> {
-        Scorer::approximation(self).get(index)
+        ApproximationBitSetAccess::approx_get(self, index)
       }
       fn approximation_set_doc_id(&mut self, doc: i32) -> Result<()> {
-        Scorer::approximation_mut(self).set_doc_id(doc)
+        ApproximationBitSetAccess::approx_set_doc_id(self, doc)
       }
       fn approximation_bit_set_length(&self) -> Result<usize> {
-        Scorer::approximation(self).bit_set_length()
+        ApproximationBitSetAccess::approx_bit_set_length(self)
       }
       fn into_default_bulk(self: Box<Self>) -> DefaultQueryBulkScorer<ST> {
         let $owner = self;
@@ -385,8 +383,8 @@ scorer_nodes! {
     BitSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<BitSetIterator<FixedBitSet>>>,
     ConstantIterator: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BuiltinQueryScorer<ST>>>,
     ConstantIteratorTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<BuiltinQueryScorer<ST>>>,
-    ConstantTwoPhase: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<QueryOwnedTwoPhase<ST>>>,
-    ConstantTwoPhaseTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<QueryOwnedTwoPhase<ST>>>,
+    ConstantTwoPhase: ConstantScoreScorer<crate::core::search::constant_score_scorer::TpiState<BuiltinQueryScorer<ST>>>,
+    ConstantTwoPhaseTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopTpiState<BuiltinQueryScorer<ST>>>,
     Conjunction: ConjunctionScorer<crate::core::search::conjunction_disi::ConjunctionDISI<crate::core::search::conjunction_disi::ScorerDisi<BuiltinQueryScorer<ST>>>>,
     BitSetConjunction: ConjunctionScorer<crate::core::search::conjunction_disi::BitSetConjunctionDISI<crate::core::search::conjunction_disi::ScorerDisi<BuiltinQueryScorer<ST>>>>,
     ConjunctionTwoPhase: ConjunctionScorer<TwoPhaseIteratorAsDocIdSetIterator<crate::core::search::conjunction_disi::ConjunctionTwoPhaseIterator<crate::core::search::conjunction_disi::ConjunctionDISI<crate::core::search::conjunction_disi::ScorerDisi<BuiltinQueryScorer<ST>>>>>>,
@@ -415,16 +413,6 @@ scorer_nodes! {
 impl<ST: ScorerTypes> BuiltinQueryScorer<ST> {
   pub fn new<S: IntoQueryScorer<ST>>(scorer: S) -> Self {
     scorer.into_query_scorer()
-  }
-
-  fn has_two_phase_view(&self) -> bool {
-    self.inner.has_two_phase_view()
-  }
-  fn matches(&mut self) -> Result<bool> {
-    self.inner.matches()
-  }
-  fn match_cost(&self) -> f32 {
-    self.inner.match_cost()
   }
 }
 
@@ -538,52 +526,52 @@ impl<ST: ScorerTypes> Scorable for BuiltinQueryScorer<ST> {
   }
 }
 impl<ST: ScorerTypes> crate::core::search::scorable::FixedScore for BuiltinQueryScorer<ST> {}
+impl<ST: ScorerTypes> ApproximationDISI for BuiltinQueryScorer<ST> {
+  fn approx_doc_id(&self) -> i32 {
+    self.inner.approximation_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.inner.approximation_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.approximation_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.approximation_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.inner.approximation_cost()
+  }
+}
+impl<ST: ScorerTypes> ApproximationBitSetAccess for BuiltinQueryScorer<ST> {
+  fn approx_is_bit_iter(&self) -> bool {
+    self.inner.approximation_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.inner.approximation_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.inner.approximation_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.inner.approximation_bit_set_length()
+  }
+}
+
+impl<ST: ScorerTypes> TwoPhaseIterator for BuiltinQueryScorer<ST> {
+  fn matches(&mut self) -> Result<bool> {
+    self.inner.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.inner.match_cost()
+  }
+}
+
 impl<ST: ScorerTypes> Scorer for BuiltinQueryScorer<ST> {
-  type Iterator = Self;
-  type OwnedTwoPhase = QueryOwnedTwoPhase<ST>;
-  type ApproximationRef<'a>
-    = QueryApproximationRef<'a, ST>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = QueryApproximationMut<'a, ST>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = QueryTwoPhaseRef<'a, ST>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = QueryTwoPhaseMut<'a, ST>
-  where
-    Self: 'a;
   fn scoring_doc_id(&mut self) -> Result<i32> {
     self.inner.scoring_doc_id()
   }
-  fn take_iterator(self) -> Self::Iterator {
-    self
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    self
-      .has_two_phase_view()
-      .then_some(QueryOwnedTwoPhase { owner: self })
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    QueryApproximationRef { owner: self }
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    QueryApproximationMut { owner: self }
-  }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self
-      .has_two_phase_view()
-      .then_some(QueryTwoPhaseRef { owner: self })
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    self
-      .has_two_phase_view()
-      .then_some(QueryTwoPhaseMut { owner: self })
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.inner.has_two_phase_iterator()
   }
@@ -605,134 +593,6 @@ impl<ST: ScorerTypes> Scorer for BuiltinQueryScorer<ST> {
   }
 }
 
-pub struct QueryApproximationRef<'a, ST: ScorerTypes> {
-  owner: &'a BuiltinQueryScorer<ST>,
-}
-pub struct QueryApproximationMut<'a, ST: ScorerTypes> {
-  owner: &'a mut BuiltinQueryScorer<ST>,
-}
-macro_rules! approximation_view {
-  ($view:ident, $( $setter:item )*) => {
-    impl<ST: ScorerTypes> DocIdSetIteratorExtensions for $view<'_, ST> {
-      fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> { self.owner.get_fixed_bit_set() }
-      fn get_sparse_fixed_bit_set(&self) -> Option<&crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet> { self.owner.get_sparse_fixed_bit_set() }
-      fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> { self.owner.get_doc_base_fixed_bit_set() }
-    }
-    impl<ST: ScorerTypes> BitSetIteratorAccess for $view<'_, ST> {
-      $( $setter )*
-      fn is_bit_iter(&self) -> bool {
-        self.owner.inner.approximation_is_bit_iter()
-      }
-      fn get(&self, index: usize) -> Result<bool> {
-        self.owner.inner.approximation_get(index)
-      }
-      fn bit_set_length(&self) -> Result<usize> {
-        self.owner.inner.approximation_bit_set_length()
-      }
-    }
-  };
-}
-approximation_view!(QueryApproximationRef,);
-approximation_view!(
-  QueryApproximationMut,
-  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
-    self.owner.inner.approximation_set_doc_id(doc)
-  }
-);
-impl<ST: ScorerTypes> DocIdSetIterator for QueryApproximationRef<'_, ST> {
-  fn doc_id(&self) -> i32 {
-    self.owner.inner.approximation_doc_id()
-  }
-  fn cost(&self) -> Result<i64> {
-    self.owner.inner.approximation_cost()
-  }
-  fn next_doc(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(
-      "immutable approximation",
-    ))
-  }
-}
-impl<ST: ScorerTypes> DocIdSetIterator for QueryApproximationMut<'_, ST> {
-  fn doc_id(&self) -> i32 {
-    self.owner.inner.approximation_doc_id()
-  }
-  fn cost(&self) -> Result<i64> {
-    self.owner.inner.approximation_cost()
-  }
-  fn next_doc(&mut self) -> Result<i32> {
-    self.owner.inner.approximation_next_doc()
-  }
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.owner.inner.approximation_advance(target)
-  }
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.owner.inner.approximation_slow_advance(target)
-  }
-}
-
-pub struct QueryTwoPhaseRef<'a, ST: ScorerTypes> {
-  owner: &'a BuiltinQueryScorer<ST>,
-}
-pub struct QueryTwoPhaseMut<'a, ST: ScorerTypes> {
-  owner: &'a mut BuiltinQueryScorer<ST>,
-}
-pub struct QueryOwnedTwoPhase<ST: ScorerTypes> {
-  owner: BuiltinQueryScorer<ST>,
-}
-impl<ST: ScorerTypes> TwoPhaseIterator for QueryTwoPhaseRef<'_, ST> {
-  type ApproximationRef<'a>
-    = QueryApproximationRef<'a, ST>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = QueryApproximationRef<'a, ST>
-  where
-    Self: 'a;
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.owner.approximation()
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.owner.approximation()
-  }
-  fn matches(&mut self) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(
-      "immutable two-phase iterator",
-    ))
-  }
-  fn match_cost(&self) -> f32 {
-    self.owner.match_cost()
-  }
-}
-macro_rules! mutable_two_phase {
-  ($ty:ty) => {
-    impl<ST: ScorerTypes> TwoPhaseIterator for $ty {
-      type ApproximationRef<'a>
-        = QueryApproximationRef<'a, ST>
-      where
-        Self: 'a;
-      type ApproximationMut<'a>
-        = QueryApproximationMut<'a, ST>
-      where
-        Self: 'a;
-      fn approximation(&self) -> Self::ApproximationRef<'_> {
-        self.owner.approximation()
-      }
-      fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-        self.owner.approximation_mut()
-      }
-      fn matches(&mut self) -> Result<bool> {
-        self.owner.matches()
-      }
-      fn match_cost(&self) -> f32 {
-        self.owner.match_cost()
-      }
-    }
-  };
-}
-mutable_two_phase!(QueryTwoPhaseMut<'_, ST>);
-mutable_two_phase!(QueryOwnedTwoPhase<ST>);
-
-/// Built-in query scorer specialized by the reader's owned execution types.
 pub type QueryScorer<
   LR,
   SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,

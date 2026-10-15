@@ -49,7 +49,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
 use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
-use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::Weight;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::util::bits::{Bits, MatchNoBits};
@@ -648,30 +647,14 @@ impl CheckHits {
   }
 
   fn advance<S: Scorer>(s: &mut S, target: i32) -> Result<i32> {
-    if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
-      let mut v = tp.approximation_mut();
-      v.advance(target)
-    } else {
-      let v = &mut *s;
-      v.advance(target)
-    }
+    s.approx_advance(target)
   }
 
   fn next_doc<S: Scorer>(s: &mut S) -> Result<i32> {
-    if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
-      let mut v = tp.approximation_mut();
-      v.next_doc()
-    } else {
-      let v = &mut *s;
-      v.next_doc()
-    }
+    s.approx_next_doc()
   }
   fn matches<S: Scorer>(s: &mut S) -> Result<bool> {
-    if let Some(tp) = s.two_phase_iterator_mut().as_mut() {
-      tp.matches()
-    } else {
-      Ok(true)
-    }
+    s.matches()
   }
 }
 

@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
@@ -42,28 +45,58 @@ impl<TPI, DVS> DocValuesRangeIterator<TPI, DVS> {
     Self { approximation }
   }
 }
+impl<TPI, DVS> ApproximationDISI for DocValuesRangeIterator<TPI, DVS>
+where
+  TPI: TwoPhaseIterator,
+  DVS: DocValuesSkipper,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.approximation.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.approximation.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.approximation.cost()
+  }
+}
+impl<TPI, DVS> ApproximationBitSetAccess for DocValuesRangeIterator<TPI, DVS>
+where
+  TPI: TwoPhaseIterator,
+  DVS: DocValuesSkipper,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.approximation.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.approximation.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.approximation.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.approximation.bit_set_length()
+  }
+}
+
 impl<TPI, DVS> TwoPhaseIterator for DocValuesRangeIterator<TPI, DVS>
 where
   TPI: TwoPhaseIterator,
   DVS: DocValuesSkipper,
 {
-  type ApproximationRef<'a>
-    = &'a Approximation<TPI, DVS>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Approximation<TPI, DVS>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.approximation
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.approximation
-  }
-
   fn matches(&mut self) -> Result<bool> {
     match self.approximation.match_ {
       Match::YES => Ok(true),
@@ -182,9 +215,9 @@ where
           return Ok(self.doc);
         },
         Match::MAYBE | Match::IfDocHasValue => {
-          let mut inner_approximation = self.inner_approximation.approximation_mut();
-          if target > inner_approximation.doc_id() {
-            target = inner_approximation.advance(target)?;
+          let inner_approximation = &mut self.inner_approximation;
+          if target > inner_approximation.approx_doc_id() {
+            target = inner_approximation.approx_advance(target)?;
           }
           if target <= self.upto {
             self.doc = target;
@@ -205,7 +238,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.inner_approximation.approximation().cost()
+    self.inner_approximation.approx_cost()
   }
 }
 

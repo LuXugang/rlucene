@@ -14,15 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::abstract_knn_vector_query::FilteredDocIdSetIteratorImpl;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::conjunction_disi::{
   ConjunctionDISI, ConjunctionDISIWithBitSet, VectorScorerDisi,
 };
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -43,6 +47,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::time_limiting_knn_collector_manager::TimeLimitingKnnCollectorManager;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation::EqualTo;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::search::vector_similarity_collector::VectorSimilarityCollector;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
@@ -374,8 +379,7 @@ where
         let live_docs = reader.get_live_docs()?;
 
         // TODO IMPORTANT 复用 Bitset 未实现 是不是可以让 DISI 加一个 super 获取 bitset?
-        let mut filtered =
-          FilteredDocIdSetIteratorImpl::new(live_docs.as_ref(), scorer.take_iterator());
+        let mut filtered = FilteredDocIdSetIteratorImpl::new(live_docs.as_ref(), scorer);
         let accept_docs = of(&mut filtered, reader.max_doc()? as usize)?;
         let cardinality = accept_docs.cardinality();
         if cardinality == 0 {
@@ -605,35 +609,62 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.iterator)
   }
 }
+impl<I> ApproximationDISI for ScorerImpl<I>
+where
+  I: DocIdSetIterator + CachedScoreHelper + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.iterator })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.iterator })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.iterator }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.iterator }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.iterator })
+  }
+}
+impl<I> ApproximationBitSetAccess for ScorerImpl<I>
+where
+  I: DocIdSetIterator + CachedScoreHelper + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.iterator })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.iterator }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.iterator }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.iterator })
+  }
+}
+
+impl<I> TwoPhaseIterator for ScorerImpl<I>
+where
+  I: DocIdSetIterator + CachedScoreHelper + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
 impl<I> Scorer for ScorerImpl<I>
 where
   I: DocIdSetIterator + CachedScoreHelper + 'static,
 {
-  type Iterator = I;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a I
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut I
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.iterator.doc_id())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    self.iterator
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -642,14 +673,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.iterator
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.iterator
   }
 }
 

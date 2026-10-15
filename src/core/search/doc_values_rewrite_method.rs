@@ -30,6 +30,8 @@ use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTerm
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::automaton_query::AutomatonQuery;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
@@ -471,27 +473,56 @@ impl<S> SingletonTermSetTwoPhaseIterator<S> {
   }
 }
 
+impl<S> ApproximationDISI for SingletonTermSetTwoPhaseIterator<S>
+where
+  S: SortedDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.singleton.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.singleton.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.singleton.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.singleton.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.singleton.cost()
+  }
+}
+
+impl<S> ApproximationBitSetAccess for SingletonTermSetTwoPhaseIterator<S>
+where
+  S: SortedDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.singleton.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.singleton.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.singleton.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.singleton.bit_set_length()
+  }
+}
+
 impl<S> TwoPhaseIterator for SingletonTermSetTwoPhaseIterator<S>
 where
   S: SortedDocValues,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.singleton
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.singleton
-  }
-
   fn matches(&mut self) -> Result<bool> {
     Ok(self.term_set.get(self.singleton.ord_value()? as usize))
   }
@@ -517,27 +548,56 @@ impl<S> SortedSetTermSetTwoPhaseIterator<S> {
   }
 }
 
+impl<S> ApproximationDISI for SortedSetTermSetTwoPhaseIterator<S>
+where
+  S: SortedSetDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+
+impl<S> ApproximationBitSetAccess for SortedSetTermSetTwoPhaseIterator<S>
+where
+  S: SortedSetDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<S> TwoPhaseIterator for SortedSetTermSetTwoPhaseIterator<S>
 where
   S: SortedSetDocValues,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
-
   fn matches(&mut self) -> Result<bool> {
     for _ in 0..self.values.doc_value_count()? {
       let value = self.values.next_ord()?;

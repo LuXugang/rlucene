@@ -14,15 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::conjunction_disi::{ConjunctionDISI, VectorScorerDisi};
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -50,6 +54,7 @@ use crate::core::search::top_docs::merge_top_docs;
 use crate::core::search::top_docs_collector::EMPTY_TOP_DOCS;
 use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::TotalHits;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet, of};
@@ -907,26 +912,48 @@ impl DocIdSetIterator for ScorerImpl {
 }
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ScorerImpl {}
 impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerImpl {}
-impl Scorer for ScorerImpl {
-  type Iterator = DocIdSetIteratorImpl;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
+impl ApproximationDISI for ScorerImpl {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.disi })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.disi })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.disi })
+  }
+}
+impl ApproximationBitSetAccess for ScorerImpl {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.disi })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.disi }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.disi }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.disi })
+  }
+}
 
+impl TwoPhaseIterator for ScorerImpl {
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
+impl Scorer for ScorerImpl {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(doc_id_no_shadow(
       self.disi.upto,
@@ -936,25 +963,12 @@ impl Scorer for ScorerImpl {
     ))
   }
 
-  fn take_iterator(self) -> Self::Iterator {
-    let ScorerImpl { disi, .. } = self;
-    disi
-  }
-
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
     Ok(self.max_score * self.boost)
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.disi
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.disi
   }
 }
 

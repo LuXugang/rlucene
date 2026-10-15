@@ -14,10 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::query::QueryWeightMatches;
 use crate::core::search::query::QueryWeightSs;
 use crate::core::search::query::QueryWeightSsBulkScorer;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use std::fmt::Write as _;
 
 use crate::core::index::BytesRef;
@@ -1171,39 +1175,67 @@ where
     }
   }
 }
+impl<ST, SIM> ApproximationDISI for SynonymSubScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<ST, SIM> ApproximationBitSetAccess for SynonymSubScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+
+impl<ST, SIM> TwoPhaseIterator for SynonymSubScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
 impl<ST, SIM> Scorer for SynonymSubScorer<ST, SIM>
 where
   SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
-  type Iterator = <SynonymTermScorer<ST, SIM> as Scorer>::Iterator;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => (scorer).scoring_doc_id(),
-    }
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    match self {
-      SynonymSubScorer::Term { scorer, .. } => scorer.take_iterator(),
     }
   }
 
@@ -1215,14 +1247,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self
   }
 }
 
@@ -1374,49 +1398,70 @@ where
   ST: ScorerTypes + 'static,
 {
 }
+impl<ST, SIM> ApproximationDISI for SynonymScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<ST, SIM> ApproximationBitSetAccess for SynonymScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+
+impl<ST, SIM> TwoPhaseIterator for SynonymScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
 impl<ST, SIM> Scorer for SynonymScorer<ST, SIM>
 where
   SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
-  type Iterator = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    SynonymImpactsDISI<ST, SIM>,
-    SynonymDisi<ST, SIM>,
-  >;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(if self.use_impacts_disi() {
       self.impacts_disi.doc_id()
     } else {
       self.impacts_disi.iterator().doc_id()
     })
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    if self.use_impacts_disi() {
-      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self.impacts_disi)
-    } else {
-      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(
-        self.impacts_disi.into_iterator(),
-      )
-    }
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -1432,14 +1477,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self
   }
 }
 
@@ -1592,36 +1629,66 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.in_)
   }
 }
+impl<ST, SIM> ApproximationDISI for FreqBoostTermScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<ST, SIM> ApproximationBitSetAccess for FreqBoostTermScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+
+impl<ST, SIM> TwoPhaseIterator for FreqBoostTermScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
 impl<ST, SIM> Scorer for FreqBoostTermScorer<ST, SIM>
 where
   SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
-  type Iterator = <SynonymTermScorer<ST, SIM> as Scorer>::Iterator;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     (self.in_).scoring_doc_id()
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    self.in_.take_iterator()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -1634,14 +1701,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self
   }
 }
 

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 
@@ -91,8 +92,8 @@ where
     };
 
     let mut scorer = scorer_supplier.get(1, context, searcher)?;
-    if let Some(mut two_phase) = scorer.two_phase_iterator_mut() {
-      if two_phase.approximation_mut().advance(doc)? != doc || !two_phase.matches()? {
+    if scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
+      if scorer.approx_advance(doc)? != doc || !scorer.matches()? {
         return Ok(None);
       }
     } else if scorer.advance(doc)? != doc {
@@ -390,9 +391,8 @@ where
     max: i32,
   ) -> Result<i32> {
     collector.set_scorer(&mut self.scorer)?;
-    let has_two_phase = self.scorer.has_two_phase_iterator() == TwoPhaseState::Yes
-      || self.scorer.two_phase_iterator().is_some();
-    let doc_id = self.scorer.approximation().doc_id();
+    let has_two_phase = self.scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
+    let doc_id = self.scorer.approx_doc_id();
 
     let has_competitive_iterator = {
       let opt = collector.competitive_iterator()?;
@@ -534,17 +534,7 @@ where
         Some(a) => a.get(doc as usize)?,
       };
       if is_accept {
-        let matches = {
-          let tpi = scorer.two_phase_iterator_mut();
-          match tpi {
-            Some(mut two_phase) => two_phase.matches()?,
-            None => {
-              return Err(LuceneError::illegal_state(
-                "TwoPhaseIterator should not None",
-              ));
-            },
-          }
-        };
+        let matches = scorer.matches()?;
         if matches {
           collector.collect(doc, scorer)?;
         }
@@ -581,13 +571,12 @@ where
     }
   }
   let mut doc = {
-    let mut iterator = scorer.approximation_mut();
-    let mut doc = iterator.doc_id();
+    let mut doc = scorer.approx_doc_id();
     if doc < min {
       if doc == min - 1 {
-        doc = iterator.next_doc()?;
+        doc = scorer.approx_next_doc()?;
       } else {
-        doc = iterator.advance(min)?
+        doc = scorer.approx_advance(min)?
       }
     }
     doc
@@ -624,16 +613,7 @@ where
         Some(a) => a.get(doc as usize)?,
       };
       if is_accept {
-        let matches = if has_two_phase {
-          let Some(mut two_phase) = scorer.two_phase_iterator_mut() else {
-            return Err(LuceneError::illegal_state(
-              "scorer reported a two-phase iterator but did not provide one",
-            ));
-          };
-          two_phase.matches()?
-        } else {
-          true
-        };
+        let matches = !has_two_phase || scorer.matches()?;
         if matches {
           collector.collect(doc, scorer)?;
         }

@@ -17,6 +17,8 @@
 
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::block_max_conjunction_bulk_scorer::BlockMaxConjunctionBulkScorer;
 use crate::core::search::block_max_conjunction_scorer::BlockMaxConjunctionScorer;
 use crate::core::search::boolean_clause::Occur;
@@ -43,6 +45,7 @@ use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, TwoPhaseStat
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::similarities_impl::similarities::Similarity;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::bits::Bits;
@@ -714,7 +717,7 @@ where
     if self.score_mode == ScoreMode::TopScores && required_scoring.len() > 1 {
       let mut all_no_scoring_no_two_phase = true;
       for s in required_no_scoring.iter_mut() {
-        if s.two_phase_iterator().is_some() {
+        if s.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
           all_no_scoring_no_two_phase = false;
           break;
         }
@@ -722,7 +725,7 @@ where
 
       let mut all_scoring_no_two_phase = true;
       for s in required_scoring.iter_mut() {
-        if s.two_phase_iterator().is_some() {
+        if s.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
           all_scoring_no_two_phase = false;
           break;
         }
@@ -739,7 +742,7 @@ where
           wrap_required_scoring.push(ScorerEnum2::B(ConstantScoreScorer::from_disi(
             0.0,
             ScoreMode::Complete,
-            filter_scorer.take_iterator(),
+            filter_scorer,
           )));
         }
         return Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(
@@ -759,7 +762,7 @@ where
     {
       let mut all_scoring_no_two_phase = true;
       for s in required_scoring.iter_mut() {
-        if s.two_phase_iterator().is_some() {
+        if s.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
           all_scoring_no_two_phase = false;
           break;
         }
@@ -767,7 +770,7 @@ where
 
       let mut all_no_scoring_no_two_phase = true;
       for s in required_no_scoring.iter_mut() {
-        if s.two_phase_iterator().is_some() {
+        if s.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
           all_no_scoring_no_two_phase = false;
           break;
         }
@@ -1060,16 +1063,13 @@ where
       if should_empty && must_empty {
         // no scoring clauses but scores are needed so we wrap the scorer in
         // a constant score in order to allow early termination
-        if scorer.two_phase_iterator().is_some() {
-          let tpi = match scorer.take_two_phase_iterator() {
-            Some(v) => v,
-            None => return Err(LuceneError::illegal_state("already taken?")),
-          };
+        if scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes {
+          let tpi = scorer;
           return Ok(QueryWeightSsScorer::<IRC, SIM>::new(
             ConstantScoreScorer::from_tpi(0.0, self.score_mode, tpi),
           ));
         } else {
-          let disi = scorer.take_iterator();
+          let disi = scorer;
           return Ok(QueryWeightSsScorer::<IRC, SIM>::new(
             ConstantScoreScorer::from_disi(0.0, self.score_mode, disi),
           ));
@@ -1232,52 +1232,62 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.inner)
   }
 }
+impl<S> ApproximationDISI for FilterScorerImpl<S>
+where
+  S: Scorer,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.inner.approx_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.inner.approx_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.approx_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.inner.approx_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.inner.approx_cost()
+  }
+}
+impl<S> ApproximationBitSetAccess for FilterScorerImpl<S>
+where
+  S: Scorer,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.inner.approx_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.inner.approx_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.inner.approx_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.inner.approx_bit_set_length()
+  }
+}
+
+impl<S> TwoPhaseIterator for FilterScorerImpl<S>
+where
+  S: Scorer,
+{
+  fn matches(&mut self) -> Result<bool> {
+    self.inner.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.inner.match_cost()
+  }
+}
+
 impl<S> Scorer for FilterScorerImpl<S>
 where
   S: Scorer,
 {
-  type Iterator = S::Iterator;
-  type OwnedTwoPhase = S::OwnedTwoPhase;
-  type ApproximationRef<'a>
-    = <S as Scorer>::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = <S as Scorer>::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = S::TwoPhaseRef<'a>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = S::TwoPhaseMut<'a>
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     (self.inner).scoring_doc_id()
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let FilterScorerImpl { inner: base } = self;
-    base.into_iterator()
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self.inner.two_phase_iterator()
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    self.inner.two_phase_iterator_mut()
-  }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
-  where
-    Self: Sized,
-  {
-    let FilterScorerImpl { inner: base } = self;
-    base.into_two_phase_iterator()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -1298,14 +1308,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.inner.has_two_phase_iterator()
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.inner.approximation()
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.inner.approximation_mut()
   }
 }
 

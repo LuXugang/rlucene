@@ -28,6 +28,8 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreTwoPhaseScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
@@ -322,28 +324,58 @@ impl<S, C> IntersectsTPI<S, C> {
     }
   }
 }
+impl<S, C> ApproximationDISI for IntersectsTPI<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+impl<S, C> ApproximationBitSetAccess for IntersectsTPI<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<S, C> TwoPhaseIterator for IntersectsTPI<S, C>
 where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let count = self.values.doc_value_count()?;
     for _ in 0..count {
@@ -361,6 +393,7 @@ where
     1000f32
   }
 }
+
 pub struct WithinTPI<S, C> {
   values: S,
   component2d_predicate: Arc<Component2DPredicate<C>>,
@@ -373,26 +406,58 @@ impl<S, C> WithinTPI<S, C> {
     }
   }
 }
+impl<S, C> ApproximationDISI for WithinTPI<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+impl<S, C> ApproximationBitSetAccess for WithinTPI<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<S, C> TwoPhaseIterator for WithinTPI<S, C>
 where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
   fn matches(&mut self) -> Result<bool> {
     let count = self.values.doc_value_count()?;
     for _ in 0..count {
@@ -410,6 +475,7 @@ where
     1000f32
   }
 }
+
 pub struct DisjointTPI<S, C> {
   values: S,
   component2d_predicate: Arc<Component2DPredicate<C>>,
@@ -422,27 +488,58 @@ impl<S, C> DisjointTPI<S, C> {
     }
   }
 }
+impl<S, C> ApproximationDISI for DisjointTPI<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+impl<S, C> ApproximationBitSetAccess for DisjointTPI<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<S, C> TwoPhaseIterator for DisjointTPI<S, C>
 where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let count = self.values.doc_value_count()?;
     for _ in 0..count {
@@ -460,6 +557,7 @@ where
     1000f32
   }
 }
+
 pub struct ContainsTPI<S> {
   values: S,
   component2ds: Vec<LatLonGeometryType<<LatLonGeometryEnum as Geometry>::Component2D>>,
@@ -472,38 +570,104 @@ pub enum LatLonDocValuesTwoPhaseIterator<S, C> {
   Contains(ContainsTPI<S>),
 }
 
+impl<S, C> ApproximationDISI for LatLonDocValuesTwoPhaseIterator<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_doc_id(&self) -> i32 {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_doc_id(),
+      Self::Within(iterator) => iterator.approx_doc_id(),
+      Self::Disjoint(iterator) => iterator.approx_doc_id(),
+      Self::Contains(iterator) => iterator.approx_doc_id(),
+    }
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_next_doc(),
+      Self::Within(iterator) => iterator.approx_next_doc(),
+      Self::Disjoint(iterator) => iterator.approx_next_doc(),
+      Self::Contains(iterator) => iterator.approx_next_doc(),
+    }
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_advance(target),
+      Self::Within(iterator) => iterator.approx_advance(target),
+      Self::Disjoint(iterator) => iterator.approx_advance(target),
+      Self::Contains(iterator) => iterator.approx_advance(target),
+    }
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_slow_advance(target),
+      Self::Within(iterator) => iterator.approx_slow_advance(target),
+      Self::Disjoint(iterator) => iterator.approx_slow_advance(target),
+      Self::Contains(iterator) => iterator.approx_slow_advance(target),
+    }
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_cost(),
+      Self::Within(iterator) => iterator.approx_cost(),
+      Self::Disjoint(iterator) => iterator.approx_cost(),
+      Self::Contains(iterator) => iterator.approx_cost(),
+    }
+  }
+}
+
+impl<S, C> ApproximationBitSetAccess for LatLonDocValuesTwoPhaseIterator<S, C>
+where
+  S: SortedNumericDocValues,
+  C: Component2D,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_is_bit_iter(),
+      Self::Within(iterator) => iterator.approx_is_bit_iter(),
+      Self::Disjoint(iterator) => iterator.approx_is_bit_iter(),
+      Self::Contains(iterator) => iterator.approx_is_bit_iter(),
+    }
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_get(index),
+      Self::Within(iterator) => iterator.approx_get(index),
+      Self::Disjoint(iterator) => iterator.approx_get(index),
+      Self::Contains(iterator) => iterator.approx_get(index),
+    }
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_set_doc_id(doc),
+      Self::Within(iterator) => iterator.approx_set_doc_id(doc),
+      Self::Disjoint(iterator) => iterator.approx_set_doc_id(doc),
+      Self::Contains(iterator) => iterator.approx_set_doc_id(doc),
+    }
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    match self {
+      Self::Intersects(iterator) => iterator.approx_bit_set_length(),
+      Self::Within(iterator) => iterator.approx_bit_set_length(),
+      Self::Disjoint(iterator) => iterator.approx_bit_set_length(),
+      Self::Contains(iterator) => iterator.approx_bit_set_length(),
+    }
+  }
+}
+
 impl<S, C> TwoPhaseIterator for LatLonDocValuesTwoPhaseIterator<S, C>
 where
   S: SortedNumericDocValues,
   C: Component2D,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    match self {
-      Self::Intersects(iterator) => iterator.approximation_mut(),
-      Self::Within(iterator) => iterator.approximation_mut(),
-      Self::Disjoint(iterator) => iterator.approximation_mut(),
-      Self::Contains(iterator) => iterator.approximation_mut(),
-    }
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    match self {
-      Self::Intersects(iterator) => iterator.approximation(),
-      Self::Within(iterator) => iterator.approximation(),
-      Self::Disjoint(iterator) => iterator.approximation(),
-      Self::Contains(iterator) => iterator.approximation(),
-    }
-  }
-
   fn matches(&mut self) -> Result<bool> {
     match self {
       Self::Intersects(iterator) => iterator.matches(),
@@ -535,26 +699,55 @@ impl<S> ContainsTPI<S> {
     })
   }
 }
+impl<S> ApproximationDISI for ContainsTPI<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+impl<S> ApproximationBitSetAccess for ContainsTPI<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<S> TwoPhaseIterator for ContainsTPI<S>
 where
   S: SortedNumericDocValues,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let mut answer = WithinRelation::Disjoint;
     let count = self.values.doc_value_count()?;

@@ -14,18 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Field;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::boolean_scorer::BooleanScorer;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_set::DocIdSet;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -36,6 +40,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::term_query::TermQuery;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::Weight;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
@@ -479,33 +484,50 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerIm
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.it)
   }
 }
-impl Scorer for ScorerImpl {
-  type Iterator = IntArrayDocIdSetIterator;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a IntArrayDocIdSetIterator
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut IntArrayDocIdSetIterator
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
+impl ApproximationDISI for ScorerImpl {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.it })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.it })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.it }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.it }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.it })
+  }
+}
+impl ApproximationBitSetAccess for ScorerImpl {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.it })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.it }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.it }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.it })
+  }
+}
 
+impl TwoPhaseIterator for ScorerImpl {
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
+impl Scorer for ScorerImpl {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.it.doc_id())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let ScorerImpl { it } = self;
-    it
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -514,13 +536,5 @@ impl Scorer for ScorerImpl {
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.it
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.it
   }
 }

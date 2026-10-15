@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -27,7 +30,7 @@ use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::{
   TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 /// A scorer whose ordinary or two-phase iterator is selected at construction.
 pub struct ReqOptSumScorer<S: DocIdSetIterator> {
@@ -55,6 +58,10 @@ impl<S1: Scorer, S2: Scorer>
 /// State-specific access to the same required/optional scorers and two-phase view.
 #[doc(hidden)]
 pub trait ReqOptSumState: DocIdSetIterator + 'static {
+  fn match_cost(&self) -> f32;
+
+  fn matches(&mut self) -> Result<bool>;
+
   type Required: Scorer + 'static;
   type Optional: Scorer + 'static;
   type ApproximationRef<'a>: DocIdSetIterator
@@ -66,11 +73,7 @@ pub trait ReqOptSumState: DocIdSetIterator + 'static {
   fn scorer_mut(&mut self) -> &mut DocIdSetIteratorImpl<Self::Required, Self::Optional>;
   fn approximation(&self) -> Self::ApproximationRef<'_>;
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_>;
-  fn two_phase_iterator(&self) -> Option<&TwoPhaseIteratorImpl<Self::Required, Self::Optional>>;
-  fn two_phase_iterator_mut(
-    &mut self,
-  ) -> Option<&mut TwoPhaseIteratorImpl<Self::Required, Self::Optional>>;
-  fn take_two_phase_iterator(self) -> Option<TwoPhaseIteratorImpl<Self::Required, Self::Optional>>;
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
 
@@ -128,40 +131,52 @@ impl<S: DocIdSetIterator> DocIdSetIterator for ReqOptSumScorer<S> {
     self.disi.cost()
   }
 }
+impl<S: ReqOptSumState> ApproximationDISI for ReqOptSumScorer<S> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ self.disi.approximation() })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { self.disi.approximation_mut() })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { self.disi.approximation_mut() }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { self.disi.approximation_mut() }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ self.disi.approximation() })
+  }
+}
+impl<S: ReqOptSumState> ApproximationBitSetAccess for ReqOptSumScorer<S> {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ self.disi.approximation() })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ self.disi.approximation() }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { self.disi.approximation_mut() }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ self.disi.approximation() })
+  }
+}
+
+impl<S: ReqOptSumState> TwoPhaseIterator for ReqOptSumScorer<S> {
+  fn matches(&mut self) -> Result<bool> {
+    self.disi.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.disi.match_cost()
+  }
+}
+
 impl<S: ReqOptSumState> Scorer for ReqOptSumScorer<S> {
-  type Iterator = S;
-  type OwnedTwoPhase = TwoPhaseIteratorImpl<S::Required, S::Optional>;
-  type ApproximationRef<'a>
-    = S::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = S::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a Self::OwnedTwoPhase
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut Self::OwnedTwoPhase
-  where
-    Self: 'a;
   fn scoring_doc_id(&mut self) -> Result<i32> {
     self.disi.scorer_mut().req_scorer.scoring_doc_id()
   }
-  fn take_iterator(self) -> Self::Iterator {
-    self.disi
-  }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self.disi.two_phase_iterator()
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    self.disi.two_phase_iterator_mut()
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    self.disi.take_two_phase_iterator()
-  }
+
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     self.disi.scorer_mut().advance_shallow(target)
   }
@@ -171,12 +186,7 @@ impl<S: ReqOptSumState> Scorer for ReqOptSumScorer<S> {
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.disi.has_two_phase_iterator()
   }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.disi.approximation_mut()
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.disi.approximation()
-  }
+
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::ReqOptSum
@@ -184,6 +194,14 @@ impl<S: ReqOptSumState> Scorer for ReqOptSumScorer<S> {
 }
 
 impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState for DocIdSetIteratorImpl<S1, S2> {
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+
   type Required = S1;
   type Optional = S2;
   type ApproximationRef<'a>
@@ -203,15 +221,7 @@ impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState for DocIdSetIter
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
-  fn two_phase_iterator(&self) -> Option<&TwoPhaseIteratorImpl<S1, S2>> {
-    None
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhaseIteratorImpl<S1, S2>> {
-    None
-  }
-  fn take_two_phase_iterator(self) -> Option<TwoPhaseIteratorImpl<S1, S2>> {
-    None
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
   }
@@ -219,6 +229,14 @@ impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState for DocIdSetIter
 impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState
   for TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S1, S2>>
 {
+  fn match_cost(&self) -> f32 {
+    self.two_phase_iterator.match_cost()
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    self.two_phase_iterator.matches()
+  }
+
   type Required = S1;
   type Optional = S2;
   type ApproximationRef<'a>
@@ -238,15 +256,7 @@ impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.two_phase_iterator.disi
   }
-  fn two_phase_iterator(&self) -> Option<&TwoPhaseIteratorImpl<S1, S2>> {
-    Some(&self.two_phase_iterator)
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhaseIteratorImpl<S1, S2>> {
-    Some(&mut self.two_phase_iterator)
-  }
-  fn take_two_phase_iterator(self) -> Option<TwoPhaseIteratorImpl<S1, S2>> {
-    Some(self.two_phase_iterator)
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
   }
@@ -371,9 +381,9 @@ where
         req_doc = self.advance_impacts(req_doc)?;
       }
 
-      let mut req_approximation = self.req_scorer.approximation_mut();
-      if req_approximation.doc_id() < req_doc {
-        req_doc = req_approximation.advance(req_doc)?;
+      let req_approximation = &mut self.req_scorer;
+      if req_approximation.approx_doc_id() < req_doc {
+        req_doc = req_approximation.approx_advance(req_doc)?;
       }
 
       if req_doc == NO_MORE_DOCS || !self.opt_is_required {
@@ -391,12 +401,12 @@ where
       }
       // Find the next common doc within the current block
 
-      let mut opt_approximation = self.opt_scorer.approximation_mut();
+      let opt_approximation = &mut self.opt_scorer;
       loop {
-        let mut opt_doc = opt_approximation.doc_id();
+        let mut opt_doc = opt_approximation.approx_doc_id();
 
         if opt_doc < req_doc {
-          opt_doc = opt_approximation.advance(req_doc)?;
+          opt_doc = opt_approximation.approx_advance(req_doc)?;
         }
 
         if opt_doc > upper_bound {
@@ -405,7 +415,7 @@ where
         }
 
         if opt_doc != req_doc {
-          req_doc = req_approximation.advance(opt_doc)?;
+          req_doc = req_approximation.approx_advance(opt_doc)?;
           if req_doc > upper_bound {
             continue 'advance_head;
           }
@@ -441,13 +451,7 @@ where
 
     if opt_scorer_doc < cur_doc {
       opt_scorer_doc = ScorerUtil::advance(&mut self.opt_scorer, cur_doc)?;
-      let should_skip = {
-        if let Some(mut opt_tpi) = self.opt_scorer.two_phase_iterator_mut() {
-          opt_scorer_doc == cur_doc && !opt_tpi.matches()?
-        } else {
-          false
-        }
-      };
+      let should_skip = opt_scorer_doc == cur_doc && !self.opt_scorer.matches()?;
       if should_skip {
         opt_scorer_doc = ScorerUtil::next_doc(&mut self.opt_scorer)?;
       }
@@ -514,32 +518,60 @@ impl<S1, S2> TwoPhaseIteratorImpl<S1, S2> {
     Self { disi }
   }
 }
+impl<S1, S2> ApproximationDISI for TwoPhaseIteratorImpl<S1, S2>
+where
+  S1: Scorer,
+  S2: Scorer,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.disi.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.disi.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.disi.cost()
+  }
+}
+impl<S1, S2> ApproximationBitSetAccess for TwoPhaseIteratorImpl<S1, S2>
+where
+  S1: Scorer,
+  S2: Scorer,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.disi.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.disi.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.disi.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.disi.bit_set_length()
+  }
+}
+
 impl<S1, S2> TwoPhaseIterator for TwoPhaseIteratorImpl<S1, S2>
 where
   S1: Scorer,
   S2: Scorer,
 {
-  type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl<S1, S2>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl<S1, S2>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.disi
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.disi
-  }
-
   fn matches(&mut self) -> Result<bool> {
-    if let Some(mut req_tpi) = self.disi.req_scorer.two_phase_iterator_mut()
-      && !req_tpi.matches()?
-    {
+    if !self.disi.req_scorer.matches()? {
       return Ok(false);
     }
     let opt_had_tpi = self.disi.opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes;
@@ -558,28 +590,14 @@ where
             return Ok(false);
           }
         }
-        let matches = match self.disi.opt_scorer.two_phase_iterator_mut() {
-          Some(mut tpi) => tpi.matches()?,
-          None => {
-            return Err(LuceneError::illegal_state(
-              "optional scorer reported a two-phase iterator but did not provide one",
-            ));
-          },
-        };
+        let matches = self.disi.opt_scorer.matches()?;
         if !matches {
           // Advance the iterator to make it clear it doesn't match the current doc id
           ScorerUtil::next_doc(&mut self.disi.opt_scorer)?;
           return Ok(false);
         }
       } else if opt_doc == req_doc {
-        let matches = match self.disi.opt_scorer.two_phase_iterator_mut() {
-          Some(mut tpi) => tpi.matches()?,
-          None => {
-            return Err(LuceneError::illegal_state(
-              "optional scorer reported a two-phase iterator but did not provide one",
-            ));
-          },
-        };
+        let matches = self.disi.opt_scorer.matches()?;
         if !matches {
           // Advance the iterator to make it clear it doesn't match the current doc id
           ScorerUtil::next_doc(&mut self.disi.opt_scorer)?;
@@ -593,12 +611,12 @@ where
   fn match_cost(&self) -> f32 {
     let mut cost = 1.0;
 
-    if let Some(req_tpi) = self.disi.req_scorer.two_phase_iterator() {
-      cost += req_tpi.match_cost();
+    if self.disi.req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes {
+      cost += self.disi.req_scorer.match_cost();
     }
 
-    if let Some(opt_tpi) = self.disi.opt_scorer.two_phase_iterator() {
-      cost += opt_tpi.match_cost();
+    if self.disi.opt_scorer.has_two_phase_iterator() == TwoPhaseState::Yes {
+      cost += self.disi.opt_scorer.match_cost();
     }
 
     cost

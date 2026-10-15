@@ -17,6 +17,8 @@
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_values_range_iterator::{DocValuesRangeIterator, Match};
@@ -57,11 +59,8 @@ fn do_test_basics(do_levels: bool) -> Result<()> {
   let mut range_iterator_with_gaps =
     DocValuesRangeIterator::new(two_phase2, skipper2, query_min, query_max, true);
 
-  assert_eq!(100, range_iterator.approximation_mut().advance(100)?);
-  assert_eq!(
-    100,
-    range_iterator_with_gaps.approximation_mut().advance(100)?
-  );
+  assert_eq!(100, range_iterator.approx_advance(100)?);
+  assert_eq!(100, range_iterator_with_gaps.approx_advance(100)?);
   assert_eq!(Match::YES, range_iterator.approximation.match_);
   assert_eq!(Match::MAYBE, range_iterator_with_gaps.approximation.match_);
   assert_eq!(255, range_iterator.approximation.upto);
@@ -89,11 +88,8 @@ fn do_test_basics(do_levels: bool) -> Result<()> {
   assert!(two_phase_called2.load(Ordering::SeqCst));
   two_phase_called2.store(false, Ordering::SeqCst);
 
-  assert_eq!(768, range_iterator.approximation_mut().advance(300)?);
-  assert_eq!(
-    768,
-    range_iterator_with_gaps.approximation_mut().advance(300)?
-  );
+  assert_eq!(768, range_iterator.approx_advance(300)?);
+  assert_eq!(768, range_iterator_with_gaps.approx_advance(300)?);
   assert_eq!(Match::MAYBE, range_iterator.approximation.match_);
   assert_eq!(Match::MAYBE, range_iterator_with_gaps.approximation.match_);
 
@@ -133,15 +129,12 @@ fn do_test_basics(do_levels: bool) -> Result<()> {
     assert!(two_phase_called2.load(Ordering::SeqCst));
     two_phase_called.store(false, Ordering::SeqCst);
     two_phase_called2.store(false, Ordering::SeqCst);
-    range_iterator.approximation_mut().next_doc()?;
-    range_iterator_with_gaps.approximation_mut().next_doc()?;
+    range_iterator.approx_next_doc()?;
+    range_iterator_with_gaps.approx_next_doc()?;
   }
 
-  assert_eq!(1100, range_iterator.approximation_mut().advance(1099)?);
-  assert_eq!(
-    1100,
-    range_iterator_with_gaps.approximation_mut().advance(1099)?
-  );
+  assert_eq!(1100, range_iterator.approx_advance(1099)?);
+  assert_eq!(1100, range_iterator_with_gaps.approx_advance(1099)?);
   assert_eq!(Match::IfDocHasValue, range_iterator.approximation.match_);
   assert_eq!(Match::MAYBE, range_iterator_with_gaps.approximation.match_);
   assert_eq!(1024 + 256 - 1, range_iterator.approximation.upto);
@@ -168,15 +161,10 @@ fn do_test_basics(do_levels: bool) -> Result<()> {
   assert!(two_phase_called2.load(Ordering::SeqCst));
   two_phase_called2.store(false, Ordering::SeqCst);
 
+  assert_eq!(1024 + 768, range_iterator.approx_advance(1024 + 300)?);
   assert_eq!(
     1024 + 768,
-    range_iterator.approximation_mut().advance(1024 + 300)?
-  );
-  assert_eq!(
-    1024 + 768,
-    range_iterator_with_gaps
-      .approximation_mut()
-      .advance(1024 + 300)?
+    range_iterator_with_gaps.approx_advance(1024 + 300)?
   );
   assert_eq!(Match::MAYBE, range_iterator.approximation.match_);
   assert_eq!(Match::MAYBE, range_iterator_with_gaps.approximation.match_);
@@ -217,18 +205,12 @@ fn do_test_basics(do_levels: bool) -> Result<()> {
     assert!(two_phase_called2.load(Ordering::SeqCst));
     two_phase_called.store(false, Ordering::SeqCst);
     two_phase_called2.store(false, Ordering::SeqCst);
-    range_iterator.approximation_mut().next_doc()?;
-    range_iterator_with_gaps.approximation_mut().next_doc()?;
+    range_iterator.approx_next_doc()?;
+    range_iterator_with_gaps.approx_next_doc()?;
   }
 
-  assert_eq!(
-    NO_MORE_DOCS,
-    range_iterator.approximation_mut().advance(2048)?
-  );
-  assert_eq!(
-    NO_MORE_DOCS,
-    range_iterator_with_gaps.approximation_mut().advance(2048)?
-  );
+  assert_eq!(NO_MORE_DOCS, range_iterator.approx_advance(2048)?);
+  assert_eq!(NO_MORE_DOCS, range_iterator_with_gaps.approx_advance(2048)?);
 
   Ok(())
 }
@@ -360,27 +342,55 @@ where
     }
   }
 }
+impl<NDV> ApproximationDISI for TwoPhaseIteratorImpl<NDV>
+where
+  NDV: NumericDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+impl<NDV> ApproximationBitSetAccess for TwoPhaseIteratorImpl<NDV>
+where
+  NDV: NumericDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<NDV> TwoPhaseIterator for TwoPhaseIteratorImpl<NDV>
 where
   NDV: NumericDocValues,
 {
-  type ApproximationRef<'a>
-    = &'a NDV
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut NDV
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
-
   fn matches(&mut self) -> Result<bool> {
     self
       .two_phase_called

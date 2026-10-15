@@ -24,6 +24,8 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -541,27 +543,56 @@ impl<S> TwoPhaseIterator5<S> {
   }
 }
 
+impl<S> ApproximationDISI for TwoPhaseIterator5<S>
+where
+  S: SortedDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.singleton.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.singleton.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.singleton.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.singleton.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.singleton.cost()
+  }
+}
+
+impl<S> ApproximationBitSetAccess for TwoPhaseIterator5<S>
+where
+  S: SortedDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.singleton.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.singleton.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.singleton.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.singleton.bit_set_length()
+  }
+}
+
 impl<S> TwoPhaseIterator for TwoPhaseIterator5<S>
 where
   S: SortedDocValues,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.singleton
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.singleton
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let ord = self.singleton.ord_value()? as i64;
     Ok(ord >= self.min_ord && ord <= self.max_ord)
@@ -571,6 +602,7 @@ where
     2f32
   }
 }
+
 pub struct TwoPhaseIterator6<S> {
   values: S,
   min_ord: i64,
@@ -587,27 +619,56 @@ impl<S> TwoPhaseIterator6<S> {
   }
 }
 
+impl<S> ApproximationDISI for TwoPhaseIterator6<S>
+where
+  S: SortedSetDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.values.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.values.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.values.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.values.cost()
+  }
+}
+
+impl<S> ApproximationBitSetAccess for TwoPhaseIterator6<S>
+where
+  S: SortedSetDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.values.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.values.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.values.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.values.bit_set_length()
+  }
+}
+
 impl<S> TwoPhaseIterator for TwoPhaseIterator6<S>
 where
   S: SortedSetDocValues,
 {
-  type ApproximationRef<'a>
-    = &'a S
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut S
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.values
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.values
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let count = self.values.doc_value_count()?;
     for _ in 0..count {

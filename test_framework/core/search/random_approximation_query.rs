@@ -18,6 +18,9 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
@@ -305,52 +308,67 @@ where
   S: Scorer + 'static,
 {
 }
+impl<S> ApproximationDISI for RandomApproximationScorer<S>
+where
+  S: Scorer + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.disi.two_phase_iterator.approx_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.disi.two_phase_iterator.approx_cost()
+  }
+}
+impl<S> ApproximationBitSetAccess for RandomApproximationScorer<S>
+where
+  S: Scorer + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.disi.two_phase_iterator.approx_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.disi.two_phase_iterator.approx_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.disi.two_phase_iterator.approx_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.disi.two_phase_iterator.approx_bit_set_length()
+  }
+}
+
+impl<S> TwoPhaseIterator for RandomApproximationScorer<S>
+where
+  S: Scorer + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    self.disi.two_phase_iterator.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.disi.two_phase_iterator.match_cost()
+  }
+}
+
 impl<S> Scorer for RandomApproximationScorer<S>
 where
   S: Scorer + 'static,
 {
-  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<RandomTwoPhaseView<ScorerDISI<S>>>;
-  type OwnedTwoPhase = RandomTwoPhaseView<ScorerDISI<S>>;
-  type ApproximationRef<'a>
-    = <RandomTwoPhaseView<ScorerDISI<S>> as TwoPhaseIterator>::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = <RandomTwoPhaseView<ScorerDISI<S>> as TwoPhaseIterator>::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a RandomTwoPhaseView<ScorerDISI<S>>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut RandomTwoPhaseView<ScorerDISI<S>>
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    Ok(self.disi.two_phase_iterator.approximation().doc_id())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    self.disi
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    Some(&self.disi.two_phase_iterator)
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    Some(&mut self.disi.two_phase_iterator)
-  }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    Some(self.disi.two_phase_iterator)
+    Ok(self.disi.two_phase_iterator.approx_doc_id())
   }
 
   fn advance_shallow(&mut self, mut target: i32) -> Result<i32> {
     let scorer_doc = self.disi.two_phase_iterator.disi().doc_id();
-    let approx_doc = self.disi.two_phase_iterator.approximation().doc_id();
+    let approx_doc = self.disi.two_phase_iterator.approx_doc_id();
     if scorer_doc > target && approx_doc != scorer_doc {
       // The random approximation can return doc ids that are not present in the underlying
       // scorer. These additional doc ids are always *before* the next matching doc so we
@@ -376,14 +394,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.disi.two_phase_iterator.approximation()
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.disi.two_phase_iterator.approximation_mut()
   }
 }
 
@@ -416,27 +426,55 @@ where
     &mut self.approximation.disi
   }
 }
+impl<DISI> ApproximationDISI for RandomTwoPhaseView<DISI>
+where
+  DISI: DocIdSetIterator,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.approximation.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.approximation.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.approximation.cost()
+  }
+}
+impl<DISI> ApproximationBitSetAccess for RandomTwoPhaseView<DISI>
+where
+  DISI: DocIdSetIterator,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.approximation.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.approximation.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.approximation.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.approximation.bit_set_length()
+  }
+}
+
 impl<DISI> TwoPhaseIterator for RandomTwoPhaseView<DISI>
 where
   DISI: DocIdSetIterator,
 {
-  type ApproximationRef<'a>
-    = &'a RandomApproximation<StdRng, DISI>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut RandomApproximation<StdRng, DISI>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.approximation
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.approximation
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let approx_doc = self.approximation.doc_id();
 
@@ -461,6 +499,7 @@ where
     self.random_match_cost
   }
 }
+
 pub struct RandomApproximation<RNG, DISI> {
   random: RNG,
   disi: DISI,

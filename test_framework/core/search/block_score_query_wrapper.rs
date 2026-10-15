@@ -14,9 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
@@ -30,6 +33,7 @@ use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
@@ -302,33 +306,51 @@ impl Scorable for BlockScoreScorer {
 
 impl FixedScore for BlockScoreScorer {}
 
-impl Scorer for BlockScoreScorer {
-  type Iterator = BlockScoreOwnedIterator;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
+impl ApproximationDISI for BlockScoreScorer {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
 
+impl ApproximationBitSetAccess for BlockScoreScorer {
+  fn approx_is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+
+impl TwoPhaseIterator for BlockScoreScorer {
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
+impl Scorer for BlockScoreScorer {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.docs[self.i.get()])
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let BlockScoreScorer { docs, i, .. } = self;
-    BlockScoreOwnedIterator { docs, i: i.get() }
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -359,14 +381,6 @@ impl Scorer for BlockScoreScorer {
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
   }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self
-  }
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BlockScoreScorer {}
@@ -388,40 +402,6 @@ impl DocIdSetIterator for BlockScoreScorer {
     let i = self.index_for_target(target);
     self.i.set(i);
     Ok(self.docs[i])
-  }
-
-  fn cost(&self) -> Result<i64> {
-    Ok((self.docs.len() as i64) - 2)
-  }
-}
-
-pub struct BlockScoreOwnedIterator {
-  docs: Vec<i32>,
-  i: usize,
-}
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BlockScoreOwnedIterator
-{
-}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BlockScoreOwnedIterator {}
-
-impl DocIdSetIterator for BlockScoreOwnedIterator {
-  fn doc_id(&self) -> i32 {
-    self.docs[self.i]
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    assert!(self.docs[self.i] != NO_MORE_DOCS);
-    self.i += 1;
-    Ok(self.docs[self.i])
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.i = match self.docs.binary_search(&target) {
-      Ok(i) | Err(i) => i,
-    };
-    assert!(self.docs[self.i] >= target);
-    Ok(self.docs[self.i])
   }
 
   fn cost(&self) -> Result<i64> {

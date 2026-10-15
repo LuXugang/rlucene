@@ -14,12 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::bulk_scorer::BulkScorer;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
@@ -86,36 +91,62 @@ where
   BS: BulkScorer + 'static,
 {
 }
+impl<BS> ApproximationDISI for BulkScorerWrapperScorer<BS>
+where
+  BS: BulkScorer + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.disi })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.disi })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.disi }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.disi })
+  }
+}
+impl<BS> ApproximationBitSetAccess for BulkScorerWrapperScorer<BS>
+where
+  BS: BulkScorer + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.disi })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.disi }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.disi }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.disi })
+  }
+}
+
+impl<BS> TwoPhaseIterator for BulkScorerWrapperScorer<BS>
+where
+  BS: BulkScorer + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
 impl<BS> Scorer for BulkScorerWrapperScorer<BS>
 where
   BS: BulkScorer + 'static,
 {
-  type Iterator = DocIdSetIteratorImpl<BS>;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl<BS>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl<BS>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.doc)
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let BulkScorerWrapperScorer { disi } = self;
-    disi
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -124,14 +155,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.disi
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.disi
   }
 }
 

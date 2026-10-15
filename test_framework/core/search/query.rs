@@ -14,7 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values::DocValues;
@@ -1911,50 +1915,62 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.scorer)
   }
 }
+impl<S> ApproximationDISI for MaxScoreWrapperScorer<S>
+where
+  S: Scorer,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.scorer.approx_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.scorer.approx_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.scorer.approx_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.scorer.approx_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.scorer.approx_cost()
+  }
+}
+impl<S> ApproximationBitSetAccess for MaxScoreWrapperScorer<S>
+where
+  S: Scorer,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.scorer.approx_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.scorer.approx_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.scorer.approx_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.scorer.approx_bit_set_length()
+  }
+}
+
+impl<S> TwoPhaseIterator for MaxScoreWrapperScorer<S>
+where
+  S: Scorer,
+{
+  fn matches(&mut self) -> Result<bool> {
+    self.scorer.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.scorer.match_cost()
+  }
+}
+
 impl<S> Scorer for MaxScoreWrapperScorer<S>
 where
   S: Scorer,
 {
-  type Iterator = crate::core::search::doc_id_set_iterator::EmptyDISI;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = <S as Scorer>::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = <S as Scorer>::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = S::TwoPhaseRef<'a>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = S::TwoPhaseMut<'a>
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     (self.scorer).scoring_doc_id()
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    unreachable!()
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self.scorer.two_phase_iterator()
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    self.scorer.two_phase_iterator_mut()
-  }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>
-  where
-    Self: Sized,
-  {
-    unreachable!()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -1972,14 +1988,6 @@ where
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.scorer.has_two_phase_iterator()
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.scorer.approximation()
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.scorer.approximation_mut()
   }
 }
 

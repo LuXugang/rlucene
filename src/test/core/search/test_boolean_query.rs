@@ -778,7 +778,7 @@ fn test_conjunction_propagates_approximations() -> Result<()> {
   let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
   assert_eq!(scorer.kind(), ScorerKind::Conjunction);
-  assert!(scorer.two_phase_iterator().is_some());
+  assert!(scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes);
 
   Ok(())
 }
@@ -820,7 +820,7 @@ fn test_disjunction_propagates_approximations() -> Result<()> {
   let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
   assert_eq!(scorer.kind(), ScorerKind::Disjunction);
-  assert!(scorer.two_phase_iterator().is_some());
+  assert!(scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes);
 
   Ok(())
 }
@@ -864,7 +864,7 @@ fn test_boosted_scorer_propagates_approximations() -> Result<()> {
   let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
   assert_eq!(scorer.kind(), ScorerKind::Phrase);
-  assert!(scorer.two_phase_iterator().is_some());
+  assert!(scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes);
 
   Ok(())
 }
@@ -909,7 +909,7 @@ fn test_exclusion_propagates_approximations() -> Result<()> {
   let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
   assert_eq!(scorer.kind(), ScorerKind::ReqExcl);
-  assert!(scorer.two_phase_iterator().is_some());
+  assert!(scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes);
 
   Ok(())
 }
@@ -951,7 +951,7 @@ fn test_req_opt_propagates_approximations() -> Result<()> {
   let scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
   assert_eq!(scorer.kind(), ScorerKind::ReqOptSum);
-  assert!(scorer.two_phase_iterator().is_some());
+  assert!(scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::Yes);
 
   Ok(())
 }

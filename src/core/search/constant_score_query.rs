@@ -42,7 +42,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -359,14 +359,12 @@ where
       .get(lead_cost, context, searcher)?;
     match inner_scorer.has_two_phase_iterator() {
       TwoPhaseState::Yes => {
-        let tpi = inner_scorer
-          .take_two_phase_iterator()
-          .ok_or_else(|| LuceneError::illegal_state("no tpi?"))?;
+        let tpi = inner_scorer;
         let v = ConstantScoreScorer::from_tpi(self.score, self.score_mode, tpi);
         Ok(QueryWeightSsScorer::<IRC, SIM>::new(v))
       },
       TwoPhaseState::No => {
-        let disi = inner_scorer.take_iterator();
+        let disi = inner_scorer;
         let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, disi);
         Ok(QueryWeightSsScorer::<IRC, SIM>::new(v))
       },

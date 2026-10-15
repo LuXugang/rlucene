@@ -16,10 +16,13 @@
  */
 
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::queries::span::spans;
 use crate::queries::span::spans::Spans;
@@ -229,41 +232,79 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.spans)
   }
 }
+impl<S, SS, N> ApproximationDISI for SpanScorer<S, SS, N>
+where
+  S: Spans + 'static,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<S, SS, N> ApproximationBitSetAccess for SpanScorer<S, SS, N>
+where
+  S: Spans + 'static,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+
+impl<S, SS, N> TwoPhaseIterator for SpanScorer<S, SS, N>
+where
+  S: Spans + 'static,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
+  fn matches(&mut self) -> Result<bool> {
+    if self.spans.as_two_phase_iterator().is_some() {
+      Err(LuceneError::illegal_state(
+        "scorer reported a two-phase iterator but did not provide one",
+      ))
+    } else {
+      Ok(true)
+    }
+  }
+  fn match_cost(&self) -> f32 {
+    self
+      .spans
+      .as_two_phase_iterator()
+      .map_or(0.0, |iterator| iterator.match_cost())
+  }
+}
+
 impl<S, SS, N> Scorer for SpanScorer<S, SS, N>
 where
   S: Spans + 'static,
   SS: SimScorer,
   N: NumericDocValues,
 {
-  type Iterator = S;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = S::TwoPhaseRef<'a>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.spans.doc_id())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    self.spans
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self.spans.as_two_phase_iterator()
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
@@ -276,13 +317,5 @@ where
     } else {
       TwoPhaseState::No
     }
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self
   }
 }

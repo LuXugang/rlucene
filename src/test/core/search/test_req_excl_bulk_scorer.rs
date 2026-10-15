@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::bulk_scorer::BulkScorer;
 use crate::core::search::doc_id_set::DocIdSet;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
@@ -219,56 +222,112 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self.disi.disi())
   }
 }
+impl<DISI> ApproximationDISI for ScorerImpl<DISI>
+where
+  DISI: DocIdSetIterator + 'static,
+{
+  fn approx_doc_id(&self) -> i32 {
+    if self.has_tpi {
+      self.disi.approx_doc_id()
+    } else {
+      DocIdSetIterator::doc_id(self)
+    }
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    if self.has_tpi {
+      self.disi.approx_next_doc()
+    } else {
+      DocIdSetIterator::next_doc(self)
+    }
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    if self.has_tpi {
+      self.disi.approx_advance(target)
+    } else {
+      DocIdSetIterator::advance(self, target)
+    }
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    if self.has_tpi {
+      self.disi.approx_slow_advance(target)
+    } else {
+      DocIdSetIterator::slow_advance(self, target)
+    }
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    if self.has_tpi {
+      self.disi.approx_cost()
+    } else {
+      DocIdSetIterator::cost(self)
+    }
+  }
+}
+impl<DISI> ApproximationBitSetAccess for ScorerImpl<DISI>
+where
+  DISI: DocIdSetIterator + 'static,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    if self.has_tpi {
+      self.disi.approx_is_bit_iter()
+    } else {
+      crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::is_bit_iter(self)
+    }
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    if self.has_tpi {
+      self.disi.approx_get(index)
+    } else {
+      crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::get(self, index)
+    }
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    if self.has_tpi {
+      self.disi.approx_set_doc_id(doc)
+    } else {
+      crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::set_doc_id(self, doc)
+    }
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    if self.has_tpi {
+      self.disi.approx_bit_set_length()
+    } else {
+      crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(self)
+    }
+  }
+}
+
+impl<DISI> TwoPhaseIterator for ScorerImpl<DISI>
+where
+  DISI: DocIdSetIterator + 'static,
+{
+  fn matches(&mut self) -> Result<bool> {
+    if self.has_tpi {
+      self.disi.matches()
+    } else {
+      Ok(true)
+    }
+  }
+  fn match_cost(&self) -> f32 {
+    if self.has_tpi {
+      self.disi.match_cost()
+    } else {
+      0.0
+    }
+  }
+}
+
 impl<DISI> Scorer for ScorerImpl<DISI>
 where
   DISI: DocIdSetIterator + 'static,
 {
-  type Iterator = crate::core::search::doc_id_set_iterator::EmptyDISI;
-  type OwnedTwoPhase = RandomTwoPhaseView<DISI>;
-  type ApproximationRef<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    <RandomTwoPhaseView<DISI> as TwoPhaseIterator>::ApproximationRef<'a>,
-    &'a Self,
-  >
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    <RandomTwoPhaseView<DISI> as TwoPhaseIterator>::ApproximationMut<'a>,
-    &'a mut Self,
-  >
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a RandomTwoPhaseView<DISI>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut RandomTwoPhaseView<DISI>
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    unreachable!("")
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    unreachable!("")
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    if self.has_tpi { Some(&self.disi) } else { None }
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    if self.has_tpi {
-      Some(&mut self.disi)
-    } else {
-      None
-    }
-  }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
     unreachable!("")
   }
 
@@ -281,24 +340,6 @@ where
       TwoPhaseState::Yes
     } else {
       TwoPhaseState::No
-    }
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    if self.has_tpi {
-      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(self.disi.approximation())
-    } else {
-      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(self)
-    }
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    if self.has_tpi {
-      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(
-        self.disi.approximation_mut(),
-      )
-    } else {
-      crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(self)
     }
   }
 }

@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::doc_id_set_iterator::{
   BitSetIteratorAccess, DocIdSetIterator, DocIdSetIteratorExtensions, EmptyDISI,
 };
-use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 #[cfg(test)]
@@ -88,25 +89,21 @@ impl<T: TwoPhaseIterator> ConstantScoreScorer<TpiState<T>> {
 /// Operations whose implementations depend on the constructor-selected mode.
 #[doc(hidden)]
 pub trait ConstantScoreState: DocIdSetIterator + 'static {
-  type OwnedTwoPhase: TwoPhaseIterator + 'static;
+  fn match_cost(&self) -> f32;
+
+  fn matches(&mut self) -> Result<bool>;
+
   type ApproximationRef<'a>: DocIdSetIterator
   where
     Self: 'a;
   type ApproximationMut<'a>: DocIdSetIterator
   where
     Self: 'a;
-  type TwoPhaseRef<'a>: TwoPhaseIterator
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>: TwoPhaseIterator
-  where
-    Self: 'a;
+
   fn stop_competitive_iteration(&mut self);
   fn approximation(&self) -> Self::ApproximationRef<'_>;
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_>;
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>>;
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>>;
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase>;
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
 
@@ -161,52 +158,59 @@ impl<S: DocIdSetIterator> DocIdSetIterator for ConstantScoreScorer<S> {
     self.state.cost()
   }
 }
+impl<S: ConstantScoreState> ApproximationDISI for ConstantScoreScorer<S> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ self.state.approximation() })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { self.state.approximation_mut() })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { self.state.approximation_mut() }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { self.state.approximation_mut() }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ self.state.approximation() })
+  }
+}
+impl<S: ConstantScoreState> ApproximationBitSetAccess for ConstantScoreScorer<S> {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ self.state.approximation() })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ self.state.approximation() }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { self.state.approximation_mut() }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ self.state.approximation() })
+  }
+}
+
+impl<S: ConstantScoreState> TwoPhaseIterator for ConstantScoreScorer<S> {
+  fn matches(&mut self) -> Result<bool> {
+    self.state.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.state.match_cost()
+  }
+}
+
 impl<S: ConstantScoreState> Scorer for ConstantScoreScorer<S> {
-  type Iterator = S;
-  type OwnedTwoPhase = S::OwnedTwoPhase;
-  type ApproximationRef<'a>
-    = S::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = S::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = S::TwoPhaseRef<'a>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = S::TwoPhaseMut<'a>
-  where
-    Self: 'a;
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.state.doc_id())
   }
-  fn take_iterator(self) -> Self::Iterator {
-    self.state
-  }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self.state.two_phase_iterator()
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    self.state.two_phase_iterator_mut()
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    self.state.take_two_phase_iterator()
-  }
+
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
     Ok(self.score)
   }
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.state.has_two_phase_iterator()
   }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.state.approximation()
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.state.approximation_mut()
-  }
+
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::ConstantScore
@@ -248,8 +252,16 @@ impl<D: DocIdSetIterator> DocIdSetIterator for DisiState<D> {
   }
 }
 impl<D: DocIdSetIterator + 'static> ConstantScoreState for DisiState<D> {
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+
   fn stop_competitive_iteration(&mut self) {}
-  type OwnedTwoPhase = DummyTwoPhaseIterator;
+
   type ApproximationRef<'a>
     = &'a Self
   where
@@ -258,29 +270,14 @@ impl<D: DocIdSetIterator + 'static> ConstantScoreState for DisiState<D> {
     = &'a mut Self
   where
     Self: 'a;
-  type TwoPhaseRef<'a>
-    = DummyTwoPhaseIterator
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = DummyTwoPhaseIterator
-  where
-    Self: 'a;
+
   fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    None
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    None
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    None
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
   }
@@ -324,10 +321,18 @@ impl<D: DocIdSetIterator> DocIdSetIterator for TopDisiState<D> {
   }
 }
 impl<D: DocIdSetIterator + 'static> ConstantScoreState for TopDisiState<D> {
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+
   fn stop_competitive_iteration(&mut self) {
     self.0.delegate = DisiDelegate::Empty(EmptyDISI::new());
   }
-  type OwnedTwoPhase = DummyTwoPhaseIterator;
+
   type ApproximationRef<'a>
     = &'a Self
   where
@@ -336,29 +341,14 @@ impl<D: DocIdSetIterator + 'static> ConstantScoreState for TopDisiState<D> {
     = &'a mut Self
   where
     Self: 'a;
-  type TwoPhaseRef<'a>
-    = DummyTwoPhaseIterator
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = DummyTwoPhaseIterator
-  where
-    Self: 'a;
+
   fn approximation(&self) -> Self::ApproximationRef<'_> {
     self
   }
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    None
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    None
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    None
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
   }
@@ -402,39 +392,32 @@ impl<T: TwoPhaseIterator> DocIdSetIterator for TpiState<T> {
   }
 }
 impl<T: TwoPhaseIterator + 'static> ConstantScoreState for TpiState<T> {
+  fn match_cost(&self) -> f32 {
+    self.0.two_phase_iterator.match_cost()
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    self.0.two_phase_iterator.matches()
+  }
+
   fn stop_competitive_iteration(&mut self) {}
-  type OwnedTwoPhase = T;
+
   type ApproximationRef<'a>
-    = <T as TwoPhaseIterator>::ApproximationRef<'a>
+    = crate::core::search::approximation_disi::ApproximationRef<'a, T>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = <T as TwoPhaseIterator>::ApproximationMut<'a>
+    = crate::core::search::approximation_disi::ApproximationMut<'a, T>
   where
     Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a T
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut T
-  where
-    Self: 'a;
+
   fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.0.two_phase_iterator.approximation()
+    crate::core::search::approximation_disi::ApproximationRef(&self.0.two_phase_iterator)
   }
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.0.two_phase_iterator.approximation_mut()
+    crate::core::search::approximation_disi::ApproximationMut(&mut self.0.two_phase_iterator)
   }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    Some(&self.0.two_phase_iterator)
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    Some(&mut self.0.two_phase_iterator)
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    Some(self.0.two_phase_iterator)
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
   }
@@ -478,41 +461,34 @@ impl<T: TwoPhaseIterator> DocIdSetIterator for TopTpiState<T> {
   }
 }
 impl<T: TwoPhaseIterator + 'static> ConstantScoreState for TopTpiState<T> {
+  fn match_cost(&self) -> f32 {
+    self.0.two_phase_iterator.match_cost()
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    self.0.two_phase_iterator.matches()
+  }
+
   fn stop_competitive_iteration(&mut self) {
     self.0.two_phase_iterator.approximation.delegate.empty = Some(EmptyDISI::new());
   }
-  type OwnedTwoPhase = TwoPhaseIteratorImpl<T>;
+
   type ApproximationRef<'a>
-    = <TwoPhaseIteratorImpl<T> as TwoPhaseIterator>::ApproximationRef<'a>
+    = crate::core::search::approximation_disi::ApproximationRef<'a, TwoPhaseIteratorImpl<T>>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = <TwoPhaseIteratorImpl<T> as TwoPhaseIterator>::ApproximationMut<'a>
+    = crate::core::search::approximation_disi::ApproximationMut<'a, TwoPhaseIteratorImpl<T>>
   where
     Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a TwoPhaseIteratorImpl<T>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut TwoPhaseIteratorImpl<T>
-  where
-    Self: 'a;
+
   fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.0.two_phase_iterator.approximation()
+    crate::core::search::approximation_disi::ApproximationRef(&self.0.two_phase_iterator)
   }
   fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.0.two_phase_iterator.approximation_mut()
+    crate::core::search::approximation_disi::ApproximationMut(&mut self.0.two_phase_iterator)
   }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    Some(&self.0.two_phase_iterator)
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    Some(&mut self.0.two_phase_iterator)
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    Some(self.0.two_phase_iterator)
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
   }
@@ -525,27 +501,55 @@ impl<TPI> TwoPhaseIteratorImpl<TPI> {
     Self { approximation }
   }
 }
+impl<TPI> ApproximationDISI for TwoPhaseIteratorImpl<TPI>
+where
+  TPI: TwoPhaseIterator,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.approximation.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.approximation.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.approximation.cost()
+  }
+}
+impl<TPI> ApproximationBitSetAccess for TwoPhaseIteratorImpl<TPI>
+where
+  TPI: TwoPhaseIterator,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.approximation.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.approximation.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.approximation.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.approximation.bit_set_length()
+  }
+}
+
 impl<TPI> TwoPhaseIterator for TwoPhaseIteratorImpl<TPI>
 where
   TPI: TwoPhaseIterator,
 {
-  type ApproximationRef<'a>
-    = &'a DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.approximation
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.approximation
-  }
-
   fn matches(&mut self) -> Result<bool> {
     self.approximation.delegate.two_phase_iterator.matches()
   }
@@ -630,38 +634,35 @@ where
   fn doc_id(&self) -> i32 {
     match &self.empty {
       Some(e) => e.doc_id(),
-      None => self.two_phase_iterator.approximation().doc_id(),
+      None => self.two_phase_iterator.approx_doc_id(),
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
     match &mut self.empty {
       Some(e) => e.next_doc(),
-      None => self.two_phase_iterator.approximation_mut().next_doc(),
+      None => self.two_phase_iterator.approx_next_doc(),
     }
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
     match &mut self.empty {
       Some(e) => e.advance(target),
-      None => self.two_phase_iterator.approximation_mut().advance(target),
+      None => self.two_phase_iterator.approx_advance(target),
     }
   }
 
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
     match &mut self.empty {
       Some(e) => e.slow_advance(target),
-      None => self
-        .two_phase_iterator
-        .approximation_mut()
-        .slow_advance(target),
+      None => self.two_phase_iterator.approx_slow_advance(target),
     }
   }
 
   fn cost(&self) -> Result<i64> {
     match &self.empty {
       Some(e) => e.cost(),
-      None => self.two_phase_iterator.approximation().cost(),
+      None => self.two_phase_iterator.approx_cost(),
     }
   }
 }

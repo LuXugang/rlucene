@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -161,61 +164,125 @@ impl DocIdSetIterator for AssertingScorer {
 }
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for AssertingScorer {}
 impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for AssertingScorer {}
-impl Scorer for AssertingScorer {
-  type Iterator = AssertingDocIdSetIterator;
-  type OwnedTwoPhase = AssertingTwoPhaseIterator;
-  type ApproximationRef<'a>
-    = &'a AssertingDocIdSetIterator
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut AssertingDocIdSetIterator
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a AssertingTwoPhaseIterator
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut AssertingTwoPhaseIterator
-  where
-    Self: 'a;
+impl ApproximationDISI for AssertingScorer {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{
+      if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+        &self.approximation_view
+      } else {
+        &self.iterator_view
+      }
+    })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut {
+      if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+        &mut self.approximation_view
+      } else {
+        &mut self.iterator_view
+      }
+    })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(
+      &mut {
+        if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+          &mut self.approximation_view
+        } else {
+          &mut self.iterator_view
+        }
+      },
+      target,
+    )
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(
+      &mut {
+        if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+          &mut self.approximation_view
+        } else {
+          &mut self.iterator_view
+        }
+      },
+      target,
+    )
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{
+      if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+        &self.approximation_view
+      } else {
+        &self.iterator_view
+      }
+    })
+  }
+}
+impl ApproximationBitSetAccess for AssertingScorer {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{
+      if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+        &self.approximation_view
+      } else {
+        &self.iterator_view
+      }
+    })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(
+      &{
+        if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+          &self.approximation_view
+        } else {
+          &self.iterator_view
+        }
+      },
+      index,
+    )
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(
+      &mut {
+        if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+          &mut self.approximation_view
+        } else {
+          &mut self.iterator_view
+        }
+      },
+      doc,
+    )
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{
+      if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+        &self.approximation_view
+      } else {
+        &self.iterator_view
+      }
+    })
+  }
+}
 
+impl TwoPhaseIterator for AssertingScorer {
+  fn matches(&mut self) -> Result<bool> {
+    if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+      self.two_phase_view.check_position();
+      self.two_phase_view.matches()
+    } else {
+      Ok(true)
+    }
+  }
+  fn match_cost(&self) -> f32 {
+    if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
+      self.two_phase_view.match_cost()
+    } else {
+      0.0
+    }
+  }
+}
+
+impl Scorer for AssertingScorer {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     self.in_.borrow_mut().scoring_doc_id()
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    AssertingDocIdSetIterator::new(self.in_.clone(), self.state.clone(), false)
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    if self.in_.borrow().two_phase_iterator().is_some() {
-      self.two_phase_view.check_position();
-      Some(&self.two_phase_view)
-    } else {
-      None
-    }
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    if self.in_.borrow_mut().two_phase_iterator_mut().is_some() {
-      self.two_phase_view.check_position();
-      Some(&mut self.two_phase_view)
-    } else {
-      None
-    }
-  }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    if self.in_.borrow().two_phase_iterator().is_some() {
-      Some(AssertingTwoPhaseIterator::new(
-        self.in_.clone(),
-        self.state.clone(),
-      ))
-    } else {
-      None
-    }
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -265,22 +332,6 @@ impl Scorer for AssertingScorer {
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.in_.borrow().has_two_phase_iterator()
   }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
-      &self.approximation_view
-    } else {
-      &self.iterator_view
-    }
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    if self.in_.borrow().has_two_phase_iterator() == TwoPhaseState::Yes {
-      &mut self.approximation_view
-    } else {
-      &mut self.iterator_view
-    }
-  }
 }
 
 #[doc(hidden)]
@@ -318,7 +369,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
       .scoring_doc_id()
       .expect("scoring_doc_id should be available");
     let iterator_doc = if self.approximation {
-      self.scorer.borrow().approximation().doc_id()
+      self.scorer.borrow().approx_doc_id()
     } else {
       self.scorer.borrow().doc_id()
     };
@@ -337,7 +388,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
       assert!(self.doc_id() + 1 >= state.last_shallow_target);
     }
     let next_doc = if self.approximation {
-      self.scorer.borrow_mut().approximation_mut().next_doc()?
+      self.scorer.borrow_mut().approx_next_doc()?
     } else {
       self.scorer.borrow_mut().next_doc()?
     };
@@ -379,11 +430,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
       assert!(target >= state.last_shallow_target);
     }
     let advanced = if self.approximation {
-      self
-        .scorer
-        .borrow_mut()
-        .approximation_mut()
-        .advance(target)?
+      self.scorer.borrow_mut().approx_advance(target)?
     } else {
       self.scorer.borrow_mut().advance(target)?
     };
@@ -410,7 +457,7 @@ impl DocIdSetIterator for AssertingDocIdSetIterator {
 
   fn cost(&self) -> Result<i64> {
     if self.approximation {
-      self.scorer.borrow().approximation().cost()
+      self.scorer.borrow().approx_cost()
     } else {
       crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&**self.scorer.borrow())
     }
@@ -442,44 +489,52 @@ impl AssertingTwoPhaseIterator {
       .borrow_mut()
       .scoring_doc_id()
       .expect("scoring_doc_id should be available");
-    let approximation_doc = self
-      .scorer
-      .borrow()
-      .two_phase_iterator()
-      .expect("two_phase_iterator should be available")
-      .approximation()
-      .doc_id();
+    let approximation_doc = self.scorer.borrow().approx_doc_id();
     assert_eq!(approximation_doc, scorer_doc);
   }
+}
 
-  fn new(
-    scorer: Rc<RefCell<Box<dyn TestScorer>>>,
-    state: Rc<RefCell<AssertingScorerState>>,
-  ) -> Self {
-    let view = Self::from_shared(scorer, state);
-    view.check_position();
-    view
+impl ApproximationDISI for AssertingTwoPhaseIterator {
+  fn approx_doc_id(&self) -> i32 {
+    self.approximation_view.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.approximation_view.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation_view.advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.approximation_view.slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.approximation_view.cost()
+  }
+}
+
+impl ApproximationBitSetAccess for AssertingTwoPhaseIterator {
+  fn approx_is_bit_iter(&self) -> bool {
+    self.approximation_view.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.approximation_view.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.approximation_view.set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.approximation_view.bit_set_length()
   }
 }
 
 impl TwoPhaseIterator for AssertingTwoPhaseIterator {
-  type ApproximationRef<'a>
-    = &'a AssertingDocIdSetIterator
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut AssertingDocIdSetIterator
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.approximation_view
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.approximation_view
-  }
-
   fn matches(&mut self) -> Result<bool> {
     assert_eq!(
       self.state.borrow().state,
@@ -487,20 +542,9 @@ impl TwoPhaseIterator for AssertingTwoPhaseIterator {
       "{:?}",
       self.state.borrow().state
     );
-    let matches = self
-      .scorer
-      .borrow_mut()
-      .two_phase_iterator_mut()
-      .expect("two_phase_iterator should be available")
-      .matches()?;
+    let matches = self.scorer.borrow_mut().matches()?;
     if matches {
-      let doc = self
-        .scorer
-        .borrow()
-        .two_phase_iterator()
-        .expect("two_phase_iterator should be available")
-        .approximation()
-        .doc_id();
+      let doc = self.scorer.borrow().approx_doc_id();
       assert_eq!(self.scorer.borrow_mut().scoring_doc_id()?, doc);
       let mut state = self.state.borrow_mut();
       state.doc = doc;
@@ -510,12 +554,7 @@ impl TwoPhaseIterator for AssertingTwoPhaseIterator {
   }
 
   fn match_cost(&self) -> f32 {
-    let match_cost = self
-      .scorer
-      .borrow()
-      .two_phase_iterator()
-      .expect("two_phase_iterator should be available")
-      .match_cost();
+    let match_cost = self.scorer.borrow().match_cost();
     assert!(!match_cost.is_nan());
     assert!(match_cost >= 0.0);
     match_cost

@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 #[cfg(test)]
@@ -42,12 +45,12 @@ impl<S1: Scorer, S2: Scorer> ReqExclScorer<TwoPhaseIteratorImpl1<S1, S2>> {
   pub(crate) fn prepare(mut req_scorer: S1, mut excl_scorer: S2) -> Result<Tpi<S1, S2>> {
     let match_cost = match_cost(&mut req_scorer, &mut excl_scorer)?;
 
-    let check_req = match req_scorer.two_phase_iterator_mut() {
-      Some(ref mut req_scorer_tpi) => match excl_scorer.two_phase_iterator_mut() {
-        Some(excl_scorer_tpi) => req_scorer_tpi.match_cost() <= excl_scorer_tpi.match_cost(),
-        None => false,
+    let check_req = match req_scorer.has_two_phase_iterator() {
+      TwoPhaseState::Yes => match excl_scorer.has_two_phase_iterator() {
+        TwoPhaseState::Yes => req_scorer.match_cost() <= excl_scorer.match_cost(),
+        TwoPhaseState::No => false,
       },
-      None => true,
+      TwoPhaseState::No => true,
     };
 
     let two_phase_iterator = if check_req {
@@ -136,25 +139,48 @@ impl<T: TwoPhaseIterator> DocIdSetIterator for ReqExclScorer<T> {
     self.disi.cost()
   }
 }
+impl<T: ReqExclState> ApproximationDISI for ReqExclScorer<T> {
+  fn approx_doc_id(&self) -> i32 {
+    self.disi.two_phase_iterator.approx_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.two_phase_iterator.approx_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.disi.two_phase_iterator.approx_cost()
+  }
+}
+impl<T: ReqExclState> ApproximationBitSetAccess for ReqExclScorer<T> {
+  fn approx_is_bit_iter(&self) -> bool {
+    self.disi.two_phase_iterator.approx_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.disi.two_phase_iterator.approx_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.disi.two_phase_iterator.approx_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.disi.two_phase_iterator.approx_bit_set_length()
+  }
+}
+
+impl<T: ReqExclState> TwoPhaseIterator for ReqExclScorer<T> {
+  fn matches(&mut self) -> Result<bool> {
+    self.disi.two_phase_iterator.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.disi.two_phase_iterator.match_cost()
+  }
+}
+
 impl<T: ReqExclState> Scorer for ReqExclScorer<T> {
-  type Iterator = TwoPhaseIteratorAsDocIdSetIterator<T>;
-  type OwnedTwoPhase = T;
-  type ApproximationRef<'a>
-    = T::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = T::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a T
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut T
-  where
-    Self: 'a;
   fn scoring_doc_id(&mut self) -> Result<i32> {
     self
       .disi
@@ -162,18 +188,7 @@ impl<T: ReqExclState> Scorer for ReqExclScorer<T> {
       .req_scorer_mut()
       .scoring_doc_id()
   }
-  fn take_iterator(self) -> Self::Iterator {
-    self.disi
-  }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    Some(&self.disi.two_phase_iterator)
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    Some(&mut self.disi.two_phase_iterator)
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    Some(self.disi.two_phase_iterator)
-  }
+
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     self
       .disi
@@ -191,12 +206,7 @@ impl<T: ReqExclState> Scorer for ReqExclScorer<T> {
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     Yes
   }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.disi.two_phase_iterator.approximation_mut()
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.disi.two_phase_iterator.approximation()
-  }
+
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::ReqExcl
@@ -217,28 +227,62 @@ impl<S1, S2> TwoPhaseIteratorImpl1<S1, S2> {
     }
   }
 }
+impl<S1, S2> ApproximationDISI for TwoPhaseIteratorImpl1<S1, S2>
+where
+  S1: Scorer,
+  S2: Scorer,
+{
+  fn approx_doc_id(&self) -> i32 {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) }).next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
+      .advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
+      .slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).cost()
+  }
+}
+impl<S1, S2> ApproximationBitSetAccess for TwoPhaseIteratorImpl1<S1, S2>
+where
+  S1: Scorer,
+  S2: Scorer,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
+      .set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) })
+      .bit_set_length()
+  }
+}
+
 impl<S1, S2> TwoPhaseIterator for TwoPhaseIteratorImpl1<S1, S2>
 where
   S1: Scorer,
   S2: Scorer,
 {
-  type ApproximationRef<'a>
-    = <S1 as Scorer>::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = <S1 as Scorer>::ApproximationMut<'a>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.req_scorer.approximation_mut()
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.req_scorer.approximation()
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let doc = ScorerUtil::doc_id(&self.req_scorer);
     // check if the doc is not excluded
@@ -248,22 +292,13 @@ where
         excl_doc = ScorerUtil::advance(&mut self.excl_scorer, doc)?;
       }
       if excl_doc != doc {
-        return match self.req_scorer.two_phase_iterator_mut() {
-          Some(mut req_tpi) => req_tpi.matches(),
-          None => Ok(true),
-        };
+        return self.req_scorer.matches();
       }
     }
-    let req_match = match self.req_scorer.two_phase_iterator_mut() {
-      Some(mut req_tpi) => req_tpi.matches()?,
-      None => true,
-    };
+    let req_match = self.req_scorer.matches()?;
     match req_match {
       true => {
-        let v = match self.excl_scorer.two_phase_iterator_mut() {
-          Some(mut excl_tpi) => excl_tpi.matches()?,
-          None => true,
-        };
+        let v = self.excl_scorer.matches()?;
         Ok(!v)
       },
       false => Ok(false),
@@ -289,60 +324,85 @@ impl<S1, S2> TwoPhaseIteratorImpl2<S1, S2> {
     }
   }
 }
+impl<S1, S2> ApproximationDISI for TwoPhaseIteratorImpl2<S1, S2>
+where
+  S1: Scorer,
+  S2: Scorer,
+{
+  fn approx_doc_id(&self) -> i32 {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) }).next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
+      .advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
+      .slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).cost()
+  }
+}
+impl<S1, S2> ApproximationBitSetAccess for TwoPhaseIteratorImpl2<S1, S2>
+where
+  S1: Scorer,
+  S2: Scorer,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
+      .set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) })
+      .bit_set_length()
+  }
+}
+
 impl<S1, S2> TwoPhaseIterator for TwoPhaseIteratorImpl2<S1, S2>
 where
   S1: Scorer,
   S2: Scorer,
 {
-  type ApproximationRef<'a>
-    = <S1 as Scorer>::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = <S1 as Scorer>::ApproximationMut<'a>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.req_scorer.approximation_mut()
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.req_scorer.approximation()
-  }
-
   fn matches(&mut self) -> Result<bool> {
     let doc = ScorerUtil::doc_id(&self.req_scorer);
 
     // check if doc is excluded
     {
-      let mut excl_approximation = self.excl_scorer.approximation_mut();
-      let mut excl_doc = excl_approximation.doc_id();
+      let excl_approximation = &mut self.excl_scorer;
+      let mut excl_doc = excl_approximation.approx_doc_id();
       if excl_doc < doc {
-        excl_doc = excl_approximation.advance(doc)?;
+        excl_doc = excl_approximation.approx_advance(doc)?;
       }
 
       if excl_doc != doc {
-        return match self.req_scorer.two_phase_iterator_mut() {
-          Some(mut req_tpi) => req_tpi.matches(),
-          None => Ok(true),
-        };
+        return self.req_scorer.matches();
       }
     }
 
-    let excl_not_match = match self.excl_scorer.two_phase_iterator_mut() {
-      Some(mut excl_tpi) => !excl_tpi.matches()?,
-      None => false,
-    };
+    let excl_not_match = !self.excl_scorer.matches()?;
 
     if !excl_not_match {
       return Ok(false);
     }
 
-    let req_match = match self.req_scorer.two_phase_iterator_mut() {
-      Some(mut req_tpi) => req_tpi.matches()?,
-      None => true,
-    };
+    let req_match = self.req_scorer.matches()?;
 
     Ok(req_match)
   }
@@ -351,6 +411,7 @@ where
     self.match_cost
   }
 }
+
 pub type Tpi<S1, S2> =
   TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl1<S1, S2>, TwoPhaseIteratorImpl2<S1, S2>>;
 /// Estimation of the number of operations required to call DISI.advance.
@@ -365,17 +426,14 @@ where
 {
   let mut match_cost: f32 = 2.0;
 
-  if let Some(req_tpi) = req_scorer.two_phase_iterator_mut() {
+  if req_scorer.has_two_phase_iterator() == TwoPhaseState::Yes {
     // this two-phase iterator must always be matched
-    match_cost += req_tpi.match_cost();
+    match_cost += req_scorer.match_cost();
   }
   // match cost of the prohibited clause: we need to advance the approximation
   // and match the two-phased iterator
   let excl_match_cost = {
-    let extra = match excl_scorer.two_phase_iterator_mut() {
-      Some(excl_tpi) => excl_tpi.match_cost(),
-      None => 0.0,
-    };
+    let extra = excl_scorer.match_cost();
     (ADVANCE_COST as f32) + extra
   };
   // upper value for the ratio of documents that reqApproximation matches that

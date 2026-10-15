@@ -14,6 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::any::Any;
 use std::collections::HashMap;
@@ -124,33 +129,50 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FakeScor
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.it)
   }
 }
-impl Scorer for FakeScorer {
-  type Iterator = AllDISI;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a AllDISI
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut AllDISI
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
+impl ApproximationDISI for FakeScorer {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.it })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.it })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.it }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.it }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.it })
+  }
+}
+impl ApproximationBitSetAccess for FakeScorer {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.it })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.it }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.it }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.it })
+  }
+}
 
+impl TwoPhaseIterator for FakeScorer {
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
+impl Scorer for FakeScorer {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.it.doc_id())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let FakeScorer { it, .. } = self;
-    it
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -159,14 +181,6 @@ impl Scorer for FakeScorer {
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.it
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.it
   }
 }
 #[derive(Clone)]

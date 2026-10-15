@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 //! Heterogeneous scorer fixtures, available only in unit-test builds.
 //! Concrete execution uses `Scorer` and `TwoPhaseIterator` directly.
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::doc_id_set_iterator::{
   BitSetIteratorAccess, DocIdSetIterator, DocIdSetIteratorExtensions,
 };
@@ -26,14 +29,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait TestScorer: TestScorable + DocIdSetIterator {
   fn erased_scoring_doc_id(&mut self) -> Result<i32>;
-  fn erased_take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator>;
-  fn erased_take_two_phase(self: Box<Self>) -> Option<Box<dyn TestTwoPhaseIterator>>;
+
   fn erased_advance_shallow(&mut self, target: i32) -> Result<i32>;
   fn erased_default_advance_shallow(&mut self, target: i32) -> Result<i32>;
   fn erased_get_max_score(&mut self, upto: i32) -> Result<f32>;
   fn erased_default_cost(&mut self) -> Result<i64>;
   fn erased_two_phase_state(&self) -> TwoPhaseState;
-  fn erased_has_two_phase_view(&self) -> bool;
+
   fn erased_matches(&mut self) -> Result<bool>;
   fn erased_match_cost(&self) -> f32;
   fn erased_approximation_doc_id(&self) -> i32;
@@ -53,14 +55,7 @@ impl<S: Scorer> TestScorer for S {
   fn erased_scoring_doc_id(&mut self) -> Result<i32> {
     self.scoring_doc_id()
   }
-  fn erased_take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    Box::new((*self).take_iterator())
-  }
-  fn erased_take_two_phase(self: Box<Self>) -> Option<Box<dyn TestTwoPhaseIterator>> {
-    (*self)
-      .take_two_phase_iterator()
-      .map(|iterator| Box::new(iterator) as Box<dyn TestTwoPhaseIterator>)
-  }
+
   fn erased_advance_shallow(&mut self, target: i32) -> Result<i32> {
     self.advance_shallow(target)
   }
@@ -76,46 +71,39 @@ impl<S: Scorer> TestScorer for S {
   fn erased_two_phase_state(&self) -> TwoPhaseState {
     self.has_two_phase_iterator()
   }
-  fn erased_has_two_phase_view(&self) -> bool {
-    self.two_phase_iterator().is_some()
-  }
+
   fn erased_matches(&mut self) -> Result<bool> {
-    let Some(mut view) = self.two_phase_iterator_mut() else {
-      return Err(LuceneError::illegal_state("scorer has no two-phase view"));
-    };
-    view.matches()
+    TwoPhaseIterator::matches(self)
   }
   fn erased_match_cost(&self) -> f32 {
-    self
-      .two_phase_iterator()
-      .map_or(0.0, |view| view.match_cost())
+    TwoPhaseIterator::match_cost(self)
   }
   fn erased_approximation_doc_id(&self) -> i32 {
-    self.approximation().doc_id()
+    self.approx_doc_id()
   }
   fn erased_approximation_next_doc(&mut self) -> Result<i32> {
-    self.approximation_mut().next_doc()
+    self.approx_next_doc()
   }
   fn erased_approximation_advance(&mut self, target: i32) -> Result<i32> {
-    self.approximation_mut().advance(target)
+    self.approx_advance(target)
   }
   fn erased_approximation_slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.approximation_mut().slow_advance(target)
+    self.approx_slow_advance(target)
   }
   fn erased_approximation_cost(&self) -> Result<i64> {
-    self.approximation().cost()
+    self.approx_cost()
   }
   fn erased_approximation_is_bit_iter(&self) -> bool {
-    self.approximation().is_bit_iter()
+    self.approx_is_bit_iter()
   }
   fn erased_approximation_get(&self, index: usize) -> Result<bool> {
-    self.approximation().get(index)
+    self.approx_get(index)
   }
   fn erased_approximation_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    self.approximation_mut().set_doc_id(doc)
+    self.approx_set_doc_id(doc)
   }
   fn erased_approximation_bit_set_length(&self) -> Result<usize> {
-    self.approximation().bit_set_length()
+    self.approx_bit_set_length()
   }
   #[cfg(test)]
   fn erased_kind(&self) -> crate::core::search::scorer::ScorerKind {
@@ -138,31 +126,31 @@ pub trait TestTwoPhaseIterator {
 }
 impl<T: TwoPhaseIterator> TestTwoPhaseIterator for T {
   fn erased_approximation_doc_id(&self) -> i32 {
-    self.approximation().doc_id()
+    self.approx_doc_id()
   }
   fn erased_approximation_next_doc(&mut self) -> Result<i32> {
-    self.approximation_mut().next_doc()
+    self.approx_next_doc()
   }
   fn erased_approximation_advance(&mut self, target: i32) -> Result<i32> {
-    self.approximation_mut().advance(target)
+    self.approx_advance(target)
   }
   fn erased_approximation_slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.approximation_mut().slow_advance(target)
+    self.approx_slow_advance(target)
   }
   fn erased_approximation_cost(&self) -> Result<i64> {
-    self.approximation().cost()
+    self.approx_cost()
   }
   fn erased_approximation_is_bit_iter(&self) -> bool {
-    self.approximation().is_bit_iter()
+    self.approx_is_bit_iter()
   }
   fn erased_approximation_get(&self, index: usize) -> Result<bool> {
-    self.approximation().get(index)
+    self.approx_get(index)
   }
   fn erased_approximation_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    self.approximation_mut().set_doc_id(doc)
+    self.approx_set_doc_id(doc)
   }
   fn erased_approximation_bit_set_length(&self) -> Result<usize> {
-    self.approximation().bit_set_length()
+    self.approx_bit_set_length()
   }
   fn erased_matches(&mut self) -> Result<bool> {
     self.matches()
@@ -251,69 +239,47 @@ erased_iterator_views!(
   TestTwoPhaseIterator
 );
 
-pub struct TestScorerTwoPhaseRef<'a, T: TestScorer + ?Sized>(pub(crate) &'a T);
-pub struct TestScorerTwoPhaseMut<'a, T: TestScorer + ?Sized>(pub(crate) &'a mut T);
-impl<T: TestScorer + ?Sized> TwoPhaseIterator for TestScorerTwoPhaseRef<'_, T> {
-  type ApproximationRef<'a>
-    = TestScorerApproximationRef<'a, T>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = TestScorerApproximationRef<'a, T>
-  where
-    Self: 'a;
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    TestScorerApproximationRef(self.0)
+impl ApproximationDISI for dyn TestTwoPhaseIterator + '_ {
+  fn approx_doc_id(&self) -> i32 {
+    ({ DynTwoPhaseApproximationRef(self) }).doc_id()
   }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    TestScorerApproximationRef(self.0)
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    ({ DynTwoPhaseApproximationMut(self) }).next_doc()
   }
-  fn matches(&mut self) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(
-      "immutable two-phase view",
-    ))
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    ({ DynTwoPhaseApproximationMut(self) }).advance(target)
   }
-  fn match_cost(&self) -> f32 {
-    self.0.erased_match_cost()
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    ({ DynTwoPhaseApproximationMut(self) }).slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    ({ DynTwoPhaseApproximationRef(self) }).cost()
   }
 }
-impl<T: TestScorer + ?Sized> TwoPhaseIterator for TestScorerTwoPhaseMut<'_, T> {
-  type ApproximationRef<'a>
-    = TestScorerApproximationRef<'a, T>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = TestScorerApproximationMut<'a, T>
-  where
-    Self: 'a;
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    TestScorerApproximationRef(self.0)
+
+impl ApproximationBitSetAccess for dyn TestTwoPhaseIterator + '_ {
+  fn approx_is_bit_iter(&self) -> bool {
+    ({ DynTwoPhaseApproximationRef(self) }).is_bit_iter()
   }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    TestScorerApproximationMut(self.0)
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    ({ DynTwoPhaseApproximationRef(self) }).get(index)
   }
-  fn matches(&mut self) -> Result<bool> {
-    self.0.erased_matches()
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    ({ DynTwoPhaseApproximationMut(self) }).set_doc_id(doc)
   }
-  fn match_cost(&self) -> f32 {
-    self.0.erased_match_cost()
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    ({ DynTwoPhaseApproximationRef(self) }).bit_set_length()
   }
 }
+
 impl TwoPhaseIterator for dyn TestTwoPhaseIterator + '_ {
-  type ApproximationRef<'a>
-    = DynTwoPhaseApproximationRef<'a, Self>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = DynTwoPhaseApproximationMut<'a, Self>
-  where
-    Self: 'a;
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    DynTwoPhaseApproximationRef(self)
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    DynTwoPhaseApproximationMut(self)
-  }
   fn matches(&mut self) -> Result<bool> {
     self.erased_matches()
   }
@@ -321,50 +287,54 @@ impl TwoPhaseIterator for dyn TestTwoPhaseIterator + '_ {
     self.erased_match_cost()
   }
 }
+
+impl<'owner> ApproximationDISI for Box<dyn TestScorer + 'owner> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ TestScorerApproximationRef(self.as_ref()) })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { TestScorerApproximationMut(self.as_mut()) })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { TestScorerApproximationMut(self.as_mut()) }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { TestScorerApproximationMut(self.as_mut()) }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ TestScorerApproximationRef(self.as_ref()) })
+  }
+}
+
+impl<'owner> ApproximationBitSetAccess for Box<dyn TestScorer + 'owner> {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ TestScorerApproximationRef(self.as_ref()) })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ TestScorerApproximationRef(self.as_ref()) }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { TestScorerApproximationMut(self.as_mut()) }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ TestScorerApproximationRef(self.as_ref()) })
+  }
+}
+
+impl<'owner> TwoPhaseIterator for Box<dyn TestScorer + 'owner> {
+  fn matches(&mut self) -> Result<bool> {
+    (**self).erased_matches()
+  }
+  fn match_cost(&self) -> f32 {
+    (**self).erased_match_cost()
+  }
+}
+
 impl<'owner> Scorer for Box<dyn TestScorer + 'owner> {
-  type Iterator = Box<dyn DocIdSetIterator>;
-  type OwnedTwoPhase = Box<dyn TestTwoPhaseIterator>;
-  type ApproximationRef<'a>
-    = TestScorerApproximationRef<'a, dyn TestScorer + 'owner>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = TestScorerApproximationMut<'a, dyn TestScorer + 'owner>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = TestScorerTwoPhaseRef<'a, dyn TestScorer + 'owner>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = TestScorerTwoPhaseMut<'a, dyn TestScorer + 'owner>
-  where
-    Self: 'a;
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    TestScorerApproximationRef(self.as_ref())
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    TestScorerApproximationMut(self.as_mut())
-  }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    (**self)
-      .erased_has_two_phase_view()
-      .then(|| TestScorerTwoPhaseRef(self.as_ref()))
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    (**self)
-      .erased_has_two_phase_view()
-      .then(|| TestScorerTwoPhaseMut(self.as_mut()))
-  }
   fn scoring_doc_id(&mut self) -> Result<i32> {
     (**self).erased_scoring_doc_id()
   }
-  fn take_iterator(self) -> Self::Iterator {
-    <dyn TestScorer>::erased_take_iterator(self)
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    <dyn TestScorer>::erased_take_two_phase(self)
-  }
+
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     (**self).erased_advance_shallow(target)
   }

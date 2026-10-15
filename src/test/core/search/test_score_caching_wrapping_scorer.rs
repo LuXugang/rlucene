@@ -14,9 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::collector::Collector;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
@@ -24,6 +28,7 @@ use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::cell::Cell;
@@ -130,32 +135,50 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SimpleSc
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.iterator)
   }
 }
-impl Scorer for SimpleScorer {
-  type Iterator = SimpleDocIdSetIterator;
-  type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
-  type ApproximationRef<'a>
-    = &'a SimpleDocIdSetIterator
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut SimpleDocIdSetIterator
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = crate::core::search::two_phase_iterator::EmptyTPI
-  where
-    Self: 'a;
+impl ApproximationDISI for SimpleScorer {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ &self.iterator })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { &mut self.iterator })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { &mut self.iterator }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { &mut self.iterator }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ &self.iterator })
+  }
+}
+impl ApproximationBitSetAccess for SimpleScorer {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ &self.iterator })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ &self.iterator }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { &mut self.iterator }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ &self.iterator })
+  }
+}
 
+impl TwoPhaseIterator for SimpleScorer {
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+}
+
+impl Scorer for SimpleScorer {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.iterator.doc.get())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    self.iterator
   }
 
   fn get_max_score(&mut self, _up_to: i32) -> Result<f32> {
@@ -164,14 +187,6 @@ impl Scorer for SimpleScorer {
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.iterator
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.iterator
   }
 }
 

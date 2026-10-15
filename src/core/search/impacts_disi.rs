@@ -103,10 +103,6 @@ where
     self.mode.iterator_mut()
   }
 
-  pub(crate) fn into_iterator(self) -> M::Iterator {
-    self.mode.into_iterator()
-  }
-
   pub(crate) fn max_score_cache(&self) -> &MaxScoreCache<M::ImpactsSource, M::Scorer> {
     self.mode.max_score_cache()
   }

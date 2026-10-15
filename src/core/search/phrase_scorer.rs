@@ -17,7 +17,9 @@
 
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::search::conjunction_disi::ConjunctionDISIEnum;
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::scorable::Scorable;
@@ -155,6 +157,147 @@ where
   TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
 }
+impl<IE, SS, N, const TOP_SCORES: bool> ApproximationDISI for PhraseScorer<IE, SS, N, TOP_SCORES>
+where
+  IE: ImpactsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
+{
+  fn approx_doc_id(&self) -> i32 {
+    match &self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          DocIdSetIterator::doc_id(m.approximation_top_scorers())
+        } else {
+          DocIdSetIterator::doc_id(m.approximation())
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIterator::doc_id(m.approximation()),
+    }
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    match &mut self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          DocIdSetIterator::next_doc(m.approximation_top_scorers_mut())
+        } else {
+          DocIdSetIterator::next_doc(m.approximation_mut())
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIterator::next_doc(m.approximation_mut()),
+    }
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          DocIdSetIterator::advance(m.approximation_top_scorers_mut(), target)
+        } else {
+          DocIdSetIterator::advance(m.approximation_mut(), target)
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIterator::advance(m.approximation_mut(), target),
+    }
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    match &mut self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          DocIdSetIterator::slow_advance(m.approximation_top_scorers_mut(), target)
+        } else {
+          DocIdSetIterator::slow_advance(m.approximation_mut(), target)
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIterator::slow_advance(m.approximation_mut(), target),
+    }
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    match &self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          DocIdSetIterator::cost(m.approximation_top_scorers())
+        } else {
+          DocIdSetIterator::cost(m.approximation())
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => DocIdSetIterator::cost(m.approximation()),
+    }
+  }
+}
+impl<IE, SS, N, const TOP_SCORES: bool> ApproximationBitSetAccess
+  for PhraseScorer<IE, SS, N, TOP_SCORES>
+where
+  IE: ImpactsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    match &self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          BitSetIteratorAccess::is_bit_iter(m.approximation_top_scorers())
+        } else {
+          BitSetIteratorAccess::is_bit_iter(m.approximation())
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => BitSetIteratorAccess::is_bit_iter(m.approximation()),
+    }
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    match &self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          BitSetIteratorAccess::get(m.approximation_top_scorers(), index)
+        } else {
+          BitSetIteratorAccess::get(m.approximation(), index)
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => BitSetIteratorAccess::get(m.approximation(), index),
+    }
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    match &mut self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          BitSetIteratorAccess::set_doc_id(m.approximation_top_scorers_mut(), doc)
+        } else {
+          BitSetIteratorAccess::set_doc_id(m.approximation_mut(), doc)
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => BitSetIteratorAccess::set_doc_id(m.approximation_mut(), doc),
+    }
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    match &self.disi.two_phase_iterator.matcher {
+      PhraseMatcherEnum::Exact(m) => {
+        if TOP_SCORES {
+          BitSetIteratorAccess::bit_set_length(m.approximation_top_scorers())
+        } else {
+          BitSetIteratorAccess::bit_set_length(m.approximation())
+        }
+      },
+      PhraseMatcherEnum::Sloppy(m) => BitSetIteratorAccess::bit_set_length(m.approximation()),
+    }
+  }
+}
+
+impl<IE, SS, N, const TOP_SCORES: bool> TwoPhaseIterator for PhraseScorer<IE, SS, N, TOP_SCORES>
+where
+  IE: ImpactsEnum + 'static,
+  SS: SimScorer + 'static,
+  N: NumericDocValues + 'static,
+  TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
+{
+  fn matches(&mut self) -> Result<bool> {
+    self.disi.two_phase_iterator.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.disi.two_phase_iterator.match_cost()
+  }
+}
+
 impl<IE, SS, N, const TOP_SCORES: bool> Scorer for PhraseScorer<IE, SS, N, TOP_SCORES>
 where
   IE: ImpactsEnum + 'static,
@@ -162,45 +305,8 @@ where
   N: NumericDocValues + 'static,
   TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>: TwoPhaseIterator,
 {
-  type Iterator = Disi<IE, SS, N, TOP_SCORES>;
-  type OwnedTwoPhase = TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>;
-  type ApproximationRef<'a>
-    = <TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES> as TwoPhaseIterator>::ApproximationRef<'a>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = <TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES> as TwoPhaseIterator>::ApproximationMut<'a>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut TwoPhaseIteratorImpl<IE, SS, N, TOP_SCORES>
-  where
-    Self: 'a;
-
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.doc_id())
-  }
-
-  fn take_iterator(self) -> Self::Iterator {
-    let PhraseScorer { disi, .. } = self;
-    disi
-  }
-
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    Some(&self.disi.two_phase_iterator)
-  }
-
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    Some(&mut self.disi.two_phase_iterator)
-  }
-
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    let PhraseScorer { disi, .. } = self;
-    Some(disi.two_phase_iterator)
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
@@ -233,13 +339,6 @@ where
     TwoPhaseState::Yes
   }
 
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.disi.two_phase_iterator.approximation()
-  }
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.disi.two_phase_iterator.approximation_mut()
-  }
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::Phrase
@@ -276,22 +375,66 @@ where
   where
     Self: TwoPhaseIterator,
   {
-    self.approximation().doc_id()
+    self.approx_doc_id()
   }
 }
 macro_rules! impl_two_phase_iterator {
   ($top_scores:literal, ($ie:ident, $ss:ident, $n:ident, $a:lifetime), $approximation_ref:ty, $approximation_mut:ty,
    $this:ident, $get_ref:block, $get_mut:block) => {
+    impl<$ie, $ss, $n> ApproximationDISI for TwoPhaseIteratorImpl<$ie, $ss, $n, $top_scores>
+    where
+      $ie: ImpactsEnum,
+      $ss: SimScorer,
+      $n: NumericDocValues,
+    {
+      fn approx_doc_id(&$this) -> i32 {
+        ($get_ref).doc_id()
+      }
+
+      fn approx_next_doc(&mut $this) -> Result<i32> {
+        ($get_mut).next_doc()
+      }
+
+      fn approx_advance(&mut $this, target: i32) -> Result<i32> {
+        ($get_mut).advance(target)
+      }
+
+      fn approx_slow_advance(&mut $this, target: i32) -> Result<i32> {
+        ($get_mut).slow_advance(target)
+      }
+
+      fn approx_cost(&$this) -> Result<i64> {
+        ($get_ref).cost()
+      }
+    }
+    impl<$ie, $ss, $n> ApproximationBitSetAccess for TwoPhaseIteratorImpl<$ie, $ss, $n, $top_scores>
+    where
+      $ie: ImpactsEnum,
+      $ss: SimScorer,
+      $n: NumericDocValues,
+    {
+      fn approx_is_bit_iter(&$this) -> bool {
+        ($get_ref).is_bit_iter()
+      }
+
+      fn approx_get(&$this, index: usize) -> Result<bool> {
+        ($get_ref).get(index)
+      }
+
+      fn approx_set_doc_id(&mut $this, doc: i32) -> Result<()> {
+        ($get_mut).set_doc_id(doc)
+      }
+
+      fn approx_bit_set_length(&$this) -> Result<usize> {
+        ($get_ref).bit_set_length()
+      }
+    }
     impl<$ie, $ss, $n> TwoPhaseIterator for TwoPhaseIteratorImpl<$ie, $ss, $n, $top_scores>
     where
       $ie: ImpactsEnum,
       $ss: SimScorer,
       $n: NumericDocValues,
     {
-      type ApproximationRef<$a> = $approximation_ref where Self: $a;
-      type ApproximationMut<$a> = $approximation_mut where Self: $a;
-      fn approximation(&$this) -> Self::ApproximationRef<'_> $get_ref
-      fn approximation_mut(&mut $this) -> Self::ApproximationMut<'_> $get_mut
       fn matches(&mut self) -> Result<bool> {
         self.matcher.reset()?;
 
@@ -321,7 +464,7 @@ macro_rules! impl_two_phase_iterator {
       }
     }
   };
-}
+    }
 
 impl_two_phase_iterator!(
   false,

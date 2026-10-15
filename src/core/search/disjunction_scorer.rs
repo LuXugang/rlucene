@@ -15,9 +15,12 @@
  * limitations under the License.
  */
 
+use crate::core::search::approximation_disi::ApproximationBitSetAccess;
+use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -72,9 +75,7 @@ impl<S: Scorer, T> DisjunctionScorer<DisjunctionDISIApproximation<S>, T> {
       let w = &mut all_scores[idx];
       let cost_weight = if w.cost <= 1 { 1 } else { w.cost };
       sum_approx_cost += cost_weight;
-      if w.scorer.has_two_phase_iterator() == TwoPhaseState::Yes
-        || w.scorer.two_phase_iterator().is_some()
-      {
+      if w.scorer.has_two_phase_iterator() == TwoPhaseState::Yes {
         has_approximation = true;
         sum_match_cost += w.match_cost * cost_weight as f32;
       }
@@ -101,17 +102,27 @@ impl<S: Scorer, T> DisjunctionScorer<TwoPhaseIteratorAsDocIdSetIterator<TwoPhase
 /// Static access to the queue and matching state owned by the selected iterator.
 #[doc(hidden)]
 pub trait DisjunctionState: DocIdSetIterator + 'static {
+  fn match_cost(&self) -> f32;
+
+  fn matches(&mut self) -> Result<bool>;
+
   type SubScorer: Scorer + 'static;
   fn get_sub_matched(&mut self) -> Result<Option<usize>>;
   fn all_scores_mut(&mut self) -> &mut [DisiWrapper<Self::SubScorer>];
   fn approximation(&self) -> &DisjunctionDISIApproximation<Self::SubScorer>;
   fn approximation_mut(&mut self) -> &mut DisjunctionDISIApproximation<Self::SubScorer>;
-  fn two_phase_iterator(&self) -> Option<&TwoPhase<Self::SubScorer>>;
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhase<Self::SubScorer>>;
-  fn take_two_phase_iterator(self) -> Option<TwoPhase<Self::SubScorer>>;
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
 impl<S: Scorer + 'static> DisjunctionState for DisjunctionDISIApproximation<S> {
+  fn match_cost(&self) -> f32 {
+    0.0
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    Ok(true)
+  }
+
   type SubScorer = S;
   fn get_sub_matched(&mut self) -> Result<Option<usize>> {
     Ok(Some(self.top_list_root()))
@@ -125,20 +136,20 @@ impl<S: Scorer + 'static> DisjunctionState for DisjunctionDISIApproximation<S> {
   fn approximation_mut(&mut self) -> &mut Self {
     self
   }
-  fn two_phase_iterator(&self) -> Option<&TwoPhase<S>> {
-    None
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhase<S>> {
-    None
-  }
-  fn take_two_phase_iterator(self) -> Option<TwoPhase<S>> {
-    None
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
   }
 }
 impl<S: Scorer + 'static> DisjunctionState for TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>> {
+  fn match_cost(&self) -> f32 {
+    self.two_phase_iterator.match_cost()
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    self.two_phase_iterator.matches()
+  }
+
   type SubScorer = S;
   fn get_sub_matched(&mut self) -> Result<Option<usize>> {
     self.two_phase_iterator.get_sub_matches()
@@ -147,20 +158,20 @@ impl<S: Scorer + 'static> DisjunctionState for TwoPhaseIteratorAsDocIdSetIterato
     self.two_phase_iterator.all_scores_mut()
   }
   fn approximation(&self) -> &DisjunctionDISIApproximation<S> {
-    self.two_phase_iterator.approximation()
+    &self
+      .two_phase_iterator
+      .unverified_matches
+      .compare
+      .approximation
   }
   fn approximation_mut(&mut self) -> &mut DisjunctionDISIApproximation<S> {
-    self.two_phase_iterator.approximation_mut()
+    &mut self
+      .two_phase_iterator
+      .unverified_matches
+      .compare
+      .approximation
   }
-  fn two_phase_iterator(&self) -> Option<&TwoPhase<S>> {
-    Some(&self.two_phase_iterator)
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<&mut TwoPhase<S>> {
-    Some(&mut self.two_phase_iterator)
-  }
-  fn take_two_phase_iterator(self) -> Option<TwoPhase<S>> {
-    Some(self.two_phase_iterator)
-  }
+
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
   }
@@ -213,40 +224,54 @@ impl<D: DocIdSetIterator, T> crate::core::search::doc_id_set_iterator::BitSetIte
   for DisjunctionScorer<D, T>
 {
 }
+impl<D: DisjunctionState, T: DisjunctionScorerBase> ApproximationDISI for DisjunctionScorer<D, T> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(&{ self.disi.approximation() })
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(&mut { self.disi.approximation_mut() })
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(&mut { self.disi.approximation_mut() }, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(&mut { self.disi.approximation_mut() }, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(&{ self.disi.approximation() })
+  }
+}
+impl<D: DisjunctionState, T: DisjunctionScorerBase> ApproximationBitSetAccess
+  for DisjunctionScorer<D, T>
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(&{ self.disi.approximation() })
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(&{ self.disi.approximation() }, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(&mut { self.disi.approximation_mut() }, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(&{ self.disi.approximation() })
+  }
+}
+
+impl<D: DisjunctionState, T: DisjunctionScorerBase> TwoPhaseIterator for DisjunctionScorer<D, T> {
+  fn matches(&mut self) -> Result<bool> {
+    self.disi.matches()
+  }
+  fn match_cost(&self) -> f32 {
+    self.disi.match_cost()
+  }
+}
+
 impl<D: DisjunctionState, T: DisjunctionScorerBase> Scorer for DisjunctionScorer<D, T> {
-  type Iterator = D;
-  type OwnedTwoPhase = TwoPhase<D::SubScorer>;
-  type ApproximationRef<'a>
-    = &'a DisjunctionDISIApproximation<D::SubScorer>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DisjunctionDISIApproximation<D::SubScorer>
-  where
-    Self: 'a;
-  type TwoPhaseRef<'a>
-    = &'a Self::OwnedTwoPhase
-  where
-    Self: 'a;
-  type TwoPhaseMut<'a>
-    = &'a mut Self::OwnedTwoPhase
-  where
-    Self: 'a;
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.approximation().doc_id())
   }
-  fn take_iterator(self) -> Self::Iterator {
-    self.disi
-  }
-  fn two_phase_iterator(&self) -> Option<Self::TwoPhaseRef<'_>> {
-    self.disi.two_phase_iterator()
-  }
-  fn two_phase_iterator_mut(&mut self) -> Option<Self::TwoPhaseMut<'_>> {
-    self.disi.two_phase_iterator_mut()
-  }
-  fn take_two_phase_iterator(self) -> Option<Self::OwnedTwoPhase> {
-    self.disi.take_two_phase_iterator()
-  }
+
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     match self.sub.advance_shallow(target, self.disi.all_scores_mut()) {
       Ok(doc) => Ok(doc),
@@ -262,12 +287,7 @@ impl<D: DisjunctionState, T: DisjunctionScorerBase> Scorer for DisjunctionScorer
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.disi.has_two_phase_iterator()
   }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    self.disi.approximation_mut()
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self.disi.approximation()
-  }
+
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::Disjunction
@@ -330,27 +350,71 @@ where
       .all_scores_mut()
   }
 }
+impl<S> ApproximationDISI for TwoPhase<S>
+where
+  S: Scorer,
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.unverified_matches.compare.approximation.doc_id()
+  }
+
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.unverified_matches.compare.approximation.next_doc()
+  }
+
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self
+      .unverified_matches
+      .compare
+      .approximation
+      .advance(target)
+  }
+
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self
+      .unverified_matches
+      .compare
+      .approximation
+      .slow_advance(target)
+  }
+
+  fn approx_cost(&self) -> Result<i64> {
+    self.unverified_matches.compare.approximation.cost()
+  }
+}
+impl<S> ApproximationBitSetAccess for TwoPhase<S>
+where
+  S: Scorer,
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.unverified_matches.compare.approximation.is_bit_iter()
+  }
+
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.unverified_matches.compare.approximation.get(index)
+  }
+
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self
+      .unverified_matches
+      .compare
+      .approximation
+      .set_doc_id(doc)
+  }
+
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self
+      .unverified_matches
+      .compare
+      .approximation
+      .bit_set_length()
+  }
+}
+
 impl<S> TwoPhaseIterator for TwoPhase<S>
 where
   S: Scorer,
 {
-  type ApproximationRef<'a>
-    = &'a DisjunctionDISIApproximation<S>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DisjunctionDISIApproximation<S>
-  where
-    Self: 'a;
-
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
-    &mut self.unverified_matches.compare.approximation
-  }
-
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.unverified_matches.compare.approximation
-  }
-
   fn matches(&mut self) -> Result<bool> {
     self.verified_matches = None;
     self.unverified_matches.clear();
@@ -369,7 +433,7 @@ where
         .all_scores_mut()[w_idx];
       let next = w.next;
       let has_no_two_phase_view = (w.scorer.has_two_phase_iterator() == TwoPhaseState::No)
-        || w.scorer.two_phase_iterator().is_none();
+        || w.scorer.has_two_phase_iterator() == crate::core::search::scorer::TwoPhaseState::No;
       if has_no_two_phase_view {
         // implicitly verified, move it to verifiedMatches
         w.next = self.verified_matches;
