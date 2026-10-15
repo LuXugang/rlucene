@@ -107,6 +107,7 @@ pub mod norms {
   where
     I: IndexInput,
   {
+    #[inline(always)]
     fn long_value(&mut self) -> Result<i64> {
       match self {
         Self::Dense(dense) => dense.long_value(),

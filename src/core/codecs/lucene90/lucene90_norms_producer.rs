@@ -644,6 +644,7 @@ impl<R> NumericDocValues for DenseNormsIterator<R>
 where
   R: RandomAccessInput,
 {
+  #[inline]
   fn long_value(&mut self) -> Result<i64> {
     if let DenseNormsIteratorBaseEnum::Dense1(inner) = &self.sub_dense_norms {
       let slice = match &inner.slice {

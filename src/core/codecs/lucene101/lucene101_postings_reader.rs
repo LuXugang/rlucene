@@ -1416,6 +1416,7 @@ impl<I> PostingsEnum for BlockPostingsEnum<I>
 where
   I: IndexInput,
 {
+  #[inline(always)]
   fn freq(&mut self) -> Result<i32> {
     if let Some(freq_fp) = self.freq_fp {
       let doc_in_util = self
