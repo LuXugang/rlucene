@@ -56,22 +56,16 @@ impl<S1: Scorer, S2: Scorer>
 
 /// State-specific access to the same required/optional scorers and two-phase view.
 #[doc(hidden)]
-pub trait ReqOptSumState: DocIdSetIterator + 'static {
+pub trait ReqOptSumState:
+  DocIdSetIterator + ApproximationDISI + ApproximationBitSetAccess + 'static
+{
   fn match_cost(&self) -> f32;
 
   fn matches(&mut self) -> Result<bool>;
 
   type Required: Scorer + 'static;
   type Optional: Scorer + 'static;
-  type ApproximationRef<'a>: DocIdSetIterator
-  where
-    Self: 'a;
-  type ApproximationMut<'a>: DocIdSetIterator
-  where
-    Self: 'a;
   fn scorer_mut(&mut self) -> &mut DocIdSetIteratorImpl<Self::Required, Self::Optional>;
-  fn approximation(&self) -> Self::ApproximationRef<'_>;
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_>;
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
@@ -132,33 +126,33 @@ impl<S: DocIdSetIterator> DocIdSetIterator for ReqOptSumScorer<S> {
 }
 impl<S: ReqOptSumState> ApproximationDISI for ReqOptSumScorer<S> {
   fn approx_doc_id(&self) -> i32 {
-    DocIdSetIterator::doc_id(&{ self.disi.approximation() })
+    self.disi.approx_doc_id()
   }
   fn approx_next_doc(&mut self) -> Result<i32> {
-    DocIdSetIterator::next_doc(&mut { self.disi.approximation_mut() })
+    self.disi.approx_next_doc()
   }
   fn approx_advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::advance(&mut { self.disi.approximation_mut() }, target)
+    self.disi.approx_advance(target)
   }
   fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::slow_advance(&mut { self.disi.approximation_mut() }, target)
+    self.disi.approx_slow_advance(target)
   }
   fn approx_cost(&self) -> Result<i64> {
-    DocIdSetIterator::cost(&{ self.disi.approximation() })
+    self.disi.approx_cost()
   }
 }
 impl<S: ReqOptSumState> ApproximationBitSetAccess for ReqOptSumScorer<S> {
   fn approx_is_bit_iter(&self) -> bool {
-    BitSetIteratorAccess::is_bit_iter(&{ self.disi.approximation() })
+    self.disi.approx_is_bit_iter()
   }
   fn approx_get(&self, index: usize) -> Result<bool> {
-    BitSetIteratorAccess::get(&{ self.disi.approximation() }, index)
+    self.disi.approx_get(index)
   }
   fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    BitSetIteratorAccess::set_doc_id(&mut { self.disi.approximation_mut() }, doc)
+    self.disi.approx_set_doc_id(doc)
   }
   fn approx_bit_set_length(&self) -> Result<usize> {
-    BitSetIteratorAccess::bit_set_length(&{ self.disi.approximation() })
+    self.disi.approx_bit_set_length()
   }
 }
 
@@ -192,6 +186,37 @@ impl<S: ReqOptSumState> Scorer for ReqOptSumScorer<S> {
   }
 }
 
+impl<S1: Scorer, S2: Scorer> ApproximationDISI for DocIdSetIteratorImpl<S1, S2> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<S1: Scorer, S2: Scorer> ApproximationBitSetAccess for DocIdSetIteratorImpl<S1, S2> {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(self)
+  }
+}
 impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState for DocIdSetIteratorImpl<S1, S2> {
   fn match_cost(&self) -> f32 {
     0.0
@@ -203,26 +228,47 @@ impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState for DocIdSetIter
 
   type Required = S1;
   type Optional = S2;
-  type ApproximationRef<'a>
-    = &'a Self
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut Self
-  where
-    Self: 'a;
   fn scorer_mut(&mut self) -> &mut Self {
-    self
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    self
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     self
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::No
+  }
+}
+impl<S1: Scorer, S2: Scorer> ApproximationDISI
+  for TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S1, S2>>
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.two_phase_iterator.approx_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.two_phase_iterator.approx_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.two_phase_iterator.approx_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.two_phase_iterator.approx_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.two_phase_iterator.approx_cost()
+  }
+}
+impl<S1: Scorer, S2: Scorer> ApproximationBitSetAccess
+  for TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S1, S2>>
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.two_phase_iterator.approx_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.two_phase_iterator.approx_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.two_phase_iterator.approx_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.two_phase_iterator.approx_bit_set_length()
   }
 }
 impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState
@@ -238,21 +284,7 @@ impl<S1: Scorer + 'static, S2: Scorer + 'static> ReqOptSumState
 
   type Required = S1;
   type Optional = S2;
-  type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl<S1, S2>
-  where
-    Self: 'a;
-  type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl<S1, S2>
-  where
-    Self: 'a;
   fn scorer_mut(&mut self) -> &mut DocIdSetIteratorImpl<S1, S2> {
-    &mut self.two_phase_iterator.disi
-  }
-  fn approximation(&self) -> Self::ApproximationRef<'_> {
-    &self.two_phase_iterator.disi
-  }
-  fn approximation_mut(&mut self) -> Self::ApproximationMut<'_> {
     &mut self.two_phase_iterator.disi
   }
 

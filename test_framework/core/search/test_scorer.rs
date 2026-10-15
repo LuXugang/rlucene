@@ -19,13 +19,11 @@
 //! Concrete execution uses `Scorer` and `TwoPhaseIterator` directly.
 use crate::core::search::approximation_disi::ApproximationBitSetAccess;
 use crate::core::search::approximation_disi::ApproximationDISI;
-use crate::core::search::doc_id_set_iterator::{
-  BitSetIteratorAccess, DocIdSetIterator, DocIdSetIteratorExtensions,
-};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 pub trait TestScorer: TestScorable + DocIdSetIterator {
   fn erased_scoring_doc_id(&mut self) -> Result<i32>;
@@ -160,122 +158,43 @@ impl<T: TwoPhaseIterator> TestTwoPhaseIterator for T {
   }
 }
 
-macro_rules! erased_iterator_views {
-  ($ref:ident, $mut:ident, $owner:ident) => {
-    pub struct $ref<'a, T: $owner + ?Sized>(pub(crate) &'a T);
-    pub struct $mut<'a, T: $owner + ?Sized>(pub(crate) &'a mut T);
-    impl<T: $owner + ?Sized> DocIdSetIteratorExtensions for $ref<'_, T> {}
-    impl<T: $owner + ?Sized> BitSetIteratorAccess for $ref<'_, T> {
-      fn is_bit_iter(&self) -> bool {
-        self.0.erased_approximation_is_bit_iter()
-      }
-      fn get(&self, index: usize) -> Result<bool> {
-        self.0.erased_approximation_get(index)
-      }
-      fn bit_set_length(&self) -> Result<usize> {
-        self.0.erased_approximation_bit_set_length()
-      }
-    }
-    impl<T: $owner + ?Sized> DocIdSetIteratorExtensions for $mut<'_, T> {}
-    impl<T: $owner + ?Sized> BitSetIteratorAccess for $mut<'_, T> {
-      fn is_bit_iter(&self) -> bool {
-        self.0.erased_approximation_is_bit_iter()
-      }
-      fn get(&self, index: usize) -> Result<bool> {
-        self.0.erased_approximation_get(index)
-      }
-      fn set_doc_id(&mut self, doc: i32) -> Result<()> {
-        self.0.erased_approximation_set_doc_id(doc)
-      }
-      fn bit_set_length(&self) -> Result<usize> {
-        self.0.erased_approximation_bit_set_length()
-      }
-    }
-    impl<T: $owner + ?Sized> DocIdSetIterator for $ref<'_, T> {
-      fn doc_id(&self) -> i32 {
-        self.0.erased_approximation_doc_id()
-      }
-      fn next_doc(&mut self) -> Result<i32> {
-        Err(LuceneError::unsupported_operation(
-          "immutable iterator view",
-        ))
-      }
-      fn advance(&mut self, _target: i32) -> Result<i32> {
-        Err(LuceneError::unsupported_operation(
-          "immutable iterator view",
-        ))
-      }
-      fn cost(&self) -> Result<i64> {
-        self.0.erased_approximation_cost()
-      }
-    }
-    impl<T: $owner + ?Sized> DocIdSetIterator for $mut<'_, T> {
-      fn doc_id(&self) -> i32 {
-        self.0.erased_approximation_doc_id()
-      }
-      fn next_doc(&mut self) -> Result<i32> {
-        self.0.erased_approximation_next_doc()
-      }
-      fn advance(&mut self, target: i32) -> Result<i32> {
-        self.0.erased_approximation_advance(target)
-      }
-      fn slow_advance(&mut self, target: i32) -> Result<i32> {
-        self.0.erased_approximation_slow_advance(target)
-      }
-      fn cost(&self) -> Result<i64> {
-        self.0.erased_approximation_cost()
-      }
-    }
-  };
-}
-erased_iterator_views!(
-  TestScorerApproximationRef,
-  TestScorerApproximationMut,
-  TestScorer
-);
-erased_iterator_views!(
-  DynTwoPhaseApproximationRef,
-  DynTwoPhaseApproximationMut,
-  TestTwoPhaseIterator
-);
-
 impl ApproximationDISI for dyn TestTwoPhaseIterator + '_ {
   fn approx_doc_id(&self) -> i32 {
-    ({ DynTwoPhaseApproximationRef(self) }).doc_id()
+    self.erased_approximation_doc_id()
   }
 
   fn approx_next_doc(&mut self) -> Result<i32> {
-    ({ DynTwoPhaseApproximationMut(self) }).next_doc()
+    self.erased_approximation_next_doc()
   }
 
   fn approx_advance(&mut self, target: i32) -> Result<i32> {
-    ({ DynTwoPhaseApproximationMut(self) }).advance(target)
+    self.erased_approximation_advance(target)
   }
 
   fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
-    ({ DynTwoPhaseApproximationMut(self) }).slow_advance(target)
+    self.erased_approximation_slow_advance(target)
   }
 
   fn approx_cost(&self) -> Result<i64> {
-    ({ DynTwoPhaseApproximationRef(self) }).cost()
+    self.erased_approximation_cost()
   }
 }
 
 impl ApproximationBitSetAccess for dyn TestTwoPhaseIterator + '_ {
   fn approx_is_bit_iter(&self) -> bool {
-    ({ DynTwoPhaseApproximationRef(self) }).is_bit_iter()
+    self.erased_approximation_is_bit_iter()
   }
 
   fn approx_get(&self, index: usize) -> Result<bool> {
-    ({ DynTwoPhaseApproximationRef(self) }).get(index)
+    self.erased_approximation_get(index)
   }
 
   fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    ({ DynTwoPhaseApproximationMut(self) }).set_doc_id(doc)
+    self.erased_approximation_set_doc_id(doc)
   }
 
   fn approx_bit_set_length(&self) -> Result<usize> {
-    ({ DynTwoPhaseApproximationRef(self) }).bit_set_length()
+    self.erased_approximation_bit_set_length()
   }
 }
 
@@ -290,34 +209,34 @@ impl TwoPhaseIterator for dyn TestTwoPhaseIterator + '_ {
 
 impl<'owner> ApproximationDISI for Box<dyn TestScorer + 'owner> {
   fn approx_doc_id(&self) -> i32 {
-    DocIdSetIterator::doc_id(&{ TestScorerApproximationRef(self.as_ref()) })
+    self.as_ref().erased_approximation_doc_id()
   }
   fn approx_next_doc(&mut self) -> Result<i32> {
-    DocIdSetIterator::next_doc(&mut { TestScorerApproximationMut(self.as_mut()) })
+    self.as_mut().erased_approximation_next_doc()
   }
   fn approx_advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::advance(&mut { TestScorerApproximationMut(self.as_mut()) }, target)
+    self.as_mut().erased_approximation_advance(target)
   }
   fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::slow_advance(&mut { TestScorerApproximationMut(self.as_mut()) }, target)
+    self.as_mut().erased_approximation_slow_advance(target)
   }
   fn approx_cost(&self) -> Result<i64> {
-    DocIdSetIterator::cost(&{ TestScorerApproximationRef(self.as_ref()) })
+    self.as_ref().erased_approximation_cost()
   }
 }
 
 impl<'owner> ApproximationBitSetAccess for Box<dyn TestScorer + 'owner> {
   fn approx_is_bit_iter(&self) -> bool {
-    BitSetIteratorAccess::is_bit_iter(&{ TestScorerApproximationRef(self.as_ref()) })
+    self.as_ref().erased_approximation_is_bit_iter()
   }
   fn approx_get(&self, index: usize) -> Result<bool> {
-    BitSetIteratorAccess::get(&{ TestScorerApproximationRef(self.as_ref()) }, index)
+    self.as_ref().erased_approximation_get(index)
   }
   fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    BitSetIteratorAccess::set_doc_id(&mut { TestScorerApproximationMut(self.as_mut()) }, doc)
+    self.as_mut().erased_approximation_set_doc_id(doc)
   }
   fn approx_bit_set_length(&self) -> Result<usize> {
-    BitSetIteratorAccess::bit_set_length(&{ TestScorerApproximationRef(self.as_ref()) })
+    self.as_ref().erased_approximation_bit_set_length()
   }
 }
 

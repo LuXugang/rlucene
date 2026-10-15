@@ -87,16 +87,114 @@ impl<C: ConjunctionScorers>
 
 /// Access to the conjunction owned by the selected iterator.
 #[doc(hidden)]
-pub trait ConjunctionState: DocIdSetIterator + 'static {
+pub trait ConjunctionState:
+  DocIdSetIterator + ApproximationDISI + ApproximationBitSetAccess + 'static
+{
   fn match_cost(&self) -> f32;
 
   fn matches(&mut self) -> Result<bool>;
 
   type Conjunction: ConjunctionScorers + 'static;
-  fn conjunction(&self) -> &Self::Conjunction;
   fn conjunction_mut(&mut self) -> &mut Self::Conjunction;
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
+}
+impl<S: Scorer> ApproximationDISI for ConjunctionDISI<ScorerDisi<S>> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<S: Scorer> ApproximationBitSetAccess for ConjunctionDISI<ScorerDisi<S>> {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+impl<S: Scorer> ApproximationDISI for BitSetConjunctionDISI<ScorerDisi<S>> {
+  fn approx_doc_id(&self) -> i32 {
+    DocIdSetIterator::doc_id(self)
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    DocIdSetIterator::next_doc(self)
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::advance(self, target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIterator::slow_advance(self, target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    DocIdSetIterator::cost(self)
+  }
+}
+impl<S: Scorer> ApproximationBitSetAccess for BitSetConjunctionDISI<ScorerDisi<S>> {
+  fn approx_is_bit_iter(&self) -> bool {
+    BitSetIteratorAccess::is_bit_iter(self)
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    BitSetIteratorAccess::get(self, index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIteratorAccess::set_doc_id(self, doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    BitSetIteratorAccess::bit_set_length(self)
+  }
+}
+impl<C: ConjunctionScorers> ApproximationDISI
+  for TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<C>>
+{
+  fn approx_doc_id(&self) -> i32 {
+    self.two_phase_iterator.approx_doc_id()
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    self.two_phase_iterator.approx_next_doc()
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    self.two_phase_iterator.approx_advance(target)
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.two_phase_iterator.approx_slow_advance(target)
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    self.two_phase_iterator.approx_cost()
+  }
+}
+impl<C: ConjunctionScorers> ApproximationBitSetAccess
+  for TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<C>>
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    self.two_phase_iterator.approx_is_bit_iter()
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    self.two_phase_iterator.approx_get(index)
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.two_phase_iterator.approx_set_doc_id(doc)
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    self.two_phase_iterator.approx_bit_set_length()
+  }
 }
 impl<S: Scorer + 'static> ConjunctionState for ConjunctionDISI<ScorerDisi<S>> {
   fn match_cost(&self) -> f32 {
@@ -108,9 +206,6 @@ impl<S: Scorer + 'static> ConjunctionState for ConjunctionDISI<ScorerDisi<S>> {
   }
 
   type Conjunction = Self;
-  fn conjunction(&self) -> &Self {
-    self
-  }
   fn conjunction_mut(&mut self) -> &mut Self {
     self
   }
@@ -129,9 +224,6 @@ impl<S: Scorer + 'static> ConjunctionState for BitSetConjunctionDISI<ScorerDisi<
   }
 
   type Conjunction = Self;
-  fn conjunction(&self) -> &Self {
-    self
-  }
   fn conjunction_mut(&mut self) -> &mut Self {
     self
   }
@@ -152,9 +244,6 @@ impl<C: ConjunctionScorers + 'static> ConjunctionState
   }
 
   type Conjunction = C;
-  fn conjunction(&self) -> &C {
-    &self.two_phase_iterator.approximation
-  }
   fn conjunction_mut(&mut self) -> &mut C {
     &mut self.two_phase_iterator.approximation
   }
@@ -224,33 +313,33 @@ impl<D: DocIdSetIterator> crate::core::search::doc_id_set_iterator::BitSetIterat
 }
 impl<D: ConjunctionState> ApproximationDISI for ConjunctionScorer<D> {
   fn approx_doc_id(&self) -> i32 {
-    DocIdSetIterator::doc_id(&{ self.disi.conjunction() })
+    self.disi.approx_doc_id()
   }
   fn approx_next_doc(&mut self) -> Result<i32> {
-    DocIdSetIterator::next_doc(&mut { self.disi.conjunction_mut() })
+    self.disi.approx_next_doc()
   }
   fn approx_advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::advance(&mut { self.disi.conjunction_mut() }, target)
+    self.disi.approx_advance(target)
   }
   fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
-    DocIdSetIterator::slow_advance(&mut { self.disi.conjunction_mut() }, target)
+    self.disi.approx_slow_advance(target)
   }
   fn approx_cost(&self) -> Result<i64> {
-    DocIdSetIterator::cost(&{ self.disi.conjunction() })
+    self.disi.approx_cost()
   }
 }
 impl<D: ConjunctionState> ApproximationBitSetAccess for ConjunctionScorer<D> {
   fn approx_is_bit_iter(&self) -> bool {
-    BitSetIteratorAccess::is_bit_iter(&{ self.disi.conjunction() })
+    self.disi.approx_is_bit_iter()
   }
   fn approx_get(&self, index: usize) -> Result<bool> {
-    BitSetIteratorAccess::get(&{ self.disi.conjunction() }, index)
+    self.disi.approx_get(index)
   }
   fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    BitSetIteratorAccess::set_doc_id(&mut { self.disi.conjunction_mut() }, doc)
+    self.disi.approx_set_doc_id(doc)
   }
   fn approx_bit_set_length(&self) -> Result<usize> {
-    BitSetIteratorAccess::bit_set_length(&{ self.disi.conjunction() })
+    self.disi.approx_bit_set_length()
   }
 }
 

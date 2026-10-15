@@ -17,7 +17,6 @@
 
 use crate::core::search::approximation_disi::ApproximationBitSetAccess;
 use crate::core::search::approximation_disi::ApproximationDISI;
-use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::scorable::{ChildScorable, Scorable};
 #[cfg(test)]
@@ -232,25 +231,23 @@ where
   S2: Scorer,
 {
   fn approx_doc_id(&self) -> i32 {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).doc_id()
+    self.req_scorer.approx_doc_id()
   }
 
   fn approx_next_doc(&mut self) -> Result<i32> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) }).next_doc()
+    self.req_scorer.approx_next_doc()
   }
 
   fn approx_advance(&mut self, target: i32) -> Result<i32> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
-      .advance(target)
+    self.req_scorer.approx_advance(target)
   }
 
   fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
-      .slow_advance(target)
+    self.req_scorer.approx_slow_advance(target)
   }
 
   fn approx_cost(&self) -> Result<i64> {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).cost()
+    self.req_scorer.approx_cost()
   }
 }
 impl<S1, S2> ApproximationBitSetAccess for TwoPhaseIteratorImpl1<S1, S2>
@@ -259,21 +256,19 @@ where
   S2: Scorer,
 {
   fn approx_is_bit_iter(&self) -> bool {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).is_bit_iter()
+    self.req_scorer.approx_is_bit_iter()
   }
 
   fn approx_get(&self, index: usize) -> Result<bool> {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).get(index)
+    self.req_scorer.approx_get(index)
   }
 
   fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
-      .set_doc_id(doc)
+    self.req_scorer.approx_set_doc_id(doc)
   }
 
   fn approx_bit_set_length(&self) -> Result<usize> {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) })
-      .bit_set_length()
+    self.req_scorer.approx_bit_set_length()
   }
 }
 
@@ -329,25 +324,23 @@ where
   S2: Scorer,
 {
   fn approx_doc_id(&self) -> i32 {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).doc_id()
+    self.req_scorer.approx_doc_id()
   }
 
   fn approx_next_doc(&mut self) -> Result<i32> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) }).next_doc()
+    self.req_scorer.approx_next_doc()
   }
 
   fn approx_advance(&mut self, target: i32) -> Result<i32> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
-      .advance(target)
+    self.req_scorer.approx_advance(target)
   }
 
   fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
-      .slow_advance(target)
+    self.req_scorer.approx_slow_advance(target)
   }
 
   fn approx_cost(&self) -> Result<i64> {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).cost()
+    self.req_scorer.approx_cost()
   }
 }
 impl<S1, S2> ApproximationBitSetAccess for TwoPhaseIteratorImpl2<S1, S2>
@@ -356,21 +349,19 @@ where
   S2: Scorer,
 {
   fn approx_is_bit_iter(&self) -> bool {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).is_bit_iter()
+    self.req_scorer.approx_is_bit_iter()
   }
 
   fn approx_get(&self, index: usize) -> Result<bool> {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) }).get(index)
+    self.req_scorer.approx_get(index)
   }
 
   fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
-    ({ crate::core::search::approximation_disi::ApproximationMut(&mut self.req_scorer) })
-      .set_doc_id(doc)
+    self.req_scorer.approx_set_doc_id(doc)
   }
 
   fn approx_bit_set_length(&self) -> Result<usize> {
-    ({ crate::core::search::approximation_disi::ApproximationRef(&self.req_scorer) })
-      .bit_set_length()
+    self.req_scorer.approx_bit_set_length()
   }
 }
 
