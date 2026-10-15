@@ -32,7 +32,8 @@ use crate::core::index::knn_vector_values::{
 };
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIteratorExtensions};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::IndexInput;
@@ -352,23 +353,34 @@ where
     let doc_id = self.iterator.doc_id().try_convert()?;
     self.random_vector_scorer.score(doc_id)
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = &'a DenseDocIndexIterator
-  where
-    Self: 'a;
+impl<R> DocIdSetIteratorExtensions for DenseVectorScorer<R> where R: RandomVectorScorer {}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-    &self.iterator
+impl<R> BitSetIteratorAccess for DenseVectorScorer<R> where R: RandomVectorScorer {}
+
+impl<R> DocIdSetIterator for DenseVectorScorer<R>
+where
+  R: RandomVectorScorer,
+{
+  fn doc_id(&self) -> i32 {
+    self.iterator.doc_id()
   }
 
-  type DocIdSetIteratorMut<'a>
-    = &'a mut DenseDocIndexIterator
-  where
-    Self: 'a;
+  fn next_doc(&mut self) -> Result<i32> {
+    self.iterator.next_doc()
+  }
 
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-    &mut self.iterator
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.iterator.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.iterator.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.iterator.cost()
   }
 }
 
@@ -584,23 +596,45 @@ where
     let index = self.iterator.index()?;
     self.random_vector_scorer.score(index as usize)
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = &'a DocIndexIteratorImpl<I>
-  where
-    Self: 'a;
+impl<I, R> DocIdSetIteratorExtensions for SparseVectorScorer<I, R>
+where
+  I: IndexInput,
+  R: RandomVectorScorer,
+{
+}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-    &self.iterator
+impl<I, R> BitSetIteratorAccess for SparseVectorScorer<I, R>
+where
+  I: IndexInput,
+  R: RandomVectorScorer,
+{
+}
+
+impl<I, R> DocIdSetIterator for SparseVectorScorer<I, R>
+where
+  I: IndexInput,
+  R: RandomVectorScorer,
+{
+  fn doc_id(&self) -> i32 {
+    self.iterator.doc_id()
   }
 
-  type DocIdSetIteratorMut<'a>
-    = &'a mut DocIndexIteratorImpl<I>
-  where
-    Self: 'a;
+  fn next_doc(&mut self) -> Result<i32> {
+    self.iterator.next_doc()
+  }
 
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-    &mut self.iterator
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.iterator.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.iterator.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.iterator.cost()
   }
 }
 
@@ -999,28 +1033,59 @@ where
       Self::Sparse(scorer) => scorer.score(),
     }
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = DocIdSetIteratorEnum2<&'a DenseDocIndexIterator, &'a DocIndexIteratorImpl<I>>
-  where
-    Self: 'a;
+impl<I, F> DocIdSetIteratorExtensions for VectorScorerEnum<I, F>
+where
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
+{
+}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+impl<I, F> BitSetIteratorAccess for VectorScorerEnum<I, F>
+where
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
+{
+}
+
+impl<I, F> DocIdSetIterator for VectorScorerEnum<I, F>
+where
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
+{
+  fn doc_id(&self) -> i32 {
     match self {
-      Self::Dense(scorer) => DocIdSetIteratorEnum2::A(scorer.iterator()),
-      Self::Sparse(scorer) => DocIdSetIteratorEnum2::B(scorer.iterator()),
+      Self::Dense(scorer) => scorer.doc_id(),
+      Self::Sparse(scorer) => scorer.doc_id(),
     }
   }
 
-  type DocIdSetIteratorMut<'a>
-    = DocIdSetIteratorEnum2<&'a mut DenseDocIndexIterator, &'a mut DocIndexIteratorImpl<I>>
-  where
-    Self: 'a;
-
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+  fn next_doc(&mut self) -> Result<i32> {
     match self {
-      Self::Dense(scorer) => DocIdSetIteratorEnum2::A(scorer.iterator_mut()),
-      Self::Sparse(scorer) => DocIdSetIteratorEnum2::B(scorer.iterator_mut()),
+      Self::Dense(scorer) => scorer.next_doc(),
+      Self::Sparse(scorer) => scorer.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Dense(scorer) => scorer.advance(target),
+      Self::Sparse(scorer) => scorer.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Dense(scorer) => scorer.slow_advance(target),
+      Self::Sparse(scorer) => scorer.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Dense(scorer) => scorer.cost(),
+      Self::Sparse(scorer) => scorer.cost(),
     }
   }
 }

@@ -14,30 +14,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIteratorExtensions};
 use crate::core::search::vector_scorer::VectorScorer;
+use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyVectorScorer;
 impl VectorScorer for DummyVectorScorer {
   fn score(&self) -> crate::core::util::error::lucene_error::Result<f32> {
     dummy_unreachable!()
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = DummyDISI
-  where
-    Self: 'a;
+impl DocIdSetIteratorExtensions for DummyVectorScorer {}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+impl BitSetIteratorAccess for DummyVectorScorer {}
+
+impl DocIdSetIterator for DummyVectorScorer {
+  fn doc_id(&self) -> i32 {
     dummy_unreachable!()
   }
 
-  type DocIdSetIteratorMut<'a>
-    = DummyDISI
-  where
-    Self: 'a;
+  fn next_doc(&mut self) -> Result<i32> {
+    dummy_unreachable!()
+  }
 
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    dummy_unreachable!()
+  }
+
+  fn slow_advance(&mut self, _target: i32) -> Result<i32> {
+    dummy_unreachable!()
+  }
+
+  fn cost(&self) -> Result<i64> {
     dummy_unreachable!()
   }
 }

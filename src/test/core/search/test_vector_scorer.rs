@@ -29,7 +29,6 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction::Euclidean;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
@@ -58,16 +57,14 @@ fn test_find_all() -> Result<()> {
     VectorEncoding::BYTE(_) => {
       let vector_values = leaf.get_byte_vector_values("field")?.unwrap();
       let mut scorer = vector_values.scorer(vec![1_u8, 2_u8])?.unwrap();
-      let mut iterator = scorer.iterator_mut();
-      while iterator.next_doc()? != NO_MORE_DOCS {
+      while scorer.next_doc()? != NO_MORE_DOCS {
         num_docs += 1;
       }
     },
     VectorEncoding::FLOAT32(_) => {
       let vector_values = leaf.get_float_vector_values("field")?.unwrap();
       let mut scorer = vector_values.scorer(vec![1.0_f32, 2.0_f32])?.unwrap();
-      let mut iterator = scorer.iterator_mut();
-      while iterator.next_doc()? != NO_MORE_DOCS {
+      while scorer.next_doc()? != NO_MORE_DOCS {
         num_docs += 1;
       }
     },

@@ -15,11 +15,13 @@
  * limitations under the License.
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIteratorExtensions};
 use crate::core::util::error::lucene_error::Result;
 
 /// Computes the similarity score between a given query vector and different
 /// document vectors. This is used for exact searching and scoring.
-pub trait VectorScorer {
+/// Advance this scorer directly to select the document used by `score`.
+pub trait VectorScorer: DocIdSetIterator {
   /// Compute the score for the current document ID.
   ///
   /// # Returns
@@ -28,16 +30,6 @@ pub trait VectorScorer {
   /// # Errors
   /// Returns an error if score computation fails.
   fn score(&self) -> Result<f32>;
-
-  type DocIdSetIteratorRef<'a>: DocIdSetIterator
-  where
-    Self: 'a;
-  /// Returns an iterator over the document IDs.
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_>;
-  type DocIdSetIteratorMut<'a>: DocIdSetIterator
-  where
-    Self: 'a;
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_>;
 }
 
 /// Concrete vector scorer for either indexed vector encoding.
@@ -46,44 +38,51 @@ pub enum VectorScorerEnum2<A, B> {
   Float(B),
 }
 impl<A: VectorScorer, B: VectorScorer> VectorScorer for VectorScorerEnum2<A, B> {
-  type DocIdSetIteratorRef<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    A::DocIdSetIteratorRef<'a>,
-    B::DocIdSetIteratorRef<'a>,
-  >
-  where
-    Self: 'a;
-  type DocIdSetIteratorMut<'a>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    A::DocIdSetIteratorMut<'a>,
-    B::DocIdSetIteratorMut<'a>,
-  >
-  where
-    Self: 'a;
   fn score(&self) -> Result<f32> {
     match self {
       Self::Byte(s) => s.score(),
       Self::Float(s) => s.score(),
     }
   }
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+}
+
+impl<A: VectorScorer, B: VectorScorer> DocIdSetIteratorExtensions for VectorScorerEnum2<A, B> {}
+
+impl<A: VectorScorer, B: VectorScorer> BitSetIteratorAccess for VectorScorerEnum2<A, B> {}
+
+impl<A: VectorScorer, B: VectorScorer> DocIdSetIterator for VectorScorerEnum2<A, B> {
+  fn doc_id(&self) -> i32 {
     match self {
-      Self::Byte(s) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(s.iterator())
-      },
-      Self::Float(s) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(s.iterator())
-      },
+      Self::Byte(s) => s.doc_id(),
+      Self::Float(s) => s.doc_id(),
     }
   }
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+
+  fn next_doc(&mut self) -> Result<i32> {
     match self {
-      Self::Byte(s) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(s.iterator_mut())
-      },
-      Self::Float(s) => {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(s.iterator_mut())
-      },
+      Self::Byte(s) => s.next_doc(),
+      Self::Float(s) => s.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Byte(s) => s.advance(target),
+      Self::Float(s) => s.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Byte(s) => s.slow_advance(target),
+      Self::Float(s) => s.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Byte(s) => s.cost(),
+      Self::Float(s) => s.cost(),
     }
   }
 }

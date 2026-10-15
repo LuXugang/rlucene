@@ -25,7 +25,7 @@ use crate::core::search::approximation_disi::ApproximationBitSetAccess;
 use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
-use crate::core::search::conjunction_disi::{ConjunctionDISI, VectorScorerDisi};
+use crate::core::search::conjunction_disi::ConjunctionDISI;
 use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
@@ -112,9 +112,8 @@ impl AbstractKnnVectorQueryDefaults {
       .top_mut()
       .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
 
-    let vector_iterator = VectorScorerDisi::new(vector_scorer);
     let mut conjunction = ConjunctionDISI::create_conjunction(vec![
-      DocIdSetIteratorEnum2::A(vector_iterator),
+      DocIdSetIteratorEnum2::A(vector_scorer),
       DocIdSetIteratorEnum2::B(accept_iterator),
     ])?;
 

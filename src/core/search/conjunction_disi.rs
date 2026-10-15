@@ -22,7 +22,6 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
-use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::collection_util::CollectionUtil;
@@ -620,74 +619,6 @@ impl<C: ConjunctionScorers> Comparator<usize> for TwoPhaseIteratorCmp<'_, C> {
       )
       .to_int(),
     )
-  }
-}
-
-pub struct VectorScorerDisi<V> {
-  vector_scorer: V,
-}
-impl<V> VectorScorerDisi<V> {
-  pub fn new(vector_scorer: V) -> Self {
-    Self { vector_scorer }
-  }
-}
-impl<V> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for VectorScorerDisi<V> where
-  V: VectorScorer
-{
-}
-impl<V> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for VectorScorerDisi<V> where
-  V: VectorScorer
-{
-}
-
-impl<V> DocIdSetIterator for VectorScorerDisi<V>
-where
-  V: VectorScorer,
-{
-  fn doc_id(&self) -> i32 {
-    self.vector_scorer.iterator().doc_id()
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    self.vector_scorer.iterator_mut().next_doc()
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.vector_scorer.iterator_mut().advance(target)
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.vector_scorer.iterator_mut().slow_advance(target)
-  }
-
-  fn cost(&self) -> Result<i64> {
-    self.vector_scorer.iterator().cost()
-  }
-}
-impl<V> VectorScorer for VectorScorerDisi<V>
-where
-  V: VectorScorer,
-{
-  fn score(&self) -> Result<f32> {
-    self.vector_scorer.score()
-  }
-
-  type DocIdSetIteratorRef<'a>
-    = V::DocIdSetIteratorRef<'a>
-  where
-    Self: 'a;
-
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-    self.vector_scorer.iterator()
-  }
-
-  type DocIdSetIteratorMut<'a>
-    = V::DocIdSetIteratorMut<'a>
-  where
-    Self: 'a;
-
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-    self.vector_scorer.iterator_mut()
   }
 }
 

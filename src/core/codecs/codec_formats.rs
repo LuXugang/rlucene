@@ -118,6 +118,8 @@ use crate::core::index::terms_enum::TermsEnumWithUnsupportedSecondAttributes2;
 #[cfg(test)]
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 #[cfg(test)]
+use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIteratorExtensions};
+#[cfg(test)]
 use crate::core::search::vector_scorer::VectorScorer;
 #[cfg(test)]
 use crate::core::store::DataInput;
@@ -3181,92 +3183,6 @@ type CodecFloatVectorScorerInner<I> =
   <CodecFloatVectorValuesInner<I> as FloatVectorValues>::VectorScorer;
 
 #[cfg(test)]
-type CodecFloatVectorScorerIteratorRefInner<'a, I> =
-  <CodecFloatVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorRef<'a>;
-
-#[cfg(test)]
-pub struct CodecFloatVectorScorerIteratorRef<'a, I>(CodecFloatVectorScorerIteratorRefInner<'a, I>)
-where
-  I: IndexInput + 'a;
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for CodecFloatVectorScorerIteratorRef<'a, I>
-{
-}
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for CodecFloatVectorScorerIteratorRef<'a, I>
-{
-}
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorRef<'a, I> {
-  fn doc_id(&self) -> i32 {
-    self.0.doc_id()
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    self.0.next_doc()
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.0.advance(target)
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.0.slow_advance(target)
-  }
-
-  fn cost(&self) -> Result<i64> {
-    self.0.cost()
-  }
-}
-
-#[cfg(test)]
-type CodecFloatVectorScorerIteratorMutInner<'a, I> =
-  <CodecFloatVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorMut<'a>;
-
-#[cfg(test)]
-pub struct CodecFloatVectorScorerIteratorMut<'a, I>(CodecFloatVectorScorerIteratorMutInner<'a, I>)
-where
-  I: IndexInput + 'a;
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for CodecFloatVectorScorerIteratorMut<'a, I>
-{
-}
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for CodecFloatVectorScorerIteratorMut<'a, I>
-{
-}
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorMut<'a, I> {
-  fn doc_id(&self) -> i32 {
-    self.0.doc_id()
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    self.0.next_doc()
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.0.advance(target)
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.0.slow_advance(target)
-  }
-
-  fn cost(&self) -> Result<i64> {
-    self.0.cost()
-  }
-}
-
-#[cfg(test)]
 pub struct CodecFloatVectorScorer<I>(CodecFloatVectorScorerInner<I>)
 where
   I: IndexInput;
@@ -3276,23 +3192,34 @@ impl<I: IndexInput> VectorScorer for CodecFloatVectorScorer<I> {
   fn score(&self) -> Result<f32> {
     self.0.score()
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = CodecFloatVectorScorerIteratorRef<'a, I>
-  where
-    Self: 'a;
+#[cfg(test)]
+impl<I: IndexInput> DocIdSetIteratorExtensions for CodecFloatVectorScorer<I> {}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-    CodecFloatVectorScorerIteratorRef(self.0.iterator())
+#[cfg(test)]
+impl<I: IndexInput> BitSetIteratorAccess for CodecFloatVectorScorer<I> {}
+
+#[cfg(test)]
+impl<I: IndexInput> DocIdSetIterator for CodecFloatVectorScorer<I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
   }
 
-  type DocIdSetIteratorMut<'a>
-    = CodecFloatVectorScorerIteratorMut<'a, I>
-  where
-    Self: 'a;
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
 
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-    CodecFloatVectorScorerIteratorMut(self.0.iterator_mut())
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
   }
 }
 
@@ -3464,92 +3391,6 @@ type CodecByteVectorScorerInner<I> =
   <CodecByteVectorValuesInner<I> as ByteVectorValues>::VectorScorer;
 
 #[cfg(test)]
-type CodecByteVectorScorerIteratorRefInner<'a, I> =
-  <CodecByteVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorRef<'a>;
-
-#[cfg(test)]
-pub struct CodecByteVectorScorerIteratorRef<'a, I>(CodecByteVectorScorerIteratorRefInner<'a, I>)
-where
-  I: IndexInput + 'a;
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for CodecByteVectorScorerIteratorRef<'a, I>
-{
-}
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for CodecByteVectorScorerIteratorRef<'a, I>
-{
-}
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorRef<'a, I> {
-  fn doc_id(&self) -> i32 {
-    self.0.doc_id()
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    self.0.next_doc()
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.0.advance(target)
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.0.slow_advance(target)
-  }
-
-  fn cost(&self) -> Result<i64> {
-    self.0.cost()
-  }
-}
-
-#[cfg(test)]
-type CodecByteVectorScorerIteratorMutInner<'a, I> =
-  <CodecByteVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorMut<'a>;
-
-#[cfg(test)]
-pub struct CodecByteVectorScorerIteratorMut<'a, I>(CodecByteVectorScorerIteratorMutInner<'a, I>)
-where
-  I: IndexInput + 'a;
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for CodecByteVectorScorerIteratorMut<'a, I>
-{
-}
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for CodecByteVectorScorerIteratorMut<'a, I>
-{
-}
-
-#[cfg(test)]
-impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorMut<'a, I> {
-  fn doc_id(&self) -> i32 {
-    self.0.doc_id()
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    self.0.next_doc()
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.0.advance(target)
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.0.slow_advance(target)
-  }
-
-  fn cost(&self) -> Result<i64> {
-    self.0.cost()
-  }
-}
-
-#[cfg(test)]
 pub struct CodecByteVectorScorer<I>(CodecByteVectorScorerInner<I>)
 where
   I: IndexInput;
@@ -3559,23 +3400,34 @@ impl<I: IndexInput> VectorScorer for CodecByteVectorScorer<I> {
   fn score(&self) -> Result<f32> {
     self.0.score()
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = CodecByteVectorScorerIteratorRef<'a, I>
-  where
-    Self: 'a;
+#[cfg(test)]
+impl<I: IndexInput> DocIdSetIteratorExtensions for CodecByteVectorScorer<I> {}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
-    CodecByteVectorScorerIteratorRef(self.0.iterator())
+#[cfg(test)]
+impl<I: IndexInput> BitSetIteratorAccess for CodecByteVectorScorer<I> {}
+
+#[cfg(test)]
+impl<I: IndexInput> DocIdSetIterator for CodecByteVectorScorer<I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
   }
 
-  type DocIdSetIteratorMut<'a>
-    = CodecByteVectorScorerIteratorMut<'a, I>
-  where
-    Self: 'a;
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
 
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
-    CodecByteVectorScorerIteratorMut(self.0.iterator_mut())
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
   }
 }
 

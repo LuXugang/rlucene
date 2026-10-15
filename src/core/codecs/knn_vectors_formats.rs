@@ -41,6 +41,8 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIteratorExtensions};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::directory::Directory;
@@ -153,28 +155,45 @@ impl<I: IndexInput> VectorScorer for KnnVectorsFormatsFloatVectorScorer<I> {
       Self::Lucene99ScalarQuantized(scorer) => scorer.score(),
     }
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = <Lucene99HnswFloatVectorScorer<I> as VectorScorer>::DocIdSetIteratorRef<'a>
-  where
-    Self: 'a;
+impl<I: IndexInput> DocIdSetIteratorExtensions for KnnVectorsFormatsFloatVectorScorer<I> {}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+impl<I: IndexInput> BitSetIteratorAccess for KnnVectorsFormatsFloatVectorScorer<I> {}
+
+impl<I: IndexInput> DocIdSetIterator for KnnVectorsFormatsFloatVectorScorer<I> {
+  fn doc_id(&self) -> i32 {
     match self {
-      Self::Lucene99Hnsw(scorer) => scorer.iterator(),
-      Self::Lucene99ScalarQuantized(scorer) => scorer.iterator(),
+      Self::Lucene99Hnsw(scorer) => scorer.doc_id(),
+      Self::Lucene99ScalarQuantized(scorer) => scorer.doc_id(),
     }
   }
 
-  type DocIdSetIteratorMut<'a>
-    = <Lucene99HnswFloatVectorScorer<I> as VectorScorer>::DocIdSetIteratorMut<'a>
-  where
-    Self: 'a;
-
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+  fn next_doc(&mut self) -> Result<i32> {
     match self {
-      Self::Lucene99Hnsw(scorer) => scorer.iterator_mut(),
-      Self::Lucene99ScalarQuantized(scorer) => scorer.iterator_mut(),
+      Self::Lucene99Hnsw(scorer) => scorer.next_doc(),
+      Self::Lucene99ScalarQuantized(scorer) => scorer.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Lucene99Hnsw(scorer) => scorer.advance(target),
+      Self::Lucene99ScalarQuantized(scorer) => scorer.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Lucene99Hnsw(scorer) => scorer.slow_advance(target),
+      Self::Lucene99ScalarQuantized(scorer) => scorer.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Lucene99Hnsw(scorer) => scorer.cost(),
+      Self::Lucene99ScalarQuantized(scorer) => scorer.cost(),
     }
   }
 }
@@ -492,28 +511,45 @@ impl<I: IndexInput> VectorScorer for KnnVectorsFormatsByteVectorScorer<I> {
       Self::HnswBit(scorer) => scorer.score(),
     }
   }
+}
 
-  type DocIdSetIteratorRef<'a>
-    = <Lucene99HnswByteVectorScorer<I> as VectorScorer>::DocIdSetIteratorRef<'a>
-  where
-    Self: 'a;
+impl<I: IndexInput> DocIdSetIteratorExtensions for KnnVectorsFormatsByteVectorScorer<I> {}
 
-  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+impl<I: IndexInput> BitSetIteratorAccess for KnnVectorsFormatsByteVectorScorer<I> {}
+
+impl<I: IndexInput> DocIdSetIterator for KnnVectorsFormatsByteVectorScorer<I> {
+  fn doc_id(&self) -> i32 {
     match self {
-      Self::Lucene99Hnsw(scorer) => scorer.iterator(),
-      Self::HnswBit(scorer) => scorer.iterator(),
+      Self::Lucene99Hnsw(scorer) => scorer.doc_id(),
+      Self::HnswBit(scorer) => scorer.doc_id(),
     }
   }
 
-  type DocIdSetIteratorMut<'a>
-    = <Lucene99HnswByteVectorScorer<I> as VectorScorer>::DocIdSetIteratorMut<'a>
-  where
-    Self: 'a;
-
-  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+  fn next_doc(&mut self) -> Result<i32> {
     match self {
-      Self::Lucene99Hnsw(scorer) => scorer.iterator_mut(),
-      Self::HnswBit(scorer) => scorer.iterator_mut(),
+      Self::Lucene99Hnsw(scorer) => scorer.next_doc(),
+      Self::HnswBit(scorer) => scorer.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Lucene99Hnsw(scorer) => scorer.advance(target),
+      Self::HnswBit(scorer) => scorer.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Lucene99Hnsw(scorer) => scorer.slow_advance(target),
+      Self::HnswBit(scorer) => scorer.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Lucene99Hnsw(scorer) => scorer.cost(),
+      Self::HnswBit(scorer) => scorer.cost(),
     }
   }
 }

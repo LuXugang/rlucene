@@ -23,9 +23,7 @@ use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::abstract_knn_vector_query::FilteredDocIdSetIteratorImpl;
 use crate::core::search::approximation_disi::ApproximationBitSetAccess;
 use crate::core::search::approximation_disi::ApproximationDISI;
-use crate::core::search::conjunction_disi::{
-  ConjunctionDISI, ConjunctionDISIWithBitSet, VectorScorerDisi,
-};
+use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionDISIWithBitSet};
 use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
@@ -321,10 +319,7 @@ where
         ));
       },
     };
-    let doc_id = {
-      let mut iterator = scorer.iterator_mut();
-      iterator.advance(doc)?
-    };
+    let doc_id = scorer.advance(doc)?;
     if doc_id == doc {
       let score = scorer.score()?;
       if score >= self.query.base().result_similarity {
@@ -743,7 +738,7 @@ pub(crate) struct FilteredDocIdSetIteratorImpl1<V, B> {
   boost: f32,
   threshold: f32,
   cached_score: f32,
-  base: FilteredDocIdSetIteratorBase<ConjunctionDISIWithBitSet<VectorScorerDisi<V>, B>>,
+  base: FilteredDocIdSetIteratorBase<ConjunctionDISIWithBitSet<V, B>>,
 }
 
 impl<V, B> FilteredDocIdSetIteratorImpl1<V, B>
@@ -757,9 +752,8 @@ where
     boost: f32,
     threshold: f32,
   ) -> Result<Self> {
-    let vector_iterator = VectorScorerDisi::new(vector_scorer);
     let conjunction = ConjunctionDISI::create_conjunction(vec![
-      DocIdSetIteratorEnum2::A(vector_iterator),
+      DocIdSetIteratorEnum2::A(vector_scorer),
       DocIdSetIteratorEnum2::B(accept_docs),
     ])?;
     let base = FilteredDocIdSetIteratorBase::new(conjunction);
@@ -813,7 +807,7 @@ where
   V: VectorScorer,
   B: BitSet,
 {
-  type DocIdSetIterator = ConjunctionDISIWithBitSet<VectorScorerDisi<V>, B>;
+  type DocIdSetIterator = ConjunctionDISIWithBitSet<V, B>;
 
   fn base(&self) -> &FilteredDocIdSetIteratorBase<Self::DocIdSetIterator> {
     &self.base

@@ -1472,13 +1472,13 @@ pub trait BaseKnnVectorsFormatTestCase:
       let mut scorer = scorer.unwrap();
 
       let mut values_iterator = vector_values.iterator()?;
-      while scorer.iterator_mut().next_doc()? != NO_MORE_DOCS {
+      while scorer.next_doc()? != NO_MORE_DOCS {
         if values_iterator.next_doc()? == NO_MORE_DOCS {
           break;
         }
         let score = scorer.score()?;
         assert!(score >= 0f32);
-        assert_eq!(scorer.iterator().doc_id(), values_iterator.doc_id());
+        assert_eq!(scorer.doc_id(), values_iterator.doc_id());
       }
 
       let new_scorer = vector_values.scorer(vector_to_score.clone())?;
@@ -1486,8 +1486,8 @@ pub trait BaseKnnVectorsFormatTestCase:
       let new_scorer = new_scorer.unwrap();
       assert!(!std::ptr::eq(&scorer, &new_scorer));
 
-      let new_iterator = new_scorer.iterator();
-      assert!(!std::ptr::eq(&scorer.iterator(), &new_iterator));
+      assert_eq!(scorer.doc_id(), NO_MORE_DOCS);
+      assert_eq!(new_scorer.doc_id(), -1);
     }
 
     iw.close()?;
@@ -1554,13 +1554,13 @@ pub trait BaseKnnVectorsFormatTestCase:
       let mut scorer = scorer.unwrap();
 
       let mut values_iterator = vector_values.iterator()?;
-      while scorer.iterator_mut().next_doc()? != NO_MORE_DOCS {
+      while scorer.next_doc()? != NO_MORE_DOCS {
         if values_iterator.next_doc()? == NO_MORE_DOCS {
           break;
         }
         let score = scorer.score()?;
         assert!(score >= 0f32);
-        assert_eq!(scorer.iterator().doc_id(), values_iterator.doc_id());
+        assert_eq!(scorer.doc_id(), values_iterator.doc_id());
       }
 
       let new_scorer = vector_values.scorer(vector_to_score.clone())?.unwrap();
