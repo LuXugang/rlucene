@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -195,7 +193,7 @@ where
       },
     };
 
-    if matcher.approximation_mut().advance(doc)? != doc {
+    if matcher.approx_advance(doc)? != doc {
       return Ok(Explanation::no_match_no_details("no matching terms"));
     }
 
@@ -356,7 +354,7 @@ where
     else {
       return Ok(None);
     };
-    if matcher.approximation_mut().advance(doc)? != doc {
+    if matcher.approx_advance(doc)? != doc {
       return Ok(None);
     }
     matcher.reset()?;
