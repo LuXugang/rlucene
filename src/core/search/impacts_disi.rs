@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 use crate::core::index::impacts_source::ImpactsSource;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{
+  BitSetIteratorAccess, DocIdSetIterator, DocIdSetIteratorExtensions,
+};
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::error::lucene_error::Result;
@@ -48,16 +50,9 @@ pub(crate) type SeparateImpactsDISI<D, IS, SS> = ImpactsDISI<SeparateIteratorMod
 pub(crate) type SourceImpactsDISI<IS, SS> = ImpactsDISI<SourceIteratorMode<IS, SS>>;
 
 #[doc(hidden)]
-pub trait ImpactsDISIMode {
-  type Iterator: DocIdSetIterator;
+pub trait ImpactsDISIMode: DocIdSetIterator {
   type ImpactsSource: ImpactsSource;
   type Scorer: SimScorer;
-
-  fn iterator(&self) -> &Self::Iterator;
-
-  fn iterator_mut(&mut self) -> &mut Self::Iterator;
-
-  fn into_iterator(self) -> Self::Iterator;
 
   fn max_score_cache(&self) -> &MaxScoreCache<Self::ImpactsSource, Self::Scorer>;
 
@@ -71,6 +66,15 @@ struct CompetitiveScoreState {
 }
 
 impl<D, IS, SS> ImpactsDISI<SeparateIteratorMode<D, IS, SS>> {
+  /// Access the underlying state without competitive-score skipping.
+  pub(crate) fn iterator(&self) -> &D {
+    &self.mode.iterator
+  }
+
+  pub(crate) fn iterator_mut(&mut self) -> &mut D {
+    &mut self.mode.iterator
+  }
+
   pub(crate) fn new(iterator: D, max_score_cache: MaxScoreCache<IS, SS>) -> Self {
     Self {
       mode: SeparateIteratorMode {
@@ -83,6 +87,15 @@ impl<D, IS, SS> ImpactsDISI<SeparateIteratorMode<D, IS, SS>> {
 }
 
 impl<IS, SS> ImpactsDISI<SourceIteratorMode<IS, SS>> {
+  /// Access the underlying state without competitive-score skipping.
+  pub(crate) fn iterator(&self) -> &IS {
+    &self.mode.max_score_cache.impacts_source
+  }
+
+  pub(crate) fn iterator_mut(&mut self) -> &mut IS {
+    &mut self.mode.max_score_cache.impacts_source
+  }
+
   pub(crate) fn from_source(max_score_cache: MaxScoreCache<IS, SS>) -> Self {
     Self {
       mode: SourceIteratorMode { max_score_cache },
@@ -95,14 +108,6 @@ impl<M> ImpactsDISI<M>
 where
   M: ImpactsDISIMode,
 {
-  pub(crate) fn iterator(&self) -> &M::Iterator {
-    self.mode.iterator()
-  }
-
-  pub(crate) fn iterator_mut(&mut self) -> &mut M::Iterator {
-    self.mode.iterator_mut()
-  }
-
   pub(crate) fn max_score_cache(&self) -> &MaxScoreCache<M::ImpactsSource, M::Scorer> {
     self.mode.max_score_cache()
   }
@@ -125,21 +130,8 @@ where
   IS: ImpactsSource,
   SS: SimScorer,
 {
-  type Iterator = D;
   type ImpactsSource = IS;
   type Scorer = SS;
-
-  fn iterator(&self) -> &Self::Iterator {
-    &self.iterator
-  }
-
-  fn iterator_mut(&mut self) -> &mut Self::Iterator {
-    &mut self.iterator
-  }
-
-  fn into_iterator(self) -> Self::Iterator {
-    self.iterator
-  }
 
   fn max_score_cache(&self) -> &MaxScoreCache<Self::ImpactsSource, Self::Scorer> {
     &self.max_score_cache
@@ -155,21 +147,8 @@ where
   IS: DocIdSetIterator + ImpactsSource,
   SS: SimScorer,
 {
-  type Iterator = IS;
   type ImpactsSource = IS;
   type Scorer = SS;
-
-  fn iterator(&self) -> &Self::Iterator {
-    &self.max_score_cache.impacts_source
-  }
-
-  fn iterator_mut(&mut self) -> &mut Self::Iterator {
-    &mut self.max_score_cache.impacts_source
-  }
-
-  fn into_iterator(self) -> Self::Iterator {
-    self.max_score_cache.impacts_source
-  }
 
   fn max_score_cache(&self) -> &MaxScoreCache<Self::ImpactsSource, Self::Scorer> {
     &self.max_score_cache
@@ -177,6 +156,67 @@ where
 
   fn max_score_cache_mut(&mut self) -> &mut MaxScoreCache<Self::ImpactsSource, Self::Scorer> {
     &mut self.max_score_cache
+  }
+}
+
+impl<D, IS, SS> DocIdSetIteratorExtensions for SeparateIteratorMode<D, IS, SS> where
+  D: DocIdSetIterator
+{
+}
+
+impl<D, IS, SS> BitSetIteratorAccess for SeparateIteratorMode<D, IS, SS> where D: DocIdSetIterator {}
+
+impl<D, IS, SS> DocIdSetIterator for SeparateIteratorMode<D, IS, SS>
+where
+  D: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    self.iterator.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.iterator.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.iterator.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.iterator.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.iterator.cost()
+  }
+}
+
+impl<IS, SS> DocIdSetIteratorExtensions for SourceIteratorMode<IS, SS> where IS: DocIdSetIterator {}
+
+impl<IS, SS> BitSetIteratorAccess for SourceIteratorMode<IS, SS> where IS: DocIdSetIterator {}
+
+impl<IS, SS> DocIdSetIterator for SourceIteratorMode<IS, SS>
+where
+  IS: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    self.max_score_cache.impacts_source.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.max_score_cache.impacts_source.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.max_score_cache.impacts_source.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.max_score_cache.impacts_source.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.max_score_cache.impacts_source.cost()
   }
 }
 
@@ -258,13 +298,13 @@ where
   M: ImpactsDISIMode,
 {
   fn doc_id(&self) -> i32 {
-    self.mode.iterator().doc_id()
+    self.mode.doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    let doc = self.mode.iterator().doc_id();
+    let doc = self.mode.doc_id();
     if doc < self.state.upto {
-      return self.mode.iterator_mut().next_doc();
+      return self.mode.next_doc();
     }
     self.advance(doc + 1)
   }
@@ -273,10 +313,10 @@ where
     let doc_id = self
       .state
       .advance_target(self.mode.max_score_cache_mut(), target)?;
-    self.mode.iterator_mut().advance(doc_id)
+    self.mode.advance(doc_id)
   }
 
   fn cost(&self) -> Result<i64> {
-    self.mode.iterator().cost()
+    self.mode.cost()
   }
 }
