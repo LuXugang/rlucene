@@ -83,7 +83,7 @@ impl<S: Scorer>
   }
 }
 
-/// Access to the block state owned by the selected iterator.
+/// Scoring and pruning operations on the state owned by the selected iterator.
 #[doc(hidden)]
 pub trait BlockMaxConjunctionState:
   DocIdSetIterator + ApproximationDISI + ApproximationBitSetAccess + 'static
@@ -93,7 +93,12 @@ pub trait BlockMaxConjunctionState:
   fn matches(&mut self) -> Result<bool>;
 
   type SubScorer: Scorer + 'static;
-  fn approximation_mut(&mut self) -> &mut DocIdSetIteratorImpl<Self::SubScorer>;
+  fn score(&mut self) -> Result<f32>;
+  fn set_min_competitive_score(&mut self, score: f32) -> Result<()>;
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut Self::SubScorer>>>;
+  fn scoring_doc_id(&mut self) -> Result<i32>;
+  fn advance_shallow(&mut self, target: i32) -> Result<i32>;
+  fn get_max_score(&mut self, upto: i32) -> Result<f32>;
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState;
 }
@@ -171,8 +176,39 @@ impl<S: Scorer + 'static> BlockMaxConjunctionState for DocIdSetIteratorImpl<S> {
   }
 
   type SubScorer = S;
-  fn approximation_mut(&mut self) -> &mut Self {
-    self
+  fn score(&mut self) -> Result<f32> {
+    let mut sum: f64 = 0.0;
+    for scorer in self.scorers.iter_mut() {
+      sum += scorer.score()? as f64;
+    }
+    Ok(sum as f32)
+  }
+
+  fn set_min_competitive_score(&mut self, score: f32) -> Result<()> {
+    self.min_score = score;
+    Ok(())
+  }
+
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut Self::SubScorer>>> {
+    Ok(
+      self
+        .scorers
+        .iter_mut()
+        .map(|scorer| ChildScorable::new(scorer, "MUST"))
+        .collect(),
+    )
+  }
+
+  fn scoring_doc_id(&mut self) -> Result<i32> {
+    self.scorer_doc_id()
+  }
+
+  fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+    DocIdSetIteratorImpl::advance_shallow(self, target)
+  }
+
+  fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+    DocIdSetIteratorImpl::get_max_score(self, upto)
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
@@ -191,21 +227,35 @@ impl<S: Scorer + 'static> BlockMaxConjunctionState
   }
 
   type SubScorer = S;
-  fn approximation_mut(&mut self) -> &mut DocIdSetIteratorImpl<S> {
-    &mut self.two_phase_iterator.approx
+  fn score(&mut self) -> Result<f32> {
+    BlockMaxConjunctionState::score(&mut self.two_phase_iterator.approx)
+  }
+
+  fn set_min_competitive_score(&mut self, score: f32) -> Result<()> {
+    self
+      .two_phase_iterator
+      .approx
+      .set_min_competitive_score(score)
+  }
+
+  fn get_children(&mut self) -> Result<Vec<ChildScorable<&mut Self::SubScorer>>> {
+    self.two_phase_iterator.approx.get_children()
+  }
+
+  fn scoring_doc_id(&mut self) -> Result<i32> {
+    self.two_phase_iterator.approx.scorer_doc_id()
+  }
+
+  fn advance_shallow(&mut self, target: i32) -> Result<i32> {
+    self.two_phase_iterator.approx.advance_shallow(target)
+  }
+
+  fn get_max_score(&mut self, upto: i32) -> Result<f32> {
+    self.two_phase_iterator.approx.get_max_score(upto)
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     TwoPhaseState::Yes
-  }
-}
-impl<D: BlockMaxConjunctionState> BlockMaxConjunctionScorer<D> {
-  fn do_score(s: &mut [D::SubScorer]) -> Result<f32> {
-    let mut sum: f64 = 0.0;
-    for scorer in s.iter_mut() {
-      sum += scorer.score()? as f64;
-    }
-    Ok(sum as f32)
   }
 }
 impl<D: BlockMaxConjunctionState> Scorable for BlockMaxConjunctionScorer<D> {
@@ -214,20 +264,13 @@ impl<D: BlockMaxConjunctionState> Scorable for BlockMaxConjunctionScorer<D> {
   where
     Self: 'a;
   fn score(&mut self) -> Result<f32> {
-    Self::do_score(self.disi.approximation_mut().scorers.as_mut())
+    self.disi.score()
   }
   fn set_min_competitive_score(&mut self, score: f32) -> Result<()> {
-    self.disi.approximation_mut().min_score = score;
-    Ok(())
+    self.disi.set_min_competitive_score(score)
   }
   fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
-    let scorers = &mut self.disi.approximation_mut().scorers;
-    Ok(
-      scorers
-        .iter_mut()
-        .map(|scorer| ChildScorable::new(scorer, "MUST"))
-        .collect(),
-    )
+    self.disi.get_children()
   }
   fn cost(&self) -> Result<i64> {
     self.disi.cost()
@@ -305,14 +348,14 @@ impl<D: BlockMaxConjunctionState> TwoPhaseIterator for BlockMaxConjunctionScorer
 
 impl<D: BlockMaxConjunctionState> Scorer for BlockMaxConjunctionScorer<D> {
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    self.disi.approximation_mut().scorer_doc_id()
+    self.disi.scoring_doc_id()
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-    self.disi.approximation_mut().advance_shallow(target)
+    self.disi.advance_shallow(target)
   }
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    self.disi.approximation_mut().get_max_score(upto)
+    self.disi.get_max_score(upto)
   }
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
     self.disi.has_two_phase_iterator()

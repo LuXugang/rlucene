@@ -134,10 +134,10 @@ fn test_random() -> Result<()> {
       )?;
     }
 
-    let _two_phase_inner: Query = builder.build().into();
+    let two_phase_inner: Query = builder.build().into();
 
     let mut two_phase_builder = Builder::new();
-    two_phase_builder.add(query, Occur::Must)?;
+    two_phase_builder.add(two_phase_inner, Occur::Must)?;
     two_phase_builder.add(
       TermQuery::new(Term::new("foo", filter_term.to_string())),
       Occur::Filter,
