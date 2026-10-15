@@ -803,14 +803,15 @@ fn test_norms_query_matches_count() -> Result<()> {
   w.close(&mut random)?;
   Ok(())
 }
-fn assert_norms_count_without_shortcut<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_norms_count_without_shortcut<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   field: &str,
   expected_count: i32,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let q = FieldExistsQuery::new(field);
   let weight = searcher.create_weight(q.clone(), ScoreMode::Complete, 1.0)?;
@@ -822,14 +823,15 @@ where
   Ok(())
 }
 
-fn assert_norms_count_with_shortcut<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_norms_count_with_shortcut<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   field: &str,
   num_matching_docs: i32,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let q = FieldExistsQuery::new(field);
 
@@ -1144,17 +1146,18 @@ fn test_delete_all_term_docs() -> Result<()> {
 
   Ok(())
 }
-fn assert_same_matches<IRC, T1, T2>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_same_matches<IRC, T1, T2, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   q1: T1,
   q2: T2,
   scores: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let irc = searcher.get_top_reader_context();
   let max_doc = irc.reader().max_doc()?;
@@ -1189,14 +1192,15 @@ where
 
   Ok(())
 }
-fn assert_same_count<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_same_count<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   field: &str,
   num_matching_docs: i32,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let test_query: Query = FieldExistsQuery::new(field).into();
   assert_eq!(searcher.count(test_query.clone())?, num_matching_docs);

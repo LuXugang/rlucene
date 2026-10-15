@@ -23,6 +23,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -52,18 +53,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for DummyWeight
+impl<IRC, SIM> Weight<IRC, SIM> for DummyWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext,
 {
   fn matches<'a>(
     &'a self,
     _context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    _searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
@@ -72,10 +74,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
@@ -87,10 +89,10 @@ where
   fn scorer(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>>
+    _searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC, SIM>>::Scorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
@@ -100,10 +102,10 @@ where
   fn scorer_supplier(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
@@ -111,10 +113,10 @@ where
   fn bulk_scorer(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>>
+    _searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC, SIM>>::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
@@ -122,10 +124,10 @@ where
   fn count(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }

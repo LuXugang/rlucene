@@ -24,6 +24,7 @@ use crate::core::index::term_state::TermState;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -347,12 +348,13 @@ pub enum PrepareState<TE> {
   Pending(Arc<Term>, usize, TE),
 }
 
-pub fn build<IRC, T>(
-  index_searcher: &IndexSearcher<IRC>,
+pub fn build<IRC, T, SIM>(
+  index_searcher: &IndexSearcher<IRC, SIM>,
   term: T,
   needs_stats: bool,
 ) -> Result<TermStates>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext,
   T: Into<Arc<Term>>,
 {

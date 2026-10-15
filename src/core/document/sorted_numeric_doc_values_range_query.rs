@@ -37,6 +37,7 @@ use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
@@ -91,9 +92,10 @@ impl HasIdentity for SortedNumericDocValuesRangeQuery {
   }
 }
 impl QueryBase for SortedNumericDocValuesRangeQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = SortedNumericDocValuesRangeQueryWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -111,16 +113,17 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
     Ok(out)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(SortedNumericDocValuesRangeQueryWeight::new(
       self,
@@ -129,11 +132,12 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
     ))
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
       return Ok(Some(FieldExistsQuery::new(&self.field).into()));
@@ -281,18 +285,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for SortedNumericDocValuesRangeQueryWeight
+impl<IRC, SIM> Weight<IRC, SIM> for SortedNumericDocValuesRangeQueryWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -304,15 +309,15 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<IRC>>;
+  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<IRC, SIM>>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if context
       .reader()
@@ -336,9 +341,10 @@ where
       {
         let iter = AllDISI::new(skipper.doc_count());
         let scorer = ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, iter);
-        return Ok(Some(DefaultScorerSupplier::new(
-          QueryWeightSsScorer::<IRC>::new(scorer),
-        )));
+        return Ok(Some(DefaultScorerSupplier::new(QueryWeightSsScorer::<
+          IRC,
+          SIM,
+        >::new(scorer))));
       }
     }
     let mut values = DocValues::get_sorted_numeric(context.reader(), &self.query.field)?;
@@ -352,7 +358,7 @@ where
             skipper,
           )?;
           if let Some(ps_iterator) = ps_iterator_opt {
-            let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC>::new(
+            let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC, SIM>::new(
               ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, ps_iterator),
             ));
             return Ok(Some(v));
@@ -375,12 +381,12 @@ where
           false,
         );
         let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, v);
-        let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC>::new(scorer));
+        let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC, SIM>::new(scorer));
         Ok(Some(v))
       },
       None => {
         let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
-        let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC>::new(scorer));
+        let v = DefaultScorerSupplier::new(QueryWeightSsScorer::<IRC, SIM>::new(scorer));
         Ok(Some(v))
       },
     }

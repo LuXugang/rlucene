@@ -1249,7 +1249,7 @@ fn test_nrt_mdeletes() -> Result<()> {
   writer.commit()?;
 
   let ic2 = snapshotter.snapshot()?;
-  let latest = directory_reader::open_from_commit(&ic2)?;
+  let latest = directory_reader::open_from_commit::<_, _>(&ic2)?;
   assert_eq!(2, (&latest).get_context()?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1
@@ -1368,7 +1368,7 @@ fn test_nrt_mupdates() -> Result<()> {
   writer.commit()?;
 
   let ic2 = snapshotter.snapshot()?;
-  let latest = directory_reader::open_from_commit(&ic2)?;
+  let latest = directory_reader::open_from_commit::<_, _>(&ic2)?;
   assert_eq!(1, (&latest).get_context()?.leaves()?.len());
 
   // This reader will be used for searching against commit point 1

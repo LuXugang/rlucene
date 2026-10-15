@@ -32,6 +32,7 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::accountable::Accountable;
@@ -88,25 +89,27 @@ impl HasIdentity for SortedNumericDocValuesSetQuery {
   }
 }
 impl QueryBase for SortedNumericDocValuesSetQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = SortedNumericDocValuesSetQueryWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("{}: {}", self.field, self.numbers))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(SortedNumericDocValuesSetQueryWeight::new(
       self,
@@ -115,11 +118,12 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
     ))
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if self.numbers.size() == 0 {
       return Ok(Some(MatchNoDocsQuery::new().into()));
@@ -184,18 +188,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for SortedNumericDocValuesSetQueryWeight
+impl<IRC, SIM> Weight<IRC, SIM> for SortedNumericDocValuesSetQueryWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -215,10 +220,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if context
       .reader()

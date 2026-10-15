@@ -237,9 +237,10 @@ impl HasIdentity for PhraseQuery {
 }
 
 impl QueryBase for PhraseQuery {
-  type Weight<IRC>
-    = PhraseWeight<PhraseQueryWeightBase>
+  type Weight<IRC, SIM>
+    = PhraseWeight<PhraseQueryWeightBase<SIM>, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, f: &str) -> Result<String> {
@@ -295,16 +296,17 @@ impl QueryBase for PhraseQuery {
     Ok(buffer)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let similarity = searcher.get_similarity();
     let query = self.clone();
@@ -318,11 +320,12 @@ impl QueryBase for PhraseQuery {
     Ok(weight)
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let len = self.terms.len();
     if len == 0 {
@@ -511,14 +514,21 @@ where
 
   Ok(TERM_POSNS_SEEK_OPS_PER_DOC as f32 + exp_occurrences_in_matching_doc * TERM_OPS_PER_POS as f32)
 }
-pub struct PhraseQueryWeightBase {
+pub struct PhraseQueryWeightBase<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   query: PhraseQuery,
   states: Vec<TermStates>,
   boost: f32,
-  base: PhraseWeightMeta,
+  base: PhraseWeightMeta<SIM>,
 }
-impl PhraseQueryWeightBase {
-  pub(crate) fn new(query: PhraseQuery, boost: f32, base: PhraseWeightMeta) -> Self {
+impl<SIM> PhraseQueryWeightBase<SIM>
+where
+  SIM: Similarity,
+{
+  pub(crate) fn new(query: PhraseQuery, boost: f32, base: PhraseWeightMeta<SIM>) -> Self {
     Self {
       query,
       states: Vec::new(),
@@ -535,11 +545,14 @@ impl PhraseQueryWeightBase {
   }
 }
 
-impl PhraseWeightBase for PhraseQueryWeightBase {
+impl<SIM> PhraseWeightBase<SIM> for PhraseQueryWeightBase<SIM>
+where
+  SIM: Similarity,
+{
   type IE<LR: LeafReader> = ImpactsEnumEnum2<LRImpactsEnum<LR>, SlowImpactsEnum<LRPosting<LR>>>;
-  type SimScorer = Arc<SimScorerType>;
+  type SimScorer = Arc<SimScorerType<SIM>>;
 
-  fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
+  fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Self::SimScorer>
   where
     IRC: IndexReaderContext + 'static,
   {
@@ -578,14 +591,14 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
         .collection_statistics(&self.base.field)?
         .ok_or_else(|| LuceneError::illegal_state("could not get collection stats"))?;
 
-      SimScorerType::A(self.base.similarity.scorer(
+      SimScorerType::<SIM>::A(self.base.similarity.scorer(
         self.boost,
         &collection_stats,
         term_stats[..term_up_to].as_ref(),
       )?)
     } else {
       // no terms at all, we won't use similarity
-      SimScorerType::B(SimScorerImpl)
+      SimScorerType::<SIM>::B(SimScorerImpl)
     };
     Ok(Arc::new(v))
   }
@@ -694,7 +707,7 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
     Ok(Some(v))
   }
 
-  fn base(&self) -> &PhraseWeightMeta {
+  fn base(&self) -> &PhraseWeightMeta<SIM> {
     &self.base
   }
 }

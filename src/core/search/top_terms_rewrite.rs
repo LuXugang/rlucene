@@ -27,6 +27,7 @@ use crate::core::search::boost_attribute::DEFAULT_BOOST;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::MultiTermQuery;
 use crate::core::search::query::Query;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_collecting_rewrite::{TermCollectingRewrite, TermCollector};
 use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
@@ -41,12 +42,17 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
   /// Return the maximum size of the priority queue (for boolean rewrites this is
   /// [`BooleanQuery::get_max_clause_count`]).
   fn get_max_size(&self) -> usize;
-  fn default_rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn default_rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery,
     IRC: IndexReaderContext,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let max_size = std::cmp::min(self.get_size(), self.get_max_size());
     let mut builder = self.get_top_level_builder()?;

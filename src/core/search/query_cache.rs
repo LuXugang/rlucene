@@ -18,12 +18,16 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::lru_query_cache::LRUQueryCache;
 use crate::core::search::query::QueryWeight;
 use crate::core::search::query_caching_policy::QueryCachingPolicyEnum;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A cache for queries.
-pub trait QueryCache<IRC>
-where
+pub trait QueryCache<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   /// Return a wrapper around the provided `weight` that will cache matching documents
@@ -33,37 +37,47 @@ where
   /// See also [`Collector::score_mode`](crate::core::search::collector::Collector::score_mode).
   fn do_cache(
     &self,
-    weight: QueryWeight<IRC>,
+    weight: QueryWeight<IRC, SIM>,
     policy: Arc<QueryCachingPolicyEnum>,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<QueryWeight<IRC, SIM>>
   where
     IRC: IndexReaderContext + 'static;
 }
-pub type BoxQueryCache<IRC> = Box<dyn QueryCache<IRC> + Send + Sync>;
-pub enum QueryCacheEnum<IRC> {
+pub type BoxQueryCache<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = Box<dyn QueryCache<IRC, SIM> + Send + Sync>;
+pub enum QueryCacheEnum<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   Lru(Arc<LRUQueryCache>),
-  Custom(BoxQueryCache<IRC>),
+  Custom(BoxQueryCache<IRC, SIM>),
 }
-impl<IRC> QueryCacheEnum<IRC>
+impl<IRC, SIM> QueryCacheEnum<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   pub fn custom<QC>(cache: QC) -> Self
   where
-    QC: QueryCache<IRC> + Send + Sync + 'static,
+    QC: QueryCache<IRC, SIM> + Send + Sync + 'static,
   {
     Self::Custom(Box::new(cache))
   }
 }
-impl<IRC> QueryCache<IRC> for QueryCacheEnum<IRC>
+impl<IRC, SIM> QueryCache<IRC, SIM> for QueryCacheEnum<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn do_cache(
     &self,
-    weight: QueryWeight<IRC>,
+    weight: QueryWeight<IRC, SIM>,
     policy: Arc<QueryCachingPolicyEnum>,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<QueryWeight<IRC, SIM>>
   where
     IRC: IndexReaderContext + 'static,
   {
@@ -74,8 +88,9 @@ where
   }
 }
 
-impl<IRC> From<Arc<LRUQueryCache>> for QueryCacheEnum<IRC>
+impl<IRC, SIM> From<Arc<LRUQueryCache>> for QueryCacheEnum<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn from(v: Arc<LRUQueryCache>) -> Self {

@@ -123,24 +123,26 @@ impl HasIdentity for BrokenExplainTermQuery {
 }
 
 impl QueryBase for BrokenExplainTermQuery {
-  type Weight<IRC>
-    = BrokenExplainWeight<IRC>
+  type Weight<IRC, SIM>
+    = BrokenExplainWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     self.term_query.to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let inner_weight = self
@@ -164,16 +166,22 @@ impl IntoBoxQuery for BrokenExplainTermQuery {
   }
 }
 
-pub struct BrokenExplainWeight<IRC: IndexReaderContext + 'static> {
+pub struct BrokenExplainWeight<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   query: Arc<Query>,
-  in_: QueryWeight<IRC>,
+  in_: QueryWeight<IRC, SIM>,
 }
 
-impl<IRC> BrokenExplainWeight<IRC>
+impl<IRC, SIM> BrokenExplainWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: BrokenExplainTermQuery, inner_weight: QueryWeight<IRC>) -> Self {
+  fn new(query: BrokenExplainTermQuery, inner_weight: QueryWeight<IRC, SIM>) -> Self {
     Self {
       query: Arc::new(query.into()),
       in_: inner_weight,
@@ -181,8 +189,9 @@ where
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for BrokenExplainWeight<IRC>
+impl<IRC, SIM> SegmentCacheable<IRC> for BrokenExplainWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -190,20 +199,21 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for BrokenExplainWeight<IRC>
+impl<IRC, SIM> Weight<IRC, SIM> for BrokenExplainWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<IRC>>;
+  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<IRC, SIM>>;
 
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.in_.matches(context, doc, searcher)
   }
@@ -212,10 +222,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let query = match self.query.as_ref() {
       Query::BrokenExplainTerm(query) => query,
@@ -252,10 +262,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     match self.in_.scorer(context, searcher)? {
       Some(scorer) => Ok(Some(DefaultScorerSupplier::new(scorer))),
@@ -298,34 +308,37 @@ impl HasIdentity for TestRewriteQuery {
 }
 
 impl QueryBase for TestRewriteQuery {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("TestRewriteQuery({:?})", self.num_rewrites))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.num_rewrites.fetch_add(1, Ordering::Relaxed);
     Ok(None)
@@ -405,25 +418,27 @@ impl HasIdentity for CrazyMustUseBulkScorerQuery {
 }
 
 impl QueryBase for CrazyMustUseBulkScorerQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = CrazyMustUseBulkScorerWeight
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("MustUseBulkScorerQuery".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(CrazyMustUseBulkScorerWeight::new(self))
   }
@@ -457,18 +472,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for CrazyMustUseBulkScorerWeight
+impl<IRC, SIM> Weight<IRC, SIM> for CrazyMustUseBulkScorerWeight
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     _context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    _searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(None)
   }
@@ -477,10 +493,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -494,10 +510,10 @@ where
   fn scorer_supplier(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(CrazyMustUseBulkScorerSupplier))
   }
@@ -505,21 +521,22 @@ where
 
 pub struct CrazyMustUseBulkScorerSupplier;
 
-impl<IRC> ScorerSupplier<IRC> for CrazyMustUseBulkScorerSupplier
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for CrazyMustUseBulkScorerSupplier
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = QueryWeightSsScorer<IRC, SIM>;
   type BulkScorer = CrazyMustUseBulkScorer;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -527,10 +544,10 @@ where
   fn bulk_scorer(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(CrazyMustUseBulkScorer))
   }
@@ -538,10 +555,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -632,24 +649,26 @@ impl Hash for AssertNeedsScores {
 }
 
 impl QueryBase for AssertNeedsScores {
-  type Weight<IRC>
-    = AssertNeedsScoresWeight<IRC>
+  type Weight<IRC, SIM>
+    = AssertNeedsScoresWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     Ok(format!("asserting({})", self.query.to_string(field)?))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     assert_eq!(
@@ -665,10 +684,11 @@ impl QueryBase for AssertNeedsScores {
     Ok(AssertNeedsScoresWeight::new(self, inner_weight))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     match self.query.rewrite(searcher)? {
@@ -691,16 +711,22 @@ impl IntoBoxQuery for AssertNeedsScores {
   }
 }
 
-pub struct AssertNeedsScoresWeight<IRC: IndexReaderContext + 'static> {
+pub struct AssertNeedsScoresWeight<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   query: Arc<Query>,
-  inner_weight: QueryWeight<IRC>,
+  inner_weight: QueryWeight<IRC, SIM>,
 }
 
-impl<IRC> AssertNeedsScoresWeight<IRC>
+impl<IRC, SIM> AssertNeedsScoresWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: AssertNeedsScores, inner_weight: QueryWeight<IRC>) -> Self {
+  fn new(query: AssertNeedsScores, inner_weight: QueryWeight<IRC, SIM>) -> Self {
     Self {
       query: Arc::new(query.into()),
       inner_weight,
@@ -708,8 +734,9 @@ where
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for AssertNeedsScoresWeight<IRC>
+impl<IRC, SIM> SegmentCacheable<IRC> for AssertNeedsScoresWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -717,20 +744,21 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for AssertNeedsScoresWeight<IRC>
+impl<IRC, SIM> Weight<IRC, SIM> for AssertNeedsScoresWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = QueryWeightSs<IRC, SIM>;
 
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.inner_weight.matches(context, doc, searcher)
   }
@@ -739,10 +767,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.inner_weight.explain(context, doc, searcher)
   }
@@ -754,10 +782,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.inner_weight.scorer_supplier(context, searcher)
   }
@@ -765,10 +793,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.inner_weight.count(context, searcher)
   }
@@ -802,25 +830,27 @@ impl HasIdentity for BitSetQuery {
 }
 
 impl QueryBase for BitSetQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = BitSetQueryWeight
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("randomBitSetFilter".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(BitSetQueryWeight::new(boost, self, *score_mode))
   }
@@ -878,18 +908,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for BitSetQueryWeight
+impl<IRC, SIM> Weight<IRC, SIM> for BitSetQueryWeight
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self.base.explain(scorer, doc, self.query.to_string("")?)
@@ -905,10 +936,10 @@ where
   fn scorer_supplier(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let iter = BitSetIterator::new(
       self.docs.clone(),
@@ -1014,25 +1045,27 @@ impl HasIdentity for RandomQuery {
 }
 
 impl QueryBase for RandomQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = RandomQueryWeight
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("RandomFilter(density={})", self.density))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(RandomQueryWeight::new(self, *score_mode, boost))
   }
@@ -1072,18 +1105,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for RandomQueryWeight
+impl<IRC, SIM> Weight<IRC, SIM> for RandomQueryWeight
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self.base.explain(scorer, doc, self.query.to_string("")?)
@@ -1099,10 +1133,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let bits = self.random_query.bitset_for_context(context)?;
     let cost = bits.approximate_cardinality() as i64;
@@ -1166,25 +1200,27 @@ impl HasIdentity for DummyQuery1 {
 }
 
 impl QueryBase for DummyQuery1 {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = DummyQueryWeight1
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("dummy".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let base = ConstantScoreWeight::new(boost);
     Ok(DummyQueryWeight1::new(*score_mode, base, self))
@@ -1224,18 +1260,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for DummyQueryWeight1
+impl<IRC, SIM> Weight<IRC, SIM> for DummyQueryWeight1
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self.base.explain(scorer, doc, self.query.to_string("")?)
@@ -1250,10 +1287,10 @@ where
   fn scorer_supplier(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer =
       ConstantScoreScorer::from_disi(self.base.score(), self.score_mode, AllDISI::new(1));
@@ -1370,25 +1407,27 @@ impl HasIdentity for TestLRUQuery {
 }
 
 impl QueryBase for TestLRUQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = TestLRUWeight
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("{:?}", self))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let cacheable = !matches!(&self, Self::NoCache { .. });
     let kind = match &self {
@@ -1452,18 +1491,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for TestLRUWeight
+impl<IRC, SIM> Weight<IRC, SIM> for TestLRUWeight
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self.base.explain(scorer, doc, self.query.to_string("")?)
@@ -1478,10 +1518,10 @@ where
   fn scorer_supplier(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     match &self.kind {
       TestLRUWeightKind::NoScorer => Ok(None),
@@ -1505,8 +1545,9 @@ pub struct TestLRUScorerSupplier {
   scorer_created: Option<Arc<AtomicBool>>,
 }
 
-impl<IRC> ScorerSupplier<IRC> for TestLRUScorerSupplier
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for TestLRUScorerSupplier
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = ConstantScoreDisiScorer<AllDISI>;
@@ -1516,10 +1557,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     if let Some(scorer_created) = &self.scorer_created {
       scorer_created.store(true, Ordering::SeqCst);
@@ -1534,10 +1575,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.get(i64::MAX, context, searcher)?;
     Ok(Some(DefaultBulkScorer::new(scorer)))
@@ -1546,10 +1587,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(i64::from(self.max_doc))
   }
@@ -1606,25 +1647,27 @@ impl HasIdentity for DVCacheQuery {
 }
 
 impl QueryBase for DVCacheQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = DVCacheWeight
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("DVCacheQuery".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(DVCacheWeight {
       query: Arc::new(self.clone().into()),
@@ -1664,18 +1707,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for DVCacheWeight
+impl<IRC, SIM> Weight<IRC, SIM> for DVCacheWeight
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     ConstantScoreWeight::new(1.0).explain(scorer, doc, self.query.to_string("")?)
@@ -1690,10 +1734,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(DVCacheScorerSupplier {
       max_doc: context.reader().max_doc()?,
@@ -1709,8 +1753,9 @@ pub struct DVCacheScorerSupplier {
   score_mode: ScoreMode,
 }
 
-impl<IRC> ScorerSupplier<IRC> for DVCacheScorerSupplier
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for DVCacheScorerSupplier
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = ConstantScoreDisiScorer<AllDISI>;
@@ -1720,10 +1765,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.scorer_created_count.fetch_add(1, Ordering::SeqCst);
     Ok(ConstantScoreScorer::from_disi(
@@ -1736,10 +1781,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.get(i64::MAX, context, searcher)?;
     Ok(Some(DefaultBulkScorer::new(scorer)))
@@ -1748,10 +1793,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(i64::from(self.max_doc))
   }
@@ -1992,24 +2037,26 @@ impl PartialEq for MaxScoreWrapperQuery {
 }
 
 impl QueryBase for MaxScoreWrapperQuery {
-  type Weight<IRC>
-    = MaxScoreWrapperQueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = MaxScoreWrapperQueryWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("MaxScoreWrapperQuery".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
@@ -2020,10 +2067,11 @@ impl QueryBase for MaxScoreWrapperQuery {
     ))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let rewritten = self
@@ -2043,17 +2091,23 @@ impl QueryBase for MaxScoreWrapperQuery {
   }
 }
 
-pub struct MaxScoreWrapperQueryWeight<IRC: IndexReaderContext + 'static> {
+pub struct MaxScoreWrapperQueryWeight<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   max_range: i32,
   max_score: f32,
-  weight: QueryWeight<IRC>,
+  weight: QueryWeight<IRC, SIM>,
 }
 
-impl<IRC> MaxScoreWrapperQueryWeight<IRC>
+impl<IRC, SIM> MaxScoreWrapperQueryWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  fn new(max_range: i32, max_score: f32, weight: QueryWeight<IRC>) -> Self {
+  fn new(max_range: i32, max_score: f32, weight: QueryWeight<IRC, SIM>) -> Self {
     Self {
       max_range,
       max_score,
@@ -2062,8 +2116,9 @@ where
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for MaxScoreWrapperQueryWeight<IRC>
+impl<IRC, SIM> SegmentCacheable<IRC> for MaxScoreWrapperQueryWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -2071,18 +2126,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for MaxScoreWrapperQueryWeight<IRC>
+impl<IRC, SIM> Weight<IRC, SIM> for MaxScoreWrapperQueryWeight<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.weight.matches(context, doc, searcher)
   }
@@ -2091,10 +2147,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.weight.explain(context, doc, searcher)
   }
@@ -2103,15 +2159,15 @@ where
     self.weight.get_query()
   }
 
-  type ScorerSupplier = ScorerSupplierImpl<IRC>;
+  type ScorerSupplier = ScorerSupplierImpl<IRC, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     match self.weight.scorer_supplier(context, searcher)? {
       Some(s) => Ok(Some(ScorerSupplierImpl::new(
@@ -2124,17 +2180,23 @@ where
   }
 }
 
-pub struct ScorerSupplierImpl<IRC: IndexReaderContext + 'static> {
-  supplier: QueryWeightSs<IRC>,
+pub struct ScorerSupplierImpl<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  supplier: QueryWeightSs<IRC, SIM>,
   max_range: i32,
   max_score: f32,
 }
 
-impl<IRC> ScorerSupplierImpl<IRC>
+impl<IRC, SIM> ScorerSupplierImpl<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  fn new(supplier: QueryWeightSs<IRC>, max_range: i32, max_score: f32) -> Self {
+  fn new(supplier: QueryWeightSs<IRC, SIM>, max_range: i32, max_score: f32) -> Self {
     Self {
       supplier,
       max_range,
@@ -2143,22 +2205,23 @@ where
   }
 }
 
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for ScorerSupplierImpl<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
 {
-  type Scorer = MaxScoreWrapperScorer<QueryWeightSsScorer<IRC>>;
+  type Scorer = MaxScoreWrapperScorer<QueryWeightSsScorer<IRC, SIM>>;
   type BulkScorer = DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let v = self.supplier.get(lead_cost, context, searcher)?;
     let s = MaxScoreWrapperScorer::new(v, self.max_range, self.max_score);
@@ -2168,10 +2231,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -2179,10 +2242,10 @@ where
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.supplier.cost(context, searcher)
   }
@@ -2217,24 +2280,26 @@ impl HasIdentity for WANDScorerQuery {
 }
 
 impl QueryBase for WANDScorerQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = WANDScorerQueryWeight
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("WANDScorerQuery".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     Ok(WANDScorerQueryWeight::new(
@@ -2284,18 +2349,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for WANDScorerQueryWeight
+impl<IRC, SIM> Weight<IRC, SIM> for WANDScorerQueryWeight
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     _context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    _searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     unreachable!("")
   }
@@ -2304,10 +2370,10 @@ where
     &self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     unreachable!("")
   }
@@ -2318,19 +2384,19 @@ where
 
   type ScorerSupplier = DefaultScorerSupplier<
     ScorerEnum3<
-      WANDScorer<QueryWeightSsScorer<IRC>, true>,
-      WANDScorer<QueryWeightSsScorer<IRC>, false>,
-      QueryWeightSsScorer<IRC>,
+      WANDScorer<QueryWeightSsScorer<IRC, SIM>, true>,
+      WANDScorer<QueryWeightSsScorer<IRC, SIM>, false>,
+      QueryWeightSsScorer<IRC, SIM>,
     >,
   >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let weight = match self.query.as_ref() {
       Query::Boolean(query) => query

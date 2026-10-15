@@ -45,9 +45,10 @@ impl<IRC> IndexSearcherBase<IRC> for CountingIndexSearcher
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn count(&self, searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
+  fn count<SIM>(&self, searcher: &IndexSearcher<IRC, SIM>, query: Query) -> Result<i32>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.count_invocations.fetch_add(1, Ordering::Relaxed);
     IndexSearcherDefaults::count(searcher, query)

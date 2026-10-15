@@ -81,7 +81,12 @@ impl BaseExplanationTestCase for TestComplexExplanationsOfNonMatches {
     R: Rng + ?Sized,
     Q: IntoQuery,
   {
-    CheckHits::check_no_match_explanations(q.into_query(), FIELD, searcher, exp_doc_nrs)
+    let searcher =
+      crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+        searcher.get_index_reader().clone(),
+        std::sync::Arc::new(crate::core::search::similarities_impl::classic_similarity::new()),
+      )?;
+    CheckHits::check_no_match_explanations(q.into_query(), FIELD, &searcher, exp_doc_nrs)
   }
 }
 

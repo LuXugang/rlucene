@@ -28,6 +28,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::QueryBase;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -54,25 +55,27 @@ pub(crate) fn lat_lon_point_query(
 }
 
 impl QueryBase for LatLonPointQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = crate::core::document::spatial_query::SpatialWeight<LatLonGeometryEnum, LatLonPointSpatial>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     self.to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let query = Arc::new(self.clone().into());
     self.inner_create_weight(searcher, score_mode, boost, query)

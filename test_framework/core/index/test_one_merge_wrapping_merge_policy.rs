@@ -62,7 +62,7 @@ where
   ) -> Self {
     Self {
       base: MergePolicyBase::default(),
-      state: Arc::new(Mutex::new(PredeterminedMergePolicyState {
+      state: Arc::new(Mutex::new(PredeterminedMergePolicyState::<_> {
         merges,
         forced_merges,
         forced_deletes_merges,

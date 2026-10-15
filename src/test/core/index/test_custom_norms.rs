@@ -27,9 +27,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::per_field_similarity_wrapper::PerFieldSimilarityWrapper;
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, Similarity};
 use crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -55,9 +53,14 @@ fn test_float_norms() -> Result<()> {
   let mut analyzer = MockAnalyzer::new(&mut random);
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 2, MAX_TERM_LENGTH));
 
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let provider = MySimProvider;
-  config.set_similarity(SimilarityEnum::custom(provider));
+  let indexing_similarity_config = provider;
+  let config =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      &mut random,
+      analyzer,
+    )?;
+
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
   let mut docs = LineFileDocs::new(&mut random)?;
   let num = at_least(&mut random, 100);
@@ -73,7 +76,7 @@ fn test_float_norms() -> Result<()> {
     let f = TextField::from_string(FLOAT_TEST_FIELD, value, Store::Yes)?;
 
     doc.add(f);
-    writer.add_document(&mut random, &mut *doc)?;
+    writer.add_document_with_similarity(&mut random, &mut *doc, &indexing_similarity_config)?;
     doc.remove_field(FLOAT_TEST_FIELD);
     if rarely(&mut random) {
       writer.commit(&mut random)?;

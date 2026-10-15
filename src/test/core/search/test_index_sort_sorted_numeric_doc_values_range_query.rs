@@ -131,17 +131,18 @@ fn test_same_hits_as_point_range_query() -> Result<()> {
   Ok(())
 }
 
-fn assert_same_hits<IRC, T1, T2>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_same_hits<IRC, T1, T2, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   q1: T1,
   q2: T2,
   scores: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let irc = searcher.get_top_reader_context();
   let max_doc = irc.reader().max_doc()?;
@@ -266,15 +267,16 @@ fn test_index_sort_doc_values_with_even_length_inner(
   Ok(())
 }
 
-fn assert_number_of_hits<IRC, T>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_number_of_hits<IRC, T, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   query: T,
   number_of_hits: i32,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   T: Into<Query>,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let query = query.into();
 
@@ -712,16 +714,17 @@ fn test_compare_count() -> Result<()> {
   Ok(())
 }
 
-fn assert_same_count<W1, W2, IRC>(
+fn assert_same_count<W1, W2, IRC, SIM>(
   weight1: &W1,
   weight2: &W2,
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
 ) -> Result<()>
 where
-  W1: Weight<IRC> + ?Sized,
-  W2: Weight<IRC> + ?Sized,
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  W1: Weight<IRC, SIM> + ?Sized,
+  W2: Weight<IRC, SIM> + ?Sized,
   IRC: IndexReaderContext,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   for ctx in searcher.get_leaf_contexts()? {
     let c1 = weight1.count(ctx, searcher)?;

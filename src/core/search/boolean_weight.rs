@@ -30,22 +30,28 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::SimilarityEnum;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct BooleanWeight<IRC: IndexReaderContext + 'static> {
+pub struct BooleanWeight<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   #[allow(dead_code)]
-  pub(crate) similarity: Arc<SimilarityEnum>,
-  pub(crate) weighted_clauses: Vec<WeightedBooleanClause<IRC>>,
+  pub(crate) similarity: Arc<SIM>,
+  pub(crate) weighted_clauses: Vec<WeightedBooleanClause<IRC, SIM>>,
   pub(crate) query: BooleanQuery,
   pub(crate) score_mode: ScoreMode,
 }
 
-impl<IRC> BooleanWeight<IRC>
+impl<IRC, SIM> BooleanWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   /// Return the number of matches of required clauses, or -1 if unknown, or numDocs if there are no
@@ -53,10 +59,10 @@ where
   fn req_count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let num_docs = context.reader().num_docs()?;
     let mut req_count = num_docs;
@@ -95,10 +101,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     occur: Occur,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let num_docs = context.reader().num_docs()?;
     let mut opt_count = 0i32;
@@ -138,8 +144,9 @@ where
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for BooleanWeight<IRC>
+impl<IRC, SIM> SegmentCacheable<IRC> for BooleanWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -160,18 +167,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for BooleanWeight<IRC>
+impl<IRC, SIM> Weight<IRC, SIM> for BooleanWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut matches = Vec::with_capacity(self.weighted_clauses.len());
     let mut should_match_count = 0;
@@ -202,10 +210,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let min_should_match = self.query.get_minimum_number_should_match();
 
@@ -300,15 +308,15 @@ where
     Arc::new(v)
   }
 
-  type ScorerSupplier = BooleanScorerSupplier<IRC>;
+  type ScorerSupplier = BooleanScorerSupplier<IRC, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut min_should_match = self.query.get_minimum_number_should_match();
 
@@ -365,10 +373,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let num_docs = context.reader().num_docs()?;
 
@@ -412,17 +420,23 @@ where
     self
   }
 }
-pub(crate) struct WeightedBooleanClause<IRC: IndexReaderContext + 'static> {
+pub(crate) struct WeightedBooleanClause<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   // The immutable parent query owns the clause for the lifetime of this weight.
   pub(crate) clause_index: usize,
-  pub(crate) weight: QueryWeight<IRC>,
+  pub(crate) weight: QueryWeight<IRC, SIM>,
 }
 
-impl<IRC> WeightedBooleanClause<IRC>
+impl<IRC, SIM> WeightedBooleanClause<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  pub(crate) fn new(clause_index: usize, weight: QueryWeight<IRC>) -> Self {
+  pub(crate) fn new(clause_index: usize, weight: QueryWeight<IRC, SIM>) -> Self {
     Self {
       clause_index,
       weight,

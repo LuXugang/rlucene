@@ -59,34 +59,37 @@ impl BoostCheckingQuery {
 }
 
 impl QueryBase for BoostCheckingQuery {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("dummy".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     unreachable!("BoostCheckingQuery must be rewritten before weighting")
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self
       .rewrite_method
@@ -205,9 +208,10 @@ impl DumbPrefixQuery {
 }
 
 impl QueryBase for DumbPrefixQuery {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -218,25 +222,27 @@ impl QueryBase for DumbPrefixQuery {
     }
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     ConstantScoreBlendedRewrite
       .rewrite(searcher, self)
@@ -363,9 +369,10 @@ impl DumbRegexpQuery {
 }
 
 impl QueryBase for DumbRegexpQuery {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -379,25 +386,27 @@ impl QueryBase for DumbRegexpQuery {
     }
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     ConstantScoreBlendedRewrite
       .rewrite(searcher, self)

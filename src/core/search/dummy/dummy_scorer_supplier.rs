@@ -21,12 +21,14 @@ use crate::core::search::dummy::dummy_bulk_scorer::DummyBulkScorer;
 use crate::core::search::dummy::dummy_scorer::DummyScorer;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::error::lucene_error::Result;
 
 pub struct DummyScorerSupplier;
 
-impl<IRC> ScorerSupplier<IRC> for DummyScorerSupplier
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for DummyScorerSupplier
 where
+  SIM: Similarity,
   IRC: IndexReaderContext,
   IRCLeafReader<IRC>: LeafReader,
 {
@@ -37,10 +39,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
@@ -48,10 +50,10 @@ where
   fn bulk_scorer(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
@@ -59,10 +61,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }

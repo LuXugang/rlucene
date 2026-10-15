@@ -26,6 +26,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::matches_iterator::MatchesIteratorEnum2;
 use crate::core::search::query::{Query, QueryWeightMatchesIterator};
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_matches_iterator::TermMatchesIterator;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -410,9 +411,12 @@ fn combine_iterators<M: MatchesIterator>(
     DisjunctionMatchesIterator::new(mis)?,
   )))
 }
-pub fn from_sub_iterators<'a, LR: LeafReader>(
-  mut mis: Vec<QueryWeightMatchesIterator<'a, LR>>,
-) -> Result<Option<QueryWeightMatchesIterator<'a, LR>>> {
+pub fn from_sub_iterators<'a, LR: LeafReader, SIM>(
+  mut mis: Vec<QueryWeightMatchesIterator<'a, LR, SIM>>,
+) -> Result<Option<QueryWeightMatchesIterator<'a, LR, SIM>>>
+where
+  SIM: Similarity,
+{
   if mis.is_empty() {
     return Ok(None);
   }

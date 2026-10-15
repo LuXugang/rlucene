@@ -51,16 +51,17 @@ where
     .collect()
 }
 
-fn assert_pattern_hits<IRC, R>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_pattern_hits<IRC, R, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   random: &mut R,
   pattern: &str,
   num_hits: usize,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   R: RngExt,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let wq = WildcardQuery::new(Term::from_text("field", fill_pattern(pattern, random)))?;
   let docs = searcher.search(wq, 25)?;

@@ -34,6 +34,16 @@ pub struct BM25Similarity {
   discount_overlaps: bool,
 }
 
+impl Default for BM25Similarity {
+  fn default() -> Self {
+    Self {
+      k1: 1.2,
+      b: 0.75,
+      discount_overlaps: true,
+    }
+  }
+}
+
 impl BM25Similarity {
   /// BM25 with the supplied parameter values.
   ///
@@ -77,7 +87,7 @@ impl BM25Similarity {
 
   /// BM25 with default `k1 = 1.2`, `b = 0.75`, `discount_overlaps = true`.
   pub fn new() -> Result<Self> {
-    Self::with_k1_b_discount(1.2, 0.75, true)
+    Ok(Self::default())
   }
   /// Implemented as `log(1 + (doc_count - doc_freq + 0.5)/(doc_freq + 0.5))`.
   pub fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {

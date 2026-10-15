@@ -87,7 +87,7 @@ fn test_force_merge_fully_deleted() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let let_it_go = Arc::new(AtomicBool::new(false));
   let query_let_it_go = let_it_go.clone();
-  let policy = SoftDeletesRetentionMergePolicy::new(
+  let policy = SoftDeletesRetentionMergePolicy::<crate::core::store::directory::DirEnum>::new(
     "soft_delete",
     move || {
       if query_let_it_go.load(SeqCst) {
@@ -192,7 +192,7 @@ fn test_keep_fully_deleted_segments() -> Result<()> {
     let mut reader = directory_reader::open_from_writer(&writer)?;
     let context = (&reader).get_context()?;
     assert_eq!(1, context.leaves()?.len());
-    let policy = SoftDeletesRetentionMergePolicy::new(
+    let policy = SoftDeletesRetentionMergePolicy::<crate::core::store::directory::DirEnum>::new(
       "soft_delete",
       || Ok(FieldExistsQuery::new("keep_around").into()),
       NoMergePolicy::default(),

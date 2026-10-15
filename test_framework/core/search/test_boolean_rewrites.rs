@@ -29,9 +29,10 @@ impl<IRC> IndexSearcherBase<IRC> for NoRewriteIndexSearcher
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn rewrite(&self, _searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  fn rewrite<SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>, original: Query) -> Result<Query>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     // no-op: disable rewriting
     Ok(original)

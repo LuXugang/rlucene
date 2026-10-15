@@ -55,18 +55,29 @@ impl TestComplexExplanations {
     self
       .context
       .searcher
-      .set_similarity(get_default_similarity()?);
+      .set_similarity(get_default_similarity().clone());
     Ok(())
   }
 }
 
 impl BaseExplanationTestCase for TestComplexExplanations {
-  fn initialize(&mut self) -> Result<()> {
-    self
-      .context
-      .searcher
-      .set_similarity(classic_similarity::new());
-    Ok(())
+  fn q_test<R, Q>(
+    &self,
+    random: &mut R,
+    searcher: &crate::test_framework::core::util::DefaultIndexSearchCRShared,
+    q: Q,
+    exp_doc_nrs: &[i32],
+  ) -> Result<()>
+  where
+    R: Rng + ?Sized,
+    Q: crate::core::search::query::IntoQuery,
+  {
+    let searcher =
+      crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+        searcher.get_index_reader().clone(),
+        std::sync::Arc::new(classic_similarity::new()),
+      )?;
+    self.default_q_test(random, &searcher, q, exp_doc_nrs)
   }
 }
 

@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 /// Expert: Collectors are primarily meant to be used to gather raw results from a search,
 /// and implement sorting or custom result filtering, collation, etc.
@@ -56,24 +57,26 @@ pub trait Collector {
   /// * `context` - next atomic reader context
   /// * `weight` - weight used to produce scorers for the leaf
   /// * `searcher` - searcher associated with the weight
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync;
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync;
 
   /// Indicates what features are required from the scorer.
   fn score_mode(&self) -> ScoreMode;
 
-  fn set_weight<W, IRC>(&self, _weight: Option<&W>) -> Result<()>
+  fn set_weight<W, IRC, SIM>(&self, _weight: Option<&W>) -> Result<()>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
+    W: Weight<IRC, SIM> + ?Sized,
   {
     Ok(())
   }

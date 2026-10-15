@@ -71,12 +71,26 @@ const FIELD: &str = "field";
 
 const VALUES: &[&str] = &["all", "dogs dogs", "like", "playing", "fetch", "all"];
 
-static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchLR>> = LazyLock::new(|| {
+static LIGHT_SEARCHER: LazyLock<
+  Arc<
+    DefaultIndexSearchLR<
+      crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+    >,
+  >,
+> = LazyLock::new(|| {
   let mut random = random();
   Arc::new(build_set_up(&mut random).expect("failed to initialize TestTermScorer"))
 });
 
-fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchLR>>
+fn set_up<R>(
+  random: &mut R,
+) -> Result<
+  Arc<
+    DefaultIndexSearchLR<
+      crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+    >,
+  >,
+>
 where
   R: Rng + ?Sized,
 {
@@ -87,16 +101,23 @@ where
   Ok(Arc::new(build_set_up(random)?))
 }
 
-fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+fn build_set_up<R>(
+  random: &mut R,
+) -> Result<
+  DefaultIndexSearchLR<crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity>,
+>
 where
   R: Rng + ?Sized,
 {
   let directory = new_directory_shared(random)?;
 
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
+  let indexing_similarity_iwc = classic_similarity::new();
+  let mut iwc =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      random, analyzer,
+    )?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
-  iwc.set_similarity(classic_similarity::new());
 
   let writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
   let mut field_to_type = HashMap::new();
@@ -109,7 +130,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(random, doc)?;
+    writer.add_document_with_similarity(random, doc, &indexing_similarity_iwc)?;
   }
 
   writer.force_merge(random, 1)?;
@@ -117,8 +138,11 @@ where
   let index_reader = get_only_leaf_reader(&reader)?;
   writer.close(random)?;
 
-  let mut index_searcher = new_searcher_with_reader(index_reader)?;
-  index_searcher.set_similarity(classic_similarity::new());
+  let index_searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      index_reader,
+      std::sync::Arc::new(classic_similarity::new()),
+    )?;
 
   Ok(index_searcher)
 }
@@ -634,16 +658,17 @@ impl Collector for SimpleCollectorImpl {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)

@@ -139,7 +139,7 @@ where
     let searcher_factory = searcher_factory.unwrap_or_default();
     let current = get_searcher(
       &searcher_factory,
-      Arc::new(directory_reader::open(directory)?),
+      Arc::new(directory_reader::open_with_sorter(directory, None)?),
       None,
     )?;
     Ok(Self {

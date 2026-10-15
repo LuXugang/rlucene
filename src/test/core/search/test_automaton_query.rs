@@ -173,25 +173,27 @@ where
 fn new_term(value: &str) -> Term {
   Term::from_text(FN, value)
 }
-fn automaton_query_nr_hits<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn automaton_query_nr_hits<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   query: AutomatonQuery,
 ) -> Result<usize>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let top_docs = searcher.search(query, 5)?;
   Ok(top_docs.total_hits().value())
 }
-fn assert_automaton_hits<IRC>(
+fn assert_automaton_hits<IRC, SIM>(
   expected: usize,
   automaton: Automaton,
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   assert_eq!(
     expected,

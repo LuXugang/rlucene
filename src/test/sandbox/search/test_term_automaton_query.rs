@@ -706,13 +706,14 @@ fn test_random() -> Result<()> {
   IOUtils::use_or_suppress_result(close_result, CloseableRef::close(dir.as_ref()))
 }
 
-fn to_doc_ids<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn to_doc_ids<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   hits: &TopDocs<ScoreDoc>,
 ) -> Result<HashSet<String>>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let mut result = HashSet::new();
   let mut stored_fields = searcher.stored_fields()?;

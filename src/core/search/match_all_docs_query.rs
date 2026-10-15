@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
+use crate::core::search::similarities_impl::similarities::Similarity;
 
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -82,25 +83,27 @@ impl HasIdentity for MatchAllDocsQuery {
 }
 
 impl QueryBase for MatchAllDocsQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = MatchAllWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok("*:*".to_string())
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(MatchAllWeight::new(boost, self, *score_mode))
   }
@@ -137,18 +140,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for MatchAllWeight
+impl<IRC, SIM> Weight<IRC, SIM> for MatchAllWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -165,10 +169,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let v = MatchAllDocsScorerSupplier::new(
       self.score_mode,
@@ -181,10 +185,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     context.reader().num_docs()
   }
@@ -208,8 +212,9 @@ impl MatchAllDocsScorerSupplier {
     }
   }
 }
-impl<IRC> ScorerSupplier<IRC> for MatchAllDocsScorerSupplier
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for MatchAllDocsScorerSupplier
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = ConstantScoreDisiScorer<AllDISI>;
@@ -219,10 +224,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let score = self.weight.score();
     let v = ConstantScoreScorer::from_disi(score, self.score_mode, AllDISI::new(self.max_doc));
@@ -232,10 +237,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let v = if !self.score_mode.is_exhaustive() {
       let opt = self.default_bulk_scorer(context, searcher)?;
@@ -250,10 +255,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(self.max_doc as i64)
   }

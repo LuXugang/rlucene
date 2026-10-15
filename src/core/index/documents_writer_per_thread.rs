@@ -27,6 +27,7 @@ use crate::core::index::documents_writer_delete_queue::{
 use crate::core::index::field_infos::Builder;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
+use crate::core::search::similarities_impl::similarities::Similarity;
 
 use crate::core::index::index_writer::{
   IndexWriter, IndexWriterDir, IntoFallibleIterator, SOURCE_FLUSH, create_compound_file,
@@ -381,15 +382,17 @@ where
     }
     Ok(())
   }
-  pub(crate) fn update_documents<DI, FN>(
+  pub(crate) fn update_documents<DI, FN, S>(
     &mut self,
     docs: DI,
     delete_node: Option<Arc<Node>>,
     flush_notifications: &FN,
     num_docs_in_ram: &AtomicI32,
     writer: &IndexWriter<D>,
+    similarity: &S,
   ) -> Result<i64>
   where
+    S: Similarity,
     DI: IntoFallibleIterator,
     DI::Item: IntoFallibleIterator,
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
@@ -462,6 +465,7 @@ where
                 &mut self.field_infos,
                 index_writer_config,
                 &self.aborting_exception,
+                similarity,
               )
             }));
           num_docs_in_ram.fetch_add(1, Ordering::SeqCst);

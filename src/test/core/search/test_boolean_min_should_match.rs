@@ -99,18 +99,19 @@ where
   writer.close(random)?;
   Ok(searcher)
 }
-fn verify_nr_hits<IRC, R, T>(
+fn verify_nr_hits<IRC, R, T, SIM>(
   random: &mut R,
-  s: &IndexSearcher<IRC>,
+  s: &IndexSearcher<IRC, SIM>,
   q: T,
   expected: usize,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   R: Rng + ?Sized,
   T: Into<Query>,
   <IRC as IndexReaderContext>::LeafReader: Clone + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let q = q.into();
   let h = s.search(q.clone(), 1000)?.score_docs;
@@ -543,10 +544,11 @@ fn test_flatten_inner_disjunctions() -> Result<()> {
   verify_nr_hits(&mut random, s, q, 0)?;
   Ok(())
 }
-fn print_hits<IRC>(_hits: &[ScoreDoc], _searcher: &IndexSearcher<IRC>) -> Result<()>
+fn print_hits<IRC, SIM>(_hits: &[ScoreDoc], _searcher: &IndexSearcher<IRC, SIM>) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   // not required in Rust Lucene
   Ok(())

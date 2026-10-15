@@ -38,12 +38,26 @@ use rand::Rng;
 #[allow(dead_code)]
 struct TestRawTFSimilarity;
 
-static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+static LIGHT_SEARCHER: LazyLock<
+  Arc<
+    DefaultIndexSearchCR<
+      crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity,
+    >,
+  >,
+> = LazyLock::new(|| {
   let mut random = random();
   Arc::new(build_set_up(&mut random).expect("failed to initialize TestRawTFSimilarity"))
 });
 
-fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+fn set_up<R>(
+  random: &mut R,
+) -> Result<
+  Arc<
+    DefaultIndexSearchCR<
+      crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity,
+    >,
+  >,
+>
 where
   R: Rng + ?Sized,
 {
@@ -54,7 +68,11 @@ where
   Ok(Arc::new(build_set_up(random)?))
 }
 
-fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+fn build_set_up<R>(
+  random: &mut R,
+) -> Result<
+  DefaultIndexSearchCR<crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity>,
+>
 where
   R: Rng + ?Sized,
 {
@@ -96,8 +114,11 @@ where
   }
 
   let index_reader = directory_reader::open(directory)?;
-  let mut index_searcher = new_searcher_with_reader(index_reader)?;
-  index_searcher.set_similarity(RawTFSimilarity::default());
+  let index_searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      index_reader,
+      std::sync::Arc::new(RawTFSimilarity::default()),
+    )?;
 
   Ok(index_searcher)
 }
@@ -125,7 +146,13 @@ fn test_three() -> Result<()> {
   Ok(())
 }
 
-fn impl_test(index_searcher: &DefaultIndexSearchCR, text: &str, expected_score: f32) -> Result<()> {
+fn impl_test(
+  index_searcher: &DefaultIndexSearchCR<
+    crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity,
+  >,
+  text: &str,
+  expected_score: f32,
+) -> Result<()> {
   let query = TermQuery::new(Term::from_text("test", text));
   let top_docs = index_searcher.search(query, 1)?;
 

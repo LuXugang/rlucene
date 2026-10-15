@@ -19,6 +19,7 @@ use crate::core::search::disjunction_matches_iterator::from_sub_iterators;
 use crate::core::search::matches::Matches;
 use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator};
 use crate::core::search::query_matches::FieldMatchesSupplier;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::error::lucene_error::Result;
 use std::cell::{OnceCell, RefCell};
 use std::sync::LazyLock;
@@ -44,29 +45,41 @@ impl Matches for MatchWithNoTerms {
   }
 }
 
-pub struct CombinedMatch<'a, IRC: IndexReaderContext + 'static> {
-  sub: Vec<QueryWeightMatches<'a, IRC>>,
+pub struct CombinedMatch<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
+  sub: Vec<QueryWeightMatches<'a, IRC, SIM>>,
   fields: OnceCell<Vec<String>>,
 }
-impl<'a, IRC: IndexReaderContext + 'static> CombinedMatch<'a, IRC> {
-  pub fn new(sub: Vec<QueryWeightMatches<'a, IRC>>) -> Self {
-    CombinedMatch {
+impl<'a, IRC: IndexReaderContext + 'static, SIM> CombinedMatch<'a, IRC, SIM>
+where
+  SIM: Similarity,
+{
+  pub fn new(sub: Vec<QueryWeightMatches<'a, IRC, SIM>>) -> Self {
+    CombinedMatch::<_, SIM> {
       sub,
       fields: OnceCell::new(),
     }
   }
 }
 
-impl<'a, IRC: IndexReaderContext + 'static> Matches for CombinedMatch<'a, IRC> {
+impl<'a, IRC: IndexReaderContext + 'static, SIM> Matches for CombinedMatch<'a, IRC, SIM>
+where
+  SIM: Similarity,
+{
   type Iterator<'b>
-    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>>
+    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>, SIM>
   where
     Self: 'b;
-  type SubMatches = QueryWeightMatches<'a, IRC>;
+  type SubMatches = QueryWeightMatches<'a, IRC, SIM>;
   fn get_matches(
     &self,
     field: &str,
-  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>>>> {
+  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>, SIM>>> {
     let mut sub_iterators = Vec::with_capacity(self.sub.len());
     for matches in &self.sub {
       if let Some(iterator) = matches.get_matches(field)? {
@@ -76,7 +89,7 @@ impl<'a, IRC: IndexReaderContext + 'static> Matches for CombinedMatch<'a, IRC> {
     from_sub_iterators(sub_iterators)
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC>] {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC, SIM>] {
     &self.sub
   }
 
@@ -95,9 +108,12 @@ impl<'a, IRC: IndexReaderContext + 'static> Matches for CombinedMatch<'a, IRC> {
   }
 }
 
-pub fn from_sub_matches<'a, IRC: IndexReaderContext + 'static>(
-  mut sub_matches: Vec<QueryWeightMatches<'a, IRC>>,
-) -> Option<QueryWeightMatches<'a, IRC>> {
+pub fn from_sub_matches<'a, IRC: IndexReaderContext + 'static, SIM>(
+  mut sub_matches: Vec<QueryWeightMatches<'a, IRC, SIM>>,
+) -> Option<QueryWeightMatches<'a, IRC, SIM>>
+where
+  SIM: Similarity,
+{
   if sub_matches.is_empty() {
     return None;
   }
@@ -122,22 +138,31 @@ pub fn from_sub_matches<'a, IRC: IndexReaderContext + 'static>(
   ))))
 }
 
-pub struct FieldMatches<'a, IRC: IndexReaderContext + 'static> {
+pub struct FieldMatches<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   field: FieldName<'a>,
-  supplier: FieldMatchesSupplier<'a, IRC>,
-  cached: RefCell<Option<QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>,
+  supplier: FieldMatchesSupplier<'a, IRC, SIM>,
+  cached: RefCell<Option<QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>>,
 }
 
-impl<'a, IRC: IndexReaderContext + 'static> Matches for FieldMatches<'a, IRC> {
+impl<'a, IRC: IndexReaderContext + 'static, SIM> Matches for FieldMatches<'a, IRC, SIM>
+where
+  SIM: Similarity,
+{
   type Iterator<'b>
-    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>>
+    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>, SIM>
   where
     Self: 'b;
-  type SubMatches = QueryWeightMatches<'a, IRC>;
+  type SubMatches = QueryWeightMatches<'a, IRC, SIM>;
   fn get_matches(
     &self,
     field: &str,
-  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>>>> {
+  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>, SIM>>> {
     if field != self.field.as_ref().as_str() {
       return Ok(None);
     }
@@ -148,7 +173,7 @@ impl<'a, IRC: IndexReaderContext + 'static> Matches for FieldMatches<'a, IRC> {
     }
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC>] {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC, SIM>] {
     &[]
   }
 
@@ -183,11 +208,12 @@ impl From<String> for FieldName<'_> {
   }
 }
 
-pub fn for_field<'a, IRC: IndexReaderContext + 'static, FName>(
+pub fn for_field<'a, IRC: IndexReaderContext + 'static, FName, SIM>(
   field: FName,
-  supplier: FieldMatchesSupplier<'a, IRC>,
-) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+  supplier: FieldMatchesSupplier<'a, IRC, SIM>,
+) -> Result<Option<QueryWeightMatches<'a, IRC, SIM>>>
 where
+  SIM: Similarity,
   FName: Into<FieldName<'a>>,
 {
   let field = field.into();
@@ -195,7 +221,10 @@ where
   let Some(first) = first else {
     return Ok(None);
   };
-  Ok(Some(QueryWeightMatches::Field(Box::new(FieldMatches {
+  Ok(Some(QueryWeightMatches::Field(Box::new(FieldMatches::<
+    _,
+    SIM,
+  > {
     field,
     supplier,
     cached: RefCell::new(Some(first)),

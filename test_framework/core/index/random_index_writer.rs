@@ -119,7 +119,7 @@ where
       if cfg!(feature = "test_log_verbose") {
         println!("RIW: open writer from reader");
       }
-      let reader = directory_reader::open(dir.clone())?;
+      let reader = directory_reader::open_with_sorter(dir.clone(), None)?;
       let commit = reader.get_index_commit()?;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         IndexCommitWrapper::new(Some(commit), Some(&reader)).and_then(|index_commit| {
@@ -148,35 +148,6 @@ where
         Some(IndexWriterHooksEnum::custom(TestPointsIndexWriterHooks)),
       )
     }
-  }
-
-  /// Creates a RandomIndexWriter with a random config: Uses MockAnalyzer.
-  pub fn new<R>(r: &mut R, dir: Arc<D>) -> Result<Self>
-  where
-    R: Rng + ?Sized,
-    D: Directory,
-  {
-    let a = MockAnalyzer::new(r);
-    let config = new_index_writer_config_with_analyzer(r, a)?;
-    let use_soft_deletes = r.random();
-    Ok(Self::new_with_config(
-      r,
-      dir,
-      config,
-      true,
-      use_soft_deletes,
-    ))
-  }
-
-  /// Creates a RandomIndexWriter with a random config.
-  pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Result<Self>
-  where
-    R: Rng + ?Sized,
-    D: Directory,
-    T: Into<AnalyzerEnum>,
-  {
-    let config = new_index_writer_config_with_analyzer(r, analyzer)?;
-    Ok(Self::with_config(r, dir, config))
   }
 
   /// Creates a RandomIndexWriter with the provided config.
@@ -254,11 +225,28 @@ where
     R: Rng + ?Sized,
     DF: IndexingDocument,
   {
+    self.add_document_with_similarity(
+      r,
+      doc,
+      crate::core::search::index_searcher::get_default_similarity().as_ref(),
+    )
+  }
+  pub fn add_document_with_similarity<R, DF, S>(
+    &self,
+    r: &mut R,
+    doc: DF,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: crate::core::search::similarities_impl::similarities::Similarity,
+    R: Rng + ?Sized,
+    DF: IndexingDocument,
+  {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let seq_no = if r.random_range(0..5) == 3 {
-      self.w.add_documents([doc])
+      self.w.add_documents_with_similarity([doc], similarity)
     } else {
-      self.w.add_document(doc)
+      self.w.add_document_with_similarity(doc, similarity)
     }?;
 
     self.maybe_flush_or_commit(r)?;
@@ -345,8 +333,27 @@ where
     DI::Item: IntoFallibleIterator,
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
   {
+    self.add_documents_with_similarity(
+      r,
+      docs,
+      crate::core::search::index_searcher::get_default_similarity().as_ref(),
+    )
+  }
+  pub fn add_documents_with_similarity<R, DI, S>(
+    &self,
+    r: &mut R,
+    docs: DI,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: crate::core::search::similarities_impl::similarities::Similarity,
+    R: Rng + ?Sized,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
+  {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
-    let seq_no = self.w.add_documents(docs)?;
+    let seq_no = self.w.add_documents_with_similarity(docs, similarity)?;
     self.maybe_flush_or_commit(r)?;
     Ok(seq_no)
   }
@@ -364,6 +371,28 @@ where
     DI::Item: IntoFallibleIterator,
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
   {
+    self.update_documents_with_term_and_similarity(
+      r,
+      del_term,
+      docs,
+      crate::core::search::index_searcher::get_default_similarity().as_ref(),
+    )
+  }
+  pub fn update_documents_with_term_and_similarity<R, T, DI, S>(
+    &self,
+    r: &mut R,
+    del_term: T,
+    docs: DI,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: crate::core::search::similarities_impl::similarities::Similarity,
+    R: Rng + ?Sized,
+    T: Into<Term>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
+  {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let del_term = del_term.into();
     let seq_no = if self.use_soft_deletes(r) {
@@ -373,18 +402,23 @@ where
         .get_soft_deletes_field()
         .expect("soft deletes field is not configured")
         .clone();
-      self.w.soft_update_documents(
+      self.w.soft_update_documents_with_similarity(
         del_term,
         docs,
         vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+        similarity,
       )
     } else if r.random_range(0..10) < 3 {
       // 30% chance
+      self.w.update_documents_with_query_and_similarity(
+        Some(Query::from(TermQuery::new(del_term))),
+        docs,
+        similarity,
+      )
+    } else {
       self
         .w
-        .update_documents_with_query(Some(Query::from(TermQuery::new(del_term))), docs)
-    } else {
-      self.w.update_documents_with_term(Some(del_term), docs)
+        .update_documents_with_term_and_similarity(Some(del_term), docs, similarity)
     }?;
     self.maybe_flush_or_commit(r)?;
     Ok(seq_no)
@@ -406,6 +440,26 @@ where
     T: Into<Term>,
     DF: IndexingDocument,
   {
+    self.update_document_with_term_and_similarity(
+      r,
+      del_term,
+      doc,
+      crate::core::search::index_searcher::get_default_similarity().as_ref(),
+    )
+  }
+  pub fn update_document_with_term_and_similarity<R, T, DF, S>(
+    &self,
+    r: &mut R,
+    del_term: T,
+    doc: DF,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: crate::core::search::similarities_impl::similarities::Similarity,
+    R: Rng + ?Sized,
+    T: Into<Term>,
+    DF: IndexingDocument,
+  {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let del_term = del_term.into();
     let seq_no = if self.use_soft_deletes(r) {
@@ -416,22 +470,28 @@ where
         .expect("soft deletes field is not configured")
         .clone();
       if r.random_range(0..5) == 3 {
-        self.w.soft_update_documents(
+        self.w.soft_update_documents_with_similarity(
           del_term,
           [doc],
           vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+          similarity,
         )
       } else {
-        self.w.soft_update_document(
+        self.w.soft_update_document_with_similarity(
           del_term,
           doc,
           vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
+          similarity,
         )
       }
     } else if r.random_range(0..5) == 3 {
-      self.w.update_documents_with_term(Some(del_term), [doc])
+      self
+        .w
+        .update_documents_with_term_and_similarity(Some(del_term), [doc], similarity)
     } else {
-      self.w.update_document_with_term(Some(del_term), doc)
+      self
+        .w
+        .update_document_with_term_and_similarity(Some(del_term), doc, similarity)
     }?;
     self.maybe_flush_or_commit(r)?;
 
@@ -843,5 +903,35 @@ where
 {
   fn apply(&self, message: &str) -> Result<()> {
     self.as_ref().apply(message)
+  }
+}
+
+impl<D: Directory> RandomIndexWriter<D> {
+  /// Creates a random config using MockAnalyzer and BM25.
+  pub fn new<R>(r: &mut R, dir: Arc<D>) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+  {
+    let a = MockAnalyzer::new(r);
+    let config = new_index_writer_config_with_analyzer(r, a)?;
+    let use_soft_deletes = r.random();
+    Ok(Self::new_with_config(
+      r,
+      dir,
+      config,
+      true,
+      use_soft_deletes,
+    ))
+  }
+  /// Creates a random config using the provided analyzer and BM25.
+  pub fn with_analyzer<R, T>(r: &mut R, dir: Arc<D>, analyzer: T) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+    D: Directory,
+    T: Into<AnalyzerEnum>,
+  {
+    let config = new_index_writer_config_with_analyzer(r, analyzer)?;
+    Ok(Self::with_config(r, dir, config))
   }
 }

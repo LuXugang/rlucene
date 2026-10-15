@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::IndexReader;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_field, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, new_text_field, random,
@@ -32,7 +33,6 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::classic_similarity;
-use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -41,17 +41,25 @@ use rand::RngExt;
 #[allow(dead_code)] // for quick search
 pub struct TestSimilarity2;
 
-fn set_up() -> Result<[SimilarityEnum; 2]> {
-  // TODO: Add Boolean, Axiomatic, DFR, IB, LM and DFI similarities after their
-  // Rust implementations are available.
-  Ok([
-    classic_similarity::new().into(),
-    BM25Similarity::new()?.into(),
-  ])
-}
-
-fn sims() -> Result<[Arc<SimilarityEnum>; 2]> {
-  Ok(set_up()?.map(Arc::new))
+macro_rules! for_each_similarity {
+  ($sim:ident, $body:block) => {{
+    let $sim = Arc::new(classic_similarity::new());
+    $body
+  }
+  {
+    let $sim = Arc::new(BM25Similarity::new()?);
+    $body
+  }};
+  ($sim:ident, $i:ident, $body:block) => {{
+    let $i = 0;
+    let $sim = Arc::new(classic_similarity::new());
+    $body
+  }
+  {
+    let $i = 1;
+    let $sim = Arc::new(BM25Similarity::new()?);
+    $body
+  }};
 }
 
 /**
@@ -65,10 +73,14 @@ fn test_empty_index() -> Result<()> {
   let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
   let ir = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
-  let mut searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
-  for sim in sims()? {
-    searcher.set_similarity(sim);
+  for_each_similarity!(sim, {
+    let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+      searcher.get_index_reader().clone().get_context()?,
+      None,
+      sim.clone(),
+    )?;
     assert_eq!(
       0,
       searcher
@@ -76,7 +88,7 @@ fn test_empty_index() -> Result<()> {
         .total_hits
         .value()
     );
-  }
+  });
   Ok(())
 }
 
@@ -98,15 +110,19 @@ fn test_empty_field() -> Result<()> {
   iw.add_document(&mut random, doc)?;
   let ir = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
-  let mut searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
-  for sim in sims()? {
-    searcher.set_similarity(sim);
+  for_each_similarity!(sim, {
+    let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+      searcher.get_index_reader().clone().get_context()?,
+      None,
+      sim.clone(),
+    )?;
     let mut query = Builder::new();
     query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
     query.add(TermQuery::new(Term::from_text("bar", "baz")), Occur::Should)?;
     assert_eq!(1, searcher.search(query.build(), 10)?.total_hits.value());
-  }
+  });
   Ok(())
 }
 
@@ -130,15 +146,19 @@ fn test_empty_term() -> Result<()> {
   iw.add_document(&mut random, doc)?;
   let ir = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
-  let mut searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
-  for sim in sims()? {
-    searcher.set_similarity(sim);
+  for_each_similarity!(sim, {
+    let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+      searcher.get_index_reader().clone().get_context()?,
+      None,
+      sim.clone(),
+    )?;
     let mut query = Builder::new();
     query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
     query.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
     assert_eq!(1, searcher.search(query.build(), 10)?.total_hits.value());
-  }
+  });
   Ok(())
 }
 
@@ -163,14 +183,18 @@ fn test_no_norms() -> Result<()> {
   iw.add_document(&mut random, doc)?;
   let ir = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
-  let mut searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
-  for sim in sims()? {
-    searcher.set_similarity(sim);
+  for_each_similarity!(sim, {
+    let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+      searcher.get_index_reader().clone().get_context()?,
+      None,
+      sim.clone(),
+    )?;
     let mut query = Builder::new();
     query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
     assert_eq!(1, searcher.search(query.build(), 10)?.total_hits.value());
-  }
+  });
   Ok(())
 }
 
@@ -198,15 +222,18 @@ fn test_no_field_skew() -> Result<()> {
   query_builder.add(TermQuery::new(Term::from_text("foo", "baz")), Occur::Should)?;
   let query = query_builder.build();
 
-  let sims = sims()?;
   let mut scores = Vec::new();
   {
     let ir = iw.get_reader(&mut random)?;
-    let mut searcher = new_searcher_with_reader(ir)?;
-    for sim in &sims {
-      searcher.set_similarity(sim.clone());
+    let searcher = new_searcher_with_reader(Arc::new(ir))?;
+    for_each_similarity!(sim, {
+      let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+        searcher.get_index_reader().clone().get_context()?,
+        None,
+        sim.clone(),
+      )?;
       scores.push(searcher.explain(query.clone(), 0)?);
-    }
+    });
   }
 
   let num_extra_docs = random.random_range(1..=1000);
@@ -216,9 +243,13 @@ fn test_no_field_skew() -> Result<()> {
 
   {
     let ir = iw.get_reader(&mut random)?;
-    let mut searcher = new_searcher_with_reader(ir)?;
-    for (i, sim) in sims.iter().enumerate() {
-      searcher.set_similarity(sim.clone());
+    let searcher = new_searcher_with_reader(Arc::new(ir))?;
+    for_each_similarity!(sim, i, {
+      let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+        searcher.get_index_reader().clone().get_context()?,
+        None,
+        sim.clone(),
+      )?;
       let expected = &scores[i];
       let actual = searcher.explain(query.clone(), 0)?;
       assert_eq!(
@@ -229,7 +260,7 @@ fn test_no_field_skew() -> Result<()> {
         actual,
         expected
       );
-    }
+    });
   }
 
   iw.close(&mut random)?;
@@ -257,14 +288,18 @@ fn test_omit_tf() -> Result<()> {
   iw.add_document(&mut random, doc)?;
   let ir = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
-  let mut searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
-  for sim in sims()? {
-    searcher.set_similarity(sim);
+  for_each_similarity!(sim, {
+    let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+      searcher.get_index_reader().clone().get_context()?,
+      None,
+      sim.clone(),
+    )?;
     let mut query = Builder::new();
     query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
     assert_eq!(1, searcher.search(query.build(), 10)?.total_hits.value());
-  }
+  });
   Ok(())
 }
 
@@ -290,13 +325,17 @@ fn test_omit_tf_and_norms() -> Result<()> {
   iw.add_document(&mut random, doc)?;
   let ir = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
-  let mut searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(Arc::new(ir))?;
 
-  for sim in sims()? {
-    searcher.set_similarity(sim);
+  for_each_similarity!(sim, {
+    let searcher = crate::core::search::index_searcher::IndexSearcher::new_with_executor(
+      searcher.get_index_reader().clone().get_context()?,
+      None,
+      sim.clone(),
+    )?;
     let mut query = Builder::new();
     query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Should)?;
     assert_eq!(1, searcher.search(query.build(), 10)?.total_hits.value());
-  }
+  });
   Ok(())
 }

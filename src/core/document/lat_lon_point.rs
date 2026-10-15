@@ -49,6 +49,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::search::query::Query;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::total_hits::Relation::EqualTo;
 use crate::core::search::total_hits::TotalHits;
@@ -442,16 +443,17 @@ impl LatLonPoint {
   /// Returns [`LuceneError::IllegalArgument`] if `latitude`, `longitude` or `n` are out-of-bounds.
   ///
   /// Returns an error if an I/O error occurs while finding the points.
-  pub fn nearest<IRC>(
-    searcher: &IndexSearcher<IRC>,
+  pub fn nearest<IRC, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     field: &str,
     latitude: f64,
     longitude: f64,
     n: i32,
   ) -> Result<TopFieldDocs>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     GeoUtils::check_latitude(latitude)?;
     GeoUtils::check_longitude(longitude)?;

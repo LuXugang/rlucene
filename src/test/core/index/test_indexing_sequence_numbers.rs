@@ -285,7 +285,7 @@ fn test_stress_concurrent_commit() -> Result<()> {
       }
     }
 
-    let r = directory_reader::open_from_commit(&index_commits[i])?;
+    let r = directory_reader::open_from_commit::<_, _>(&index_commits[i])?;
     let s = new_searcher_with_reader(r)?;
     for (id, expected_thread_id) in expected_thread_ids.iter().enumerate() {
       let hits = s.search(TermQuery::new(Term::from_text("id", id.to_string())), 1)?;
@@ -415,8 +415,8 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
       }
     }
 
-    let r = directory_reader::open_from_commit(&index_commits[i])?;
-    let doc_values_reader = directory_reader::open_from_commit(&index_commits[i])?;
+    let r = directory_reader::open_from_commit::<_, _>(&index_commits[i])?;
+    let doc_values_reader = directory_reader::open_from_commit::<_, _>(&index_commits[i])?;
     let s = new_searcher_with_reader(r)?;
     let mut doc_values = MultiDocValues::get_numeric_values(doc_values_reader, "thread")?
       .ok_or_else(|| LuceneError::illegal_state("missing thread doc values"))?;
@@ -557,7 +557,7 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
       }
     }
 
-    let r = directory_reader::open_from_commit(&index_commits[i])?;
+    let r = directory_reader::open_from_commit::<_, _>(&index_commits[i])?;
     let s = new_searcher_with_reader(r)?;
     for (id, expected_count) in expected_counts.iter().enumerate() {
       let actual_count = s.count(TermQuery::new(Term::from_text("id", id.to_string())))?;

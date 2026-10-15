@@ -197,14 +197,15 @@ fn test_top_terms_rewrite() -> Result<()> {
   Ok(())
 }
 
-fn check_boolean_terms<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn check_boolean_terms<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   query: TermRangeQuery,
   terms: &[&str],
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let rewritten = searcher.rewrite(query)?;
 

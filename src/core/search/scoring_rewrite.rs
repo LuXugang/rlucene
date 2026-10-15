@@ -29,6 +29,7 @@ use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{MultiTermQuery, MultiTermQuerySet, RewriteMethod};
 use crate::core::search::query::Query;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_collecting_rewrite::{TermCollectingRewrite, TermCollector};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::{boolean_query, index_searcher};
@@ -42,12 +43,17 @@ use std::sync::Arc;
 /// Base rewrite method that translates each term into a query, and keeps the scores as computed by
 /// the query.
 pub trait ScoringRewrite: TermCollectingRewrite {
-  fn default_rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn default_rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = index_searcher.get_index_reader();
     let mut builder = self.get_top_level_builder()?;
@@ -128,11 +134,16 @@ impl TermCollectingRewrite for ScoringBooleanRewrite {
 }
 
 impl RewriteMethod for ScoringBooleanRewrite {
-  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.default_rewrite(index_searcher, query)
   }
@@ -155,11 +166,16 @@ impl ScoringRewrite for ScoringBooleanRewrite {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBooleanRewrite;
 impl RewriteMethod for ConstantScoreBooleanRewrite {
-  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let bq = ScoringBooleanRewrite.rewrite(index_searcher, query)?;
     Ok(ConstantScoreQuery::new(bq).into())

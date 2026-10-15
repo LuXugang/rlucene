@@ -46,6 +46,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::CoreHelper;
 use crate::core::util::core_helper::HasIdentity;
@@ -119,9 +120,10 @@ impl HasIdentity for LatLonPointDistanceFeatureQuery {
 }
 
 impl QueryBase for LatLonPointDistanceFeatureQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = LatLonPointDistanceFeatureWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -131,16 +133,17 @@ impl QueryBase for LatLonPointDistanceFeatureQuery {
     ))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(LatLonPointDistanceFeatureWeight::new(self, boost))
   }
@@ -218,18 +221,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for LatLonPointDistanceFeatureWeight
+impl<IRC, SIM> Weight<IRC, SIM> for LatLonPointDistanceFeatureWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = context.reader();
     let mut multi_doc_values = DocValues::get_sorted_numeric(reader, &self.query_meta.field)?;
@@ -280,10 +284,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = context.reader();
     if reader.get_point_values(&self.query_meta.field)?.is_none() {
@@ -339,8 +343,9 @@ where
     })
   }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<SelectValue<IRC>>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for ScorerSupplierImpl<SelectValue<IRC>>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = DistanceScorer<<IRCLeafReader<IRC> as LeafReader>::PointValues, SelectValue<IRC>>;
@@ -350,10 +355,10 @@ where
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = context.reader();
     let point_values = reader
@@ -382,10 +387,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -393,10 +398,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(self.cost)
   }

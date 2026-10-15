@@ -114,10 +114,11 @@ where
 }
 
 /// check that the # of hits is the same as from a very simple prefixquery implementation.
-fn assert_same<IRC>(searcher: &IndexSearcher<IRC>, prefix: String) -> Result<()>
+fn assert_same<IRC, SIM>(searcher: &IndexSearcher<IRC, SIM>, prefix: String) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let smart = PrefixQuery::new(Term::from_text("field", &prefix))?;
   let dumb = DumbPrefixQuery::new(Term::from_text("field", prefix));

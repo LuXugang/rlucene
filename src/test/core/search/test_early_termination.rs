@@ -94,16 +94,17 @@ impl Collector for SimpleCollectorImpl {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)

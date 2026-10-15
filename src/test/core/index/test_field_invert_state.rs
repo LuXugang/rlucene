@@ -22,9 +22,7 @@ use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::search::collection_statistics::CollectionStatistics;
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
@@ -83,11 +81,9 @@ fn test_basic() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
   let fis = Arc::new(Mutex::new(FieldInvertState::default()));
-  iwc.set_similarity(SimilarityEnum::custom(NeverForgetsSimilarity::new(
-    fis.clone(),
-  )));
+  let indexing_similarity_iwc = NeverForgetsSimilarity::new(fis.clone());
+  let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
 
   let w = IndexWriter::new(dir, iwc)?;
   let mut doc = Document::new();
@@ -102,7 +98,7 @@ fn test_basic() -> Result<()> {
   )?;
   doc.add(field);
 
-  w.add_document(doc)?;
+  w.add_document_with_similarity(doc, &indexing_similarity_iwc)?;
   let fis = fis.lock();
   assert_eq!(1, fis.get_max_term_frequency());
   assert_eq!(3, fis.get_unique_term_count());
@@ -121,11 +117,9 @@ fn test_random() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
   let fis = Arc::new(Mutex::new(FieldInvertState::default()));
-  iwc.set_similarity(SimilarityEnum::custom(NeverForgetsSimilarity::new(
-    fis.clone(),
-  )));
+  let indexing_similarity_iwc = NeverForgetsSimilarity::new(fis.clone());
+  let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
 
   let w = IndexWriter::new(dir, iwc)?;
   let mut doc = Document::new();
@@ -160,7 +154,7 @@ fn test_random() -> Result<()> {
   )?;
   doc.add(field);
 
-  w.add_document(doc)?;
+  w.add_document_with_similarity(doc, &indexing_similarity_iwc)?;
   let fis = fis.lock();
   assert_eq!(max_term_freq, fis.get_max_term_frequency());
   assert_eq!(counts.len() as i32, fis.get_unique_term_count());

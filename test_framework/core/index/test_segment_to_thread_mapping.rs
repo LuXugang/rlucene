@@ -29,11 +29,14 @@ impl<IRC> IndexSearcherBase<IRC> for IntraSliceDocIdOrderWithPartitionsIndexSear
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn slices(
+  fn slices<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     leaves: &[LeafReaderContext<IRC::LeafReader>],
-  ) -> Result<Vec<LeafSlice>> {
+  ) -> Result<Vec<LeafSlice>>
+  where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  {
     // force partitioning of segment with max docs per slice set to 1: 1 doc per partition.
     do_slices(leaves, 1, 1, true)
   }

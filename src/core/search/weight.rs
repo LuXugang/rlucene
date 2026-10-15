@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -57,8 +58,10 @@ use std::sync::Arc;
 /// 1. A [`Weight`] is constructed by a top-level query, given an [`IndexSearcher`]
 ///    (see [`QueryBase::create_weight`](crate::core::search::query::QueryBase::create_weight)).
 /// 2. A [`Scorer`] is constructed by [`Weight::scorer`].
-pub trait Weight<IRC>: SegmentCacheable<IRC>
+pub trait Weight<IRC, SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity>:
+  SegmentCacheable<IRC>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext,
 {
   /// Returns [`Matches`](crate::core::search::matches::Matches) for a specific document, or `None`
@@ -76,10 +79,10 @@ where
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer_supplier = self.scorer_supplier(context, searcher)?;
     let mut scorer_supplier = match scorer_supplier {
@@ -107,10 +110,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync;
+    IndexSearcher<IRC, SIM>: Sync;
 
   fn get_query(&self) -> Arc<Query>;
 
@@ -140,10 +143,10 @@ where
   fn scorer(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC, SIM>>::Scorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut scorer_supplier = match self.scorer_supplier(context, searcher)? {
       None => return Ok(None),
@@ -152,7 +155,7 @@ where
     Ok(Some(scorer_supplier.get(i64::MAX, context, searcher)?))
   }
 
-  type ScorerSupplier: ScorerSupplier<IRC>;
+  type ScorerSupplier: ScorerSupplier<IRC, SIM>;
   /// Get a [`ScorerSupplier`], which allows knowing the cost of the [`Scorer`]
   /// before building it.
   ///
@@ -182,10 +185,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync;
+    IndexSearcher<IRC, SIM>: Sync;
   /// Helper method that delegates to [`Weight::scorer_supplier`].
   ///
   /// A bulk scorer for the same [`LeafReaderContext`] instance may be requested
@@ -193,10 +196,10 @@ where
   fn bulk_scorer(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC, SIM>>::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut scorer_supplier = match self.scorer_supplier(context, searcher)? {
       None => return Ok(None),
@@ -238,10 +241,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.default_count(context)
   }
@@ -253,7 +256,7 @@ where
     false
   }
 
-  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>>
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC, SIM>>
   where
     IRC: 'static,
   {
@@ -265,19 +268,20 @@ where
     unreachable!("")
   }
 }
-impl<IRC, T> Weight<IRC> for Box<T>
+impl<IRC, T, SIM> Weight<IRC, SIM> for Box<T>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext,
-  T: Weight<IRC> + ?Sized,
+  T: Weight<IRC, SIM> + ?Sized,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     (**self).matches(context, doc, searcher)
   }
@@ -286,10 +290,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     (**self).explain(context, doc, searcher)
   }
@@ -301,10 +305,10 @@ where
   fn scorer(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::Scorer>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC, SIM>>::Scorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     (**self).scorer(context, searcher)
   }
@@ -314,10 +318,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     (**self).scorer_supplier(context, searcher)
   }
@@ -325,10 +329,10 @@ where
   fn bulk_scorer(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC>>::BulkScorer>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<<Self::ScorerSupplier as ScorerSupplier<IRC, SIM>>::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     (**self).bulk_scorer(context, searcher)
   }
@@ -336,10 +340,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     (**self).count(context, searcher)
   }
@@ -352,7 +356,7 @@ where
     (**self).is_cache_wrapper()
   }
 
-  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>>
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC, SIM>>
   where
     IRC: 'static,
   {
@@ -435,8 +439,9 @@ impl<S> DefaultScorerSupplier<S> {
     }
   }
 }
-impl<S, IRC> ScorerSupplier<IRC> for DefaultScorerSupplier<S>
+impl<S, IRC, SIM> ScorerSupplier<IRC, SIM> for DefaultScorerSupplier<S>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
   IRCLeafReader<IRC>: LeafReader,
   S: Scorer + 'static,
@@ -448,10 +453,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let v = self
       .scorer
@@ -463,10 +468,10 @@ where
   fn bulk_scorer(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     // Select the concrete bulk scorer before document iteration.
     let scorer = self
@@ -479,10 +484,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self
       .scorer

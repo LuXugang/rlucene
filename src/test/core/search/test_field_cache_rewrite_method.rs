@@ -46,17 +46,18 @@ where
 
 impl TestRegexpRandom2 for TestFieldCacheRewriteMethod {
   /// Test fieldcache rewrite against filter rewrite
-  fn assert_same<IRC>(
+  fn assert_same<IRC, SIM>(
     &self,
-    searcher1: &IndexSearcher<IRC>,
-    searcher2: &IndexSearcher<IRC>,
-    _searcher3: &IndexSearcher<IRC>,
+    searcher1: &IndexSearcher<IRC, SIM>,
+    searcher2: &IndexSearcher<IRC, SIM>,
+    _searcher3: &IndexSearcher<IRC, SIM>,
     field_name: &str,
     regexp: String,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let field_cache = RegexpQuery::with_all(
       Term::from_text(field_name, &regexp),

@@ -49,26 +49,28 @@ impl<IRC> IndexSearcherBase<IRC> for AssertingIndexSearcher
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn create_weight<T>(
+  fn create_weight<T, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: T,
     score_mode: ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<QueryWeight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     T: QueryBase,
-    T::Weight<IRC>: Into<QueryWeight<IRC>>,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    T::Weight<IRC, SIM>: Into<QueryWeight<IRC, SIM>>,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     // this adds assertions to the inner weights/scorers too
     let weight = IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)?;
     Ok(AssertingWeight::new(self.random.lock().random(), weight, score_mode).into())
   }
 
-  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  fn rewrite<SIM>(&self, searcher: &IndexSearcher<IRC, SIM>, original: Query) -> Result<Query>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     QueryUtils::check_from_query(&original);
     let rewritten = IndexSearcherDefaults::rewrite(searcher, original)?;
@@ -76,17 +78,18 @@ where
     Ok(rewritten)
   }
 
-  fn search_partitions<W, C>(
+  fn search_partitions<W, C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     partitions: &[LeafReaderContextPartition],
     weight: &W,
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let mut asserting_collector = AssertingCollector::wrap(collector);
     IndexSearcherDefaults::search_partitions(

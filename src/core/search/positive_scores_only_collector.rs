@@ -22,6 +22,7 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
@@ -51,16 +52,17 @@ where
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let v = PositiveScoresOnlyLeafCollector::new(
       self.inner.get_leaf_collector(context, weight, searcher)?,
@@ -76,10 +78,11 @@ where
     }
   }
 
-  fn set_weight<W, IRC>(&self, weight: Option<&W>) -> Result<()>
+  fn set_weight<W, IRC, SIM>(&self, weight: Option<&W>) -> Result<()>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
+    W: Weight<IRC, SIM> + ?Sized,
   {
     self.inner.set_weight(weight)
   }

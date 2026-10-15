@@ -44,7 +44,7 @@ fn test_num_deletes_to_merge() -> Result<()> {
     Some(StringHelper::random_id()),
   );
   let id = dummy_commit_info.info.get_id_key().to_string();
-  let v = caching_merge_context.num_deletes_to_merge(&dummy_commit_info)?;
+  let v = MergeContext::<crate::core::store::dummy::dummy_directory::DummyDirectory>::num_deletes_to_merge(&caching_merge_context, &dummy_commit_info)?;
   assert_eq!(v, 1);
   {
     let cache = caching_merge_context.cached_num_deletes_to_merge.borrow();
@@ -60,7 +60,10 @@ fn test_num_deletes_to_merge() -> Result<()> {
     1
   );
 
-  merge_context.num_deletes_to_merge(&dummy_commit_info)?;
+  MergeContext::<crate::core::store::dummy::dummy_directory::DummyDirectory>::num_deletes_to_merge(
+    &merge_context,
+    &dummy_commit_info,
+  )?;
   assert_eq!(
     merge_context
       .count
@@ -68,7 +71,7 @@ fn test_num_deletes_to_merge() -> Result<()> {
     2
   );
 
-  let v2 = caching_merge_context.num_deletes_to_merge(&dummy_commit_info)?;
+  let v2 = MergeContext::<crate::core::store::dummy::dummy_directory::DummyDirectory>::num_deletes_to_merge(&caching_merge_context, &dummy_commit_info)?;
   assert_eq!(v2, 1);
 
   {

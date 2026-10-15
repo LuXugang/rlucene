@@ -272,7 +272,12 @@ impl TestConstantScoreScorerIndex {
     })
   }
 
-  fn constant_score_scorer<T>(&self, query: T, score: f32, score_mode: ScoreMode) -> Result<Scorers>
+  fn constant_score_scorer<T>(
+    &self,
+    query: T,
+    score: f32,
+    score_mode: ScoreMode,
+  ) -> Result<Scorers<crate::core::search::similarities_impl::bm25_similarity::BM25Similarity>>
   where
     T: Into<Query>,
   {
@@ -367,13 +372,17 @@ fn test_early_termination() -> Result<()> {
   iw.close()?;
   Ok(())
 }
-type ConcreteQueryScorer = crate::core::search::query::QueryWeightSsScorer<
+type ConcreteQueryScorer<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = crate::core::search::query::QueryWeightSsScorer<
   crate::core::index::index_reader::IndexReaderContextType<Arc<StandardDirectoryReader<DirEnum>>>,
+  SIM,
 >;
-type Scorers = ScorerEnum2<
-  ConstantScoreTwoPhaseScorer<<ConcreteQueryScorer as Scorer>::OwnedTwoPhase>,
-  ConstantScoreDisiScorer<<ConcreteQueryScorer as Scorer>::Iterator>,
->;
+type Scorers<SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity> =
+  ScorerEnum2<
+    ConstantScoreTwoPhaseScorer<<ConcreteQueryScorer<SIM> as Scorer>::OwnedTwoPhase>,
+    ConstantScoreDisiScorer<<ConcreteQueryScorer<SIM> as Scorer>::Iterator>,
+  >;
 
 struct EvenDocs {
   approximation: crate::core::search::doc_id_set_iterator::AllDISI,

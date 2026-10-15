@@ -26,7 +26,6 @@ use crate::core::index::live_index_writer_config::{
 };
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
-use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
 use crate::core::store::directory::Directory;
@@ -43,6 +42,10 @@ use std::sync::atomic::Ordering;
 /// Once an [`IndexWriter`](crate::core::index::index_writer::IndexWriter) has been created with this object, changes to this
 /// object will not affect that writer instance. For live changes, use the
 /// [`LiveIndexWriterConfig`] returned from the writer configuration API.
+///
+/// Norm computation is selected per write operation with methods such as
+/// [`IndexWriter::add_document_with_similarity`](crate::core::index::index_writer::IndexWriter::add_document_with_similarity).
+/// The default write methods use the shared BM25 similarity.
 ///
 /// All setter methods return [`IndexWriterConfig`] to allow settings to be
 /// chained conveniently.
@@ -106,17 +109,6 @@ where
   ) -> &mut Self {
     self.base.max_full_flush_merge_wait_millis = max_full_flush_merge_wait_millis;
     self
-  }
-
-  /// Expert: sets the [`SimilarityEnum`] implementation used by this
-  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter).
-  ///
-  /// Only takes effect when [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is first created.
-  pub fn set_similarity<T>(&mut self, similarity: T)
-  where
-    T: Into<SimilarityEnum>,
-  {
-    self.base.similarity = Arc::new(similarity.into());
   }
 
   /// Set the [`Codec`](crate::core::codecs::Codec).
@@ -347,10 +339,6 @@ where
 
   fn get_analyzer(&self) -> &AnalyzerEnum {
     &self.base.analyzer
-  }
-
-  fn get_similarity(&self) -> &SimilarityEnum {
-    self.base.similarity.as_ref()
   }
 
   fn get_merge_scheduler(&self) -> &MergeSchedulerEnum {

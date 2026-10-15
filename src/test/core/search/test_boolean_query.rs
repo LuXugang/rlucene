@@ -333,8 +333,11 @@ fn test_null_or_sub_scorer() -> Result<()> {
   w.add_document(&mut random, doc)?;
 
   let reader = w.get_reader(&mut random)?;
-  let mut s = new_searcher_with_reader(reader)?;
-  s.set_similarity(classic_similarity::new());
+  let s =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(classic_similarity::new()),
+    )?;
 
   let mut q = Builder::new();
   q.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
@@ -565,11 +568,12 @@ fn test_min_should_match_leniency() -> Result<()> {
 
   Ok(())
 }
-fn get_matches<IRC, T>(searcher: &IndexSearcher<IRC>, query: T) -> Result<FixedBitSet>
+fn get_matches<IRC, T, SIM>(searcher: &IndexSearcher<IRC, SIM>, query: T) -> Result<FixedBitSet>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync + 'static,
   T: Into<Query>,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()?;
   let manager = FixedBitSetCollector::create_manager(max_doc);
@@ -632,12 +636,18 @@ fn test_filter_clause_behaves_like_must() -> Result<()> {
 }
 
 fn assert_same_scores_without_filters<IRC>(
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<
+    IRC,
+    crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+  >,
   bq: BooleanQuery,
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<
+    IRC,
+    crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+  >: Sync,
 {
   let mut bq2_builder = Builder::new();
   let min_should_match = bq.get_minimum_number_should_match();
@@ -1815,9 +1825,19 @@ impl<'a, IRC> CollectorManagerImpl<'a, IRC>
 where
   IRC: IndexReaderContext,
 {
-  fn new(searcher: &'a IndexSearcher<IRC>, matched: Arc<AtomicBool>, bq2: BooleanQuery) -> Self
+  fn new(
+    searcher: &'a IndexSearcher<
+      IRC,
+      crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+    >,
+    matched: Arc<AtomicBool>,
+    bq2: BooleanQuery,
+  ) -> Self
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<
+      IRC,
+      crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+    >: Sync,
   {
     Self {
       searcher,
@@ -1860,9 +1880,19 @@ impl<'a, IRC> SimpleCollectorImpl<'a, IRC>
 where
   IRC: IndexReaderContext,
 {
-  fn new(matched: Arc<AtomicBool>, bq2: BooleanQuery, searcher: &'a IndexSearcher<IRC>) -> Self
+  fn new(
+    matched: Arc<AtomicBool>,
+    bq2: BooleanQuery,
+    searcher: &'a IndexSearcher<
+      IRC,
+      crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+    >,
+  ) -> Self
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<
+      IRC,
+      crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+    >: Sync,
   {
     Self {
       doc_base: 0,
@@ -1884,16 +1914,17 @@ where
     Self: 'a,
     IRC1: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC1>(
+  fn get_leaf_collector<'a, W, IRC1, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC1>,
+    _searcher: &IndexSearcher<IRC1, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC1: IndexReaderContext,
-    W: Weight<IRC1> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
+    W: Weight<IRC1, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1, SIM>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)

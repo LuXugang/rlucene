@@ -62,14 +62,15 @@ pub trait BaseExplanationTestCase {
   {
     self.default_q_test(random, searcher, q, exp_doc_nrs)
   }
-  fn default_q_test<R, Q>(
+  fn default_q_test<R, Q, SIM>(
     &self,
     random: &mut R,
-    searcher: &DefaultIndexSearchCRShared,
+    searcher: &DefaultIndexSearchCRShared<SIM>,
     q: Q,
     exp_doc_nrs: &[i32],
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     Q: IntoQuery,
   {

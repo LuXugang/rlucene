@@ -71,9 +71,18 @@ impl<'a, IRC> ShardSearcher<'a, IRC>
 where
   IRC: IndexReaderContext + Sync + 'static,
 {
-  fn new(ctx: &LeafReaderContext<IRC::LeafReader>, searcher: &'a DefaultIndexSearcher<IRC>) -> Self
+  fn new(
+    ctx: &LeafReaderContext<IRC::LeafReader>,
+    searcher: &'a DefaultIndexSearcher<
+      IRC,
+      crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+    >,
+  ) -> Self
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<
+      IRC,
+      crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+    >: Sync,
   {
     Self {
       ctx_ord: ctx.ord,
@@ -83,7 +92,8 @@ where
 
   fn search<W, C>(&self, weight: &W, collector: &mut C) -> Result<()>
   where
-    W: Weight<IRC> + ?Sized,
+    W:
+      Weight<IRC, crate::core::search::similarities_impl::bm25_similarity::BM25Similarity> + ?Sized,
     C: Collector,
   {
     self
@@ -93,7 +103,8 @@ where
 
   fn search_top_docs<W>(&self, weight: &W, top_n: usize) -> Result<TopDocs<ScoreDoc>>
   where
-    W: Weight<IRC> + ?Sized,
+    W:
+      Weight<IRC, crate::core::search::similarities_impl::bm25_similarity::BM25Similarity> + ?Sized,
   {
     let manager = TopScoreDocCollectorManager::new(top_n, i32::MAX as usize)?;
     let mut collector = manager.new_collector()?;

@@ -327,14 +327,14 @@ scorer_nodes! {
     #[cfg(test)] MaxScoreWrapper: crate::test_framework::core::search::query::MaxScoreWrapperScorer<BuiltinQueryScorer<ST>>,
     #[cfg(test)] Asserting: crate::test_framework::core::search::asserting_scorer::AssertingScorer,
     #[cfg(test)] Fake: crate::test::core::search::test_boolean2_scorer_supplier::FakeScorer,
-    Synonym: crate::core::search::synonym_query::SynonymScorer<ST>,
-    SynonymTerm: crate::core::search::synonym_query::SynonymTermScorer<ST>,
-    BoostedSynonymTerm: crate::core::search::synonym_query::FreqBoostTermScorer<ST>,
+    Synonym: crate::core::search::synonym_query::SynonymScorer<ST, ST::Similarity>,
+    SynonymTerm: crate::core::search::synonym_query::SynonymTermScorer<ST, ST::Similarity>,
+    BoostedSynonymTerm: crate::core::search::synonym_query::FreqBoostTermScorer<ST, ST::Similarity>,
 
-    Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, false>,
-    PhraseTop: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, true>,
-    MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, false>,
-    MultiPhraseTop: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType>, ST::Norm, true>,
+    Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
+    PhraseTop: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
+    MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
+    MultiPhraseTop: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
     SpatialSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
     SpatialSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
     CachedSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<lru_query_cache::CacheAndCountDISI>>,
@@ -375,10 +375,10 @@ scorer_nodes! {
     VectorMatches: abstract_knn_vector_query::ScorerImpl,
     FilteredVectors: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::FilteredDocIdSetIteratorImpl1<crate::core::search::vector_scorer::VectorScorerEnum2<ST::ByteScorer, ST::FloatScorer>, crate::core::util::bit_set::SparseFixedBitSetBitSet>>,
     VectorScores: abstract_vector_similarity_query::ScorerImpl<abstract_vector_similarity_query::DocsIteratorImpl>,
-    TermAutomaton: TermAutomatonScorer<ST::Posting, SimilaritySimScorer, ST::Norm>,
-    TermPostings: TermScorer<PostingsTermState<ST::Posting, Arc<TermQuerySimScorer>>, ST::Norm>,
-    TermImpacts: TermScorer<ImpactsTermState<ST::Impacts, Arc<TermQuerySimScorer>>, ST::Norm>,
-    TermCompetitive: TermScorer<crate::core::search::impacts_disi::SourceImpactsDISI<ST::Impacts, Arc<TermQuerySimScorer>>, ST::Norm>,
+    TermAutomaton: TermAutomatonScorer<ST::Posting, SimilaritySimScorer<ST::Similarity>, ST::Norm>,
+    TermPostings: TermScorer<PostingsTermState<ST::Posting, Arc<TermQuerySimScorer<ST::Similarity>>>, ST::Norm>,
+    TermImpacts: TermScorer<ImpactsTermState<ST::Impacts, Arc<TermQuerySimScorer<ST::Similarity>>>, ST::Norm>,
+    TermCompetitive: TermScorer<crate::core::search::impacts_disi::SourceImpactsDISI<ST::Impacts, Arc<TermQuerySimScorer<ST::Similarity>>>, ST::Norm>,
     BuiltSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<DocIdSetBuilderIterator>>,
     BuiltSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<DocIdSetBuilderIterator>>,
     BitSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BitSetIterator<FixedBitSet>>>,
@@ -733,7 +733,10 @@ mutable_two_phase!(QueryTwoPhaseMut<'_, ST>);
 mutable_two_phase!(QueryOwnedTwoPhase<ST>);
 
 /// Built-in query scorer specialized by the reader's owned execution types.
-pub type QueryScorer<LR> = BuiltinQueryScorer<LeafScorerTypes<LR>>;
+pub type QueryScorer<
+  LR,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = BuiltinQueryScorer<LeafScorerTypes<LR, SIM>>;
 
 #[cfg(test)]
 impl<ST: ScorerTypes> BuiltinQueryScorer<ST> {

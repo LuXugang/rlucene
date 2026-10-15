@@ -31,6 +31,7 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
@@ -116,9 +117,10 @@ impl HasIdentity for LatLonDocValuesBoxQuery {
 }
 
 impl QueryBase for LatLonDocValuesBoxQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = LatLonDocValuesBoxQueryWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -155,16 +157,17 @@ impl QueryBase for LatLonDocValuesBoxQuery {
     Ok(out)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(LatLonDocValuesBoxQueryWeight::new(self, *score_mode, boost))
   }
@@ -211,18 +214,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for LatLonDocValuesBoxQueryWeight
+impl<IRC, SIM> Weight<IRC, SIM> for LatLonDocValuesBoxQueryWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -245,10 +249,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match context
       .reader()

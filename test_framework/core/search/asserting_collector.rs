@@ -64,16 +64,17 @@ where
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     assert!(self.weight_set.get(), "Set the weight first");
     assert!(context.doc_base <= i32::MAX as usize);
@@ -102,10 +103,11 @@ where
     self.in_.score_mode()
   }
 
-  fn set_weight<W, IRC>(&self, weight: Option<&W>) -> Result<()>
+  fn set_weight<W, IRC, SIM>(&self, weight: Option<&W>) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
+    W: Weight<IRC, SIM> + ?Sized,
   {
     assert!(!self.weight_set.replace(true), "Weight set twice");
     assert!(weight.is_some());

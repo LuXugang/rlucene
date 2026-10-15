@@ -30,9 +30,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::search::similarities_impl::per_field_similarity_wrapper::PerFieldSimilarityWrapper;
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, Similarity};
 use crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::store::directory::DirEnum;
@@ -92,9 +90,12 @@ pub fn build_index(dir: Arc<DirEnum>, random: &mut StdRng) -> Result<()> {
   // we need at least 3 for maxTokenLength otherwise norms are messed up
   analyzer.set_max_token_length(TestUtil::next_int(random, 3, MAX_TERM_LENGTH));
 
-  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   let provider = MySimProvider;
-  config.set_similarity(SimilarityEnum::custom(provider));
+  let indexing_similarity_config = provider;
+  let config =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      random, analyzer,
+    )?;
 
   let writer = RandomIndexWriter::with_config(random, dir, config);
   let num = at_least(random, 100);
@@ -110,7 +111,7 @@ pub fn build_index(dir: Arc<DirEnum>, random: &mut StdRng) -> Result<()> {
 
     let field = TextField::from_string(BYTE_TEST_FIELD, value, Store::Yes)?;
     doc.add(field);
-    writer.add_document(random, doc)?;
+    writer.add_document_with_similarity(random, doc, &indexing_similarity_config)?;
   }
 
   writer.commit(random)?;

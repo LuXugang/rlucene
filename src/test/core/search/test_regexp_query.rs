@@ -86,23 +86,25 @@ fn new_term(value: &str) -> Term {
   Term::from_text(FN, value)
 }
 
-fn regex_query_nr_hits<IRC>(searcher: &IndexSearcher<IRC>, regex: &str) -> Result<i64>
+fn regex_query_nr_hits<IRC, SIM>(searcher: &IndexSearcher<IRC, SIM>, regex: &str) -> Result<i64>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let query = RegexpQuery::new(new_term(regex))?;
   Ok(searcher.count(query)? as i64)
 }
-fn case_insensitive_regex_query_nr_hits<IRC, R>(
+fn case_insensitive_regex_query_nr_hits<IRC, R, SIM>(
   random: &mut R,
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
   regex: &str,
 ) -> Result<i64>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let query = RegexpQuery::with_all_and_determinization(
     new_term(regex),

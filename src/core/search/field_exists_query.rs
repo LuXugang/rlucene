@@ -39,6 +39,7 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::TryIntoInt;
 use crate::core::util::core_helper::HasIdentity;
@@ -121,34 +122,37 @@ impl HasIdentity for FieldExistsQuery {
 }
 
 impl QueryBase for FieldExistsQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = FieldExistsWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!("FieldExistsQuery [field={}]", self.field))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(FieldExistsWeight::new(boost, self, *score_mode))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut all_readers_rewritable = true;
 
@@ -283,18 +287,19 @@ pub type Disi<LR> = DocIdSetIteratorEnum4<
   LRNormNumericDocValues<LR>,
   LRDisis<LR>,
 >;
-impl<IRC> Weight<IRC> for FieldExistsWeight
+impl<IRC, SIM> Weight<IRC, SIM> for FieldExistsWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -320,10 +325,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = context.reader();
     let query = self.query()?;
@@ -393,10 +398,10 @@ where
   fn count(
     &self,
     ctx: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = ctx.reader();
 
@@ -415,7 +420,7 @@ where
       if doc_count == reader.max_doc()? {
         return reader.num_docs();
       }
-      return <Self as Weight<IRC>>::default_count(self, ctx);
+      return <Self as Weight<IRC, SIM>>::default_count(self, ctx);
     }
 
     if fi.has_vector_values() {
@@ -425,7 +430,7 @@ where
           .get_vector_values_size(fi.as_ref(), reader)?
           .try_convert();
       }
-      return <Self as Weight<IRC>>::default_count(self, ctx);
+      return <Self as Weight<IRC, SIM>>::default_count(self, ctx);
     }
 
     if *fi.get_doc_values_type() != DocValuesType::None {
@@ -448,7 +453,7 @@ where
         }
       }
 
-      return <Self as Weight<IRC>>::default_count(self, ctx);
+      return <Self as Weight<IRC, SIM>>::default_count(self, ctx);
     }
 
     Err(LuceneError::illegal_argument(

@@ -42,6 +42,7 @@ use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
 use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_util::ScorerUtil;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::bits::Bits;
@@ -51,20 +52,26 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-pub struct BooleanScorerSupplier<IRC: IndexReaderContext + 'static> {
-  pub(crate) subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
+pub struct BooleanScorerSupplier<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
+  pub(crate) subs: HashMap<Occur, Vec<QueryWeightSs<IRC, SIM>>>,
   score_mode: ScoreMode,
   min_should_match: i32,
   max_doc: i32,
   cost: i64,
   top_level_scoring_clause: bool,
 }
-impl<IRC> BooleanScorerSupplier<IRC>
+impl<IRC, SIM> BooleanScorerSupplier<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   pub(crate) fn new(
-    subs: HashMap<Occur, Vec<QueryWeightSs<IRC>>>,
+    subs: HashMap<Occur, Vec<QueryWeightSs<IRC, SIM>>>,
     score_mode: ScoreMode,
     min_should_match: i32,
     max_doc: i32,
@@ -124,10 +131,10 @@ where
   fn compute_cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut min_required_cost: Option<i64> = None;
 
@@ -177,10 +184,10 @@ where
     &mut self,
     mut lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<QueryWeightSsScorer<IRC>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<QueryWeightSsScorer<IRC, SIM>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     // three cases: conjunction, disjunction, or mix
     lead_cost = std::cmp::min(lead_cost, self.cost(context, searcher)?);
@@ -316,16 +323,16 @@ where
       Ok(
         match ConjunctionScorer::prepare(vec![req, opt], &scoring_idx)? {
           ConjunctionScorerDisi::A(disi) => {
-            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_idx))
+            QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_disi(disi, scoring_idx))
           },
           ConjunctionScorerDisi::B(disi) => {
-            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_idx))
+            QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_disi(disi, scoring_idx))
           },
           ConjunctionScorerDisi::C(disi) => {
-            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_idx))
+            QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_tpi(disi, scoring_idx))
           },
           ConjunctionScorerDisi::D(disi) => {
-            QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_idx))
+            QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_tpi(disi, scoring_idx))
           },
         },
       )
@@ -360,13 +367,13 @@ where
       let (disi, has_tpi) =
         req_opt_sum_scorer::DocIdSetIteratorImpl::new(req, opt, self.score_mode)?;
       if has_tpi {
-        Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_tpi(
-          req_opt_sum_scorer::TwoPhaseIteratorImpl::new(disi),
-        )))
+        Ok(QueryWeightSsScorer::<IRC, SIM>::new(
+          ReqOptSumScorer::from_tpi(req_opt_sum_scorer::TwoPhaseIteratorImpl::new(disi)),
+        ))
       } else {
-        Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_disi(
-          disi,
-        )))
+        Ok(QueryWeightSsScorer::<IRC, SIM>::new(
+          ReqOptSumScorer::from_disi(disi),
+        ))
       }
     }
   }
@@ -374,10 +381,10 @@ where
   pub(crate) fn boolean_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let num_optional = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
     let num_must = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
@@ -450,16 +457,16 @@ where
       }
     };
     let v = ReqExclBulkScorer::new(positive, prohibited_scorer);
-    Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(v)))
+    Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(v)))
   }
   #[allow(clippy::type_complexity)]
   fn optional_bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let should_len = self.subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
 
@@ -485,7 +492,7 @@ where
       for ss in should.iter_mut() {
         optional_scorers.push(ss.get(i64::MAX, context, searcher)?);
       }
-      let v = QueryWeightSsBulkScorer::<IRC>::new(MaxScoreBulkScorer::with_no_filter(
+      let v = QueryWeightSsBulkScorer::<IRC, SIM>::new(MaxScoreBulkScorer::with_no_filter(
         self.max_doc,
         optional_scorers,
       )?);
@@ -527,7 +534,7 @@ where
         };
         optional.push(Box::new(scorer));
       }
-      return Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+      return Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(
         BooleanScorer::new(
           optional,
           std::cmp::max(1, self.min_should_match) as usize,
@@ -542,7 +549,7 @@ where
     }
 
     let msm = std::cmp::max(1, self.min_should_match);
-    let v = QueryWeightSsBulkScorer::<IRC>::new(BooleanScorer::new(
+    let v = QueryWeightSsBulkScorer::<IRC, SIM>::new(BooleanScorer::new(
       optional,
       msm as usize,
       self.score_mode.needs_scores(),
@@ -552,10 +559,10 @@ where
   fn filtered_optional_bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let must_len = self.subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
     let filter_len = self.subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
@@ -591,21 +598,21 @@ where
     } else {
       match ConjunctionScorer::prepare(filters, &[])? {
         ConjunctionScorerDisi::A(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, vec![]))
+          QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_disi(disi, vec![]))
         },
         ConjunctionScorerDisi::B(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, vec![]))
+          QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_disi(disi, vec![]))
         },
         ConjunctionScorerDisi::C(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, vec![]))
+          QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_tpi(disi, vec![]))
         },
         ConjunctionScorerDisi::D(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, vec![]))
+          QueryWeightSsScorer::<IRC, SIM>::new(ConjunctionScorer::from_tpi(disi, vec![]))
         },
       }
     };
 
-    let v = QueryWeightSsBulkScorer::<IRC>::new(MaxScoreBulkScorer::new(
+    let v = QueryWeightSsBulkScorer::<IRC, SIM>::new(MaxScoreBulkScorer::new(
       self.max_doc,
       optional_scorers,
       Some(filter_scorer),
@@ -616,10 +623,10 @@ where
   fn required_bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let must_len = {
       self
@@ -658,7 +665,7 @@ where
             None => Err(LuceneError::illegal_state("bulk_scorer is None"))?,
             Some(s) => {
               let v = disable_scoring(s);
-              Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(v)))
+              Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(v)))
             },
           }
         } else {
@@ -735,12 +742,12 @@ where
             filter_scorer.take_iterator(),
           )));
         }
-        return Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+        return Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(
           BlockMaxConjunctionBulkScorer::new(
             self.max_doc,
             wrap_required_scoring
               .into_iter()
-              .map(QueryWeightSsScorer::<IRC>::new)
+              .map(QueryWeightSsScorer::<IRC, SIM>::new)
               .collect(),
           )?,
         )));
@@ -767,7 +774,7 @@ where
       }
 
       if all_scoring_no_two_phase && all_no_scoring_no_two_phase {
-        return Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+        return Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(
           ConjunctionBulkScorer::new(required_scoring, required_no_scoring)?,
         )));
       }
@@ -777,10 +784,10 @@ where
       if self.score_mode == ScoreMode::TopScores && required_scoring.len() > 1 {
         let v = match BlockMaxConjunctionScorer::prepare(required_scoring)? {
           DocIdSetIteratorEnum2::A(disi) => {
-            QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_disi(disi))
+            QueryWeightSsScorer::<IRC, SIM>::new(BlockMaxConjunctionScorer::from_disi(disi))
           },
           DocIdSetIteratorEnum2::B(disi) => {
-            QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_tpi(disi))
+            QueryWeightSsScorer::<IRC, SIM>::new(BlockMaxConjunctionScorer::from_tpi(disi))
           },
         };
         vec![v]
@@ -821,39 +828,39 @@ where
       required.extend(required_no_scoring);
       return Ok(Some(
         match ConjunctionScorer::prepare(required, &scoring_scorers_idx)? {
-          ConjunctionScorerDisi::A(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+          ConjunctionScorerDisi::A(disi) => QueryWeightSsBulkScorer::<IRC, SIM>::new(
             DefaultBulkScorer::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx)),
           ),
-          ConjunctionScorerDisi::B(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+          ConjunctionScorerDisi::B(disi) => QueryWeightSsBulkScorer::<IRC, SIM>::new(
             DefaultBulkScorer::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx)),
           ),
-          ConjunctionScorerDisi::C(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+          ConjunctionScorerDisi::C(disi) => QueryWeightSsBulkScorer::<IRC, SIM>::new(
             DefaultBulkScorer::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx)),
           ),
-          ConjunctionScorerDisi::D(disi) => QueryWeightSsBulkScorer::<IRC>::new(
+          ConjunctionScorerDisi::D(disi) => QueryWeightSsBulkScorer::<IRC, SIM>::new(
             DefaultBulkScorer::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx)),
           ),
         },
       ));
     };
 
-    Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(
+    Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(
       DefaultBulkScorer::new(conjunction_scorer),
     )))
   }
   /// Create a new scorer for the given required clauses.
   /// Note that requiredScoring is a subset of required containing required clauses that should participate in scoring.
   fn req(
-    required_no_scoring: &mut [QueryWeightSs<IRC>],
-    required_scoring: &mut [QueryWeightSs<IRC>],
+    required_no_scoring: &mut [QueryWeightSs<IRC, SIM>],
+    required_scoring: &mut [QueryWeightSs<IRC, SIM>],
     lead_cost: i64,
     top_level_scoring_clause: bool,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
-  ) -> Result<QueryWeightSsScorer<IRC>>
+  ) -> Result<QueryWeightSsScorer<IRC, SIM>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if required_no_scoring.len() + required_scoring.len() == 1 {
       let req = if required_no_scoring.is_empty() {
@@ -870,7 +877,9 @@ where
         // Scores are needed but we only have a filter clause
         // BooleanWeight expects that calling score() is ok so we need to wrap
         // to prevent score() from being propagated
-        return Ok(QueryWeightSsScorer::<IRC>::new(FilterScorerImpl::new(req)));
+        return Ok(QueryWeightSsScorer::<IRC, SIM>::new(FilterScorerImpl::new(
+          req,
+        )));
       }
 
       return Ok(req);
@@ -894,10 +903,10 @@ where
     {
       let block_max_scorer = match BlockMaxConjunctionScorer::prepare(scoring_scorers)? {
         DocIdSetIteratorEnum2::A(disi) => {
-          QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_disi(disi))
+          QueryWeightSsScorer::<IRC, SIM>::new(BlockMaxConjunctionScorer::from_disi(disi))
         },
         DocIdSetIteratorEnum2::B(disi) => {
-          QueryWeightSsScorer::<IRC>::new(BlockMaxConjunctionScorer::from_tpi(disi))
+          QueryWeightSsScorer::<IRC, SIM>::new(BlockMaxConjunctionScorer::from_tpi(disi))
         },
       };
       if required_scorers.is_empty() {
@@ -914,30 +923,30 @@ where
     };
     Ok(
       match ConjunctionScorer::prepare(required_scorers, &scoring_scorers_idx)? {
-        ConjunctionScorerDisi::A(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx))
-        },
-        ConjunctionScorerDisi::B(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_disi(disi, scoring_scorers_idx))
-        },
-        ConjunctionScorerDisi::C(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx))
-        },
-        ConjunctionScorerDisi::D(disi) => {
-          QueryWeightSsScorer::<IRC>::new(ConjunctionScorer::from_tpi(disi, scoring_scorers_idx))
-        },
+        ConjunctionScorerDisi::A(disi) => QueryWeightSsScorer::<IRC, SIM>::new(
+          ConjunctionScorer::from_disi(disi, scoring_scorers_idx),
+        ),
+        ConjunctionScorerDisi::B(disi) => QueryWeightSsScorer::<IRC, SIM>::new(
+          ConjunctionScorer::from_disi(disi, scoring_scorers_idx),
+        ),
+        ConjunctionScorerDisi::C(disi) => QueryWeightSsScorer::<IRC, SIM>::new(
+          ConjunctionScorer::from_tpi(disi, scoring_scorers_idx),
+        ),
+        ConjunctionScorerDisi::D(disi) => QueryWeightSsScorer::<IRC, SIM>::new(
+          ConjunctionScorer::from_tpi(disi, scoring_scorers_idx),
+        ),
       },
     )
   }
   fn excl(
-    main: QueryWeightSsScorer<IRC>,
-    prohibited: &mut [QueryWeightSs<IRC>],
+    main: QueryWeightSsScorer<IRC, SIM>,
+    prohibited: &mut [QueryWeightSs<IRC, SIM>],
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<QueryWeightSsScorer<IRC>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<QueryWeightSsScorer<IRC, SIM>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if prohibited.is_empty() {
       Ok(main)
@@ -952,27 +961,27 @@ where
         searcher,
       )?;
       match ReqExclScorer::prepare(main, opt)? {
-        crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::A(tpi) => {
-          Ok(QueryWeightSsScorer::<IRC>::new(ReqExclScorer::new(tpi)))
-        },
-        crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::B(tpi) => {
-          Ok(QueryWeightSsScorer::<IRC>::new(ReqExclScorer::new(tpi)))
-        },
+        crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::A(tpi) => Ok(
+          QueryWeightSsScorer::<IRC, SIM>::new(ReqExclScorer::new(tpi)),
+        ),
+        crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2::B(tpi) => Ok(
+          QueryWeightSsScorer::<IRC, SIM>::new(ReqExclScorer::new(tpi)),
+        ),
       }
     }
   }
 
   fn opt(
-    optional: &mut [QueryWeightSs<IRC>],
+    optional: &mut [QueryWeightSs<IRC, SIM>],
     min_should_match: i32,
     score_mode: ScoreMode,
     lead_cost: i64,
     top_level_scoring_clause: bool,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<QueryWeightSsScorer<IRC>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<QueryWeightSsScorer<IRC, SIM>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if optional.len() == 1 {
       return optional[0].get(lead_cost, context, searcher);
@@ -991,46 +1000,48 @@ where
     // still use DisjunctionSumScorer to handle exhaustive pure disjunctions, which may be faster
     if (score_mode == ScoreMode::TopScores && top_level_scoring_clause) || min_should_match > 1 {
       if score_mode == ScoreMode::TopScores {
-        Ok(QueryWeightSsScorer::<IRC>::new(WANDScorer::<_, true>::new(
-          optional_scorers,
-          min_should_match,
-          score_mode,
-          lead_cost,
-        )?))
+        Ok(QueryWeightSsScorer::<IRC, SIM>::new(
+          WANDScorer::<_, true>::new(optional_scorers, min_should_match, score_mode, lead_cost)?,
+        ))
       } else {
-        Ok(QueryWeightSsScorer::<IRC>::new(
+        Ok(QueryWeightSsScorer::<IRC, SIM>::new(
           WANDScorer::<_, false>::new(optional_scorers, min_should_match, score_mode, lead_cost)?,
         ))
       }
     } else {
       match DisjunctionScorer::<_, DisjunctionSumScorer>::prepare(optional_scorers, score_mode)? {
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(disi) => Ok(
-          QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::from_disi(disi, DisjunctionSumScorer)),
-        ),
-        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(disi) => Ok(
-          QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::from_tpi(disi, DisjunctionSumScorer)),
-        ),
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(disi) => {
+          Ok(QueryWeightSsScorer::<IRC, SIM>::new(
+            DisjunctionScorer::from_disi(disi, DisjunctionSumScorer),
+          ))
+        },
+        crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(disi) => {
+          Ok(QueryWeightSsScorer::<IRC, SIM>::new(
+            DisjunctionScorer::from_tpi(disi, DisjunctionSumScorer),
+          ))
+        },
       }
     }
   }
 }
 
-impl<IRC> ScorerSupplier<IRC> for BooleanScorerSupplier<IRC>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for BooleanScorerSupplier<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   // type Scorer = GetType<SsScorer<LR>>;
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
+  type Scorer = QueryWeightSsScorer<IRC, SIM>;
+  type BulkScorer = QueryWeightSsBulkScorer<IRC, SIM>;
 
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.get_internal(lead_cost, context, searcher)?;
 
@@ -1054,12 +1065,12 @@ where
             Some(v) => v,
             None => return Err(LuceneError::illegal_state("already taken?")),
           };
-          return Ok(QueryWeightSsScorer::<IRC>::new(
+          return Ok(QueryWeightSsScorer::<IRC, SIM>::new(
             ConstantScoreScorer::from_tpi(0.0, self.score_mode, tpi),
           ));
         } else {
           let disi = scorer.take_iterator();
-          return Ok(QueryWeightSsScorer::<IRC>::new(
+          return Ok(QueryWeightSsScorer::<IRC, SIM>::new(
             ConstantScoreScorer::from_disi(0.0, self.score_mode, disi),
           ));
         };
@@ -1071,10 +1082,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if let Some(bs) = self.boolean_scorer(context, searcher)? {
       return Ok(Some(bs));
@@ -1082,7 +1093,7 @@ where
 
     // use a Scorer-based impl (BS2)
     match self.default_bulk_scorer(context, searcher).map(Some)? {
-      Some(v) => Ok(Some(QueryWeightSsBulkScorer::<IRC>::new(v))),
+      Some(v) => Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(v))),
       None => Ok(None),
     }
   }
@@ -1090,10 +1101,10 @@ where
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if self.cost == -1 {
       self.cost = self.compute_cost(context, searcher)?;

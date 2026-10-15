@@ -32,8 +32,6 @@ use crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommi
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::tiered_merge_policy::TieredMergePolicy;
-use crate::core::search::index_searcher::get_default_similarity;
-use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::search::sort::Sort;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
@@ -54,10 +52,6 @@ pub trait LiveIndexWriterConfig: Display {
 
   /// Returns the default analyzer to use for indexing documents.
   fn get_analyzer(&self) -> &AnalyzerEnum;
-
-  /// Expert: returns the [`SimilarityEnum`] implementation used by this
-  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter).
-  fn get_similarity(&self) -> &SimilarityEnum;
 
   /// Returns the [`MergeSchedulerEnum`] set on this configuration.
   fn get_merge_scheduler(&self) -> &MergeSchedulerEnum;
@@ -343,8 +337,6 @@ where
   pub use_compound_file: bool,
   /// [`OpenMode`] that [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is opened with.
   pub open_mode: OpenMode,
-  /// [`SimilarityEnum`] to use when encoding norms.
-  pub similarity: Arc<SimilarityEnum>,
   /// [`Codecs`] implementation used to write new segments.
   pub codec: Codecs,
   /// [`InfoStreamMT`] for debugging messages.
@@ -398,7 +390,6 @@ where
       index_deletion_policy: KeepOnlyLastCommitDeletionPolicy.into(),
       use_compound_file: DEFAULT_USE_COMPOUND_FILE_SYSTEM,
       open_mode: OpenMode::CreateOrAppend,
-      similarity: Arc::new(get_default_similarity()?),
       codec: codec::get_default(),
       info_stream: get_default_info_stream(),
       merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::similarities_impl::similarities::Similarity;
 use std::fmt::Write as _;
 
 use crate::core::index::index_reader::Identity;
@@ -184,15 +185,16 @@ impl BooleanQuery {
     }
     m
   }
-  pub(crate) fn raw_weight<IRC>(
+  pub(crate) fn raw_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<BooleanWeight<IRC>>
+  ) -> Result<BooleanWeight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let similarity = searcher.get_similarity();
@@ -208,7 +210,7 @@ impl BooleanQuery {
 
       weighted_clauses.push(WeightedBooleanClause::new(clause_index, weight));
     }
-    Ok(BooleanWeight {
+    Ok(BooleanWeight::<_, SIM> {
       similarity,
       weighted_clauses,
       query: self,
@@ -216,11 +218,12 @@ impl BooleanQuery {
     })
   }
   /// Rewrite a single two clause disjunction query with terms to two term queries and a conjunction query using the inclusion–exclusion principle.
-  pub(crate) fn rewrite_two_clause_disjunction_with_terms_for_count<IRC>(
+  pub(crate) fn rewrite_two_clause_disjunction_with_terms_for_count<IRC, SIM>(
     &self,
-    index_searcher: &IndexSearcher<IRC>,
+    index_searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<[Query; 3]>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
   {
     if self.clauses.len() != 2 {
@@ -294,9 +297,10 @@ impl HasIdentity for BooleanQuery {
   }
 }
 impl QueryBase for BooleanQuery {
-  type Weight<IRC>
-    = BooleanWeight<IRC>
+  type Weight<IRC, SIM>
+    = BooleanWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -335,24 +339,26 @@ impl QueryBase for BooleanQuery {
     Ok(buffer)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let weight = self.raw_weight(searcher, score_mode, boost)?;
     Ok(weight)
   }
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     if self.clauses.is_empty() {

@@ -153,15 +153,16 @@ where
   Ok(output)
 }
 
-fn check_hits<IRC, SD>(
+fn check_hits<IRC, SD, SIM>(
   hits: &[SD],
   expected_count: usize,
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: crate::core::index::index_reader_context::IndexReaderContext,
   SD: ScoreDocLike,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   assert_eq!(expected_count, hits.len(), "total results");
   let mut stored_fields = searcher.stored_fields()?;

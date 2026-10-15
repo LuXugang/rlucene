@@ -474,7 +474,7 @@ where
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
-    self.base.keep_fully_deleted_segment(reader_supplier)
+    MergePolicy::<D>::keep_fully_deleted_segment(&self.base, reader_supplier)
   }
 
   fn num_deletes_to_merge<F>(
@@ -486,9 +486,7 @@ where
   where
     F: Fn() -> Result<DefaultLeafReader<D>>,
   {
-    self
-      .base
-      .num_deletes_to_merge(info, del_count, reader_supplier)
+    MergePolicy::<D>::num_deletes_to_merge(&self.base, info, del_count, reader_supplier)
   }
 
   fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> Result<String>

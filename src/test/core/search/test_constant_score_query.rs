@@ -79,10 +79,15 @@ fn test_csq() -> Result<()> {
 
   Ok(())
 }
-fn check_hits<IRC>(searcher: &IndexSearcher<IRC>, q: Query, expected_score: f32) -> Result<()>
+fn check_hits<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
+  q: Query,
+  expected_score: f32,
+) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let count = Arc::new(AtomicI32::new(0));
   let manager = CollectorManagerImpl::new(expected_score, count.clone());
@@ -280,16 +285,17 @@ impl Collector for SimpleCollectorImpl {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)

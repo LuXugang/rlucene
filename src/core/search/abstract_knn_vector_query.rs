@@ -43,6 +43,7 @@ use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::time_limiting_knn_collector_manager::TimeLimitingKnnCollectorManager;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs::merge_top_docs;
@@ -165,10 +166,11 @@ impl AbstractKnnVectorQueryDefaults {
 /// - If the kNN search visits too many vectors without completing, stop and run an exact search
 pub trait AbstractKnnVectorQuery: QueryBase + Sync {
   fn base(&self) -> &AbstractKnnVectorQueryBase;
-  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC, SIM>(&self, index_searcher: &IndexSearcher<IRC, SIM>) -> Result<Query>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let filter_weight = if let Some(filter) = self.base().filter.as_ref() {
@@ -212,19 +214,20 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
     let id = index_searcher.get_top_reader_context().base().id().clone();
     create_rewritten_query(leaf_reader_contexts, top_k, id)
   }
-  fn search_leaf<IRC, K, Q, W>(
+  fn search_leaf<IRC, K, Q, W, SIM>(
     &self,
     ctx: &LeafReaderContext<IRCLeafReader<IRC>>,
     filter_weight: Option<&W>,
     time_limiting_knn_collector_manager: &TimeLimitingKnnCollectorManager<K, Q>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<TopDocs<ScoreDoc>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     K: KnnCollectorManager,
     Q: QueryTimeout,
-    W: Weight<IRC>,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM>,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut results = self.get_leaf_results(
       ctx,
@@ -241,19 +244,20 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
 
     Ok(results)
   }
-  fn get_leaf_results<IRC, K, Q, W>(
+  fn get_leaf_results<IRC, K, Q, W, SIM>(
     &self,
     ctx: &LeafReaderContext<IRCLeafReader<IRC>>,
     filter_weight: Option<&W>,
     time_limiting_knn_collector_manager: &TimeLimitingKnnCollectorManager<K, Q>,
-    search: &IndexSearcher<IRC>,
+    search: &IndexSearcher<IRC, SIM>,
   ) -> Result<TopDocs<ScoreDoc>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     K: KnnCollectorManager,
     Q: QueryTimeout,
-    W: Weight<IRC>,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM>,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = ctx.reader();
     let live_docs = reader.get_live_docs()?;
@@ -311,22 +315,24 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
 
   type KnnCollectorManager: KnnCollectorManager + Sync;
 
-  fn get_knn_collector_manager<IRC>(
+  fn get_knn_collector_manager<IRC, SIM>(
     &self,
     k: usize,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::KnnCollectorManager>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync;
-  fn default_get_knn_collector_manager<IRC>(
+    IndexSearcher<IRC, SIM>: Sync;
+  fn default_get_knn_collector_manager<IRC, SIM>(
     &self,
     k: usize,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<TopKnnCollectorManager>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     TopKnnCollectorManager::new(k, searcher)
   }
@@ -624,9 +630,10 @@ impl HasIdentity for DocAndScoreQuery {
 }
 
 impl QueryBase for DocAndScoreQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = DocAndScoreQueryWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
@@ -636,16 +643,17 @@ impl QueryBase for DocAndScoreQuery {
     ))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if searcher.get_top_reader_context().base().id() != &self.context_identity {
       return Err(LuceneError::illegal_state(
@@ -712,18 +720,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for DocAndScoreQueryWeight
+impl<IRC, SIM> Weight<IRC, SIM> for DocAndScoreQueryWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let target = doc + context.doc_base as i32;
 
@@ -750,10 +759,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let query = self.query()?;
     if query.segment_starts[context.ord] == query.segment_starts[context.ord + 1] {
@@ -772,10 +781,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let query = self.query()?;
     Ok((query.segment_starts[context.ord + 1] - query.segment_starts[context.ord]) as i32)

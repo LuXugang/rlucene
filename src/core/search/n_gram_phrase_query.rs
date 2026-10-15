@@ -23,6 +23,7 @@ use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQue
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::hash::{Hash, Hasher};
@@ -90,33 +91,36 @@ impl HasIdentity for NGramPhraseQuery {
 }
 
 impl QueryBase for NGramPhraseQuery {
-  type Weight<IRC>
-    = <PhraseQuery as QueryBase>::Weight<IRC>
+  type Weight<IRC, SIM>
+    = <PhraseQuery as QueryBase>::Weight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     self.phrase_query.to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     self.phrase_query.create_weight(searcher, score_mode, boost)
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let terms = self.phrase_query.get_terms();

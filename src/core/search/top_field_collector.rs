@@ -42,6 +42,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_doc::{ScoreDoc, ScoreDocLike};
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortField;
 use crate::core::search::sort_field_enum::SortFieldEnum;
@@ -246,14 +247,15 @@ impl TopFieldCollector {
 ///
 /// Returns [`LuceneError::IllegalArgument`] if there is evidence that `topDocs` were computed
 /// against a different searcher or a different query.
-pub fn populate_scores<IRC, T, S>(
+pub fn populate_scores<IRC, T, S, SIM>(
   top_docs: &mut [S],
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
   query: T,
 ) -> Result<()>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext,
-  IndexSearcher<IRC>: Sync,
+  IndexSearcher<IRC, SIM>: Sync,
   T: IntoQuery,
   S: ScoreDocLike,
 {
@@ -328,16 +330,17 @@ impl Collector for TopFieldCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unreachable(
       "should call Simple/PagingFieldCollector instead",
@@ -698,16 +701,17 @@ impl Collector for SimpleFieldCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.base.min_competitive_score = 0.0;
     self.base.doc_base = context.doc_base as i32;
@@ -880,16 +884,17 @@ impl Collector for PagingFieldCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.base.min_competitive_score = 0.0;
     self.base.doc_base = context.doc_base as i32;
@@ -1150,16 +1155,17 @@ impl Collector for TopFieldCollectorEnum {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Simple(inner) => inner

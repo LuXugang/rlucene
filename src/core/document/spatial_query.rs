@@ -37,6 +37,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
@@ -123,20 +124,21 @@ where
     Ok(sb)
   }
 
-  pub(crate) fn inner_create_weight<IRC>(
+  pub(crate) fn inner_create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
     query: Arc<Query>,
   ) -> Result<SpatialWeight<G, C>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
     C: Send + Sync,
     G: Send + Sync,
     C::SpatialVisitor: Send + Sync,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let spatial_visitor = self.sub.get_spatial_visitor()?;
     let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode, query);
@@ -241,12 +243,13 @@ where
   }
 }
 
-impl<G, C, IRC> Weight<IRC> for SpatialWeight<G, C>
+impl<G, C, IRC, SIM> Weight<IRC, SIM> for SpatialWeight<G, C>
 where
+  SIM: Similarity,
   C: SpatialQueryBase + 'static,
   G: Geometry + 'static,
   IRC: IndexReaderContext + 'static,
-  QueryWeightSs<IRC>: From<
+  QueryWeightSs<IRC, SIM>: From<
     Box<
       RelationScorerSupplier<
         <IRCLeafReader<IRC> as LeafReader>::PointValues,
@@ -259,10 +262,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -274,15 +277,15 @@ where
     self.query_s.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = QueryWeightSs<IRC, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = context.reader();
     let field = self.parent_query.field.as_str();
@@ -691,8 +694,9 @@ where
   }
 }
 
-impl<IRC, PV, V> ScorerSupplier<IRC> for RelationScorerSupplier<PV, V>
+impl<IRC, PV, V, SIM> ScorerSupplier<IRC, SIM> for RelationScorerSupplier<PV, V>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
   PV: PointValues,
   V: SpatialVisitor,
@@ -704,10 +708,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.get_scorer()
   }
@@ -715,10 +719,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -726,10 +730,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.cost_value()
   }
@@ -748,8 +752,9 @@ impl ScorerSupplierImpl {
     }
   }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for ScorerSupplierImpl
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = ConstantScoreDisiScorer<AllDISI>;
@@ -759,10 +764,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(ConstantScoreScorer::from_disi(
       self.score,
@@ -774,10 +779,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -785,10 +790,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(self.max_doc as i64)
   }

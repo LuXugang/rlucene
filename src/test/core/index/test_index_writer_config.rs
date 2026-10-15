@@ -31,7 +31,6 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
-use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
@@ -60,7 +59,6 @@ fn test_defaults() -> Result<()> {
   ));
   assert_eq!(&OpenMode::CreateOrAppend, conf.get_open_mode());
   // we don't need to assert this, it should be unspecified
-  assert!(matches!(conf.get_similarity(), SimilarityEnum::BM25(_)));
   assert_eq!(DEFAULT_RAM_BUFFER_SIZE_MB, conf.get_ram_buffer_size_mb());
   assert_eq!(DEFAULT_MAX_BUFFERED_DOCS, conf.get_max_buffered_docs());
   assert_eq!(DEFAULT_READER_POOLING, conf.get_reader_pooling());

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use std::fmt::Write as _;
 
 use crate::core::document::int_point::IntPoint;
@@ -110,9 +111,10 @@ impl HasIdentity for IndexSortSortedNumericDocValuesRangeQuery {
 }
 
 impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
-  type Weight<IRC>
-    = IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = IndexSortSortedNumericDocValuesRangeQueryWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -131,15 +133,16 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     Ok(s)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let fallback_query = self.fallback_query.as_ref().clone();
@@ -155,10 +158,11 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     ))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
@@ -196,17 +200,23 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
   }
 }
 
-pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<IRC: IndexReaderContext + 'static> {
+pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   field: Arc<String>,
   lower_value: i64,
   upper_value: i64,
   base: ConstantScoreWeight,
   score_mode: ScoreMode,
-  fallback_query_weight: QueryWeight<IRC>,
+  fallback_query_weight: QueryWeight<IRC, SIM>,
   parent_query: Arc<Query>,
 }
-impl<IRC> IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
+impl<IRC, SIM> IndexSortSortedNumericDocValuesRangeQueryWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   pub fn new(
@@ -216,7 +226,7 @@ where
     parent_query: Arc<Query>,
     base: ConstantScoreWeight,
     score_mode: ScoreMode,
-    fallback_query_weight: QueryWeight<IRC>,
+    fallback_query_weight: QueryWeight<IRC, SIM>,
   ) -> Self {
     Self {
       field,
@@ -231,8 +241,9 @@ where
 }
 pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues;
 
-impl<IRC> SegmentCacheable<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
+impl<IRC, SIM> SegmentCacheable<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -242,18 +253,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC>
+impl<IRC, SIM> Weight<IRC, SIM> for IndexSortSortedNumericDocValuesRangeQueryWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -265,15 +277,15 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = QueryWeightSs<IRC, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match get_doc_id_set_iterator_or_null(context, self.lower_value, self.upper_value, &self.field)?
     {
@@ -302,10 +314,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = context.reader();
 
@@ -428,8 +440,9 @@ where
     })
   }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<Disi<IRCLeafReader<IRC>>>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for ScorerSupplierImpl<Disi<IRCLeafReader<IRC>>>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   type Scorer = ConstantScoreDisiScorer<IteratorAndCountDisi<Disi<IRCLeafReader<IRC>>>>;
@@ -439,10 +452,10 @@ where
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let disi = match self.disi.take() {
       Some(disi) => disi,
@@ -465,10 +478,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -476,10 +489,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(self.cost)
   }

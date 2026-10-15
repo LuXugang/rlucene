@@ -86,24 +86,26 @@ impl HasIdentity for RandomApproximationQuery {
 }
 
 impl QueryBase for RandomApproximationQuery {
-  type Weight<IRC>
-    = RandomApproximationWeight<IRC>
+  type Weight<IRC, SIM>
+    = RandomApproximationWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     self.query.to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
@@ -111,10 +113,11 @@ impl QueryBase for RandomApproximationQuery {
     Ok(RandomApproximationWeight::new(random.random(), weight))
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     match self.query.rewrite(_searcher)? {
@@ -136,16 +139,22 @@ impl QueryBase for RandomApproximationQuery {
   }
 }
 
-pub struct RandomApproximationWeight<LR: IndexReaderContext + 'static> {
+pub struct RandomApproximationWeight<
+  LR: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   random_seed: u64,
-  in_: QueryWeight<LR>,
+  in_: QueryWeight<LR, SIM>,
 }
-impl<LR> RandomApproximationWeight<LR>
+impl<LR, SIM> RandomApproximationWeight<LR, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   LR: IndexReaderContext + 'static,
   IRCLeafReader<LR>: 'static,
 {
-  fn new(random_seed: u64, weight: QueryWeight<LR>) -> Self {
+  fn new(random_seed: u64, weight: QueryWeight<LR, SIM>) -> Self {
     Self {
       random_seed,
       in_: weight,
@@ -153,8 +162,9 @@ where
   }
 }
 
-impl<LR> SegmentCacheable<LR> for RandomApproximationWeight<LR>
+impl<LR, SIM> SegmentCacheable<LR> for RandomApproximationWeight<LR, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   LR: IndexReaderContext + 'static,
   IRCLeafReader<LR>: 'static,
 {
@@ -163,8 +173,9 @@ where
   }
 }
 
-impl<LR> Weight<LR> for RandomApproximationWeight<LR>
+impl<LR, SIM> Weight<LR, SIM> for RandomApproximationWeight<LR, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   LR: IndexReaderContext + 'static,
   IRCLeafReader<LR>: 'static,
 {
@@ -172,10 +183,10 @@ where
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<LR>>,
     doc: i32,
-    searcher: &'a IndexSearcher<LR>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, LR>>>
+    searcher: &'a IndexSearcher<LR, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, LR, SIM>>>
   where
-    crate::core::search::index_searcher::IndexSearcher<LR>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<LR, SIM>: Sync,
   {
     self.in_.matches(context, doc, searcher)
   }
@@ -184,10 +195,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<LR>>,
     doc: i32,
-    searcher: &IndexSearcher<LR>,
+    searcher: &IndexSearcher<LR, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<LR>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<LR, SIM>: Sync,
   {
     self.in_.explain(context, doc, searcher)
   }
@@ -197,16 +208,16 @@ where
   }
 
   type ScorerSupplier = DefaultScorerSupplier<
-    RandomApproximationScorer<crate::core::search::query::QueryWeightSsScorer<LR>>,
+    RandomApproximationScorer<crate::core::search::query::QueryWeightSsScorer<LR, SIM>>,
   >;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<LR>>,
-    searcher: &IndexSearcher<LR>,
+    searcher: &IndexSearcher<LR, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<LR>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<LR, SIM>: Sync,
   {
     let scorer_supplier = self.in_.scorer_supplier(context, searcher)?;
 

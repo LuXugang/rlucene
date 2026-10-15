@@ -20,6 +20,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 
@@ -63,36 +64,39 @@ impl HasIdentity for DummyQuery {
   }
 }
 impl QueryBase for DummyQuery {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
     dummy_unreachable!()
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> crate::core::util::error::lucene_error::Result<Self::Weight<IRC>>
+  ) -> crate::core::util::error::lucene_error::Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }
 
-  fn rewrite<IRC>(
+  fn rewrite<IRC, SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> crate::core::util::error::lucene_error::Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dummy_unreachable!()
   }

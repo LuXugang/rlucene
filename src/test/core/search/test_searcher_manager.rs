@@ -161,7 +161,7 @@ impl ThreadedIndexingAndSearchingTestCase for TestSearcherManager {
         .state
         .assert_merged_segments_warmed
         .store(false, Ordering::Relaxed);
-      SearcherManager::from_directory(self.state.directory(), Some(factory))?
+      SearcherManager::<crate::core::index::standard_directory_reader::StandardDirectoryReader<_>>::from_directory(self.state.directory(), Some(factory))?
     };
     assert!(self.mgr.set(Arc::new(mgr)).is_ok());
     assert!(
@@ -373,7 +373,7 @@ fn test_intermediate_close() -> Result<()> {
       executor,
     )));
   let searcher_manager = Arc::new(if random.random_bool(0.5) {
-    SearcherManager::from_directory(directory.clone(), Some(factory))?
+    SearcherManager::<crate::core::index::standard_directory_reader::StandardDirectoryReader<_>>::from_directory(directory.clone(), Some(factory))?
   } else {
     SearcherManager::with_writer_deletes(&writer, random.random_bool(0.5), false, Some(factory))?
   });
@@ -423,7 +423,9 @@ fn test_close_twice() -> Result<()> {
   let directory = new_directory_shared(&mut random)?;
   let config = IndexWriterConfig::new()?;
   IndexWriter::new(directory.clone(), config)?.close()?;
-  let sm = SearcherManager::from_directory(directory.clone(), None)?;
+  let sm = SearcherManager::<
+    crate::core::index::standard_directory_reader::StandardDirectoryReader<_>,
+  >::from_directory(directory.clone(), None)?;
   sm.close()?;
   sm.close()?;
   directory.close()?;
@@ -469,7 +471,9 @@ fn test_ensure_open() -> Result<()> {
   let directory = new_directory_shared(&mut random)?;
   let config = IndexWriterConfig::new()?;
   IndexWriter::new(directory.clone(), config)?.close()?;
-  let sm = SearcherManager::from_directory(directory.clone(), None)?;
+  let sm = SearcherManager::<
+    crate::core::index::standard_directory_reader::StandardDirectoryReader<_>,
+  >::from_directory(directory.clone(), None)?;
   let searcher = sm.acquire()?;
   sm.close()?;
 
@@ -538,7 +542,9 @@ fn test_evil_searcher_factory() -> Result<()> {
 
   let other = Arc::new(directory_reader::open(directory.clone())?);
 
-  let result = SearcherManager::from_directory(
+  let result = SearcherManager::<
+    crate::core::index::standard_directory_reader::StandardDirectoryReader<_>,
+  >::from_directory(
     directory.clone(),
     Some(SearcherFactory::with_hook(SearcherFactoryHook::Evil(
       EvilSearcherFactory::new(other.clone(), random.random()),
@@ -575,7 +581,9 @@ fn test_maybe_refresh_blocking_lock() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, directory.clone())?;
   writer.close(&mut random)?;
 
-  let searcher_manager = Arc::new(SearcherManager::from_directory(directory.clone(), None)?);
+  let searcher_manager = Arc::new(SearcherManager::<
+    crate::core::index::standard_directory_reader::StandardDirectoryReader<_>,
+  >::from_directory(directory.clone(), None)?);
   let refresh_manager = searcher_manager.clone();
   let refresh_thread = thread::spawn(move || refresh_manager.maybe_refresh_blocking());
   match refresh_thread.join() {

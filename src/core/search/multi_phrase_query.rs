@@ -231,9 +231,10 @@ impl Builder {
 }
 
 impl QueryBase for MultiPhraseQuery {
-  type Weight<IRC>
-    = PhraseWeight<MultiPhraseQueryWeightBase>
+  type Weight<IRC, SIM>
+    = PhraseWeight<MultiPhraseQueryWeightBase<SIM>, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, f: &str) -> Result<String> {
@@ -279,16 +280,17 @@ impl QueryBase for MultiPhraseQuery {
     Ok(buffer)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let similarity = searcher.get_similarity();
     let field = self
@@ -302,11 +304,12 @@ impl QueryBase for MultiPhraseQuery {
     Ok(weight)
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if self.term_arrays.is_empty() {
       Ok(Some(
@@ -343,15 +346,22 @@ impl QueryBase for MultiPhraseQuery {
   }
 }
 
-pub struct MultiPhraseQueryWeightBase {
+pub struct MultiPhraseQueryWeightBase<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   query: MultiPhraseQuery,
   term_states: HashMap<Arc<Term>, TermStates>,
   boost: f32,
-  base: PhraseWeightMeta,
+  base: PhraseWeightMeta<SIM>,
 }
 
-impl MultiPhraseQueryWeightBase {
-  pub(crate) fn new(query: MultiPhraseQuery, boost: f32, base: PhraseWeightMeta) -> Self {
+impl<SIM> MultiPhraseQueryWeightBase<SIM>
+where
+  SIM: Similarity,
+{
+  pub(crate) fn new(query: MultiPhraseQuery, boost: f32, base: PhraseWeightMeta<SIM>) -> Self {
     Self {
       query,
       term_states: HashMap::new(),
@@ -361,11 +371,14 @@ impl MultiPhraseQueryWeightBase {
   }
 }
 
-impl PhraseWeightBase for MultiPhraseQueryWeightBase {
-  type SimScorer = Arc<SimScorerType>;
+impl<SIM> PhraseWeightBase<SIM> for MultiPhraseQueryWeightBase<SIM>
+where
+  SIM: Similarity,
+{
+  type SimScorer = Arc<SimScorerType<SIM>>;
   type IE<LR: LeafReader> = SlowImpactsEnum<MultiPhrasePostingsEnum<LRPosting<LR>>>;
 
-  fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
+  fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Self::SimScorer>
   where
     IRC: IndexReaderContext + 'static,
   {
@@ -397,16 +410,17 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
     }
 
     if all_term_stats.is_empty() {
-      Ok(Arc::new(SimScorerType::B(SimScorerImpl)))
+      Ok(Arc::new(SimScorerType::<SIM>::B(SimScorerImpl)))
     } else {
       let collection_stats = searcher
         .collection_statistics(&self.base.field)?
         .ok_or_else(|| LuceneError::illegal_state("could not get collection stats"))?;
-      Ok(Arc::new(SimScorerType::A(self.base.similarity.scorer(
-        self.boost,
-        &collection_stats,
-        &all_term_stats,
-      )?)))
+      Ok(Arc::new(SimScorerType::<SIM>::A(
+        self
+          .base
+          .similarity
+          .scorer(self.boost, &collection_stats, &all_term_stats)?,
+      )))
     }
   }
 
@@ -514,7 +528,7 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
     Ok(Some(v))
   }
 
-  fn base(&self) -> &PhraseWeightMeta {
+  fn base(&self) -> &PhraseWeightMeta<SIM> {
     &self.base
   }
 }

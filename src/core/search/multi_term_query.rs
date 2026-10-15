@@ -28,6 +28,7 @@ use crate::core::search::query::{IntoQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::wildcard_query::WildcardQuery;
@@ -90,11 +91,16 @@ pub trait MultiTermQuery: QueryBase + Clone {
 }
 /// Trait defining how the query is rewritten.
 pub trait RewriteMethod {
-  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync;
+    IndexSearcher<IRC, SIM>: Sync;
   /// Returns the [`MultiTermQuery`]s [`TermsEnum`].
   ///
   /// See [`MultiTermQuery::get_terms_enum`].
@@ -121,11 +127,16 @@ pub trait RewriteMethod {
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBlendedRewrite;
 impl RewriteMethod for ConstantScoreBlendedRewrite {
-  fn rewrite<IRC, Q>(&self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    _index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(MultiTermQueryConstantScoreBlendedWrapper::new(query.clone()).into())
   }
@@ -140,11 +151,16 @@ impl RewriteMethod for ConstantScoreBlendedRewrite {
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreRewrite;
 impl RewriteMethod for ConstantScoreRewrite {
-  fn rewrite<IRC, Q>(&self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    _index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(MultiTermQueryConstantScoreWrapper::new(query.clone()).into())
   }
@@ -164,11 +180,16 @@ pub enum RewriteMethodEnum {
   TopTermsScoringBoolean(TopTermsScoringBooleanQueryRewrite),
 }
 impl RewriteMethod for RewriteMethodEnum {
-  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       RewriteMethodEnum::Blended(r) => r.rewrite(index_searcher, query),
@@ -276,11 +297,16 @@ impl TermCollectingRewrite for TopTermsScoringBooleanQueryRewrite {
 }
 
 impl RewriteMethod for TopTermsScoringBooleanQueryRewrite {
-  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.default_rewrite(index_searcher, query)
   }
@@ -344,11 +370,16 @@ impl TermCollectingRewrite for TopTermsBlendedFreqScoringRewrite {
 }
 
 impl RewriteMethod for TopTermsBlendedFreqScoringRewrite {
-  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.default_rewrite(index_searcher, query)
   }
@@ -410,11 +441,16 @@ impl TermCollectingRewrite for TopTermsBoostOnlyBooleanQueryRewrite {
 }
 
 impl RewriteMethod for TopTermsBoostOnlyBooleanQueryRewrite {
-  fn rewrite<IRC, Q>(&self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.default_rewrite(index_searcher, query)
   }
@@ -463,33 +499,36 @@ pub enum MultiTermQuerySet {
 }
 
 impl QueryBase for MultiTermQuerySet {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     dispatch_multi_term_query!(self, |q| q.to_string(field))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     dispatch_multi_term_query!(self, |q| q.create_weight(searcher, score_mode, boost))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     dispatch_multi_term_query!(self, |q| q.rewrite(searcher))

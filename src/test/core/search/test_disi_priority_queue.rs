@@ -100,10 +100,13 @@ fn test_random() -> Result<()> {
   Ok(())
 }
 
-pub fn wrapper(
+pub fn wrapper<SIM>(
   iterator: DocIdSetIteratorImpl,
-  dummy_s: &IndexSearcher<CompositeReaderContext<DummyCR>>,
-) -> Result<DisiWrapper<QueryWeightSsScorer<CompositeReaderContext<DummyCR>>>> {
+  dummy_s: &IndexSearcher<CompositeReaderContext<DummyCR>, SIM>,
+) -> Result<DisiWrapper<QueryWeightSsScorer<CompositeReaderContext<DummyCR>, SIM>>>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   let q = DummyQueryImpl::new(iterator);
   let weight = q.weight();
   let lrc = &dummy_s.get_leaf_contexts()?[0];
@@ -156,12 +159,15 @@ impl SegmentCacheable<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight 
   }
 }
 
-impl Weight<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight {
+impl<SIM> Weight<CompositeReaderContext<DummyCR>, SIM> for DummyQueryImplWeight
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   fn explain(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,
     _doc: i32,
-    _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>>,
+    _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>, SIM>,
   ) -> Result<Explanation> {
     unreachable!()
   }
@@ -170,12 +176,13 @@ impl Weight<CompositeReaderContext<DummyCR>> for DummyQueryImplWeight {
     unreachable!()
   }
 
-  type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<CompositeReaderContext<DummyCR>>>;
+  type ScorerSupplier =
+    DefaultScorerSupplier<QueryWeightSsScorer<CompositeReaderContext<DummyCR>, SIM>>;
 
   fn scorer_supplier(
     &self,
     _context: &LeafReaderContext<IRCLeafReader<CompositeReaderContext<DummyCR>>>,
-    _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>>,
+    _searcher: &IndexSearcher<CompositeReaderContext<DummyCR>, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>> {
     let v = ConstantScoreScorer::from_disi(1.0f32, self.score_mode, self.query.disi.clone());
     Ok(Some(DefaultScorerSupplier::new(

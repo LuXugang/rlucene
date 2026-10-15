@@ -42,7 +42,7 @@ use crate::core::search::scorer::{ScorerEnum2, ScorerEnum4};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
-  SimScorer, SimScorerEnum2, Similarity, SimilarityEnum, SimilaritySimScorer,
+  SimScorer, SimScorerEnum2, Similarity, SimilaritySimScorer,
 };
 use crate::core::search::term_matches_iterator::TermMatchesIterator;
 use crate::core::search::term_scorer::{
@@ -121,9 +121,10 @@ impl HasIdentity for TermQuery {
 }
 
 impl QueryBase for TermQuery {
-  type Weight<IRC>
-    = TermWeight
+  type Weight<IRC, SIM>
+    = TermWeight<SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -145,16 +146,17 @@ impl QueryBase for TermQuery {
     Ok(buffer)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     mut self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let context = searcher.get_top_reader_context();
     let ts = match self.per_reader_term_state.take() {
@@ -178,16 +180,22 @@ impl QueryBase for TermQuery {
     Ok(())
   }
 }
-pub struct TermWeight {
-  similarity: Arc<SimilarityEnum>,
-  sim_scorer: Option<Arc<TermQuerySimScorer>>,
+pub struct TermWeight<SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity>
+where
+  SIM: Similarity,
+{
+  similarity: Arc<SIM>,
+  sim_scorer: Option<Arc<TermQuerySimScorer<SIM>>>,
   term_states: Arc<TermStates>,
   score_mode: ScoreMode,
   parent_query: Arc<Query>,
 }
-impl TermWeight {
+impl<SIM> TermWeight<SIM>
+where
+  SIM: Similarity,
+{
   pub fn new<IRC>(
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: ScoreMode,
     boost: f32,
     term_states: Arc<TermStates>,
@@ -195,7 +203,7 @@ impl TermWeight {
   ) -> Result<Self>
   where
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     debug_assert!(query.per_reader_term_state.is_none());
     let similarity = searcher.get_similarity();
@@ -228,13 +236,13 @@ impl TermWeight {
         let collection_stats = collection_stats.as_ref().ok_or_else(|| {
           LuceneError::illegal_state("term query collection statistics are missing")
         })?;
-        Some(Arc::new(TermQuerySimScorer::A(similarity.scorer(
+        Some(Arc::new(TermQuerySimScorer::<SIM>::A(similarity.scorer(
           boost,
           collection_stats,
           &[term_stats],
         )?)))
       } else {
-        Some(Arc::new(TermQuerySimScorer::B(SimScorerImpl)))
+        Some(Arc::new(TermQuerySimScorer::<SIM>::B(SimScorerImpl)))
       }
     } else {
       None
@@ -296,8 +304,9 @@ impl TermWeight {
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for TermWeight
+impl<IRC, SIM> SegmentCacheable<IRC> for TermWeight<SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -305,18 +314,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for TermWeight
+impl<IRC, SIM> Weight<IRC, SIM> for TermWeight<SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    _searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let parent_query = if let Query::Term(query) = self.parent_query.as_ref() {
       query
@@ -330,10 +340,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
       v
@@ -393,15 +403,15 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = TermScorerSupplier<IRCLeafReader<IRC>>;
+  type ScorerSupplier = TermScorerSupplier<IRCLeafReader<IRC>, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     debug_assert!(
       {
@@ -440,10 +450,10 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if !context.reader().has_deletions()? {
       if let Some(mut terms_enum) = self.get_terms_enum(context)? {
@@ -452,20 +462,23 @@ where
         Ok(0)
       }
     } else {
-      <Self as Weight<IRC>>::default_count(self, context)
+      <Self as Weight<IRC, SIM>>::default_count(self, context)
     }
   }
 }
 
-impl TermWeight {
+impl<SIM> TermWeight<SIM>
+where
+  SIM: Similarity,
+{
   fn build_term_scorer<LR>(
     context: &LeafReaderContext<LR>,
     terms_enum: Option<&mut LRTermsEnum<LR>>,
     term: &Term,
-    sim_scorer: Option<Arc<TermQuerySimScorer>>,
+    sim_scorer: Option<Arc<TermQuerySimScorer<SIM>>>,
     score_mode: ScoreMode,
     top_level_scoring_clause: bool,
-  ) -> Result<TermScorerEnum<LR>>
+  ) -> Result<TermScorerEnum<LR, SIM>>
   where
     LR: LeafReader,
   {
@@ -515,20 +528,24 @@ impl TermWeight {
     }
   }
 }
-pub struct TermScorerSupplier<LR>
-where
+pub struct TermScorerSupplier<
+  LR,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
   LR: LeafReader,
 {
   top_level_scoring_clause: bool,
   term_states: Arc<TermStates>,
   prepare_state: PrepareState<LRTermsEnum<LR>>,
   term: Arc<Term>,
-  sim_scorer: Arc<TermQuerySimScorer>,
+  sim_scorer: Arc<TermQuerySimScorer<SIM>>,
   pub(crate) score_mode: ScoreMode,
   terms_enum: Option<LRTermsEnum<LR>>,
 }
-impl<LR> TermScorerSupplier<LR>
+impl<LR, SIM> TermScorerSupplier<LR, SIM>
 where
+  SIM: Similarity,
   LR: LeafReader,
 {
   #[allow(clippy::too_many_arguments)]
@@ -537,7 +554,7 @@ where
     term_states: Arc<TermStates>,
     prepare_state: PrepareState<LRTermsEnum<LR>>,
     term: Arc<Term>,
-    sim_scorer: Arc<TermQuerySimScorer>,
+    sim_scorer: Arc<TermQuerySimScorer<SIM>>,
     score_mode: ScoreMode,
   ) -> Self {
     Self {
@@ -574,25 +591,26 @@ where
     Ok(Some(()))
   }
 }
-impl<IRC> ScorerSupplier<IRC> for TermScorerSupplier<IRCLeafReader<IRC>>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for TermScorerSupplier<IRCLeafReader<IRC>, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = TermScorerEnum<IRCLeafReader<IRC>>;
+  type Scorer = TermScorerEnum<IRCLeafReader<IRC>, SIM>;
   type BulkScorer =
-    crate::core::search::weight::DefaultBulkScorer<TermScorerEnum<IRCLeafReader<IRC>>>;
+    crate::core::search::weight::DefaultBulkScorer<TermScorerEnum<IRCLeafReader<IRC>, SIM>>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.get_terms_enum(context)?;
-    let scorer = TermWeight::build_term_scorer(
+    let scorer = TermWeight::<SIM>::build_term_scorer(
       context,
       self.terms_enum.as_mut(),
       self.term.as_ref(),
@@ -606,13 +624,13 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.get_terms_enum(context)?;
-    let scorer = TermWeight::build_term_scorer(
+    let scorer = TermWeight::<SIM>::build_term_scorer(
       context,
       self.terms_enum.as_mut(),
       self.term.as_ref(),
@@ -628,10 +646,10 @@ where
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let result: Result<i32> = (|| match self.get_terms_enum(context)? {
       None => Ok(0),
@@ -665,18 +683,26 @@ impl SimScorer for SimScorerImpl {
     0f32
   }
 }
-pub(crate) type TermQuerySimScorer = SimScorerEnum2<SimilaritySimScorer, SimScorerImpl>;
+pub(crate) type TermQuerySimScorer<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = SimScorerEnum2<SimilaritySimScorer<SIM>, SimScorerImpl>;
 
-pub type TermScorerEnum<LR> = ScorerEnum4<
-  TermScorer<PostingsTermState<LRPosting<LR>, Arc<TermQuerySimScorer>>, LRNormNumericDocValues<LR>>,
+pub type TermScorerEnum<
+  LR,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = ScorerEnum4<
   TermScorer<
-    ImpactsTermState<LRImpactsEnum<LR>, Arc<TermQuerySimScorer>>,
+    PostingsTermState<LRPosting<LR>, Arc<TermQuerySimScorer<SIM>>>,
+    LRNormNumericDocValues<LR>,
+  >,
+  TermScorer<
+    ImpactsTermState<LRImpactsEnum<LR>, Arc<TermQuerySimScorer<SIM>>>,
     LRNormNumericDocValues<LR>,
   >,
   TermScorer<
     crate::core::search::impacts_disi::SourceImpactsDISI<
       LRImpactsEnum<LR>,
-      Arc<TermQuerySimScorer>,
+      Arc<TermQuerySimScorer<SIM>>,
     >,
     LRNormNumericDocValues<LR>,
   >,
@@ -689,13 +715,17 @@ impl crate::core::util::accountable::Accountable for TermQuery {
   }
 }
 
-impl TermWeight {
+impl<SIM> TermWeight<SIM>
+where
+  SIM: Similarity,
+{
   pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
-  {
+  ) -> Result<
+    Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>,
+  > {
     let Some(mut terms_enum) = self.get_terms_enum(context)? else {
       return Ok(None);
     };

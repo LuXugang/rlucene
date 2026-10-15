@@ -25,6 +25,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::search::field_comparator::FieldComparatorEnum;
 use crate::core::search::pruning::Pruning;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field::{
   IndexSorterEnumSorter, MissingValueEnum, NPImpl1, SProviderImpl2, SortField, SortFieldType,
   SortFiledBase,
@@ -140,13 +141,14 @@ impl SortFiledBase for SortFieldEnum {
       .set_missing_value(missing_value))
   }
 
-  fn rewrite<IRC>(
+  fn rewrite<IRC, SIM>(
     &self,
-    searcher: &crate::core::search::index_searcher::IndexSearcher<IRC>,
+    searcher: &crate::core::search::index_searcher::IndexSearcher<IRC, SIM>,
   ) -> Result<Option<SortFieldEnum>>
   where
+    SIM: Similarity,
     IRC: crate::core::index::index_reader_context::IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dispatch_sort_field!(self, |sort_field| sort_field.rewrite(searcher))
   }

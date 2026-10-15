@@ -111,18 +111,19 @@ where
   }
 }
 
-fn do_conjunctions<R, IRC>(
+fn do_conjunctions<R, IRC, SIM>(
   random: &mut R,
-  s: &IndexSearcher<IRC>,
+  s: &IndexSearcher<IRC, SIM>,
   sets: &[Arc<FixedBitSet>],
   iter: usize,
   max_clauses: usize,
   validate: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   for _ in 0..iter {
     let n_clauses = random.random_range(2..=max_clauses);
@@ -141,9 +142,9 @@ where
   }
   Ok(())
 }
-fn do_nested_conjunctions<R, IRC>(
+fn do_nested_conjunctions<R, IRC, SIM>(
   random: &mut R,
-  s: &IndexSearcher<IRC>,
+  s: &IndexSearcher<IRC, SIM>,
   sets: &[Arc<FixedBitSet>],
   iter: usize,
   max_outer_clauses: usize,
@@ -151,9 +152,10 @@ fn do_nested_conjunctions<R, IRC>(
   validate: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let mut n_matches = 0usize;
 
@@ -273,16 +275,17 @@ impl Collector for CountingHitCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)

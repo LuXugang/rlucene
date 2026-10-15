@@ -149,10 +149,11 @@ fn never_cache() -> Arc<QueryCachingPolicyEnum> {
   Arc::new(QueryCachingPolicyEnum::custom(NeverCache))
 }
 
-fn set_cache<IRC>(searcher: &mut IndexSearcher<IRC>, cache: Arc<TestCache>)
+fn set_cache<IRC, SIM>(searcher: &mut IndexSearcher<IRC, SIM>, cache: Arc<TestCache>)
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   searcher.set_query_cache(Some(QueryCacheEnum::custom(cache)));
 }
@@ -186,16 +187,17 @@ impl Collector for ScoringTotalHitCountCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.in_.get_leaf_collector(context, weight, searcher)
   }
@@ -2403,18 +2405,24 @@ fn test_cache_has_fast_count() -> Result<()> {
   w.close(&mut random)
 }
 
-pub(crate) struct WeightWrapper<IRC: IndexReaderContext + 'static> {
-  in_: Arc<QueryWeight<IRC>>,
+pub(crate) struct WeightWrapper<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  in_: Arc<QueryWeight<IRC, SIM>>,
   scorer_called: Arc<AtomicBool>,
   bulk_scorer_called: Arc<AtomicBool>,
 }
 
-impl<IRC> WeightWrapper<IRC>
+impl<IRC, SIM> WeightWrapper<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn new(
-    in_: QueryWeight<IRC>,
+    in_: QueryWeight<IRC, SIM>,
     scorer_called: Arc<AtomicBool>,
     bulk_scorer_called: Arc<AtomicBool>,
   ) -> Self {
@@ -2426,8 +2434,9 @@ where
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for WeightWrapper<IRC>
+impl<IRC, SIM> SegmentCacheable<IRC> for WeightWrapper<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -2435,18 +2444,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for WeightWrapper<IRC>
+impl<IRC, SIM> Weight<IRC, SIM> for WeightWrapper<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.in_.matches(context, doc, searcher)
   }
@@ -2455,10 +2465,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.in_.explain(context, doc, searcher)
   }
@@ -2467,22 +2477,22 @@ where
     self.in_.get_query()
   }
 
-  type ScorerSupplier = WeightWrapperScorerSupplier<IRC>;
+  type ScorerSupplier = WeightWrapperScorerSupplier<IRC, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let Some(mut scorer_supplier) = self.in_.scorer_supplier(context, searcher)? else {
       return Ok(None);
     };
     let scorer = scorer_supplier.get(i64::MAX, context, searcher)?;
     let cost = crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost(&scorer)?;
-    Ok(Some(WeightWrapperScorerSupplier {
+    Ok(Some(WeightWrapperScorerSupplier::<_, SIM> {
       in_: self.in_.clone(),
       scorer: Some(scorer),
       cost,
@@ -2492,29 +2502,35 @@ where
   }
 }
 
-pub(crate) struct WeightWrapperScorerSupplier<IRC: IndexReaderContext + 'static> {
-  in_: Arc<QueryWeight<IRC>>,
-  scorer: Option<QueryWeightSsScorer<IRC>>,
+pub(crate) struct WeightWrapperScorerSupplier<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  in_: Arc<QueryWeight<IRC, SIM>>,
+  scorer: Option<QueryWeightSsScorer<IRC, SIM>>,
   cost: i64,
   scorer_called: Arc<AtomicBool>,
   bulk_scorer_called: Arc<AtomicBool>,
 }
 
-impl<IRC> ScorerSupplier<IRC> for WeightWrapperScorerSupplier<IRC>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for WeightWrapperScorerSupplier<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
+  type Scorer = QueryWeightSsScorer<IRC, SIM>;
+  type BulkScorer = QueryWeightSsBulkScorer<IRC, SIM>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.scorer_called.store(true, Ordering::SeqCst);
     self
@@ -2526,10 +2542,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     self.bulk_scorer_called.store(true, Ordering::SeqCst);
     self.in_.bulk_scorer(context, searcher)
@@ -2538,10 +2554,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(self.cost)
   }

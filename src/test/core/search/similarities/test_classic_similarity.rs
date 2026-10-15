@@ -46,12 +46,26 @@ use std::sync::{Arc, LazyLock};
 #[allow(dead_code)] // for quick search
 struct TestClassicSimilarity;
 
-static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+static LIGHT_SEARCHER: LazyLock<
+  Arc<
+    DefaultIndexSearchCR<
+      crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+    >,
+  >,
+> = LazyLock::new(|| {
   let mut random = random();
   Arc::new(build_test_set_up(&mut random).expect("failed to initialize TestClassicSimilarity"))
 });
 
-fn test_set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+fn test_set_up<R>(
+  random: &mut R,
+) -> Result<
+  Arc<
+    DefaultIndexSearchCR<
+      crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+    >,
+  >,
+>
 where
   R: Rng + ?Sized,
 {
@@ -62,7 +76,11 @@ where
   Ok(Arc::new(build_test_set_up(random)?))
 }
 
-fn build_test_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+fn build_test_set_up<R>(
+  random: &mut R,
+) -> Result<
+  DefaultIndexSearchCR<crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity>,
+>
 where
   R: Rng + ?Sized,
 {
@@ -76,8 +94,12 @@ where
   index_writer.commit()?;
 
   let index_reader = directory_reader::open(directory)?;
-  let mut index_searcher = new_searcher_with_reader(index_reader)?;
-  index_searcher.set_similarity(classic_similarity::new());
+  let index_searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      index_reader,
+      std::sync::Arc::new(classic_similarity::new()),
+    )?;
+
   Ok(index_searcher)
 }
 #[test]

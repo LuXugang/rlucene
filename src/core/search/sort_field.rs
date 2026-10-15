@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #![allow(deprecated)]
+use crate::core::search::similarities_impl::similarities::Similarity;
 use std::fmt::Write as _;
 
 use crate::core::index::doc_values::SortedDocValuesWithEmpty;
@@ -1175,10 +1176,11 @@ pub trait SortFiledBase: Display {
   ///
   /// * `Some(SortField)` – if a rewritten sort field was created.
   /// * `None` – if no rewriting is needed and the current sort field should be kept as is.
-  fn rewrite<IRC>(&self, _reader: &IndexSearcher<IRC>) -> Result<Option<SortFieldEnum>>
+  fn rewrite<IRC, SIM>(&self, _reader: &IndexSearcher<IRC, SIM>) -> Result<Option<SortFieldEnum>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(None)
   }

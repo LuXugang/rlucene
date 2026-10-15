@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 
@@ -30,15 +31,16 @@ pub trait SimpleCollector: Collector + LeafCollector {
     Ok(())
   }
 
-  fn get_leaf_collector<W, LR, IRC>(
+  fn get_leaf_collector<W, LR, IRC, SIM>(
     &mut self,
     context: &LeafReaderContext<LR>,
     _weight: Option<&W>,
   ) -> Result<()>
   where
+    SIM: Similarity,
     LR: LeafReader,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
+    W: Weight<IRC, SIM> + ?Sized,
   {
     self.do_set_next_reader(context)
   }

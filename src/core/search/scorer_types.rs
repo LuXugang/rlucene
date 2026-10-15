@@ -16,7 +16,9 @@
  */
 //! Owned search types without carrying the lifetime of the reader itself.
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::search::similarities_impl::similarities::Similarity;
 pub trait ScorerTypes: 'static {
+  type Similarity: Similarity;
   type Posting: crate::core::index::postings_enum::PostingsEnum + 'static;
   type Impacts: crate::core::index::impacts_enum::ImpactsEnum + 'static;
   type Norm: crate::core::index::numeric_doc_values::NumericDocValues + 'static;
@@ -33,16 +35,35 @@ pub trait ScorerTypes: 'static {
   type FloatScorer: crate::core::search::vector_scorer::VectorScorer + 'static;
   type PointValues: crate::core::index::point_values::PointValues + 'static;
 }
-pub struct OwnedScorerTypes<P, I, N, D, B, S, SN, SS, K, BI, FI, BS, FS, PV>(
+pub struct OwnedScorerTypes<
+  P,
+  I,
+  N,
+  D,
+  B,
+  S,
+  SN,
+  SS,
+  K,
+  BI,
+  FI,
+  BS,
+  FS,
+  PV,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+>(
   #[expect(
     clippy::type_complexity,
     reason = "This zero-sized marker records the fourteen associated types in ScorerTypes."
   )]
-  std::marker::PhantomData<fn() -> (P, I, N, D, B, S, SN, SS, K, BI, FI, BS, FS, PV)>,
-);
-impl<P, I, N, D, B, S, SN, SS, K, BI, FI, BS, FS, PV> ScorerTypes
-  for OwnedScorerTypes<P, I, N, D, B, S, SN, SS, K, BI, FI, BS, FS, PV>
+  std::marker::PhantomData<fn() -> (P, I, N, D, B, S, SN, SS, K, BI, FI, BS, FS, PV, SIM)>,
+)
 where
+  SIM: Similarity;
+impl<P, I, N, D, B, S, SN, SS, K, BI, FI, BS, FS, PV, SIM> ScorerTypes
+  for OwnedScorerTypes<P, I, N, D, B, S, SN, SS, K, BI, FI, BS, FS, PV, SIM>
+where
+  SIM: Similarity,
   P: crate::core::index::postings_enum::PostingsEnum + 'static,
   I: crate::core::index::impacts_enum::ImpactsEnum + 'static,
   N: crate::core::index::numeric_doc_values::NumericDocValues + 'static,
@@ -58,6 +79,7 @@ where
   FS: crate::core::search::vector_scorer::VectorScorer + 'static,
   PV: crate::core::index::point_values::PointValues + 'static,
 {
+  type Similarity = SIM;
   type Posting = P;
   type Impacts = I;
   type Norm = N;
@@ -73,7 +95,7 @@ where
   type FloatScorer = FS;
   type PointValues = PV;
 }
-pub type LeafScorerTypes<LR> = OwnedScorerTypes<
+pub type LeafScorerTypes<LR, SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity> = OwnedScorerTypes<
   crate::core::index::leaf_reader::LRPosting<LR>,
   crate::core::index::leaf_reader::LRImpactsEnum<LR>,
   <LR as LeafReader>::NormNumericDocValues,
@@ -88,4 +110,4 @@ pub type LeafScorerTypes<LR> = OwnedScorerTypes<
   <<LR as LeafReader>::ByteVectorValues as crate::core::index::byte_vector_values::ByteVectorValues>::VectorScorer,
   <<LR as LeafReader>::FloatVectorValues as crate::core::index::float_vector_values::FloatVectorValues>::VectorScorer,
   <LR as LeafReader>::PointValues,
->;
+ SIM>;

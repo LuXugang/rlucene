@@ -47,14 +47,15 @@ impl<IRC> IndexSearcherBase<IRC> for CustomSearcher
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn search(
+  fn search<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n_docs: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let mut bq = Builder::new();
     bq.add(query, Occur::Must)?;
@@ -65,15 +66,16 @@ where
     IndexSearcherDefaults::search(searcher, bq.build().into(), n_docs)
   }
 
-  fn search_with_sort(
+  fn search_with_sort<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n_docs: usize,
     sort: Arc<Sort>,
   ) -> Result<TopFieldDocs>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let mut bq = Builder::new();
     bq.add(query, Occur::Must)?;

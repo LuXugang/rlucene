@@ -338,15 +338,16 @@ fn test_skipper_optimization_gap_assumption() -> Result<()> {
   Ok(())
 }
 
-fn assert_same_matches<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_same_matches<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   q1: Query,
   q2: Query,
   scores: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   if scores {

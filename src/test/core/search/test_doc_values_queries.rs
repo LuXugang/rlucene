@@ -513,17 +513,18 @@ fn test_duel_point_sorted_set_sorted_with_skipper_range_query() -> Result<()> {
   Ok(())
 }
 
-fn assert_same_matches<IRC, T1, T2>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_same_matches<IRC, T1, T2, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   q1: T1,
   q2: T2,
   scores: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   T1: Into<Query>,
   T2: Into<Query>,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let irc = searcher.get_top_reader_context();
   let max_doc = irc.reader().max_doc()?;

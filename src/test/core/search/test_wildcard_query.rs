@@ -304,15 +304,16 @@ where
   writer.close(random)?;
   Ok(dir)
 }
-fn assert_matches<IRC, Q>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_matches<IRC, Q, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   q: Q,
   expected_matches: usize,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   Q: IntoQuery,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let result = searcher.search(q, 1000)?.score_docs;
   assert_eq!(expected_matches, result.len());

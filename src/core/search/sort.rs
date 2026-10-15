@@ -16,6 +16,7 @@
  */
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field::{SortField, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -108,10 +109,11 @@ impl Sort {
 
   /// Rewrites the sort fields in this sort, returning a new sort if any field
   /// changes during rewriting.
-  pub fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Self>>
+  pub fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Self>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut rewritten_fields = None;
     for (i, field) in self.fields.iter().enumerate() {

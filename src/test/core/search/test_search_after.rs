@@ -261,17 +261,18 @@ fn test_queries() -> Result<()> {
   Ok(())
 }
 
-fn assert_query<IRC, R>(
+fn assert_query<IRC, R, SIM>(
   random: &mut R,
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
   query: Query,
   sort: Option<Sort>,
   is_relevance: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
   R: Rng,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   let page_size = TestUtil::next_usize(random, 1, max_doc * 2);
@@ -368,15 +369,16 @@ where
   assert_eq!(all.score_docs().len(), page_start);
   Ok(())
 }
-fn assert_page<IRC>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_page<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   page_start: usize,
   all: &TopDocEnum,
   paged: &TopDocEnum,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   assert_eq!(all.total_hits().value(), paged.total_hits().value());
 

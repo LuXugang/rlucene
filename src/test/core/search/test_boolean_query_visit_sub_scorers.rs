@@ -44,7 +44,9 @@ pub struct TestBooleanQueryVisitSubScorers;
 fn set_up<R: Rng + ?Sized>(
   random: &mut R,
 ) -> Result<(
-  DefaultIndexSearchCRShared,
+  DefaultIndexSearchCRShared<
+    crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+  >,
   ScorerIndexSearcher<DefaultCRReaderShared>,
 )>
 where
@@ -82,13 +84,17 @@ where
   let reader = Arc::new(writer.get_reader(random)?);
   writer.close(random)?;
 
-  let mut searcher: DefaultIndexSearchCRShared =
-    new_searcher_with_wrap_assert(random, reader.clone(), true, false)?;
-  searcher.set_similarity(classic_similarity::new());
+  let searcher: DefaultIndexSearchCRShared<
+    crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+  > = crate::test_framework::core::util::lucene_test_case::new_searcher_with_similarity(
+    random,
+    reader.clone(),
+    Arc::new(classic_similarity::new()),
+  )?;
 
-  let mut scorer_searcher: ScorerIndexSearcher<DefaultCRReaderShared> =
+  let scorer_searcher: ScorerIndexSearcher<DefaultCRReaderShared> =
     ScorerIndexSearcher::new(reader);
-  scorer_searcher.s.set_similarity(RawTFSimilarity::default());
+
   Ok((searcher, scorer_searcher))
 }
 

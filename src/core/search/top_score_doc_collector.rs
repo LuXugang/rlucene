@@ -25,6 +25,7 @@ use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs_collector::{TopDocsCollector, TopDocsCollectorBase};
 use crate::core::search::total_hits::{Relation, TotalHits};
@@ -76,16 +77,17 @@ impl Collector for TopScoreDocCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let doc_base = context.doc_base as i32;
     let after_score: f32;

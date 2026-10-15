@@ -32,11 +32,14 @@ impl<IRC> IndexSearcherBase<IRC> for GetSlicesIndexSearcher
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn slices(
+  fn slices<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     leaves: &[LeafReaderContext<IRC::LeafReader>],
-  ) -> Result<Vec<LeafSlice>> {
+  ) -> Result<Vec<LeafSlice>>
+  where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  {
     do_slices(leaves, 1, 1, false)
   }
 }
@@ -48,11 +51,14 @@ impl<IRC> IndexSearcherBase<IRC> for SlicesOffloadedToExecutorIndexSearcher
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn slices(
+  fn slices<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     leaves: &[LeafReaderContext<IRC::LeafReader>],
-  ) -> Result<Vec<LeafSlice>> {
+  ) -> Result<Vec<LeafSlice>>
+  where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  {
     let mut slices = Vec::new();
     for ctx in leaves {
       slices.push(LeafSlice::new(vec![
@@ -70,11 +76,14 @@ impl<IRC> IndexSearcherBase<IRC> for SegmentPartitionsSameSliceIndexSearcher
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn slices(
+  fn slices<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     leaves: &[LeafReaderContext<IRC::LeafReader>],
-  ) -> Result<Vec<LeafSlice>> {
+  ) -> Result<Vec<LeafSlice>>
+  where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  {
     let mut slices = Vec::new();
     for ctx in leaves {
       slices.push(LeafSlice::new(vec![

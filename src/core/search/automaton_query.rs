@@ -25,6 +25,7 @@ use crate::core::search::multi_term_query::{
 use crate::core::search::query::{Query, QueryBase, QueryRef, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::automation::automaton::Automaton;
@@ -136,9 +137,10 @@ impl AutomatonQuery {
 }
 
 impl QueryBase for AutomatonQuery {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -157,25 +159,27 @@ impl QueryBase for AutomatonQuery {
     Ok(buffer)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.rewrite_method.rewrite(searcher, self).map(Some)
   }

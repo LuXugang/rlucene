@@ -75,15 +75,16 @@ impl CheckHits {
 
   /// Tests that all documents up to `maxDoc` which are *not* in the expected result set, have an
   /// explanation which indicates that the document does not match.
-  pub fn check_no_match_explanations<IRC>(
+  pub fn check_no_match_explanations<IRC, SIM>(
     q: Query,
     default_field_name: &str,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     results: &[i32],
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static + Sync + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let d = q.to_string(default_field_name)?;
     let ignore: BTreeSet<i32> = results.iter().copied().collect();
@@ -118,18 +119,19 @@ impl CheckHits {
   /// * `searcher` - the searcher to test the query against
   /// * `results` - a list of documentIds that must match the query
   ///   See also: `check_hits`
-  pub fn check_hit_collector<IRC, R>(
+  pub fn check_hit_collector<IRC, R, SIM>(
     random: &mut R,
     query: Query,
     default_field_name: &str,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     results: &[i32],
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     QueryUtils::check_from_searcher(random, query.clone(), searcher)?;
 
@@ -161,18 +163,19 @@ impl CheckHits {
   /// * `searcher` - the searcher to test the query against
   /// * `results` - a list of documentIds that must match the query
   ///   See also: `check_hit_collector`
-  pub fn check_hits<IRC, R>(
+  pub fn check_hits<IRC, R, SIM>(
     random: &mut R,
     query: Query,
     default_field_name: &str,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     results: &[i32],
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let hits = searcher
       .search(query.clone(), (10usize).max(results.len() * 2))?
@@ -251,27 +254,29 @@ impl CheckHits {
 
     Ok(())
   }
-  pub fn check_explanations<IRC>(
+  pub fn check_explanations<IRC, SIM>(
     query: &Query,
     default_field_name: &str,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static + Sync + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Self::check_explanations_with_deep(query, default_field_name, searcher, false)
   }
 
-  pub fn check_explanations_with_deep<IRC>(
+  pub fn check_explanations_with_deep<IRC, SIM>(
     query: &Query,
     default_field_name: &str,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     deep: bool,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static + Sync + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let manager = ExplanationAsserterManager::new(query, default_field_name, searcher, deep);
     searcher.search_with_collector_manager(query.clone(), &manager)
@@ -279,10 +284,11 @@ impl CheckHits {
 
   /// Asserts that the result of calling [`Weight::matches`] for every document matching a query
   /// returns a non-`None` [`Matches`](crate::core::search::matches::Matches).
-  pub fn check_matches<IRC>(query: Query, searcher: &IndexSearcher<IRC>) -> Result<()>
+  pub fn check_matches<IRC, SIM>(query: Query, searcher: &IndexSearcher<IRC, SIM>) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static + Sync + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let manager = MatchesAsserterManager::new(&query, searcher);
     searcher.search_with_collector_manager(query.clone(), &manager)
@@ -409,15 +415,16 @@ impl CheckHits {
 
     Ok(())
   }
-  pub fn check_top_scores<IRC, R>(
+  pub fn check_top_scores<IRC, R, SIM>(
     random: &mut R,
     query: &Query,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static + Sync,
     R: Rng + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     // Check it computed the top hits correctly
     Self::do_check_top_scores(query, searcher, 1)?;
@@ -429,14 +436,15 @@ impl CheckHits {
     Ok(())
   }
 
-  fn do_check_top_scores<IRC>(
+  fn do_check_top_scores<IRC, SIM>(
     query: &Query,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     num_hits: usize,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let complete = TopScoreDocCollectorManager::with_after(num_hits, None, i32::MAX as usize)?;
     let top_scores = TopScoreDocCollectorManager::with_after(num_hits, None, 1)?;
@@ -452,14 +460,15 @@ impl CheckHits {
     Ok(())
   }
 
-  fn do_check_max_scores<IRC, R>(
+  fn do_check_max_scores<IRC, R, SIM>(
     random: &mut R,
     mut query: Query,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     R: Rng + ?Sized,
   {
     query = searcher.rewrite(query)?;
@@ -666,23 +675,33 @@ impl CheckHits {
   }
 }
 
-struct ExplanationAsserterManager<'a, IRC: IndexReaderContext + 'static>
-where
+struct ExplanationAsserterManager<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: 'static,
 {
   q: &'a Query,
   default_field_name: &'a str,
-  s: &'a IndexSearcher<IRC>,
+  s: &'a IndexSearcher<IRC, SIM>,
   deep: bool,
 }
 
-impl<'a, IRC> ExplanationAsserterManager<'a, IRC>
+impl<'a, IRC, SIM> ExplanationAsserterManager<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  fn new(q: &'a Query, default_field_name: &'a str, s: &'a IndexSearcher<IRC>, deep: bool) -> Self
+  fn new(
+    q: &'a Query,
+    default_field_name: &'a str,
+    s: &'a IndexSearcher<IRC, SIM>,
+    deep: bool,
+  ) -> Self
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Self {
       q,
@@ -693,12 +712,13 @@ where
   }
 }
 
-impl<'a, IRC> CollectorManager for ExplanationAsserterManager<'a, IRC>
+impl<'a, IRC, SIM> CollectorManager for ExplanationAsserterManager<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
-  type C = ExplanationAsserter<'a, IRC>;
+  type C = ExplanationAsserter<'a, IRC, SIM>;
   type T = ();
 
   fn new_collector(&self) -> Result<Self::C> {
@@ -710,32 +730,38 @@ where
   }
 }
 
-struct MatchesAsserterManager<'a, IRC: IndexReaderContext + 'static>
-where
+struct MatchesAsserterManager<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: 'static,
 {
   query: &'a Query,
-  searcher: &'a IndexSearcher<IRC>,
+  searcher: &'a IndexSearcher<IRC, SIM>,
 }
 
-impl<'a, IRC> MatchesAsserterManager<'a, IRC>
+impl<'a, IRC, SIM> MatchesAsserterManager<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Self
+  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC, SIM>) -> Self
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Self { query, searcher }
   }
 }
 
-impl<'a, IRC> CollectorManager for MatchesAsserterManager<'a, IRC>
+impl<'a, IRC, SIM> CollectorManager for MatchesAsserterManager<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
-  type C = MatchesAsserter<'a, IRC>;
+  type C = MatchesAsserter<'a, IRC, SIM>;
   type T = ();
 
   fn new_collector(&self) -> Result<Self::C> {
@@ -752,30 +778,35 @@ where
 ///
 /// NOTE: this collector should only be used with the Query and Searcher specified when it is
 /// constructed.
-struct ExplanationAsserter<'a, IRC: IndexReaderContext + 'static>
-where
+struct ExplanationAsserter<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: 'static,
 {
   q: &'a Query,
-  s: &'a IndexSearcher<IRC>,
+  s: &'a IndexSearcher<IRC, SIM>,
   d: String,
   deep: bool,
   base: i32,
 }
 
-impl<'a, IRC> ExplanationAsserter<'a, IRC>
+impl<'a, IRC, SIM> ExplanationAsserter<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   /// Constructs an instance which does shallow tests on the Explanation.
   fn new(
     q: &'a Query,
     default_field_name: &str,
-    s: &'a IndexSearcher<IRC>,
+    s: &'a IndexSearcher<IRC, SIM>,
     deep: bool,
   ) -> Result<Self>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let d = q.to_string(default_field_name)?;
     Ok(Self {
@@ -788,10 +819,11 @@ where
   }
 }
 
-impl<IRC> Collector for ExplanationAsserter<'_, IRC>
+impl<IRC, SIM> Collector for ExplanationAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -799,16 +831,17 @@ where
     Self: 'a,
     IRC1: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC1>(
+  fn get_leaf_collector<'a, W, IRC1, CSIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC1>,
+    _searcher: &IndexSearcher<IRC1, CSIM>,
   ) -> Result<Self::LeafCollector<'a, IRC1>>
   where
+    CSIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC1: IndexReaderContext,
-    W: Weight<IRC1> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
+    W: Weight<IRC1, CSIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1, CSIM>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -819,10 +852,11 @@ where
   }
 }
 
-impl<IRC> LeafCollector for ExplanationAsserter<'_, IRC>
+impl<IRC, SIM> LeafCollector for ExplanationAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type CompetitiveIterator<'a>
     = crate::core::search::doc_id_set_iterator::EmptyDISI
@@ -844,10 +878,11 @@ where
   }
 }
 
-impl<IRC> SimpleCollector for ExplanationAsserter<'_, IRC>
+impl<IRC, SIM> SimpleCollector for ExplanationAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -858,8 +893,9 @@ where
   }
 }
 
-impl<IRC> Display for ExplanationAsserter<'_, IRC>
+impl<IRC, SIM> Display for ExplanationAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -872,12 +908,16 @@ where
 ///
 /// Also checks that the previous non-matching document has a `None`
 /// [`Matches`](crate::core::search::matches::Matches).
-struct MatchesAsserter<'a, IRC: IndexReaderContext + 'static>
-where
+struct MatchesAsserter<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: 'static,
 {
   query: &'a Query,
-  searcher: &'a IndexSearcher<IRC>,
+  searcher: &'a IndexSearcher<IRC, SIM>,
   query_string: String,
   context_ord: usize,
   last_checked_doc: i32,
@@ -887,13 +927,14 @@ where
   collected_once: bool,
 }
 
-impl<'a, IRC> MatchesAsserter<'a, IRC>
+impl<'a, IRC, SIM> MatchesAsserter<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Result<Self>
+  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC, SIM>) -> Result<Self>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let query_string = query.to_string("")?;
     Ok(Self {
@@ -907,10 +948,11 @@ where
   }
 }
 
-impl<IRC> Collector for MatchesAsserter<'_, IRC>
+impl<IRC, SIM> Collector for MatchesAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -918,16 +960,17 @@ where
     Self: 'a,
     IRC1: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC1>(
+  fn get_leaf_collector<'a, W, IRC1, CSIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC1>,
+    _searcher: &IndexSearcher<IRC1, CSIM>,
   ) -> Result<Self::LeafCollector<'a, IRC1>>
   where
+    CSIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC1: IndexReaderContext,
-    W: Weight<IRC1> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
+    W: Weight<IRC1, CSIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1, CSIM>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)
@@ -938,10 +981,11 @@ where
   }
 }
 
-impl<IRC> LeafCollector for MatchesAsserter<'_, IRC>
+impl<IRC, SIM> LeafCollector for MatchesAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type CompetitiveIterator<'a>
     = crate::core::search::doc_id_set_iterator::EmptyDISI
@@ -975,10 +1019,11 @@ where
   }
 }
 
-impl<IRC> SimpleCollector for MatchesAsserter<'_, IRC>
+impl<IRC, SIM> SimpleCollector for MatchesAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -990,8 +1035,9 @@ where
   }
 }
 
-impl<IRC> Display for MatchesAsserter<'_, IRC>
+impl<IRC, SIM> Display for MatchesAsserter<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -1043,16 +1089,17 @@ impl Collector for SetCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::do_set_next_reader(self, context)?;
     Ok(self)

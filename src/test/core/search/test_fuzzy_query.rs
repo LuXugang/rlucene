@@ -622,8 +622,12 @@ fn test_single_query_exact_match_scores_highest() -> Result<()> {
   add_doc(&mut random, "smdssasd", &writer, &mut field_to_type)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(classic_similarity::new());
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(classic_similarity::new()),
+    )?;
+
   writer.close(&mut random)?;
   let search_terms = ["smith", "smythe", "smdssasd"];
   let mut stored_fields = searcher.stored_fields()?;
@@ -668,8 +672,11 @@ fn test_multiple_queries_idf_works() -> Result<()> {
   add_doc(&mut random, "michael lydon", &writer, &mut field_to_type)?;
 
   let reader = writer.get_reader(&mut random)?;
-  let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(classic_similarity::new());
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(classic_similarity::new()),
+    )?;
 
   writer.close(&mut random)?;
 

@@ -291,17 +291,18 @@ fn test_approximation() -> Result<()> {
   Ok(())
 }
 
-fn assert_same_matches<IRC, T1, T2>(
-  searcher: &IndexSearcher<IRC>,
+fn assert_same_matches<IRC, T1, T2, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   q1: T1,
   q2: T2,
   scores: bool,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + std::marker::Sync,
   T1: Into<Query>,
   T2: Into<Query>,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let max_doc = searcher.get_index_reader().max_doc()?;
   let sort = if scores {

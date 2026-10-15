@@ -1046,15 +1046,16 @@ pub trait BaseXYPointTestCase {
     Ok(())
   }
 
-  fn search_index<IRC>(
+  fn search_index<IRC, SIM>(
     &self,
-    s: &IndexSearcher<IRC>,
+    s: &IndexSearcher<IRC, SIM>,
     query: Query,
     max_doc: i32,
   ) -> Result<FixedBitSet>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     s.search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))
   }

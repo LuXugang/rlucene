@@ -121,11 +121,14 @@ fn test_field_sort_single_searcher() -> Result<()> {
     .with_hook(IndexSearcherHook::CustomSearcher(CustomSearcher::new(2)));
   match_hits(&searcher, query, cust_sort)
 }
-fn match_hits(
-  searcher: &IndexSearcher<IndexReaderContextType<DefaultCRReaderShared>>,
+fn match_hits<SIM>(
+  searcher: &IndexSearcher<IndexReaderContextType<DefaultCRReaderShared>, SIM>,
   query: Query,
   sort: Sort,
-) -> Result<()> {
+) -> Result<()>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   let hits_by_rank = searcher.search(query.clone(), usize::MAX)?.score_docs;
   check_hits(hits_by_rank.as_slice(), "Sort by rank: ");
 

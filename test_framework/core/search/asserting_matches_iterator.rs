@@ -20,8 +20,14 @@ use crate::core::search::query::{Query, QueryWeightMatchesIterator};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-pub struct AssertingMatchesIterator<'a, LR: LeafReader> {
-  in_: QueryWeightMatchesIterator<'a, LR>,
+pub struct AssertingMatchesIterator<
+  'a,
+  LR: LeafReader,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  in_: QueryWeightMatchesIterator<'a, LR, SIM>,
   state: State,
 }
 
@@ -32,8 +38,11 @@ enum State {
   Exhausted,
 }
 
-impl<'a, LR: LeafReader> AssertingMatchesIterator<'a, LR> {
-  pub(crate) fn new(in_: QueryWeightMatchesIterator<'a, LR>) -> Self {
+impl<'a, LR: LeafReader, SIM> AssertingMatchesIterator<'a, LR, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  pub(crate) fn new(in_: QueryWeightMatchesIterator<'a, LR, SIM>) -> Self {
     Self {
       in_,
       state: State::Unpositioned,
@@ -41,9 +50,12 @@ impl<'a, LR: LeafReader> AssertingMatchesIterator<'a, LR> {
   }
 }
 
-impl<LR: LeafReader> MatchesIterator for AssertingMatchesIterator<'_, LR> {
+impl<LR: LeafReader, SIM> MatchesIterator for AssertingMatchesIterator<'_, LR, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   type SubMatches<'a>
-    = QueryWeightMatchesIterator<'a, LR>
+    = QueryWeightMatchesIterator<'a, LR, SIM>
   where
     Self: 'a;
   fn next(&mut self) -> Result<bool> {
@@ -77,7 +89,7 @@ impl<LR: LeafReader> MatchesIterator for AssertingMatchesIterator<'_, LR> {
     self.in_.end_offset()
   }
 
-  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_, LR>>> {
+  fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_, LR, SIM>>> {
     assert_eq!(self.state, State::Iterating);
     self.in_.get_sub_matches()
   }

@@ -27,14 +27,15 @@ struct TestTermAutomatonQuery;
 pub(crate) struct CustomTermAutomatonQuery;
 
 impl TermAutomatonQueryBase for CustomTermAutomatonQuery {
-  fn rewrite<IRC>(
+  fn rewrite<IRC, SIM>(
     &self,
     _query: &TermAutomatonQuery,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(None)
   }

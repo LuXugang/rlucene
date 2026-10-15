@@ -65,12 +65,26 @@ use std::sync::{Arc, LazyLock};
 #[allow(dead_code)] //for quick search
 struct TestDisjunctionMaxQuery;
 const SCORE_COMP_THRESH: f32 = 0.0000f32;
-static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchLR>> = LazyLock::new(|| {
+static LIGHT_SEARCHER: LazyLock<
+  Arc<
+    DefaultIndexSearchLR<
+      crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+    >,
+  >,
+> = LazyLock::new(|| {
   let mut random = random();
   Arc::new(build_set_up(&mut random).expect("failed to initialize TestDisjunctionMaxQuery"))
 });
 
-fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchLR>>
+fn set_up<R>(
+  random: &mut R,
+) -> Result<
+  Arc<
+    DefaultIndexSearchLR<
+      crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+    >,
+  >,
+>
 where
   R: Rng + ?Sized,
 {
@@ -81,16 +95,24 @@ where
   Ok(Arc::new(build_set_up(random)?))
 }
 
-fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+fn build_set_up<R>(
+  random: &mut R,
+) -> Result<
+  DefaultIndexSearchLR<crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity>,
+>
 where
   R: Rng + ?Sized,
 {
   let index = new_directory_shared(random)?;
 
   let analyzer = MockAnalyzer::new(random);
-  let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
   let sim = new_test_similarity();
-  iwc.set_similarity(sim.clone());
+  let indexing_similarity_iwc = sim.clone();
+  let mut iwc =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      random, analyzer,
+    )?;
+
   iwc.set_merge_policy(new_log_merge_policy(random)?);
 
   let writer = RandomIndexWriter::with_config(random, index, iwc);
@@ -122,7 +144,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(random, d1)?;
+    writer.add_document_with_similarity(random, d1, &indexing_similarity_iwc)?;
   }
 
   // d2
@@ -156,7 +178,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(random, d2)?;
+    writer.add_document_with_similarity(random, d2, &indexing_similarity_iwc)?;
   }
 
   // d3
@@ -183,7 +205,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(random, d3)?;
+    writer.add_document_with_similarity(random, d3, &indexing_similarity_iwc)?;
   }
 
   // d4
@@ -217,7 +239,7 @@ where
       Store::Yes,
       &mut field_to_type,
     )?);
-    writer.add_document(random, d4)?;
+    writer.add_document_with_similarity(random, d4, &indexing_similarity_iwc)?;
   }
 
   writer.force_merge(random, 1)?;
@@ -226,8 +248,11 @@ where
   let r = get_only_leaf_reader(&reader)?;
   writer.close(random)?;
 
-  let mut s = index_searcher::from_reader(r)?;
-  s.set_similarity(sim);
+  let s =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      r,
+      std::sync::Arc::new(sim),
+    )?;
 
   Ok(s)
 }

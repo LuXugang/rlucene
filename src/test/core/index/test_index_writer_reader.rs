@@ -1430,7 +1430,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
   // Test2: test that leafReaders are sorted according to the provided leafSorter
   // when opened from directory
   {
-    let reader = directory_reader::open_with_sorter(dir.clone(), leaf_sorter.clone())?;
+    let reader = directory_reader::open_with_sorter::<_>(dir.clone(), leaf_sorter.clone())?;
     assert_leaves_sorted(&reader, &point_sorter)?;
 
     let first_value: i64 = if asc_sort { 0 } else { 100 };
@@ -1450,7 +1450,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
   // Test3: test that FilterDirectoryReader sorts leaves according
   // to leafSorter of its wrapped reader
   {
-    let reader = AssertingDirectoryReader::new(directory_reader::open_with_sorter(
+    let reader = AssertingDirectoryReader::new(directory_reader::open_with_sorter::<_>(
       dir.clone(),
       leaf_sorter.clone(),
     )?)?;
@@ -1475,7 +1475,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
   {
     let commits = directory_reader::list_commits(dir.clone())?;
     let latest_commit = &commits[commits.len() - 1];
-    let reader = StandardDirectoryReader::open(
+    let reader = StandardDirectoryReader::<DirEnum>::open(
       latest_commit.get_directory(),
       Some(latest_commit),
       leaf_sorter,

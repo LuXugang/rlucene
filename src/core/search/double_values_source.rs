@@ -20,6 +20,7 @@ use crate::core::search::double_values::DoubleValues;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
@@ -90,9 +91,10 @@ where
   /// For the same reason, implementations that cache references to the
   /// [`IndexSearcher`] should return a new object from this method.
   type Rewritten: DoubleValuesSource<IRC>;
-  fn rewrite(&self, reader: &IndexSearcher<IRC>) -> Result<Self::Rewritten>
+  fn rewrite<SIM>(&self, reader: &IndexSearcher<IRC, SIM>) -> Result<Self::Rewritten>
   where
-    IndexSearcher<IRC>: Sync;
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync;
 
   /// Create a sort field based on the value of this producer.
   ///
@@ -133,9 +135,10 @@ where
 
   type Rewritten = T::Rewritten;
 
-  fn rewrite(&self, reader: &IndexSearcher<IRC>) -> Result<Self::Rewritten>
+  fn rewrite<SIM>(&self, reader: &IndexSearcher<IRC, SIM>) -> Result<Self::Rewritten>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.as_ref().rewrite(reader)
   }

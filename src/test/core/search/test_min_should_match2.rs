@@ -74,11 +74,17 @@ enum Mode {
   BulkScorer,
   DocValues,
 }
-static CONTEXT: LazyLock<DefaultIndexSearchLR> = LazyLock::new(|| {
+static CONTEXT: LazyLock<
+  DefaultIndexSearchLR<crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity>,
+> = LazyLock::new(|| {
   let mut random = random();
   set_up(&mut random).expect("failed to initialize TestMinShouldMatch2")
 });
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+fn set_up<R>(
+  random: &mut R,
+) -> Result<
+  DefaultIndexSearchLR<crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity>,
+>
 where
   R: Rng + ?Sized,
 {
@@ -108,8 +114,12 @@ where
   let reader = iw.get_reader(random)?;
   iw.close(random)?;
 
-  let mut searcher = new_searcher_with_reader(get_only_leaf_reader(&reader)?)?;
-  searcher.set_similarity(classic_similarity::new());
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      get_only_leaf_reader(&reader)?,
+      std::sync::Arc::new(classic_similarity::new()),
+    )?;
+
   Ok(searcher)
 }
 fn add_some<R, const N: usize>(random: &mut R, doc: &mut Document, values: &[&str; N]) -> Result<()>
@@ -132,17 +142,18 @@ where
   }
   Ok(())
 }
-fn scorer<R, IRC>(
+fn scorer<R, IRC, SIM>(
   random: &mut R,
   values: &[&str],
   min_should_match: i32,
   mode: Mode,
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
 ) -> Result<Option<Box<dyn TestScorer>>>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   R: Rng + ?Sized,
   IRC: IndexReaderContext<IndexReader = IRCLeafReader<IRC>>,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let mut bq = Builder::new();
   for value in values {
@@ -159,7 +170,7 @@ where
 
   let weight = weight
     .as_any()
-    .downcast_ref::<BooleanWeight<IRC>>()
+    .downcast_ref::<BooleanWeight<IRC, SIM>>()
     .unwrap();
   match mode {
     Mode::DocValues => {
@@ -541,21 +552,25 @@ fn test_advance_varying_number_of_terms() -> Result<()> {
   Ok(())
 }
 #[allow(dead_code)] // for quick search
-pub struct SlowMinShouldMatchScorer<IRC>
-where
+pub struct SlowMinShouldMatchScorer<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
-  disi: DocIdSetIteratorImpl<IRC>,
+  disi: DocIdSetIteratorImpl<IRC, SIM>,
 }
 
-impl<IRC> SlowMinShouldMatchScorer<IRC>
+impl<IRC, SIM> SlowMinShouldMatchScorer<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
-  pub fn new(weight: &BooleanWeight<IRC>, searcher: &IndexSearcher<IRC>) -> Result<Self>
+  pub fn new(weight: &BooleanWeight<IRC, SIM>, searcher: &IndexSearcher<IRC, SIM>) -> Result<Self>
   where
     IRC: IndexReaderContext<IndexReader = IRCLeafReader<IRC>>,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = searcher.get_index_reader();
     let mut dv = reader.get_sorted_set_doc_values("dv")?.unwrap();
@@ -565,7 +580,7 @@ where
 
     let value_count = dv.get_value_count()? as usize;
     let mut ords = HashSet::new();
-    let mut sims: Vec<Option<SimilaritySimScorer>> = (0..value_count).map(|_| None).collect();
+    let mut sims: Vec<Option<SimilaritySimScorer<SIM>>> = (0..value_count).map(|_| None).collect();
 
     for clause in bq.clauses() {
       assert!(!clause.is_prohibited());
@@ -603,8 +618,9 @@ where
   }
 }
 
-impl<IRC> Scorable for SlowMinShouldMatchScorer<IRC>
+impl<IRC, SIM> Scorable for SlowMinShouldMatchScorer<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
   type Child<'a>
@@ -618,10 +634,16 @@ where
   }
 }
 
-impl<IRC> FixedScore for SlowMinShouldMatchScorer<IRC> where IRC: IndexReaderContext {}
-
-impl<IRC> DocIdSetIterator for SlowMinShouldMatchScorer<IRC>
+impl<IRC, SIM> FixedScore for SlowMinShouldMatchScorer<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  IRC: IndexReaderContext,
+{
+}
+
+impl<IRC, SIM> DocIdSetIterator for SlowMinShouldMatchScorer<IRC, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn doc_id(&self) -> i32 {
@@ -640,9 +662,10 @@ where
     DocIdSetIterator::cost(&self.disi)
   }
 }
-impl<IRC> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SlowMinShouldMatchScorer<IRC>
+impl<IRC, SIM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SlowMinShouldMatchScorer<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
@@ -665,9 +688,10 @@ where
     )
   }
 }
-impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for SlowMinShouldMatchScorer<IRC>
+impl<IRC, SIM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SlowMinShouldMatchScorer<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_bit_iter(&self) -> bool {
@@ -683,18 +707,19 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.disi)
   }
 }
-impl<IRC> Scorer for SlowMinShouldMatchScorer<IRC>
+impl<IRC, SIM> Scorer for SlowMinShouldMatchScorer<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Iterator = DocIdSetIteratorImpl<IRC>;
+  type Iterator = DocIdSetIteratorImpl<IRC, SIM>;
   type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
   type ApproximationRef<'a>
-    = &'a DocIdSetIteratorImpl<IRC>
+    = &'a DocIdSetIteratorImpl<IRC, SIM>
   where
     Self: 'a;
   type ApproximationMut<'a>
-    = &'a mut DocIdSetIteratorImpl<IRC>
+    = &'a mut DocIdSetIteratorImpl<IRC, SIM>
   where
     Self: 'a;
   type TwoPhaseRef<'a>
@@ -733,8 +758,11 @@ where
 }
 
 #[doc(hidden)]
-pub struct DocIdSetIteratorImpl<IRC>
-where
+pub struct DocIdSetIteratorImpl<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
   current_doc: i32,
@@ -744,22 +772,23 @@ where
   max_doc: i32,
 
   ords: HashSet<i64>,
-  sims: Vec<Option<SimilaritySimScorer>>,
+  sims: Vec<Option<SimilaritySimScorer<SIM>>>,
   norms: Option<IRCNormNDV<IRC>>,
   min_nr_should_match: i32,
 
   score: f64,
 }
 
-impl<IRC> DocIdSetIteratorImpl<IRC>
+impl<IRC, SIM> DocIdSetIteratorImpl<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
   fn new(
     dv: IRCSSDV<IRC>,
     max_doc: i32,
     ords: HashSet<i64>,
-    sims: Vec<Option<SimilaritySimScorer>>,
+    sims: Vec<Option<SimilaritySimScorer<SIM>>>,
     norms: Option<IRCNormNDV<IRC>>,
     min_nr_should_match: i32,
   ) -> Self {
@@ -777,21 +806,24 @@ where
   }
 }
 
-impl<IRC> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for DocIdSetIteratorImpl<IRC>
+impl<IRC, SIM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorImpl<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
 }
-impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for DocIdSetIteratorImpl<IRC>
+impl<IRC, SIM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DocIdSetIteratorImpl<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
 }
 
-impl<IRC> DocIdSetIterator for DocIdSetIteratorImpl<IRC>
+impl<IRC, SIM> DocIdSetIterator for DocIdSetIteratorImpl<IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext,
 {
   fn doc_id(&self) -> i32 {

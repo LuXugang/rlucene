@@ -44,12 +44,26 @@ pub struct TestConjunctions;
 const F1: &str = "title";
 const F2: &str = "body";
 
-static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+static LIGHT_SEARCHER: LazyLock<
+  Arc<
+    DefaultIndexSearchCR<
+      crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity,
+    >,
+  >,
+> = LazyLock::new(|| {
   let mut random = random();
   Arc::new(build_set_up(&mut random).expect("failed to initialize TestConjunctions"))
 });
 
-fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+fn set_up<R>(
+  random: &mut R,
+) -> Result<
+  Arc<
+    DefaultIndexSearchCR<
+      crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity,
+    >,
+  >,
+>
 where
   R: Rng + ?Sized,
 {
@@ -60,7 +74,11 @@ where
   Ok(Arc::new(build_set_up(random)?))
 }
 
-fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+fn build_set_up<R>(
+  random: &mut R,
+) -> Result<
+  DefaultIndexSearchCR<crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity>,
+>
 where
   R: Rng + ?Sized,
 {
@@ -87,8 +105,11 @@ where
   let reader = directory_reader::open_from_writer(&w)?;
   w.close()?;
 
-  let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(RawTFSimilarity::default());
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(RawTFSimilarity::default()),
+    )?;
 
   Ok(searcher)
 }
@@ -210,16 +231,17 @@ impl Collector for TestCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -229,10 +251,11 @@ impl Collector for TestCollector {
     ScoreMode::Complete
   }
 
-  fn set_weight<W, IRC>(&self, weight: Option<&W>) -> Result<()>
+  fn set_weight<W, IRC, SIM>(&self, weight: Option<&W>) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
+    W: Weight<IRC, SIM> + ?Sized,
   {
     let weight = weight
       .as_ref()

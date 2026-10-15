@@ -21,6 +21,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn::knn_collector_manager::KnnCollectorManager;
 use crate::core::search::knn::multi_leaf_knn_collector::MultiLeafKnnCollector;
 use crate::core::search::knn_collector::KnnCollectorEnum;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
@@ -32,10 +33,14 @@ pub struct TopKnnCollectorManager {
   global_score_queue: Option<BlockingFloatHeap>,
 }
 impl TopKnnCollectorManager {
-  pub fn new<IRC>(k: usize, index_searcher: &IndexSearcher<IRC>) -> Result<TopKnnCollectorManager>
+  pub fn new<IRC, SIM>(
+    k: usize,
+    index_searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<TopKnnCollectorManager>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let is_multi_segments = index_searcher.get_leaf_contexts()?.len() > 1;
     let global_score_queue = if is_multi_segments {

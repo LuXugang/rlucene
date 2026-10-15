@@ -66,17 +66,18 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub(crate) trait TestRegexpRandom2 {
   /// Check that the hits are the same as from a very simple RegexpQuery implementation.
-  fn assert_same<IRC>(
+  fn assert_same<IRC, SIM>(
     &self,
-    searcher1: &IndexSearcher<IRC>,
-    searcher2: &IndexSearcher<IRC>,
-    searcher3: &IndexSearcher<IRC>,
+    searcher1: &IndexSearcher<IRC, SIM>,
+    searcher2: &IndexSearcher<IRC, SIM>,
+    searcher3: &IndexSearcher<IRC, SIM>,
     field_name: &str,
     regexp: String,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let smart = RegexpQuery::with_flags(Term::from_text(field_name, &regexp), RegExp::NONE)?;
     let nfa_query = RegexpQuery::with_all_and_determinization(

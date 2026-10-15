@@ -780,7 +780,11 @@ where
       self.stored_fields_consumer.finish_document()
     )
   }
-  pub(crate) fn process_document<DF, F, D1, T>(
+  #[expect(
+    clippy::too_many_arguments,
+    reason = "The per-operation similarity is borrowed separately from the persistent writer configuration."
+  )]
+  pub(crate) fn process_document<DF, F, D1, T, S>(
     &mut self,
     doc_id: i32,
     document: DF,
@@ -788,8 +792,10 @@ where
     field_infos: &mut Builder,
     index_writer_config: &T,
     aborting_exception_consumer: &OnceLock<CaughtResult>,
+    similarity: &S,
   ) -> Result<()>
   where
+    S: Similarity,
     DF: IntoIterator<Item = Result<F>>,
     F: BorrowMut<Fields>,
     T: LiveIndexWriterConfig,
@@ -905,11 +911,7 @@ where
         let idx = self.fields[i];
         let pf = &mut self.per_fields[idx];
         debug_assert!(pf.field_info.is_some());
-        pf.finish(
-          doc_id,
-          &mut self.terms_hash.next_terms_hash,
-          index_writer_config.get_similarity(),
-        )?;
+        pf.finish(doc_id, &mut self.terms_hash.next_terms_hash, similarity)?;
       }
       self.finish_stored_fields(aborting_exception_consumer)?;
       catch_aborting_exception!(

@@ -18,14 +18,10 @@ use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::similarities_impl::bm25_similarity::{BM25Scorer, BM25Similarity};
-use crate::core::search::similarities_impl::raw_tf_similarity::{RawTFSimScorer, RawTFSimilarity};
-use crate::core::search::similarities_impl::tf_idf_similarity::{TFIDFScorer, TFIDFSimilarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::small_float::SmallFloat;
-use crate::impl_from_for_enum;
-use std::fmt::{Display, Formatter};
+use std::fmt::Display;
 use std::sync::Arc;
 
 /// Similarity defines the components of Lucene scoring.
@@ -34,7 +30,7 @@ use std::sync::Arc;
 ///
 /// This is a low-level API—only implement this trait if you want to provide a custom
 /// information retrieval *model*. If you merely wish to tweak Lucene’s scoring, consider
-/// using or extending [`BM25Similarity`] or [`SimilarityBase`](crate::core::search::similarities_impl::similarity_base::SimilarityBase), which simplify score computation
+/// using or extending [`BM25Similarity`](crate::core::search::similarities_impl::bm25_similarity::BM25Similarity) or [`SimilarityBase`](crate::core::search::similarities_impl::similarity_base::SimilarityBase), which simplify score computation
 /// from index statistics.
 ///
 /// Similarity determines how Lucene weights terms at both indexing-time and query-time.
@@ -82,7 +78,7 @@ use std::sync::Arc;
 /// When [`IndexSearcher::explain(query: &Query, doc: i32)`](crate::core::search::index_searcher::IndexSearcher) is invoked, Lucene consults
 /// your scorer’s explanation method to detail how the score was computed, passing in the
 /// document ID and a frequency explanation.
-pub trait Similarity: Display {
+pub trait Similarity: Display + Send + Sync + 'static {
   /// Returns `true` if overlap tokens (tokens with a position increment of `0`) are
   /// discounted from the document’s length.
   fn get_discount_overlaps(&self) -> bool {
@@ -132,7 +128,7 @@ pub trait Similarity: Display {
     Ok(SmallFloat::int_to_byte4(num_terms)? as i8 as i64)
   }
 
-  type SimScorer: SimScorer;
+  type SimScorer: SimScorer + Send + Sync + 'static;
   /// Computes any collection-level weight (e.g., IDF, average document length, etc.) needed
   /// for scoring a query.
   ///
@@ -156,131 +152,9 @@ pub trait Similarity: Display {
 }
 pub type DynSimScorer = dyn SimScorer + Send + Sync;
 pub type BoxSimScorer = Box<DynSimScorer>;
-pub type SimilaritySimScorer = <SimilarityEnum as Similarity>::SimScorer;
-pub type CustomSimilarity = Box<dyn Similarity<SimScorer = Box<DynSimScorer>> + Send + Sync>;
-pub enum SimilarityEnum {
-  BM25(BM25Similarity),
-  RawTF(RawTFSimilarity),
-  TFIDF(TFIDFSimilarity),
-  Custom(CustomSimilarity),
-}
-impl SimilarityEnum {
-  pub fn custom<S>(sim: S) -> Self
-  where
-    S: Similarity<SimScorer = Box<DynSimScorer>> + Send + Sync + 'static,
-  {
-    Self::Custom(Box::new(sim))
-  }
-}
-
-pub type SimilarityEnumSimScorer = <SimilarityEnum as Similarity>::SimScorer;
-
-impl_from_for_enum!(
-    SimilarityEnum,
-    BM25Similarity => BM25,
-    RawTFSimilarity => RawTF,
-    TFIDFSimilarity => TFIDF,
-);
-
-impl Display for SimilarityEnum {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self {
-      Self::BM25(inner) => write!(f, "{}", inner),
-      Self::RawTF(inner) => write!(f, "{}", inner),
-      Self::TFIDF(inner) => write!(f, "{}", inner),
-      Self::Custom(inner) => write!(f, "{}", inner),
-    }
-  }
-}
-
-impl Similarity for SimilarityEnum {
-  fn get_discount_overlaps(&self) -> bool {
-    match self {
-      Self::BM25(inner) => inner.get_discount_overlaps(),
-      Self::RawTF(inner) => inner.get_discount_overlaps(),
-      Self::TFIDF(inner) => inner.get_discount_overlaps(),
-      Self::Custom(inner) => inner.get_discount_overlaps(),
-    }
-  }
-
-  fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
-    match self {
-      Self::BM25(inner) => inner.compute_norm(state),
-      Self::RawTF(inner) => inner.compute_norm(state),
-      Self::TFIDF(inner) => inner.compute_norm(state),
-      Self::Custom(inner) => inner.compute_norm(state),
-    }
-  }
-
-  type SimScorer = SimScorerEnum;
-
-  fn scorer(
-    &self,
-    boost: f32,
-    collection_stats: &CollectionStatistics,
-    term_stats: &[TermStatistics],
-  ) -> Result<Self::SimScorer> {
-    match self {
-      Self::BM25(inner) => {
-        let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-        Ok(SimScorerEnum::BM25(Box::new(scorer)))
-      },
-      Self::RawTF(inner) => {
-        let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-        Ok(SimScorerEnum::RawTFSim(scorer))
-      },
-      Self::TFIDF(inner) => {
-        let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-        Ok(SimScorerEnum::TFIDF(scorer))
-      },
-      Self::Custom(inner) => {
-        let scorer = inner.scorer(boost, collection_stats, term_stats)?;
-        Ok(SimScorerEnum::Custom(scorer))
-      },
-    }
-  }
-}
-
-pub enum SimScorerEnum {
-  BM25(Box<BM25Scorer>),
-  RawTFSim(RawTFSimScorer),
-  TFIDF(TFIDFScorer),
-  Custom(BoxSimScorer),
-}
-impl SimScorerEnum {
-  pub fn custom<S>(sim: S) -> Self
-  where
-    S: SimScorer + Send + Sync + 'static,
-  {
-    Self::Custom(Box::new(sim))
-  }
-}
-impl_from_for_enum!(
-    SimScorerEnum,
-    Box<BM25Scorer> => BM25,
-    RawTFSimScorer => RawTFSim,
-    TFIDFScorer => TFIDF,
-);
-impl SimScorer for SimScorerEnum {
-  fn score(&self, freq: f32, norm: i64) -> f32 {
-    match self {
-      Self::BM25(inner) => inner.score(freq, norm),
-      Self::RawTFSim(inner) => inner.score(freq, norm),
-      Self::TFIDF(inner) => inner.score(freq, norm),
-      Self::Custom(inner) => inner.score(freq, norm),
-    }
-  }
-
-  fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
-    match self {
-      Self::BM25(inner) => inner.explain(freq, norm),
-      Self::RawTFSim(inner) => inner.explain(freq, norm),
-      Self::TFIDF(inner) => inner.explain(freq, norm),
-      Self::Custom(inner) => inner.explain(freq, norm),
-    }
-  }
-}
-
+pub type SimilaritySimScorer<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = <SIM as Similarity>::SimScorer;
 impl<T: ?Sized + Similarity> Similarity for Box<T> {
   fn get_discount_overlaps(&self) -> bool {
     (**self).get_discount_overlaps()
@@ -431,7 +305,7 @@ where
     (**self).scorer(boost, collection_stats, term_stats)
   }
 }
-impl<T> Similarity for &T
+impl<T> Similarity for &'static T
 where
   T: Similarity,
 {
@@ -461,24 +335,5 @@ impl<T: ?Sized + SimScorer> SimScorer for Box<T> {
 
   fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
     (**self).explain(freq, norm)
-  }
-}
-
-pub trait IntoSimilarityArc {
-  fn into_similarity_arc(self) -> Arc<SimilarityEnum>;
-}
-
-impl IntoSimilarityArc for Arc<SimilarityEnum> {
-  fn into_similarity_arc(self) -> Arc<SimilarityEnum> {
-    self
-  }
-}
-
-impl<T> IntoSimilarityArc for T
-where
-  T: Similarity + Into<SimilarityEnum>,
-{
-  fn into_similarity_arc(self) -> Arc<SimilarityEnum> {
-    Arc::new(self.into())
   }
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::similarities_impl::similarities::Similarity;
 use std::borrow::Cow;
 use std::fmt::Write as _;
 
@@ -123,9 +124,10 @@ impl HasIdentity for DisjunctionMaxQuery {
 }
 
 impl QueryBase for DisjunctionMaxQuery {
-  type Weight<IRC>
-    = DisjunctionMaxWeight<IRC>
+  type Weight<IRC, SIM>
+    = DisjunctionMaxWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -155,24 +157,26 @@ impl QueryBase for DisjunctionMaxQuery {
     Ok(result)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     DisjunctionMaxWeight::new(searcher, self, *score_mode, boost)
   }
 
-  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, index_searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     if self.ordered_queries.is_empty() {
@@ -281,25 +285,31 @@ impl Hash for DisjunctionMaxQuery {
   }
 }
 /// the Weight for DisjunctionMaxQuery, used to normalize, score and explain these queries
-pub struct DisjunctionMaxWeight<IRC: IndexReaderContext + 'static> {
+pub struct DisjunctionMaxWeight<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   parent_query: Arc<Query>,
   tie_breaker_multiplier: f32,
   score_mode: ScoreMode,
-  weights: Vec<QueryWeight<IRC>>,
+  weights: Vec<QueryWeight<IRC, SIM>>,
 }
-impl<IRC> DisjunctionMaxWeight<IRC>
+impl<IRC, SIM> DisjunctionMaxWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
-  IndexSearcher<IRC>: Sync,
+  IndexSearcher<IRC, SIM>: Sync,
 {
   pub fn new(
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: DisjunctionMaxQuery,
     score_mode: ScoreMode,
     boost: f32,
   ) -> Result<Self>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut weights = Vec::with_capacity(query.get_disjuncts().len());
     for query in query.disjuncts.keys().cloned() {
@@ -316,8 +326,9 @@ where
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for DisjunctionMaxWeight<IRC>
+impl<IRC, SIM> SegmentCacheable<IRC> for DisjunctionMaxWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -338,18 +349,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for DisjunctionMaxWeight<IRC>
+impl<IRC, SIM> Weight<IRC, SIM> for DisjunctionMaxWeight<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut matches = Vec::with_capacity(self.weights.len());
     for weight in &self.weights {
@@ -364,10 +376,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut matched = false;
     let mut max = 0.0f64;
@@ -420,15 +432,15 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = QueryWeightSs<IRC, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut scorer_suppliers = Vec::with_capacity(self.weights.len());
     for w in &self.weights {
@@ -454,19 +466,25 @@ where
   }
 }
 
-pub struct ScorerSupplierImpl<IRC: IndexReaderContext + 'static> {
+pub struct ScorerSupplierImpl<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   cost: i64,
-  scorer_suppliers: Vec<QueryWeightSs<IRC>>,
+  scorer_suppliers: Vec<QueryWeightSs<IRC, SIM>>,
   tie_breaker_multiplier: f32,
   score_mode: ScoreMode,
 }
-impl<IRC> ScorerSupplierImpl<IRC>
+impl<IRC, SIM> ScorerSupplierImpl<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   pub fn new(
     cost: i64,
-    scorer_suppliers: Vec<QueryWeightSs<IRC>>,
+    scorer_suppliers: Vec<QueryWeightSs<IRC, SIM>>,
     tie_breaker_multiplier: f32,
     score_mode: ScoreMode,
   ) -> Self {
@@ -478,13 +496,14 @@ where
     }
   }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for ScorerSupplierImpl<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = QueryWeightSsScorer<IRC, SIM>;
   type BulkScorer = crate::core::search::bulk_scorer::BulkScorerEnum2<
-    DisjunctionMaxBulkScorer<QueryWeightSsBulkScorer<IRC>>,
+    DisjunctionMaxBulkScorer<QueryWeightSsBulkScorer<IRC, SIM>>,
     crate::core::search::weight::DefaultBulkScorer<Self::Scorer>,
   >;
 
@@ -492,10 +511,10 @@ where
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut scorers = Vec::with_capacity(self.scorer_suppliers.len());
     for ss in self.scorer_suppliers.iter_mut() {
@@ -505,10 +524,10 @@ where
       DisjunctionMaxScorer::new(self.tie_breaker_multiplier, &mut scorers, self.score_mode)?;
     match DisjunctionScorer::<_, DisjunctionMaxScorer>::prepare(scorers, self.score_mode)? {
       crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::A(disi) => Ok(
-        QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::from_disi(disi, sub)),
+        QueryWeightSsScorer::<IRC, SIM>::new(DisjunctionScorer::from_disi(disi, sub)),
       ),
       crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2::B(disi) => Ok(
-        QueryWeightSsScorer::<IRC>::new(DisjunctionScorer::from_tpi(disi, sub)),
+        QueryWeightSsScorer::<IRC, SIM>::new(DisjunctionScorer::from_tpi(disi, sub)),
       ),
     }
   }
@@ -516,10 +535,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if self.tie_breaker_multiplier == 0.0 && self.score_mode == ScoreMode::TopScores {
       let mut scorers = Vec::with_capacity(self.scorer_suppliers.len());
@@ -540,10 +559,10 @@ where
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if self.cost == -1 {
       let mut cost = 0i64;

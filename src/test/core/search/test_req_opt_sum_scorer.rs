@@ -220,8 +220,11 @@ fn test_max_block() -> Result<()> {
   w.close()?;
 
   let reader = directory_reader::open(dir)?;
-  let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(new_simple_similarity());
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(new_simple_similarity()),
+    )?;
 
   let req_q = TermQuery::new(Term::from_text("foo", "a"));
   let opt_q = TermQuery::new(Term::from_text("foo", "b"));
@@ -514,16 +517,17 @@ where
   Ok(())
 }
 
-fn req_opt_scorer<IRC, Q>(
-  searcher: &IndexSearcher<IRC>,
+fn req_opt_scorer<IRC, Q, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
   req_q: Q,
   opt_q: Q,
   with_block_score: bool,
-) -> Result<QueryWeightSsScorer<IRC>>
+) -> Result<QueryWeightSsScorer<IRC, SIM>>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   Q: Into<Query>,
   IRC: IndexReaderContext + 'static,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let req_q = req_q.into();
   let opt_q = opt_q.into();
@@ -546,13 +550,13 @@ where
     disi.with_fixed_max_score()
   };
   if has_tpi {
-    Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_tpi(
-      req_opt_sum_scorer::TwoPhaseIteratorImpl::new(disi),
-    )))
+    Ok(QueryWeightSsScorer::<IRC, SIM>::new(
+      ReqOptSumScorer::from_tpi(req_opt_sum_scorer::TwoPhaseIteratorImpl::new(disi)),
+    ))
   } else {
-    Ok(QueryWeightSsScorer::<IRC>::new(ReqOptSumScorer::from_disi(
-      disi,
-    )))
+    Ok(QueryWeightSsScorer::<IRC, SIM>::new(
+      ReqOptSumScorer::from_disi(disi),
+    ))
   }
 }
 

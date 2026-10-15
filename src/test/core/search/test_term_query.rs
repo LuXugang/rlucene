@@ -45,9 +45,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, SimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, SimScorer, Similarity};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::access::ByteSource;
@@ -283,17 +281,18 @@ fn test_with_with_different_score_modes() -> Result<()> {
   writer.get_reader(&mut random)?.close()?;
 
   let reader = writer.get_reader(&mut random)?;
-  let mut searcher = new_searcher_with_reader(reader)?;
+  let searcher = new_searcher_with_reader(Arc::new(reader))?;
   let existing_similarity = searcher.get_similarity();
   let term = Arc::new(Term::from_text("foo", "bar"));
 
   for score_mode in ScoreMode::values() {
     let scorer_called = Arc::new(AtomicBool::new(false));
-    let s = SimilarityEnum::custom(SimilarityImpl::new(
-      existing_similarity.clone(),
-      scorer_called.clone(),
-    ));
-    searcher.set_similarity(s);
+    let s = SimilarityImpl::new(existing_similarity.clone(), scorer_called.clone());
+    let searcher =
+      crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+        searcher.get_index_reader().clone(),
+        Arc::new(s),
+      )?;
     let term_query = TermQuery::new(term.clone());
     term_query.create_weight(&searcher, score_mode, 1f32)?;
     assert_eq!(
@@ -978,7 +977,6 @@ where
 impl<S> Similarity for SimilarityImpl<S>
 where
   S: Similarity,
-  S::SimScorer: SimScorer + Send + Sync + 'static,
 {
   fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
     self.existing_similarity.compute_norm(state)

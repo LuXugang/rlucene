@@ -50,10 +50,15 @@ pub type DefaultCRReaderShared = Arc<StandardDirectoryReader<DirEnum>>;
 pub type DefaultCRReader = StandardDirectoryReader<DirEnum>;
 pub type DefaultLRReader = DefaultLeafReader<DirEnum>;
 pub type DefaultIRCRC = CompositeReaderContext<DefaultCRReader>;
-pub type DefaultIndexSearchCRShared =
-  DefaultIndexSearcher<CompositeReaderContext<DefaultCRReaderShared>>;
-pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;
-pub type DefaultIndexSearchLR = DefaultIndexSearcher<LeafReaderContext<DefaultLRReader>>;
+pub type DefaultIndexSearchCRShared<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReaderShared>, SIM>;
+pub type DefaultIndexSearchCR<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>, SIM>;
+pub type DefaultIndexSearchLR<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = DefaultIndexSearcher<LeafReaderContext<DefaultLRReader>, SIM>;
 pub type DummyCR = StandardDirectoryReader<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>;
 
 pub(crate) fn dummy_directory() -> Result<Arc<FSDirectory<NativeFSLockFactory, NIOFSDirectory>>> {

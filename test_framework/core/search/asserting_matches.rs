@@ -21,26 +21,38 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::asserting_matches_iterator::AssertingMatchesIterator;
 
 /// An implementation of [`Matches`] with additional consistency checks.
-pub struct AssertingMatches<'a, IRC: IndexReaderContext + 'static> {
-  in_: QueryWeightMatches<'a, IRC>,
+pub struct AssertingMatches<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  in_: QueryWeightMatches<'a, IRC, SIM>,
 }
 
-impl<'a, IRC: IndexReaderContext + 'static> AssertingMatches<'a, IRC> {
-  pub fn new(in_: QueryWeightMatches<'a, IRC>) -> Self {
+impl<'a, IRC: IndexReaderContext + 'static, SIM> AssertingMatches<'a, IRC, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  pub fn new(in_: QueryWeightMatches<'a, IRC, SIM>) -> Self {
     Self { in_ }
   }
 }
 
-impl<'a, IRC: IndexReaderContext + 'static> Matches for AssertingMatches<'a, IRC> {
+impl<'a, IRC: IndexReaderContext + 'static, SIM> Matches for AssertingMatches<'a, IRC, SIM>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
   type Iterator<'b>
-    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>>
+    = QueryWeightMatchesIterator<'b, IRCLeafReader<IRC>, SIM>
   where
     Self: 'b;
-  type SubMatches = QueryWeightMatches<'a, IRC>;
+  type SubMatches = QueryWeightMatches<'a, IRC, SIM>;
   fn get_matches(
     &self,
     field: &str,
-  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>>>> {
+  ) -> Result<Option<QueryWeightMatchesIterator<'_, IRCLeafReader<IRC>, SIM>>> {
     Ok(
       self
         .in_
@@ -49,7 +61,7 @@ impl<'a, IRC: IndexReaderContext + 'static> Matches for AssertingMatches<'a, IRC
     )
   }
 
-  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC>] {
+  fn get_sub_matches(&self) -> &[QueryWeightMatches<'a, IRC, SIM>] {
     std::slice::from_ref(&self.in_)
   }
 

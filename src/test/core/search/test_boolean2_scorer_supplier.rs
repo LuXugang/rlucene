@@ -176,7 +176,13 @@ pub(crate) struct FakeScorerSupplier {
   top_level_scoring_clause: bool,
 }
 impl FakeScorerSupplier {
-  fn with_lead_cost(cost: i64, lead_cost: Option<i64>) -> QueryWeightSs<DummyIRC> {
+  fn with_lead_cost(
+    cost: i64,
+    lead_cost: Option<i64>,
+  ) -> QueryWeightSs<
+    DummyIRC,
+    crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+  > {
     let v = Self {
       cost,
       lead_cost,
@@ -185,7 +191,10 @@ impl FakeScorerSupplier {
     v.into()
   }
 }
-fn new_fake_scorer_supplier(cost: i64) -> QueryWeightSs<DummyIRC> {
+fn new_fake_scorer_supplier(
+  cost: i64,
+) -> QueryWeightSs<DummyIRC, crate::core::search::similarities_impl::bm25_similarity::BM25Similarity>
+{
   let v = FakeScorerSupplier {
     cost,
     lead_cost: None,
@@ -193,8 +202,10 @@ fn new_fake_scorer_supplier(cost: i64) -> QueryWeightSs<DummyIRC> {
   };
   v.into()
 }
-impl<IRC: crate::core::index::index_reader_context::IndexReaderContext + 'static>
-  ScorerSupplier<IRC> for FakeScorerSupplier
+impl<IRC: crate::core::index::index_reader_context::IndexReaderContext + 'static, SIM>
+  ScorerSupplier<IRC, SIM> for FakeScorerSupplier
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
 {
   type Scorer = FakeScorer;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
@@ -203,10 +214,10 @@ impl<IRC: crate::core::index::index_reader_context::IndexReaderContext + 'static
     &mut self,
     lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     if let Some(v) = self.lead_cost
       && v != lead_cost
@@ -219,10 +230,10 @@ impl<IRC: crate::core::index::index_reader_context::IndexReaderContext + 'static
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -230,10 +241,10 @@ impl<IRC: crate::core::index::index_reader_context::IndexReaderContext + 'static
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(self.cost)
   }

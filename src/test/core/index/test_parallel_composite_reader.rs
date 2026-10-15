@@ -97,15 +97,16 @@ fn test_queries_composite_composite() -> Result<()> {
   dir2.close()
 }
 
-fn queries<PIRC, SIRC>(
-  parallel: &DefaultIndexSearcher<PIRC>,
-  single: &DefaultIndexSearcher<SIRC>,
+fn queries<PIRC, SIRC, SIM>(
+  parallel: &DefaultIndexSearcher<PIRC, SIM>,
+  single: &DefaultIndexSearcher<SIRC, SIM>,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   PIRC: IndexReaderContext,
   SIRC: IndexReaderContext,
-  DefaultIndexSearcher<PIRC>: Sync,
-  DefaultIndexSearcher<SIRC>: Sync,
+  DefaultIndexSearcher<PIRC, SIM>: Sync,
+  DefaultIndexSearcher<SIRC, SIM>: Sync,
 {
   query_test(
     parallel,
@@ -573,16 +574,17 @@ fn test_to_string_composite_composite() -> Result<()> {
   dir1.close()
 }
 
-fn query_test<PIRC, SIRC>(
-  parallel: &DefaultIndexSearcher<PIRC>,
-  single: &DefaultIndexSearcher<SIRC>,
+fn query_test<PIRC, SIRC, SIM>(
+  parallel: &DefaultIndexSearcher<PIRC, SIM>,
+  single: &DefaultIndexSearcher<SIRC, SIM>,
   query: Query,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   PIRC: IndexReaderContext,
   SIRC: IndexReaderContext,
-  DefaultIndexSearcher<PIRC>: Sync,
-  DefaultIndexSearcher<SIRC>: Sync,
+  DefaultIndexSearcher<PIRC, SIM>: Sync,
+  DefaultIndexSearcher<SIRC, SIM>: Sync,
 {
   let parallel_hits = parallel.search(query.clone(), 1000)?.score_docs;
   let single_hits = single.search(query, 1000)?.score_docs;

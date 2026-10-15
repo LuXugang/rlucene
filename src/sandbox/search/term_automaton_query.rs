@@ -42,7 +42,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{
-  SimScorer, Similarity, SimilarityEnum, SimilarityEnumSimScorer,
+  SimScorer, Similarity, SimilaritySimScorer,
 };
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_statistics::TermStatistics;
@@ -378,28 +378,30 @@ impl Accountable for TermAutomatonQuery {
 }
 
 pub trait TermAutomatonQueryBase {
-  fn rewrite<IRC>(
+  fn rewrite<IRC, SIM>(
     &self,
     query: &TermAutomatonQuery,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync;
+    IndexSearcher<IRC, SIM>: Sync;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct TermAutomatonQueryDefault;
 
 impl TermAutomatonQueryBase for TermAutomatonQueryDefault {
-  fn rewrite<IRC>(
+  fn rewrite<IRC, SIM>(
     &self,
     query: &TermAutomatonQuery,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     TermAutomatonQueryDefaults::rewrite(query, searcher)
   }
@@ -413,14 +415,15 @@ enum TermAutomatonQueryHook {
 }
 
 impl TermAutomatonQueryBase for TermAutomatonQueryHook {
-  fn rewrite<IRC>(
+  fn rewrite<IRC, SIM>(
     &self,
     query: &TermAutomatonQuery,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default(hook) => hook.rewrite(query, searcher),
@@ -433,13 +436,14 @@ impl TermAutomatonQueryBase for TermAutomatonQueryHook {
 pub struct TermAutomatonQueryDefaults;
 
 impl TermAutomatonQueryDefaults {
-  pub fn rewrite<IRC>(
+  pub fn rewrite<IRC, SIM>(
     query: &TermAutomatonQuery,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let det = query
       .det
@@ -538,9 +542,10 @@ impl TermAutomatonQueryDefaults {
 }
 
 impl QueryBase for TermAutomatonQuery {
-  type Weight<IRC>
-    = TermAutomatonWeight
+  type Weight<IRC, SIM>
+    = TermAutomatonWeight<SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
@@ -553,23 +558,25 @@ impl QueryBase for TermAutomatonQuery {
     Ok(value)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     TermAutomatonWeight::new(self, searcher, score_mode, boost)
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.hook.rewrite(self, searcher)
   }
@@ -593,15 +600,22 @@ impl QueryBase for TermAutomatonQuery {
   }
 }
 
-pub struct TermAutomatonWeight {
+pub struct TermAutomatonWeight<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   term_states: Vec<Option<TermStates>>,
-  stats: Option<Arc<SimilarityEnumSimScorer>>,
+  stats: Option<Arc<SimilaritySimScorer<SIM>>>,
   #[allow(dead_code)]
-  similarity: Arc<SimilarityEnum>,
+  similarity: Arc<SIM>,
   parent_query: Arc<Query>,
 }
 
-impl Debug for TermAutomatonWeight {
+impl<SIM> Debug for TermAutomatonWeight<SIM>
+where
+  SIM: Similarity,
+{
   fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
     match self.parent_query.to_string("") {
       Ok(value) => write!(formatter, "weight({value})"),
@@ -610,16 +624,19 @@ impl Debug for TermAutomatonWeight {
   }
 }
 
-impl TermAutomatonWeight {
+impl<SIM> TermAutomatonWeight<SIM>
+where
+  SIM: Similarity,
+{
   fn new<IRC>(
     query: TermAutomatonQuery,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
   ) -> Result<Self>
   where
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     query
       .det
@@ -680,7 +697,9 @@ impl TermAutomatonWeight {
     &self,
     context: &LeafReaderContext<LR>,
   ) -> Result<
-    Option<TermAutomatonScorer<LRPosting<LR>, SimilarityEnumSimScorer, LRNormNumericDocValues<LR>>>,
+    Option<
+      TermAutomatonScorer<LRPosting<LR>, SimilaritySimScorer<SIM>, LRNormNumericDocValues<LR>>,
+    >,
   >
   where
     LR: LeafReader,
@@ -742,8 +761,9 @@ impl TermAutomatonWeight {
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for TermAutomatonWeight
+impl<IRC, SIM> SegmentCacheable<IRC> for TermAutomatonWeight<SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -751,18 +771,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for TermAutomatonWeight
+impl<IRC, SIM> Weight<IRC, SIM> for TermAutomatonWeight<SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let Some(mut scorer) = self.build_scorer(context)? else {
       return Ok(Explanation::no_match_no_details(
@@ -830,7 +851,7 @@ where
   type ScorerSupplier = DefaultScorerSupplier<
     TermAutomatonScorer<
       LRPosting<IRCLeafReader<IRC>>,
-      SimilarityEnumSimScorer,
+      SimilaritySimScorer<SIM>,
       LRNormNumericDocValues<IRCLeafReader<IRC>>,
     >,
   >;
@@ -838,10 +859,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let Some(scorer) = self.build_scorer(context)? else {
       return Ok(None);

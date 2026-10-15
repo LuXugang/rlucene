@@ -32,25 +32,29 @@ use crate::core::search::query::{Query, QueryBase, QueryWeightMatchesIterator};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::{
-  SimScorer, SimScorerEnum2, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{SimScorer, SimScorerEnum2, Similarity};
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-pub type SimScorerType = SimScorerEnum2<<SimilarityEnum as Similarity>::SimScorer, SimScorerImpl>;
+pub type SimScorerType<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = SimScorerEnum2<<SIM as Similarity>::SimScorer, SimScorerImpl>;
 
-pub type PhraseWeightScorer<S, IRC> = ScorerEnum2<
+pub type PhraseWeightScorer<
+  S,
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = ScorerEnum2<
   PhraseScorer<
-    <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>,
-    <S as PhraseWeightBase>::SimScorer,
+    <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
+    <S as PhraseWeightBase<SIM>>::SimScorer,
     LRNormNumericDocValues<IRCLeafReader<IRC>>,
     true,
   >,
   PhraseScorer<
-    <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>,
-    <S as PhraseWeightBase>::SimScorer,
+    <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
+    <S as PhraseWeightBase<SIM>>::SimScorer,
     LRNormNumericDocValues<IRCLeafReader<IRC>>,
     false,
   >,
@@ -107,29 +111,34 @@ where
   }
 }
 
-pub struct PhraseWeight<S>
-where
-  S: PhraseWeightBase,
+pub struct PhraseWeight<
+  S,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+  S: PhraseWeightBase<SIM>,
 {
   stats: S::SimScorer,
   sub: S,
 }
-impl<S> PhraseWeight<S>
+impl<S, SIM> PhraseWeight<S, SIM>
 where
-  S: PhraseWeightBase,
+  SIM: Similarity,
+  S: PhraseWeightBase<SIM>,
 {
-  pub(crate) fn new<IRC>(searcher: &IndexSearcher<IRC>, mut sub: S) -> Result<Self>
+  pub(crate) fn new<IRC>(searcher: &IndexSearcher<IRC, SIM>, mut sub: S) -> Result<Self>
   where
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let stats = sub.get_stats(searcher)?;
     Ok(Self { stats, sub })
   }
 }
-impl<S, IRC> SegmentCacheable<IRC> for PhraseWeight<S>
+impl<S, IRC, SIM> SegmentCacheable<IRC> for PhraseWeight<S, SIM>
 where
-  S: PhraseWeightBase,
+  SIM: Similarity,
+  S: PhraseWeightBase<SIM>,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -137,31 +146,32 @@ where
   }
 }
 
-impl<S, IRC> Weight<IRC> for PhraseWeight<S>
+impl<S, IRC, SIM> Weight<IRC, SIM> for PhraseWeight<S, SIM>
 where
-  S: PhraseWeightBase,
+  SIM: Similarity,
+  S: PhraseWeightBase<SIM>,
   IRC: IndexReaderContext + 'static,
-  <S as PhraseWeightBase>::SimScorer: 'static,
-  <S as PhraseWeightBase>::IE<IRCLeafReader<IRC>>: 'static,
-  PhraseWeightScorer<S, IRC>: crate::core::search::query_scorer::IntoQueryScorer<
-      crate::core::search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>,
+  <S as PhraseWeightBase<SIM>>::SimScorer: 'static,
+  <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>: 'static,
+  PhraseWeightScorer<S, IRC, SIM>: crate::core::search::query_scorer::IntoQueryScorer<
+      crate::core::search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>, SIM>,
     >,
-  for<'a> crate::core::search::query_matches::FieldMatchesSupplier<'a, IRC>: From<(
-    &'a PhraseWeight<S>,
+  for<'a> crate::core::search::query_matches::FieldMatchesSupplier<'a, IRC, SIM>: From<(
+    &'a PhraseWeight<S, SIM>,
     &'a LeafReaderContext<IRCLeafReader<IRC>>,
     i32,
   )>,
-  for<'a> QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>:
+  for<'a> QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>:
     From<Box<PhraseMatchesIterator<S::IE<IRCLeafReader<IRC>>, S::SimScorer>>>,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    _searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     for_field(&self.sub.base().field, (self, context, doc).into())
   }
@@ -170,10 +180,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut matcher = match self
       .sub
@@ -234,15 +244,15 @@ where
     self.sub.base().query.clone()
   }
 
-  type ScorerSupplier = DefaultScorerSupplier<PhraseWeightScorer<S, IRC>>;
+  type ScorerSupplier = DefaultScorerSupplier<PhraseWeightScorer<S, IRC, SIM>>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self
       .sub
@@ -254,7 +264,7 @@ where
         } else {
           None
         };
-        let scorer: PhraseWeightScorer<S, IRC> =
+        let scorer: PhraseWeightScorer<S, IRC, SIM> =
           if self.sub.base().score_mode == ScoreMode::TopScores {
             ScorerEnum2::A(PhraseScorer::new(matcher, self.stats.clone(), norms))
           } else {
@@ -267,11 +277,15 @@ where
   }
 }
 
-pub trait PhraseWeightBase {
+pub trait PhraseWeightBase<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   type SimScorer: SimScorer + Clone;
   type IE<LR: LeafReader>: ImpactsEnum;
 
-  fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
+  fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Self::SimScorer>
   where
     IRC: IndexReaderContext + 'static;
 
@@ -283,19 +297,26 @@ pub trait PhraseWeightBase {
   ) -> PhraseMatcherResult<Self::IE<LR>, Self::SimScorer>
   where
     LR: LeafReader;
-  fn base(&self) -> &PhraseWeightMeta;
+  fn base(&self) -> &PhraseWeightMeta<SIM>;
 }
-pub struct PhraseWeightMeta {
+pub struct PhraseWeightMeta<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   pub(crate) field: String,
   pub(crate) score_mode: ScoreMode,
-  pub(crate) similarity: Arc<SimilarityEnum>,
+  pub(crate) similarity: Arc<SIM>,
   pub(crate) query: Arc<Query>,
 }
-impl PhraseWeightMeta {
+impl<SIM> PhraseWeightMeta<SIM>
+where
+  SIM: Similarity,
+{
   pub(crate) fn new(
     field: String,
     score_mode: ScoreMode,
-    similarity: Arc<SimilarityEnum>,
+    similarity: Arc<SIM>,
     query: Query,
   ) -> Self {
     Self {
@@ -314,14 +335,19 @@ impl SimScorer for SimScorerImpl {
   }
 }
 
-impl<S: PhraseWeightBase> PhraseWeight<S> {
+impl<S: PhraseWeightBase<SIM>, SIM> PhraseWeight<S, SIM>
+where
+  SIM: Similarity,
+{
   pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
+  ) -> Result<
+    Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>,
+  >
   where
-    QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>:
+    QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>:
       From<Box<PhraseMatchesIterator<S::IE<IRCLeafReader<IRC>>, S::SimScorer>>>,
   {
     let Some(mut matcher) = self

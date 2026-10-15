@@ -19,6 +19,7 @@ use crate::core::index::index_reader::{
   IndexReader, IndexReaderContextKind, IndexReaderContextType,
 };
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
@@ -30,27 +31,36 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
-type ManagedSearcher<DR> = IndexSearcher<IndexReaderContextType<Arc<DR>>>;
+type SearcherMap<DR, SIM> = HashMap<i64, Arc<SearcherTracker<DR, SIM>>>;
 
-struct SearcherTracker<DR>
-where
+type ManagedSearcher<
+  DR,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = IndexSearcher<IndexReaderContextType<Arc<DR>>, SIM>;
+
+struct SearcherTracker<
+  DR,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
   DR: DirectoryReader<DirectoryReader = DR> + 'static,
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,
 {
-  searcher: Arc<ManagedSearcher<DR>>,
+  searcher: Arc<ManagedSearcher<DR, SIM>>,
   record_time: Instant,
   version: i64,
   close_lock: Mutex<()>,
 }
 
-impl<DR> SearcherTracker<DR>
+impl<DR, SIM> SearcherTracker<DR, SIM>
 where
+  SIM: Similarity,
   DR: DirectoryReader<DirectoryReader = DR> + 'static,
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,
 {
-  fn new(searcher: Arc<ManagedSearcher<DR>>) -> Result<Self> {
+  fn new(searcher: Arc<ManagedSearcher<DR, SIM>>) -> Result<Self> {
     let version = searcher.get_index_reader().get_version()?;
     searcher.get_index_reader().inc_ref()?;
     // Use a monotonic clock to reduce the risk from wall-clock shifts.
@@ -77,19 +87,23 @@ where
 /// segments and the additional resource usage is contained.
 ///
 /// @lucene.experimental
-pub struct SearcherLifetimeManager<DR>
-where
+pub struct SearcherLifetimeManager<
+  DR,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
   DR: DirectoryReader<DirectoryReader = DR> + 'static,
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,
 {
   closed: AtomicBool,
-  searchers: RwLock<HashMap<i64, Arc<SearcherTracker<DR>>>>,
+  searchers: RwLock<SearcherMap<DR, SIM>>,
   operation_lock: ReentrantMutex<()>,
 }
 
-impl<DR> Default for SearcherLifetimeManager<DR>
+impl<DR, SIM> Default for SearcherLifetimeManager<DR, SIM>
 where
+  SIM: Similarity,
   DR: DirectoryReader<DirectoryReader = DR> + 'static,
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,
@@ -99,8 +113,9 @@ where
   }
 }
 
-impl<DR> SearcherLifetimeManager<DR>
+impl<DR, SIM> SearcherLifetimeManager<DR, SIM>
 where
+  SIM: Similarity,
   DR: DirectoryReader<DirectoryReader = DR> + 'static,
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,
@@ -127,7 +142,7 @@ where
   ///
   /// The returned token can later be passed to [`acquire`](Self::acquire) to retrieve the same
   /// searcher.
-  pub fn record(&self, searcher: &Arc<ManagedSearcher<DR>>) -> Result<i64> {
+  pub fn record(&self, searcher: &Arc<ManagedSearcher<DR, SIM>>) -> Result<i64> {
     self.ensure_open()?;
     let version = searcher.get_index_reader().get_version()?;
     if let Some(tracker) = self.searchers.read().get(&version) {
@@ -162,7 +177,7 @@ where
   ///
   /// If this returns a searcher, it must later be passed to [`release`](Self::release), preferably
   /// from a finally-equivalent path.
-  pub fn acquire(&self, version: i64) -> Result<Option<Arc<ManagedSearcher<DR>>>> {
+  pub fn acquire(&self, version: i64) -> Result<Option<Arc<ManagedSearcher<DR, SIM>>>> {
     self.ensure_open()?;
     let tracker = self.searchers.read().get(&version).cloned();
     if let Some(tracker) = tracker
@@ -176,7 +191,7 @@ where
   /// Releases a searcher previously obtained from [`acquire`](Self::acquire).
   ///
   /// It is safe to call this after [`close`](Self::close).
-  pub fn release(&self, searcher: Arc<ManagedSearcher<DR>>) -> Result<()> {
+  pub fn release(&self, searcher: Arc<ManagedSearcher<DR, SIM>>) -> Result<()> {
     searcher.get_index_reader().dec_ref()
   }
 
@@ -247,7 +262,9 @@ where
   /// Returns `true` if this searcher should be removed.
   ///
   /// `age_sec` is how much time has passed since this searcher was the current live searcher.
-  fn do_prune(&self, age_sec: f64, searcher: &ManagedSearcher<DR>) -> bool;
+  fn do_prune<SIM>(&self, age_sec: f64, searcher: &ManagedSearcher<DR, SIM>) -> bool
+  where
+    SIM: Similarity;
 }
 
 /// A simple pruner that drops searchers older by more than the specified number of seconds than
@@ -273,13 +290,17 @@ where
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,
 {
-  fn do_prune(&self, age_sec: f64, _searcher: &ManagedSearcher<DR>) -> bool {
+  fn do_prune<SIM>(&self, age_sec: f64, _searcher: &ManagedSearcher<DR, SIM>) -> bool
+  where
+    SIM: Similarity,
+  {
     age_sec > self.max_age_sec
   }
 }
 
-impl<DR> Closeable for SearcherLifetimeManager<DR>
+impl<DR, SIM> Closeable for SearcherLifetimeManager<DR, SIM>
 where
+  SIM: Similarity,
   DR: DirectoryReader<DirectoryReader = DR> + 'static,
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,
@@ -289,8 +310,9 @@ where
   }
 }
 
-impl<DR> CloseableRef for SearcherLifetimeManager<DR>
+impl<DR, SIM> CloseableRef for SearcherLifetimeManager<DR, SIM>
 where
+  SIM: Similarity,
   DR: DirectoryReader<DirectoryReader = DR> + 'static,
   DR::ContextKind: IndexReaderContextKind<Arc<DR>>,
   IndexReaderContextType<Arc<DR>>: 'static,

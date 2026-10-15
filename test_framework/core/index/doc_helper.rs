@@ -31,7 +31,6 @@ use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::index_searcher::get_default_similarity;
-use crate::core::search::similarities_impl::similarities::SimilarityEnum;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer;
@@ -352,30 +351,25 @@ impl DocHelper {
     R: Rng + ?Sized,
   {
     let mock = MockAnalyzer::with_automaton(random, mock_analyzer::WHITESPACE.clone(), false);
-    Self::write_doc_with_analyzer(random, dir, mock, None::<SimilarityEnum>, doc)
+    Self::write_doc_with_analyzer(random, dir, mock, get_default_similarity().clone(), doc)
   }
   pub fn write_doc_with_analyzer<D, R, A, S>(
     _random: &mut R,
     dir: Arc<D>,
     analyzer: A,
-    similarity: Option<S>,
+    similarity: S,
     doc: &mut Document,
   ) -> Result<SegmentCommitInfo<D>>
   where
     D: Directory + 'static,
     R: Rng + ?Sized,
     A: Into<AnalyzerEnum>,
-    S: Into<SimilarityEnum>,
+    S: crate::core::search::similarities_impl::similarities::Similarity,
   {
-    let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
-    let s = match similarity {
-      Some(v) => v.into(),
-      None => get_default_similarity()?,
-    };
-    config.set_similarity(s);
+    let config = IndexWriterConfig::with_analyzer(analyzer)?;
 
     let writer = IndexWriter::new(dir.clone(), config)?;
-    writer.add_document(doc)?;
+    writer.add_document_with_similarity(doc, &similarity)?;
     writer.commit()?;
     writer.close()?;
     let inner = writer.inner.lock();

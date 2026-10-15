@@ -37,6 +37,7 @@ use crate::core::search::multi_term_query::{
 use crate::core::search::query::QueryBase;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
@@ -83,24 +84,26 @@ impl HasIdentity for MultiTermQueryConstantScoreWrapper {
 }
 
 impl QueryBase for MultiTermQueryConstantScoreWrapper {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = MultiTermRewritingWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     self.q.to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     let sub = StandardRewritingWeight;
@@ -186,23 +189,24 @@ impl RewritingWeightBase for StandardRewritingWeight {
     T: Terms,
     TermsPosting<T>: 'static;
 
-  fn rewrite_inner<T, TE, IRC>(
+  fn rewrite_inner<T, TE, IRC, SIM>(
     &self,
     field_doc_count: i32,
     terms: &mut T,
     terms_enum: &mut TE,
     collected_terms: &[TermAndState],
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     field: &str,
     score_mode: &ScoreMode,
     score: f32,
-  ) -> Result<WeightOrDocIdSetIterator<IRC, Self::Iter<T>>>
+  ) -> Result<WeightOrDocIdSetIterator<IRC, Self::Iter<T>, SIM>>
   where
+    SIM: Similarity,
     T: Terms,
     TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     TermsPosting<T>: 'static,
   {
     let max_doc = context.reader().max_doc()?;

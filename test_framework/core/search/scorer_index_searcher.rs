@@ -32,7 +32,10 @@ pub struct ScorerIndexSearcher<IR>
 where
   IR: IndexReader + 'static,
 {
-  pub s: IndexSearcher<IndexReaderContextType<IR>>,
+  pub s: IndexSearcher<
+    IndexReaderContextType<IR>,
+    crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity,
+  >,
 }
 impl<IR> ScorerIndexSearcher<IR>
 where
@@ -40,9 +43,15 @@ where
 {
   #[allow(unused)]
   pub fn new(reader: IR) -> Self {
-    let s = IndexSearcher::new(reader.get_context().unwrap())
-      .unwrap()
-      .with_hook(IndexSearcherHook::Scorer(ScorerIndexSearcherHook));
+    let s = IndexSearcher::new_with_executor(
+      reader.get_context().unwrap(),
+      None,
+      std::sync::Arc::new(
+        crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity::default(),
+      ),
+    )
+    .unwrap()
+    .with_hook(IndexSearcherHook::Scorer(ScorerIndexSearcherHook));
     Self { s }
   }
 }
@@ -54,9 +63,9 @@ impl<IRC> IndexSearcherBase<IRC> for ScorerIndexSearcherHook
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn search_leaf<W, C>(
+  fn search_leaf<W, C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     ctx_ord: usize,
     min_doc_id: i32,
     max_doc_id: i32,
@@ -64,9 +73,10 @@ where
     collector: &mut C,
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     // the default slices method does not create segment partitions, and we don't provide an
     // executor to this searcher in our codebase, so we should not run into this problem. This type

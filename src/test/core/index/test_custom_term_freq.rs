@@ -32,9 +32,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, directory_reader, multi_terms};
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -695,10 +693,10 @@ fn test_field_invert_state() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
 
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
   let fis = Arc::new(Mutex::new((FieldInvertState::default(), 0)));
   let similarity = NeverForgetsSimilarity::new(fis.clone());
-  iwc.set_similarity(SimilarityEnum::custom(similarity));
+  let indexing_similarity_iwc = similarity;
+  let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
 
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
@@ -717,7 +715,7 @@ fn test_field_invert_state() -> Result<()> {
   )?;
   doc.add(field);
 
-  w.add_document(doc)?;
+  w.add_document_with_similarity(doc, &indexing_similarity_iwc)?;
   let fis = fis.lock();
   assert_eq!(228, fis.0.get_max_term_frequency());
   assert_eq!(2, fis.0.get_unique_term_count());

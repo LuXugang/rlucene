@@ -57,8 +57,13 @@ fn test_similarity() -> Result<()> {
   let store = new_directory_shared(&mut random)?;
 
   let mock = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, mock)?;
-  iwc.set_similarity(new_simple_similarity());
+  let indexing_similarity_iwc = new_simple_similarity();
+  let mut iwc =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      &mut random,
+      mock,
+    )?;
+
   iwc.set_merge_policy(new_merge_policy_with_mock_mp(&mut random, false)?);
   let writer = RandomIndexWriter::with_config(&mut random, store.clone(), iwc);
 
@@ -68,14 +73,17 @@ fn test_similarity() -> Result<()> {
   let mut d2 = Document::new();
   d2.add(TextField::from_string("field", "a c b", Store::Yes)?);
 
-  writer.add_document(&mut random, d1)?;
-  writer.add_document(&mut random, d2)?;
+  writer.add_document_with_similarity(&mut random, d1, &indexing_similarity_iwc)?;
+  writer.add_document_with_similarity(&mut random, d2, &indexing_similarity_iwc)?;
 
   let reader = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;
 
-  let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(new_simple_similarity());
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(new_simple_similarity()),
+    )?;
 
   let a = Term::from_text("field", "a");
   let b = Term::from_text("field", "b");
@@ -97,10 +105,15 @@ fn test_similarity() -> Result<()> {
   assert_score(&searcher, pq.into(), 0.5)?;
   Ok(())
 }
-fn assert_score<IRC>(searcher: &IndexSearcher<IRC>, query: Query, score: f32) -> Result<()>
+fn assert_score<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
+  query: Query,
+  score: f32,
+) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let manager = CollectorManagerImpl2::new(score);
   searcher.search_with_collector_manager(query, &manager)?;
@@ -139,16 +152,17 @@ impl Collector for ScoreAssertingCollectorImpl1 {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> crate::core::util::error::lucene_error::Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)
@@ -198,16 +212,17 @@ impl Collector for ScoreAssertingCollectorImpl2 {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     SimpleCollector::get_leaf_collector(self, context, weight)?;
     Ok(self)

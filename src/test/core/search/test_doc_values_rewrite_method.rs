@@ -123,10 +123,15 @@ where
   Ok((field_name, searcher))
 }
 
-fn assert_same<IRC>(searcher: &IndexSearcher<IRC>, field_name: &str, regexp: String) -> Result<()>
+fn assert_same<IRC, SIM>(
+  searcher: &IndexSearcher<IRC, SIM>,
+  field_name: &str,
+  regexp: String,
+) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: crate::core::index::index_reader_context::IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let doc_values = RegexpQuery::with_all(
     Term::from_text(field_name, &regexp),

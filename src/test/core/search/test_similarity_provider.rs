@@ -25,9 +25,7 @@ use crate::core::index::term::Term;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::similarities_impl::per_field_similarity_wrapper::PerFieldSimilarityWrapper;
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, SimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, SimScorer, Similarity};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::store::directory::DirEnum;
@@ -48,7 +46,9 @@ use std::sync::{Arc, LazyLock};
 #[allow(dead_code)] // for quick search
 pub struct TestSimilarityProvider;
 
-static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+type ProviderSearcher = DefaultIndexSearchCR<ExampleSimilarityProvider>;
+
+static LIGHT_SEARCHER: LazyLock<Arc<ProviderSearcher>> = LazyLock::new(|| {
   Arc::new(
     build_set_up()
       .expect("failed to initialize TestSimilarityProvider")
@@ -56,7 +56,7 @@ static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
   )
 });
 
-fn set_up() -> Result<(Arc<DefaultIndexSearchCR>, Option<Arc<DirEnum>>)> {
+fn set_up() -> Result<(Arc<ProviderSearcher>, Option<Arc<DirEnum>>)> {
   if is_light_mode() {
     return Ok((LIGHT_SEARCHER.clone(), None));
   }
@@ -65,13 +65,17 @@ fn set_up() -> Result<(Arc<DefaultIndexSearchCR>, Option<Arc<DirEnum>>)> {
   Ok((Arc::new(searcher), Some(directory)))
 }
 
-fn build_set_up() -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)> {
+fn build_set_up() -> Result<(ProviderSearcher, Arc<DirEnum>)> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let sim = SimilarityEnum::custom(ExampleSimilarityProvider::new());
+  let sim = ExampleSimilarityProvider::new();
   let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  iwc.set_similarity(sim);
+  let indexing_similarity_iwc = sim;
+  let iwc =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      &mut random,
+      analyzer,
+    )?;
 
   let iw = RandomIndexWriter::with_config(&mut random, directory.clone(), iwc);
 
@@ -91,7 +95,7 @@ fn build_set_up() -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)> {
     Store::No,
     &mut field_to_type,
   )?);
-  iw.add_document(&mut random, &mut doc)?;
+  iw.add_document_with_similarity(&mut random, &mut doc, &indexing_similarity_iwc)?;
 
   match doc.get_field_mut("foo") {
     Some(Fields::Field(field)) => field.set_string_value("jumps over lazy brown dog")?,
@@ -101,13 +105,16 @@ fn build_set_up() -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)> {
     Some(Fields::Field(field)) => field.set_string_value("jumps over lazy brown dog")?,
     _ => panic!("expected field"),
   }
-  iw.add_document(&mut random, &mut doc)?;
+  iw.add_document_with_similarity(&mut random, &mut doc, &indexing_similarity_iwc)?;
 
   let reader = iw.get_reader(&mut random)?;
   iw.close(&mut random)?;
 
-  let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(SimilarityEnum::custom(ExampleSimilarityProvider::new()));
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(ExampleSimilarityProvider::new()),
+    )?;
 
   Ok((searcher, directory))
 }

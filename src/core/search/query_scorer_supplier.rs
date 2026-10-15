@@ -21,6 +21,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{QueryWeightSsBulkScorer, QueryWeightSsScorer};
 use crate::core::search::scorer_supplier::ScorerSupplier;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::{document, search};
 
@@ -33,36 +34,41 @@ type RewriteSupplier<IRC, Q> =
     >,
     Q,
   >;
-type FilteredVectorSupplier<IRC> = search::abstract_vector_similarity_query::VectorSimilarityScorerSupplier<
+type FilteredVectorSupplier<IRC, SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity> = search::abstract_vector_similarity_query::VectorSimilarityScorerSupplier<
   search::abstract_vector_similarity_query::FilteredDocIdSetIteratorImpl1<
     search::vector_scorer::VectorScorerEnum2<
-      <search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>> as search::scorer_types::ScorerTypes>::ByteScorer,
-      <search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>> as search::scorer_types::ScorerTypes>::FloatScorer,
+      <search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>, SIM> as search::scorer_types::ScorerTypes>::ByteScorer,
+      <search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>, SIM> as search::scorer_types::ScorerTypes>::FloatScorer,
     >,
     crate::core::util::bit_set::SparseFixedBitSetBitSet,
   >,
 >;
-pub struct BuiltinQueryScorerSupplier<IRC: IndexReaderContext + 'static> {
-  pub(crate) inner: SupplierNode<IRC>,
+pub struct BuiltinQueryScorerSupplier<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
+  pub(crate) inner: SupplierNode<IRC, SIM>,
 }
 macro_rules! define_nodes {
   (boxed { $( $(#[$attrs:meta])* $variant:ident: $ty:ty, )+ }
    inline { $( $inline:ident: $inline_ty:ty, )+ }) => {
-    pub(crate) enum SupplierNode<IRC: IndexReaderContext + 'static> {
+    pub(crate) enum SupplierNode<IRC: IndexReaderContext + 'static, SIM> where SIM: Similarity, {
       $( $(#[$attrs])* $variant(Box<$ty>), )+
       $( $inline($inline_ty), )+
-      Default(search::weight::DefaultScorerSupplier<QueryWeightSsScorer<IRC>>),
+      Default(search::weight::DefaultScorerSupplier<QueryWeightSsScorer<IRC, SIM>>),
     }
-    $( $(#[$attrs])* impl<IRC: IndexReaderContext + 'static> From<$ty> for BuiltinQueryScorerSupplier<IRC> {
+    $( $(#[$attrs])* impl<IRC: IndexReaderContext + 'static, SIM> From<$ty> for BuiltinQueryScorerSupplier<IRC, SIM> where SIM: Similarity, {
       fn from(value: $ty) -> Self { Self { inner: SupplierNode::$variant(Box::new(value)) } }
     } )+
-    $( $(#[$attrs])* impl<IRC: IndexReaderContext + 'static> From<Box<$ty>> for BuiltinQueryScorerSupplier<IRC> {
+    $( $(#[$attrs])* impl<IRC: IndexReaderContext + 'static, SIM> From<Box<$ty>> for BuiltinQueryScorerSupplier<IRC, SIM> where SIM: Similarity, {
       fn from(value: Box<$ty>) -> Self { Self { inner: SupplierNode::$variant(value) } }
     } )+
-    $( impl<IRC: IndexReaderContext + 'static> From<$inline_ty> for BuiltinQueryScorerSupplier<IRC> {
+    $( impl<IRC: IndexReaderContext + 'static, SIM> From<$inline_ty> for BuiltinQueryScorerSupplier<IRC, SIM> where SIM: Similarity, {
       fn from(value: $inline_ty) -> Self { Self { inner: SupplierNode::$inline(value) } }
     } )+
-    $( impl<IRC: IndexReaderContext + 'static> From<Box<$inline_ty>> for BuiltinQueryScorerSupplier<IRC> {
+    $( impl<IRC: IndexReaderContext + 'static, SIM> From<Box<$inline_ty>> for BuiltinQueryScorerSupplier<IRC, SIM> where SIM: Similarity, {
       fn from(value: Box<$inline_ty>) -> Self { Self { inner: SupplierNode::$inline(*value) } }
     } )+
     macro_rules! dispatch_supplier {
@@ -78,16 +84,16 @@ macro_rules! define_nodes {
 }
 define_nodes! {
   boxed {
-    Term: search::term_query::TermScorerSupplier<IRCLeafReader<IRC>>,
-    Boolean: search::boolean_scorer_supplier::BooleanScorerSupplier<IRC>,
-    Constant: search::constant_score_query::ScorerSupplierImpl<IRC>,
-    DisjunctionMax: search::disjunction_max_query::ScorerSupplierImpl<IRC>,
-    IndexOrDocValues: search::index_or_doc_values_query::IndexOrDocValuesQuerySs<IRC>,
+    Term: search::term_query::TermScorerSupplier<IRCLeafReader<IRC>, SIM>,
+    Boolean: search::boolean_scorer_supplier::BooleanScorerSupplier<IRC, SIM>,
+    Constant: search::constant_score_query::ScorerSupplierImpl<IRC, SIM>,
+    DisjunctionMax: search::disjunction_max_query::ScorerSupplierImpl<IRC, SIM>,
+    IndexOrDocValues: search::index_or_doc_values_query::IndexOrDocValuesQuerySs<IRC, SIM>,
     IndexSort: search::index_sort_sorted_numeric_doc_values_range_query::ScorerSupplierImpl<search::index_sort_sorted_numeric_doc_values_range_query::Disi<IRCLeafReader<IRC>>>,
     PointRange: search::point_range_query::ScorerSupplierImpl1<PointValues<IRC>>,
     MergePoint: search::point_in_set_query::MergePointScorerSupplier<PointValues<IRC>>,
     SinglePoint: search::point_in_set_query::SinglePointScorerSupplier<PointValues<IRC>>,
-    Synonym: search::synonym_query::SynonymScorerSupplier<IRCLeafReader<IRC>>,
+    Synonym: search::synonym_query::SynonymScorerSupplier<IRCLeafReader<IRC>, SIM>,
     RewritePrefix: RewriteSupplier<IRC, search::prefix_query::PrefixQuery>,
     RewriteFuzzy: RewriteSupplier<IRC, search::fuzzy_query::FuzzyQuery>,
     RewriteAutomaton: RewriteSupplier<IRC, search::automaton_query::AutomatonQuery>,
@@ -96,8 +102,8 @@ define_nodes! {
     RewriteTermRange: RewriteSupplier<IRC, search::term_range_query::TermRangeQuery>,
     RewriteTermSet: RewriteSupplier<IRC, search::term_in_set_query::TermInSetQuery>,
     VectorScores: search::abstract_vector_similarity_query::VectorSimilarityScorerSupplier<search::abstract_vector_similarity_query::DocsIteratorImpl>,
-    VectorFiltered: FilteredVectorSupplier<IRC>,
-    CacheMiss: search::lru_query_cache::ScorerSupplierImpl1<<IRCLeafReader<IRC> as LeafReader>::CacheHelper, IRC>,
+    VectorFiltered: FilteredVectorSupplier<IRC, SIM>,
+    CacheMiss: search::lru_query_cache::ScorerSupplierImpl1<<IRCLeafReader<IRC> as LeafReader>::CacheHelper, IRC, SIM>,
     CacheHit: search::lru_query_cache::ScorerSupplierImpl2,
     RangeField: document::range_field_query::RangeFieldScorerSupplier<PointValues<IRC>>,
     SortedSetRange: document::sorted_set_doc_values_range_query::ScorerSupplierImpl3<crate::core::index::doc_values::SortedSet<IRCLeafReader<IRC>>>,
@@ -106,12 +112,12 @@ define_nodes! {
     Spatial: document::spatial_query::RelationScorerSupplier<PointValues<IRC>, std::sync::Arc<<document::lat_lon_point_query::LatLonPointSpatial as document::spatial_query::SpatialQueryBase>::SpatialVisitor>>,
     XYPoint: document::xy_point_in_geometry_query::XYPointInGeometryScorerSupplier<PointValues<IRC>>,
     #[cfg(test)] Fake: crate::test::core::search::test_boolean2_scorer_supplier::FakeScorerSupplier,
-    #[cfg(test)] Asserting: crate::test_framework::core::search::asserting_weight::AssertingScorerSupplier<IRC>,
-    #[cfg(test)] WeightWrapper: crate::test::core::search::test_lru_query_cache::WeightWrapperScorerSupplier<IRC>,
+    #[cfg(test)] Asserting: crate::test_framework::core::search::asserting_weight::AssertingScorerSupplier<IRC, SIM>,
+    #[cfg(test)] WeightWrapper: crate::test::core::search::test_lru_query_cache::WeightWrapperScorerSupplier<IRC, SIM>,
     #[cfg(test)] CrazyMustUseBulk: crate::test_framework::core::search::query::CrazyMustUseBulkScorerSupplier,
     #[cfg(test)] TestLRU: crate::test_framework::core::search::query::TestLRUScorerSupplier,
     #[cfg(test)] DVCache: crate::test_framework::core::search::query::DVCacheScorerSupplier,
-    #[cfg(test)] MaxScoreWrapper: crate::test_framework::core::search::query::ScorerSupplierImpl<IRC>,
+    #[cfg(test)] MaxScoreWrapper: crate::test_framework::core::search::query::ScorerSupplierImpl<IRC, SIM>,
     #[cfg(test)] RewriteBoostCheckingQuery: RewriteSupplier<IRC, crate::test_framework::core::search::multi_term::BoostCheckingQuery>,
     #[cfg(test)] RewriteDumbPrefixQuery: RewriteSupplier<IRC, crate::test_framework::core::search::multi_term::DumbPrefixQuery>,
     #[cfg(test)] RewriteDumbRegexpQuery: RewriteSupplier<IRC, crate::test_framework::core::search::multi_term::DumbRegexpQuery>,
@@ -125,97 +131,107 @@ define_nodes! {
   }
 }
 
-impl<IRC: IndexReaderContext + 'static> ScorerSupplier<IRC> for BuiltinQueryScorerSupplier<IRC> {
-  type Scorer = QueryWeightSsScorer<IRC>;
-  type BulkScorer = QueryWeightSsBulkScorer<IRC>;
+impl<IRC: IndexReaderContext + 'static, SIM> ScorerSupplier<IRC, SIM>
+  for BuiltinQueryScorerSupplier<IRC, SIM>
+where
+  SIM: Similarity,
+{
+  type Scorer = QueryWeightSsScorer<IRC, SIM>;
+  type BulkScorer = QueryWeightSsBulkScorer<IRC, SIM>;
   fn get(
     &mut self,
     lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<QueryWeightSsScorer<IRC>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<QueryWeightSsScorer<IRC, SIM>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dispatch_supplier!(&mut self.inner, |inner| {
-      ScorerSupplier::<IRC>::get(inner, lead_cost, context, searcher)
-        .map(QueryWeightSsScorer::<IRC>::new)
+      ScorerSupplier::<IRC, SIM>::get(inner, lead_cost, context, searcher)
+        .map(QueryWeightSsScorer::<IRC, SIM>::new)
     })
   }
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dispatch_supplier!(&mut self.inner, |inner| {
-      ScorerSupplier::<IRC>::bulk_scorer(inner, context, searcher)
-        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new))
+      ScorerSupplier::<IRC, SIM>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC, SIM>::new))
     })
   }
   fn default_bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<search::weight::DefaultBulkScorer<QueryWeightSsScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dispatch_supplier!(&mut self.inner, |inner| {
-      ScorerSupplier::<IRC>::default_bulk_scorer(inner, context, searcher).map(|scorer| {
-        search::weight::DefaultBulkScorer::new(QueryWeightSsScorer::<IRC>::new(scorer.scorer))
+      ScorerSupplier::<IRC, SIM>::default_bulk_scorer(inner, context, searcher).map(|scorer| {
+        search::weight::DefaultBulkScorer::new(QueryWeightSsScorer::<IRC, SIM>::new(scorer.scorer))
       })
     })
   }
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
-    dispatch_supplier!(&mut self.inner, |inner| ScorerSupplier::<IRC>::cost(
+    dispatch_supplier!(&mut self.inner, |inner| ScorerSupplier::<IRC, SIM>::cost(
       inner, context, searcher
     ))
   }
   fn set_top_level_scoring_clause(&mut self) -> Result<()> {
     dispatch_supplier!(&mut self.inner, |inner| {
-      ScorerSupplier::<IRC>::set_top_level_scoring_clause(inner)
+      ScorerSupplier::<IRC, SIM>::set_top_level_scoring_clause(inner)
     })
   }
   #[cfg(test)]
   fn as_any(&mut self) -> &mut dyn std::any::Any {
-    dispatch_supplier!(&mut self.inner, |inner| ScorerSupplier::<IRC>::as_any(
+    dispatch_supplier!(&mut self.inner, |inner| ScorerSupplier::<IRC, SIM>::as_any(
       inner
     ))
   }
 }
 
-impl<IRC, S> From<search::weight::DefaultScorerSupplier<S>> for BuiltinQueryScorerSupplier<IRC>
+impl<IRC, S, SIM> From<search::weight::DefaultScorerSupplier<S>>
+  for BuiltinQueryScorerSupplier<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
   S: search::scorer::Scorer
-    + search::query_scorer::IntoQueryScorer<search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>>
-    + 'static,
+    + search::query_scorer::IntoQueryScorer<
+      search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>, SIM>,
+    > + 'static,
 {
   fn from(value: search::weight::DefaultScorerSupplier<S>) -> Self {
     Self {
       inner: SupplierNode::Default(search::weight::DefaultScorerSupplier {
-        scorer: value.scorer.map(QueryWeightSsScorer::<IRC>::new),
+        scorer: value.scorer.map(QueryWeightSsScorer::<IRC, SIM>::new),
       }),
     }
   }
 }
 
-impl<IRC, S> From<Box<search::weight::DefaultScorerSupplier<S>>> for BuiltinQueryScorerSupplier<IRC>
+impl<IRC, S, SIM> From<Box<search::weight::DefaultScorerSupplier<S>>>
+  for BuiltinQueryScorerSupplier<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
   S: search::scorer::Scorer
-    + search::query_scorer::IntoQueryScorer<search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>>>
-    + 'static,
+    + search::query_scorer::IntoQueryScorer<
+      search::scorer_types::LeafScorerTypes<IRCLeafReader<IRC>, SIM>,
+    > + 'static,
 {
   fn from(value: Box<search::weight::DefaultScorerSupplier<S>>) -> Self {
     (*value).into()

@@ -235,7 +235,7 @@ fn test_keep_all_deletion_policy() -> Result<()> {
     assert_eq!(1 + usize::from(needs_merging), commits.len());
 
     for commit in &commits {
-      let r = directory_reader::open_from_commit(commit)?;
+      let r = directory_reader::open_from_commit::<_, _>(commit)?;
       r.close()?;
     }
 

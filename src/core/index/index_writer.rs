@@ -30,6 +30,8 @@ use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
 use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
+use crate::core::search::index_searcher::get_default_similarity;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
@@ -188,6 +190,10 @@ impl IndexingDocument for &mut Document {}
 /// checkpoints (files that were created since the last commit, but are no longer referenced by the
 /// "front" of the index). For this, `IndexFileDeleter` keeps track of the last non commit
 /// checkpoint.
+///
+/// Document-writing methods use the shared BM25 default. Their `with_similarity`
+/// variants borrow a concrete [`Similarity`] for norm computation during that operation;
+/// the writer does not retain it.
 pub struct IndexWriter<D>
 where
   D: Directory,
@@ -942,7 +948,20 @@ where
     DF: IndexingDocument,
     D: 'static,
   {
-    self.update_documents(None, [doc])
+    self.add_document_with_similarity(doc, get_default_similarity().as_ref())
+  }
+
+  /// Like [`Self::add_document`], using the supplied similarity to encode norms.
+  ///
+  /// The similarity is borrowed only for this operation. Use a compatible norm
+  /// encoding for all documents of a field and for the search similarity.
+  pub fn add_document_with_similarity<DF, S>(&self, doc: DF, similarity: &S) -> Result<i64>
+  where
+    S: Similarity,
+    DF: IndexingDocument,
+    D: 'static,
+  {
+    self.update_documents(None, [doc], similarity)
   }
 
   /// Atomically adds a block of documents with sequentially assigned document IDs, such that an
@@ -979,7 +998,22 @@ where
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
   {
-    self.update_documents(None, docs)
+    self.add_documents_with_similarity(docs, get_default_similarity().as_ref())
+  }
+
+  /// Like [`Self::add_documents`], using the supplied similarity to encode norms.
+  ///
+  /// The similarity is borrowed only for this operation. Use a compatible norm
+  /// encoding for all documents of a field and for the search similarity.
+  pub fn add_documents_with_similarity<DI, S>(&self, docs: DI, similarity: &S) -> Result<i64>
+  where
+    S: Similarity,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
+    D: 'static,
+  {
+    self.update_documents(None, docs, similarity)
   }
   /// Atomically deletes documents matching the provided `del_term` and adds a block of documents with
   /// sequentially assigned document IDs, such that an external reader will see all or none of the
@@ -999,11 +1033,30 @@ where
     DF: IndexingDocument,
     D: 'static,
   {
+    self.update_document_with_term_and_similarity(del_term, docs, get_default_similarity().as_ref())
+  }
+
+  /// Like [`Self::update_document_with_term`], using the supplied similarity to encode norms.
+  ///
+  /// The similarity is borrowed only for this operation. Use a compatible norm
+  /// encoding for all documents of a field and for the search similarity.
+  pub fn update_document_with_term_and_similarity<T, DF, S>(
+    &self,
+    del_term: T,
+    docs: DF,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: Similarity,
+    T: Into<Option<Term>>,
+    DF: IndexingDocument,
+    D: 'static,
+  {
     let del_node = del_term
       .into()
       .map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
 
-    self.update_documents(del_node, [docs])
+    self.update_documents(del_node, [docs], similarity)
   }
   /// Atomically deletes documents matching the provided delTerm and adds a block of documents with
   /// sequentially assigned document IDs, such that an external reader will see all or none of the
@@ -1030,11 +1083,36 @@ where
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
   {
+    self.update_documents_with_term_and_similarity(
+      del_term,
+      docs,
+      get_default_similarity().as_ref(),
+    )
+  }
+
+  /// Like [`Self::update_documents_with_term`], using the supplied similarity to encode norms.
+  ///
+  /// The similarity is borrowed only for this operation. Use a compatible norm
+  /// encoding for all documents of a field and for the search similarity.
+  pub fn update_documents_with_term_and_similarity<T, DI, S>(
+    &self,
+    del_term: T,
+    docs: DI,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: Similarity,
+    T: Into<Option<Term>>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
+    D: 'static,
+  {
     let del_node = del_term
       .into()
       .map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
 
-    self.update_documents(del_node, docs)
+    self.update_documents(del_node, docs, similarity)
   }
   /// Similar to [`update_documents(Term, Iterable)`](Self::update_document_with_term), but takes a query instead of a term to
   /// identify the documents to be updated.
@@ -1046,15 +1124,46 @@ where
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
   {
+    self.update_documents_with_query_and_similarity(
+      del_query,
+      docs,
+      get_default_similarity().as_ref(),
+    )
+  }
+
+  /// Like [`Self::update_documents_with_query`], using the supplied similarity to encode norms.
+  ///
+  /// The similarity is borrowed only for this operation. Use a compatible norm
+  /// encoding for all documents of a field and for the search similarity.
+  pub fn update_documents_with_query_and_similarity<T, DI, S>(
+    &self,
+    del_query: T,
+    docs: DI,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: Similarity,
+    T: Into<Option<Query>>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
+    D: 'static,
+  {
     let del_node = del_query
       .into()
       .map(|q| Arc::new(DocumentsWriterDeleteQueue::new_node_with_query(q)));
 
-    self.update_documents(del_node, docs)
+    self.update_documents(del_node, docs, similarity)
   }
 
-  fn update_documents<DI>(&self, del_node: Option<Arc<Node>>, docs: DI) -> Result<i64>
+  fn update_documents<DI, S>(
+    &self,
+    del_node: Option<Arc<Node>>,
+    docs: DI,
+    similarity: &S,
+  ) -> Result<i64>
   where
+    S: Similarity,
     DI: IntoFallibleIterator,
     DI::Item: IntoFallibleIterator,
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
@@ -1068,7 +1177,9 @@ where
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
       let body_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
-          let seq0 = self.doc_writer.update_documents(docs, del_node, self)?;
+          let seq0 = self
+            .doc_writer
+            .update_documents(docs, del_node, self, similarity)?;
           self.maybe_process_events(seq0)
         }));
       if body_result.is_err() {
@@ -1125,6 +1236,34 @@ where
     D: 'static,
     Updates: IntoIterator<Item = Fields>,
   {
+    self.soft_update_documents_with_similarity(
+      term,
+      docs,
+      soft_deletes,
+      get_default_similarity().as_ref(),
+    )
+  }
+
+  /// Like [`Self::soft_update_documents`], using the supplied similarity to encode norms.
+  ///
+  /// The similarity is borrowed only for this operation. Use a compatible norm
+  /// encoding for all documents of a field and for the search similarity.
+  pub fn soft_update_documents_with_similarity<T, DF, Updates, S>(
+    &self,
+    term: T,
+    docs: DF,
+    soft_deletes: Updates,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: Similarity,
+    T: Into<Arc<Term>>,
+    DF: IntoFallibleIterator,
+    DF::Item: IntoFallibleIterator,
+    <DF::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
+    D: 'static,
+    Updates: IntoIterator<Item = Fields>,
+  {
     let soft_deletes = soft_deletes.into_iter().collect::<Vec<Fields>>();
     if soft_deletes.is_empty() {
       return Err(LuceneError::illegal_argument(
@@ -1134,7 +1273,7 @@ where
 
     let updates = self.build_doc_values_update(Some(term), soft_deletes)?;
     let node = DocumentsWriterDeleteQueue::new_node_with_doc_values(updates);
-    self.update_documents(Some(Arc::new(node)), docs)
+    self.update_documents(Some(Arc::new(node)), docs, similarity)
   }
   /// Expert: attempts to delete by document ID, as long as the provided reader is a near-real-time
   /// reader (from [`directory_reader::open`]). If the
@@ -1297,6 +1436,32 @@ where
     D: 'static,
     Updates: IntoIterator<Item = Fields>,
   {
+    self.soft_update_document_with_similarity(
+      term,
+      docs,
+      soft_deletes,
+      get_default_similarity().as_ref(),
+    )
+  }
+
+  /// Like [`Self::soft_update_document`], using the supplied similarity to encode norms.
+  ///
+  /// The similarity is borrowed only for this operation. Use a compatible norm
+  /// encoding for all documents of a field and for the search similarity.
+  pub fn soft_update_document_with_similarity<T, DF, Updates, S>(
+    &self,
+    term: T,
+    docs: DF,
+    soft_deletes: Updates,
+    similarity: &S,
+  ) -> Result<i64>
+  where
+    S: Similarity,
+    T: Into<Arc<Term>>,
+    DF: IndexingDocument,
+    D: 'static,
+    Updates: IntoIterator<Item = Fields>,
+  {
     let soft_deletes = soft_deletes.into_iter().collect::<Vec<Fields>>();
     if soft_deletes.is_empty() {
       return Err(LuceneError::illegal_argument(
@@ -1306,7 +1471,7 @@ where
 
     let updates = self.build_doc_values_update(Some(term), soft_deletes)?;
     let node = DocumentsWriterDeleteQueue::new_node_with_doc_values(updates);
-    self.update_documents(Some(Arc::new(node)), [docs])
+    self.update_documents(Some(Arc::new(node)), [docs], similarity)
   }
 
   /// Updates a document's [`NumericDocValues`](crate::core::index::numeric_doc_values::NumericDocValues)

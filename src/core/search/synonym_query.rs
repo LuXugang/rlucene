@@ -62,9 +62,7 @@ use crate::core::search::scorer::{Scorer, ScorerEnum4, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::scorer_types::{LeafScorerTypes, ScorerTypes};
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::similarities_impl::similarities::{
-  SimScorer, Similarity, SimilarityEnum, SimilarityEnumSimScorer,
-};
+use crate::core::search::similarities_impl::similarities::{SimScorer, Similarity};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_scorer::{TermScorer, TermScorerState};
 use crate::core::search::term_statistics::TermStatistics;
@@ -163,9 +161,10 @@ impl HasIdentity for SynonymQuery {
 }
 
 impl QueryBase for SynonymQuery {
-  type Weight<IRC>
-    = SynonymQueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = SynonymQueryWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
@@ -186,15 +185,16 @@ impl QueryBase for SynonymQuery {
     Ok(builder)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     if score_mode.needs_scores() {
@@ -215,11 +215,12 @@ impl QueryBase for SynonymQuery {
     }
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if self.terms.is_empty() {
       return Ok(Some(boolean_query::Builder::new().build().into()));
@@ -269,24 +270,31 @@ impl Hash for TermAndBoost {
   }
 }
 
-pub struct SynonymWeight {
+pub struct SynonymWeight<
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   term_states: Arc<Vec<TermStates>>,
-  similarity: Arc<SimilarityEnum>,
-  sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
+  similarity: Arc<SIM>,
+  sim_weight: Option<Arc<SynonymSimScorer<SIM::SimScorer>>>,
   score_mode: ScoreMode,
   parent_query: Arc<Query>,
 }
 
-impl SynonymWeight {
+impl<SIM> SynonymWeight<SIM>
+where
+  SIM: Similarity,
+{
   fn new<IRC>(
     query: SynonymQuery,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: ScoreMode,
     boost: f32,
   ) -> Result<Self>
   where
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     debug_assert!(score_mode.needs_scores());
 
@@ -318,11 +326,11 @@ impl SynonymWeight {
         doc_freq,
         total_term_freq,
       )?;
-      Some(Arc::new(similarity.scorer(
+      Some(Arc::new(SynonymSimScorer(similarity.scorer(
         boost,
         collection_stats,
         &[pseudo_stats],
-      )?))
+      )?)))
     } else {
       None
     };
@@ -337,8 +345,9 @@ impl SynonymWeight {
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for SynonymWeight
+impl<IRC, SIM> SegmentCacheable<IRC> for SynonymWeight<SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -346,18 +355,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for SynonymWeight
+impl<IRC, SIM> Weight<IRC, SIM> for SynonymWeight<SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    _searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let query = if let Query::Synonym(query) = self.parent_query.as_ref() {
       query
@@ -376,10 +386,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let parent_query = if let Query::Synonym(query) = self.parent_query.as_ref() {
       query
@@ -391,7 +401,7 @@ where
     for term_states in self.term_states.iter() {
       prepare_states.push(term_states.get(context)?);
     }
-    let mut supplier = SynonymScorerSupplier::new(
+    let mut supplier = SynonymScorerSupplier::<_, SIM>::new(
       -1,
       self.term_states.clone(),
       prepare_states,
@@ -438,15 +448,15 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = SynonymScorerSupplier<IRCLeafReader<IRC>>;
+  type ScorerSupplier = SynonymScorerSupplier<IRCLeafReader<IRC>, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     debug_assert!(
       {
@@ -483,12 +493,12 @@ where
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
-    <Self as Weight<IRC>>::default_count(self, context)
+    <Self as Weight<IRC, SIM>>::default_count(self, context)
   }
 }
 
@@ -945,37 +955,64 @@ type SynonymImpactsEnum<ST> = ImpactsEnumEnum2<
   SlowImpactsEnum<SharedPostingsEnum<<ST as ScorerTypes>::Posting>>,
 >;
 
-pub(crate) type SynonymTermScorer<ST> = TermScorer<
+/// Keeps synonym scorers distinct from ordinary term scorers at the shared
+/// scorer boundary even when a custom similarity returns an enum scorer.
+pub struct SynonymSimScorer<SS>(SS);
+
+impl<SS: SimScorer> SimScorer for SynonymSimScorer<SS> {
+  fn score(&self, freq: f32, norm: i64) -> f32 {
+    self.0.score(freq, norm)
+  }
+
+  fn explain(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
+    self.0.explain(freq, norm)
+  }
+}
+
+pub(crate) type SynonymTermScorer<
+  ST,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = TermScorer<
   crate::core::search::term_scorer::PostingsTermState<
     SynonymPostingsEnum<ST>,
-    Arc<SimilarityEnumSimScorer>,
+    Arc<SynonymSimScorer<<SIM as Similarity>::SimScorer>>,
   >,
   <ST as ScorerTypes>::Norm,
 >;
 
-type SynonymDisi<ST> = DisjunctionDISIApproximation<SynonymSubScorer<ST>>;
+type SynonymDisi<
+  ST,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = DisjunctionDISIApproximation<SynonymSubScorer<ST, SIM>>;
 
-type SynonymImpactsDISI<ST> = SeparateImpactsDISI<
-  SynonymDisi<ST>,
+type SynonymImpactsDISI<
+  ST,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = SeparateImpactsDISI<
+  SynonymDisi<ST, SIM>,
   SynonymImpactsSource<SynonymImpactsEnum<ST>>,
-  Arc<SimilarityEnumSimScorer>,
+  Arc<SynonymSimScorer<<SIM as Similarity>::SimScorer>>,
 >;
 
 type EmptySynonymScorer = ConstantScoreDisiScorer<EmptyDISI>;
 
 #[doc(hidden)]
-pub enum SynonymSubScorer<ST>
-where
+pub enum SynonymSubScorer<
+  ST,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
   ST: ScorerTypes,
+  SIM: Similarity,
 {
   Term {
-    scorer: SynonymTermScorer<ST>,
+    scorer: SynonymTermScorer<ST, SIM>,
     boost: f32,
   },
 }
 
-impl<ST> SynonymSubScorer<ST>
+impl<ST, SIM> SynonymSubScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes,
 {
   fn freq(&mut self) -> Result<f32> {
@@ -985,10 +1022,16 @@ where
   }
 }
 
-impl<ST> FixedScore for SynonymSubScorer<ST> where ST: ScorerTypes {}
-
-impl<ST> Scorable for SynonymSubScorer<ST>
+impl<ST, SIM> FixedScore for SynonymSubScorer<ST, SIM>
 where
+  SIM: Similarity,
+  ST: ScorerTypes,
+{
+}
+
+impl<ST, SIM> Scorable for SynonymSubScorer<ST, SIM>
+where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   type Child<'a>
@@ -1021,8 +1064,9 @@ where
   }
 }
 
-impl<ST> DocIdSetIterator for SynonymSubScorer<ST>
+impl<ST, SIM> DocIdSetIterator for SynonymSubScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn doc_id(&self) -> i32 {
@@ -1051,9 +1095,10 @@ where
     }
   }
 }
-impl<ST> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SynonymSubScorer<ST>
+impl<ST, SIM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SynonymSubScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
@@ -1091,8 +1136,10 @@ where
     )
   }
 }
-impl<ST> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymSubScorer<ST>
+impl<ST, SIM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SynonymSubScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn is_bit_iter(&self) -> bool {
@@ -1124,11 +1171,12 @@ where
     }
   }
 }
-impl<ST> Scorer for SynonymSubScorer<ST>
+impl<ST, SIM> Scorer for SynonymSubScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
-  type Iterator = <SynonymTermScorer<ST> as Scorer>::Iterator;
+  type Iterator = <SynonymTermScorer<ST, SIM> as Scorer>::Iterator;
   type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
   type ApproximationRef<'a>
     = &'a Self
@@ -1179,23 +1227,27 @@ where
 }
 
 #[doc(hidden)]
-pub struct SynonymScorer<ST>
-where
+pub struct SynonymScorer<
+  ST,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
-  impacts_disi: SynonymImpactsDISI<ST>,
-  sim_weight: Arc<SimilarityEnumSimScorer>,
+  impacts_disi: SynonymImpactsDISI<ST, SIM>,
+  sim_weight: Arc<SynonymSimScorer<SIM::SimScorer>>,
   norms: Option<<ST as ScorerTypes>::Norm>,
   score_mode: ScoreMode,
 }
 
-impl<ST> SynonymScorer<ST>
+impl<ST, SIM> SynonymScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn new(
-    impacts_disi: SynonymImpactsDISI<ST>,
-    sim_weight: Arc<SimilarityEnumSimScorer>,
+    impacts_disi: SynonymImpactsDISI<ST, SIM>,
+    sim_weight: Arc<SynonymSimScorer<SIM::SimScorer>>,
     norms: Option<<ST as ScorerTypes>::Norm>,
     score_mode: ScoreMode,
   ) -> Self {
@@ -1224,10 +1276,16 @@ where
   }
 }
 
-impl<ST> FixedScore for SynonymScorer<ST> where ST: ScorerTypes + 'static {}
-
-impl<ST> Scorable for SynonymScorer<ST>
+impl<ST, SIM> FixedScore for SynonymScorer<ST, SIM>
 where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+}
+
+impl<ST, SIM> Scorable for SynonymScorer<ST, SIM>
+where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   type Child<'a>
@@ -1261,8 +1319,9 @@ where
   }
 }
 
-impl<ST> DocIdSetIterator for SynonymScorer<ST>
+impl<ST, SIM> DocIdSetIterator for SynonymScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn doc_id(&self) -> i32 {
@@ -1301,21 +1360,28 @@ where
     }
   }
 }
-impl<ST> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for SynonymScorer<ST> where
-  ST: ScorerTypes + 'static
-{
-}
-impl<ST> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SynonymScorer<ST> where
-  ST: ScorerTypes + 'static
-{
-}
-impl<ST> Scorer for SynonymScorer<ST>
+impl<ST, SIM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SynonymScorer<ST, SIM>
 where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+}
+impl<ST, SIM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SynonymScorer<ST, SIM>
+where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+}
+impl<ST, SIM> Scorer for SynonymScorer<ST, SIM>
+where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   type Iterator = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    SynonymImpactsDISI<ST>,
-    SynonymDisi<ST>,
+    SynonymImpactsDISI<ST, SIM>,
+    SynonymDisi<ST, SIM>,
   >;
   type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
   type ApproximationRef<'a>
@@ -1378,24 +1444,28 @@ where
 }
 
 #[doc(hidden)]
-pub struct FreqBoostTermScorer<ST>
-where
+pub struct FreqBoostTermScorer<
+  ST,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   boost: f32,
-  in_: SynonymTermScorer<ST>,
-  scorer: Arc<SimilarityEnumSimScorer>,
+  in_: SynonymTermScorer<ST, SIM>,
+  scorer: Arc<SynonymSimScorer<SIM::SimScorer>>,
   norms: Option<<ST as ScorerTypes>::Norm>,
 }
 
-impl<ST> FreqBoostTermScorer<ST>
+impl<ST, SIM> FreqBoostTermScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn new(
     boost: f32,
-    in_: SynonymTermScorer<ST>,
-    sim_weight: Arc<SimilarityEnumSimScorer>,
+    in_: SynonymTermScorer<ST, SIM>,
+    sim_weight: Arc<SynonymSimScorer<SIM::SimScorer>>,
     norms: Option<<ST as ScorerTypes>::Norm>,
   ) -> Result<Self> {
     if boost.is_nan()
@@ -1419,10 +1489,16 @@ where
   }
 }
 
-impl<ST> FixedScore for FreqBoostTermScorer<ST> where ST: ScorerTypes + 'static {}
-
-impl<ST> Scorable for FreqBoostTermScorer<ST>
+impl<ST, SIM> FixedScore for FreqBoostTermScorer<ST, SIM>
 where
+  SIM: Similarity,
+  ST: ScorerTypes + 'static,
+{
+}
+
+impl<ST, SIM> Scorable for FreqBoostTermScorer<ST, SIM>
+where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   type Child<'a>
@@ -1447,8 +1523,9 @@ where
   }
 }
 
-impl<ST> DocIdSetIterator for FreqBoostTermScorer<ST>
+impl<ST, SIM> DocIdSetIterator for FreqBoostTermScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn doc_id(&self) -> i32 {
@@ -1467,9 +1544,10 @@ where
     DocIdSetIterator::cost(&self.in_)
   }
 }
-impl<ST> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for FreqBoostTermScorer<ST>
+impl<ST, SIM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for FreqBoostTermScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn get_fixed_bit_set(&self) -> Option<&crate::core::util::fixed_bit_set::FixedBitSet> {
@@ -1495,8 +1573,10 @@ where
     )
   }
 }
-impl<ST> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FreqBoostTermScorer<ST>
+impl<ST, SIM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for FreqBoostTermScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
   fn is_bit_iter(&self) -> bool {
@@ -1512,11 +1592,12 @@ where
     crate::core::search::doc_id_set_iterator::BitSetIteratorAccess::bit_set_length(&self.in_)
   }
 }
-impl<ST> Scorer for FreqBoostTermScorer<ST>
+impl<ST, SIM> Scorer for FreqBoostTermScorer<ST, SIM>
 where
+  SIM: Similarity,
   ST: ScorerTypes + 'static,
 {
-  type Iterator = <SynonymTermScorer<ST> as Scorer>::Iterator;
+  type Iterator = <SynonymTermScorer<ST, SIM> as Scorer>::Iterator;
   type OwnedTwoPhase = crate::core::search::two_phase_iterator::EmptyTPI;
   type ApproximationRef<'a>
     = &'a Self
@@ -1564,31 +1645,38 @@ where
   }
 }
 
-type SynonymScorerEnum<ST> = ScorerEnum4<
-  SynonymScorer<ST>,
-  FreqBoostTermScorer<ST>,
-  SynonymTermScorer<ST>,
+type SynonymScorerEnum<
+  ST,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = ScorerEnum4<
+  SynonymScorer<ST, SIM>,
+  FreqBoostTermScorer<ST, SIM>,
+  SynonymTermScorer<ST, SIM>,
   EmptySynonymScorer,
 >;
 
-pub struct SynonymScorerSupplier<LR>
-where
+pub struct SynonymScorerSupplier<
+  LR,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
   LR: LeafReader + 'static,
 {
   cost: i64,
   term_states: Arc<Vec<TermStates>>,
   prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
   query: Arc<Query>,
-  sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
+  sim_weight: Option<Arc<SynonymSimScorer<SIM::SimScorer>>>,
   score_mode: ScoreMode,
-  iterators: Option<Vec<SynonymPostingsEnum<LeafScorerTypes<LR>>>>,
-  impacts: Option<Vec<SynonymImpactsEnum<LeafScorerTypes<LR>>>>,
+  iterators: Option<Vec<SynonymPostingsEnum<LeafScorerTypes<LR, SIM>>>>,
+  impacts: Option<Vec<SynonymImpactsEnum<LeafScorerTypes<LR, SIM>>>>,
   term_boosts: Vec<f32>,
   initialized: bool,
 }
 
-impl<LR> SynonymScorerSupplier<LR>
+impl<LR, SIM> SynonymScorerSupplier<LR, SIM>
 where
+  SIM: Similarity,
   LR: LeafReader + 'static,
 {
   fn new(
@@ -1596,7 +1684,7 @@ where
     term_states: Arc<Vec<TermStates>>,
     prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
     query: Arc<Query>,
-    sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
+    sim_weight: Option<Arc<SynonymSimScorer<SIM::SimScorer>>>,
     score_mode: ScoreMode,
   ) -> Self {
     Self {
@@ -1669,7 +1757,7 @@ where
   fn get_scorer(
     &mut self,
     context: &LeafReaderContext<LR>,
-  ) -> Result<SynonymScorerEnum<LeafScorerTypes<LR>>>
+  ) -> Result<SynonymScorerEnum<LeafScorerTypes<LR, SIM>, SIM>>
   where
     LR: 'static,
   {
@@ -1750,21 +1838,22 @@ where
   }
 }
 
-impl<IRC> ScorerSupplier<IRC> for SynonymScorerSupplier<IRCLeafReader<IRC>>
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for SynonymScorerSupplier<IRCLeafReader<IRC>, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = SynonymScorerEnum<LeafScorerTypes<IRCLeafReader<IRC>>>;
+  type Scorer = SynonymScorerEnum<LeafScorerTypes<IRCLeafReader<IRC>, SIM>, SIM>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.get_scorer(context)
   }
@@ -1772,10 +1861,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -1783,10 +1872,10 @@ where
   fn cost(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let result: Result<i64> = (|| {
       self.init(context)?;
@@ -1879,14 +1968,18 @@ impl crate::core::util::accountable::Accountable for SynonymQuery {
   }
 }
 
-impl SynonymWeight {
+impl<SIM> SynonymWeight<SIM>
+where
+  SIM: Similarity,
+{
   pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
     terms: Arc<[Term]>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
-  {
+  ) -> Result<
+    Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>,
+  > {
     let Query::Synonym(query) = self.parent_query.as_ref() else {
       return Err(LuceneError::illegal_state(""));
     };
@@ -1897,11 +1990,19 @@ impl SynonymWeight {
 }
 
 /// Weight returned by the actual branches of this query factory.
-pub enum SynonymQueryWeight<IRC: IndexReaderContext + 'static> {
-  Scoring(SynonymWeight),
-  Rewritten(QueryWeight<IRC>),
+pub enum SynonymQueryWeight<
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
+  Scoring(SynonymWeight<SIM>),
+  Rewritten(QueryWeight<IRC, SIM>),
 }
-impl<IRC: IndexReaderContext + 'static> SegmentCacheable<IRC> for SynonymQueryWeight<IRC> {
+impl<IRC: IndexReaderContext + 'static, SIM> SegmentCacheable<IRC> for SynonymQueryWeight<IRC, SIM>
+where
+  SIM: Similarity,
+{
   fn is_cacheable(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     match self {
       Self::Scoring(inner) => SegmentCacheable::<IRC>::is_cacheable(inner, context),
@@ -1909,110 +2010,113 @@ impl<IRC: IndexReaderContext + 'static> SegmentCacheable<IRC> for SynonymQueryWe
     }
   }
 }
-impl<IRC: IndexReaderContext + 'static> Weight<IRC> for SynonymQueryWeight<IRC> {
-  type ScorerSupplier = QueryWeightSs<IRC>;
+impl<IRC: IndexReaderContext + 'static, SIM> Weight<IRC, SIM> for SynonymQueryWeight<IRC, SIM>
+where
+  SIM: Similarity,
+{
+  type ScorerSupplier = QueryWeightSs<IRC, SIM>;
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightMatches<'a, IRC>>>
+    searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
-      Self::Rewritten(inner) => Weight::<IRC>::matches(inner, context, doc, searcher),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::matches(inner, context, doc, searcher),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::matches(inner, context, doc, searcher),
     }
   }
   fn explain(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
-      Self::Rewritten(inner) => Weight::<IRC>::explain(inner, context, doc, searcher),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::explain(inner, context, doc, searcher),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::explain(inner, context, doc, searcher),
     }
   }
   fn get_query(&self) -> Arc<Query> {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::get_query(inner),
-      Self::Rewritten(inner) => Weight::<IRC>::get_query(inner),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::get_query(inner),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::get_query(inner),
     }
   }
   fn scorer(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightSsScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::scorer(inner, context, searcher)
-        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC>::new)),
-      Self::Rewritten(inner) => Weight::<IRC>::scorer(inner, context, searcher),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsScorer::<IRC, SIM>::new)),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::scorer(inner, context, searcher),
     }
   }
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher)
+      Self::Scoring(inner) => Weight::<IRC, SIM>::scorer_supplier(inner, context, searcher)
         .map(|supplier| supplier.map(Into::into)),
-      Self::Rewritten(inner) => Weight::<IRC>::scorer_supplier(inner, context, searcher),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::scorer_supplier(inner, context, searcher),
     }
   }
   fn bulk_scorer(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
-  ) -> Result<Option<QueryWeightSsBulkScorer<IRC>>>
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<QueryWeightSsBulkScorer<IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher)
-        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC>::new)),
-      Self::Rewritten(inner) => Weight::<IRC>::bulk_scorer(inner, context, searcher),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::bulk_scorer(inner, context, searcher)
+        .map(|scorer| scorer.map(QueryWeightSsBulkScorer::<IRC, SIM>::new)),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::bulk_scorer(inner, context, searcher),
     }
   }
   fn count(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::count(inner, context, searcher),
-      Self::Rewritten(inner) => Weight::<IRC>::count(inner, context, searcher),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::count(inner, context, searcher),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::count(inner, context, searcher),
     }
   }
   fn default_count(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<i32> {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::default_count(inner, context),
-      Self::Rewritten(inner) => Weight::<IRC>::default_count(inner, context),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::default_count(inner, context),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::default_count(inner, context),
     }
   }
   fn is_cache_wrapper(&self) -> bool {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::is_cache_wrapper(inner),
-      Self::Rewritten(inner) => Weight::<IRC>::is_cache_wrapper(inner),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::is_cache_wrapper(inner),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::is_cache_wrapper(inner),
     }
   }
-  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC>> {
+  fn into_inner_weight(self: Box<Self>) -> Option<QueryWeight<IRC, SIM>> {
     match *self {
       Self::Scoring(_) => None,
       Self::Rewritten(inner) => inner.into_inner_weight(),
@@ -2021,13 +2125,17 @@ impl<IRC: IndexReaderContext + 'static> Weight<IRC> for SynonymQueryWeight<IRC> 
   #[cfg(test)]
   fn as_any(&mut self) -> &mut dyn std::any::Any {
     match self {
-      Self::Scoring(inner) => Weight::<IRC>::as_any(inner),
-      Self::Rewritten(inner) => Weight::<IRC>::as_any(inner),
+      Self::Scoring(inner) => Weight::<IRC, SIM>::as_any(inner),
+      Self::Rewritten(inner) => Weight::<IRC, SIM>::as_any(inner),
     }
   }
 }
-impl<IRC: IndexReaderContext + 'static> From<SynonymQueryWeight<IRC>> for QueryWeight<IRC> {
-  fn from(value: SynonymQueryWeight<IRC>) -> Self {
+impl<IRC: IndexReaderContext + 'static, SIM> From<SynonymQueryWeight<IRC, SIM>>
+  for QueryWeight<IRC, SIM>
+where
+  SIM: Similarity,
+{
+  fn from(value: SynonymQueryWeight<IRC, SIM>) -> Self {
     match value {
       SynonymQueryWeight::Scoring(inner) => inner.into(),
       SynonymQueryWeight::Rewritten(inner) => inner,

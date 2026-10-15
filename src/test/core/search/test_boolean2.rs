@@ -68,8 +68,12 @@ const DOC_FIELDS: [&str; 4] = [
   "w1 w3 xx w2 yy mm",
 ];
 pub struct TestBoolean2Context {
-  pub searcher: DefaultIndexSearchCR,
-  pub single_segment_searcher: DefaultIndexSearchCR,
+  pub searcher: crate::test_framework::core::util::DefaultIndexSearchCRShared<
+    crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+  >,
+  pub single_segment_searcher: crate::test_framework::core::util::DefaultIndexSearchCRShared<
+    crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity,
+  >,
   pub big_searcher: DefaultIndexSearchCR,
   pub mul_factor: usize,
   pub pre_filler_docs: usize,
@@ -133,10 +137,13 @@ where
   writer.close(random)?;
   drop(writer);
   let little_reader = directory_reader::open(directory.clone())?;
-  let mut searcher = new_searcher(random, little_reader)?;
+  let searcher = crate::test_framework::core::util::lucene_test_case::new_searcher_with_similarity(
+    random,
+    Arc::new(little_reader),
+    Arc::new(classic_similarity::new()),
+  )?;
   // this is intentionally using the baseline sim, because it compares against bigSearcher (which
   // uses a random one)
-  searcher.set_similarity(classic_similarity::new());
 
   // make a copy of our index using a single segment
   let single_segment_directory = if num_filler_docs * pre_filler_docs > 100000 {
@@ -171,8 +178,12 @@ where
   }
 
   let single_segment_reader = directory_reader::open(single_segment_directory.clone())?;
-  let mut single_segment_searcher = new_searcher(random, single_segment_reader)?;
-  single_segment_searcher.set_similarity(searcher.get_similarity());
+  let single_segment_searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_similarity(
+      random,
+      Arc::new(single_segment_reader),
+      searcher.get_similarity(),
+    )?;
 
   let dir2 = copy_of(random, directory.as_ref())?;
 
@@ -452,7 +463,7 @@ fn test_queries09() -> Result<()> {
 #[test]
 fn test_random_queries() -> Result<()> {
   let mut random = random();
-  let mut ctx = CONTEXT.write();
+  let ctx = CONTEXT.write();
   let vals = ["w1", "w2", "w3", "w4", "w5", "xx", "yy", "zzz"];
   let mut q1: Option<Query> = None;
 
@@ -476,13 +487,11 @@ fn test_random_queries() -> Result<()> {
       let sort = Sort::get_index_order()?;
 
       QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher)?;
-      let baseline_similarity = ctx.searcher.get_similarity();
       let random_similarity = ctx.big_searcher.get_similarity();
-      ctx.searcher.set_similarity(random_similarity);
+      let random_searcher = crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(ctx.searcher.get_index_reader().clone(), random_similarity)?;
       let random_check_result = catch_unwind(AssertUnwindSafe(|| {
-        QueryUtils::check_from_searcher(&mut random, query.clone(), &ctx.searcher)
+        QueryUtils::check_from_searcher(&mut random, query.clone(), &random_searcher)
       }));
-      ctx.searcher.set_similarity(baseline_similarity);
       match random_check_result {
         Ok(result) => result?,
         Err(payload) => resume_unwind(payload),

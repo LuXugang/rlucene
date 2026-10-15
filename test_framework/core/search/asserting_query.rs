@@ -93,24 +93,26 @@ impl crate::core::util::HasIdentity for AssertingQuery {
 }
 
 impl QueryBase for AssertingQuery {
-  type Weight<IRC>
-    = crate::test_framework::core::search::asserting_weight::AssertingWeight<IRC>
+  type Weight<IRC, SIM>
+    = crate::test_framework::core::search::asserting_weight::AssertingWeight<IRC, SIM>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     self.in_.to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     assert!(boost >= 0.0);
@@ -119,10 +121,11 @@ impl QueryBase for AssertingQuery {
     Ok(AssertingWeight::new(random.random(), weight, *score_mode))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     if let Some(rewritten) = self.in_.rewrite(searcher)? {

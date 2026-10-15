@@ -50,6 +50,7 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_in_set_query::TermInSetQuery;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::Weight;
@@ -73,11 +74,16 @@ use std::sync::Arc;
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DocValuesRewriteMethod;
 impl RewriteMethod for DocValuesRewriteMethod {
-  fn rewrite<IRC, Q>(&self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
+  fn rewrite<IRC, Q, SIM>(
+    &self,
+    _index_searcher: &IndexSearcher<IRC, SIM>,
+    query: &Q,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(ConstantScoreQuery::new(MultiTermQueryDocValuesWrapper::new(query.clone())).into())
   }
@@ -121,25 +127,27 @@ impl HasIdentity for MultiTermQueryDocValuesWrapper {
 }
 
 impl QueryBase for MultiTermQueryDocValuesWrapper {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = MultiTermQueryDocValuesWeight
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     self.query.to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(MultiTermQueryDocValuesWeight::new(self, boost, *score_mode))
   }
@@ -209,18 +217,19 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for MultiTermQueryDocValuesWeight
+impl<IRC, SIM> Weight<IRC, SIM> for MultiTermQueryDocValuesWeight
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   fn matches<'a>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    _searcher: &'a IndexSearcher<IRC>,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC>>>
+    _searcher: &'a IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<crate::core::search::query::QueryWeightMatches<'a, IRC, SIM>>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
       return Err(LuceneError::illegal_state(
@@ -236,10 +245,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
     self
@@ -256,10 +265,10 @@ where
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
       return Err(LuceneError::illegal_state(
@@ -298,21 +307,22 @@ impl DocValuesScorerSupplier {
   }
 }
 
-impl<IRC> ScorerSupplier<IRC> for DocValuesScorerSupplier
+impl<IRC, SIM> ScorerSupplier<IRC, SIM> for DocValuesScorerSupplier
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
-  type Scorer = QueryWeightSsScorer<IRC>;
+  type Scorer = QueryWeightSsScorer<IRC, SIM>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
     &mut self,
     _lead_cost: i64,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.query.as_ref() else {
       return Err(LuceneError::illegal_state(
@@ -326,7 +336,7 @@ where
 
     if terms_enum.next()?.is_none() {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-      return Ok(QueryWeightSsScorer::<IRC>::new(v));
+      return Ok(QueryWeightSsScorer::<IRC, SIM>::new(v));
     }
 
     let mut skipper_opt = context.reader().get_doc_values_skipper(field)?;
@@ -353,7 +363,7 @@ where
       && (min_ord > skipper.max_value() || max_ord < skipper.min_value())
     {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
-      return Ok(QueryWeightSsScorer::<IRC>::new(v));
+      return Ok(QueryWeightSsScorer::<IRC, SIM>::new(v));
     }
 
     let iterator = if values.is_single_valued() {
@@ -368,11 +378,11 @@ where
     match skipper_opt.take() {
       Some(skipper) => {
         let v = DocValuesRangeIterator::new(iterator, skipper, min_ord, max_ord, true);
-        Ok(QueryWeightSsScorer::<IRC>::new(
+        Ok(QueryWeightSsScorer::<IRC, SIM>::new(
           ConstantScoreScorer::from_tpi(self.score, self.score_mode, v),
         ))
       },
-      None => Ok(QueryWeightSsScorer::<IRC>::new(
+      None => Ok(QueryWeightSsScorer::<IRC, SIM>::new(
         ConstantScoreScorer::from_tpi(self.score, self.score_mode, iterator),
       )),
     }
@@ -381,10 +391,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(Some(self.default_bulk_scorer(context, searcher)?))
   }
@@ -392,10 +402,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Ok(self.cost)
   }
@@ -783,11 +793,15 @@ impl crate::core::util::accountable::Accountable for MultiTermQueryDocValuesWrap
 }
 
 impl MultiTermQueryDocValuesWeight {
-  pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static>(
+  pub(crate) fn matches_iterator<'a, IRC: IndexReaderContext + 'static, SIM>(
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-  ) -> Result<Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>>>>
+  ) -> Result<
+    Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>,
+  >
+  where
+    SIM: Similarity,
   {
     let Query::MultiTermQueryDocValuesWrapper(wrapper) = self.parent_query.as_ref() else {
       return Err(LuceneError::illegal_state(

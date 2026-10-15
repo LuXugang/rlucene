@@ -18,6 +18,7 @@ use crate::core::index::index_reader_context::IRCLeafReader;
 use crate::core::search::query_bulk_scorer::BuiltinQueryBulkScorer;
 use crate::core::search::query_scorer::QueryScorer;
 use crate::core::search::scorer_types::LeafScorerTypes;
+use crate::core::search::similarities_impl::similarities::Similarity;
 
 use crate::core::document::binary_range_field_range_query::BinaryRangeFieldRangeQuery;
 use crate::core::document::lat_lon_doc_values_box_query::LatLonDocValuesBoxQuery;
@@ -112,12 +113,23 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-pub type QueryWeight<IRC> = crate::core::search::query_weight::BuiltinQueryWeight<IRC>;
+pub type QueryWeight<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = crate::core::search::query_weight::BuiltinQueryWeight<IRC, SIM>;
 pub use crate::core::search::query_matches::{QueryWeightMatches, QueryWeightMatchesIterator};
-pub type QueryWeightSs<IRC> =
-  crate::core::search::query_scorer_supplier::BuiltinQueryScorerSupplier<IRC>;
-pub type QueryWeightSsBulkScorer<IRC> = BuiltinQueryBulkScorer<LeafScorerTypes<IRCLeafReader<IRC>>>;
-pub type QueryWeightSsScorer<IRC> = QueryScorer<IRCLeafReader<IRC>>;
+pub type QueryWeightSs<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = crate::core::search::query_scorer_supplier::BuiltinQueryScorerSupplier<IRC, SIM>;
+pub type QueryWeightSsBulkScorer<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = BuiltinQueryBulkScorer<LeafScorerTypes<IRCLeafReader<IRC>, SIM>>;
+pub type QueryWeightSsScorer<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = QueryScorer<IRCLeafReader<IRC>, SIM>;
 macro_rules! impl_into_box_query {
     ($($ty:ty),* $(,)?) => {
         $(
@@ -312,30 +324,33 @@ impl_into_box_query!(
 
 pub trait QueryBase: Debug + HasIdentity + Accountable {
   /// The concrete weight produced for this reader context.
-  type Weight<IRC>: crate::core::search::weight::Weight<IRC>
+  type Weight<IRC, SIM>: crate::core::search::weight::Weight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String>;
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized;
 
   /// Returns `None` when this query is unchanged, or a replacement query otherwise.
   /// The default leaves this query unchanged. An unchanged result still performs
   /// the rewrite call and its observable side effects.
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     Ok(None)
@@ -663,23 +678,25 @@ impl HasIdentity for Query {
   }
 }
 impl QueryBase for Query {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     dispatch_query!(self, |q| q.to_string(field))
   }
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     match self {
@@ -751,7 +768,7 @@ impl QueryBase for Query {
       #[cfg(test)]
       Self::AssertNeedsScores(q) => q
         .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+        .map(QueryWeight::<IRC, SIM>::fixture),
       #[cfg(test)]
       Self::BitSet(q) => q.create_weight(searcher, score_mode, boost).map(Into::into),
       #[cfg(test)]
@@ -763,7 +780,7 @@ impl QueryBase for Query {
       #[cfg(test)]
       Self::Counting(q) => q
         .create_weight(searcher, score_mode, boost)
-        .map(QueryWeight::<IRC>::fixture),
+        .map(QueryWeight::<IRC, SIM>::fixture),
       #[cfg(test)]
       Self::CrazyMustUseBulkScorer(q) => {
         q.create_weight(searcher, score_mode, boost).map(Into::into)
@@ -787,10 +804,11 @@ impl QueryBase for Query {
     }
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     dispatch_query!(self, |q| q.rewrite(searcher))
   }
@@ -832,25 +850,27 @@ impl<Q> QueryBase for Arc<Q>
 where
   Q: QueryBase,
 {
-  type Weight<IRC>
-    = Q::Weight<IRC>
+  type Weight<IRC, SIM>
+    = Q::Weight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
     (**self).to_string(field)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(format!(
       "Arc<QueryBase> cannot be used to create_weight directly: {}",
@@ -858,10 +878,11 @@ where
     )))
   }
 
-  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(format!(
       "Arc<QueryBase> cannot be used to rewrite directly: {}",

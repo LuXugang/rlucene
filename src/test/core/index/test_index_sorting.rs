@@ -63,9 +63,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::get_default_similarity;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, Similarity};
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::MissingValueEnum::{StringFirst, StringLast};
 use crate::core::search::sort_field::{SortField, SortFieldType, SortFiledBase};
@@ -2926,11 +2924,11 @@ fn test_illegal_change_sort() -> Result<()> {
 }
 
 struct NormsSimilarity {
-  in_: SimilarityEnum,
+  in_: crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
 }
 
 impl NormsSimilarity {
-  fn new(in_: SimilarityEnum) -> Self {
+  fn new(in_: crate::core::search::similarities_impl::bm25_similarity::BM25Similarity) -> Self {
     Self { in_ }
   }
 }
@@ -3137,29 +3135,28 @@ fn test_random2() -> Result<()> {
   let dir1 = new_fs_directory(&mut random, create_temp_dir()?)?;
 
   let mut random1 = StdRng::seed_from_u64(seed);
-  let mut iwc1 = new_index_writer_config_with_analyzer(
-    &mut random1,
-    Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
-  )?;
-  iwc1.set_similarity(SimilarityEnum::custom(NormsSimilarity::new(
-    get_default_similarity()?,
-  )));
+  let indexing_similarity_iwc1 = NormsSimilarity::new(get_default_similarity().as_ref().clone());
+  let mut iwc1 =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      &mut random1,
+      Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
+    )?;
+
   iwc1.set_merge_policy(new_log_merge_policy(&mut random1)?);
   let w1 = RandomIndexWriter::with_config(&mut random1, dir1.clone(), iwc1);
   for doc in &mut docs {
-    w1.add_document(&mut random1, doc)?;
+    w1.add_document_with_similarity(&mut random1, doc, &indexing_similarity_iwc1)?;
   }
 
   let dir2 = new_fs_directory(&mut random, create_temp_dir()?)?;
 
   let mut random2 = StdRng::seed_from_u64(seed);
-  let mut iwc2 = new_index_writer_config_with_analyzer(
-    &mut random2,
-    Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
-  )?;
-  iwc2.set_similarity(SimilarityEnum::custom(NormsSimilarity::new(
-    get_default_similarity()?,
-  )));
+  let indexing_similarity_iwc2 = NormsSimilarity::new(get_default_similarity().as_ref().clone());
+  let mut iwc2 =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      &mut random2,
+      Box::new(TestRandom2Analyzer::new(analyzer_seed)) as Box<dyn Analyzer>,
+    )?;
 
   let sort = Arc::new(Sort::with_fields(vec![SortField::new(
     Some("numeric"),
@@ -3174,7 +3171,7 @@ fn test_random2() -> Result<()> {
     if count as i32 == commit_at_count {
       w2.commit(&mut random2)?;
     }
-    w2.add_document(&mut random2, doc)?;
+    w2.add_document_with_similarity(&mut random2, doc, &indexing_similarity_iwc2)?;
   }
   w2.force_merge(&mut random2, 1)?;
 

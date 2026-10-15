@@ -313,9 +313,10 @@ impl<IRC> IndexSearcherBase<IRC> for ShardIndexSearcherHook
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn rewrite(&self, _searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  fn rewrite<SIM>(&self, _searcher: &IndexSearcher<IRC, SIM>, original: Query) -> Result<Query>
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let local_searcher = IndexSearcher::new(self.local_reader.clone().get_context()?)?;
     let original = local_searcher.rewrite(original)?;
@@ -364,13 +365,16 @@ where
     Ok(original)
   }
 
-  fn term_statistics(
+  fn term_statistics<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     term: Arc<Term>,
     doc_freq: i32,
     total_term_freq: i64,
-  ) -> Result<TermStatistics> {
+  ) -> Result<TermStatistics>
+  where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  {
     let state = self
       .state
       .upgrade()
@@ -410,11 +414,14 @@ where
     TermStatistics::new(term, distributed_doc_freq, distributed_total_term_freq)
   }
 
-  fn collection_statistics(
+  fn collection_statistics<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     field: &str,
-  ) -> Result<Option<CollectionStatistics>> {
+  ) -> Result<Option<CollectionStatistics>>
+  where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
+  {
     let state = self
       .state
       .upgrade()

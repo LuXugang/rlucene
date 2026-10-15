@@ -412,18 +412,19 @@ pub trait BaseSpatialTestCase {
   }
 
   /// Tests random generated bounding boxes.
-  fn verify_random_bbox_queries<R, IRC>(
+  fn verify_random_bbox_queries<R, IRC, SIM>(
     &self,
     random: &mut R,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     shapes: &[Option<Self::Shape>],
     validator: &mut Self::Validator,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -485,18 +486,19 @@ pub trait BaseSpatialTestCase {
   }
 
   /// Tests random generated lines.
-  fn verify_random_line_queries<R, IRC>(
+  fn verify_random_line_queries<R, IRC, SIM>(
     &self,
     random: &mut R,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     shapes: &[Option<Self::Shape>],
     validator: &mut Self::Validator,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -542,18 +544,19 @@ pub trait BaseSpatialTestCase {
   }
 
   /// Tests random generated polygons.
-  fn verify_random_polygon_queries<R, IRC>(
+  fn verify_random_polygon_queries<R, IRC, SIM>(
     &self,
     random: &mut R,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     shapes: &[Option<Self::Shape>],
     validator: &mut Self::Validator,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -599,18 +602,19 @@ pub trait BaseSpatialTestCase {
   }
 
   /// Tests random generated point queries.
-  fn verify_random_point_queries<R, IRC>(
+  fn verify_random_point_queries<R, IRC, SIM>(
     &self,
     random: &mut R,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     shapes: &[Option<Self::Shape>],
     validator: &mut Self::Validator,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -666,18 +670,19 @@ pub trait BaseSpatialTestCase {
   }
 
   /// Tests random generated circles.
-  fn verify_random_distance_queries<R, IRC>(
+  fn verify_random_distance_queries<R, IRC, SIM>(
     &self,
     random: &mut R,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     shapes: &[Option<Self::Shape>],
     validator: &mut Self::Validator,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync,
     IRC::IndexReader: Clone,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let iters = self.scaled_iteration_count(random, shapes.len());
     let live_docs = get_live_docs(searcher.get_index_reader().clone())?;
@@ -722,15 +727,16 @@ pub trait BaseSpatialTestCase {
     Ok(())
   }
 
-  fn search_index<IRC>(
+  fn search_index<IRC, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     max_doc: i32,
   ) -> Result<FixedBitSet>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     searcher.search_with_collector_manager(query, &FixedBitSetCollector::create_manager(max_doc))
   }

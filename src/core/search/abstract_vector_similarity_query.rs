@@ -39,6 +39,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::time_limiting_knn_collector_manager::TimeLimitingKnnCollectorManager;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation::EqualTo;
@@ -59,20 +60,22 @@ use std::sync::Arc;
 pub trait AbstractVectorSimilarityQuery: QueryBase {
   fn base(&self) -> &AbstractVectorSimilarityQueryBase;
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     boost: f32,
   ) -> Result<
     AbstractVectorSimilarityQueryWeight<
       Self,
       IRC,
       Arc<crate::core::index::query_timeout::QueryTimeoutEnum>,
+      SIM,
     >,
   >
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Clone + Into<Query> + Send + Sync + Sized + 'static,
   {
     let filter_weight = match self.base().filter.as_ref() {
@@ -217,24 +220,32 @@ impl KnnCollectorManager for VectorSimilarityCollectorManager {
   }
 }
 
-pub struct AbstractVectorSimilarityQueryWeight<Q, IRC: IndexReaderContext + 'static, QT> {
+pub struct AbstractVectorSimilarityQueryWeight<
+  Q,
+  IRC: IndexReaderContext + 'static,
+  QT,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   parent_query: Arc<Query>,
   query: Q,
-  filter_weight: Option<QueryWeight<IRC>>,
+  filter_weight: Option<QueryWeight<IRC, SIM>>,
   time_limiting_knn_collector_manager:
     TimeLimitingKnnCollectorManager<VectorSimilarityCollectorManager, QT>,
   boost: f32,
 }
 
-impl<Q, IRC, QT> AbstractVectorSimilarityQueryWeight<Q, IRC, QT>
+impl<Q, IRC, QT, SIM> AbstractVectorSimilarityQueryWeight<Q, IRC, QT, SIM>
 where
+  SIM: Similarity,
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
   IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
 {
   fn new(
     query: Q,
-    filter_weight: Option<QueryWeight<IRC>>,
+    filter_weight: Option<QueryWeight<IRC, SIM>>,
     query_timeout: Option<QT>,
     boost: f32,
   ) -> Self {
@@ -253,8 +264,9 @@ where
   }
 }
 
-impl<Q, IRC, QT> SegmentCacheable<IRC> for AbstractVectorSimilarityQueryWeight<Q, IRC, QT>
+impl<Q, IRC, QT, SIM> SegmentCacheable<IRC> for AbstractVectorSimilarityQueryWeight<Q, IRC, QT, SIM>
 where
+  SIM: Similarity,
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
   IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
@@ -264,8 +276,9 @@ where
   }
 }
 
-impl<Q, IRC, QT> Weight<IRC> for AbstractVectorSimilarityQueryWeight<Q, IRC, QT>
+impl<Q, IRC, QT, SIM> Weight<IRC, SIM> for AbstractVectorSimilarityQueryWeight<Q, IRC, QT, SIM>
 where
+  SIM: Similarity,
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
   IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
@@ -274,10 +287,10 @@ where
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Explanation>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if let Some(filter_weight) = &self.filter_weight {
       let mut filter_scorer = match filter_weight.scorer(context, searcher)? {
@@ -327,15 +340,15 @@ where
     self.parent_query.clone()
   }
 
-  type ScorerSupplier = QueryWeightSs<IRC>;
+  type ScorerSupplier = QueryWeightSs<IRC, SIM>;
 
   fn scorer_supplier(
     &self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::ScorerSupplier>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let reader = context.reader();
     let live_docs = reader.get_live_docs()?;
@@ -406,8 +419,9 @@ pub(crate) struct VectorSimilarityScorerSupplier<I> {
   fixed_cost: Option<i64>,
 }
 
-impl<IRC, I> ScorerSupplier<IRC> for VectorSimilarityScorerSupplier<I>
+impl<IRC, I, SIM> ScorerSupplier<IRC, SIM> for VectorSimilarityScorerSupplier<I>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
   I: DocIdSetIterator + CachedScoreHelper + 'static,
 {
@@ -418,10 +432,10 @@ where
     &mut self,
     _lead_cost: i64,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::Scorer>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let iterator = self
       .iterator
@@ -433,10 +447,10 @@ where
   fn bulk_scorer(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Option<Self::BulkScorer>>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.get(i64::MAX, context, searcher)?;
     Ok(Some(DefaultBulkScorer::new(scorer)))
@@ -445,10 +459,10 @@ where
   fn cost(
     &mut self,
     _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<i64>
   where
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if let Some(cost) = self.fixed_cost {
       return Ok(cost);

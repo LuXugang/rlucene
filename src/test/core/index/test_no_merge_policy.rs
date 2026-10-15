@@ -87,7 +87,8 @@ fn test_no_merge_policy() -> Result<()> {
   let case = TestNoMergePolicy;
   let mp = case.merge_policy::<DummyDirectory, _>(&mut random);
   assert!(
-    mp.find_merges(
+    MergePolicy::<DummyDirectory>::find_merges(
+      &mp,
       MergeTrigger::random_trigger(&mut random),
       &SegmentInfos::<DummyDirectory>::new(LATEST.major - 1)?,
       None,
@@ -96,7 +97,8 @@ fn test_no_merge_policy() -> Result<()> {
     .is_none()
   );
   assert!(
-    mp.find_forced_merges(
+    MergePolicy::<DummyDirectory>::find_forced_merges(
+      &mp,
       &SegmentInfos::<DummyDirectory>::new(LATEST.major - 1)?,
       0,
       &HashMap::new(),
@@ -106,7 +108,8 @@ fn test_no_merge_policy() -> Result<()> {
     .is_none()
   );
   assert!(
-    mp.find_forced_deletes_merges(
+    MergePolicy::<DummyDirectory>::find_forced_deletes_merges(
+      &mp,
       &SegmentInfos::<DummyDirectory>::new(LATEST.major - 1)?,
       None,
       &DummyMergeContext

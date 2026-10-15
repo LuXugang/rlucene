@@ -35,7 +35,6 @@ use crate::core::util::CoreHelper;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::search::check_hits::CheckHits;
-use crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader;
 use rand::{Rng, RngExt};
 use std::fmt::{Display, Formatter};
 use std::hash::Hash;
@@ -56,29 +55,35 @@ impl QueryUtils {
   /// - [`Self::check_explanations`]
   /// - [`Self::check_equal`]
   /// - [`CheckHits::check_matches`]
-  pub fn check_from_searcher<T, IRC, R>(random: &mut R, q1: T, s: &IndexSearcher<IRC>) -> Result<()>
+  pub fn check_from_searcher<T, IRC, R, SIM>(
+    random: &mut R,
+    q1: T,
+    s: &IndexSearcher<IRC, SIM>,
+  ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
     T: Into<Query>,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Self::check_from_searcher_with_wrap(random, q1, s, true)
   }
 
-  pub fn check_from_searcher_with_wrap<T, IRC, R>(
+  pub fn check_from_searcher_with_wrap<T, IRC, R, SIM>(
     random: &mut R,
     q: T,
-    s: &IndexSearcher<IRC>,
+    s: &IndexSearcher<IRC, SIM>,
     wrap: bool,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + 'static + Sync + 'static,
     IRC::LeafReader: Clone + Sync,
     T: Into<Query>,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let q = q.into();
     Self::check_from_query(&q);
@@ -94,15 +99,16 @@ impl QueryUtils {
     Ok(())
   }
 
-  pub fn wrap_underlying_reader<'a, R, IRC>(
+  pub fn wrap_underlying_reader<'a, R, IRC, SIM>(
     _random: &mut R,
-    s: &'a IndexSearcher<IRC>,
+    s: &'a IndexSearcher<IRC, SIM>,
     _edge: i32,
-  ) -> Result<&'a IndexSearcher<IRC>>
+  ) -> Result<&'a IndexSearcher<IRC, SIM>>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     R: Rng + ?Sized,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     // TODO IMPORTANT
     Ok(s)
@@ -126,19 +132,24 @@ impl QueryUtils {
     assert_ne!(q2, q1);
   }
 
-  pub fn check_explanations<IRC>(query: &Query, searcher: &IndexSearcher<IRC>) -> Result<()>
+  pub fn check_explanations<IRC, SIM>(
+    query: &Query,
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static + Sync + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     CheckHits::check_explanations_with_deep(query, "", searcher, true)
   }
 
-  pub fn check_skip_to<IRC>(q: Query, s: &IndexSearcher<IRC>) -> Result<()>
+  pub fn check_skip_to<IRC, SIM>(q: Query, s: &IndexSearcher<IRC, SIM>) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     IRC::LeafReader: Clone + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let reader_context_array = s.get_leaf_contexts()?;
 
@@ -166,8 +177,7 @@ impl QueryUtils {
       if let Some(last_reader_idx) = collector.last_reader_idx {
         let previous_reader = reader_context_array[last_reader_idx].reader().clone();
 
-        let mut index_searcher = new_searcher_with_reader(previous_reader)?;
-        index_searcher.set_similarity(s.get_similarity());
+        let index_searcher = crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(previous_reader, s.get_similarity())?;
 
         let rewritten = index_searcher.rewrite(q.clone())?;
         let weight = index_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
@@ -211,11 +221,12 @@ impl QueryUtils {
     Ok(())
   }
 
-  pub fn check_first_skip_to<IRC>(q: Query, s: &IndexSearcher<IRC>) -> Result<()>
+  pub fn check_first_skip_to<IRC, SIM>(q: Query, s: &IndexSearcher<IRC, SIM>) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
     IRC::LeafReader: Clone + Sync,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let max_diff: f32 = 1e-3f32;
     let rewritten = s.rewrite(q.clone())?;
@@ -224,8 +235,8 @@ impl QueryUtils {
     s.search_with_collector(q, &mut collector)?;
     if let Some(last_reader_idx) = collector.last_reader_idx {
       let previous_reader = s.get_leaf_contexts()?[last_reader_idx].reader().clone();
-      let mut index_searcher = new_searcher_with_reader(previous_reader)?;
-      index_searcher.set_similarity(s.get_similarity());
+      let index_searcher = crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(previous_reader, s.get_similarity())?;
+
       let weight = index_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
       let top = index_searcher.get_top_reader_context();
       let scorer_opt = weight.scorer(top, &index_searcher)?;
@@ -262,14 +273,15 @@ impl QueryUtils {
 
     Ok(())
   }
-  pub fn check_bulk_scorer_skip_to<IRC, R>(
+  pub fn check_bulk_scorer_skip_to<IRC, R, SIM>(
     r: &mut R,
     query: Query,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
     R: Rng + ?Sized,
   {
     let query = searcher.rewrite(query)?;
@@ -337,10 +349,11 @@ impl QueryUtils {
     Ok(())
   }
 
-  pub fn check_count<IRC>(query: Query, searcher: &IndexSearcher<IRC>) -> Result<()>
+  pub fn check_count<IRC, SIM>(query: Query, searcher: &IndexSearcher<IRC, SIM>) -> Result<()>
   where
+    SIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC: IndexReaderContext + 'static,
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     let query = searcher.rewrite(query)?;
     let weight = searcher.create_weight(query, ScoreMode::CompleteNoScores, 1.0)?;
@@ -521,32 +534,37 @@ where
   }
 }
 
-struct SimpleCollectorImp<'a, IRC: IndexReaderContext + 'static>
-where
+struct SimpleCollectorImp<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: 'static,
 {
-  weight: QueryWeight<IRC>,
+  weight: QueryWeight<IRC, SIM>,
   leaf_ptr: usize,
   interval_times32: i64,
   last_doc: i32,
   max_diff: f32,
   rewritten: Query,
-  s: &'a IndexSearcher<IRC>,
+  s: &'a IndexSearcher<IRC, SIM>,
   last_reader_idx: Option<usize>,
 }
-impl<'a, IRC> SimpleCollectorImp<'a, IRC>
+impl<'a, IRC, SIM> SimpleCollectorImp<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
   fn new(
-    weight: QueryWeight<IRC>,
+    weight: QueryWeight<IRC, SIM>,
     max_diff: f32,
     rewritten: Query,
-    searcher: &'a IndexSearcher<IRC>,
+    searcher: &'a IndexSearcher<IRC, SIM>,
   ) -> Self
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Self {
       weight,
@@ -560,8 +578,9 @@ where
     }
   }
 }
-impl<IRC> Display for SimpleCollectorImp<'_, IRC>
+impl<IRC, SIM> Display for SimpleCollectorImp<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
@@ -570,11 +589,12 @@ where
   }
 }
 
-impl<IRC> Collector for SimpleCollectorImp<'_, IRC>
+impl<IRC, SIM> Collector for SimpleCollectorImp<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -582,16 +602,17 @@ where
     Self: 'a,
     IRC1: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC1>(
+  fn get_leaf_collector<'a, W, IRC1, CSIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC1>,
+    _searcher: &IndexSearcher<IRC1, CSIM>,
   ) -> Result<Self::LeafCollector<'a, IRC1>>
   where
+    CSIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC1: IndexReaderContext,
-    W: Weight<IRC1> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
+    W: Weight<IRC1, CSIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1, CSIM>: Sync,
   {
     SimpleCollectorImp::do_set_next_reader(self, context)?;
     Ok(self)
@@ -602,11 +623,12 @@ where
   }
 }
 
-impl<IRC> LeafCollector for SimpleCollectorImp<'_, IRC>
+impl<IRC, SIM> LeafCollector for SimpleCollectorImp<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type CompetitiveIterator<'a>
     = crate::core::search::doc_id_set_iterator::EmptyDISI
@@ -668,11 +690,12 @@ where
   }
 }
 
-impl<IRC> SimpleCollector for SimpleCollectorImp<'_, IRC>
+impl<IRC, SIM> SimpleCollector for SimpleCollectorImp<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, _context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -682,8 +705,7 @@ where
       let lr = self.s.get_leaf_contexts()?[previous_reader_idx]
         .reader()
         .clone();
-      let mut index_searcher = new_searcher_with_reader(lr)?;
-      index_searcher.set_similarity(self.s.get_similarity());
+      let index_searcher = crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(lr, self.s.get_similarity())?;
 
       let weight =
         index_searcher.create_weight(self.rewritten.clone(), ScoreMode::Complete, 1.0)?;
@@ -733,8 +755,12 @@ where
     Ok(())
   }
 }
-struct SimpleCollectorImpl2<'a, IRC: IndexReaderContext + 'static>
-where
+struct SimpleCollectorImpl2<
+  'a,
+  IRC: IndexReaderContext + 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
@@ -742,7 +768,7 @@ where
   leaf_ptr: usize,
 
   q: &'a Query,
-  s: &'a IndexSearcher<IRC>,
+  s: &'a IndexSearcher<IRC, SIM>,
   max_diff: f32,
 
   order: &'a [i32],
@@ -755,21 +781,22 @@ where
   last_doc: i32,
 }
 
-impl<'a, IRC> SimpleCollectorImpl2<'a, IRC>
+impl<'a, IRC, SIM> SimpleCollectorImpl2<'a, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
   fn new(
     q: &'a Query,
-    s: &'a IndexSearcher<IRC>,
+    s: &'a IndexSearcher<IRC, SIM>,
     max_diff: f32,
     order: &'a [i32],
     skip_op: i32,
     reader_context_array: &'a [LeafReaderContext<IRCLeafReader<IRC>>],
   ) -> Self
   where
-    crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+    crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
   {
     Self {
       scorer: None,
@@ -787,8 +814,9 @@ where
   }
 }
 
-impl<IRC> Display for SimpleCollectorImpl2<'_, IRC>
+impl<IRC, SIM> Display for SimpleCollectorImpl2<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone,
 {
@@ -797,11 +825,12 @@ where
   }
 }
 
-impl<IRC> Collector for SimpleCollectorImpl2<'_, IRC>
+impl<IRC, SIM> Collector for SimpleCollectorImpl2<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -809,16 +838,17 @@ where
     Self: 'a,
     IRC1: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC1>(
+  fn get_leaf_collector<'a, W, IRC1, CSIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC1>>,
     _weight: Option<&W>,
-    _searcher: &IndexSearcher<IRC1>,
+    _searcher: &IndexSearcher<IRC1, CSIM>,
   ) -> Result<Self::LeafCollector<'a, IRC1>>
   where
+    CSIM: crate::core::search::similarities_impl::similarities::Similarity,
     IRC1: IndexReaderContext,
-    W: Weight<IRC1> + ?Sized,
-    crate::core::search::index_searcher::IndexSearcher<IRC1>: Sync,
+    W: Weight<IRC1, CSIM> + ?Sized,
+    crate::core::search::index_searcher::IndexSearcher<IRC1, CSIM>: Sync,
   {
     self.do_set_next_reader(context)?;
     Ok(self)
@@ -829,11 +859,12 @@ where
   }
 }
 
-impl<IRC> LeafCollector for SimpleCollectorImpl2<'_, IRC>
+impl<IRC, SIM> LeafCollector for SimpleCollectorImpl2<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   type CompetitiveIterator<'a>
     = crate::core::search::doc_id_set_iterator::EmptyDISI
@@ -880,11 +911,12 @@ where
   }
 }
 
-impl<IRC> SimpleCollector for SimpleCollectorImpl2<'_, IRC>
+impl<IRC, SIM> SimpleCollector for SimpleCollectorImpl2<'_, IRC, SIM>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   IRC: IndexReaderContext + 'static,
   IRC::LeafReader: Clone + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -895,8 +927,7 @@ where
         .reader()
         .clone();
 
-      let mut index_searcher = new_searcher_with_reader(lr)?;
-      index_searcher.set_similarity(self.s.get_similarity());
+      let index_searcher = crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(lr, self.s.get_similarity())?;
 
       let rewritten = index_searcher.rewrite(self.q.clone())?;
       let weight = index_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;

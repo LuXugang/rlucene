@@ -30,6 +30,7 @@ use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
 use crate::core::util::bit_util::BitUtil;
@@ -205,13 +206,15 @@ impl HasIdentity for FloatVectorSimilarityQuery {
 }
 
 impl QueryBase for FloatVectorSimilarityQuery {
-  type Weight<IRC>
+  type Weight<IRC, SIM>
     = crate::core::search::abstract_vector_similarity_query::AbstractVectorSimilarityQueryWeight<
     Self,
     IRC,
     Arc<crate::core::index::query_timeout::QueryTimeoutEnum>,
+    SIM,
   >
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
@@ -237,15 +240,16 @@ impl QueryBase for FloatVectorSimilarityQuery {
     ))
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     AbstractVectorSimilarityQuery::create_weight(self, searcher, boost)

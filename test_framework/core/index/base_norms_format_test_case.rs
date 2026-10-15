@@ -32,9 +32,7 @@ use crate::core::index::term::Term;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::similarities_impl::similarities::{
-  BoxSimScorer, Similarity, SimilarityEnum,
-};
+use crate::core::search::similarities_impl::similarities::{BoxSimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -46,8 +44,7 @@ use crate::test_framework::core::index::base_index_file_format_test_case::{
 };
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, at_least_usize, get_only_leaf_reader, new_directory,
-  new_index_writer_config_with_analyzer, new_log_merge_policy,
+  at_least, at_least_usize, get_only_leaf_reader, new_directory, new_log_merge_policy,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -487,11 +484,13 @@ pub trait BaseNormsFormatTestCase:
     let dir = new_directory(random)?;
     let dir = Arc::new(self.apply_created_version_major(random, dir)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
     let norms = Arc::new(norms);
-    conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
-      norms.clone(),
-    )));
+    let indexing_similarity_conf = CannedNormSimilarity::new(norms.clone());
+    let conf =
+      crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+        random, analyzer,
+      )?;
+
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let mut norm_ord = 0usize;
@@ -500,7 +499,7 @@ pub trait BaseNormsFormatTestCase:
       if !docs_with_field.get(i)? {
         let mut doc2 = Document::new();
         doc2.add(StringField::from_string("id", i.to_string(), Store::No)?);
-        writer.add_document(random, doc2)?;
+        writer.add_document_with_similarity(random, doc2, &indexing_similarity_conf)?;
       } else {
         doc.clear();
         doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
@@ -512,7 +511,7 @@ pub trait BaseNormsFormatTestCase:
           if value == 0 { "" } else { "a" },
           Store::No,
         )?);
-        writer.add_document(random, &mut doc)?;
+        writer.add_document_with_similarity(random, &mut doc, &indexing_similarity_conf)?;
       }
 
       if random.random_range(0..31) == 0 {
@@ -653,12 +652,13 @@ pub trait BaseNormsFormatTestCase:
     let dir = new_directory(random)?;
     let dir = Arc::new(self.apply_created_version_major(random, dir)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
-    conf.set_merge_policy(NoMergePolicy::default());
     let norms = Arc::new(norms);
-    conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(
-      norms.clone(),
-    )));
+    let indexing_similarity_conf = CannedNormSimilarity::new(norms.clone());
+    let mut conf =
+      crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+        random, analyzer,
+      )?;
+    conf.set_merge_policy(NoMergePolicy::default());
     let writer = RandomIndexWriter::with_config(random, dir.clone(), conf);
 
     let mut norm_ord = 0usize;
@@ -675,11 +675,11 @@ pub trait BaseNormsFormatTestCase:
           Store::No,
         )?);
         doc.add(NumericDocValuesField::indexed_field("dv", value));
-        writer.add_document(random, &mut doc)?;
+        writer.add_document_with_similarity(random, &mut doc, &indexing_similarity_conf)?;
       } else {
         let mut doc2 = Document::new();
         doc2.add(StringField::from_string("id", i.to_string(), Store::No)?);
-        writer.add_document(random, doc2)?;
+        writer.add_document_with_similarity(random, doc2, &indexing_similarity_conf)?;
       }
 
       if random.random_range(0..31) == 0 {
@@ -720,17 +720,18 @@ pub trait BaseNormsFormatTestCase:
   {
     let dir = Arc::new(new_directory(random)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let indexing_similarity_conf = CannedNormSimilarity::new(vec![42, 10, 20]);
+    let mut conf =
+      crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+        random, analyzer,
+      )?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
-    conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(vec![
-      42, 10, 20,
-    ])));
     let writer = RandomIndexWriter::with_config(random, dir, conf);
 
     let mut doc = Document::new();
     doc.add(TextField::from_string("indexed", "a", Store::No)?);
     for _ in 0..3 {
-      writer.add_document(random, &mut doc)?;
+      writer.add_document_with_similarity(random, &mut doc, &indexing_similarity_conf)?;
     }
 
     writer.force_merge(random, 1)?;
@@ -769,19 +770,20 @@ pub trait BaseNormsFormatTestCase:
   {
     let dir = Arc::new(new_directory(random)?);
     let analyzer = MockAnalyzer::new(random);
-    let mut conf = new_index_writer_config_with_analyzer(random, analyzer)?;
+    let indexing_similarity_conf = CannedNormSimilarity::new(vec![42, 10, 20]);
+    let mut conf =
+      crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+        random, analyzer,
+      )?;
     conf.set_merge_policy(new_log_merge_policy(random)?);
-    conf.set_similarity(SimilarityEnum::custom(CannedNormSimilarity::new(vec![
-      42, 10, 20,
-    ])));
     let writer = RandomIndexWriter::with_config(random, dir, conf);
 
     let mut doc = Document::new();
     doc.add(TextField::from_string("indexed", "a", Store::No)?);
     let mut empty_doc = Document::new();
     for _ in 0..3 {
-      writer.add_document(random, &mut doc)?;
-      writer.add_document(random, &mut empty_doc)?;
+      writer.add_document_with_similarity(random, &mut doc, &indexing_similarity_conf)?;
+      writer.add_document_with_similarity(random, &mut empty_doc, &indexing_similarity_conf)?;
     }
 
     writer.force_merge(random, 1)?;
@@ -865,7 +867,7 @@ impl<N> Display for CannedNormSimilarity<N> {
 
 impl<N> Similarity for CannedNormSimilarity<N>
 where
-  N: Borrow<Vec<i64>>,
+  N: Borrow<Vec<i64>> + Send + Sync + 'static,
 {
   fn compute_norm(&self, state: &FieldInvertState) -> Result<i64> {
     assert!(state.get_length() > 0);

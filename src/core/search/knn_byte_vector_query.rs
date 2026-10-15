@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::similarities_impl::similarities::Similarity;
 use std::fmt::Write as _;
 use std::sync::Arc;
 
@@ -158,9 +159,10 @@ impl HasIdentity for KnnByteVectorQuery {
 }
 
 impl QueryBase for KnnByteVectorQuery {
-  type Weight<IRC>
-    = QueryWeight<IRC>
+  type Weight<IRC, SIM>
+    = QueryWeight<IRC, SIM>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, _field: &str) -> Result<String> {
@@ -187,24 +189,26 @@ impl QueryBase for KnnByteVectorQuery {
     Ok(buffer)
   }
 
-  fn create_weight<IRC>(
+  fn create_weight<IRC, SIM>(
     self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     _score_mode: &ScoreMode,
     _boost: f32,
-  ) -> Result<Self::Weight<IRC>>
+  ) -> Result<Self::Weight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     Self: Sized,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
+  fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
     AbstractKnnVectorQuery::rewrite(self, searcher).map(Some)
@@ -228,14 +232,15 @@ impl AbstractKnnVectorQuery for KnnByteVectorQuery {
 
   type KnnCollectorManager = TopKnnCollectorManager;
 
-  fn get_knn_collector_manager<IRC>(
+  fn get_knn_collector_manager<IRC, SIM>(
     &self,
     k: usize,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::KnnCollectorManager>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     self.default_get_knn_collector_manager(k, searcher)
   }

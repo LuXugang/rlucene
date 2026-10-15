@@ -112,16 +112,17 @@ where
   sb
 }
 
-fn assert_pattern_hits<IRC, R>(
+fn assert_pattern_hits<IRC, R, SIM>(
   random: &mut R,
-  searcher: &IndexSearcher<IRC>,
+  searcher: &IndexSearcher<IRC, SIM>,
   pattern: &str,
   num_hits: usize,
 ) -> Result<()>
 where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
-  crate::core::search::index_searcher::IndexSearcher<IRC>: Sync,
+  crate::core::search::index_searcher::IndexSearcher<IRC, SIM>: Sync,
 {
   let wq = RegexpQuery::new(Term::from_text("field", fill_pattern(random, pattern)))?;
   let docs = searcher.search(wq, 25)?;

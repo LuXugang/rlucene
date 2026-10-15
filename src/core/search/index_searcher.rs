@@ -41,7 +41,8 @@ use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
-use crate::core::search::similarities_impl::similarities::{IntoSimilarityArc, SimilarityEnum};
+use crate::core::search::similarities_impl::similarities::Similarity;
+
 use crate::core::search::sort::Sort;
 use crate::core::search::task_executor::TaskExecutor;
 use crate::core::search::term_statistics::TermStatistics;
@@ -194,14 +195,19 @@ pub fn set_default_query_caching_policy(query_caching_policy: Arc<QueryCachingPo
   }
 }
 
-pub struct IndexSearcher<IRC: 'static> {
+pub struct IndexSearcher<
+  IRC: 'static,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> where
+  SIM: Similarity,
+{
   hook: IndexSearcherHook,
   pub reader_context: IRC,
-  similarity: Arc<SimilarityEnum>,
+  similarity: Arc<SIM>,
   inner: Mutex<Inner>,
   query_timeout: Option<Arc<QueryTimeoutEnum>>,
   query_caching_policy: Arc<QueryCachingPolicyEnum>,
-  query_cache: Option<QueryCacheEnum<IRC>>,
+  query_cache: Option<QueryCacheEnum<IRC, SIM>>,
   // Used internally for load balancing threads executing for the query.
   task_executor: TaskExecutor,
   // partialResult may be set on one of the threads of the executor. It may be correct to not make
@@ -213,22 +219,43 @@ pub struct IndexSearcher<IRC: 'static> {
 pub(crate) struct Inner {
   leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
-pub type DefaultIndexSearcher<IRC> = IndexSearcher<IRC>;
+pub type DefaultIndexSearcher<
+  IRC,
+  SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
+> = IndexSearcher<IRC, SIM>;
 
 impl<IRC> DefaultIndexSearcher<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
   pub fn new(context: IRC) -> Result<Self> {
-    Self::new_with_executor(context, None)
+    Self::new_with_executor(context, None, Arc::clone(get_default_similarity()))
   }
 
   /// Runs searches for each segment separately, using the provided executor.
   pub fn with_executor(context: IRC, executor: Arc<ThreadPool>) -> Result<Self> {
-    Self::new_with_executor(context, Some(executor))
+    Self::new_with_executor(
+      context,
+      Some(executor),
+      Arc::clone(get_default_similarity()),
+    )
   }
+}
 
-  fn new_with_executor(context: IRC, executor: Option<Arc<ThreadPool>>) -> Result<Self> {
+impl<IRC, SIM> IndexSearcher<IRC, SIM>
+where
+  SIM: Similarity,
+  IRC: IndexReaderContext + 'static,
+{
+  /// Creates a searcher with a concrete similarity type and an optional executor.
+  ///
+  /// The similarity and its scorer type are preserved throughout weight construction
+  /// and per-document scoring. Pass `None` to execute searches on the calling thread.
+  pub fn new_with_executor(
+    context: IRC,
+    executor: Option<Arc<ThreadPool>>,
+    similarity: Arc<SIM>,
+  ) -> Result<Self> {
     debug_assert!(
       context.base().is_top_level,
       "IndexSearcher's ReaderContext must be topLevel for reader {}",
@@ -248,7 +275,7 @@ where
     Ok(Self {
       hook: IndexSearcherHook::Default,
       reader_context: context,
-      similarity: Arc::new(get_default_similarity()?),
+      similarity,
       inner,
       query_timeout: None,
       query_caching_policy: default_caching_policy(),
@@ -275,12 +302,18 @@ where
   IndexSearcher::with_executor(reader.get_context()?, executor)
 }
 
-pub fn get_default_similarity() -> Result<SimilarityEnum> {
-  Ok(BM25Similarity::new()?.into())
+static DEFAULT_SIMILARITY: LazyLock<Arc<BM25Similarity>> =
+  LazyLock::new(|| Arc::new(BM25Similarity::default()));
+
+/// Shared default similarity used by searchers and default document-writing APIs.
+/// Clone the Arc when ownership is needed, or borrow it for a single operation.
+pub fn get_default_similarity() -> &'static Arc<BM25Similarity> {
+  &DEFAULT_SIMILARITY
 }
 
-impl<IRC> IndexSearcher<IRC>
+impl<IRC, SIM> IndexSearcher<IRC, SIM>
 where
+  SIM: Similarity,
   IRC: IndexReaderContext + 'static,
 {
   #[cfg(test)]
@@ -293,11 +326,13 @@ where
     self.reader_context.reader().stored_fields()
   }
 
+  /// Replaces the similarity with another value of the same concrete type.
+  /// Construct a new searcher to select a different similarity type.
   pub fn set_similarity<T>(&mut self, similarity: T)
   where
-    T: IntoSimilarityArc,
+    T: Into<Arc<SIM>>,
   {
-    self.similarity = similarity.into_similarity_arc();
+    self.similarity = similarity.into();
   }
 
   /// Returns the [`TaskExecutor`] that this searcher relies on to execute concurrent operations.
@@ -423,7 +458,7 @@ where
   pub fn get_top_reader_context(&self) -> &IRC {
     &self.reader_context
   }
-  pub fn get_similarity(&self) -> Arc<SimilarityEnum> {
+  pub fn get_similarity(&self) -> Arc<SIM> {
     self.similarity.clone()
   }
 
@@ -600,7 +635,7 @@ where
   ) -> Result<()>
   where
     C: Collector,
-    W: Weight<IRC> + ?Sized,
+    W: Weight<IRC, SIM> + ?Sized,
     Self: Sync,
   {
     self
@@ -617,7 +652,7 @@ where
   ) -> Result<()>
   where
     C: Collector,
-    W: Weight<IRC> + ?Sized,
+    W: Weight<IRC, SIM> + ?Sized,
     Self: Sync,
   {
     self
@@ -674,7 +709,7 @@ where
   /// # Errors
   ///
   /// Returns an error if a query would exceed [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count) clauses.
-  pub fn explain_from_weight(&self, weight: &QueryWeight<IRC>, doc: i32) -> Result<Explanation>
+  pub fn explain_from_weight(&self, weight: &QueryWeight<IRC, SIM>, doc: i32) -> Result<Explanation>
   where
     Self: Sync,
   {
@@ -702,10 +737,10 @@ where
     query: T,
     score_mode: ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<QueryWeight<IRC, SIM>>
   where
     T: QueryBase,
-    T::Weight<IRC>: Into<QueryWeight<IRC>>,
+    T::Weight<IRC, SIM>: Into<QueryWeight<IRC, SIM>>,
     Self: Sync,
   {
     self.hook.create_weight(self, query, score_mode, boost)
@@ -755,10 +790,10 @@ where
     self.reader_context.reader()
   }
 
-  pub fn set_query_cache(&mut self, query_cache: Option<QueryCacheEnum<IRC>>) {
+  pub fn set_query_cache(&mut self, query_cache: Option<QueryCacheEnum<IRC, SIM>>) {
     self.query_cache = query_cache;
   }
-  pub fn get_query_cache(&self) -> Option<&QueryCacheEnum<IRC>> {
+  pub fn get_query_cache(&self) -> Option<&QueryCacheEnum<IRC, SIM>> {
     self.query_cache.as_ref()
   }
 
@@ -1151,104 +1186,114 @@ pub(crate) trait IndexSearcherBase<IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn slices(
+  fn slices<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     leaves: &[LeafReaderContext<IRC::LeafReader>],
-  ) -> Result<Vec<LeafSlice>> {
+  ) -> Result<Vec<LeafSlice>>
+  where
+    SIM: Similarity,
+  {
     IndexSearcherDefaults::slices(leaves)
   }
 
-  fn count(&self, searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
+  fn count<SIM>(&self, searcher: &IndexSearcher<IRC, SIM>, query: Query) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::count(searcher, query)
   }
 
-  fn search_after_score(
+  fn search_after_score<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     after: Option<ScoreDoc>,
     query: Query,
     num_hits: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::search_after_score(searcher, after, query, num_hits)
   }
 
-  fn search(
+  fn search<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::search(searcher, query, n)
   }
 
-  fn search_with_collector<C>(
+  fn search_with_collector<C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     collector: &mut C,
   ) -> Result<()>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
     C: Collector,
   {
     IndexSearcherDefaults::search_with_collector(searcher, query, collector)
   }
 
-  fn search_with_sort(
+  fn search_with_sort<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n: usize,
     sort: Arc<Sort>,
   ) -> Result<TopFieldDocs>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::search_with_sort(searcher, query, n, sort)
   }
 
-  fn search_with_collector_manager<CM>(
+  fn search_with_collector_manager<CM, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     collector_manager: &CM,
   ) -> Result<CM::T>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
     CM: CollectorManager,
     CM::C: Send,
   {
     IndexSearcherDefaults::search_with_collector_manager(searcher, query, collector_manager)
   }
 
-  fn search_partitions<W, C>(
+  fn search_partitions<W, C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     partitions: &[LeafReaderContextPartition],
     weight: &W,
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: Similarity,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::search_partitions(searcher, partitions, weight, collector)
   }
 
-  fn search_leaf<W, C>(
+  fn search_leaf<W, C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     ctx_ord: usize,
     min_doc_id: i32,
     max_doc_id: i32,
@@ -1256,50 +1301,59 @@ where
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: Similarity,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
   }
 
-  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  fn rewrite<SIM>(&self, searcher: &IndexSearcher<IRC, SIM>, original: Query) -> Result<Query>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::rewrite(searcher, original)
   }
 
-  fn create_weight<T>(
+  fn create_weight<T, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: T,
     score_mode: ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<QueryWeight<IRC, SIM>>
   where
+    SIM: Similarity,
     T: QueryBase,
-    T::Weight<IRC>: Into<QueryWeight<IRC>>,
-    IndexSearcher<IRC>: Sync,
+    T::Weight<IRC, SIM>: Into<QueryWeight<IRC, SIM>>,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)
   }
 
-  fn term_statistics(
+  fn term_statistics<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     term: Arc<Term>,
     doc_freq: i32,
     total_term_freq: i64,
-  ) -> Result<TermStatistics> {
+  ) -> Result<TermStatistics>
+  where
+    SIM: Similarity,
+  {
     IndexSearcherDefaults::term_statistics(term, doc_freq, total_term_freq)
   }
 
-  fn collection_statistics(
+  fn collection_statistics<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     field: &str,
-  ) -> Result<Option<CollectionStatistics>> {
+  ) -> Result<Option<CollectionStatistics>>
+  where
+    SIM: Similarity,
+  {
     IndexSearcherDefaults::collection_statistics(searcher, field)
   }
 }
@@ -1308,11 +1362,14 @@ impl<IRC> IndexSearcherBase<IRC> for IndexSearcherHook
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn slices(
+  fn slices<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     leaves: &[LeafReaderContext<IRC::LeafReader>],
-  ) -> Result<Vec<LeafSlice>> {
+  ) -> Result<Vec<LeafSlice>>
+  where
+    SIM: Similarity,
+  {
     match self {
       Self::Default => IndexSearcherDefaults::slices(leaves),
       #[cfg(test)]
@@ -1338,9 +1395,10 @@ where
     }
   }
 
-  fn count(&self, searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
+  fn count<SIM>(&self, searcher: &IndexSearcher<IRC, SIM>, query: Query) -> Result<i32>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::count(searcher, query),
@@ -1367,15 +1425,16 @@ where
     }
   }
 
-  fn search_after_score(
+  fn search_after_score<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     after: Option<ScoreDoc>,
     query: Query,
     num_hits: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::search_after_score(searcher, after, query, num_hits),
@@ -1408,14 +1467,15 @@ where
     }
   }
 
-  fn search(
+  fn search<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::search(searcher, query, n),
@@ -1442,14 +1502,15 @@ where
     }
   }
 
-  fn search_with_collector<C>(
+  fn search_with_collector<C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     collector: &mut C,
   ) -> Result<()>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
     C: Collector,
   {
     match self {
@@ -1483,15 +1544,16 @@ where
     }
   }
 
-  fn search_with_sort(
+  fn search_with_sort<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n: usize,
     sort: Arc<Sort>,
   ) -> Result<TopFieldDocs>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::search_with_sort(searcher, query, n, sort),
@@ -1520,14 +1582,15 @@ where
     }
   }
 
-  fn search_with_collector_manager<CM>(
+  fn search_with_collector_manager<CM, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     collector_manager: &CM,
   ) -> Result<CM::T>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
     CM: CollectorManager,
     CM::C: Send,
   {
@@ -1574,17 +1637,18 @@ where
     }
   }
 
-  fn search_partitions<W, C>(
+  fn search_partitions<W, C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     partitions: &[LeafReaderContextPartition],
     weight: &W,
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: Similarity,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => {
@@ -1619,9 +1683,9 @@ where
     }
   }
 
-  fn search_leaf<W, C>(
+  fn search_leaf<W, C, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     ctx_ord: usize,
     min_doc_id: i32,
     max_doc_id: i32,
@@ -1629,9 +1693,10 @@ where
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: Similarity,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::search_leaf(
@@ -1680,9 +1745,10 @@ where
     }
   }
 
-  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  fn rewrite<SIM>(&self, searcher: &IndexSearcher<IRC, SIM>, original: Query) -> Result<Query>
   where
-    IndexSearcher<IRC>: Sync,
+    SIM: Similarity,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::rewrite(searcher, original),
@@ -1709,17 +1775,18 @@ where
     }
   }
 
-  fn create_weight<T>(
+  fn create_weight<T, SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     query: T,
     score_mode: ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<QueryWeight<IRC, SIM>>
   where
+    SIM: Similarity,
     T: QueryBase,
-    T::Weight<IRC>: Into<QueryWeight<IRC>>,
-    IndexSearcher<IRC>: Sync,
+    T::Weight<IRC, SIM>: Into<QueryWeight<IRC, SIM>>,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost),
@@ -1752,13 +1819,16 @@ where
     }
   }
 
-  fn term_statistics(
+  fn term_statistics<SIM>(
     &self,
-    _searcher: &IndexSearcher<IRC>,
+    _searcher: &IndexSearcher<IRC, SIM>,
     term: Arc<Term>,
     doc_freq: i32,
     total_term_freq: i64,
-  ) -> Result<TermStatistics> {
+  ) -> Result<TermStatistics>
+  where
+    SIM: Similarity,
+  {
     match self {
       Self::Default => IndexSearcherDefaults::term_statistics(term, doc_freq, total_term_freq),
       #[cfg(test)]
@@ -1792,11 +1862,14 @@ where
     }
   }
 
-  fn collection_statistics(
+  fn collection_statistics<SIM>(
     &self,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
     field: &str,
-  ) -> Result<Option<CollectionStatistics>> {
+  ) -> Result<Option<CollectionStatistics>>
+  where
+    SIM: Similarity,
+  {
     match self {
       Self::Default => IndexSearcherDefaults::collection_statistics(searcher, field),
       #[cfg(test)]
@@ -1831,10 +1904,11 @@ impl IndexSearcherDefaults {
     slices(leaves)
   }
 
-  pub(crate) fn count<IRC>(searcher: &IndexSearcher<IRC>, query: Query) -> Result<i32>
+  pub(crate) fn count<IRC, SIM>(searcher: &IndexSearcher<IRC, SIM>, query: Query) -> Result<i32>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let mut query = searcher.rewrite(ConstantScoreQuery::new(query))?;
     if let Query::ConstantScore(csq) = query {
@@ -1862,15 +1936,16 @@ impl IndexSearcherDefaults {
     searcher.search_with_collector_manager(ConstantScoreQuery::new(query), &v)
   }
 
-  pub(crate) fn search_after_score<IRC>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn search_after_score<IRC, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     after: Option<ScoreDoc>,
     query: Query,
     num_hits: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let limit = std::cmp::max(1, searcher.reader_context.reader().max_doc()?);
 
@@ -1890,26 +1965,28 @@ impl IndexSearcherDefaults {
     searcher.search_with_collector_manager(query, &manager)
   }
 
-  pub(crate) fn search<IRC>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn search<IRC, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     searcher.search_after_score(None, query, n)
   }
 
-  pub(crate) fn search_with_collector<IRC, C>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn search_with_collector<IRC, C, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     C: Collector,
   {
     let needs_scores = collector.score_mode().needs_scores();
@@ -1923,27 +2000,29 @@ impl IndexSearcherDefaults {
     Ok(())
   }
 
-  pub(crate) fn search_with_sort<IRC>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn search_with_sort<IRC, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     query: Query,
     n: usize,
     sort: Arc<Sort>,
   ) -> Result<TopFieldDocs>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     searcher.search_after_field_with_score(None, query, n, sort, false)
   }
 
-  pub(crate) fn search_with_collector_manager<IRC, CM>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn search_with_collector_manager<IRC, CM, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     mut query: Query,
     collector_manager: &CM,
   ) -> Result<CM::T>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     CM: CollectorManager,
     CM::C: Send,
   {
@@ -1955,17 +2034,18 @@ impl IndexSearcherDefaults {
     searcher.search_with_first_collector(query, score_mode, collector_manager, first_collector)
   }
 
-  pub(crate) fn search_partitions<IRC, W, C>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn search_partitions<IRC, W, C, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     partitions: &[LeafReaderContextPartition],
     weight: &W,
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     collector.set_weight(Some(weight))?;
 
@@ -1982,8 +2062,8 @@ impl IndexSearcherDefaults {
     Ok(())
   }
 
-  pub(crate) fn search_leaf<IRC, W, C>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn search_leaf<IRC, W, C, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     ctx_ord: usize,
     min_doc_id: i32,
     max_doc_id: i32,
@@ -1991,10 +2071,11 @@ impl IndexSearcherDefaults {
     collector: &mut C,
   ) -> Result<()>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
     C: Collector,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let ctx = &searcher.reader_context.leaves()?[ctx_ord];
     let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight), searcher) {
@@ -2044,10 +2125,14 @@ impl IndexSearcherDefaults {
     Ok(())
   }
 
-  pub(crate) fn rewrite<IRC>(searcher: &IndexSearcher<IRC>, mut query: Query) -> Result<Query>
+  pub(crate) fn rewrite<IRC, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
+    mut query: Query,
+  ) -> Result<Query>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     while let Some(rewritten) = query.rewrite(searcher)? {
       query = rewritten;
@@ -2060,19 +2145,21 @@ impl IndexSearcherDefaults {
     NumClausesCheckVisitor { num_clauses: 0 }
   }
 
-  pub(crate) fn create_weight<IRC, T>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn create_weight<IRC, T, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     query: T,
     score_mode: ScoreMode,
     boost: f32,
-  ) -> Result<QueryWeight<IRC>>
+  ) -> Result<QueryWeight<IRC, SIM>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
-    IndexSearcher<IRC>: Sync,
+    IndexSearcher<IRC, SIM>: Sync,
     T: QueryBase,
-    T::Weight<IRC>: Into<QueryWeight<IRC>>,
+    T::Weight<IRC, SIM>: Into<QueryWeight<IRC, SIM>>,
   {
-    let mut weight: QueryWeight<IRC> = query.create_weight(searcher, &score_mode, boost)?.into();
+    let mut weight: QueryWeight<IRC, SIM> =
+      query.create_weight(searcher, &score_mode, boost)?.into();
     if !score_mode.needs_scores()
       && let Some(query_cache) = searcher.query_cache.as_ref()
     {
@@ -2090,11 +2177,12 @@ impl IndexSearcherDefaults {
     TermStatistics::new(term, doc_freq as i64, total_term_freq)
   }
 
-  pub(crate) fn collection_statistics<IRC>(
-    searcher: &IndexSearcher<IRC>,
+  pub(crate) fn collection_statistics<IRC, SIM>(
+    searcher: &IndexSearcher<IRC, SIM>,
     field: &str,
   ) -> Result<Option<CollectionStatistics>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext + 'static,
   {
     let mut doc_count: i64 = 0;

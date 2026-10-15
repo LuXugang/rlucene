@@ -27,7 +27,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::similarities_impl::similarities::BoxSimScorer;
-use crate::core::search::similarities_impl::similarities::{Similarity, SimilarityEnum};
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -93,9 +93,13 @@ fn test() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::with_automaton(&mut random, mock_tokenizer::SIMPLE.clone(), true);
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let indexing_similarity_config = TestSimilarity;
+  let mut config =
+    crate::test_framework::core::util::lucene_test_case::new_index_writer_config_with_analyzer(
+      &mut random,
+      analyzer,
+    )?;
   config.set_merge_policy(new_log_merge_policy(&mut random)?);
-  config.set_similarity(SimilarityEnum::custom(TestSimilarity));
 
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), config);
 
@@ -108,7 +112,7 @@ fn test() -> Result<()> {
       unreachable!("foo field must exist")
     };
     foo.set_string_value(value)?;
-    writer.add_document(&mut random, &mut doc)?;
+    writer.add_document_with_similarity(&mut random, &mut doc, &indexing_similarity_config)?;
   }
 
   let reader = writer.get_reader(&mut random)?;

@@ -19,6 +19,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::similarities_impl::similarities::Similarity;
 
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::leaf_collector::LeafCollector;
@@ -61,16 +62,17 @@ impl TotalHitCountCollector {
       early_terminated_map: Some(early_terminated_map),
     }
   }
-  fn try_count<W, IRC>(
+  fn try_count<W, IRC, SIM>(
     &mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<bool>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     let leaf_count = match weight {
       Some(w) => w.count(context, searcher)?,
@@ -94,16 +96,17 @@ impl Collector for TotalHitCountCollector {
     Self: 'a,
     IRC: IndexReaderContext + 'a;
 
-  fn get_leaf_collector<'a, W, IRC>(
+  fn get_leaf_collector<'a, W, IRC, SIM>(
     &'a mut self,
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     weight: Option<&W>,
-    searcher: &IndexSearcher<IRC>,
+    searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<Self::LeafCollector<'a, IRC>>
   where
+    SIM: Similarity,
     IRC: IndexReaderContext,
-    W: Weight<IRC> + ?Sized,
-    IndexSearcher<IRC>: Sync,
+    W: Weight<IRC, SIM> + ?Sized,
+    IndexSearcher<IRC, SIM>: Sync,
   {
     if let Some(early_terminated_map) = &self.early_terminated_map {
       let (early_terminated, first) = {

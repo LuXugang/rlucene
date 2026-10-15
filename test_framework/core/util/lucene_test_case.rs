@@ -1590,3 +1590,29 @@ where
   }
   Ok(it)
 }
+
+pub fn new_searcher_with_reader_and_similarity<IR: IndexReader, SIM>(
+  reader: IR,
+  similarity: Arc<SIM>,
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>, SIM>>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  IndexSearcher::new_with_executor(reader.get_context()?, None, similarity)
+}
+pub fn new_searcher_with_similarity<R: Rng + ?Sized, IR: IndexReader, SIM>(
+  random: &mut R,
+  reader: IR,
+  similarity: Arc<SIM>,
+) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>, SIM>>
+where
+  SIM: crate::core::search::similarities_impl::similarities::Similarity,
+{
+  let use_threads = random.random_bool(0.5);
+  let executor = if use_threads {
+    Some(new_search_executor(random.random_range(2..=5))?)
+  } else {
+    None
+  };
+  IndexSearcher::new_with_executor(reader.get_context()?, executor, similarity)
+}

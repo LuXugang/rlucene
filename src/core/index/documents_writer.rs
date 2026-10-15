@@ -26,6 +26,7 @@ use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term::Term;
 use crate::core::search::query::Query;
+use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -492,13 +493,15 @@ where
     }
     Ok(has_events)
   }
-  pub(crate) fn update_documents<DI>(
+  pub(crate) fn update_documents<DI, S>(
     &self,
     docs: DI,
     del_node: Option<Arc<Node>>,
     writer: &IndexWriter<D>,
+    similarity: &S,
   ) -> Result<i64>
   where
+    S: Similarity,
     DI: IntoFallibleIterator,
     DI::Item: IntoFallibleIterator,
     <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
@@ -524,6 +527,7 @@ where
           &self.flush_notifications,
           &self.num_docs_in_ram,
           writer,
+          similarity,
         )
       }));
       let aborted = dwpt_wrapper.state.is_aborted();

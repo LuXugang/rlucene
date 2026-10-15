@@ -465,7 +465,6 @@ fn test_slop_scoring() -> Result<()> {
 
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
-  iwc.set_similarity(BM25Similarity::new()?);
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
   let mut field_to_type = HashMap::new();
@@ -503,8 +502,11 @@ fn test_slop_scoring() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   writer.close(&mut random)?;
 
-  let mut searcher = new_searcher_with_reader(reader)?;
-  searcher.set_similarity(classic_similarity::new());
+  let searcher =
+    crate::test_framework::core::util::lucene_test_case::new_searcher_with_reader_and_similarity(
+      reader,
+      std::sync::Arc::new(classic_similarity::new()),
+    )?;
 
   let query = PhraseQuery::from_terms(i32::MAX as usize, "field", ["firstname", "lastname"])?;
   let top_docs = searcher.search(query.clone(), 1000)?;
