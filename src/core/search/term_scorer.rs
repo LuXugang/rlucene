@@ -48,51 +48,6 @@ pub struct ImpactsTermState<IE, SS> {
   max_score_cache: MaxScoreCache<IE, SS>,
 }
 
-/// Keeps the owned iterator's existing specialization boundary without a mode enum.
-#[doc(hidden)]
-pub struct TermOwnedIterator<I>(I);
-
-impl<I: DocIdSetIterator> DocIdSetIterator for TermOwnedIterator<I> {
-  fn doc_id(&self) -> i32 {
-    self.0.doc_id()
-  }
-  fn next_doc(&mut self) -> Result<i32> {
-    self.0.next_doc()
-  }
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    self.0.advance(target)
-  }
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.0.slow_advance(target)
-  }
-  fn cost(&self) -> Result<i64> {
-    DocIdSetIterator::cost(&self.0)
-  }
-}
-
-// The previous owned DocIdSetIteratorEnum3 did not expose these specialization hooks.
-impl<I: DocIdSetIterator> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for TermOwnedIterator<I>
-{
-}
-
-impl<I: DocIdSetIterator> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for TermOwnedIterator<I>
-{
-  fn is_bit_iter(&self) -> bool {
-    self.0.is_bit_iter()
-  }
-  fn get(&self, index: usize) -> Result<bool> {
-    self.0.get(index)
-  }
-  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
-    self.0.set_doc_id(doc)
-  }
-  fn bit_set_length(&self) -> Result<usize> {
-    self.0.bit_set_length()
-  }
-}
-
 impl<PE, SS> DocIdSetIterator for PostingsTermState<PE, SS>
 where
   PE: PostingsEnum,
@@ -243,10 +198,8 @@ where
 #[doc(hidden)]
 pub trait TermScorerState: DocIdSetIterator {
   fn freq(&mut self) -> Result<i32>;
-  type Iterator: DocIdSetIterator + 'static;
   type Scorer: SimScorer;
 
-  fn into_iterator(self) -> Self::Iterator;
   fn sim_scorer(&self) -> &Self::Scorer;
   fn advance_shallow(&mut self, target: i32) -> Result<i32>;
   fn get_max_score(&mut self, upto: i32) -> Result<f32>;
@@ -302,15 +255,10 @@ where
   PE: PostingsEnum + 'static,
   SS: SimScorer + 'static,
 {
-  type Iterator = TermOwnedIterator<PE>;
   type Scorer = SS;
 
   fn freq(&mut self) -> Result<i32> {
     self.max_score_cache.impacts_source.delegate.freq()
-  }
-
-  fn into_iterator(self) -> Self::Iterator {
-    TermOwnedIterator(self.max_score_cache.impacts_source.delegate)
   }
 
   fn sim_scorer(&self) -> &Self::Scorer {
@@ -331,15 +279,10 @@ where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
 {
-  type Iterator = TermOwnedIterator<IE>;
   type Scorer = SS;
 
   fn freq(&mut self) -> Result<i32> {
     self.max_score_cache.impacts_source.freq()
-  }
-
-  fn into_iterator(self) -> Self::Iterator {
-    TermOwnedIterator(self.max_score_cache.impacts_source)
   }
 
   fn sim_scorer(&self) -> &Self::Scorer {
@@ -360,15 +303,10 @@ where
   IE: ImpactsEnum + 'static,
   SS: SimScorer + 'static,
 {
-  type Iterator = TermOwnedIterator<Self>;
   type Scorer = SS;
 
   fn freq(&mut self) -> Result<i32> {
     SourceImpactsDISI::iterator_mut(self).freq()
-  }
-
-  fn into_iterator(self) -> Self::Iterator {
-    TermOwnedIterator(self)
   }
 
   fn sim_scorer(&self) -> &Self::Scorer {
