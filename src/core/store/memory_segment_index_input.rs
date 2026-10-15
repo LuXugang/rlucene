@@ -1474,7 +1474,7 @@ impl RandomAccessInput for MemorySegmentRandomAccessInput {
   fn length(&self) -> Result<usize> {
     RandomAccessInput::length(&self.input)
   }
-  #[inline]
+  #[inline(always)]
   fn read_byte(&self, pos: usize) -> Result<u8> {
     RandomAccessInput::read_byte(&self.input, pos)
   }

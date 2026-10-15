@@ -1365,6 +1365,7 @@ where
 
     Ok(())
   }
+  #[inline(never)]
   fn accumulate_pending_positions(&mut self) -> Result<()> {
     let freq = self.freq()?;
 

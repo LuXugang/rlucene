@@ -663,7 +663,7 @@ impl<R> NumericDocValues for DenseNormsIterator<R>
 where
   R: RandomAccessInput,
 {
-  #[inline]
+  #[inline(always)]
   fn long_value(&mut self) -> Result<i64> {
     if let DenseNormsIteratorBaseEnum::Dense1(inner) = &self.sub_dense_norms {
       let slice = &inner.slice;
@@ -816,10 +816,11 @@ where
   }
 }
 
-impl<I, R: RandomAccessInput> NumericDocValues for SparseNormsIterator<I, R>
+  impl<I, R: RandomAccessInput> NumericDocValues for SparseNormsIterator<I, R>
 where
   I: IndexInput,
 {
+  #[inline]
   fn long_value(&mut self) -> Result<i64> {
     self
       .sub_sparse_norms
