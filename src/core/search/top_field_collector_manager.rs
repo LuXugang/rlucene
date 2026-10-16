@@ -22,9 +22,7 @@ use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::sort::Sort;
 use crate::core::search::top_docs;
 use crate::core::search::top_docs_collector::TopDocsCollector;
-use crate::core::search::top_field_collector::{
-  PagingFieldCollector, SimpleFieldCollector, TopFieldCollectorEnum,
-};
+use crate::core::search::top_field_collector::{PagingFieldCollector, SimpleFieldCollector};
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -38,13 +36,18 @@ use std::sync::Arc;
 /// Note:
 /// A new collector manager should be created for each search,
 /// since it maintains internal state that is not thread-safe or reusable.
-pub struct TopFieldCollectorManager {
+///
+/// [`new`](Self::new) creates a manager for the first page. For subsequent pages,
+/// [`with_after`](TopFieldCollectorManager::with_after) returns a manager that owns
+/// the required cursor and creates [`PagingFieldCollector`]s directly.
+pub struct TopFieldCollectorManager<A = ()> {
   sort: Arc<Sort>,
   num_hits: usize,
-  after: Option<Arc<FieldDoc>>,
+  after: A,
   total_hits_threshold: usize,
   min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
+
 impl TopFieldCollectorManager {
   /// Creates a new [`TopFieldCollectorManager`] from the given arguments,
   /// with thread-safe internal states.
@@ -68,8 +71,48 @@ impl TopFieldCollectorManager {
   where
     S: Into<Arc<Sort>>,
   {
-    Self::with_after(sort, num_hits, None, total_hits_threshold)
+    if total_hits_threshold > i32::MAX as usize {
+      return Err(LuceneError::illegal_argument(format!(
+        "totalHitsThreshold must be <= i32::MAX, got {}",
+        total_hits_threshold
+      )));
+    }
+
+    if num_hits == 0 {
+      return Err(LuceneError::illegal_argument(
+        "numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count",
+      ));
+    }
+
+    if num_hits > i32::MAX as usize {
+      return Err(LuceneError::illegal_argument(
+        "numHits must be <= i32::MAX; please use TotalHitCountCollector if you just need the total hit count",
+      ));
+    }
+    let sort = sort.into();
+    if sort.get_sort().is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "Sort must contain at least one field",
+      ));
+    }
+
+    let min_score_acc = if total_hits_threshold != i32::MAX as usize {
+      Some(Arc::new(MaxScoreAccumulator::new()))
+    } else {
+      None
+    };
+
+    Ok(Self {
+      sort,
+      num_hits,
+      after: (),
+      total_hits_threshold,
+      min_score_acc,
+    })
   }
+}
+
+impl TopFieldCollectorManager<Arc<FieldDoc>> {
   /// Creates a new [`TopFieldCollectorManager`] from the given arguments,
   /// with thread-safe internal states.
   ///
@@ -92,7 +135,7 @@ impl TopFieldCollectorManager {
   pub fn with_after<S>(
     sort: S,
     num_hits: usize,
-    after: Option<FieldDoc>,
+    after: FieldDoc,
     total_hits_threshold: usize,
   ) -> Result<Self>
   where
@@ -124,20 +167,18 @@ impl TopFieldCollectorManager {
       ));
     }
 
-    if let Some(ref after_doc) = after {
-      if after_doc.fields.is_empty() {
-        return Err(LuceneError::illegal_argument(
-          "after.fields wasn't set; you must pass fillFields=true for the previous search",
-        ));
-      }
+    if after.fields.is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "after.fields wasn't set; you must pass fillFields=true for the previous search",
+      ));
+    }
 
-      if after_doc.fields.len() != sort_fields.len() {
-        return Err(LuceneError::illegal_argument(format!(
-          "after.fields has {} values but sort has {}",
-          after_doc.fields.len(),
-          sort_fields.len()
-        )));
-      }
+    if after.fields.len() != sort_fields.len() {
+      return Err(LuceneError::illegal_argument(format!(
+        "after.fields has {} values but sort has {}",
+        after.fields.len(),
+        sort_fields.len()
+      )));
     }
 
     let min_score_acc = if total_hits_threshold != i32::MAX as usize {
@@ -149,71 +190,80 @@ impl TopFieldCollectorManager {
     Ok(Self {
       sort,
       num_hits,
-      after: after.map(Arc::new),
+      after: Arc::new(after),
       total_hits_threshold,
       min_score_acc,
     })
   }
 }
 impl CollectorManager for TopFieldCollectorManager {
-  type C = TopFieldCollectorEnum;
+  type C = SimpleFieldCollector;
   type T = TopFieldDocs;
 
   fn new_collector(&self) -> Result<Self::C> {
     let mut queue = create(self.sort.get_sort(), self.num_hits)?;
 
-    let collector = if self.after.is_none() {
-      // Inform a comparator that sort is based on a single field,
-      // to enable optimizations for skipping over non-competitive documents.
-      // We can't set single sort when `after` is present as it's
-      // an implicit sort over the document id.
-      if queue.get_comparators().len() == 1 {
-        let comparators = queue.get_comparators_mut();
-        comparators[0].set_single_sort();
-      }
+    // Inform a comparator that sort is based on a single field,
+    // to enable optimizations for skipping over non-competitive documents.
+    // Paging collectors don't use this since `after` adds an implicit doc-id sort.
+    if queue.get_comparators().len() == 1 {
+      let comparators = queue.get_comparators_mut();
+      comparators[0].set_single_sort();
+    }
 
-      TopFieldCollectorEnum::Simple(SimpleFieldCollector::new(
-        Arc::clone(&self.sort),
-        queue,
-        self.num_hits,
-        self.total_hits_threshold,
-        self.min_score_acc.clone(),
-      )?)
-    } else {
-      let after = self.after.clone().ok_or_else(|| {
-        LuceneError::illegal_argument("`after` must be set before creating a PagingFieldCollector")
-      })?;
-
-      if after.fields.is_empty() {
-        return Err(LuceneError::illegal_argument(
-          "`after.fields` wasn't set; you must pass fill_fields=true for the previous search",
-        ));
-      }
-
-      if after.fields.len() != self.sort.get_sort().len() {
-        return Err(LuceneError::illegal_argument(format!(
-          "`after.fields` has {} values but sort has {}",
-          after.fields.len(),
-          self.sort.get_sort().len()
-        )));
-      }
-
-      TopFieldCollectorEnum::Paging(PagingFieldCollector::new(
-        Arc::clone(&self.sort),
-        queue,
-        after,
-        self.num_hits,
-        self.total_hits_threshold,
-        self.min_score_acc.clone(),
-      )?)
-    };
-
-    Ok(collector)
+    SimpleFieldCollector::new(
+      Arc::clone(&self.sort),
+      queue,
+      self.num_hits,
+      self.total_hits_threshold,
+      self.min_score_acc.clone(),
+    )
   }
 
   fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
-    let len = collectors.len();
-    let mut top_docs_list = Vec::with_capacity(len);
+    let mut top_docs_list = Vec::with_capacity(collectors.len());
+    for mut collector in collectors {
+      let mut v = collector.top_docs()?;
+      top_docs_list.push(std::mem::take(&mut v.base));
+    }
+    top_docs::merge_top_field_docs_with_start(&self.sort, 0, self.num_hits, top_docs_list)
+  }
+}
+
+impl CollectorManager for TopFieldCollectorManager<Arc<FieldDoc>> {
+  type C = PagingFieldCollector;
+  type T = TopFieldDocs;
+
+  fn new_collector(&self) -> Result<Self::C> {
+    let queue = create(self.sort.get_sort(), self.num_hits)?;
+    let after = Arc::clone(&self.after);
+
+    if after.fields.is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "`after.fields` wasn't set; you must pass fill_fields=true for the previous search",
+      ));
+    }
+
+    if after.fields.len() != self.sort.get_sort().len() {
+      return Err(LuceneError::illegal_argument(format!(
+        "`after.fields` has {} values but sort has {}",
+        after.fields.len(),
+        self.sort.get_sort().len()
+      )));
+    }
+
+    PagingFieldCollector::new(
+      Arc::clone(&self.sort),
+      queue,
+      after,
+      self.num_hits,
+      self.total_hits_threshold,
+      self.min_score_acc.clone(),
+    )
+  }
+
+  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+    let mut top_docs_list = Vec::with_capacity(collectors.len());
     for mut collector in collectors {
       let mut v = collector.top_docs()?;
       top_docs_list.push(std::mem::take(&mut v.base));

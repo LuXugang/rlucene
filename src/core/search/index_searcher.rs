@@ -533,15 +533,29 @@ where
       Some(rewritten_sort) => Arc::new(rewritten_sort),
       None => sort,
     };
-    let manager = TopFieldCollectorManager::with_after(
-      rewritten_sort,
-      capped_num_hits,
-      after,
-      TOTAL_HITS_THRESHOLD,
-    )?;
-    let query = query.into_query();
-    let score_query = do_doc_scores.then(|| query.clone());
-    let mut top_field_docs = self.search_with_collector_manager(query, &manager)?;
+    let (mut top_field_docs, score_query) = if let Some(after) = after {
+      let manager = TopFieldCollectorManager::with_after(
+        rewritten_sort,
+        capped_num_hits,
+        after,
+        TOTAL_HITS_THRESHOLD,
+      )?;
+      let query = query.into_query();
+      let score_query = do_doc_scores.then(|| query.clone());
+      (
+        self.search_with_collector_manager(query, &manager)?,
+        score_query,
+      )
+    } else {
+      let manager =
+        TopFieldCollectorManager::new(rewritten_sort, capped_num_hits, TOTAL_HITS_THRESHOLD)?;
+      let query = query.into_query();
+      let score_query = do_doc_scores.then(|| query.clone());
+      (
+        self.search_with_collector_manager(query, &manager)?,
+        score_query,
+      )
+    };
 
     if let Some(query) = score_query {
       populate_scores(top_field_docs.score_docs_mut(), self, query)?;

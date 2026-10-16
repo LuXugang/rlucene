@@ -200,14 +200,6 @@ where
         None
       };
 
-      let manager1 = TopFieldCollectorManager::with_after(
-        sort.clone(),
-        num_hits,
-        after.clone(),
-        i32::MAX as usize,
-      )?;
-      let manager2 = TopFieldCollectorManager::with_after(sort.clone(), num_hits, after, 1)?;
-
       let query: Query = if random.random_bool(0.5) {
         let term = terms.choose(random).unwrap();
         TermQuery::new(Term::from_text("s", term)).into()
@@ -215,8 +207,26 @@ where
         MatchAllDocsQuery::new().into()
       };
 
-      let td1 = searcher.search_with_collector_manager(query.clone(), &manager1)?;
-      let td2 = searcher.search_with_collector_manager(query.clone(), &manager2)?;
+      let (td1, td2) = if let Some(after) = after {
+        let manager1 = TopFieldCollectorManager::with_after(
+          sort.clone(),
+          num_hits,
+          after.clone(),
+          i32::MAX as usize,
+        )?;
+        let manager2 = TopFieldCollectorManager::with_after(sort.clone(), num_hits, after, 1)?;
+        (
+          searcher.search_with_collector_manager(query.clone(), &manager1)?,
+          searcher.search_with_collector_manager(query.clone(), &manager2)?,
+        )
+      } else {
+        let manager1 = TopFieldCollectorManager::new(sort.clone(), num_hits, i32::MAX as usize)?;
+        let manager2 = TopFieldCollectorManager::new(sort.clone(), num_hits, 1)?;
+        (
+          searcher.search_with_collector_manager(query.clone(), &manager1)?,
+          searcher.search_with_collector_manager(query.clone(), &manager2)?,
+        )
+      };
 
       assert_ne!(Relation::GreaterThanOrEqualTo, td1.total_hits().relation());
 

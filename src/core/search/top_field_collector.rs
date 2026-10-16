@@ -676,6 +676,10 @@ pub struct SimpleFieldCollector {
   sort: Arc<Sort>,
 }
 impl SimpleFieldCollector {
+  pub fn min_score_acc(&self) -> Option<Arc<MaxScoreAccumulator>> {
+    self.base.min_score_acc.clone()
+  }
+
   pub fn new(
     sort: Arc<Sort>,
     queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
@@ -842,6 +846,10 @@ pub struct PagingFieldCollector {
 }
 
 impl PagingFieldCollector {
+  pub fn min_score_acc(&self) -> Option<Arc<MaxScoreAccumulator>> {
+    self.base.min_score_acc.clone()
+  }
+
   pub fn new<A>(
     sort: Arc<Sort>,
     queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
@@ -1062,216 +1070,6 @@ type PagingLeafCollector<'a, LR> = LeafCollectorEnum2<
   PagingFieldLeafCollector<'a, LR>,
   ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
 >;
-
-pub enum TopFieldCollectorEnum {
-  Simple(SimpleFieldCollector),
-  Paging(PagingFieldCollector),
-}
-impl TopFieldCollectorEnum {
-  pub fn min_score_acc(&self) -> Option<Arc<MaxScoreAccumulator>> {
-    match self {
-      Self::Simple(inner) => inner.base.min_score_acc.clone(),
-      Self::Paging(inner) => inner.base.min_score_acc.clone(),
-    }
-  }
-}
-
-pub enum FieldLeafCollectorEnum<'a, LR>
-where
-  LR: LeafReader,
-{
-  Simple(SimpleLeafCollector<'a, LR>),
-  Paging(PagingLeafCollector<'a, LR>),
-}
-
-impl<'a, LR> Display for FieldLeafCollectorEnum<'a, LR>
-where
-  LR: LeafReader,
-{
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self {
-      Self::Simple(inner) => Display::fmt(inner, f),
-      Self::Paging(inner) => Display::fmt(inner, f),
-    }
-  }
-}
-
-impl<'a, LR> LeafCollector for FieldLeafCollectorEnum<'a, LR>
-where
-  LR: LeafReader,
-{
-  type CompetitiveIterator<'view>
-    = crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-    TopFieldLeafComparatorEnumIterRef<'view, LR>,
-    TopFieldLeafComparatorEnumIterRef<'view, LR>,
-  >
-  where
-    Self: 'view;
-
-  fn set_scorer<SC: Scorable + ?Sized>(&mut self, scorer: &mut SC) -> Result<()> {
-    match self {
-      Self::Simple(inner) => inner.set_scorer(scorer),
-      Self::Paging(inner) => inner.set_scorer(scorer),
-    }
-  }
-
-  fn collect<SC: Scorable + ?Sized>(&mut self, doc: i32, scorer: &mut SC) -> Result<()> {
-    match self {
-      Self::Simple(inner) => inner.collect(doc, scorer),
-      Self::Paging(inner) => inner.collect(doc, scorer),
-    }
-  }
-
-  fn collect_stream<DS: DocIdStream + ?Sized, SC: Scorable + ?Sized>(
-    &mut self,
-    stream: &mut DS,
-    scorer: &mut SC,
-  ) -> Result<()> {
-    match self {
-      Self::Simple(inner) => inner.collect_stream(stream, scorer),
-      Self::Paging(inner) => inner.collect_stream(stream, scorer),
-    }
-  }
-
-  fn competitive_iterator(&mut self) -> Result<Option<Self::CompetitiveIterator<'_>>> {
-    match self {
-      Self::Simple(inner) => inner.competitive_iterator(),
-      Self::Paging(inner) => inner.competitive_iterator(),
-    }
-  }
-
-  fn finish(&mut self) -> Result<()> {
-    match self {
-      Self::Simple(inner) => inner.finish(),
-      Self::Paging(inner) => inner.finish(),
-    }
-  }
-}
-
-impl Collector for TopFieldCollectorEnum {
-  type LeafCollector<'a, IRC>
-    = FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>
-  where
-    Self: 'a,
-    IRC: IndexReaderContext + 'a;
-
-  fn get_leaf_collector<'a, W, IRC, SIM>(
-    &'a mut self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    weight: Option<&W>,
-    searcher: &IndexSearcher<IRC, SIM>,
-  ) -> Result<Self::LeafCollector<'a, IRC>>
-  where
-    SIM: Similarity,
-    IRC: IndexReaderContext,
-    W: Weight<IRC, SIM> + ?Sized,
-    IndexSearcher<IRC, SIM>: Sync,
-  {
-    match self {
-      Self::Simple(inner) => inner
-        .get_leaf_collector(context, weight, searcher)
-        .map(FieldLeafCollectorEnum::Simple),
-      Self::Paging(inner) => inner
-        .get_leaf_collector(context, weight, searcher)
-        .map(FieldLeafCollectorEnum::Paging),
-    }
-  }
-
-  fn score_mode(&self) -> ScoreMode {
-    match self {
-      Self::Simple(inner) => inner.score_mode(),
-      Self::Paging(inner) => inner.score_mode(),
-    }
-  }
-}
-
-impl TopDocsCollector for TopFieldCollectorEnum {
-  type Item = <TopFieldCollector as TopDocsCollector>::Item;
-  type Cmp = <TopFieldCollector as TopDocsCollector>::Cmp;
-  type TopDocsLike = <TopFieldCollector as TopDocsCollector>::TopDocsLike;
-
-  fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp> {
-    match self {
-      Self::Simple(inner) => inner.pq(),
-      Self::Paging(inner) => inner.pq(),
-    }
-  }
-
-  fn pq_mut(&mut self) -> &mut PriorityQueue<Self::Item, Self::Cmp> {
-    match self {
-      Self::Simple(inner) => inner.pq_mut(),
-      Self::Paging(inner) => inner.pq_mut(),
-    }
-  }
-
-  fn total_hits(&self) -> usize {
-    match self {
-      Self::Simple(inner) => inner.total_hits(),
-      Self::Paging(inner) => inner.total_hits(),
-    }
-  }
-
-  fn get_total_hits_relation(&self) -> Relation {
-    match self {
-      Self::Simple(inner) => inner.get_total_hits_relation(),
-      Self::Paging(inner) => inner.get_total_hits_relation(),
-    }
-  }
-
-  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
-    match self {
-      Self::Simple(inner) => inner.populate_results(results, how_many),
-      Self::Paging(inner) => inner.populate_results(results, how_many),
-    }
-  }
-
-  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
-  where
-    Self: Sized,
-  {
-    match self {
-      Self::Simple(inner) => inner.new_top_docs(results, start),
-      Self::Paging(inner) => inner.new_top_docs(results, start),
-    }
-  }
-
-  fn top_docs_size(&self) -> usize {
-    match self {
-      Self::Simple(inner) => inner.top_docs_size(),
-      Self::Paging(inner) => inner.top_docs_size(),
-    }
-  }
-
-  fn top_docs(&mut self) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    match self {
-      Self::Simple(inner) => inner.top_docs(),
-      Self::Paging(inner) => inner.top_docs(),
-    }
-  }
-
-  fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    match self {
-      Self::Simple(inner) => inner.top_docs_with_start(start),
-      Self::Paging(inner) => inner.top_docs_with_start(start),
-    }
-  }
-
-  fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    match self {
-      Self::Simple(inner) => inner.top_docs_with_start_limit(start, how_many),
-      Self::Paging(inner) => inner.top_docs_with_start_limit(start, how_many),
-    }
-  }
-}
 
 pub enum TopFieldLeafComparatorEnum<LR>
 where

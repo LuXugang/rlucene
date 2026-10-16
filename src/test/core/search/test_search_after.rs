@@ -287,8 +287,7 @@ where
       TopDocEnum::Score(v)
     },
     Some(ref sort) => {
-      let all_manager =
-        TopFieldCollectorManager::with_after(sort.clone(), max_doc, None, i32::MAX as usize)?;
+      let all_manager = TopFieldCollectorManager::new(sort.clone(), max_doc, i32::MAX as usize)?;
       if is_relevance {
         do_scores = true;
       } else {
@@ -332,9 +331,14 @@ where
           None => None,
           _ => unreachable!(),
         };
-        let paged_manager =
-          TopFieldCollectorManager::with_after(sort, page_size, after, i32::MAX as usize)?;
-        let v = searcher.search_with_collector_manager(query.clone(), &paged_manager)?;
+        let v = if let Some(after) = after {
+          let manager =
+            TopFieldCollectorManager::with_after(sort, page_size, after, i32::MAX as usize)?;
+          searcher.search_with_collector_manager(query.clone(), &manager)?
+        } else {
+          let manager = TopFieldCollectorManager::new(sort, page_size, i32::MAX as usize)?;
+          searcher.search_with_collector_manager(query.clone(), &manager)?
+        };
         TopDocEnum::Field(v)
       },
     };

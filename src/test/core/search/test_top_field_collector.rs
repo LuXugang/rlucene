@@ -66,7 +66,7 @@ use crate::core::search::filter_scorable::FilterScorable;
 use crate::core::search::query::Query;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::top_field_collector::{
-  FieldLeafCollectorEnum, TopFieldCollectorEnum, populate_scores,
+  PagingFieldCollector, SimpleFieldCollector, populate_scores,
 };
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::weight::Weight;
@@ -121,7 +121,7 @@ where
 {
   let searcher = new_searcher_with_reader(index_reader)?;
 
-  let manager = TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
+  let manager = TopFieldCollectorManager::new(sort, num_results, threshold)?;
 
   searcher.search_with_collector_manager(q, &manager)
 }
@@ -141,7 +141,7 @@ where
 {
   let searcher = new_searcher_with_threads(random, index_reader, true, true, true)?;
 
-  let collector_manager = TopFieldCollectorManager::with_after(sort, num_results, None, threshold)?;
+  let collector_manager = TopFieldCollectorManager::new(sort, num_results, threshold)?;
 
   let top_doc = searcher.search_with_collector_manager(q, &collector_manager)?;
 
@@ -179,7 +179,7 @@ fn test_sort() -> Result<()> {
 
   for sort in sorts {
     let query = MatchAllDocsQuery::new();
-    let tdc = TopFieldCollectorManager::with_after(sort, 10, None, i32::MAX as usize)?;
+    let tdc = TopFieldCollectorManager::new(sort, 10, i32::MAX as usize)?;
     let top_docs = is.search_with_collector_manager(query, &tdc)?;
     let sd = top_docs.score_docs();
 
@@ -254,14 +254,15 @@ fn test_sort_without_total_hit_tracking() -> Result<()> {
 
     // check that setting trackTotalHits to false does not return an error
     // because the index is not sorted
-    let manager = if i % 2 == 0 {
-      TopFieldCollectorManager::new(sort.clone(), 10, 1)?
+    let top_docs = if i % 2 == 0 {
+      let manager = TopFieldCollectorManager::new(sort.clone(), 10, 1)?;
+      is.search_with_collector_manager(query, &manager)?
     } else {
       let field_doc = FieldDoc::with_fields(1, f32::NAN, vec![1.into()]);
-      TopFieldCollectorManager::with_after(sort.clone(), 10, Some(field_doc), 1)?
+      let manager = TopFieldCollectorManager::with_after(sort.clone(), 10, field_doc, 1)?;
+      is.search_with_collector_manager(query, &manager)?
     };
 
-    let top_docs = is.search_with_collector_manager(query, &manager)?;
     let sd = top_docs.score_docs();
 
     for v in sd {
@@ -317,57 +318,73 @@ fn test_total_hits() -> Result<()> {
       Some(FieldDoc::with_fields(4, f32::NAN, vec![2_i64.into()])),
     ];
     for after in after_variants {
-      let manager =
-        TopFieldCollectorManager::with_after(sort.clone(), 2, after.clone(), total_hits_threshold)?;
-      let mut collector = manager.new_collector()?;
-      let mut scorer = Score::default();
+      macro_rules! check_total_hits {
+        ($manager:expr) => {{
+          let mut collector = ($manager).new_collector()?;
+          let mut scorer = Score::default();
 
-      let leaves = reader.leaves()?;
-      let mut leaf_collector1 =
-        collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
-      leaf_collector1.set_scorer(&mut scorer)?;
+          let leaves = reader.leaves()?;
+          let mut leaf_collector1 =
+            collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
+          leaf_collector1.set_scorer(&mut scorer)?;
 
-      scorer.score = 3.0;
-      leaf_collector1.collect(0, &mut scorer)?;
-      scorer.score = 3.0;
-      leaf_collector1.collect(1, &mut scorer)?;
+          scorer.score = 3.0;
+          leaf_collector1.collect(0, &mut scorer)?;
+          scorer.score = 3.0;
+          leaf_collector1.collect(1, &mut scorer)?;
 
-      let mut leaf_collector2 =
-        collector.get_leaf_collector(&leaves[1], Some(&dummy_weight), &searcher)?;
-      leaf_collector2.set_scorer(&mut scorer)?;
+          let mut leaf_collector2 =
+            collector.get_leaf_collector(&leaves[1], Some(&dummy_weight), &searcher)?;
+          leaf_collector2.set_scorer(&mut scorer)?;
 
-      scorer.score = 3.0;
-      if total_hits_threshold < 3 {
-        let result = leaf_collector2.collect(1, &mut scorer);
-        assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
+          scorer.score = 3.0;
+          if total_hits_threshold < 3 {
+            let result = leaf_collector2.collect(1, &mut scorer);
+            assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
 
-        let top_docs = collector.top_docs()?;
-        assert_eq!(
-          *top_docs.total_hits(),
-          TotalHits::new(3, GreaterThanOrEqualTo)
-        );
-        continue;
-      } else {
-        leaf_collector2.collect(1, &mut scorer)?;
+            let top_docs = collector.top_docs()?;
+            assert_eq!(
+              *top_docs.total_hits(),
+              TotalHits::new(3, GreaterThanOrEqualTo)
+            );
+            continue;
+          } else {
+            leaf_collector2.collect(1, &mut scorer)?;
+          }
+
+          scorer.score = 4.0;
+          if total_hits_threshold == 3 {
+            let result = leaf_collector2.collect(1, &mut scorer);
+            assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
+
+            let top_docs = collector.top_docs()?;
+            assert_eq!(
+              *top_docs.total_hits(),
+              TotalHits::new(4, GreaterThanOrEqualTo)
+            );
+            continue;
+          } else {
+            leaf_collector2.collect(1, &mut scorer)?;
+          }
+
+          let top_docs = collector.top_docs()?;
+          assert_eq!(*top_docs.total_hits(), TotalHits::new(4, EqualTo));
+        }};
       }
-
-      scorer.score = 4.0;
-      if total_hits_threshold == 3 {
-        let result = leaf_collector2.collect(1, &mut scorer);
-        assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
-
-        let top_docs = collector.top_docs()?;
-        assert_eq!(
-          *top_docs.total_hits(),
-          TotalHits::new(4, GreaterThanOrEqualTo)
-        );
-        continue;
+      if let Some(after) = after {
+        check_total_hits!(TopFieldCollectorManager::with_after(
+          sort.clone(),
+          2,
+          after,
+          total_hits_threshold
+        )?);
       } else {
-        leaf_collector2.collect(1, &mut scorer)?;
+        check_total_hits!(TopFieldCollectorManager::new(
+          sort.clone(),
+          2,
+          total_hits_threshold
+        )?);
       }
-
-      let top_docs = collector.top_docs()?;
-      assert_eq!(*top_docs.total_hits(), TotalHits::new(4, EqualTo));
     }
   }
   Ok(())
@@ -684,6 +701,36 @@ fn test_populate_scores() -> Result<()> {
   Ok(())
 }
 #[test]
+fn test_concrete_managers_share_min_score_accumulator() -> Result<()> {
+  for threshold in [0, i32::MAX as usize] {
+    let sort = Arc::new(Sort::new()?);
+    let simple = TopFieldCollectorManager::new(sort.clone(), 2, threshold)?;
+    let first: SimpleFieldCollector = simple.new_collector()?;
+    let second: SimpleFieldCollector = simple.new_collector()?;
+    let first_acc = first.min_score_acc();
+    let second_acc = second.min_score_acc();
+    assert_eq!(first_acc.is_none(), threshold == i32::MAX as usize);
+    assert_eq!(second_acc.is_none(), threshold == i32::MAX as usize);
+    if let (Some(first), Some(second)) = (first_acc, second_acc) {
+      assert!(Arc::ptr_eq(&first, &second));
+    }
+
+    let after = FieldDoc::with_fields(0, f32::NAN, vec![3.0_f32.into()]);
+    let paging = TopFieldCollectorManager::with_after(sort, 2, after, threshold)?;
+    let first: PagingFieldCollector = paging.new_collector()?;
+    let second: PagingFieldCollector = paging.new_collector()?;
+    let first_acc = first.min_score_acc();
+    let second_acc = second.min_score_acc();
+    assert_eq!(first_acc.is_none(), threshold == i32::MAX as usize);
+    assert_eq!(second_acc.is_none(), threshold == i32::MAX as usize);
+    if let (Some(first), Some(second)) = (first_acc, second_acc) {
+      assert!(Arc::ptr_eq(&first, &second));
+    }
+  }
+  Ok(())
+}
+
+#[test]
 fn test_concurrent_min_score() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -914,19 +961,19 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
   let reader = writer.get_reader(false, false)?;
   let searcher = IndexSearcher::new(reader.get_context()?)?;
 
-  let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 10)?;
+  let manager = TopFieldCollectorManager::new(sort.clone(), 2, 10)?;
   let top_docs = searcher
     .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
   assert_eq!(10, top_docs.total_hits().value());
   assert_eq!(EqualTo, top_docs.total_hits().relation());
 
-  let manager = TopFieldCollectorManager::with_after(sort.clone(), 2, None, 2)?;
+  let manager = TopFieldCollectorManager::new(sort.clone(), 2, 2)?;
   let top_docs = searcher
     .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
   assert!(10 >= top_docs.total_hits().value());
   assert_eq!(GreaterThanOrEqualTo, top_docs.total_hits().relation());
 
-  let manager = TopFieldCollectorManager::with_after(sort, 10, None, 2)?;
+  let manager = TopFieldCollectorManager::new(sort, 10, 2)?;
   let top_docs = searcher
     .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
   assert_eq!(10, top_docs.total_hits().value());
@@ -1010,16 +1057,16 @@ where
 }
 
 struct CollectorImpl {
-  top_collector: TopFieldCollectorEnum,
+  top_collector: SimpleFieldCollector,
 }
 impl CollectorImpl {
-  fn new(top_collector: TopFieldCollectorEnum) -> Self {
+  fn new(top_collector: SimpleFieldCollector) -> Self {
     Self { top_collector }
   }
 }
 impl Collector for CollectorImpl {
   type LeafCollector<'a, IRC>
-    = LeafCollectorImpl<FieldLeafCollectorEnum<'a, IRCLeafReader<IRC>>>
+    = LeafCollectorImpl<<SimpleFieldCollector as Collector>::LeafCollector<'a, IRC>>
   where
     Self: 'a,
     IRC: IndexReaderContext + 'a;

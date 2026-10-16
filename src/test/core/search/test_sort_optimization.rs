@@ -150,7 +150,7 @@ fn test_long_sort_optimization() -> Result<()> {
     let after_value: i64 = 2;
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
     let collector_manager =
-      TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+      TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
 
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
@@ -347,7 +347,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     sort_field.set_missing_value(i64::MAX)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let collector_manager =
-      TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+      TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
@@ -365,7 +365,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     sort_field.set_missing_value(i64::MAX)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let collector_manager =
-      TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+      TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
@@ -379,7 +379,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     sort_field.set_missing_value(2i64)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let collector_manager =
-      TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+      TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
@@ -562,7 +562,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
     let sort = Sort::with_fields(vec![sort_field])?;
     let after = FieldDoc::with_fields(after_doc_id, f32::NAN, vec![after_value.into()]);
     let collector_manager =
-      TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+      TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
 
@@ -706,14 +706,14 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
         random_bool(0.5),
         false,
       )?;
-      let collector_manager = TopFieldCollectorManager::with_after(
-        sort.clone(),
-        size,
-        after.clone(),
-        total_hits_threshold,
-      )?;
-      let mut top_docs =
-        searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
+      let mut top_docs = if let Some(after) = after.clone() {
+        let manager =
+          TopFieldCollectorManager::with_after(sort.clone(), size, after, total_hits_threshold)?;
+        searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?
+      } else {
+        let manager = TopFieldCollectorManager::new(sort.clone(), size, total_hits_threshold)?;
+        searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?
+      };
       for doc_id in 0..top_docs.base.score_docs.len() {
         top_docs.score_docs_mut()[doc_id].set_shard_index(i as i32)
       }
@@ -783,7 +783,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         vec![FieldComparatorValue::Int(search_after)],
       );
       let collector_manager =
-        TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+        TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
       let top_docs =
         searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
       let exp_num_hits = if after_index >= (num_docs - num_hits) {
@@ -817,7 +817,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         ],
       );
       let collector_manager =
-        TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+        TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
       let top_docs =
         searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
       let exp_num_hits = if after_index >= (num_docs - num_hits) {
@@ -846,7 +846,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         vec![FieldComparatorValue::Int(search_after)],
       );
       let collector_manager =
-        TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
+        TopFieldCollectorManager::with_after(sort, num_hits, after, total_hits_threshold)?;
       let top_docs =
         searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
       let exp_num_hits = if after_index < num_hits {
@@ -1333,12 +1333,8 @@ fn test_random_long() -> Result<()> {
   // test search
   let num_hits = 1 + random.random_range(0..100);
 
-  let manager = TopFieldCollectorManager::with_after(
-    Sort::with_fields(vec![sort_field])?,
-    num_hits,
-    None,
-    num_hits,
-  )?;
+  let manager =
+    TopFieldCollectorManager::new(Sort::with_fields(vec![sort_field])?, num_hits, num_hits)?;
 
   let mut top_docs = searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?;
 
@@ -1397,23 +1393,24 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     let batch = 1 + random.random_range(0..100);
     let expected_hits = std::cmp::min(num_docs - visited_hits, batch);
 
-    let manager = TopFieldCollectorManager::with_after(
-      sort.clone(),
-      batch,
-      after.clone(),
-      total_hits_threshold,
-    )?;
-    let mut top_docs =
-      searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?;
+    let mut top_docs = if let Some(after) = after.clone() {
+      let manager =
+        TopFieldCollectorManager::with_after(sort.clone(), batch, after, total_hits_threshold)?;
+      searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?
+    } else {
+      let manager = TopFieldCollectorManager::new(sort.clone(), batch, total_hits_threshold)?;
+      searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?
+    };
     let score_docs = top_docs.score_docs();
 
-    let manager2 = TopFieldCollectorManager::with_after(
-      sort2.clone(),
-      batch,
-      after.clone(),
-      total_hits_threshold,
-    )?;
-    let top_docs2 = searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager2)?;
+    let top_docs2 = if let Some(after) = after.clone() {
+      let manager =
+        TopFieldCollectorManager::with_after(sort2.clone(), batch, after, total_hits_threshold)?;
+      searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?
+    } else {
+      let manager = TopFieldCollectorManager::new(sort2.clone(), batch, total_hits_threshold)?;
+      searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?
+    };
     let score_docs2 = top_docs2.score_docs();
 
     assert_eq!(expected_hits, score_docs.len());
@@ -1653,7 +1650,7 @@ where
   let num_hits = 5;
   let total_hits_threshold = 5;
 
-  let manager = TopFieldCollectorManager::with_after(sort, num_hits, None, total_hits_threshold)?;
+  let manager = TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
   let searcher = new_searcher_with_reader(reader)?;
   let top_docs = searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?;
 
@@ -1709,14 +1706,23 @@ where
 {
   let searcher = new_searcher_with_reader(reader.clone())?;
   let query = MatchAllDocsQuery::new();
-  let manager = TopFieldCollectorManager::with_after(sort, n, after, n)?;
-  let top_docs = searcher.search_with_collector_manager(query.clone(), &manager)?;
-
-  let unoptimized_reader = NoIndexDirectoryReader::new(reader)?;
-  let unoptimized_searcher =
-    new_searcher_with_threads(random, unoptimized_reader, true, true, false)?;
-  let unoptimized_top_docs =
-    unoptimized_searcher.search_with_collector_manager(query.clone(), &manager)?;
+  macro_rules! search_both {
+    ($manager:expr) => {{
+      let manager = $manager;
+      let top_docs = searcher.search_with_collector_manager(query.clone(), &manager)?;
+      let unoptimized_reader = NoIndexDirectoryReader::new(reader)?;
+      let unoptimized_searcher =
+        new_searcher_with_threads(random, unoptimized_reader, true, true, false)?;
+      let unoptimized_top_docs =
+        unoptimized_searcher.search_with_collector_manager(query.clone(), &manager)?;
+      (top_docs, unoptimized_top_docs)
+    }};
+  }
+  let (top_docs, unoptimized_top_docs) = if let Some(after) = after {
+    search_both!(TopFieldCollectorManager::with_after(sort, n, after, n)?)
+  } else {
+    search_both!(TopFieldCollectorManager::new(sort, n, n)?)
+  };
 
   CheckHits::check_equal(
     &query.into(),
