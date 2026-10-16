@@ -27,6 +27,8 @@ pub struct MultiLeafFieldComparator<LR>
 where
   LR: LeafReader,
 {
+  first_comparator: LeafFieldComparatorEnum<LR>,
+  first_reverse_mul: i32,
   comparators: Vec<LeafFieldComparatorEnum<LR>>,
   reverse_mul: Arc<Vec<i32>>,
 }
@@ -35,7 +37,7 @@ where
   LR: LeafReader,
 {
   pub(crate) fn new(
-    comparators: Vec<LeafFieldComparatorEnum<LR>>,
+    mut comparators: Vec<LeafFieldComparatorEnum<LR>>,
     reverse_mul: Arc<Vec<i32>>,
   ) -> Result<Self> {
     if comparators.len() != reverse_mul.len() {
@@ -46,7 +48,15 @@ where
       )));
     }
 
+    let first_comparator = comparators.remove(0);
+    let first_reverse_mul = reverse_mul[0];
+    if comparators.is_empty() {
+      comparators = Vec::new();
+    }
+
     Ok(Self {
+      first_comparator,
+      first_reverse_mul,
       comparators,
       reverse_mul,
     })
@@ -57,18 +67,26 @@ where
     comparators: &mut [FieldComparatorEnum],
   ) -> Result<()> {
     debug_assert_eq!(
-      self.comparators.len(),
+      self.comparators.len() + 1,
       comparators.len(),
       "comparators length mismatch"
     );
 
-    for (comp, c) in self.comparators.iter_mut().zip(comparators.iter_mut()) {
+    self
+      .first_comparator
+      .set_bottom(slot, &mut comparators[0])?;
+    for (comp, c) in self
+      .comparators
+      .iter_mut()
+      .zip(comparators.iter_mut().skip(1))
+    {
       comp.set_bottom(slot, c)?;
     }
 
     Ok(())
   }
 
+  #[inline]
   pub(crate) fn compare_bottom<S>(
     &mut self,
     doc: i32,
@@ -78,26 +96,24 @@ where
   where
     S: Scorable + ?Sized,
   {
-    debug_assert!(
-      !self.comparators.is_empty(),
-      "comparators list should not be empty"
-    );
     debug_assert_eq!(
-      self.comparators.len(),
+      self.comparators.len() + 1,
       comparators.len(),
       "comparators length mismatch"
     );
-    let cmp =
-      self.reverse_mul[0] * self.comparators[0].compare_bottom(doc, scorer, &mut comparators[0])?;
+    let cmp = self.first_reverse_mul
+      * self
+        .first_comparator
+        .compare_bottom(doc, scorer, &mut comparators[0])?;
     if cmp != 0 {
       return Ok(cmp);
     }
     for ((reverse, comp_self), comp_arg) in self
       .reverse_mul
       .iter()
-      .zip(self.comparators.iter_mut())
-      .zip(comparators.iter_mut())
       .skip(1)
+      .zip(self.comparators.iter_mut())
+      .zip(comparators.iter_mut().skip(1))
     {
       let cmp = *reverse * comp_self.compare_bottom(doc, scorer, comp_arg)?;
       if cmp != 0 {
@@ -117,18 +133,16 @@ where
   where
     S: Scorable + ?Sized,
   {
-    debug_assert!(
-      !self.comparators.is_empty(),
-      "comparators list should not be empty"
-    );
     debug_assert_eq!(
-      self.comparators.len(),
+      self.comparators.len() + 1,
       comparators.len(),
       "comparators length mismatch"
     );
 
-    let mut cmp =
-      self.reverse_mul[0] * self.comparators[0].compare_top(doc, scorer, &mut comparators[0])?;
+    let mut cmp = self.first_reverse_mul
+      * self
+        .first_comparator
+        .compare_top(doc, scorer, &mut comparators[0])?;
     if cmp != 0 {
       return Ok(cmp);
     }
@@ -136,9 +150,9 @@ where
     for ((reverse, comp_self), comp_arg) in self
       .reverse_mul
       .iter()
-      .zip(self.comparators.iter_mut())
-      .zip(comparators.iter_mut())
       .skip(1)
+      .zip(self.comparators.iter_mut())
+      .zip(comparators.iter_mut().skip(1))
     {
       cmp = *reverse * comp_self.compare_top(doc, scorer, comp_arg)?;
       if cmp != 0 {
@@ -160,12 +174,19 @@ where
     S: Scorable + ?Sized,
   {
     debug_assert_eq!(
-      self.comparators.len(),
+      self.comparators.len() + 1,
       comparators.len(),
       "comparators length mismatch"
     );
 
-    for (comp_self, comp_arg) in self.comparators.iter_mut().zip(comparators.iter_mut()) {
+    self
+      .first_comparator
+      .copy(slot, doc, scorer, &mut comparators[0])?;
+    for (comp_self, comp_arg) in self
+      .comparators
+      .iter_mut()
+      .zip(comparators.iter_mut().skip(1))
+    {
       comp_self.copy(slot, doc, scorer, comp_arg)?;
     }
 
@@ -181,12 +202,19 @@ where
     S: Scorable + ?Sized,
   {
     debug_assert_eq!(
-      self.comparators.len(),
+      self.comparators.len() + 1,
       comparators.len(),
       "comparators length mismatch"
     );
 
-    for (comp_self, comp_arg) in self.comparators.iter_mut().zip(comparators.iter_mut()) {
+    self
+      .first_comparator
+      .set_scorer(scorer, &mut comparators[0])?;
+    for (comp_self, comp_arg) in self
+      .comparators
+      .iter_mut()
+      .zip(comparators.iter_mut().skip(1))
+    {
       comp_self.set_scorer(scorer, comp_arg)?;
     }
 
@@ -198,7 +226,9 @@ where
     comparators: &mut [FieldComparatorEnum],
   ) -> Result<Option<LeafFieldComparatorDocIdSetIteratorRef<'_, LR>>> {
     debug_assert!(!comparators.is_empty());
-    self.comparators[0].competitive_iterator(&mut comparators[0])
+    self
+      .first_comparator
+      .competitive_iterator(&mut comparators[0])
   }
 
   pub(crate) fn set_hits_threshold_reached(
@@ -206,6 +236,8 @@ where
     comparators: &mut [FieldComparatorEnum],
   ) -> Result<()> {
     // this is needed for skipping functionality that is only relevant for the 1st comparator
-    self.comparators[0].set_hits_threshold_reached(&mut comparators[0])
+    self
+      .first_comparator
+      .set_hits_threshold_reached(&mut comparators[0])
   }
 }

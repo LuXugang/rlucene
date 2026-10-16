@@ -32,9 +32,7 @@ use crate::core::search::field_value_hit_queue::{
 };
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2};
-use crate::core::search::leaf_field_comparator::{
-  LeafFieldComparator, LeafFieldComparatorDocIdSetIteratorRef, LeafFieldComparatorEnum,
-};
+use crate::core::search::leaf_field_comparator::LeafFieldComparatorDocIdSetIteratorRef;
 use crate::core::search::max_score_accumulator::MaxScoreAccumulator;
 use crate::core::search::multi_leaf_field_comparator::MultiLeafFieldComparator;
 use crate::core::search::query::IntoQuery;
@@ -401,9 +399,8 @@ where
   LR: LeafReader,
 {
   base: &'a mut TopFieldCollector,
-  reverse_mul: i32,
   collected_all_competitive_hits: bool,
-  comparator: TopFieldLeafComparatorEnum<LR>,
+  comparator: MultiLeafFieldComparator<LR>,
 }
 impl<'a, LR> TopFieldLeafCollector<'a, LR>
 where
@@ -427,26 +424,12 @@ where
       }
     }
 
-    let mut leaf_comparators = base.pq_mut().get_leaf_comparator(context)?;
-
-    let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
-      (
-        base.pq().get_reverse_mul()[0],
-        TopFieldLeafComparatorEnum::Single(leaf_comparators.remove(0)),
-      )
-    } else {
-      (
-        1,
-        TopFieldLeafComparatorEnum::Multi(MultiLeafFieldComparator::new(
-          leaf_comparators,
-          base.pq().get_reverse_mul_shared(),
-        )?),
-      )
-    };
+    let leaf_comparators = base.pq_mut().get_leaf_comparator(context)?;
+    let comparator =
+      MultiLeafFieldComparator::new(leaf_comparators, base.pq().get_reverse_mul_shared())?;
 
     Ok(Self {
       base,
-      reverse_mul,
       collected_all_competitive_hits: false,
       comparator,
     })
@@ -476,7 +459,7 @@ where
     S: Scorable + ?Sized,
   {
     let comparators = self.base.comparators_mut();
-    Ok(self.comparator.compare_top(doc, scorer, comparators)? * self.reverse_mul)
+    self.comparator.compare_top(doc, scorer, comparators)
   }
 
   pub(crate) fn count_hit<S>(&mut self, scorer: &mut S, _doc: i32) -> Result<()>
@@ -504,6 +487,7 @@ where
 
     Ok(())
   }
+  #[inline(always)]
   pub(crate) fn threshold_check<S>(&mut self, doc: i32, scorer: &mut S) -> Result<bool>
   where
     S: Scorable + ?Sized,
@@ -513,7 +497,7 @@ where
     } else {
       let comparators = self.base.comparators_mut();
       let cmp = self.comparator.compare_bottom(doc, scorer, comparators)?;
-      self.reverse_mul * cmp <= 0
+      cmp <= 0
     };
 
     if cmp_check {
@@ -605,7 +589,7 @@ where
   LR: LeafReader,
 {
   type CompetitiveIterator<'view>
-    = TopFieldLeafComparatorEnumIterRef<'view, LR>
+    = LeafFieldComparatorDocIdSetIteratorRef<'view, LR>
   where
     Self: 'view;
 
@@ -807,7 +791,7 @@ where
   LR: LeafReader,
 {
   type CompetitiveIterator<'view>
-    = TopFieldLeafComparatorEnumIterRef<'view, LR>
+    = LeafFieldComparatorDocIdSetIteratorRef<'view, LR>
   where
     Self: 'view;
 
@@ -1014,7 +998,7 @@ where
   LR: LeafReader,
 {
   type CompetitiveIterator<'view>
-    = TopFieldLeafComparatorEnumIterRef<'view, LR>
+    = LeafFieldComparatorDocIdSetIteratorRef<'view, LR>
   where
     Self: 'view;
 
@@ -1070,109 +1054,5 @@ type PagingLeafCollector<'a, LR> = LeafCollectorEnum2<
   PagingFieldLeafCollector<'a, LR>,
   ScoreCachingWrappingLeafCollector<PagingFieldLeafCollector<'a, LR>>,
 >;
-
-pub enum TopFieldLeafComparatorEnum<LR>
-where
-  LR: LeafReader,
-{
-  Multi(MultiLeafFieldComparator<LR>),
-  Single(LeafFieldComparatorEnum<LR>),
-}
-impl<LR> TopFieldLeafComparatorEnum<LR>
-where
-  LR: LeafReader,
-{
-  pub(crate) fn set_bottom(
-    &mut self,
-    slot: usize,
-    comparator: &mut [FieldComparatorEnum],
-  ) -> Result<()> {
-    match self {
-      Self::Multi(inner) => inner.set_bottom(slot, comparator),
-      Self::Single(inner) => inner.set_bottom(slot, &mut comparator[0]),
-    }
-  }
-
-  pub(crate) fn compare_bottom<S>(
-    &mut self,
-    doc: i32,
-    scorer: &mut S,
-    comparators: &mut [FieldComparatorEnum],
-  ) -> Result<i32>
-  where
-    S: Scorable + ?Sized,
-  {
-    match self {
-      Self::Multi(inner) => inner.compare_bottom(doc, scorer, comparators),
-      Self::Single(inner) => inner.compare_bottom(doc, scorer, &mut comparators[0]),
-    }
-  }
-
-  pub(crate) fn compare_top<S>(
-    &mut self,
-    doc: i32,
-    scorer: &mut S,
-    comparators: &mut [FieldComparatorEnum],
-  ) -> Result<i32>
-  where
-    S: Scorable + ?Sized,
-  {
-    match self {
-      Self::Multi(inner) => inner.compare_top(doc, scorer, comparators),
-      Self::Single(inner) => inner.compare_top(doc, scorer, &mut comparators[0]),
-    }
-  }
-
-  pub(crate) fn copy<S>(
-    &mut self,
-    slot: usize,
-    doc: i32,
-    scorer: &mut S,
-    comparators: &mut [FieldComparatorEnum],
-  ) -> Result<()>
-  where
-    S: Scorable + ?Sized,
-  {
-    match self {
-      Self::Multi(inner) => inner.copy(slot, doc, scorer, comparators),
-      Self::Single(inner) => inner.copy(slot, doc, scorer, &mut comparators[0]),
-    }
-  }
-
-  pub(crate) fn set_scorer<S>(
-    &mut self,
-    scorer: &mut S,
-    comparators: &mut [FieldComparatorEnum],
-  ) -> Result<()>
-  where
-    S: Scorable + ?Sized,
-  {
-    match self {
-      Self::Multi(inner) => inner.set_scorer(scorer, comparators),
-      Self::Single(inner) => inner.set_scorer(scorer, &mut comparators[0]),
-    }
-  }
-
-  pub(crate) fn competitive_iterator(
-    &mut self,
-    comparators: &mut [FieldComparatorEnum],
-  ) -> Result<Option<TopFieldLeafComparatorEnumIterRef<'_, LR>>> {
-    match self {
-      Self::Multi(inner) => inner.competitive_iterator(comparators),
-      Self::Single(inner) => inner.competitive_iterator(&mut comparators[0]),
-    }
-  }
-
-  pub(crate) fn set_hits_threshold_reached(
-    &mut self,
-    comparators: &mut [FieldComparatorEnum],
-  ) -> Result<()> {
-    match self {
-      Self::Multi(inner) => inner.set_hits_threshold_reached(comparators),
-      Self::Single(inner) => inner.set_hits_threshold_reached(&mut comparators[0]),
-    }
-  }
-}
-pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = LeafFieldComparatorDocIdSetIteratorRef<'a, LR>;
 
 use crate::core::search::scorer_supplier::ScorerSupplier;
