@@ -728,7 +728,7 @@ where
   R: RandomAccessInput,
 {
   fn long_value(&self, doc: i32) -> Result<i64> {
-    Ok(self.slice.read_long((doc.try_convert()?) << 3)?)
+    self.slice.read_long((doc.try_convert()?) << 3)
   }
 }
 enum DenseNormsIteratorBaseEnum<R> {
@@ -816,7 +816,7 @@ where
   }
 }
 
-  impl<I, R: RandomAccessInput> NumericDocValues for SparseNormsIterator<I, R>
+impl<I, R: RandomAccessInput> NumericDocValues for SparseNormsIterator<I, R>
 where
   I: IndexInput,
 {

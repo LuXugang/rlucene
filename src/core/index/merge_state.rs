@@ -41,6 +41,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 
+type MergeNormsProducer<CR> =
+  NormsProducerEnum2<CRNormsProducer<CR>, <CRNormsProducer<CR> as NormsProducer>::MergeInstance>;
+
 /// Holds common state used during segment merging.
 ///
 /// @lucene.experimental
@@ -59,14 +62,7 @@ where
   /// Term vector producers being merged
   pub(crate) term_vectors_readers: Vec<Option<CRTermVectorsReader<CR>>>,
   /// Norms producers being merged
-  pub(crate) norms_producers: Vec<
-    Option<
-      NormsProducerEnum2<
-        CRNormsProducer<CR>,
-        <CRNormsProducer<CR> as NormsProducer>::MergeInstance,
-      >,
-    >,
-  >,
+  pub(crate) norms_producers: Vec<Option<MergeNormsProducer<CR>>>,
   /// DocValues producers being merged
   pub(crate) doc_values_producers: Vec<Option<CRDocValuesProducer<CR>>>,
   /// Postings to merge
