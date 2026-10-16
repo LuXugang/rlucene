@@ -167,6 +167,7 @@ where
   fn approx_doc_id(&self) -> i32 {
     self.disi.two_phase_iterator.approx_doc_id()
   }
+  #[inline]
   fn approx_next_doc(&mut self) -> Result<i32> {
     self.disi.two_phase_iterator.approx_next_doc()
   }
@@ -316,6 +317,7 @@ where
       PhraseMatcherEnum::Sloppy(m) => DocIdSetIterator::doc_id(m.approximation()),
     }
   }
+  #[inline]
   fn approx_next_doc(&mut self) -> Result<i32> {
     match &mut self.matcher {
       PhraseMatcherEnum::Exact(m) => {

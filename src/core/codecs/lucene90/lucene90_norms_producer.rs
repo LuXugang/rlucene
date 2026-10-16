@@ -17,7 +17,7 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 
-use crate::core::codecs::indexed_disi::{IndexedDISIEnum, create_block_slice, create_jump_table};
+use crate::core::codecs::indexed_disi::{create_block_slice, create_jump_table};
 use crate::core::codecs::lucene90::indexed_disi::{IndexInputImpl, IndexedDISIImpl};
 use crate::core::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducer;
@@ -377,12 +377,12 @@ where
 
 // Keep one get_norms implementation while fixing its value carrier for each mode.
 macro_rules! impl_norms_producer {
-  ($merging:literal, $slice:ty, $variant:ident) => {
+  ($merging:literal, $input:ty, $slice:ty, $variant:ident) => {
     impl<I> NormsProducer for Lucene90NormsProducer<I, $merging>
     where
       I: IndexInput,
     {
-      type NumericDocValues = Lucene90NormNumericDocValuesEnum<I, $slice>;
+      type NumericDocValues = Lucene90NormNumericDocValuesEnum<$input, $slice>;
       type MergeInstance = Lucene90NormsProducer<I, true>;
 
       fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -458,54 +458,27 @@ macro_rules! impl_norms_producer {
           };
         }
         // sparse
-        let disi = match (
+        let (jump_table, input) = match (
           self.get_disi_jump_table(field, &entry)?,
           self.get_disi_input(field, &entry)?,
         ) {
-          (Some(RandomAccessSliceEnum::Shared(jt)), SliceEnum::Shared(input)) => {
-            IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
-              input,
-              Some(jt),
-              entry.jump_table_entry_count as i32,
-              entry.dense_rank_power,
-              entry.num_docs_with_field as i64,
-            )?)
+          (Some(RandomAccessSliceEnum::$variant(jt)), SliceEnum::$variant(input)) => {
+            (Some(jt), input)
           },
-
-          (Some(RandomAccessSliceEnum::Owned(jt)), SliceEnum::Owned(input)) => {
-            IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
-              input,
-              Some(jt),
-              entry.jump_table_entry_count as i32,
-              entry.dense_rank_power,
-              entry.num_docs_with_field as i64,
-            )?)
-          },
-          (None, SliceEnum::Shared(input)) => {
-            IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
-              input,
-              None,
-              entry.jump_table_entry_count as i32,
-              entry.dense_rank_power,
-              entry.num_docs_with_field as i64,
-            )?)
-          },
-
-          (None, SliceEnum::Owned(input)) => {
-            IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
-              input,
-              None,
-              entry.jump_table_entry_count as i32,
-              entry.dense_rank_power,
-              entry.num_docs_with_field as i64,
-            )?)
-          },
+          (None, SliceEnum::$variant(input)) => (None, input),
           _ => {
             return Err(LuceneError::illegal_state(
               "should have same ownership: Shared or Owned",
             ));
           },
         };
+        let disi = IndexedDISIImpl::from_components(
+          input,
+          jump_table,
+          entry.jump_table_entry_count as i32,
+          entry.dense_rank_power,
+          entry.num_docs_with_field as i64,
+        )?;
 
         if entry.bytes_per_norm == 0 {
           let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse(SparseNormsIteratorBaseImpl {
@@ -584,8 +557,13 @@ macro_rules! impl_norms_producer {
     }
   };
 }
-impl_norms_producer!(false, I::RandomAccessSlice, Owned);
-impl_norms_producer!(true, Arc<I::RandomAccessSlice>, Shared);
+impl_norms_producer!(false, I::IndexInput, I::RandomAccessSlice, Owned);
+impl_norms_producer!(
+  true,
+  IndexInputImpl<I::IndexInput>,
+  Arc<I::RandomAccessSlice>,
+  Shared
+);
 
 #[derive(Clone)]
 struct NormsEntry {
@@ -756,16 +734,18 @@ where
 pub struct SparseNormsIterator<I, R = <I as IndexInput>::RandomAccessSlice>
 where
   I: IndexInput,
+  R: RandomAccessInput,
 {
   sub_sparse_norms: SparseNormsIteratorBaseEnum<R>,
-  disi: IndexedDISIEnum<I>,
+  disi: IndexedDISIImpl<I, R>,
 }
 
 impl<I, R> SparseNormsIterator<I, R>
 where
   I: IndexInput,
+  R: RandomAccessInput,
 {
-  fn new(sub_sparse_norms: SparseNormsIteratorBaseEnum<R>, disi: IndexedDISIEnum<I>) -> Self {
+  fn new(sub_sparse_norms: SparseNormsIteratorBaseEnum<R>, disi: IndexedDISIImpl<I, R>) -> Self {
     Self {
       sub_sparse_norms,
       disi,

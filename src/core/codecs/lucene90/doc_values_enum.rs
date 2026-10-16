@@ -26,6 +26,7 @@ pub mod norms {
   pub enum Lucene90NormNumericDocValuesEnum<I, R = <I as IndexInput>::RandomAccessSlice>
   where
     I: IndexInput,
+    R: RandomAccessInput,
   {
     Dense(DenseNormsIterator<R>),
     Sparse(SparseNormsIterator<I, R>),
