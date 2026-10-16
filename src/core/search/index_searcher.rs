@@ -1973,10 +1973,17 @@ impl IndexSearcherDefaults {
     }
 
     let capped_num_hits = std::cmp::min(num_hits, limit as usize);
-    let manager =
-      TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
-
-    searcher.search_with_collector_manager(query, &manager)
+    if let Some(after) = after {
+      let manager = TopScoreDocCollectorManager::with_after(
+        capped_num_hits,
+        Some(after),
+        TOTAL_HITS_THRESHOLD,
+      )?;
+      searcher.search_with_collector_manager(query, &manager)
+    } else {
+      let manager = TopScoreDocCollectorManager::new(capped_num_hits, TOTAL_HITS_THRESHOLD)?;
+      searcher.search_with_collector_manager(query, &manager)
+    }
   }
 
   pub(crate) fn search<IRC, SIM>(

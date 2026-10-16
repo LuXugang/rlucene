@@ -46,13 +46,13 @@ use std::sync::Arc;
 ///
 /// **NOTE:** The values [`f32::NAN`] and [`f32::NEG_INFINITY`] are not valid scores.
 /// This collector will not properly collect hits with such scores.
-pub struct TopScoreDocCollector {
+pub struct TopScoreDocCollector<const CHECK_AFTER: bool = true> {
   base: TopDocsCollectorBase<ScoreDoc, HitQueueComparator>,
   after: Option<ScoreDoc>,
   total_hits_threshold: usize,
   pub(crate) min_score_acc: Option<Arc<MaxScoreAccumulator>>,
 }
-impl TopScoreDocCollector {
+impl<const CHECK_AFTER: bool> TopScoreDocCollector<CHECK_AFTER> {
   pub fn new(
     num_hits: usize,
     after: Option<ScoreDoc>,
@@ -60,6 +60,11 @@ impl TopScoreDocCollector {
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
   ) -> Result<Self> {
     let pq = hit_queue::new(num_hits, true)?;
+    if !CHECK_AFTER && after.is_some() {
+      return Err(LuceneError::illegal_argument(
+        "first-page collector cannot have an after cursor",
+      ));
+    }
     let base = TopDocsCollectorBase::new(pq);
     Ok(Self {
       base,
@@ -70,9 +75,9 @@ impl TopScoreDocCollector {
   }
 }
 
-impl Collector for TopScoreDocCollector {
+impl<const CHECK_AFTER: bool> Collector for TopScoreDocCollector<CHECK_AFTER> {
   type LeafCollector<'a, IRC>
-    = TopScoreDocLeafCollector<'a>
+    = TopScoreDocLeafCollector<'a, CHECK_AFTER>
   where
     Self: 'a,
     IRC: IndexReaderContext + 'a;
@@ -93,7 +98,7 @@ impl Collector for TopScoreDocCollector {
     let after_score: f32;
     let after_doc: i32;
 
-    if let Some(after) = &self.after {
+    if CHECK_AFTER && let Some(after) = &self.after {
       after_score = after.score;
       after_doc = after.doc - doc_base
     } else {
@@ -116,7 +121,7 @@ impl Collector for TopScoreDocCollector {
   }
 }
 
-impl TopDocsCollector for TopScoreDocCollector {
+impl<const CHECK_AFTER: bool> TopDocsCollector for TopScoreDocCollector<CHECK_AFTER> {
   type Item = ScoreDoc;
   type Cmp = HitQueueComparator;
   type TopDocsLike = TopDocs<Self::Item>;
@@ -167,16 +172,16 @@ impl TopDocsCollector for TopScoreDocCollector {
       .count()
   }
 }
-pub struct TopScoreDocLeafCollector<'a> {
-  base: &'a mut TopScoreDocCollector,
+pub struct TopScoreDocLeafCollector<'a, const CHECK_AFTER: bool = true> {
+  base: &'a mut TopScoreDocCollector<CHECK_AFTER>,
   min_competitive_score: f32,
   doc_base: i32,
   after_doc: i32,
   after_score: f32,
 }
-impl<'a> TopScoreDocLeafCollector<'a> {
+impl<'a, const CHECK_AFTER: bool> TopScoreDocLeafCollector<'a, CHECK_AFTER> {
   pub fn new(
-    base: &'a mut TopScoreDocCollector,
+    base: &'a mut TopScoreDocCollector<CHECK_AFTER>,
     doc_base: i32,
     after_doc: i32,
     after_score: f32,
@@ -259,13 +264,13 @@ impl<'a> TopScoreDocLeafCollector<'a> {
   }
 }
 
-impl Display for TopScoreDocLeafCollector<'_> {
+impl<const CHECK_AFTER: bool> Display for TopScoreDocLeafCollector<'_, CHECK_AFTER> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
-impl LeafCollector for TopScoreDocLeafCollector<'_> {
+impl<const CHECK_AFTER: bool> LeafCollector for TopScoreDocLeafCollector<'_, CHECK_AFTER> {
   type CompetitiveIterator<'a>
     = crate::core::search::doc_id_set_iterator::EmptyDISI
   where
@@ -291,7 +296,8 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
       self.update_global_min_competitive_score(scorer)?;
     }
 
-    if let Some(_) = &self.base.after
+    if CHECK_AFTER
+      && let Some(_) = &self.base.after
       && (score > self.after_score || (score == self.after_score && doc <= self.after_doc))
     {
       // hit was collected on a previous page

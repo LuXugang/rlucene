@@ -31,7 +31,9 @@ use std::sync::Arc;
 ///
 /// # Notes
 /// A new collector manager should be created for each search due to its internal states.
-pub struct TopScoreDocCollectorManager {
+/// [`new`](Self::new) returns a first-page collector without per-document cursor checks.
+/// [`with_after`](Self::with_after) retains optional-cursor support.
+pub struct TopScoreDocCollectorManager<const CHECK_AFTER: bool = true> {
   num_hits: usize,
   after: Option<ScoreDoc>,
   total_hits_threshold: usize,
@@ -123,16 +125,25 @@ impl TopScoreDocCollectorManager {
   ///     the hit count of the result will be accurate.
   ///   - `i32::MAX` may be used to make the hit count accurate,
   ///     but this will also make query processing slower.
-  pub fn new(num_hits: usize, total_hits_threshold: usize) -> Result<Self> {
-    Self::with_after(num_hits, None, total_hits_threshold)
+  pub fn new(
+    num_hits: usize,
+    total_hits_threshold: usize,
+  ) -> Result<TopScoreDocCollectorManager<false>> {
+    let manager = Self::with_after(num_hits, None, total_hits_threshold)?;
+    Ok(TopScoreDocCollectorManager {
+      num_hits: manager.num_hits,
+      after: manager.after,
+      total_hits_threshold: manager.total_hits_threshold,
+      min_score_acc: manager.min_score_acc,
+    })
   }
 }
-impl CollectorManager for TopScoreDocCollectorManager {
-  type C = TopScoreDocCollector;
+impl<const CHECK_AFTER: bool> CollectorManager for TopScoreDocCollectorManager<CHECK_AFTER> {
+  type C = TopScoreDocCollector<CHECK_AFTER>;
   type T = TopDocs<ScoreDoc>;
 
   fn new_collector(&self) -> Result<Self::C> {
-    TopScoreDocCollector::new(
+    TopScoreDocCollector::<CHECK_AFTER>::new(
       self.num_hits,
       self.after.clone(),
       self.total_hits_threshold,
