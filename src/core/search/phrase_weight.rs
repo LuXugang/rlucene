@@ -20,6 +20,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader::{LRNormNumericDocValues, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_iterator::MatchesIterator;
@@ -31,6 +32,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::{SimScorer, SimScorerEnum2, Similarity};
+use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
@@ -44,21 +46,52 @@ pub type PhraseWeightScorer<
   IRC,
   SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
 > = ScorerEnum2<
-  PhraseScorer<
-    <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
-    <S as PhraseWeightBase<SIM>>::SimScorer,
-    LRNormNumericDocValues<IRCLeafReader<IRC>>,
-    true,
+  ScorerEnum2<
+    PhraseScorer<
+      ExactPhraseMatcher<
+        <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
+        <S as PhraseWeightBase<SIM>>::SimScorer,
+        true,
+      >,
+      <S as PhraseWeightBase<SIM>>::SimScorer,
+      LRNormNumericDocValues<IRCLeafReader<IRC>>,
+      true,
+    >,
+    PhraseScorer<
+      SloppyPhraseMatcher<
+        <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
+        <S as PhraseWeightBase<SIM>>::SimScorer,
+      >,
+      <S as PhraseWeightBase<SIM>>::SimScorer,
+      LRNormNumericDocValues<IRCLeafReader<IRC>>,
+      true,
+    >,
   >,
-  PhraseScorer<
-    <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
-    <S as PhraseWeightBase<SIM>>::SimScorer,
-    LRNormNumericDocValues<IRCLeafReader<IRC>>,
-    false,
+  ScorerEnum2<
+    PhraseScorer<
+      ExactPhraseMatcher<
+        <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
+        <S as PhraseWeightBase<SIM>>::SimScorer,
+        false,
+      >,
+      <S as PhraseWeightBase<SIM>>::SimScorer,
+      LRNormNumericDocValues<IRCLeafReader<IRC>>,
+      false,
+    >,
+    PhraseScorer<
+      SloppyPhraseMatcher<
+        <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
+        <S as PhraseWeightBase<SIM>>::SimScorer,
+      >,
+      <S as PhraseWeightBase<SIM>>::SimScorer,
+      LRNormNumericDocValues<IRCLeafReader<IRC>>,
+      false,
+    >,
   >,
 >;
 
-pub type PhraseMatcherResult<IE, SS> = Result<Option<PhraseMatcherEnum<IE, SS>>>;
+pub type PhraseMatcherResult<IE, SS, const TOP_SCORES: bool = false> =
+  Result<Option<PhraseMatcherEnum<IE, SS, TOP_SCORES>>>;
 
 pub struct PhraseMatchesIterator<IE, SS> {
   matcher: PhraseMatcherEnum<IE, SS>,
@@ -183,15 +216,16 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let mut matcher = match self
-      .sub
-      .get_phrase_matcher(context, self.stats.clone(), false)?
-    {
-      Some(m) => m,
-      None => {
-        return Ok(Explanation::no_match_no_details("no matching terms"));
-      },
-    };
+    let mut matcher =
+      match self
+        .sub
+        .get_phrase_matcher::<_, false>(context, self.stats.clone(), false)?
+      {
+        Some(m) => m,
+        None => {
+          return Ok(Explanation::no_match_no_details("no matching terms"));
+        },
+      };
 
     if matcher.approx_advance(doc)? != doc {
       return Ok(Explanation::no_match_no_details("no matching terms"));
@@ -252,25 +286,36 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    match self
-      .sub
-      .get_phrase_matcher(context, self.stats.clone(), false)?
-    {
-      Some(matcher) => {
-        let norms = if self.sub.base().score_mode.needs_scores() {
-          context.reader().get_norm_values(&self.sub.base().field)?
-        } else {
-          None
-        };
-        let scorer: PhraseWeightScorer<S, IRC, SIM> =
-          if self.sub.base().score_mode == ScoreMode::TopScores {
-            ScorerEnum2::A(PhraseScorer::new(matcher, self.stats.clone(), norms))
-          } else {
-            ScorerEnum2::B(PhraseScorer::new(matcher, self.stats.clone(), norms))
-          };
-        Ok(Some(DefaultScorerSupplier::new(scorer)))
-      },
-      None => Ok(None),
+    macro_rules! scorer_supplier {
+      ($top_scores:literal, $mode:ident) => {
+        match self
+          .sub
+          .get_phrase_matcher::<_, $top_scores>(context, self.stats.clone(), false)?
+        {
+          Some(matcher) => {
+            let norms = if self.sub.base().score_mode.needs_scores() {
+              context.reader().get_norm_values(&self.sub.base().field)?
+            } else {
+              None
+            };
+            let scorer: PhraseWeightScorer<S, IRC, SIM> = ScorerEnum2::$mode(match matcher {
+              PhraseMatcherEnum::Exact(m) => {
+                ScorerEnum2::A(PhraseScorer::new(m, self.stats.clone(), norms))
+              },
+              PhraseMatcherEnum::Sloppy(m) => {
+                ScorerEnum2::B(PhraseScorer::new(m, self.stats.clone(), norms))
+              },
+            });
+            Ok(Some(DefaultScorerSupplier::new(scorer)))
+          },
+          None => Ok(None),
+        }
+      };
+    }
+    if self.sub.base().score_mode == ScoreMode::TopScores {
+      scorer_supplier!(true, A)
+    } else {
+      scorer_supplier!(false, B)
     }
   }
 }
@@ -287,12 +332,12 @@ pub trait PhraseWeightBase<
   where
     IRC: IndexReaderContext + 'static;
 
-  fn get_phrase_matcher<LR>(
+  fn get_phrase_matcher<LR, const TOP_SCORES: bool>(
     &self,
     context: &LeafReaderContext<LR>,
     scorer: Self::SimScorer,
     expose_offsets: bool,
-  ) -> PhraseMatcherResult<Self::IE<LR>, Self::SimScorer>
+  ) -> PhraseMatcherResult<Self::IE<LR>, Self::SimScorer, TOP_SCORES>
   where
     LR: LeafReader;
   fn base(&self) -> &PhraseWeightMeta<SIM>;
@@ -348,9 +393,10 @@ where
     QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>:
       From<Box<PhraseMatchesIterator<S::IE<IRCLeafReader<IRC>>, S::SimScorer>>>,
   {
-    let Some(mut matcher) = self
-      .sub
-      .get_phrase_matcher(context, self.stats.clone(), true)?
+    let Some(mut matcher) =
+      self
+        .sub
+        .get_phrase_matcher::<_, false>(context, self.stats.clone(), true)?
     else {
       return Ok(None);
     };

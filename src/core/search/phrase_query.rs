@@ -603,12 +603,12 @@ where
     Ok(Arc::new(v))
   }
 
-  fn get_phrase_matcher<LR>(
+  fn get_phrase_matcher<LR, const TOP_SCORES: bool>(
     &self,
     context: &LeafReaderContext<LR>,
     scorer: Self::SimScorer,
     expose_offsets: bool,
-  ) -> Result<Option<PhraseMatcherEnum<Self::IE<LR>, Self::SimScorer>>>
+  ) -> Result<Option<PhraseMatcherEnum<Self::IE<LR>, Self::SimScorer, TOP_SCORES>>>
   where
     LR: LeafReader,
   {

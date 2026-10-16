@@ -1435,6 +1435,7 @@ where
     Ok(self.freq_buffer[self.doc_buffer_upto - 1])
   }
 
+  #[inline(always)]
   fn next_position(&mut self) -> Result<i32> {
     if !self.needs_pos {
       return Ok(-1);

@@ -44,6 +44,7 @@ macro_rules! define_impacts_enum_enum {
                 }
             }
 
+            #[inline(always)]
             fn next_position(&mut self) -> Result<i32> {
                 match self {
                     $(Self::$V(t) => t.next_position(),)+

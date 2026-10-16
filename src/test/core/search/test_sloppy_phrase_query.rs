@@ -359,18 +359,36 @@ impl LeafCollector for MaxFreqCollector {
 
   fn collect<SC: Scorable + ?Sized>(&mut self, _doc: i32, scorer: &mut SC) -> Result<()> {
     self.total_hits += 1;
-    let ps = scorer
-      .as_any()
-      .downcast_mut::<PhraseScorer<
-        ImpactsEnumEnum2<
-          LRImpactsEnum<IRCLeafReader<DefaultIRCRC>>,
-          SlowImpactsEnum<LRPosting<IRCLeafReader<DefaultIRCRC>>>,
-        >,
-        Arc<SimScorerType>,
-        LRNormNumericDocValues<IRCLeafReader<DefaultIRCRC>>,
-      >>()
-      .unwrap();
-    let matcher = &mut ps.disi.two_phase_iterator.matcher;
+    type IE = ImpactsEnumEnum2<
+      LRImpactsEnum<IRCLeafReader<DefaultIRCRC>>,
+      SlowImpactsEnum<LRPosting<IRCLeafReader<DefaultIRCRC>>>,
+    >;
+    type Exact = PhraseScorer<
+      crate::core::search::exact_phrase_matcher::ExactPhraseMatcher<IE, Arc<SimScorerType>>,
+      Arc<SimScorerType>,
+      LRNormNumericDocValues<IRCLeafReader<DefaultIRCRC>>,
+    >;
+    type Sloppy = PhraseScorer<
+      crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher<IE, Arc<SimScorerType>>,
+      Arc<SimScorerType>,
+      LRNormNumericDocValues<IRCLeafReader<DefaultIRCRC>>,
+    >;
+    let scorer = scorer.as_any();
+    let matcher: &mut dyn PhraseMatcher = if scorer.is::<Exact>() {
+      &mut scorer
+        .downcast_mut::<Exact>()
+        .unwrap()
+        .disi
+        .two_phase_iterator
+        .matcher
+    } else {
+      &mut scorer
+        .downcast_mut::<Sloppy>()
+        .unwrap()
+        .disi
+        .two_phase_iterator
+        .matcher
+    };
     let mut freq = matcher.sloppy_weight();
     loop {
       if !matcher.next_match()? {

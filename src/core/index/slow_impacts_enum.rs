@@ -43,6 +43,7 @@ where
     self.delegate.freq()
   }
 
+  #[inline(always)]
   fn next_position(&mut self) -> Result<i32> {
     self.delegate.next_position()
   }

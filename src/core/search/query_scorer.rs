@@ -53,6 +53,7 @@ use crate::core::search::doc_id_set_iterator::{
   DocIdSetIteratorEnum2, DocIdSetIteratorEnum4, DocIdSetIteratorEnum5,
 };
 use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
+use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
 use crate::core::search::multi_phrase_query::MultiPhrasePostingsEnum;
 use crate::core::search::phrase_scorer::PhraseScorer;
 use crate::core::search::phrase_weight::SimScorerType;
@@ -62,6 +63,7 @@ use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::{Scorer, ScorerEnum2, ScorerEnum3, ScorerEnum4, TwoPhaseState};
 use crate::core::search::scorer_types::{LeafScorerTypes, ScorerTypes};
 use crate::core::search::similarities_impl::similarities::SimilaritySimScorer;
+use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
 use crate::core::search::term_query::TermQuerySimScorer;
 use crate::core::search::term_scorer::{ImpactsTermState, PostingsTermState, TermScorer};
 use crate::core::search::two_phase_iterator::TwoPhaseIteratorEnum2;
@@ -329,10 +331,14 @@ scorer_nodes! {
     SynonymTerm: crate::core::search::synonym_query::SynonymTermScorer<ST, ST::Similarity>,
     BoostedSynonymTerm: crate::core::search::synonym_query::FreqBoostTermScorer<ST, ST::Similarity>,
 
-    Phrase: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
-    PhraseTop: PhraseScorer<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
-    MultiPhrase: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
-    MultiPhraseTop: PhraseScorer<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
+    PhraseExact: PhraseScorer<ExactPhraseMatcher<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
+    PhraseSloppy: PhraseScorer<SloppyPhraseMatcher<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
+    PhraseTopExact: PhraseScorer<ExactPhraseMatcher<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, true>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
+    PhraseTopSloppy: PhraseScorer<SloppyPhraseMatcher<ImpactsEnumEnum2<ST::Impacts, SlowImpactsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
+    MultiPhraseExact: PhraseScorer<ExactPhraseMatcher<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
+    MultiPhraseSloppy: PhraseScorer<SloppyPhraseMatcher<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, false>,
+    MultiPhraseTopExact: PhraseScorer<ExactPhraseMatcher<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>, true>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
+    MultiPhraseTopSloppy: PhraseScorer<SloppyPhraseMatcher<SlowImpactsEnum<MultiPhrasePostingsEnum<ST::Posting>>, Arc<SimScorerType<ST::Similarity>>>, Arc<SimScorerType<ST::Similarity>>, ST::Norm, true>,
     SpatialSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
     SpatialSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>>,
     CachedSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<lru_query_cache::CacheAndCountDISI>>,

@@ -18,7 +18,9 @@ use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
+use crate::core::search::approximation_disi::{ApproximationBitSetAccess, ApproximationDISI};
 use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionDISIEnum};
+use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::impacts_disi::SourceImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
@@ -30,13 +32,95 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 pub type ImpactsApproximationType<IE, SS> = SourceImpactsDISI<ImpactsSourceImpl<IE>, SS>;
 /// Expert: Find exact phrases
-pub struct ExactPhraseMatcher<IE, SS> {
+pub struct ExactPhraseMatcher<IE, SS, const TOP_SCORES: bool = false> {
   pub(crate) impacts_approximation: ImpactsApproximationType<IE, SS>,
   match_cost: f32,
   pub(crate) score_mode: ScoreMode,
   postings: Vec<PostingsAndPosition>,
 }
-impl<IE, SS> ExactPhraseMatcher<IE, SS>
+impl<IE: ImpactsEnum, SS: SimScorer, const TOP_SCORES: bool> ApproximationDISI
+  for ExactPhraseMatcher<IE, SS, TOP_SCORES>
+{
+  fn approx_doc_id(&self) -> i32 {
+    if TOP_SCORES {
+      DocIdSetIterator::doc_id(&self.impacts_approximation)
+    } else {
+      DocIdSetIterator::doc_id(&self.impacts_approximation.iterator().impacts_enums)
+    }
+  }
+  fn approx_next_doc(&mut self) -> Result<i32> {
+    if TOP_SCORES {
+      DocIdSetIterator::next_doc(&mut self.impacts_approximation)
+    } else {
+      DocIdSetIterator::next_doc(&mut self.impacts_approximation.iterator_mut().impacts_enums)
+    }
+  }
+  fn approx_advance(&mut self, target: i32) -> Result<i32> {
+    if TOP_SCORES {
+      DocIdSetIterator::advance(&mut self.impacts_approximation, target)
+    } else {
+      DocIdSetIterator::advance(
+        &mut self.impacts_approximation.iterator_mut().impacts_enums,
+        target,
+      )
+    }
+  }
+  fn approx_slow_advance(&mut self, target: i32) -> Result<i32> {
+    if TOP_SCORES {
+      DocIdSetIterator::slow_advance(&mut self.impacts_approximation, target)
+    } else {
+      DocIdSetIterator::slow_advance(
+        &mut self.impacts_approximation.iterator_mut().impacts_enums,
+        target,
+      )
+    }
+  }
+  fn approx_cost(&self) -> Result<i64> {
+    if TOP_SCORES {
+      DocIdSetIterator::cost(&self.impacts_approximation)
+    } else {
+      DocIdSetIterator::cost(&self.impacts_approximation.iterator().impacts_enums)
+    }
+  }
+}
+
+impl<IE: ImpactsEnum, SS: SimScorer, const TOP_SCORES: bool> ApproximationBitSetAccess
+  for ExactPhraseMatcher<IE, SS, TOP_SCORES>
+{
+  fn approx_is_bit_iter(&self) -> bool {
+    if TOP_SCORES {
+      BitSetIteratorAccess::is_bit_iter(&self.impacts_approximation)
+    } else {
+      BitSetIteratorAccess::is_bit_iter(&self.impacts_approximation.iterator().impacts_enums)
+    }
+  }
+  fn approx_get(&self, index: usize) -> Result<bool> {
+    if TOP_SCORES {
+      BitSetIteratorAccess::get(&self.impacts_approximation, index)
+    } else {
+      BitSetIteratorAccess::get(&self.impacts_approximation.iterator().impacts_enums, index)
+    }
+  }
+  fn approx_set_doc_id(&mut self, doc: i32) -> Result<()> {
+    if TOP_SCORES {
+      BitSetIteratorAccess::set_doc_id(&mut self.impacts_approximation, doc)
+    } else {
+      BitSetIteratorAccess::set_doc_id(
+        &mut self.impacts_approximation.iterator_mut().impacts_enums,
+        doc,
+      )
+    }
+  }
+  fn approx_bit_set_length(&self) -> Result<usize> {
+    if TOP_SCORES {
+      BitSetIteratorAccess::bit_set_length(&self.impacts_approximation)
+    } else {
+      BitSetIteratorAccess::bit_set_length(&self.impacts_approximation.iterator().impacts_enums)
+    }
+  }
+}
+
+impl<IE, SS, const TOP_SCORES: bool> ExactPhraseMatcher<IE, SS, TOP_SCORES>
 where
   IE: ImpactsEnum,
   SS: SimScorer,
@@ -114,17 +198,11 @@ where
   pub(crate) fn approximation_top_scorers_mut(&mut self) -> &mut ImpactsApproximationType<IE, SS> {
     &mut self.impacts_approximation
   }
-  pub(crate) fn approximation_top_scorers(&self) -> &ImpactsApproximationType<IE, SS> {
-    &self.impacts_approximation
-  }
   pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISIEnum<IE> {
     &mut self.impacts_approximation.iterator_mut().impacts_enums
   }
-  pub(crate) fn approximation(&self) -> &ConjunctionDISIEnum<IE> {
-    &self.impacts_approximation.iterator().impacts_enums
-  }
 }
-impl<IE, SS> PhraseMatcher for ExactPhraseMatcher<IE, SS>
+impl<IE, SS, const TOP_SCORES: bool> PhraseMatcher for ExactPhraseMatcher<IE, SS, TOP_SCORES>
 where
   IE: ImpactsEnum,
   SS: SimScorer,

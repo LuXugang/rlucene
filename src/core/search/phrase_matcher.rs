@@ -17,8 +17,13 @@
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::leaf_reader::{LRImpactsEnum, LRPosting};
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
+use crate::core::search::approximation_disi::{ApproximationBitSetAccess, ApproximationDISI};
+use crate::core::search::conjunction_disi::ConjunctionDISIEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::exact_phrase_matcher::ExactPhraseMatcher;
+use crate::core::search::impacts_disi::{
+  ImpactsDISI, ImpactsDISIMode, SeparateIteratorMode, SourceIteratorMode,
+};
 use crate::core::search::score_mode::ScoreMode::TopScores;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher;
@@ -57,11 +62,44 @@ pub trait PhraseMatcher {
   /// See [`TwoPhaseIterator::match_cost`](crate::core::search::two_phase_iterator::TwoPhaseIterator::match_cost).
   fn get_match_cost(&self) -> f32;
 }
-pub enum PhraseMatcherEnum<IE, SS> {
-  Exact(ExactPhraseMatcher<IE, SS>),
+/// Matching and candidate iteration on the same concrete owner.
+#[doc(hidden)]
+pub trait PhraseScorerMatcher:
+  PhraseMatcher + ApproximationDISI + ApproximationBitSetAccess
+{
+  type ImpactsMode: ImpactsDISIMode;
+
+  fn impacts_approximation_mut(&mut self) -> &mut ImpactsDISI<Self::ImpactsMode>;
+}
+
+impl<IE: ImpactsEnum, SS: SimScorer, const TOP_SCORES: bool> PhraseScorerMatcher
+  for ExactPhraseMatcher<IE, SS, TOP_SCORES>
+{
+  type ImpactsMode =
+    SourceIteratorMode<crate::core::search::exact_phrase_matcher::ImpactsSourceImpl<IE>, SS>;
+
+  fn impacts_approximation_mut(&mut self) -> &mut ImpactsDISI<Self::ImpactsMode> {
+    &mut self.impacts_approximation
+  }
+}
+
+impl<IE: ImpactsEnum, SS: SimScorer> PhraseScorerMatcher for SloppyPhraseMatcher<IE, SS> {
+  type ImpactsMode = SeparateIteratorMode<
+    ConjunctionDISIEnum<IE>,
+    crate::core::search::sloppy_phrase_matcher::ImpactsSourceImpl,
+    SS,
+  >;
+
+  fn impacts_approximation_mut(&mut self) -> &mut ImpactsDISI<Self::ImpactsMode> {
+    &mut self.impacts_approximation
+  }
+}
+
+pub enum PhraseMatcherEnum<IE, SS, const TOP_SCORES: bool = false> {
+  Exact(ExactPhraseMatcher<IE, SS, TOP_SCORES>),
   Sloppy(SloppyPhraseMatcher<IE, SS>),
 }
-impl<IE, SS> PhraseMatcherEnum<IE, SS>
+impl<IE, SS, const TOP_SCORES: bool> PhraseMatcherEnum<IE, SS, TOP_SCORES>
 where
   IE: ImpactsEnum,
   SS: SimScorer,
@@ -79,7 +117,7 @@ where
     }
   }
 }
-impl<IE, SS> PhraseMatcher for PhraseMatcherEnum<IE, SS>
+impl<IE, SS, const TOP_SCORES: bool> PhraseMatcher for PhraseMatcherEnum<IE, SS, TOP_SCORES>
 where
   IE: ImpactsEnum,
   SS: SimScorer,
