@@ -23,6 +23,15 @@ RLucene 是高性能、功能完善的搜索引擎库
 RLucene 目前基于 Apache Lucene 10.1。待当前移植版本功能完善并达到稳定状态后，
 项目将持续与 Apache Lucene 最新版本的前一个版本保持对齐。
 
+## 性能基准
+
+RLucene 的搜索性能基准参考了 Quickwit 的
+[Search Benchmark Game](https://github.com/quickwit-oss/search-benchmark-game)。目前主要与
+Java Lucene 10.1 进行直接对比，因为它正是 RLucene 当前移植和对齐的目标版本。
+基准测试覆盖多种查询模式，在比较搜索性能的同时，也会检查两个实现返回的结果是否一致。
+
+查看[最新基准测试结果](https://amazingkoala.com.cn/benchmark/index.html)。
+
 ## 项目状态
 
 RLucene 还在积极开发中。最常用的功能已经实现，不过距离完整稳定还有很多移植、

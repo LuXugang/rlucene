@@ -27,6 +27,16 @@ RLucene currently tracks Apache Lucene 10.1. Once this port is feature-complete
 and stable, the plan is to keep RLucene aligned with the Lucene release just
 before the latest one.
 
+## Benchmark
+
+RLucene's search benchmark is inspired by Quickwit's
+[Search Benchmark Game](https://github.com/quickwit-oss/search-benchmark-game).
+For now, it focuses on a direct comparison with Java Lucene 10.1, the version
+RLucene currently targets. The benchmark covers several query modes and checks
+result consistency alongside search performance.
+
+See the [latest benchmark results](https://amazingkoala.com.cn/benchmark/index.html).
+
 ## Project Status
 
 RLucene is still under active development. Most commonly used features are
