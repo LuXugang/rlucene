@@ -25,7 +25,7 @@ use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{Comparator, ToInt};
-use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// Represents hits returned.
@@ -55,6 +55,9 @@ impl<S> TopDocs<S> {
 /// sorting by the specified [`Sort`]. Each of the [`TopDocs`] must have been sorted by the same
 /// [`Sort`], and sort field values must have been filled.
 ///
+/// The shard hits are consumed: selected hits are moved into the result instead
+/// of cloned.
+///
 /// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
 ///
 /// lucene.experimental
@@ -66,8 +69,7 @@ pub fn merge_top_field_docs<I>(
   shard_hits: I,
 ) -> Result<TopFieldDocs>
 where
-  I: IntoIterator,
-  I::Item: Borrow<TopDocs<TopFieldScoreDoc>>,
+  I: IntoIterator<Item = TopDocs<TopFieldScoreDoc>>,
 {
   merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
 }
@@ -84,8 +86,7 @@ pub fn merge_top_field_docs_with_start<I>(
   shard_hits: I,
 ) -> Result<TopFieldDocs>
 where
-  I: IntoIterator,
-  I::Item: Borrow<TopDocs<TopFieldScoreDoc>>,
+  I: IntoIterator<Item = TopDocs<TopFieldScoreDoc>>,
 {
   merge_top_field_docs_with_comparator(sort, start, top_n, shard_hits, DefaultTieBreaker::default())
 }
@@ -99,10 +100,9 @@ pub fn merge_top_field_docs_with_comparator<C, I>(
 ) -> Result<TopFieldDocs>
 where
   C: Comparator<TopFieldScoreDoc>,
-  I: IntoIterator,
-  I::Item: Borrow<TopDocs<TopFieldScoreDoc>>,
+  I: IntoIterator<Item = TopDocs<TopFieldScoreDoc>>,
 {
-  let shard_hits = shard_hits.into_iter().collect::<Vec<I::Item>>();
+  let shard_hits = shard_hits.into_iter().map(RefCell::new).collect::<Vec<_>>();
   let len = shard_hits.len();
   let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
   let queue = PriorityQueue::new(len, &cmp)?;
@@ -112,12 +112,14 @@ where
 /// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],
 /// sorting by score. Each [`TopDocs`] instance must be sorted.
 ///
+/// The shard hits are consumed: selected hits are moved into the result instead
+/// of cloned.
+///
 /// See also: [`merge_top_docs_with_start`].
 pub fn merge_top_docs<S, I>(top_n: usize, shard_hits: I) -> Result<TopDocs<S>>
 where
   S: ScoreDocLike,
-  I: IntoIterator,
-  I::Item: Borrow<TopDocs<S>>,
+  I: IntoIterator<Item = TopDocs<S>>,
 {
   merge_top_docs_with_start(0, top_n, shard_hits)
 }
@@ -134,8 +136,7 @@ pub fn merge_top_docs_with_start<S, I>(
 ) -> Result<TopDocs<S>>
 where
   S: ScoreDocLike,
-  I: IntoIterator,
-  I::Item: Borrow<TopDocs<S>>,
+  I: IntoIterator<Item = TopDocs<S>>,
 {
   merge_top_docs_with_comparator(start, top_n, shard_hits, DefaultTieBreaker::default())
 }
@@ -153,13 +154,12 @@ pub fn merge_top_docs_with_comparator<C, S, I>(
 where
   C: Comparator<S>,
   S: ScoreDocLike,
-  I: IntoIterator,
-  I::Item: Borrow<TopDocs<S>>,
+  I: IntoIterator<Item = TopDocs<S>>,
 {
-  let shard_hits = shard_hits.into_iter().collect::<Vec<I::Item>>();
+  let shard_hits = shard_hits.into_iter().map(RefCell::new).collect::<Vec<_>>();
   let len = shard_hits.len();
   debug_assert!(len <= i32::MAX as usize);
-  let cmp = ScoreMergeSortQueueCmp::<_, S, _>::new(&shard_hits, tie_breaker);
+  let cmp = ScoreMergeSortQueueCmp::<_, S>::new(&shard_hits, tie_breaker);
   let queue = PriorityQueue::new(len, &cmp)?;
   let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
   Ok(TopDocs::new(total_hits, hits))
@@ -269,16 +269,15 @@ where
 }
 /// Auxiliary method used by the `merge` implementations.
 /// A sort value of `None` indicates that documents should be sorted by score.
-fn merge_aux<C, S, B>(
+fn merge_aux<C, S>(
   mut queue: PriorityQueue<ShardRef, C>,
   start: usize,
   size: usize,
-  shard_hits: &[B],
+  shard_hits: &[RefCell<TopDocs<S>>],
 ) -> Result<(TotalHits, Vec<S>)>
 where
   C: Compare<ShardRef>,
   S: ScoreDocLike,
-  B: Borrow<TopDocs<S>>,
 {
   let mut total_hit_count: i64 = 0;
   let mut total_hits_relation = Relation::EqualTo;
@@ -292,17 +291,16 @@ where
     }
     if !shard.score_docs.is_empty() {
       avail_hit_count += shard.score_docs.len();
+      drop(shard);
       queue.add(ShardRef::new(shard_idx))?;
     }
   }
 
-  let mut hits: Vec<S>;
+  let mut hits = Vec::new();
   let mut unset_shard_index = false;
-  if avail_hit_count <= start {
-    hits = Vec::new();
-  } else {
+  if avail_hit_count > start {
     let len = std::cmp::min(size, avail_hit_count - start);
-    hits = vec![S::default(); len];
+    hits = Vec::with_capacity(len);
 
     let requested_result_window = start + size;
     let num_iter_on_hits = std::cmp::min(avail_hit_count, requested_result_window);
@@ -310,18 +308,24 @@ where
 
     while hit_upto < num_iter_on_hits {
       debug_assert!(queue.size() > 0);
-      let ref_ = match queue.top_mut() {
-        None => return Err(LuceneError::illegal_state("queue is empty")),
-        Some(v) => v,
+      let (shard_index, hit_index) = {
+        let ref_ = match queue.top_mut() {
+          None => return Err(LuceneError::illegal_state("queue is empty")),
+          Some(v) => v,
+        };
+        let shard_index = ref_.shard_index;
+        let hit_index = ref_.hit_index;
+        ref_.hit_index += 1;
+        (shard_index, hit_index)
       };
 
-      let shard = shard_hits[ref_.shard_index].borrow();
-      let hit = &shard.score_docs[ref_.hit_index];
-      ref_.hit_index += 1;
+      let hit = {
+        let mut shard = shard_hits[shard_index].borrow_mut();
+        std::mem::replace(&mut shard.score_docs[hit_index], S::default())
+      };
 
       // Irrespective of whether we use shard indices for tie breaking or not, we check for
-      // consistent
-      // order in shard indices to defend against potential bugs
+      // consistent order in shard indices to defend against potential bugs.
       if hit_upto > 0 && unset_shard_index != (hit.shard_index() == -1) {
         return Err(LuceneError::illegal_argument(
           "Inconsistent order of shard indices",
@@ -330,18 +334,25 @@ where
       unset_shard_index |= hit.shard_index() == -1;
 
       if hit_upto >= start {
-        hits[hit_upto - start] = hit.clone();
+        hits.push(hit);
+      } else {
+        drop(hit);
       }
 
       hit_upto += 1;
 
-      if ref_.hit_index < shard.score_docs.len() {
+      let has_more = {
+        let shard = shard_hits[shard_index].borrow();
+        hit_index + 1 < shard.score_docs.len()
+      };
+      if has_more {
         queue.update_top()?;
       } else {
         queue.pop_unchecked()?;
       }
     }
   }
+
   if total_hit_count < 0 {
     return Err(LuceneError::illegal_argument(format!(
       "value must be >= 0, got {total_hit_count}"
@@ -353,13 +364,13 @@ where
   ))
 }
 
-pub(crate) struct ScoreMergeSortQueueCmp<'a, C, S, B = TopDocs<S>> {
-  shard_hits: &'a [B],
+pub(crate) struct ScoreMergeSortQueueCmp<'a, C, S> {
+  shard_hits: &'a [RefCell<TopDocs<S>>],
   score_doc: PhantomData<fn() -> S>,
   tie_breaker_comparator: C,
 }
-impl<'a, C, S, B> ScoreMergeSortQueueCmp<'a, C, S, B> {
-  pub fn new(shard_hits: &'a [B], tie_breaker_comparator: C) -> Self {
+impl<'a, C, S> ScoreMergeSortQueueCmp<'a, C, S> {
+  pub fn new(shard_hits: &'a [RefCell<TopDocs<S>>], tie_breaker_comparator: C) -> Self {
     Self {
       shard_hits,
       score_doc: PhantomData,
@@ -368,11 +379,10 @@ impl<'a, C, S, B> ScoreMergeSortQueueCmp<'a, C, S, B> {
   }
 }
 
-impl<C, S, B> Compare<ShardRef> for ScoreMergeSortQueueCmp<'_, C, S, B>
+impl<C, S> Compare<ShardRef> for ScoreMergeSortQueueCmp<'_, C, S>
 where
   C: Comparator<S>,
   S: ScoreDocLike,
-  B: Borrow<TopDocs<S>>,
 {
   fn less_than(&self, first: &ShardRef, second: &ShardRef) -> Result<bool> {
     let first_shard_hits = self.shard_hits[first.shard_index].borrow();
@@ -398,18 +408,19 @@ where
   }
 }
 
-pub(crate) struct MergeSortQueueCmp<'a, C, B = TopDocs<TopFieldScoreDoc>> {
-  shard_hits: &'a [B],
+pub(crate) struct MergeSortQueueCmp<'a, C> {
+  shard_hits: &'a [RefCell<TopDocs<TopFieldScoreDoc>>],
   comparators: Vec<FieldComparatorEnum>,
   reverse_mul: Vec<i32>,
   tie_breaker: C,
 }
 
-impl<'a, C, B> MergeSortQueueCmp<'a, C, B>
-where
-  B: Borrow<TopDocs<TopFieldScoreDoc>>,
-{
-  pub fn new(sort: &Sort, shard_hits: &'a [B], tie_breaker: C) -> Result<Self> {
+impl<'a, C> MergeSortQueueCmp<'a, C> {
+  pub fn new(
+    sort: &Sort,
+    shard_hits: &'a [RefCell<TopDocs<TopFieldScoreDoc>>],
+    tie_breaker: C,
+  ) -> Result<Self> {
     for (shard_index, shard) in shard_hits.iter().enumerate() {
       let shard = shard.borrow();
       for score_doc in &shard.score_docs {
@@ -437,14 +448,15 @@ where
   }
 }
 
-impl<C, B> Compare<ShardRef> for MergeSortQueueCmp<'_, C, B>
+impl<C> Compare<ShardRef> for MergeSortQueueCmp<'_, C>
 where
   C: Comparator<TopFieldScoreDoc>,
-  B: Borrow<TopDocs<TopFieldScoreDoc>>,
 {
   fn less_than(&self, first: &ShardRef, second: &ShardRef) -> Result<bool> {
-    let first_fd = &self.shard_hits[first.shard_index].borrow().score_docs[first.hit_index];
-    let second_fd = &self.shard_hits[second.shard_index].borrow().score_docs[second.hit_index];
+    let first_shard = self.shard_hits[first.shard_index].borrow();
+    let second_shard = self.shard_hits[second.shard_index].borrow();
+    let first_fd = &first_shard.score_docs[first.hit_index];
+    let second_fd = &second_shard.score_docs[second.hit_index];
 
     let first_fields = first_fd.fields()?;
     let second_fields = second_fd.fields()?;
@@ -458,6 +470,7 @@ where
     tie_break_less_than(first, first_fd, second, second_fd, &self.tie_breaker)
   }
 }
+
 impl<S> TopDocsLike for TopDocs<S>
 where
   S: ScoreDocLike,

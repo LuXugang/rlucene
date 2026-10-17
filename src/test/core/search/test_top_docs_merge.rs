@@ -188,7 +188,7 @@ fn test_pre_assigned_shard_index() -> Result<()> {
   let from = random.random_range(0..(num_hits_total - 1));
   let size = 1 + random.random_range(0..(num_hits_total - from));
 
-  let merge = top_docs::merge_top_docs_with_start(from, size, &top_docs)?;
+  let merge = top_docs::merge_top_docs_with_start(from, size, top_docs.clone())?;
   assert!(!merge.score_docs.is_empty());
   for score_doc in &merge.score_docs {
     assert_ne!(score_doc.shard_index, -1);
@@ -439,16 +439,16 @@ fn test_merge_total_hits_relation() -> Result<()> {
     vec![ScoreDoc::with_shard_index(42, 2.0, 3)],
   );
 
-  let merged1 = top_docs::merge_top_docs(1, vec![&top_docs1, &top_docs2])?;
+  let merged1 = top_docs::merge_top_docs(1, vec![top_docs1.clone(), top_docs2.clone()])?;
   assert_eq!(TotalHits::new(3, Relation::EqualTo), merged1.total_hits);
 
-  let merged2 = top_docs::merge_top_docs(1, vec![&top_docs1, &top_docs3])?;
+  let merged2 = top_docs::merge_top_docs(1, vec![top_docs1.clone(), top_docs3.clone()])?;
   assert_eq!(
     TotalHits::new(3, Relation::GreaterThanOrEqualTo),
     merged2.total_hits
   );
 
-  let merged3 = top_docs::merge_top_docs(1, vec![&top_docs3, &top_docs4])?;
+  let merged3 = top_docs::merge_top_docs(1, vec![top_docs3.clone(), top_docs4.clone()])?;
   assert_eq!(
     TotalHits::new(4, Relation::GreaterThanOrEqualTo),
     merged3.total_hits
