@@ -45,23 +45,23 @@ pub struct BooleanQuery {
   id: Identity,
   minimum_number_should_match: i32,
   pub(crate) clauses: Vec<BooleanClause>,
-  clause_sets: HashMap<Occur, Vec<usize>>,
+  clause_sets: [Vec<usize>; 4],
 }
 
 impl BooleanQuery {
   fn new(minimum_number_should_match: i32, clauses: Vec<BooleanClause>) -> BooleanQuery {
-    let mut clause_sets: HashMap<Occur, Vec<usize>> = HashMap::new();
+    let mut clause_sets: [Vec<usize>; 4] = [const { Vec::new() }; 4];
 
     for (idx, clause) in clauses.iter().enumerate() {
       let occur = clause.occur;
 
       match occur {
         Occur::Should | Occur::Must => {
-          clause_sets.entry(occur).or_default().push(idx);
+          clause_sets[occur as usize].push(idx);
         },
 
         Occur::Filter | Occur::MustNot => {
-          let indices = clause_sets.entry(occur).or_default();
+          let indices = &mut clause_sets[occur as usize];
 
           let exists = indices.iter().any(|&i| clauses[i].query == clause.query);
           if !exists {
@@ -91,11 +91,7 @@ impl BooleanQuery {
 
   /// Return the collection of queries for the given [`Occur`].
   pub fn get_clauses_idx(&self, occur: Occur) -> &[usize] {
-    self
-      .clause_sets
-      .get(&occur)
-      .map(Vec::as_slice)
-      .unwrap_or(&[])
+    &self.clause_sets[occur as usize]
   }
   /// Whether this query is a pure disjunction, ie. it only has SHOULD clauses and it is enough for
   /// a single clause to match for this boolean query to match.
@@ -177,7 +173,8 @@ impl BooleanQuery {
   #[cfg_attr(test, allow(clippy::mutable_key_type))]
   fn as_counts_map(&self) -> HashMap<(Occur, &Query), usize> {
     let mut m = HashMap::new();
-    for (&occur, indices) in &self.clause_sets {
+    for occur in [Occur::Must, Occur::Filter, Occur::Should, Occur::MustNot] {
+      let indices = self.get_clauses_idx(occur);
       for &idx in indices {
         let q = &self.clauses[idx].query;
         *m.entry((occur, q)).or_insert(0) += 1;
@@ -268,8 +265,9 @@ impl Hash for BooleanQuery {
   {
     self.minimum_number_should_match.hash(state);
     // FILTER and MUST_NOT clauses may have been deduplicated in clause_sets.
-    let mut hs = Vec::with_capacity(self.clause_sets.values().map(Vec::len).sum());
-    for (&occur, indices) in &self.clause_sets {
+    let mut hs = Vec::with_capacity(self.clause_sets.iter().map(Vec::len).sum());
+    for occur in [Occur::Must, Occur::Filter, Occur::Should, Occur::MustNot] {
+      let indices = self.get_clauses_idx(occur);
       for &idx in indices {
         let mut h = DefaultHasher::new();
         occur.hash(&mut h);
@@ -366,11 +364,7 @@ impl QueryBase for BooleanQuery {
         MatchNoDocsQuery::with_reason("empty BooleanQuery").into(),
       ));
     }
-    let must_not_len = self
-      .clause_sets
-      .get(&Occur::MustNot)
-      .map(|v| v.len())
-      .unwrap_or(0);
+    let must_not_len = self.get_clauses_idx(Occur::MustNot).len();
     if self.clauses.len() == must_not_len {
       return Ok(Some(Query::MatchNoDocs(MatchNoDocsQuery::with_reason(
         "pure negative BooleanQuery",
@@ -459,7 +453,7 @@ impl QueryBase for BooleanQuery {
       // remove duplicate FILTER and MUST_NOT clauses
       {
         let mut clause_count = 0;
-        for queries in self.clause_sets.values() {
+        for queries in &self.clause_sets {
           clause_count += queries.len();
         }
 
@@ -469,10 +463,11 @@ impl QueryBase for BooleanQuery {
           let mut rewritten = Builder::new();
           rewritten.set_minimum_number_should_match(self.minimum_number_should_match);
 
-          for (occur, indices) in &self.clause_sets {
+          for occur in [Occur::Must, Occur::Filter, Occur::Should, Occur::MustNot] {
+            let indices = self.get_clauses_idx(occur);
             for &idx in indices {
               let clause = self.clauses[idx].clone();
-              rewritten.add(clause.query, *occur)?;
+              rewritten.add(clause.query, occur)?;
             }
           }
 
@@ -481,23 +476,11 @@ impl QueryBase for BooleanQuery {
       }
 
       // Check whether some clauses are both required and excluded
-      let must_not = self
-        .clause_sets
-        .get(&Occur::MustNot)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
+      let must_not = self.get_clauses_idx(Occur::MustNot);
 
       if !must_not.is_empty() {
-        let must = self
-          .clause_sets
-          .get(&Occur::Must)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
-        let filter = self
-          .clause_sets
-          .get(&Occur::Filter)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
+        let must = self.get_clauses_idx(Occur::Must);
+        let filter = self.get_clauses_idx(Occur::Filter);
 
         if must_not.iter().any(|&mn_idx| {
           let q = &self.clauses[mn_idx].query;
@@ -520,18 +503,10 @@ impl QueryBase for BooleanQuery {
       }
 
       // remove FILTER clauses that are also MUST clauses or that match all documents
-      let filter_idx = self
-        .clause_sets
-        .get(&Occur::Filter)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
+      let filter_idx = self.get_clauses_idx(Occur::Filter);
 
       if !filter_idx.is_empty() {
-        let must_indices = self
-          .clause_sets
-          .get(&Occur::Must)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
+        let must_indices = self.get_clauses_idx(Occur::Must);
 
         let mut new_filter_ixd: Vec<usize> = filter_idx.to_vec();
         let mut modified = false;
@@ -574,16 +549,8 @@ impl QueryBase for BooleanQuery {
       }
 
       // convert FILTER clauses that are also SHOULD clauses to MUST clauses
-      let should_indices = self
-        .clause_sets
-        .get(&Occur::Should)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
-      let filter_indices = self
-        .clause_sets
-        .get(&Occur::Filter)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
+      let should_indices = self.get_clauses_idx(Occur::Should);
+      let filter_indices = self.get_clauses_idx(Occur::Filter);
 
       if !should_indices.is_empty() && !filter_indices.is_empty() {
         // compute intersection by Query equality (not identity)
@@ -623,11 +590,7 @@ impl QueryBase for BooleanQuery {
       }
 
       // Deduplicate SHOULD clauses by summing up their boosts
-      let should_indices = self
-        .clause_sets
-        .get(&Occur::Should)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
+      let should_indices = self.get_clauses_idx(Occur::Should);
 
       if !should_indices.is_empty() && self.minimum_number_should_match <= 1 {
         #[cfg_attr(test, allow(clippy::mutable_key_type))]
@@ -670,11 +633,7 @@ impl QueryBase for BooleanQuery {
       }
 
       // Deduplicate MUST clauses by summing up their boosts
-      let must_indices = self
-        .clause_sets
-        .get(&Occur::Must)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
+      let must_indices = self.get_clauses_idx(Occur::Must);
 
       if !must_indices.is_empty() {
         #[cfg_attr(test, allow(clippy::mutable_key_type))]
@@ -719,16 +678,8 @@ impl QueryBase for BooleanQuery {
       // Rewrite queries whose single scoring clause is a MUST clause on a
       // MatchAllDocsQuery to a ConstantScoreQuery
       {
-        let must_indices = self
-          .clause_sets
-          .get(&Occur::Must)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
-        let filter_indices = self
-          .clause_sets
-          .get(&Occur::Filter)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
+        let must_indices = self.get_clauses_idx(Occur::Must);
+        let filter_indices = self.get_clauses_idx(Occur::Filter);
 
         if must_indices.len() == 1 && !filter_indices.is_empty() {
           let mut must = &self.clauses[must_indices[0]].query;
@@ -767,11 +718,7 @@ impl QueryBase for BooleanQuery {
             builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
             builder.add(rewritten, Occur::Must)?;
 
-            let should_indices = self
-              .clause_sets
-              .get(&Occur::Should)
-              .map(|v| v.as_slice())
-              .unwrap_or(&[]);
+            let should_indices = self.get_clauses_idx(Occur::Should);
             for &idx in should_indices {
               let v = self.clauses[idx].clone();
               debug_assert!(!matches!(v.query, Query::Dummy(_)));
@@ -845,19 +792,10 @@ impl QueryBase for BooleanQuery {
               // negations have no matches. It works because the inner BooleanQuery would have first
               // rewritten to a MatchNoDocsQuery if it only had prohibited clauses.
               debug_assert!(
-                inner_query
-                  .clause_sets
-                  .get(&Occur::MustNot)
-                  .map(|v| v.len())
-                  .unwrap_or(0)
-                  != inner_query.clauses.len()
+                inner_query.get_clauses_idx(Occur::MustNot).len() != inner_query.clauses.len()
               );
 
-              let inner_should_len = inner_query
-                .clause_sets
-                .get(&Occur::Should)
-                .map(|v| v.len())
-                .unwrap_or(0);
+              let inner_should_len = inner_query.get_clauses_idx(Occur::Should).len();
 
               if inner_query.get_minimum_number_should_match() == 0 && inner_should_len == 0 {
                 actually_rewritten = true;
@@ -901,11 +839,7 @@ impl QueryBase for BooleanQuery {
       // SHOULD clause count less than or equal to minimum_number_should_match
       // Important(this can only be processed after nested clauses have been flattened)
       {
-        let should_indices = self
-          .clause_sets
-          .get(&Occur::Should)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
+        let should_indices = self.get_clauses_idx(Occur::Should);
         let should_len = should_indices.len() as i64;
 
         if should_len < i64::from(self.minimum_number_should_match) {
@@ -932,25 +866,13 @@ impl QueryBase for BooleanQuery {
       }
       // Inline SHOULD clauses from the only MUST clause
       {
-        let should_indices = self
-          .clause_sets
-          .get(&Occur::Should)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
-        let must_indices = self
-          .clause_sets
-          .get(&Occur::Must)
-          .map(|v| v.as_slice())
-          .unwrap_or(&[]);
+        let should_indices = self.get_clauses_idx(Occur::Should);
+        let must_indices = self.get_clauses_idx(Occur::Must);
 
         if should_indices.is_empty() && must_indices.len() == 1 {
           let must_clause = &self.clauses[must_indices[0]];
           if let Query::Boolean(inner) = &must_clause.query {
-            let inner_should_len = inner
-              .clause_sets
-              .get(&Occur::Should)
-              .map(|v| v.len())
-              .unwrap_or(0);
+            let inner_should_len = inner.get_clauses_idx(Occur::Should).len();
 
             if inner.clauses.len() == inner_should_len {
               let mut rewritten = Builder::new();
@@ -985,7 +907,7 @@ impl QueryBase for BooleanQuery {
     let query = self.into();
     let mut sub_visitor = visitor.get_sub_visitor(Occur::Must, query);
     for occur in [Occur::Must, Occur::Filter, Occur::Should, Occur::MustNot] {
-      let clause_indices = self.clause_sets.get(&occur).map_or(&[][..], Vec::as_slice);
+      let clause_indices = self.get_clauses_idx(occur);
       if !clause_indices.is_empty() {
         if occur == Occur::Must {
           for index in clause_indices {
