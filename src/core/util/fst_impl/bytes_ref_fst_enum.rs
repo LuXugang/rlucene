@@ -136,7 +136,7 @@ where
 
   fn grow(&mut self, base: &FSTEnum<O, F>) -> Result<()> {
     if self.result.input.bytes.len() <= base.upto {
-      ArrayUtil::grow_with_len(&mut self.result.input.bytes, base.upto + 1)?;
+      ArrayUtil::grow_with(&mut self.result.input.bytes, base.upto + 1, || 0)?;
     }
     Ok(())
   }

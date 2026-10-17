@@ -96,7 +96,7 @@ where
   /// Create an IntsRef pointing to a new array of size `capacity`.
   pub fn with_capacity(capacity: usize) -> Result<Self> {
     Ok(IntsRef {
-      ints: AV::with_capacity(capacity)?,
+      ints: AV::with_len(capacity, || 0)?,
       offset: 0,
       length: 0,
     })

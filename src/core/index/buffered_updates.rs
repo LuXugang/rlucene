@@ -447,7 +447,7 @@ impl BytesRefIntMap {
     Ok(BytesRefIntMap::new_impl(counter, bytes_ref_hash))
   }
   fn new_impl(counter: SharedCounter, bytes_ref_hash: BytesRefHash<DirectBytesStartArray>) -> Self {
-    let values = vec![0; DEFAULT_CAPACITY];
+    let values = Vec::with_capacity(DEFAULT_CAPACITY);
 
     counter.add_and_get(size_of_vec(&values));
 
@@ -480,12 +480,15 @@ impl BytesRefIntMap {
       let index = e as usize;
       if index >= self.values.len() {
         let old_size = size_of_vec(&self.values);
-        ArrayUtil::grow_with_len(&mut self.values, (e + 1) as usize)?;
+        debug_assert_eq!(index, self.values.len());
+        ArrayUtil::grow_capacity(&mut self.values, index + 1)?;
         self
           .counter
           .add_and_get(size_of_vec(&self.values).saturating_sub(old_size));
+        self.values.push(value);
+      } else {
+        self.values[index] = value;
       }
-      self.values[index] = value;
       Ok(true)
     }
   }

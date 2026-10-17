@@ -117,7 +117,7 @@ impl AutomatonTermsEnum {
     let state = state as usize;
     if !self.finite {
       if state >= self.visited.len() {
-        ArrayUtil::grow_with_len(&mut self.visited, state + 1)?;
+        ArrayUtil::grow_with(&mut self.visited, state + 1, || 0)?;
       }
       self.visited[state] = self.cur_gen;
     }
@@ -166,7 +166,7 @@ impl AutomatonTermsEnum {
     let length = position + 1;
 
     if self.linear_upper_bound.bytes.len() < length {
-      ArrayUtil::grow_with_len(&mut self.linear_upper_bound.bytes, length)?;
+      ArrayUtil::grow_no_copy(&mut self.linear_upper_bound.bytes, length, || 0)?;
     }
 
     self.linear_upper_bound.bytes[..position]

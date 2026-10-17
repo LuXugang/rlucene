@@ -87,7 +87,7 @@ pub trait WritableVec<T>: SharedAccessVec<T> {
 }
 impl<T> WritableVec<T> for Vec<T>
 where
-  T: Clone + Default,
+  T: Clone,
 {
   fn access_mut<F, R>(&mut self, f: F) -> R
   where
@@ -107,11 +107,14 @@ pub trait SharedAccessVec<T>: Clone + Default {
     F: FnOnce(&Vec<T>) -> R;
   fn slice_clone(&self, offset: usize, length: usize) -> Self;
   fn new() -> Self;
-  fn with_capacity(capacity: usize) -> Result<Self>;
+  /// Constructs a buffer of `length` initialized elements.
+  fn with_len<F>(length: usize, init: F) -> Result<Self>
+  where
+    F: FnMut() -> T;
   fn from_vec(v: Vec<T>) -> Self;
 }
 
-impl<T: Clone + Default> SharedAccessVec<T> for Cow<'_, Vec<T>> {
+impl<T: Clone> SharedAccessVec<T> for Cow<'_, Vec<T>> {
   fn access<F, R>(&self, f: F) -> R
   where
     F: FnOnce(&Vec<T>) -> R,
@@ -131,8 +134,13 @@ impl<T: Clone + Default> SharedAccessVec<T> for Cow<'_, Vec<T>> {
     Cow::Owned(Vec::new())
   }
 
-  fn with_capacity(capacity: usize) -> Result<Self> {
-    Ok(Cow::Owned(vec![T::default(); capacity]))
+  fn with_len<F>(length: usize, init: F) -> Result<Self>
+  where
+    F: FnMut() -> T,
+  {
+    let mut values = Vec::with_capacity(length);
+    values.resize_with(length, init);
+    Ok(Cow::Owned(values))
   }
 
   fn from_vec(v: Vec<T>) -> Self {
@@ -143,7 +151,7 @@ impl<T: Clone + Default> SharedAccessVec<T> for Cow<'_, Vec<T>> {
 // Vec<T>
 impl<T> SharedAccessVec<T> for Vec<T>
 where
-  T: Clone + Default,
+  T: Clone,
 {
   fn access<F, R>(&self, f: F) -> R
   where
@@ -160,8 +168,13 @@ where
     Vec::new()
   }
 
-  fn with_capacity(capacity: usize) -> Result<Self> {
-    Ok(vec![T::default(); capacity])
+  fn with_len<F>(length: usize, init: F) -> Result<Self>
+  where
+    F: FnMut() -> T,
+  {
+    let mut values = Vec::with_capacity(length);
+    values.resize_with(length, init);
+    Ok(values)
   }
 
   fn from_vec(v: Vec<T>) -> Self {
@@ -171,7 +184,7 @@ where
 // Rc<Vec<T>>
 impl<T> SharedAccessVec<T> for Rc<Vec<T>>
 where
-  T: Clone + Default,
+  T: Clone,
 {
   fn access<F, R>(&self, f: F) -> R
   where
@@ -189,7 +202,10 @@ where
     Rc::new(Vec::new())
   }
 
-  fn with_capacity(_capacity: usize) -> Result<Self> {
+  fn with_len<F>(_length: usize, _init: F) -> Result<Self>
+  where
+    F: FnMut() -> T,
+  {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -200,7 +216,7 @@ where
 // Arc<Vec<T>>
 impl<T> SharedAccessVec<T> for Arc<Vec<T>>
 where
-  T: Clone + Default,
+  T: Clone,
 {
   fn access<F, R>(&self, f: F) -> R
   where
@@ -218,7 +234,10 @@ where
     Arc::new(Vec::new())
   }
 
-  fn with_capacity(_capacity: usize) -> Result<Self> {
+  fn with_len<F>(_length: usize, _init: F) -> Result<Self>
+  where
+    F: FnMut() -> T,
+  {
     Err(LuceneError::unsupported_operation(""))
   }
 

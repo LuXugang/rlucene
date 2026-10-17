@@ -187,7 +187,7 @@ pub(crate) struct SortedNumericDocValuesWriter {
 
 impl SortedNumericDocValuesWriter {
   pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
-    let current_values = vec![0i64; 8];
+    let current_values = Vec::with_capacity(8);
     let docs_with_field = DocsWithFieldSet::new();
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
 
@@ -245,16 +245,16 @@ impl SortedNumericDocValuesWriter {
       self.pending_counts = Some(pending_counts);
     }
     self.current_upto = 0;
+    self.current_values.clear();
     self.docs_with_field.add(self.current_doc)?;
     Ok(())
   }
 
   fn add_one_value(&mut self, value: i64) -> Result<()> {
-    if self.current_upto == self.current_values.len() {
-      let len = self.current_values.len();
-      ArrayUtil::grow_with_len(&mut self.current_values, len + 1)?;
+    if self.current_values.len() == self.current_values.capacity() {
+      ArrayUtil::grow_capacity(&mut self.current_values, self.current_upto + 1)?;
     }
-    self.current_values[self.current_upto] = value;
+    self.current_values.push(value);
     self.current_upto += 1;
     Ok(())
   }

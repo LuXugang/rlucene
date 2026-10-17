@@ -167,7 +167,7 @@ impl LuceneDecompressor for DeflateWithPresetDictDecompressor {
     let dict_length = input.read_vint()?;
     let block_length = input.read_vint()?;
     let dict_length_usize = dict_length as usize;
-    ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length_usize)?;
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length_usize, || 0)?;
     bytes.offset = 0;
     bytes.length = 0;
 
@@ -194,7 +194,7 @@ impl LuceneDecompressor for DeflateWithPresetDictDecompressor {
 
     // Read blocks that intersect with the interval we need
     while offset_in_block < offset + length {
-      ArrayUtil::grow_with_len(&mut bytes.bytes, bytes.length + block_length as usize)?;
+      ArrayUtil::grow_with(&mut bytes.bytes, bytes.length + block_length as usize, || 0)?;
       decompressor.reset(false);
       decompressor
         .set_dictionary(&bytes.bytes[..dict_length_usize])
@@ -260,7 +260,12 @@ impl DeflateWithPresetDictCompressor {
       if status == Status::StreamEnd {
         break total_count;
       }
-      ArrayUtil::grow(&mut self.compressed)?;
+      let min_size = self.compressed.len() + 1;
+      ArrayUtil::grow_capacity(&mut self.compressed, min_size)?;
+      self.compressed.resize(
+        self.compressed.capacity().min(ArrayUtil::MAX_ARRAY_LENGTH),
+        0,
+      );
     };
 
     out.write_vint(total_count as i32)?;
@@ -294,7 +299,11 @@ impl Compressor for DeflateWithPresetDictCompressor {
       .ok_or_else(|| LuceneError::illegal_state("compressor is closed"))?;
     compressor.reset();
     let dict_length_usize = dict_length as usize;
-    ArrayUtil::grow_no_copy(&mut self.buffer, (dict_length + block_length) as usize)?;
+    ArrayUtil::grow_no_copy(
+      &mut self.buffer,
+      (dict_length + block_length) as usize,
+      || 0,
+    )?;
     DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length_usize)?;
     self.do_compress(0, dict_length_usize, out)?;
 

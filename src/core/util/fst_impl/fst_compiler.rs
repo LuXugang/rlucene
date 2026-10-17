@@ -429,9 +429,11 @@ where
     self.scratch_bytes.set_position(0)?;
 
     let do_fixed_length_arcs = self.should_expand_node_with_fixed_length_arcs(node_in);
-    if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs {
-      ArrayUtil::grow_no_copy(&mut self.num_bytes_per_arc, node_in.num_arcs)?;
-      ArrayUtil::grow_no_copy(&mut self.num_label_bytes_per_arc, node_in.num_arcs)?;
+    if do_fixed_length_arcs {
+      self.num_bytes_per_arc.clear();
+      self.num_label_bytes_per_arc.clear();
+      ArrayUtil::grow_capacity(&mut self.num_bytes_per_arc, node_in.num_arcs)?;
+      ArrayUtil::grow_capacity(&mut self.num_label_bytes_per_arc, node_in.num_arcs)?;
     }
 
     self.arc_count += node_in.num_arcs as i64;
@@ -520,8 +522,8 @@ where
           if do_fixed_length_arcs {
             let arc_length = self.scratch_bytes.get_position() - last_arc_start;
             let num_arc_bytes: i32 = arc_length.try_convert()?;
-            self.num_bytes_per_arc[arc_idx] = arc_length;
-            self.num_label_bytes_per_arc[arc_idx] = num_label_bytes;
+            self.num_bytes_per_arc.push(arc_length);
+            self.num_label_bytes_per_arc.push(num_label_bytes);
             last_arc_start = self.scratch_bytes.get_position();
             max_bytes_per_arc = max_bytes_per_arc.max(num_arc_bytes);
             max_bytes_per_arc_without_label =
@@ -1477,7 +1479,7 @@ impl FixedLengthArcsBuffer {
   /// Ensures the capacity of the internal byte array. Enlarges it if needed.
   pub(crate) fn ensure_capacity(&mut self, capacity: usize) -> Result<()> {
     if self.bado.bytes.len() < capacity {
-      ArrayUtil::grow_no_copy(&mut self.bado.bytes, capacity)?;
+      ArrayUtil::grow_no_copy(&mut self.bado.bytes, capacity, || 0)?;
       self.bado.reset()?;
     }
     Ok(())

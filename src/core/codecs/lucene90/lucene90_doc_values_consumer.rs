@@ -536,8 +536,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   where
     T: SortedNumericDocValues,
   {
-    let mut offsets: Vec<i64> = vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES)?];
-    let mut offsets_index: usize = 0;
+    let mut offsets: Vec<i64> = Vec::with_capacity(ArrayUtil::oversize(1, BitUtil::LONG_BYTES)?);
     const NUMERIC_BLOCK_SIZE: usize = Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize;
     let mut buffer = [0i64; NUMERIC_BLOCK_SIZE];
     let mut encode_buffer = ByteBuffersDataOutput::new_resettable_instance();
@@ -550,9 +549,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         upto += 1;
 
         if upto == NUMERIC_BLOCK_SIZE {
-          ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1)?;
-          offsets[offsets_index] = self.data.get_file_pointer()? as i64;
-          offsets_index += 1;
+          if offsets.len() == offsets.capacity() {
+            let min_size = offsets.len() + 1;
+            ArrayUtil::grow_capacity(&mut offsets, min_size)?;
+          }
+          offsets.push(self.data.get_file_pointer()? as i64);
           self.write_block(&buffer, NUMERIC_BLOCK_SIZE, gcd, &mut encode_buffer)?;
           upto = 0;
         }
@@ -560,14 +561,16 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       doc = values.next_doc()?;
     }
     if upto > 0 {
-      ArrayUtil::grow_with_len(&mut offsets, offsets_index + 1)?;
-      offsets[offsets_index] = self.data.get_file_pointer()? as i64;
-      offsets_index += 1;
+      if offsets.len() == offsets.capacity() {
+        let min_size = offsets.len() + 1;
+        ArrayUtil::grow_capacity(&mut offsets, min_size)?;
+      }
+      offsets.push(self.data.get_file_pointer()? as i64);
       self.write_block(&buffer[..upto], upto, gcd, &mut encode_buffer)?;
     }
     // All blocks has been written. Flush the offset jump-table
     let offsets_origo = self.data.get_file_pointer()?.try_convert()?;
-    for &offset in offsets.iter().take(offsets_index) {
+    for &offset in &offsets {
       self.data.write_long(offset)?;
     }
     self.data.write_long(offsets_origo)?;
@@ -786,7 +789,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
     let original_length = terms_dict_buffer.len();
     if pos + term_length >= original_length - 1 {
-      ArrayUtil::grow_with_len(terms_dict_buffer, original_length + term_length)?;
+      ArrayUtil::grow_with(terms_dict_buffer, original_length + term_length, || 0)?;
       debug_assert!(terms_dict_buffer.len() <= i32::MAX as usize);
       let terms_dict_buffer_len = terms_dict_buffer.len();
       buffered_output.reset_with_range(pos, terms_dict_buffer_len - pos)?;
@@ -1503,9 +1506,10 @@ where
     if doc != NO_MORE_DOCS {
       self.doc_value_count = self.value.doc_value_count()?;
       let count = self.doc_value_count as usize;
-      ArrayUtil::grow_with_len(&mut self.ords, count)?;
-      for ord in &mut self.ords[..count] {
-        *ord = self.value.next_ord()?;
+      ArrayUtil::grow_capacity(&mut self.ords, count)?;
+      self.ords.clear();
+      for _ in 0..count {
+        self.ords.push(self.value.next_ord()?);
       }
       self.i = 0;
     }

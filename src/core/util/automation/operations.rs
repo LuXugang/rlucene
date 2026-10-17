@@ -1278,13 +1278,11 @@ pub(crate) struct TransitionList {
 
 impl TransitionList {
   pub(crate) fn add(&mut self, t: &Transition) -> Result<()> {
-    if self.transitions.len() < self.next + 3 {
-      ArrayUtil::grow_with_len(&mut self.transitions, self.next + 3)?;
+    if self.transitions.capacity() < self.next + 3 {
+      ArrayUtil::grow_capacity(&mut self.transitions, self.next + 3)?;
     }
-
-    self.transitions[self.next] = t.dest;
-    self.transitions[self.next + 1] = t.min;
-    self.transitions[self.next + 2] = t.max;
+    self.transitions.truncate(self.next);
+    self.transitions.extend_from_slice(&[t.dest, t.min, t.max]);
     self.next += 3;
     Ok(())
   }
@@ -1353,7 +1351,18 @@ impl PointTransitionSet {
   }
   fn next(&mut self, point: i32) -> Result<usize> {
     if self.count == self.points.len() {
-      ArrayUtil::grow_with_len(&mut self.points, 1 + self.count)?;
+      ArrayUtil::grow_capacity(&mut self.points, 1 + self.count)?;
+      self.points.push(PointTransitions {
+        point,
+        ends: TransitionList {
+          transitions: Vec::new(),
+          next: 0,
+        },
+        starts: TransitionList {
+          transitions: Vec::new(),
+          next: 0,
+        },
+      });
     }
     let points0 = &mut self.points[self.count];
     points0.reset(point);

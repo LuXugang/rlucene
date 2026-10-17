@@ -150,7 +150,7 @@ where
       comparator.values_doc_id = self.current_docs.doc_id();
       let count = self.current_docs.doc_value_count()? as usize;
       if count > comparator.current_values.len() {
-        ArrayUtil::grow_no_copy(&mut comparator.current_values, count)?;
+        ArrayUtil::grow_no_copy(&mut comparator.current_values, count, || 0)?;
       }
 
       for i in 0..count {

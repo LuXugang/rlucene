@@ -53,7 +53,7 @@ impl BytesRefArray {
     let allocator = DirectTrackingAllocatorByte::new(byte_used.clone());
     let mut pool = ByteBlockPool::new(allocator);
     pool.next_buffer()?;
-    let offsets = vec![0];
+    let offsets = Vec::with_capacity(1);
     byte_used.add_and_get(size_of_vec(&offsets));
     Ok(BytesRefArray {
       pool,
@@ -237,16 +237,16 @@ impl BytesRefArray {
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
   fn append<AV: ByteSource>(&mut self, bytes: &BytesRef<AV>) -> Result<usize> {
     let view = bytes.as_byte_slice();
-    if self.last_element >= self.offsets.len() {
+    if self.offsets.len() == self.offsets.capacity() {
       let old_size = size_of_vec(&self.offsets);
       let min_size = self.offsets.len() + 1;
-      ArrayUtil::grow_with_len(&mut self.offsets, min_size)?;
+      ArrayUtil::grow_capacity(&mut self.offsets, min_size)?;
       self
         .byte_used
         .add_and_get(size_of_vec(&self.offsets) - old_size);
     }
     self.pool.append(view)?;
-    self.offsets[self.last_element] = self.current_offset;
+    self.offsets.push(self.current_offset);
     self.last_element += 1;
     self.current_offset += view.len();
     Ok(self.last_element - 1)
@@ -255,7 +255,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
   fn clear(&mut self) {
     self.last_element = 0;
     self.current_offset = 0;
-    self.offsets.fill(0);
+    self.offsets.clear();
     self.pool.reset(false, true) // no need to 0 fill the buffers we control
     // the allocator
   }
@@ -360,7 +360,7 @@ impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
       let offset = offset as i64;
       let pos = (offset & BYTE_BLOCK_MASK as i64) as usize;
       if pos + length > BYTE_BLOCK_SIZE as usize {
-        ArrayUtil::grow_no_copy(&mut self.result.bytes, length)?;
+        ArrayUtil::grow_no_copy(&mut self.result.bytes, length, || 0)?;
       }
       self.result.length = length;
       let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;

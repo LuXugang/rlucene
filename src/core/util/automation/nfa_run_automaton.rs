@@ -45,6 +45,7 @@ pub struct NFARunAutomaton {
   tables: Arc<NFARunAutomatonTables>,
   alphabet_size: i32,
   dstates: Vec<DState>,
+  dstate_slots: usize,
   state: State,
   states_set: StateSet,
 }
@@ -86,6 +87,7 @@ impl NFARunAutomaton {
       tables: Arc::new(NFARunAutomatonTables { points, classmap }),
       alphabet_size,
       dstates: Vec::with_capacity(10),
+      dstate_slots: 0,
       state,
       states_set: StateSet::new(5),
     };
@@ -142,11 +144,21 @@ impl NFARunAutomaton {
           },
         }
 
-        if ord >= self.dstates.len() {
-          ArrayUtil::grow_with_len(&mut self.dstates, ord + 1)?;
+        if ord >= self.dstate_slots {
+          // ByteRunnable::get_size exposes the historical slot growth, separately
+          // from the number of initialized states.
+          let capacity = self.dstates.capacity().min(ArrayUtil::MAX_ARRAY_LENGTH);
+          let slots = if capacity > ord {
+            capacity
+          } else {
+            ArrayUtil::oversize(ord + 1, size_of::<DState>())?
+          };
+          self.dstates.reserve(slots - self.dstates.len());
+          self.dstate_slots = slots;
         }
 
-        self.dstates[ord] = dstate;
+        debug_assert_eq!(ord, self.dstates.len());
+        self.dstates.push(dstate);
 
         Ok(ord as i32)
       },
@@ -471,7 +483,7 @@ impl ByteRunnable for NFARunAutomaton {
 
   fn get_size(&self) -> usize {
     debug_assert!(self.dstates.len() <= i32::MAX as usize);
-    self.dstates.len()
+    self.dstate_slots
   }
 }
 
@@ -503,22 +515,6 @@ struct DState {
   minimal_transition: Option<Transition>,
   computed_transitions: usize,
   outgoing_transitions: i32,
-}
-// The purpose of implementing Default is to enable use with Vec::default(),
-// where the default value acts as a placeholder.
-impl Default for DState {
-  fn default() -> Self {
-    Self {
-      nfa_states: Arc::new(vec![]),
-      transitions: vec![],
-      hash_code: 0,
-      is_accept: false,
-      step_transition: Transition::default(),
-      minimal_transition: None,
-      computed_transitions: 0,
-      outgoing_transitions: 0,
-    }
-  }
 }
 impl DState {
   fn new(nfa_states: Arc<Vec<i32>>, nfa: &NFARunAutomaton) -> Self {

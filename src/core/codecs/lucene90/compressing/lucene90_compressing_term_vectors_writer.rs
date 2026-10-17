@@ -1013,14 +1013,14 @@ where
       payloads,
     );
     if positions && self.positions_buf.is_empty() {
-      self.positions_buf.resize(1024, 0);
+      ArrayUtil::grow_capacity(&mut self.positions_buf, 1024)?;
     }
     if offsets && self.start_offsets_buf.is_empty() {
-      self.start_offsets_buf.resize(1024, 0);
-      self.lengths_buf.resize(1024, 0);
+      ArrayUtil::grow_capacity(&mut self.start_offsets_buf, 1024)?;
+      ArrayUtil::grow_capacity(&mut self.lengths_buf, 1024)?;
     }
     if payloads && self.payload_lengths_buf.is_empty() {
-      self.payload_lengths_buf.resize(1024, 0);
+      ArrayUtil::grow_capacity(&mut self.payload_lengths_buf, 1024)?;
     }
     self.last_term.length = 0;
     Ok(())
@@ -1063,7 +1063,7 @@ where
       .write_bytes_range(term.bytes, term.offset + prefix, suffix_len)?;
     // copy last term
     if self.last_term.bytes.len() < term.length {
-      ArrayUtil::grow_no_copy(&mut self.last_term.bytes, term.length)?;
+      ArrayUtil::grow_no_copy(&mut self.last_term.bytes, term.length, || 0)?;
     }
 
     self.last_term.offset = 0;
@@ -1180,7 +1180,7 @@ where
       let pos_start = cur_field.pos_start + cur_field.total_positions;
       let len = pos_start + num_prox;
       if len > self.positions_buf.len() {
-        ArrayUtil::grow_i32(&mut self.positions_buf, len)?;
+        ArrayUtil::grow_with(&mut self.positions_buf, len, || 0)?;
       }
 
       let mut position = 0;
@@ -1188,7 +1188,7 @@ where
         let pay_start = cur_field.pay_start + cur_field.total_positions;
         let len = pay_start + num_prox;
         if len > self.payload_lengths_buf.len() {
-          ArrayUtil::grow_i32(&mut self.payload_lengths_buf, len)?;
+          ArrayUtil::grow_with(&mut self.payload_lengths_buf, len, || 0)?;
         }
 
         for i in 0..num_prox {
@@ -1222,8 +1222,8 @@ where
       let len = off_start + num_prox;
       if self.start_offsets_buf.len() < len {
         let new_length = ArrayUtil::oversize(len, 4)?;
-        ArrayUtil::grow_exact(&mut self.start_offsets_buf, new_length)?;
-        ArrayUtil::grow_exact(&mut self.lengths_buf, new_length)?;
+        ArrayUtil::grow_exact(&mut self.start_offsets_buf, new_length, || 0)?;
+        ArrayUtil::grow_exact(&mut self.lengths_buf, new_length, || 0)?;
       }
 
       let mut last_offset = 0;
@@ -1481,28 +1481,34 @@ impl FieldData {
     if self.has_positions {
       let required = self.pos_start + self.total_positions;
       if required == positions_buf.len() {
-        ArrayUtil::grow(positions_buf)?;
+        ArrayUtil::grow_capacity(positions_buf, required + 1)?;
+        positions_buf.push(position);
+      } else {
+        positions_buf[required] = position;
       }
-      positions_buf[required] = position;
     }
 
     if self.has_offsets {
       let required = self.off_start + self.total_positions;
       if required == start_offsets_buf.len() {
-        let new_len = ArrayUtil::oversize(required, 4)?;
-        ArrayUtil::grow_exact(start_offsets_buf, new_len)?;
-        ArrayUtil::grow_exact(lengths_buf, new_len)?;
+        ArrayUtil::grow_capacity(start_offsets_buf, required + 1)?;
+        ArrayUtil::grow_capacity(lengths_buf, required + 1)?;
+        start_offsets_buf.push(start_offset);
+        lengths_buf.push(length);
+      } else {
+        start_offsets_buf[required] = start_offset;
+        lengths_buf[required] = length;
       }
-      start_offsets_buf[required] = start_offset;
-      lengths_buf[required] = length;
     }
 
     if self.has_payloads {
       let required = self.pay_start + self.total_positions;
       if required == payload_lengths_buf.len() {
-        ArrayUtil::grow(payload_lengths_buf)?;
+        ArrayUtil::grow_capacity(payload_lengths_buf, required + 1)?;
+        payload_lengths_buf.push(payload_length);
+      } else {
+        payload_lengths_buf[required] = payload_length;
       }
-      payload_lengths_buf[required] = payload_length;
     }
     self.total_positions += 1;
     Ok(())

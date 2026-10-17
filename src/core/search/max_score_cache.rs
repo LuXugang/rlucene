@@ -119,9 +119,13 @@ where
 
   fn ensure_cache_size(&mut self, size: usize) -> Result<()> {
     if size > self.max_score_cache.inline.len() {
-      ArrayUtil::grow_with_len(
+      ArrayUtil::grow_with(
         &mut self.max_score_cache.extra,
         size - self.max_score_cache.inline.len(),
+        || CacheEntry {
+          score: 0.0,
+          upto: -1,
+        },
       )?;
     }
     Ok(())

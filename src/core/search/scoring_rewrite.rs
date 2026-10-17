@@ -261,7 +261,8 @@ where
         Err(LuceneError::UnsupportedOperation(_)) => DEFAULT_BOOST,
         Err(e) => return Err(e),
       };
-      array.boost[pos] = boost;
+      debug_assert_eq!(pos, array.boost.len());
+      array.boost.push(boost);
       array.term_state.push(TermStates::with_state_and_stats(
         top_reader_context,
         state,
@@ -303,13 +304,13 @@ impl BytesStartArray for TermFreqBoostByteStart {
   fn init(&mut self) -> Result<()> {
     self.base.init()?;
     let len = self.base.bytes_start.as_slice().len();
-    ArrayUtil::grow_no_copy(&mut self.boost, len)?;
+    ArrayUtil::grow_capacity(&mut self.boost, len)?;
     if self.term_state.capacity() < len {
       let capacity = ArrayUtil::oversize(len, size_of::<TermStates>())?;
       self.term_state.reserve(capacity - self.term_state.len());
     }
     debug_assert!(self.term_state.capacity() >= len);
-    debug_assert!(self.boost.len() >= len);
+    debug_assert!(self.boost.capacity() >= len);
     Ok(())
   }
 
@@ -317,7 +318,7 @@ impl BytesStartArray for TermFreqBoostByteStart {
     self.base.grow()?;
     let ord = self.base.bytes_start.as_slice();
     let len = ord.len();
-    ArrayUtil::grow_with_len(&mut self.boost, len)?;
+    ArrayUtil::grow_capacity(&mut self.boost, len)?;
     if self.term_state.capacity() < len {
       self.term_state.reserve(len - self.term_state.len());
     }

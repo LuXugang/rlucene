@@ -414,12 +414,10 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
 
   pub fn take_and_reset<T, F>(target: &mut T, reset_fn: F) -> T
   where
-    T: Default,
     F: FnOnce(&T) -> T,
   {
-    let old = std::mem::take(target);
-    *target = reset_fn(&old);
-    old
+    let replacement = reset_fn(target);
+    std::mem::replace(target, replacement)
   }
   pub fn calculate_hash<T>(value: &T) -> u64
   where

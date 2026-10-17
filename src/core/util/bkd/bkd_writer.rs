@@ -2729,7 +2729,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
     debug_assert_eq!(self.docs_in_block, 0);
     if self.doc_ids.len() < count {
-      ArrayUtil::grow_i32(&mut self.doc_ids, count)?;
+      ArrayUtil::grow_no_copy(&mut self.doc_ids, count, || 0)?;
       let packed_values_size: i32 =
         (self.doc_ids.len() * self.packed_bytes_length).try_convert()?;
       // TODO:
@@ -2740,7 +2740,7 @@ impl IntersectVisitor for MergeIntersectsVisitor {
       //         packed_values_size
       //     )));
       // }
-      ArrayUtil::grow_exact(&mut self.packed_values, packed_values_size as usize)?;
+      ArrayUtil::grow_no_copy(&mut self.packed_values, packed_values_size as usize, || 0)?;
     }
     Ok(())
   }

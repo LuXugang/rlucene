@@ -297,14 +297,16 @@ impl State {
       self.labels.binary_search(&label).is_err(),
       "State already has transition labeled: {label}"
     );
-    let mut labels_len = self.labels.len();
-    let mut states_len = self.states.len();
-    ArrayUtil::grow_exact(&mut self.labels, labels_len + 1)?;
-    ArrayUtil::grow_exact(&mut self.states, states_len + 1)?;
-    labels_len = self.labels.len();
-    states_len = self.states.len();
-    self.labels[labels_len - 1] = label;
-    self.states[states_len - 1] = new_state;
+    if self.labels.len() == self.labels.capacity() {
+      let min_size = self.labels.len() + 1;
+      ArrayUtil::grow_capacity(&mut self.labels, min_size)?;
+    }
+    if self.states.len() == self.states.capacity() {
+      let min_size = self.states.len() + 1;
+      ArrayUtil::grow_capacity(&mut self.states, min_size)?;
+    }
+    self.labels.push(label);
+    self.states.push(new_state);
     Ok(new_state)
   }
   /// Returns the most recent transition's target state.

@@ -84,7 +84,7 @@ where
     self
       .bytes_ref
       .bytes
-      .access_mut(|bytes| ArrayUtil::grow_with_len(bytes, capacity))
+      .access_mut(|bytes| ArrayUtil::grow_with(bytes, capacity, || 0))
   }
   pub fn grow_no_copy(&mut self, capacity: usize) -> Result<()>
   where
@@ -93,7 +93,7 @@ where
     self
       .bytes_ref
       .bytes
-      .access_mut(|bytes| ArrayUtil::grow_no_copy(bytes, capacity))
+      .access_mut(|bytes| ArrayUtil::grow_no_copy(bytes, capacity, || 0))
   }
 
   /// Append a single byte to this builder.

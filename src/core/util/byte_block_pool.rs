@@ -159,7 +159,7 @@ impl ByteBlockPool {
       if matches!(result.bytes, Cow::Borrowed(_)) {
         result.bytes = Cow::Owned(std::mem::take(&mut builder.get_bytes_mut_ref().bytes));
       }
-      ArrayUtil::grow_no_copy(result.bytes.to_mut(), length)?;
+      ArrayUtil::grow_no_copy(result.bytes.to_mut(), length, || 0)?;
     }
     result.length = length;
     let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;

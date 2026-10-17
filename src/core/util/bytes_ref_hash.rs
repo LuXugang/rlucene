@@ -727,7 +727,7 @@ impl BytesStartArray for DirectBytesStartArray {
   fn grow(&mut self) -> Result<()> {
     debug_assert!(self.init);
     let length = self.bytes_start.len();
-    ArrayUtil::grow_i32(&mut self.bytes_start, length + 1)?;
+    ArrayUtil::grow_with(&mut self.bytes_start, length + 1, || 0)?;
     Ok(())
   }
 

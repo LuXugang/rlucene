@@ -188,7 +188,7 @@ where
   )?;
   let iterations = values.len() / Encoder::byte_value_count(encoder);
   let block_size = Encoder::byte_block_count(encoder) * iterations;
-  ArrayUtil::grow_no_copy(blocks, block_size)?;
+  ArrayUtil::grow_no_copy(blocks, block_size, || 0)?;
   if off < values.len() {
     for value in values.iter_mut().skip(off) {
       *value = 0;

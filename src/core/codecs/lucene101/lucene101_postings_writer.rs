@@ -44,7 +44,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::{IOUtils, SliceCopyOps, TryIntoInt};
+use crate::core::util::{IOUtils, TryIntoInt};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -804,12 +804,12 @@ where
         } else {
           self.payload_length_buffer[idx] = p.length as i32;
           if self.payload_byte_upto + p.length > self.payload_bytes.len() {
-            ArrayUtil::grow_with_len(&mut self.payload_bytes, self.payload_byte_upto + p.length)?;
+            ArrayUtil::grow_capacity(&mut self.payload_bytes, self.payload_byte_upto + p.length)?;
           }
           let start = p.offset;
-          self
-            .payload_bytes
-            .copy_from(&p.bytes[start..start + p.length], self.payload_byte_upto);
+          let payload = &p.bytes[start..start + p.length];
+          self.payload_bytes.truncate(self.payload_byte_upto);
+          self.payload_bytes.extend_from_slice(payload);
           self.payload_byte_upto += p.length;
         }
       } else {

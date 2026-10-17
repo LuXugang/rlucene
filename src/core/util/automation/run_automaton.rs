@@ -59,13 +59,16 @@ impl RunAutomaton {
     }
 
     let points = automaton.get_start_points();
-    let state_count = std::cmp::max(1, automaton.get_num_states());
+    let automaton_states = automaton.get_num_states();
+    let state_count = std::cmp::max(1, automaton_states);
     let size = state_count as usize;
     let mut accept = FixedBitSet::new(size);
     let mut transitions = vec![-1; size * points.len()];
 
     let mut transition = Transition::default();
-    for n in 0..state_count {
+    // The empty language retains one rejecting run state, but has no source
+    // state to read from the automaton's initialized-state vector.
+    for n in 0..automaton_states {
       let state_index = n as usize;
       if automaton.is_accept(n) {
         accept.set(state_index)?;

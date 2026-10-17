@@ -746,7 +746,7 @@ impl BitSet for FixedBitSet {
       let num_words = Self::bits2words(num_bits);
       let length = self.bits.len();
       if num_words >= length {
-        ArrayUtil::grow_with_len(&mut self.bits, num_words + 1)?;
+        ArrayUtil::grow_with(&mut self.bits, num_words + 1, || 0)?;
       }
       debug_assert!(self.bits.len() <= i32::MAX as usize);
       self.num_bits = (self.bits.len()) << 6;

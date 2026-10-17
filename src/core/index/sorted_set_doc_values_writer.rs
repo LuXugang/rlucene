@@ -328,7 +328,7 @@ impl SortedSetDocValuesWriter {
     let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array)?;
     let pending = PackedLongValues::packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
-    let current_values = vec![0i32; 8];
+    let current_values = Vec::with_capacity(8);
     let bytes_used =
       pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()? + size_of_vec(&current_values);
     iw_bytes_used.add_and_get(bytes_used);
@@ -405,6 +405,7 @@ impl SortedSetDocValuesWriter {
     }
     self.max_count = self.max_count.max(count);
     self.current_upto = 0;
+    self.current_values.clear();
     self.docs_with_field.add(self.current_doc)?;
     Ok(())
   }
@@ -421,11 +422,10 @@ impl SortedSetDocValuesWriter {
         .iw_bytes_used
         .add_and_get((2 * BitUtil::INT_BYTES) as i64);
     }
-    if self.current_upto == self.current_values.len() {
-      let old_cap = self.current_values.len();
-      ArrayUtil::grow_with_len(&mut self.current_values, old_cap + 1)?;
+    if self.current_values.len() == self.current_values.capacity() {
+      ArrayUtil::grow_capacity(&mut self.current_values, self.current_upto + 1)?;
     }
-    self.current_values[self.current_upto] = term_id;
+    self.current_values.push(term_id);
     self.current_upto += 1;
     Ok(())
   }

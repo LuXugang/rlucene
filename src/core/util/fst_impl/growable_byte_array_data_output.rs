@@ -60,7 +60,7 @@ impl GrowableByteArrayDataOutput {
   /// Ensure we can write additional `capacity_to_write` bytes.
   #[inline]
   fn ensure_capacity(&mut self, capacity_to_write: usize) -> Result<()> {
-    ArrayUtil::grow_with_len(&mut self.bytes, self.next_write + capacity_to_write)
+    ArrayUtil::grow_with(&mut self.bytes, self.next_write + capacity_to_write, || 0)
   }
   /// Writes all of our bytes to the target `Write`.
   pub fn write_to_data_output<DO>(&self, out: &mut DO) -> Result<()>

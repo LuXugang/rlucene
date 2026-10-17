@@ -524,9 +524,9 @@ impl PostingsArrayBase for TermVectorsPostingsArray {
   fn copy_to(&mut self, new_size: usize) -> Result<()> {
     self.parent.copy_to(new_size)?;
     self.size = new_size;
-    ArrayUtil::grow_exact(&mut self.freqs, new_size)?;
-    ArrayUtil::grow_exact(&mut self.last_offsets, new_size)?;
-    ArrayUtil::grow_exact(&mut self.last_positions, new_size)?;
+    ArrayUtil::grow_exact(&mut self.freqs, new_size, || 0)?;
+    ArrayUtil::grow_exact(&mut self.last_offsets, new_size, || 0)?;
+    ArrayUtil::grow_exact(&mut self.last_positions, new_size, || 0)?;
     Ok(())
   }
 }

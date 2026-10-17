@@ -58,7 +58,7 @@ impl PointValuesWriter {
   pub(crate) fn new(iw_bytes_used: SharedCounter, field_info: Arc<FieldInfo>) -> Result<Self> {
     let bytes = PagedBytes::new(12);
     let bytes_out = get_data_output(bytes)?;
-    let doc_ids = vec![0; 16];
+    let doc_ids = Vec::with_capacity(16);
     iw_bytes_used.add_and_get((16 * BitUtil::INT_BYTES) as i64);
     let packed_bytes_length =
       field_info.get_point_dimension_count() * field_info.get_point_num_bytes();
@@ -83,9 +83,9 @@ impl PointValuesWriter {
       )));
     }
 
-    if self.doc_ids.len() == self.num_points {
+    if self.doc_ids.len() == self.doc_ids.capacity() {
       let old_capacity = self.doc_ids.capacity();
-      ArrayUtil::grow_with_len(&mut self.doc_ids, self.num_points + 1)?;
+      ArrayUtil::grow_capacity(&mut self.doc_ids, self.num_points + 1)?;
       self
         .iw_bytes_used
         .add_and_get(((self.doc_ids.capacity() - old_capacity) * BitUtil::INT_BYTES) as i64);
@@ -99,7 +99,7 @@ impl PointValuesWriter {
       .iw_bytes_used
       .add_and_get(self.bytes_out.paged_bytes.ram_bytes_used()? - bytes_ram_bytes_used_before);
 
-    self.doc_ids[self.num_points] = doc_id;
+    self.doc_ids.push(doc_id);
     if doc_id != self.last_doc_id {
       self.num_docs += 1;
       self.last_doc_id = doc_id;

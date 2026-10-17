@@ -249,9 +249,9 @@ where
       hash_mask: 1,
       total_field_count: 0,
       next_field_gen: 0,
-      fields: vec![0; 1],
+      fields: Vec::with_capacity(1),
       per_fields: vec![],
-      doc_fields: vec![0; 2],
+      doc_fields: Vec::with_capacity(2),
       info_stream,
       index_created_version_major,
       has_hit_aborting_exception: false,
@@ -810,6 +810,8 @@ where
     let field_gen = self.next_field_gen;
     self.next_field_gen += 1;
     let mut doc_field_idx = 0;
+    self.fields.clear();
+    self.doc_fields.clear();
     // NOTE: we need two passes here, in case there are
     // multi-valued fields, because we must process all
     // instances of a given field at once, since the
@@ -847,16 +849,17 @@ where
 
           if pf.field_gen != field_gen {
             // first time we see this field in this document
-            self.fields[field_count] = pf_idx;
+            self.fields.push(pf_idx);
             field_count += 1;
             pf.field_gen = field_gen;
             pf.reset(doc_id);
           }
         }
-        if doc_field_idx >= self.doc_fields.len() {
-          self.oversize_doc_fields()?;
+        if self.doc_fields.len() == self.doc_fields.capacity() {
+          let min_size = self.doc_fields.len() + 1;
+          ArrayUtil::grow_capacity(&mut self.doc_fields, min_size)?;
         }
-        self.doc_fields[doc_field_idx] = pf_idx;
+        self.doc_fields.push(pf_idx);
         doc_field_idx += 1;
         let pf = &mut self.per_fields[pf_idx];
         Self::update_doc_field_schema(field.name(), &mut pf.schema, &field_type)?;
@@ -890,6 +893,7 @@ where
       // 2nd pass over doc fields – index each field
       // also count the number of unique fields indexed with postings
       doc_field_idx = 0;
+      self.fields.clear();
 
       for field in first_field.iter_mut().chain(document.iter_mut()) {
         let field = field.borrow_mut();
@@ -901,7 +905,7 @@ where
           index_writer_config,
           aborting_exception_consumer,
         )? {
-          self.fields[indexed_field_count] = self.doc_fields[doc_field_idx];
+          self.fields.push(self.doc_fields[doc_field_idx]);
           indexed_field_count += 1;
         }
         doc_field_idx += 1;
@@ -932,11 +936,6 @@ where
       )?;
     }
     unwrap_caught_result!(result)
-  }
-  fn oversize_doc_fields(&mut self) -> Result<()> {
-    let required = self.doc_fields.len() + 1;
-    ArrayUtil::grow_with_len(&mut self.doc_fields, required)?;
-    Ok(())
   }
   pub(crate) fn initialize_field_info<D1, T>(
     &mut self,
@@ -1185,8 +1184,8 @@ where
     if self.total_field_count >= (self.field_hash.len() >> 1) {
       self.rehash();
     }
-    if self.total_field_count > self.fields.len() {
-      ArrayUtil::grow_with_len(&mut self.fields, self.total_field_count)?;
+    if self.total_field_count > self.fields.capacity() {
+      ArrayUtil::grow_capacity(&mut self.fields, self.total_field_count)?;
     }
     Ok(index)
   }

@@ -221,12 +221,12 @@ impl FieldUpdatesBuffer {
       };
 
       if let Some(old_size) = old_size {
-        ArrayUtil::grow_with_len(&mut self.fields, ord + 1)?;
-        if fields_len == 1 {
-          for i in 1..ord {
-            self.fields[i] = self.fields[0];
-          }
-        }
+        let fill = if fields_len == 1 {
+          first_field_index
+        } else {
+          0
+        };
+        ArrayUtil::grow_with(&mut self.fields, ord + 1, || fill)?;
         self.fields[ord] = field_index;
         self.bytes_used.add_and_get(
           Self::size_of_fields(&self.fields, &self.field_names).saturating_sub(old_size),
@@ -241,12 +241,12 @@ impl FieldUpdatesBuffer {
     if self.docs_upto[0] != doc_upto || docs_upto_len != 1 {
       if docs_upto_len <= ord {
         let old_size = size_of_vec(&self.docs_upto);
-        ArrayUtil::grow_with_len(&mut self.docs_upto, ord + 1)?;
-        if docs_upto_len == 1 {
-          for i in 1..ord {
-            self.docs_upto[i] = self.docs_upto[0];
-          }
-        }
+        let fill = if docs_upto_len == 1 {
+          self.docs_upto[0]
+        } else {
+          0
+        };
+        ArrayUtil::grow_with(&mut self.docs_upto, ord + 1, || fill)?;
         self
           .bytes_used
           .add_and_get(size_of_vec(&self.docs_upto).saturating_sub(old_size));
@@ -295,12 +295,12 @@ impl FieldUpdatesBuffer {
     if numeric_values[0] != value || numeric_values_len != 1 {
       if numeric_values_len <= ord {
         let old_size = size_of_vec(numeric_values);
-        ArrayUtil::grow_with_len(numeric_values, ord + 1)?;
-        if numeric_values_len == 1 {
-          for i in 1..ord {
-            numeric_values[i] = numeric_values[0];
-          }
-        }
+        let fill = if numeric_values_len == 1 {
+          numeric_values[0]
+        } else {
+          0
+        };
+        ArrayUtil::grow_with(numeric_values, ord + 1, || fill)?;
         self
           .bytes_used
           .add_and_get(size_of_vec(numeric_values).saturating_sub(old_size));

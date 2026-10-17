@@ -26,7 +26,7 @@ use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-use crate::core::util::{BitSetExt, SliceCopyOps, Sorter, TryIntoInt};
+use crate::core::util::{BitSetExt, Sorter, TryIntoInt};
 
 /// Struct representing an automaton and all its states and transitions. States
 /// are integers and must be created using
@@ -97,7 +97,7 @@ impl Automaton {
       cur_state: None,
       states: vec![0; num_states * 2],
       is_accept: BitSet::with_capacity(num_states),
-      transitions: vec![0; num_transitions * 3],
+      transitions: Vec::with_capacity(num_transitions * 3),
       deterministic: true,
     }
   }
@@ -176,10 +176,7 @@ impl Automaton {
       self.states[2 * source] = self.next_transition as i32;
     }
 
-    let next_transition = self.next_transition;
-    self.transitions[next_transition] = dest;
-    self.transitions[next_transition + 1] = min;
-    self.transitions[next_transition + 2] = max;
+    self.transitions.extend_from_slice(&[dest, min, max]);
     self.next_transition += 3;
     // Increment transition count for this state
     self.states[2 * source + 1] += 1;
@@ -207,10 +204,8 @@ impl Automaton {
     // Bulk copy and fix up state pointers
     let state_offset = self.get_num_states();
     let total_states = self.next_state + other.next_state;
-    ArrayUtil::grow_with_len(&mut self.states, total_states)?;
-    self
-      .states
-      .copy_from(&other.states[0..other.next_state], self.next_state);
+    ArrayUtil::grow_with(&mut self.states, total_states, || 0)?;
+    self.states[self.next_state..total_states].copy_from_slice(&other.states[..other.next_state]);
 
     let next_state = self.next_state;
     for i in (0..other.next_state).step_by(2) {
@@ -234,11 +229,10 @@ impl Automaton {
 
     // Bulk copy and then fixup dest for each transition:
     let len = self.next_transition + other.next_transition;
-    ArrayUtil::grow_with_len(&mut self.transitions, len)?;
-    self.transitions.copy_from(
-      &other.transitions[0..other.next_transition],
-      self.next_transition,
-    );
+    ArrayUtil::grow_capacity(&mut self.transitions, len)?;
+    self
+      .transitions
+      .extend_from_slice(&other.transitions[..other.next_transition]);
 
     let next_transition = self.next_transition;
     for i in (0..other.next_transition).step_by(3) {
@@ -318,6 +312,7 @@ impl Automaton {
     // adjust counters
     debug_assert!(upto.to_i32().is_some());
     self.next_transition -= (num_transitions - upto as i32) as usize * 3;
+    self.transitions.truncate(self.next_transition);
     self.states[2 * state + 1] = upto as i32;
 
     // Sort transitions by min/max/dest:
@@ -368,15 +363,15 @@ impl Automaton {
   fn grow_states(&mut self) -> Result<()> {
     let len = self.next_state + 2;
     if len > self.states.len() {
-      ArrayUtil::grow_with_len(&mut self.states, len)?;
+      ArrayUtil::grow_with(&mut self.states, len, || 0)?;
     }
     Ok(())
   }
 
   fn grow_transitions(&mut self) -> Result<()> {
     let len = self.next_transition + 3;
-    if len > self.transitions.len() {
-      ArrayUtil::grow_with_len(&mut self.transitions, len)?;
+    if len > self.transitions.capacity() {
+      ArrayUtil::grow_capacity(&mut self.transitions, len)?;
     }
     Ok(())
   }
@@ -631,7 +626,7 @@ impl Builder {
   /// - `num_transitions`: Number of transitions
   pub fn with_capacity(num_states: usize, num_transitions: usize) -> Self {
     let is_accept = BitSet::with_capacity(num_states);
-    let transitions = vec![0; num_transitions * 4];
+    let transitions = Vec::with_capacity(num_transitions * 4);
     Builder {
       next_state: 0,
       is_accept,
@@ -646,19 +641,13 @@ impl Builder {
   /// Add a new transition with the specified source, dest, min, max.
   pub fn add_transition(&mut self, source: i32, dest: i32, min: i32, max: i32) -> Result<()> {
     let new_len = self.next_transition + 4;
-    if self.transitions.len() < new_len {
-      ArrayUtil::grow_with_len(&mut self.transitions, new_len)?;
+    if self.transitions.capacity() < new_len {
+      ArrayUtil::grow_capacity(&mut self.transitions, new_len)?;
     }
-    let mut next_transition = self.next_transition;
-    self.transitions[next_transition] = source;
-    next_transition += 1;
-    self.transitions[next_transition] = dest;
-    next_transition += 1;
-    self.transitions[next_transition] = min;
-    next_transition += 1;
-    self.transitions[next_transition] = max;
-    next_transition += 1;
-    self.next_transition = next_transition;
+    self
+      .transitions
+      .extend_from_slice(&[source, dest, min, max]);
+    self.next_transition = new_len;
     Ok(())
   }
   /// Add a `virtual` epsilon transition between source and dest. Dest state

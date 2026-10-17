@@ -223,30 +223,27 @@ where
       return Ok(None);
     };
 
-    let mut tmp_docs = vec![0i32; 2];
-    let mut tmp_scores = vec![0f32; 2];
-    tmp_docs[0] = -1;
-
-    let mut i = 1usize;
+    let mut tmp_docs = Vec::with_capacity(2);
+    let mut tmp_scores = Vec::with_capacity(2);
+    tmp_docs.push(-1);
+    tmp_scores.push(0.0);
 
     loop {
       let doc = in_scorer.next_doc()?;
 
-      ArrayUtil::grow_with_len(&mut tmp_docs, i + 1)?;
-      ArrayUtil::grow_with_len(&mut tmp_scores, i + 1)?;
-      tmp_docs[i] = doc;
+      let size = tmp_docs.len() + 1;
+      ArrayUtil::grow_capacity(&mut tmp_docs, size)?;
+      ArrayUtil::grow_capacity(&mut tmp_scores, size)?;
+      tmp_docs.push(doc);
 
       if doc == NO_MORE_DOCS {
-        i += 1;
+        tmp_scores.push(0.0);
         break;
       }
 
-      tmp_scores[i] = in_scorer.score()?;
-      i += 1;
+      tmp_scores.push(in_scorer.score()?);
     }
 
-    tmp_docs.truncate(i);
-    tmp_scores.truncate(i);
     let ss = BlockScoreScorer::new(tmp_docs, tmp_scores, self.block_length);
     Ok(Some(DefaultScorerSupplier::new(ss)))
   }

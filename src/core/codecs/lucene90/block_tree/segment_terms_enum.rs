@@ -207,11 +207,8 @@ where
   fn get_frame(&mut self, ord: usize) -> Result<usize> {
     let frame_idx = ord + 1;
     if frame_idx >= self.stack.len() {
-      let new_len =
-        ArrayUtil::oversize(frame_idx + 1, std::mem::size_of::<SegmentTermsEnumFrame>())?;
-      self.stack.reserve(new_len - self.stack.len());
-
-      for i in self.stack.len()..new_len {
+      ArrayUtil::grow_capacity(&mut self.stack, frame_idx + 1)?;
+      for i in self.stack.len()..=frame_idx {
         let frame = SegmentTermsEnumFrame::new((i - 1) as i32, &self.fr)?;
         self.stack.push(frame);
       }
@@ -222,7 +219,13 @@ where
   }
   pub(crate) fn get_arc(&mut self, ord: usize) -> Result<usize> {
     if ord >= self.arcs.len() {
-      ArrayUtil::grow_with_len(&mut self.arcs, ord + 1)?;
+      ArrayUtil::grow_capacity(&mut self.arcs, ord + 1)?;
+      let no_output = &*NO_OUTPUT;
+      while self.arcs.len() <= ord {
+        self
+          .arcs
+          .push(Arc::with_outputs(no_output.clone(), no_output.clone()));
+      }
     }
     Ok(ord)
   }

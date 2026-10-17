@@ -1229,7 +1229,7 @@ where
               self.payload_position = None;
             }
             if need > self.payload_bytes.len() {
-              ArrayUtil::grow_with_len(&mut self.payload_bytes, need)?;
+              ArrayUtil::grow_with(&mut self.payload_bytes, need, || 0)?;
             }
 
             pos_in.read_bytes(
@@ -1292,7 +1292,7 @@ where
           self.payload_position = None;
         }
         if num_bytes > self.payload_bytes.len() {
-          ArrayUtil::grow_no_copy(&mut self.payload_bytes, num_bytes)?;
+          ArrayUtil::grow_no_copy(&mut self.payload_bytes, num_bytes, || 0)?;
         }
 
         self

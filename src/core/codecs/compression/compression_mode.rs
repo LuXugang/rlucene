@@ -266,7 +266,7 @@ impl Decompressor for LZ4Decompressor {
     // performance
     let padded_length = (original_length + 7) as usize;
     if bytes.bytes.len() < padded_length {
-      ArrayUtil::grow_no_copy(&mut bytes.bytes, padded_length)?;
+      ArrayUtil::grow_no_copy(&mut bytes.bytes, padded_length, || 0)?;
     }
     let decompressed_length = LZ4::decompress(input, offset + length, &mut bytes.bytes, 0)?;
     if decompressed_length > original_length {
@@ -456,7 +456,7 @@ impl Decompressor for DeflateDecompressor {
     let compressed_length = input.read_vint()?;
     let compressed_length = compressed_length as usize;
     let padded_length = compressed_length + 1;
-    ArrayUtil::grow_no_copy(&mut self.compressed, padded_length)?;
+    ArrayUtil::grow_no_copy(&mut self.compressed, padded_length, || 0)?;
     // Keep the original failure path for a wrapped negative length.
     if padded_length == 0 {
       input.read_bytes(&mut self.compressed, 0, compressed_length)?;
@@ -468,7 +468,7 @@ impl Decompressor for DeflateDecompressor {
     bytes.offset = 0;
     bytes.length = 0;
     let output_length = original_length as usize;
-    ArrayUtil::grow_no_copy(&mut bytes.bytes, output_length)?;
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, output_length, || 0)?;
     let mut decoder = Decompress::new(false);
     let mut status = decoder
       .decompress(
@@ -558,7 +558,13 @@ impl Compressor for DeflateCompressor {
       if status == Status::StreamEnd {
         break total_count;
       }
-      ArrayUtil::grow(&mut self.compressed)?;
+      let min_size = self.compressed.len() + 1;
+      ArrayUtil::grow_capacity(&mut self.compressed, min_size)?;
+      // Compression writes into the whole output slice, including its spare room.
+      self.compressed.resize(
+        self.compressed.capacity().min(ArrayUtil::MAX_ARRAY_LENGTH),
+        0,
+      );
     };
     debug_assert!(total_count <= i32::MAX as usize);
     out.write_vint(total_count as i32)?;

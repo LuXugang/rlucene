@@ -65,9 +65,7 @@ impl<'a> FiniteStringsIterator<'a> {
   pub fn with_start_end(a: &'a Automaton, start_state: i32, end_state: i32) -> Result<Self> {
     let num_states = a.get_num_states();
     let mut nodes = Vec::with_capacity(16);
-    for _ in 0..16 {
-      nodes.push(PathNode::new());
-    }
+    nodes.push(PathNode::new());
 
     let mut path_states = BitSet::with_capacity(num_states as usize);
     let mut string = IntsRefBuilder::new();
@@ -94,7 +92,8 @@ impl<'a> FiniteStringsIterator<'a> {
   fn grow_stack(&mut self, depth: usize) -> Result<()> {
     if self.nodes.len() == depth {
       let min_target_size = self.nodes.len() + 1;
-      ArrayUtil::grow_with_len(&mut self.nodes, min_target_size)?;
+      ArrayUtil::grow_capacity(&mut self.nodes, min_target_size)?;
+      self.nodes.push(PathNode::new());
     }
     Ok(())
   }

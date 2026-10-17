@@ -421,73 +421,73 @@ where
 fn test_grow_exact() -> Result<()> {
   let mut random = random();
   let mut arr: Vec<i16> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i16> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i16> = vec![1, 2, 3];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<i32> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i32> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i32> = vec![1, 2, 3];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<i64> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i64> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i64> = vec![1, 2, 3];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<f32> = vec![0.1, 0.2, 0.3];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || 0.0)?;
   assert!(array_equals_f32(&[0.1, 0.2, 0.3, 0.0], &arr, 0.001));
   let mut arr: Vec<f32> = vec![0.1, 0.2, 0.3];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || 0.0)?;
   assert!(array_equals_f32(&[0.1, 0.2, 0.3, 0.0, 0.0], &arr, 0.001));
   let mut arr: Vec<f32> = vec![1.0, 2.0, 3.0];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0.0);
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || 0.0)?;
   assert!(array_equals_f64(&[0.1, 0.2, 0.3, 0.0], &arr, 0.001));
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || 0.0)?;
   assert!(array_equals_f64(&[0.1, 0.2, 0.3, 0.0, 0.0], &arr, 0.001));
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0.0);
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<i8> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i8> = vec![1, 2, 3];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || 0)?;
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i8> = vec![1, 2, 3];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || '\0')?;
   assert_eq!(arr, ['a', 'b', 'c', '\0']);
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || '\0')?;
   assert_eq!(arr, ['a', 'b', 'c', '\0', '\0']);
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || '\0');
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<Option<String>> = vec![
@@ -495,7 +495,7 @@ fn test_grow_exact() -> Result<()> {
     Some("b2".to_string()),
     Some("c3".to_string()),
   ];
-  ArrayUtil::grow_exact(&mut arr, 4)?;
+  ArrayUtil::grow_exact(&mut arr, 4, || None)?;
   assert!(
     arr
       .iter()
@@ -508,7 +508,7 @@ fn test_grow_exact() -> Result<()> {
     Some("b2".to_string()),
     Some("c3".to_string()),
   ];
-  ArrayUtil::grow_exact(&mut arr, 5)?;
+  ArrayUtil::grow_exact(&mut arr, 5, || None)?;
   assert!(
     arr
       .iter()
@@ -521,47 +521,12 @@ fn test_grow_exact() -> Result<()> {
     Some("b".to_string()),
     Some("c".to_string()),
   ];
-  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
+  let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || None);
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   Ok(())
 }
 
-#[test]
-fn test_grow_in_range() -> Result<()> {
-  let mut array: Vec<i32> = vec![1, 2, 3];
-  // If minLength > maxLength, we return an error
-  let result = ArrayUtil::grow_in_range(&mut array, 1, 0);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-  let result = ArrayUtil::grow_in_range(&mut array, 4, 3);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-  let result = ArrayUtil::grow_in_range(&mut array, 5, 4);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
-
-  // If minLength is sufficient, we return the array
-  ArrayUtil::grow_in_range(&mut array, 1, 4)?;
-  assert_eq!(array, [1, 2, 3]);
-  ArrayUtil::grow_in_range(&mut array, 1, 2)?;
-  assert_eq!(array, [1, 2, 3]);
-  ArrayUtil::grow_in_range(&mut array, 1, 1)?;
-  assert_eq!(array, [1, 2, 3]);
-
-  let min_length = 4;
-  let max_length = i32::MAX as usize;
-
-  let mut vec = vec![1, 2, 3];
-  ArrayUtil::grow_in_range(&mut vec, min_length, max_length)?;
-  assert_eq!(
-    ArrayUtil::oversize(min_length, size_of::<i32>())?,
-    vec.len()
-  );
-
-  // The array grows to maxLength if maxLength is limiting
-  let mut vec = vec![1, 2, 3];
-  ArrayUtil::grow_in_range(&mut vec, min_length, min_length)?;
-  assert_eq!(min_length, vec.len());
-  Ok(())
-}
 #[test]
 fn test_copy_of_sub_array() {
   let short_array: [i16; 3] = [1, 2, 3];

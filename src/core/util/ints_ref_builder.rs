@@ -124,7 +124,7 @@ where
     self
       .ints_ref
       .ints
-      .access_mut(|ints_bytes| ArrayUtil::grow_with_len(ints_bytes, new_length))
+      .access_mut(|ints_bytes| ArrayUtil::grow_with(ints_bytes, new_length, || 0))
   }
 
   /// Grows the reference array to at least `new_length`, without copying
@@ -136,7 +136,7 @@ where
     self
       .ints_ref
       .ints
-      .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length))
+      .access_mut(|ints_bytes| ArrayUtil::grow_no_copy(ints_bytes, new_length, || 0))
   }
 
   /// Copies the given slice into this instance.
@@ -145,7 +145,7 @@ where
     AV: WritableVec<i32>,
   {
     self.ints_ref.ints.access_mut(|ints_bytes| {
-      ArrayUtil::grow_no_copy(ints_bytes, other_length)?;
+      ArrayUtil::grow_no_copy(ints_bytes, other_length, || 0)?;
       CoreHelper::check_from_index_size(other_offset, other_length, other.len())?;
       ints_bytes.copy_from(&other[other_offset..(other_offset + other_length)], 0);
       self.ints_ref.length = other_length;

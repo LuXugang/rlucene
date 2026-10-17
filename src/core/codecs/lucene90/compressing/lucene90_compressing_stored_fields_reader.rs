@@ -675,8 +675,8 @@ where
     self.sliced = (token & 1) != 0;
     let chunk_docs = self.chunk_docs as usize;
 
-    ArrayUtil::grow_no_copy(&mut self.offsets, chunk_docs + 1)?;
-    ArrayUtil::grow_no_copy(&mut self.num_stored_fields, chunk_docs)?;
+    ArrayUtil::grow_no_copy(&mut self.offsets, chunk_docs + 1, || 0)?;
+    ArrayUtil::grow_no_copy(&mut self.num_stored_fields, chunk_docs, || 0)?;
 
     if self.chunk_docs == 1 {
       self.num_stored_fields[0] = self.fields_stream.read_vint()? as i64;
@@ -733,11 +733,10 @@ where
           )?;
 
           let new_len = self.spare2.length + self.spare.length;
-          ArrayUtil::grow_with_len(&mut self.spare2.bytes, new_len)?;
-          self.spare2.bytes.copy_from(
-            &self.spare.bytes[self.spare.offset..(self.spare.offset + self.spare.length)],
-            self.spare2.length,
-          );
+          ArrayUtil::grow_capacity(&mut self.spare2.bytes, new_len)?;
+          let block = &self.spare.bytes[self.spare.offset..(self.spare.offset + self.spare.length)];
+          self.spare2.bytes.truncate(self.spare2.length);
+          self.spare2.bytes.extend_from_slice(block);
           self.spare2.length = new_len;
           decompressed += to_decompress;
         }

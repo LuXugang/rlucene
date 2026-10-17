@@ -722,16 +722,16 @@ impl PostingsArrayBase for FreqProxPostingsArray {
   fn copy_to(&mut self, new_size: usize) -> Result<()> {
     self.parent.copy_to(new_size)?;
     self.size = new_size;
-    ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size)?;
-    ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size)?;
+    ArrayUtil::grow_exact(&mut self.last_doc_ids, new_size, || 0)?;
+    ArrayUtil::grow_exact(&mut self.last_doc_codes, new_size, || 0)?;
     if let Some(last_positions) = self.last_positions.as_mut() {
-      ArrayUtil::grow_exact(last_positions, new_size)?;
+      ArrayUtil::grow_exact(last_positions, new_size, || 0)?;
     }
     if let Some(last_offsets) = self.last_offsets.as_mut() {
-      ArrayUtil::grow_exact(last_offsets, new_size)?;
+      ArrayUtil::grow_exact(last_offsets, new_size, || 0)?;
     }
     if let Some(term_freqs) = self.term_freqs.as_mut() {
-      ArrayUtil::grow_exact(term_freqs, new_size)?;
+      ArrayUtil::grow_exact(term_freqs, new_size, || 0)?;
     }
 
     Ok(())

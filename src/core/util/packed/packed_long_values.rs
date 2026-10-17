@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::util::accountable::Accountable;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::delta_packed_long_values::{
@@ -203,12 +202,8 @@ impl Builder {
     let page_shift = PackedInts::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE)?;
     let page_size = page_size as usize;
     let page_mask = page_size - 1;
-    let pending = vec![0; page_size];
-    let mut values = Vec::with_capacity(INITIAL_PAGE_COUNT);
-    // TODO: maybe we should impl `Clone` for `PackedIntsReadEnum`
-    for _ in 0..INITIAL_PAGE_COUNT {
-      values.push(PackedIntsReadEnum::NullReader(NullReader::new(0)));
-    }
+    let pending = Vec::with_capacity(page_size);
+    let values = Vec::with_capacity(INITIAL_PAGE_COUNT);
     let ram_bytes_used = Self::BASE_RAM_BYTES_USED
       .saturating_add(size_of_vec(&pending))
       .saturating_add(size_of_vec(&values))
@@ -252,8 +247,8 @@ impl Builder {
     if self.finished {
       return Err(LuceneError::illegal_state("Cannot be reused after build()"));
     }
-    if self.pending_off == self.pending.len() {
-      let current_value_len = self.values.len();
+    if self.pending_off == self.page_mask + 1 {
+      let current_value_len = self.values.capacity();
       if current_value_len == self.values_off {
         // Increase by half of the current length.
         let new_length = current_value_len + current_value_len / 2;
@@ -263,14 +258,14 @@ impl Builder {
       self.pack_impl()?;
     }
 
-    self.pending[self.pending_off] = l;
+    self.pending.push(l);
     self.pending_off += 1;
     self.size += 1;
     Ok(self)
   }
   pub(crate) fn finish(&mut self) -> Result<()> {
     if self.pending_off > 0 {
-      if self.values.len() == self.values_off {
+      if self.values.capacity() == self.values_off {
         self.grow(self.values_off + 1)?;
       }
       self.pack_impl()?;
@@ -294,6 +289,7 @@ impl Builder {
     self.values_off += 1;
     // Reset pending buffer
     self.pending_off = 0;
+    self.pending.clear();
     Ok(())
   }
   fn pack(
@@ -311,10 +307,8 @@ impl Builder {
     }
 
     // Build a new packed reader
-    if min_value == 0 && max_value == 0 {
-      let reader = NullReader::new(num_values);
-      self.values[block] = PackedIntsReadEnum::NullReader(reader);
-      Ok(())
+    let reader = if min_value == 0 && max_value == 0 {
+      PackedIntsReadEnum::NullReader(NullReader::new(num_values))
     } else {
       let bits_required = if min_value < 0 {
         64
@@ -329,7 +323,7 @@ impl Builder {
         i += mutable.set_bulk(i, self.pending.as_slice(), i, num_values - i)?;
       }
 
-      self.values[block] = match mutable {
+      match mutable {
         MutablePacked64Enum::P64SingleBlock1(value) => PackedIntsReadEnum::P64SingleBlock1(value),
         MutablePacked64Enum::P64SingleBlock2(value) => PackedIntsReadEnum::P64SingleBlock2(value),
         MutablePacked64Enum::P64SingleBlock3(value) => PackedIntsReadEnum::P64SingleBlock3(value),
@@ -345,9 +339,14 @@ impl Builder {
         MutablePacked64Enum::P64SingleBlock21(value) => PackedIntsReadEnum::P64SingleBlock21(value),
         MutablePacked64Enum::P64SingleBlock32(value) => PackedIntsReadEnum::P64SingleBlock32(value),
         MutablePacked64Enum::P64(value) => PackedIntsReadEnum::P64(value),
-      };
-      Ok(())
+      }
+    };
+    if block == self.values.len() {
+      self.values.push(reader);
+    } else {
+      self.values[block] = reader;
     }
+    Ok(())
   }
 
   fn grow(&mut self, new_block_count: usize) -> Result<()> {
@@ -359,7 +358,11 @@ impl Builder {
     if let Some(ref mut sub) = self.sub_builder {
       sub.grow(new_block_count)?;
     }
-    ArrayUtil::grow_exact(&mut self.values, new_block_count)?;
+    if self.values.capacity() < new_block_count {
+      self
+        .values
+        .reserve_exact(new_block_count - self.values.len());
+    }
     let new_sub_size = self
       .sub_builder
       .as_ref()

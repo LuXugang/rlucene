@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::util::accountable::Accountable;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::monotonic_block_packed_reader::expected;
 use crate::core::util::packed::packed_long_values::INITIAL_PAGE_COUNT;
@@ -61,7 +60,7 @@ impl Default for MonotonicLongValuesBuilder {
 impl MonotonicLongValuesBuilder {
   pub(crate) fn new() -> Self {
     Self {
-      averages: vec![0.0; INITIAL_PAGE_COUNT],
+      averages: Vec::with_capacity(INITIAL_PAGE_COUNT),
     }
   }
 
@@ -84,10 +83,19 @@ impl MonotonicLongValuesBuilder {
     for (i, value) in values.iter_mut().enumerate().take(num_values) {
       *value = value.wrapping_sub(expected(0, average, i));
     }
-    self.averages[block] = average;
+    if block == self.averages.len() {
+      self.averages.push(average);
+    } else {
+      self.averages[block] = average;
+    }
   }
 
   pub(crate) fn grow(&mut self, new_block_count: usize) -> Result<()> {
-    ArrayUtil::grow_exact(&mut self.averages, new_block_count)
+    if self.averages.capacity() < new_block_count {
+      self
+        .averages
+        .reserve_exact(new_block_count - self.averages.len());
+    }
+    Ok(())
   }
 }

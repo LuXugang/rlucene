@@ -309,7 +309,7 @@ impl StringHelper {
     AV: SharedAccessVec<i32>,
     AV1: SharedAccessVec<u8> + WritableVec<u8>,
   {
-    let mut bytes = AV1::with_capacity(ints.length)?;
+    let mut bytes = AV1::with_len(ints.length, || 0)?;
     for i in 0..ints.length {
       ints.ints.access(|v| {
         let x = v[ints.offset + i];

@@ -1127,7 +1127,7 @@ where
         self.spare_writer.reset();
 
         if self.spare_bytes.len() < suffix_len {
-          ArrayUtil::grow_no_copy(&mut self.spare_bytes, suffix_len)?;
+          ArrayUtil::grow_no_copy(&mut self.spare_bytes, suffix_len, || 0)?;
         }
 
         if LowercaseAsciiCompression::compress(
@@ -1160,7 +1160,7 @@ where
 
     // suffix lengths
     let num_suffix_bytes = self.suffix_lengths_writer.size();
-    ArrayUtil::grow_no_copy(&mut self.spare_bytes, num_suffix_bytes)?;
+    ArrayUtil::grow_no_copy(&mut self.spare_bytes, num_suffix_bytes, || 0)?;
     {
       let mut data_output = ByteArrayDataOutput::with_bytes(self.spare_bytes.as_slice_mut());
       self.suffix_lengths_writer.copy_to(&mut data_output)?;
@@ -1282,12 +1282,14 @@ where
       }
     }
 
-    if self.prefix_starts.len() < text.length {
-      ArrayUtil::grow_with_len(&mut self.prefix_starts, text.length)?;
+    let old_length = self.prefix_starts.len();
+    let pending_count = self.pending.len() as i32;
+    if old_length < text.length {
+      ArrayUtil::grow_with(&mut self.prefix_starts, text.length, || pending_count)?;
     }
 
-    for i in prefix_length..text.length {
-      self.prefix_starts[i] = self.pending.len() as i32;
+    for i in prefix_length..text.length.min(old_length) {
+      self.prefix_starts[i] = pending_count;
     }
 
     self.last_term.copy_bytes_from_ref(text)?;

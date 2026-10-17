@@ -366,7 +366,7 @@ impl Decompressor for DecompressorImpl {
     DI: DataInput,
   {
     let length = length as usize;
-    ArrayUtil::grow_no_copy(&mut bytes.bytes, length)?;
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, length, || 0)?;
     input.skip_bytes(offset as i64)?;
     input.read_bytes(&mut bytes.bytes, 0, length)?;
     bytes.offset = 0;

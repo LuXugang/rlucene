@@ -73,7 +73,7 @@ where
   }
   fn grow_term_buffer(&mut self, new_size: usize) -> Result<()> {
     if self.term_buffer.len() < new_size {
-      ArrayUtil::grow_no_copy(&mut self.term_buffer, new_size)?;
+      ArrayUtil::grow_no_copy(&mut self.term_buffer, new_size, || '\0')?;
     }
     Ok(())
   }
@@ -138,7 +138,7 @@ where
     if self.term_buffer.len() < new_size {
       // Not big enough; create a new array with slight
       // over allocation:
-      ArrayUtil::grow_with_len(&mut self.term_buffer, new_size)?;
+      ArrayUtil::grow_with(&mut self.term_buffer, new_size, || '\0')?;
     }
     Ok(&mut self.term_buffer)
   }

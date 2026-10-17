@@ -658,24 +658,25 @@ impl<P> SortingDocsEnum<P> {
     P: PostingsEnum,
     T: DocMap,
   {
-    let mut i = 0;
+    self.docs.clear();
     loop {
       let doc = postings_enum.next_doc()?;
       if doc == NO_MORE_DOCS {
         break;
       }
-      if self.docs.len() <= i {
-        ArrayUtil::grow(&mut self.docs)?;
+      if self.docs.len() == self.docs.capacity() {
+        let min_size = self.docs.len() + 1;
+        ArrayUtil::grow_capacity(&mut self.docs, min_size)?;
       }
-      self.docs[i] = doc_map.old_to_new(doc)?;
-      i += 1;
+      self.docs.push(doc_map.old_to_new(doc)?);
     }
 
-    self.upto = i;
-    if self.docs.len() == self.upto {
-      ArrayUtil::grow(&mut self.docs)?;
+    self.upto = self.docs.len();
+    if self.docs.len() == self.docs.capacity() {
+      let min_size = self.docs.len() + 1;
+      ArrayUtil::grow_capacity(&mut self.docs, min_size)?;
     }
-    self.docs[self.upto] = NO_MORE_DOCS;
+    self.docs.push(NO_MORE_DOCS);
 
     let max_doc = doc_map.size();
     let num_bits = PackedInts::bits_required(std::cmp::max(0, (max_doc - 1) as i64))? as usize;
@@ -802,8 +803,8 @@ impl TimSorterBase for DocOffsetSorter<'_> {
 
   fn save(&mut self, i: usize, len: usize) -> Result<()> {
     if self.tmp_docs.len() < len {
-      ArrayUtil::grow_no_copy(self.tmp_docs, len)?;
-      ArrayUtil::grow_no_copy(self.tmp_offsets, self.tmp_docs.len())?;
+      ArrayUtil::grow_no_copy(self.tmp_docs, len, || 0)?;
+      ArrayUtil::grow_no_copy(self.tmp_offsets, self.tmp_docs.len(), || 0)?;
     }
 
     self.tmp_docs.copy_from(&self.docs[i..i + len], 0);
@@ -884,20 +885,23 @@ impl<P> SortingPostingsEnum<P> {
 
     self.buffer.reset();
 
+    self.docs.clear();
+    self.offsets.clear();
     let mut i = 0;
     loop {
       let doc = postings_enum.next_doc()?;
       if doc == NO_MORE_DOCS {
         break;
       }
-      if i == self.docs.len() {
-        let new_length = ArrayUtil::oversize(i + 1, 4)?;
-        ArrayUtil::grow_exact(&mut self.docs, new_length)?;
-        ArrayUtil::grow_exact(&mut self.offsets, new_length)?;
+      if self.docs.len() == self.docs.capacity() {
+        ArrayUtil::grow_capacity(&mut self.docs, i + 1)?;
+      }
+      if self.offsets.len() == self.offsets.capacity() {
+        ArrayUtil::grow_capacity(&mut self.offsets, i + 1)?;
       }
 
-      self.docs[i] = doc_map.old_to_new(doc)?;
-      self.offsets[i] = self.buffer.size();
+      self.docs.push(doc_map.old_to_new(doc)?);
+      self.offsets.push(self.buffer.size());
 
       self.add_positions(&mut postings_enum)?;
       i += 1;
@@ -1052,7 +1056,7 @@ where
       self.payload.length = length;
 
       if self.payload.length > self.payload.bytes.len() {
-        ArrayUtil::grow_no_copy(&mut self.payload.bytes, length)?;
+        ArrayUtil::grow_no_copy(&mut self.payload.bytes, length, || 0)?;
       }
 
       posting_input.read_bytes(&mut self.payload.bytes, 0, self.payload.length)?;

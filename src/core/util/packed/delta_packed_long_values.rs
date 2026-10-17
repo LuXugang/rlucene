@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::util::accountable::Accountable;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::monotonic_long_values::{
   MonotonicLongValues, MonotonicLongValuesBuilder,
@@ -84,7 +83,7 @@ impl DeltaPackedLongValuesBuilder {
   ) -> DeltaPackedLongValuesBuilder {
     Self {
       sub_builder,
-      mins: vec![0; INITIAL_PAGE_COUNT],
+      mins: Vec::with_capacity(INITIAL_PAGE_COUNT),
     }
   }
 
@@ -110,14 +109,20 @@ impl DeltaPackedLongValuesBuilder {
     for value in values.iter_mut().take(num_values) {
       *value = value.wrapping_sub(min);
     }
-    self.mins[block] = min;
+    if block == self.mins.len() {
+      self.mins.push(min);
+    } else {
+      self.mins[block] = min;
+    }
   }
 
   pub(crate) fn grow(&mut self, new_block_count: usize) -> Result<()> {
     if let Some(ref mut builder) = self.sub_builder {
       builder.grow(new_block_count)?
     }
-    ArrayUtil::grow_exact(&mut self.mins, new_block_count)?;
+    if self.mins.capacity() < new_block_count {
+      self.mins.reserve_exact(new_block_count - self.mins.len());
+    }
     Ok(())
   }
   pub(crate) fn base_ram_bytes_used(&self) -> i64 {

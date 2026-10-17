@@ -548,10 +548,10 @@ where
     let from = self.state.num_docs_in_ram.load(SeqCst) - doc_count;
     let to = self.state.num_docs_in_ram.load(SeqCst);
     let new_len = self.num_deleted_doc_ids + (to - from) as usize;
-    ArrayUtil::grow_i32(&mut self.delete_doc_ids, new_len)?;
+    ArrayUtil::grow_capacity(&mut self.delete_doc_ids, new_len)?;
 
     for doc_id in from..to {
-      self.delete_doc_ids[self.num_deleted_doc_ids] = doc_id;
+      self.delete_doc_ids.push(doc_id);
       self.num_deleted_doc_ids += 1;
     }
     // NOTE: we do not trigger flush here.  This is

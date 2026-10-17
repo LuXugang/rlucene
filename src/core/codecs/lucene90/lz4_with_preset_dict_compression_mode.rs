@@ -95,6 +95,7 @@ impl LZ4WithPresetDictDecompressor {
     ArrayUtil::grow_no_copy(
       &mut self.compressed_lengths,
       (original_length / block_length + 1) as usize,
+      || 0,
     )?;
     while total_length < original_length {
       self.compressed_lengths[i] = input.read_vint()?;
@@ -136,7 +137,11 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
       self.read_compressed_lengths(input, original_length, dict_length, block_length)?;
 
     // Grow the buffer to fit the dictionary and block length
-    ArrayUtil::grow_no_copy(&mut self.buffer, (dict_length + block_length) as usize)?;
+    ArrayUtil::grow_no_copy(
+      &mut self.buffer,
+      (dict_length + block_length) as usize,
+      || 0,
+    )?;
     bytes.length = 0;
     let dict_length_usize = dict_length as usize;
 
@@ -169,16 +174,17 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
     } else {
       // The dictionary contains some bytes we need, copy its content to
       // the BytesRef
-      ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length_usize)?;
+      ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length_usize, || 0)?;
       bytes.bytes.copy_from(&self.buffer[0..dict_length_usize], 0);
       bytes.length = dict_length_usize;
     }
 
     // Read blocks that intersect with the interval we need
     if offset_in_block < offset + length {
-      ArrayUtil::grow_with_len(
+      ArrayUtil::grow_with(
         &mut bytes.bytes,
         bytes.length + (offset + length - offset_in_block) as usize,
+        || 0,
       )?;
     }
 
@@ -247,7 +253,11 @@ impl Compressor for LZ4WithPresetDictCompressor {
     let block_length = (len - dict_length + LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS - 1)
       / LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS;
 
-    ArrayUtil::grow_no_copy(&mut self.buffer, (dict_length + block_length) as usize)?;
+    ArrayUtil::grow_no_copy(
+      &mut self.buffer,
+      (dict_length + block_length) as usize,
+      || 0,
+    )?;
 
     out.write_vint(dict_length)?;
     out.write_vint(block_length)?;

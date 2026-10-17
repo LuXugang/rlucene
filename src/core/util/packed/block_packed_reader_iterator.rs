@@ -180,7 +180,7 @@ impl BlockPackedReaderIterator {
       data_input.seek_in_data_input(new_position)?;
     } else {
       // Use a temporary buffer to skip bytes
-      ArrayUtil::grow_no_copy(&mut self.blocks, self.block_size)?;
+      ArrayUtil::grow_no_copy(&mut self.blocks, self.block_size, || 0)?;
 
       let mut skipped = 0;
       while skipped < count {
@@ -288,7 +288,7 @@ impl BlockPackedReaderIterator {
       let iterations = self.block_size / Decoder::byte_value_count(decoder);
       let blocks_size = iterations * Decoder::byte_block_count(decoder);
 
-      ArrayUtil::grow_no_copy(&mut self.blocks, blocks_size)?;
+      ArrayUtil::grow_no_copy(&mut self.blocks, blocks_size, || 0)?;
 
       let value_count = std::cmp::min(self.value_count - self.ord, self.block_size);
 

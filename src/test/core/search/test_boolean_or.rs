@@ -283,7 +283,7 @@ fn test_boolean_scorer_max() -> Result<()> {
 
 fn scorer(mut matches: Vec<i32>) -> Result<ScorerImpl> {
   let mut len = matches.len();
-  ArrayUtil::grow_exact(&mut matches, len + 1)?;
+  ArrayUtil::grow_exact(&mut matches, len + 1, || 0)?;
   len = matches.len();
   matches[len - 1] = NO_MORE_DOCS;
   let it = IntArrayDocIdSet::new(matches, len - 1)?.iterator()?;

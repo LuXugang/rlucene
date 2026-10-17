@@ -97,8 +97,8 @@ where
     let segment = &si.name;
     let compressor = compression_mode.new_compressor();
     let buffered_docs = ByteBuffersDataOutput::new_resettable_instance();
-    let num_stored_fields = vec![0; 16];
-    let end_offsets = vec![0; 16];
+    let num_stored_fields = Vec::with_capacity(16);
+    let end_offsets = Vec::with_capacity(16);
 
     let meta_file = IndexFileNames::segment_file_name(segment, segment_suffix, META_EXTENSION);
     let mut directory = Some(directory);
@@ -283,6 +283,8 @@ where
     // reset
     self.doc_base += self.num_buffered_docs;
     self.num_buffered_docs = 0;
+    self.num_stored_fields.clear();
+    self.end_offsets.clear();
     self.buffered_docs.reset();
 
     Ok(())
@@ -531,15 +533,16 @@ where
     Ok(())
   }
   fn finish_document(&mut self) -> Result<()> {
-    if self.num_buffered_docs == self.num_stored_fields.len() {
-      let new_len = ArrayUtil::oversize(self.num_buffered_docs + 1, 4)?;
-      ArrayUtil::grow_exact(&mut self.num_stored_fields, new_len)?;
-      ArrayUtil::grow_exact(&mut self.end_offsets, new_len)?;
+    if self.num_stored_fields.len() == self.num_stored_fields.capacity() {
+      ArrayUtil::grow_capacity(&mut self.num_stored_fields, self.num_buffered_docs + 1)?;
     }
-
-    self.num_stored_fields[self.num_buffered_docs] = self.num_stored_fields_in_doc;
+    if self.end_offsets.len() == self.end_offsets.capacity() {
+      ArrayUtil::grow_capacity(&mut self.end_offsets, self.num_buffered_docs + 1)?;
+    }
+    let end_offset = self.buffered_docs.size().try_convert()?;
+    self.num_stored_fields.push(self.num_stored_fields_in_doc);
     self.num_stored_fields_in_doc = 0;
-    self.end_offsets[self.num_buffered_docs] = self.buffered_docs.size().try_convert()?;
+    self.end_offsets.push(end_offset);
     self.num_buffered_docs += 1;
 
     if self.trigger_flush() {

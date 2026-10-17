@@ -316,11 +316,11 @@ where
   }
   pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) -> Result<()> {
     let num_vector_fields = self.num_vector_fields;
-    if num_vector_fields == self.per_fields_idxs.len() {
-      ArrayUtil::grow_with_len(&mut self.per_fields_idxs, num_vector_fields + 1)?;
+    if self.per_fields_idxs.len() == self.per_fields_idxs.capacity() {
+      ArrayUtil::grow_capacity(&mut self.per_fields_idxs, num_vector_fields + 1)?;
     }
 
-    self.per_fields_idxs[num_vector_fields] = meta;
+    self.per_fields_idxs.push(meta);
     self.num_vector_fields += 1;
     Ok(())
   }

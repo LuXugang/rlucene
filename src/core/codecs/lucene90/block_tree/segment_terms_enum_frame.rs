@@ -280,7 +280,7 @@ impl SegmentTermsEnumFrame {
     let suffix_length = num_suffix_bytes as usize;
 
     if frame.suffixes_reader.bytes.len() < suffix_length {
-      ArrayUtil::grow_no_copy(&mut frame.suffixes_reader.bytes, suffix_length)?;
+      ArrayUtil::grow_no_copy(&mut frame.suffixes_reader.bytes, suffix_length, || 0)?;
     }
 
     let alg_code = (code_l & 0x03) as u8;
@@ -307,6 +307,7 @@ impl SegmentTermsEnumFrame {
       ArrayUtil::grow_no_copy(
         &mut frame.suffix_lengths_reader.bytes,
         num_suffix_length_bytes,
+        || 0,
       )?;
     }
 
@@ -331,7 +332,7 @@ impl SegmentTermsEnumFrame {
     // stats
     let mut num_bytes = input.read_vint()?.try_convert()?;
     if frame.stats_reader.bytes.len() < num_bytes {
-      ArrayUtil::grow_no_copy(&mut frame.stats_reader.bytes, num_bytes)?;
+      ArrayUtil::grow_no_copy(&mut frame.stats_reader.bytes, num_bytes, || 0)?;
     }
     input.read_bytes(&mut frame.stats_reader.bytes, 0, num_bytes)?;
     frame.stats_reader.reset_meta(0, num_bytes);
@@ -344,7 +345,7 @@ impl SegmentTermsEnumFrame {
     // metadata
     num_bytes = input.read_vint()?.try_convert()?;
     if frame.bytes_reader.bytes.len() < num_bytes {
-      ArrayUtil::grow_no_copy(&mut frame.bytes_reader.bytes, num_bytes)?;
+      ArrayUtil::grow_no_copy(&mut frame.bytes_reader.bytes, num_bytes, || 0)?;
     }
     input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
     frame.bytes_reader.reset_meta(0, num_bytes);

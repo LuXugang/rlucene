@@ -17,6 +17,7 @@
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::intersect_terms_enum_frame::IntersectTermsEnumFrame;
+use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::NO_OUTPUT;
 use crate::core::codecs::block_tree::segment_terms_enum::OutputAccumulator;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
@@ -79,14 +80,7 @@ where
       .try_clone()?;
 
     let mut stack = Vec::with_capacity(5);
-    for idx in 0..5 {
-      stack.push(IntersectTermsEnumFrame::new(idx, &fr)?);
-    }
-
-    let mut arcs = Vec::with_capacity(5);
-    for _ in 0..5 {
-      arcs.push(Arc::default());
-    }
+    stack.push(IntersectTermsEnumFrame::new(0, &fr)?);
 
     let fr_index = fr
       .index
@@ -96,7 +90,8 @@ where
 
     // get first arc
     let first_arc_idx = 0;
-    fr_index.get_first_arc(&mut arcs[first_arc_idx]);
+    let mut arcs = Vec::with_capacity(5);
+    arcs.push(fr_index.get_first_arc_owned());
     debug_assert!(arcs[first_arc_idx].is_final());
 
     {
@@ -157,9 +152,8 @@ where
   }
   pub(crate) fn get_frame(&mut self, ord: usize) -> Result<()> {
     if ord >= self.stack.len() {
-      let new_len = ArrayUtil::oversize(ord + 1, std::mem::size_of::<IntersectTermsEnumFrame>())?;
-
-      for i in self.stack.len()..new_len {
+      ArrayUtil::grow_capacity(&mut self.stack, ord + 1)?;
+      for i in self.stack.len()..=ord {
         let frame = IntersectTermsEnumFrame::new(i, &self.fr)?;
         self.stack.push(frame);
       }
@@ -169,7 +163,13 @@ where
   }
   pub(crate) fn get_arc(&mut self, ord: usize) -> Result<usize> {
     if ord >= self.arcs.len() {
-      ArrayUtil::grow_with_len(&mut self.arcs, ord + 1)?;
+      ArrayUtil::grow_capacity(&mut self.arcs, ord + 1)?;
+      let no_output = &*NO_OUTPUT;
+      while self.arcs.len() <= ord {
+        self
+          .arcs
+          .push(Arc::with_outputs(no_output.clone(), no_output.clone()));
+      }
     }
     Ok(ord)
   }
@@ -261,7 +261,7 @@ where
     debug_assert!(self.stack[self.current_frame].ord == 0);
 
     if self.term.length < target.length {
-      ArrayUtil::grow_with_len(&mut self.term.bytes, target.length)?;
+      ArrayUtil::grow_with(&mut self.term.bytes, target.length, || 0)?;
     }
 
     debug_assert!(self.stack[self.current_frame].arc == 0);
@@ -298,7 +298,7 @@ where
           self.term.length = f.prefix + f.suffix;
 
           if self.term.bytes.len() < self.term.length {
-            ArrayUtil::grow_with_len(&mut self.term.bytes, self.term.length)?;
+            ArrayUtil::grow_with(&mut self.term.bytes, self.term.length, || 0)?;
           }
 
           let src_start = f.start_byte_pos;
@@ -579,7 +579,7 @@ where
     let len = current_frame.prefix + current_frame.suffix;
 
     if self.term.bytes.len() < len {
-      ArrayUtil::grow_with_len(&mut self.term.bytes, len)?;
+      ArrayUtil::grow_with(&mut self.term.bytes, len, || 0)?;
     }
 
     let src_start = current_frame.start_byte_pos;

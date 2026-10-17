@@ -47,9 +47,9 @@ impl PostingsArrayBase for ParallelPostingsArray {
   }
   fn copy_to(&mut self, new_size: usize) -> Result<()> {
     self.size = new_size;
-    ArrayUtil::grow_exact(&mut self.text_starts, new_size)?;
-    ArrayUtil::grow_exact(&mut self.address_offset, new_size)?;
-    ArrayUtil::grow_exact(&mut self.byte_starts, new_size)?;
+    ArrayUtil::grow_exact(&mut self.text_starts, new_size, || 0)?;
+    ArrayUtil::grow_exact(&mut self.address_offset, new_size, || 0)?;
+    ArrayUtil::grow_exact(&mut self.byte_starts, new_size, || 0)?;
     Ok(())
   }
 }

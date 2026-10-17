@@ -73,8 +73,10 @@ impl PagedBytes {
     }
   }
   fn add_block(&mut self, block: Vec<u8>) -> Result<()> {
-    ArrayUtil::grow_with_len(&mut self.blocks, self.num_blocks + 1)?;
-    self.blocks[self.num_blocks] = block;
+    if self.blocks.len() == self.blocks.capacity() {
+      ArrayUtil::grow_capacity(&mut self.blocks, self.num_blocks + 1)?;
+    }
+    self.blocks.push(block);
     self.num_blocks += 1;
     Ok(())
   }
@@ -327,7 +329,7 @@ impl Reader {
       })
     } else {
       // Split across two blocks
-      ArrayUtil::grow_no_copy(&mut b.bytes, length)?;
+      ArrayUtil::grow_no_copy(&mut b.bytes, length, || 0)?;
       let first_len = self.block_size - offset;
       b.bytes
         .copy_from(&self.blocks[index][offset..offset + first_len], 0);

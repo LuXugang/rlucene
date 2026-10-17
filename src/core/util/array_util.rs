@@ -173,15 +173,16 @@ impl ArrayUtil {
         .min(max_array_length),
     )
   }
-  pub fn grow_exact<T>(vec: &mut Vec<T>, new_length: usize) -> Result<()>
+  /// Grows to exactly `new_length`, constructing added elements with `init`.
+  pub fn grow_exact<T, F>(vec: &mut Vec<T>, new_length: usize, init: F) -> Result<()>
   where
-    T: Default,
+    F: FnMut() -> T,
   {
     let current_length = vec.len();
     match new_length.cmp(&current_length) {
       Ordering::Greater => {
         vec.reserve_exact(new_length - current_length);
-        vec.resize_with(new_length, T::default);
+        vec.resize_with(new_length, init);
       },
       Ordering::Equal => {
         return Ok(());
@@ -194,99 +195,47 @@ impl ArrayUtil {
     }
     Ok(())
   }
-  pub fn grow_with_len<T>(vec: &mut Vec<T>, min_size: usize) -> Result<()>
+  /// Reserves space for at least `min_size` elements without changing the length.
+  ///
+  /// Checks Lucene's element-count and Rust's allocation-size limits, then lets
+  /// `Vec` choose its capacity growth. No elements are constructed.
+  pub fn grow_capacity<T>(vec: &mut Vec<T>, min_size: usize) -> Result<()> {
+    // Only use oversize for its existing size checks, not as a second allocation
+    // growth policy on top of Vec::reserve.
+    Self::oversize(min_size, size_of::<T>())?;
+    vec.reserve(min_size.saturating_sub(vec.len()));
+    Ok(())
+  }
+  /// Ensures at least `min_size` initialized elements, preserving existing contents.
+  /// Only the missing elements up to `min_size` are constructed with `init`;
+  /// any spare capacity remains uninitialized.
+  /// The initializer is not called when the existing length is sufficient.
+  pub fn grow_with<T, F>(vec: &mut Vec<T>, min_size: usize, init: F) -> Result<()>
   where
-    T: Default,
+    F: FnMut() -> T,
   {
-    let current_length = vec.len();
-    if current_length < min_size {
-      let bytes_per_element = size_of::<T>();
-      let available_capacity = if bytes_per_element == 0 {
-        current_length
-      } else {
-        vec.capacity().min(Self::MAX_ARRAY_LENGTH)
-      };
-      let new_length = if available_capacity >= min_size {
-        available_capacity
-      } else {
-        Self::oversize(min_size, bytes_per_element)?
-      };
-      vec.resize_with(new_length, T::default);
+    if vec.len() < min_size {
+      Self::grow_capacity(vec, min_size)?;
+      vec.resize_with(min_size, init);
     }
     Ok(())
   }
-  pub fn grow<T>(vec: &mut Vec<T>) -> Result<()>
+  /// Ensures at least `min_size` initialized elements for scratch use.
+  /// Existing contents may be discarded when a new allocation is needed.
+  /// Only `min_size` elements are initialized; spare capacity is not filled.
+  pub fn grow_no_copy<T, F>(vec: &mut Vec<T>, min_size: usize, init: F) -> Result<()>
   where
-    T: Default,
-  {
-    let min_size = vec
-      .len()
-      .checked_add(1)
-      .ok_or_else(|| LuceneError::illegal_argument("requested vector size exceeds usize::MAX"))?;
-    Self::grow_with_len(vec, min_size)
-  }
-  /// Returns an array whose size is at least `min_length`, generally
-  /// over-allocating exponentially, but never allocating more than
-  /// maxLength} elements.
-  pub fn grow_in_range<T>(vec: &mut Vec<T>, min_length: usize, max_length: usize) -> Result<()>
-  where
-    T: Default,
-  {
-    if min_length > max_length {
-      return Err(LuceneError::illegal_argument(format!(
-        "requested minimum array length {min_length} is larger than requested maximum array length {max_length}"
-      )));
-    }
-    let current_length = vec.len();
-    if current_length >= min_length {
-      return Ok(());
-    }
-
-    let bytes_per_element = size_of::<T>();
-    let available_capacity = if bytes_per_element == 0 {
-      current_length
-    } else {
-      vec.capacity().min(Self::MAX_ARRAY_LENGTH)
-    };
-    let potential_length = if available_capacity >= min_length {
-      available_capacity
-    } else {
-      Self::oversize(min_length, bytes_per_element)?
-    };
-    let final_length = std::cmp::min(max_length, potential_length);
-    Self::grow_exact(vec, final_length)?;
-
-    Ok(())
-  }
-  /// Returns a vector whose size is at least `min_size`, generally
-  /// over-allocating exponentially, but never allocating more than
-  /// `i32::MAX` elements.
-  pub fn grow_i32(vec: &mut Vec<i32>, min_size: usize) -> Result<()> {
-    Self::grow_in_range(vec, min_size, i32::MAX as usize)
-  }
-  pub fn grow_usize(vec: &mut Vec<usize>, min_size: usize) -> Result<()> {
-    Self::grow_in_range(vec, min_size, i32::MAX as usize)
-  }
-  /// Returns a vector whose size is at least `min_size`, generally
-  /// over-allocating exponentially, and it will not copy the original
-  /// data to the new vector.
-  pub fn grow_no_copy<T>(vec: &mut Vec<T>, min_size: usize) -> Result<()>
-  where
-    T: Default + Clone,
+    F: FnMut() -> T,
   {
     let current_size = vec.len();
     if current_size < min_size {
-      let bytes_per_element = size_of::<T>();
-      let available_capacity = if bytes_per_element == 0 {
-        current_size
+      let new_capacity = Self::oversize(min_size, size_of::<T>())?;
+      if vec.capacity() >= min_size {
+        vec.resize_with(min_size, init);
       } else {
-        vec.capacity().min(Self::MAX_ARRAY_LENGTH)
-      };
-      if available_capacity >= min_size {
-        vec.resize_with(available_capacity, T::default);
-      } else {
-        let new_size = Self::oversize(min_size, bytes_per_element)?;
-        *vec = vec![T::default(); new_size];
+        let mut replacement = Vec::with_capacity(new_capacity);
+        replacement.resize_with(min_size, init);
+        *vec = replacement;
       }
     }
     Ok(())
@@ -412,7 +361,7 @@ impl ArrayUtil {
   /// Copies a slice into a new vector.
   pub fn copy_array<T>(array: &[T]) -> Vec<T>
   where
-    T: Clone + Default,
+    T: Clone,
   {
     Self::copy_of_sub_array(array, 0, array.len())
   }

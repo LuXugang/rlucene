@@ -1300,7 +1300,7 @@ fn add_jumps(
     offset < i32::MAX as usize,
     "Logically the offset should not exceed 2^30 but was >= i32::MAX"
   );
-  ArrayUtil::grow_i32(jumps, (end_block + 1) * 2)?;
+  ArrayUtil::grow_with(jumps, (end_block + 1) * 2, || 0)?;
   let offset = offset as i32;
   for b in start_block..end_block {
     let i = b * 2;

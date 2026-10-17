@@ -603,7 +603,7 @@ pub struct FSTPath<T> {
 
 impl<T> FSTPath<T>
 where
-  T: Clone + Default,
+  T: Clone,
 {
   pub fn new<V>(
     output: T,
