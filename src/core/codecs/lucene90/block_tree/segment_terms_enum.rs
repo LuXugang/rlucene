@@ -209,6 +209,7 @@ where
     if frame_idx >= self.stack.len() {
       let new_len =
         ArrayUtil::oversize(frame_idx + 1, std::mem::size_of::<SegmentTermsEnumFrame>())?;
+      self.stack.reserve(new_len - self.stack.len());
 
       for i in self.stack.len()..new_len {
         let frame = SegmentTermsEnumFrame::new((i - 1) as i32, &self.fr)?;
