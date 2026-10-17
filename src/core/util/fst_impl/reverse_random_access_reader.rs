@@ -50,6 +50,7 @@ where
     Ok(b)
   }
 
+  #[inline]
   fn get_bytes(&mut self, len: usize) -> Result<std::borrow::Cow<'_, [u8]>> {
     let mut bytes = vec![0; len];
     self.read_bytes(&mut bytes, 0, len)?;
