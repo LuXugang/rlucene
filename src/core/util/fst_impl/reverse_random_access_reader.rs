@@ -42,6 +42,7 @@ impl<R> DataInput for ReverseRandomAccessReader<R>
 where
   R: RandomAccessInput,
 {
+  #[inline(always)]
   fn read_byte(&mut self) -> Result<u8> {
     debug_assert!(self.pos >= 0);
     let b = self.input.read_byte(self.pos as usize)?;
