@@ -220,7 +220,13 @@ impl CollectorManager for TopFieldCollectorManager {
     )
   }
 
-  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+  fn reduce(&self, mut collectors: Vec<Self::C>) -> Result<Self::T> {
+    if collectors.len() == 1
+      && let Some(mut collector) = collectors.pop()
+    {
+      // A single collector already has the final order and populated sort fields.
+      return collector.top_docs();
+    }
     let mut top_docs_list = Vec::with_capacity(collectors.len());
     for mut collector in collectors {
       let mut v = collector.top_docs()?;
@@ -262,7 +268,12 @@ impl CollectorManager for TopFieldCollectorManager<Arc<FieldDoc>> {
     )
   }
 
-  fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
+  fn reduce(&self, mut collectors: Vec<Self::C>) -> Result<Self::T> {
+    if collectors.len() == 1
+      && let Some(mut collector) = collectors.pop()
+    {
+      return collector.top_docs();
+    }
     let mut top_docs_list = Vec::with_capacity(collectors.len());
     for mut collector in collectors {
       let mut v = collector.top_docs()?;
