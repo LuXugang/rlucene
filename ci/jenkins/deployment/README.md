@@ -36,8 +36,10 @@ address your users can reach. The setup wizard, authentication, and CSRF
 protection are retained.
 
 The `rlucene-ci` job is created from `init.groovy.d/rlucene-job.groovy.override`.
-Run **Build Now** once to start testing and install the one-minute schedule.
-The first build also compiles the Rust project; later builds reuse the cache.
+Run **Build Now** once to start testing and install one-minute polling of the
+configured `main` branch. Polling creates a build only after that branch advances;
+updates to other branches do not create `rlucene-ci` builds. The first build also
+compiles the Rust project; later builds reuse the cache.
 The repository and branch configured in `.env` must contain
 `ci/jenkins/Jenkinsfile` before this first build. For an unmerged change, point
 both settings at a published fork/branch containing the change.
@@ -233,8 +235,8 @@ not replace existing jobs, history, credentials, or security settings. To
 change an existing job's repository/branch, edit its Pipeline-from-SCM settings
 in Jenkins. Changing only those bootstrap environment values does not rewrite
 an existing job. To apply failure-email environment changes used during builds,
-recreate the container and run the job once. The schedule is defined in
-`../Jenkinsfile`; a pushed schedule change is applied by the next build without
+recreate the container and run the job once. SCM polling is defined in
+`../Jenkinsfile`; a pushed polling change is applied by the next build without
 recreating the container.
 
 ## Optional public read-only access

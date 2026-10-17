@@ -93,10 +93,13 @@ repository file, or console log.
 ## Scheduling
 
 Run the new job once using **Build Now**. That run installs the Pipeline's
-schedule and options: every minute (`* * * * *`), no concurrent builds,
-500 retained builds, and a 45-minute execution-stage timeout. The schedule is
-defined directly in `Jenkinsfile`. After a schedule change is pushed, the next build
-loads the updated file and applies it without restarting the controller.
+SCM polling and options: inspect the configured `main` branch every minute
+(`* * * * *`), create a build only when that branch advances, allow no concurrent
+builds, retain 500 builds, and use a 45-minute execution-stage timeout. The poll
+is defined directly in `Jenkinsfile`. Other branch updates do not create an
+`rlucene-ci` build because the job SCM has a main-only branch spec and refspec.
+After a polling change is pushed, the next build loads the updated file and
+applies it without restarting the controller.
 The former `RLUCENE_CRON` environment setting is no longer used.
 
 All five managed jobs (`rlucene-ci`, `rlucene-commit`, `rlucene-pr`,
@@ -113,9 +116,9 @@ before the Pipeline lock; this lightweight bootstrap is not a test build.
 The execution timeout begins after acquiring the lock and includes waiting
 for the selected node. Existing test subprocess timeouts are unchanged.
 The lock uses FIFO ordering, without interrupting the holder or skipping
-requests; long manual suites therefore delay automatic tests. Trigger policies
-and the CI one-minute schedule are unchanged. New jobs must use the same
-wrapper before they are allowed to run resource-intensive work on this VM.
+requests; long manual suites therefore delay automatic tests. New jobs must use
+the same wrapper before they are allowed to run resource-intensive work on this
+VM.
 
 The former CI-only queue gate is retired, and `RLUCENE_CI_REQUIRE_IDLE` is
 no longer used. Do not combine it with lock waiters, which Jenkins already

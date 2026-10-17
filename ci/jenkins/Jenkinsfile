@@ -12,7 +12,9 @@ pipeline {
   }
 
   triggers {
-    cron('* * * * *')
+    // The job SCM is restricted to refs/heads/main. Poll it every minute, but
+    // create a build only when that configured branch advances.
+    pollSCM('* * * * *')
   }
 
   stages {
