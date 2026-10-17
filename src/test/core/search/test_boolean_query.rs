@@ -1387,7 +1387,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
       TermQuery::new(Term::from_text("foo", "large")),
       Occur::Should,
     )?;
-    let query = builder.build();
+    let mut query = builder.build();
 
     let count = counting_index_searcher.count(query.clone())?;
 
@@ -1420,7 +1420,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
       TermQuery::new(Term::from_text("foo", "small")),
       Occur::Should,
     )?;
-    let query = builder.build();
+    let mut query = builder.build();
 
     let count = counting_index_searcher.count(query.clone())?;
 

@@ -219,7 +219,7 @@ impl BooleanQuery {
   }
   /// Rewrite a single two clause disjunction query with terms to two term queries and a conjunction query using the inclusion–exclusion principle.
   pub(crate) fn rewrite_two_clause_disjunction_with_terms_for_count<IRC, SIM>(
-    &self,
+    &mut self,
     index_searcher: &IndexSearcher<IRC, SIM>,
   ) -> Result<[Query; 3]>
   where
@@ -235,23 +235,23 @@ impl BooleanQuery {
     let mut new_query = Builder::new();
     let mut queries = Vec::with_capacity(3);
 
-    for clause in &self.clauses {
-      let term_query = match &clause.query {
+    for clause in &mut self.clauses {
+      let term_query = match &mut clause.query {
         Query::Term(q) => q,
         _ => {
           return Err(LuceneError::unsupported_operation("expected TermQuery"));
         },
       };
 
-      let term_query = if term_query.get_term_states().is_none() {
+      if term_query.get_term_states().is_none() {
         let term_states = build(index_searcher, term_query.get_term(), false)?;
-        TermQuery::with_term_state(term_query.get_term(), Some(Arc::new(term_states)))
-      } else {
-        term_query.clone()
-      };
+        // Keep the resolved states available if count falls back to this disjunction.
+        *term_query =
+          TermQuery::with_term_state(term_query.get_term(), Some(Arc::new(term_states)));
+      }
 
       new_query.add(term_query.clone(), Occur::Must)?;
-      queries.push(term_query.into());
+      queries.push(term_query.clone().into());
     }
 
     queries.push(new_query.build().into());

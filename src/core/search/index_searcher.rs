@@ -1929,7 +1929,7 @@ impl IndexSearcherDefaults {
       query = csq.into_inner()
     }
 
-    if let Query::Boolean(boolean_query) = &query {
+    if let Query::Boolean(boolean_query) = &mut query {
       let has_deletions = searcher.reader_context.reader().has_deletions()?;
       if !has_deletions && boolean_query.is_two_clause_pure_disjunction_with_terms() {
         let [query0, query1, query2] =
