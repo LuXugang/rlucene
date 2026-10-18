@@ -153,6 +153,7 @@ where
    * Advances the position iterator to the first position on or after `target`. Returns
    * `false` if it is exhausted before reaching `target`, and `true` otherwise.
    */
+  #[inline(always)]
   fn advance_position(&mut self, idx: usize, target: i32) -> Result<bool> {
     let posting = &mut self.postings[idx];
     if posting.pos >= target {
