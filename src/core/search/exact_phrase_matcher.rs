@@ -159,7 +159,8 @@ where
     if posting.pos >= target {
       return Ok(true);
     }
-    if posting.upto == posting.freq {
+    let mut upto = posting.upto;
+    if upto == posting.freq {
       return Ok(false);
     }
     // The position state and its postings owner are in independent fields.
@@ -170,11 +171,12 @@ where
       .iterator_at_mut(posting.postings_idx);
     loop {
       posting.pos = iterator.next_position()?;
-      posting.upto += 1;
+      upto += 1;
+      posting.upto = upto;
       if posting.pos >= target {
         return Ok(true);
       }
-      if posting.upto == posting.freq {
+      if upto == posting.freq {
         return Ok(false);
       }
     }
