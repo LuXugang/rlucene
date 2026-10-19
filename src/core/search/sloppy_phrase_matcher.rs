@@ -38,7 +38,6 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::priority_queue::PriorityQueue;
 use linked_hash_map::LinkedHashMap;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::vec;
 
 pub type SloopyImpactsDISI<IE, SS> =
@@ -78,7 +77,7 @@ pub struct SloppyPhraseMatcher<IE, SS> {
   checked_rpts: bool,
   has_multi_term_rpts: bool,
   /// in each group are PPs that repeats each other (i.e. same term), sorted by (query) offset
-  rpt_groups: Rc<Vec<Vec<usize>>>,
+  rpt_groups: Vec<Vec<usize>>,
   /// temporary stack for switching colliding repeating pps
   rpt_stack: Vec<usize>,
   rpt_bits: FixedBitSet,
@@ -173,7 +172,7 @@ where
       has_rpts: false,
       checked_rpts: false,
       has_multi_term_rpts: false,
-      rpt_groups: Rc::new(Vec::new()),
+      rpt_groups: Vec::new(),
       rpt_stack: vec![],
       rpt_bits: FixedBitSet::new(0),
       positioned: false,
@@ -388,16 +387,16 @@ where
     Ok(())
   }
   fn advance_repeat_groups(&mut self) -> Result<bool> {
-    for rg in self.rpt_groups.clone().as_ref() {
+    for g in 0..self.rpt_groups.len() {
       if self.has_multi_term_rpts {
         // more involved, some may not collide
         let mut i = 0;
-        while i < rg.len() {
+        while i < self.rpt_groups[g].len() {
           let mut incr: usize = 1;
-          let pp_idx = rg[i];
+          let pp_idx = self.rpt_groups[g][i];
 
           while let Some(k) = self.collide(pp_idx)? {
-            let pp2_idx = self.lesser(pp_idx, rg[k]);
+            let pp2_idx = self.lesser(pp_idx, self.rpt_groups[g][k]);
 
             // at initialization always advance pp with higher offset
             if !self.advance_pp(pp2_idx)? {
@@ -415,6 +414,7 @@ where
         }
       } else {
         // simpler, we know exactly how much to advance
+        let rg = &self.rpt_groups[g];
         let impacts = self.impacts_approximation.iterator_mut();
         for (j, &pp_idx) in rg.iter().enumerate().skip(1) {
           let pp = &mut self.pq.compare.phrase_positions[pp_idx];
@@ -481,7 +481,7 @@ where
 
       rpt_groups.push(rg);
     }
-    self.rpt_groups = Rc::new(rpt_groups);
+    self.rpt_groups = rpt_groups;
   }
 
   /// Detect repetition groups. Done once - for first doc
