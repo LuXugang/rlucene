@@ -248,7 +248,8 @@ where
     let mut n: usize = 0;
     let num_bits = self.rpt_bits.length(); // largest bit we set
 
-    while self.rpt_bits.cardinality() > 0 {
+    let mut remaining = self.rpt_bits.cardinality();
+    while remaining > 0 {
       let pp2_idx = self
         .pq
         .pop()?
@@ -263,6 +264,7 @@ where
         let ind = self.pq.compare.phrase_positions[pp2_idx].rpt_ind;
         if (ind) < num_bits && self.rpt_bits.get(ind)? {
           self.rpt_bits.clear_with_index(ind)?;
+          remaining -= 1;
         }
       }
     }
