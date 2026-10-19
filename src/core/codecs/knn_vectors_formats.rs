@@ -33,7 +33,7 @@ use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_format::{
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::index_reader::Identity;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::merge_state::MergeState;
@@ -281,7 +281,7 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValuesCopy<I
 }
 
 impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValuesCopy<I> {
-  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       Self::Lucene99Hnsw(values) => values.vector_value(ord),
       Self::Lucene99ScalarQuantized(values) => values.vector_value(ord),
@@ -422,7 +422,7 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
 }
 
 impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
-  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       Self::Lucene99Hnsw(values) => values.vector_value(ord),
       Self::Lucene99ScalarQuantized(values) => values.vector_value(ord),

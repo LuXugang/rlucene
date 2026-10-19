@@ -37,7 +37,7 @@ use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{FieldInfos, get_merged_field_infos};
 use crate::core::index::fields::Fields;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::knn_vector_values::{
   BitsImpl, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues, KnnVectorValuesEnm2,
@@ -172,7 +172,7 @@ where
   T: FloatVectorValues,
   U: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       Self::A(values) => values.vector_value(ord),
       Self::B(values) => values.vector_value(ord),
@@ -2168,7 +2168,7 @@ impl<F> FloatVectorValues for MergedFloatVectorValues<F>
 where
   F: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     debug_assert!(ord < self.size);
     let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
     self.last_sub_index.set(sub_index);

@@ -24,7 +24,52 @@ use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use parking_lot::MappedMutexGuard;
 use std::borrow::Cow;
+use std::ops::Deref;
+
+/// A read-only vector view that keeps its backing buffer borrowed until dropped.
+/// Convert into [`VectorValueEnum`] only when an independent owned value is needed.
+#[derive(Debug)]
+pub struct FloatVectorValue<'a>(pub(crate) FloatVectorValueStorage<'a>);
+
+#[derive(Debug)]
+pub(crate) enum FloatVectorValueStorage<'a> {
+  Value(Cow<'a, VectorValueEnum>),
+  Buffer(MappedMutexGuard<'a, VectorValueEnum>),
+}
+
+impl Deref for FloatVectorValue<'_> {
+  type Target = VectorValueEnum;
+
+  fn deref(&self) -> &Self::Target {
+    match &self.0 {
+      FloatVectorValueStorage::Value(value) => value.as_ref(),
+      FloatVectorValueStorage::Buffer(value) => value,
+    }
+  }
+}
+
+impl AsRef<VectorValueEnum> for FloatVectorValue<'_> {
+  fn as_ref(&self) -> &VectorValueEnum {
+    self
+  }
+}
+
+impl<'a> From<Cow<'a, VectorValueEnum>> for FloatVectorValue<'a> {
+  fn from(value: Cow<'a, VectorValueEnum>) -> Self {
+    Self(FloatVectorValueStorage::Value(value))
+  }
+}
+
+impl From<FloatVectorValue<'_>> for VectorValueEnum {
+  fn from(value: FloatVectorValue<'_>) -> Self {
+    match value.0 {
+      FloatVectorValueStorage::Value(value) => value.into_owned(),
+      FloatVectorValueStorage::Buffer(value) => value.clone(),
+    }
+  }
+}
 
 /// This trait provides access to per-document floating point vector values indexed as [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
 pub trait FloatVectorValues: KnnVectorValues {
@@ -33,7 +78,11 @@ pub trait FloatVectorValues: KnnVectorValues {
   ///
   /// # Returns
   /// the vector value
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>>;
+  ///
+  /// The returned view may hold the reader's buffer lock. Drop it before reading,
+  /// copying or otherwise accessing the same instance again. Use independent
+  /// [`Self::float_copy`] instances for simultaneous reads of reusable buffers.
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>>;
 
   type FloatVectorValues: FloatVectorValues;
   /// Creates a copy of this [`KnnVectorValues`] when an independent instance is
@@ -46,7 +95,8 @@ pub trait FloatVectorValues: KnnVectorValues {
   /// Returning `Some(...)` means that a new independent object was created.
   ///
   /// Returning `None` means that no new object was created, and callers should
-  /// continue using `self` directly.
+  /// continue using `self` directly. In this case the instance must support
+  /// simultaneous vector views without locking a shared reusable buffer.
   fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -163,8 +213,8 @@ impl KnnVectorValues for FloatVectorValuesImpl {
 }
 
 impl FloatVectorValues for FloatVectorValuesImpl {
-  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Ok(Cow::Borrowed(&self.vectors[target_ord]))
+  fn vector_value(&self, target_ord: usize) -> Result<FloatVectorValue<'_>> {
+    Ok(Cow::Borrowed(&self.vectors[target_ord]).into())
   }
 
   type FloatVectorValues = Self;

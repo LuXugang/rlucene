@@ -25,7 +25,7 @@ use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::{BitsImpl, DocIndexIterator, KnnVectorValues};
 use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
@@ -596,7 +596,7 @@ where
   F: FloatVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     let state = self.state.borrow();
     let ord: i32 = ord.try_convert()?;
     if ord != state.last_ord {
@@ -610,9 +610,12 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::Owned(
-      current_sub.values.vector_value(index)?.into_owned(),
-    ))
+    Ok(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
+        current_sub.values.vector_value(index)?,
+      ))
+      .into(),
+    )
   }
 
   type FloatVectorValues = DummyFloatVectorValues;
@@ -720,9 +723,9 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::Owned(
-      current_sub.values.vector_value(index)?.into_owned(),
-    ))
+    Ok(Cow::Owned(VectorValueEnum::from(
+      current_sub.values.vector_value(index)?,
+    )))
   }
 }
 

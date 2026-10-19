@@ -146,7 +146,8 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 #[cfg(test)]
 use crate::core::{
-  index::byte_vector_values::ByteVectorValues, index::float_vector_values::FloatVectorValues,
+  index::byte_vector_values::ByteVectorValues,
+  index::float_vector_values::{FloatVectorValue, FloatVectorValues},
 };
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::{
@@ -3288,11 +3289,7 @@ impl<I> FloatVectorValues for CodecFloatVectorValues<I>
 where
   I: IndexInput,
 {
-  fn vector_value(
-    &self,
-    ord: usize,
-  ) -> Result<std::borrow::Cow<'_, crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>>
-  {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     self.0.vector_value(ord)
   }
 

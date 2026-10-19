@@ -26,7 +26,9 @@ use crate::core::codecs::off_heap_vector_values::{
 };
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{
+  FloatVectorValue, FloatVectorValueStorage, FloatVectorValues,
+};
 use crate::core::index::knn_vector_values::{
   DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, create_dense_iterator,
 };
@@ -45,8 +47,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
-use parking_lot::Mutex;
-use std::borrow::Cow;
+use parking_lot::{Mutex, MutexGuard};
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -62,7 +63,7 @@ struct OffHeapFloatVectorValues<I, F> {
 pub struct Inner<I> {
   pub(crate) slice: I,
   pub(crate) last_ord: Option<usize>,
-  pub(crate) value: Vec<f32>,
+  pub(crate) value: VectorValueEnum,
 }
 impl<I, F> OffHeapFloatVectorValues<I, F> {
   fn new(
@@ -76,7 +77,7 @@ impl<I, F> OffHeapFloatVectorValues<I, F> {
     let inner = Inner {
       slice,
       last_ord: None,
-      value: vec![0.0; dimension],
+      value: VectorValueEnum::Float(vec![0.0; dimension]),
     };
     Self {
       dimension,
@@ -98,8 +99,11 @@ where
       .checked_mul(self.byte_size)
       .ok_or_else(|| LuceneError::illegal_state("seek overflow"))?;
     inner.slice.seek(pos)?;
-    let len = inner.value.len();
-    inner.slice.read_floats(&mut inner.value, 0, len)?;
+    let VectorValueEnum::Float(value) = &mut inner.value else {
+      unreachable!("float vector buffer");
+    };
+    let len = value.len();
+    inner.slice.read_floats(value, 0, len)?;
 
     inner.last_ord = Some(target_ord);
     Ok(())
@@ -160,7 +164,7 @@ impl<I, F> FloatVectorValues for OffHeapFloatVectorValues<I, F>
 where
   I: IndexInput,
 {
-  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, target_ord: usize) -> Result<FloatVectorValue<'_>> {
     let mut inner = self.inner.lock();
     let same_ord = matches!(inner.last_ord, Some(last_ord) if last_ord == target_ord);
     if !same_ord {
@@ -168,7 +172,9 @@ where
       inner.last_ord = Some(target_ord);
     }
 
-    Ok(Cow::Owned(VectorValueEnum::Float(inner.value.clone())))
+    Ok(FloatVectorValue(FloatVectorValueStorage::Buffer(
+      MutexGuard::map(inner, |inner| &mut inner.value),
+    )))
   }
 
   type FloatVectorValues = DummyFloatVectorValues;
@@ -293,7 +299,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     self.base.vector_value(ord)
   }
 
@@ -521,7 +527,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     self.base.vector_value(ord)
   }
 
@@ -684,7 +690,7 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 }
 
 impl FloatVectorValues for EmptyOffHeapVectorValues {
-  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, _ord: usize) -> Result<FloatVectorValue<'_>> {
     debug_assert!(self.vectors.is_empty());
     Err(LuceneError::unsupported_operation(""))
   }
@@ -806,7 +812,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       Self::Dense(values) => values.vector_value(ord),
       Self::Sparse(values) => values.vector_value(ord),
@@ -958,7 +964,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.vector_value(ord),
       OffHeapFloatVectorValuesEnum::Dense(e) => e.vector_value(ord),

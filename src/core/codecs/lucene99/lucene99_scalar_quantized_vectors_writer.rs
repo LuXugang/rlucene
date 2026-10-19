@@ -47,7 +47,7 @@ use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::{
   BitsImpl, DenseDocIndexIterator, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues,
   KnnVectorValuesEnm2,
@@ -1429,14 +1429,14 @@ impl KnnVectorValues for FloatVectorWrapper<'_> {
 }
 
 impl FloatVectorValues for FloatVectorWrapper<'_> {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     if ord >= self.vector_list.len() {
       return Err(LuceneError::io(std::io::Error::other(format!(
         "vector ord {} out of bounds",
         ord
       ))));
     }
-    Ok(Cow::Borrowed(&self.vector_list[ord]))
+    Ok(Cow::Borrowed(&self.vector_list[ord]).into())
   }
 
   type FloatVectorValues = Self;
@@ -2343,7 +2343,7 @@ impl<FVV> FloatVectorValues for MergeFloatVectorValues<FVV>
 where
   FVV: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       Self::Original(values) => values.vector_value(ord),
       Self::Normalized(values) => values.vector_value(ord),
@@ -2465,14 +2465,14 @@ impl<FVV> FloatVectorValues for NormalizedFloatVectorValues<FVV>
 where
   FVV: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    let vector_value = self.values.vector_value(ord)?;
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+    let vector_value = VectorValueEnum::from(self.values.vector_value(ord)?);
     let mut normalized_vector = match vector_value {
-      Cow::Owned(VectorValueEnum::Float(vector)) => vector,
+      VectorValueEnum::Float(vector) => vector,
       value => value.as_floats()?.to_vec(),
     };
     VectorUtil::l2normalize(&mut normalized_vector)?;
-    Ok(Cow::Owned(VectorValueEnum::Float(normalized_vector)))
+    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(normalized_vector)).into())
   }
 
   type FloatVectorValues = NormalizedFloatVectorValues<FVV::FloatVectorValues>;

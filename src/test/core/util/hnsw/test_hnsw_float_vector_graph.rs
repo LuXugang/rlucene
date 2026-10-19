@@ -44,7 +44,6 @@ use crate::test_framework::core::util::hnsw::mock_vector_values::MockVectorValue
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -242,12 +241,12 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
       let dimension = vector_values.dimension();
       debug_assert!(dimension <= floats.len());
       let _ = &floats[..dimension];
-      vectors[ord] = match value {
-        Cow::Owned(VectorValueEnum::Float(mut vector)) => {
+      vectors[ord] = match VectorValueEnum::from(value) {
+        VectorValueEnum::Float(mut vector) => {
           vector.truncate(dimension);
           vector
         },
-        value => value.as_ref().as_floats()?[..dimension].to_vec(),
+        value => value.as_floats()?[..dimension].to_vec(),
       };
     }
     Ok(TestsKnnVectorValues::B(MockVectorValues::from_values(
@@ -338,7 +337,7 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
     match vectors {
       KnnVectorValuesEnm2::A(_) => unreachable!("unexpected byte vector values"),
       KnnVectorValuesEnm2::B(float_vector_values) => {
-        match float_vector_values.vector_value(ord)?.into_owned() {
+        match VectorValueEnum::from(float_vector_values.vector_value(ord)?) {
           VectorValueEnum::Float(v) => Ok(v),
           _ => unreachable!("unexpected vector value"),
         }

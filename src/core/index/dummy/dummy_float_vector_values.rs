@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
-use std::borrow::Cow;
 
 #[derive(Clone)]
 pub struct DummyFloatVectorValues;
@@ -65,7 +63,7 @@ impl FloatVectorValues for DummyFloatVectorValues {
   fn vector_value(
     &self,
     _ord: usize,
-  ) -> crate::core::util::error::lucene_error::Result<Cow<'_, VectorValueEnum>> {
+  ) -> crate::core::util::error::lucene_error::Result<FloatVectorValue<'_>> {
     dummy_unreachable!()
   }
 

@@ -18,7 +18,6 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_vectors_reader::FlatVectorsReader;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_reader::{
@@ -33,7 +32,7 @@ use crate::core::codecs::lucene99::off_heap_quantized_byte_vector_values::OffHea
 use crate::core::index::IndexFileNames;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -55,7 +54,6 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
@@ -704,7 +702,7 @@ where
   R: FloatVectorValues,
   Q: QuantizedByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     self.raw_vector_values.vector_value(ord)
   }
 

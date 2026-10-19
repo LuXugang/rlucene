@@ -31,7 +31,7 @@ use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
@@ -1345,10 +1345,8 @@ impl KnnVectorValues for CircularFloatVectorValues {
 }
 
 impl FloatVectorValues for CircularFloatVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Ok(Cow::Owned(VectorValueEnum::Float(
-      self.vector_value_f32(ord),
-    )))
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.vector_value_f32(ord))).into())
   }
 
   type FloatVectorValues = Self;

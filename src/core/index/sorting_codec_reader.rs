@@ -42,7 +42,7 @@ use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::freq_prox_terms_writer::{
   SortingPostingsEnumType, SortingTerms, SortingTermsEnum,
 };
@@ -2335,7 +2335,7 @@ where
   T: FloatVectorValues,
   U: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       Self::Filter(values) => values.vector_value(ord),
       Self::Sorting(values) => values.vector_value(ord),
@@ -3006,7 +3006,7 @@ impl<B> FloatVectorValues for SortingFloatVectorValues<B>
 where
   B: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     self.delegate.vector_value(ord)
   }
 
@@ -4713,7 +4713,7 @@ where
   T: FloatVectorValues,
   U: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       Self::A(values) => values.vector_value(ord),
       Self::B(values) => values.vector_value(ord),

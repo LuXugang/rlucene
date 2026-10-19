@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::DocIndexIterator;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
@@ -28,7 +28,6 @@ use crate::core::util::{
   CoreHelper, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt, TryIntoInt,
 };
 use parking_lot::Mutex;
-use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
@@ -528,13 +527,13 @@ fn extract_quantiles(
 }
 
 fn gather_sample(
-  vector_value: Cow<'_, VectorValueEnum>,
+  vector_value: FloatVectorValue<'_>,
   quantile_gathering_scratch: &mut [f32],
   sampled_docs: &mut Vec<Vec<f32>>,
   i: usize,
 ) -> Result<()> {
-  let vector_value = match vector_value {
-    Cow::Owned(VectorValueEnum::Float(values)) => values,
+  let vector_value = match VectorValueEnum::from(vector_value) {
+    VectorValueEnum::Float(values) => values,
     value => value.as_floats()?.to_vec(),
   };
   let len = vector_value.len();

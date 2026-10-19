@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::index_reader::Identity;
 use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 use crate::core::index::vector_encoding::VectorEncoding;
@@ -411,10 +411,13 @@ impl<F: Borrow<Vec<Vec<f32>>> + Clone> KnnVectorValues for TestSimpleFloatVector
 }
 
 impl<F: Borrow<Vec<Vec<f32>>> + Clone> FloatVectorValues for TestSimpleFloatVectorValues<F> {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Ok(Cow::Owned(VectorValueEnum::Float(
-      self.floats.borrow()[self.ord_to_doc(ord)?].clone(),
-    )))
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+    Ok(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(
+        self.floats.borrow()[self.ord_to_doc(ord)?].clone(),
+      ))
+      .into(),
+    )
   }
 
   type FloatVectorValues = Self;

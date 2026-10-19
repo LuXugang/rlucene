@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::{
   BitsImpl, DenseDocIndexIterator, KnnVectorValues, create_dense_iterator,
 };
@@ -122,14 +122,17 @@ impl KnnVectorValues for MockVectorValues {
 }
 
 impl FloatVectorValues for MockVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     let mut random = random_from_seed(self.seed);
     if random.random_bool(0.5) {
-      Ok(Cow::Owned(VectorValueEnum::Float(self.values[ord].clone())))
+      Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.values[ord].clone())).into())
     } else {
-      Ok(Cow::Owned(VectorValueEnum::Float(
-        self.values[ord][0..self.dimension].to_vec(),
-      )))
+      Ok(
+        Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(
+          self.values[ord][0..self.dimension].to_vec(),
+        ))
+        .into(),
+      )
     }
   }
 
