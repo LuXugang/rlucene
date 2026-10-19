@@ -822,6 +822,8 @@ pub struct FieldWriter<S> {
   last_doc_id: i32,
   node: usize,
   flat_field_vectors_writer_idx: usize,
+  // Retained vector buffers, updated when the scorer's vector store grows.
+  vectors_ram_bytes: i64,
 }
 impl<S> FieldWriter<S>
 where
@@ -869,6 +871,7 @@ where
       last_doc_id: -1,
       node: 0,
       flat_field_vectors_writer_idx,
+      vectors_ram_bytes: 0,
     })
   }
 }
@@ -916,11 +919,7 @@ where
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     let graph_bytes = self.hnsw_graph_builder.get_graph().ram_bytes_used()?;
-    let vector_bytes = self
-      .hnsw_graph_builder
-      .get_scorer_supplier()
-      .ram_bytes_used()?;
-    Ok(graph_bytes.saturating_add(vector_bytes))
+    Ok(graph_bytes.saturating_add(self.vectors_ram_bytes))
   }
 }
 
@@ -948,12 +947,17 @@ where
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
     let ss = self.hnsw_graph_builder.get_scorer_supplier_mut();
     let vectors = ss.get_vector_mut()?;
+    let previous_capacity_bytes = size_of_vec(vectors);
     FlatFieldVectorsWriter::flat_add_value(
       flat_field_vectors_writer,
       doc_id,
       vector_value,
       vectors,
     )?;
+    self.vectors_ram_bytes = self
+      .vectors_ram_bytes
+      .saturating_add(size_of_vec(vectors).saturating_sub(previous_capacity_bytes))
+      .saturating_add(vectors.last().map_or(Ok(0), Accountable::ram_bytes_used)?);
     self.hnsw_graph_builder.add_graph_node(self.node)?;
     self.node += 1;
     self.last_doc_id = doc_id;

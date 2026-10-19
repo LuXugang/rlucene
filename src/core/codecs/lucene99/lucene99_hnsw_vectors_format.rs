@@ -59,7 +59,8 @@ pub const DEFAULT_MAX_CONN: usize = OtherDEFAULT_MAX_CONN;
 pub const MAXIMUM_BEAM_WIDTH: usize = 3200;
 
 /// Default number of the size of the queue maintained while searching during a graph construction.
-pub const DEFAULT_BEAM_WIDTH: usize = DEFAULT_MAX_CONN;
+pub const DEFAULT_BEAM_WIDTH: usize =
+  crate::core::util::hnsw::hnsw_graph_builder::DEFAULT_BEAM_WIDTH;
 
 /// Default to use single thread merge
 pub const DEFAULT_NUM_MERGE_WORKER: usize = 1;

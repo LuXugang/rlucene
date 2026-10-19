@@ -439,8 +439,10 @@ where
     debug_assert!(doc_id > field.last_doc_id);
 
     let copy = field.copy_value(vector_value)?;
+    let vector_bytes = copy.ram_bytes_used()?;
     field.docs_with_field.add(doc_id)?;
     Arc::make_mut(&mut field.vectors).push(copy);
+    field.vector_buffer_bytes = field.vector_buffer_bytes.saturating_add(vector_bytes);
     field.last_doc_id = doc_id;
     Ok(())
   }
@@ -731,6 +733,7 @@ pub struct FlatFieldWriter {
   finished: bool,
   last_doc_id: i32,
   vectors: Arc<Vec<VectorValueEnum>>,
+  vector_buffer_bytes: i64,
 }
 impl FlatFieldWriter {
   pub fn new(field_info: Arc<FieldInfo>) -> Self {
@@ -742,18 +745,20 @@ impl FlatFieldWriter {
       finished: false,
       last_doc_id: -1,
       vectors: Arc::new(Vec::new()),
+      vector_buffer_bytes: 0,
     }
   }
 }
 
 impl Accountable for FlatFieldWriter {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size =
+    let size =
       std::mem::size_of_val(self.vectors.as_ref()) as i64 + size_of_vec(self.vectors.as_ref());
-    for vector in self.vectors.iter() {
-      size = size.saturating_add(vector.ram_bytes_used()?);
-    }
-    Ok(size.saturating_add(self.docs_with_field.ram_bytes_used()?))
+    Ok(
+      size
+        .saturating_add(self.vector_buffer_bytes)
+        .saturating_add(self.docs_with_field.ram_bytes_used()?),
+    )
   }
 }
 

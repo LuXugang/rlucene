@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use parking_lot::{RwLock, RwLockReadGuard};
@@ -46,6 +46,9 @@ pub struct OnHeapHnswGraph {
   // levelToNodes
   size: AtomicUsize,
   non_zero_level_size: AtomicUsize,
+  // Node allocations have fixed capacity after initialization. Account for them once,
+  // rather than locking and traversing every neighbor array on each RAM-budget check.
+  nodes_ram_bytes: AtomicI64,
   // total number of NeighborArrays created that is not on level 0, for now it
   // is only used to account memory usage
   max_node_id: Option<AtomicUsize>,
@@ -96,6 +99,7 @@ impl OnHeapHnswGraph {
       last_freeze_size: 0,
       size: AtomicUsize::new(0),
       non_zero_level_size: AtomicUsize::new(0),
+      nodes_ram_bytes: AtomicI64::new(0),
       max_node_id: None,
       nsize,
       nsize0,
@@ -214,6 +218,15 @@ impl OnHeapHnswGraph {
       "node must be inserted from the top level"
     );
     if added {
+      let mut node_bytes = size_of_vec(levels);
+      for neighbors in levels {
+        node_bytes = node_bytes.saturating_add(neighbors.read().ram_bytes_used()?);
+      }
+      let _ = self
+        .nodes_ram_bytes
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |bytes| {
+          Some(bytes.saturating_add(node_bytes))
+        });
       self.size.fetch_add(1, Ordering::SeqCst);
       self.non_zero_level_size.fetch_add(level, Ordering::SeqCst);
     }
@@ -486,17 +499,8 @@ impl fmt::Display for OnHeapHnswGraph {
 
 impl Accountable for OnHeapHnswGraph {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_vec(&self.graph);
-    for levels in &self.graph {
-      let Some(levels) = levels.get() else {
-        continue;
-      };
-      size = size.saturating_add(size_of_vec(levels));
-      for neighbors in levels {
-        let neighbors = neighbors.read();
-        size = size.saturating_add(neighbors.ram_bytes_used()?);
-      }
-    }
+    let mut size =
+      size_of_vec(&self.graph).saturating_add(self.nodes_ram_bytes.load(Ordering::SeqCst));
 
     size = size.saturating_add(size_of_vec(&self.level_to_nodes));
     for nodes in &self.level_to_nodes {

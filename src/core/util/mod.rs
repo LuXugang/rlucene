@@ -108,6 +108,7 @@ pub mod small_float;
 pub mod sortable_bytes_ref_array;
 pub mod sorter;
 pub mod sparse_fixed_bit_set;
+pub(crate) mod splittable_random;
 pub mod stable_msb_radix_sorter;
 pub(crate) mod stable_string_sorter;
 pub mod strict_string_tokenizer;

@@ -14,9 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use rand::prelude::SmallRng;
-use rand::{RngExt, SeedableRng};
-use rand_chacha::rand_core::Rng;
 use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
@@ -42,12 +39,13 @@ use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_stream};
+use crate::core::util::splittable_random::SplittableRandom;
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
 pub struct HnswGraphBuilder<B, S, BS> {
   m: usize,
   ml: f64,
-  random: SmallRng,
+  random: SplittableRandom,
   scorer_supplier: S,
   graph_searcher: HnswGraphSearcher<BS>,
   entry_candidates: GraphBuilderKnnCollector,
@@ -175,7 +173,7 @@ where
 
     let ml = if m == 1 { 1.0 } else { 1.0 / (m as f64).ln() };
 
-    let random = SmallRng::seed_from_u64(seed);
+    let random = SplittableRandom::new(seed);
 
     Ok(Self {
       m,
@@ -619,12 +617,9 @@ impl HnswGraphBuilderDefaults {
     }
     Ok(true)
   }
-  pub(crate) fn get_random_graph_level<R>(ml: f64, random: &mut R) -> usize
-  where
-    R: Rng,
-  {
+  pub(crate) fn get_random_graph_level(ml: f64, random: &mut SplittableRandom) -> usize {
     loop {
-      let rand_double: f64 = random.random();
+      let rand_double = random.next_double();
       if rand_double > 0.0 {
         return (-rand_double.ln() * ml) as usize;
       }
@@ -705,14 +700,20 @@ impl HnswGraphBuilderDefaults {
       let candidates = &mut builder.entry_candidates;
       for level in (node_level + 1..=cur_max_level).rev() {
         candidates.clear();
-        builder.graph_searcher.search_level_with_collector(
-          candidates,
-          &scorer,
-          level,
-          &eps,
-          &mut builder.hnsw,
-          None::<&B>,
-        )?;
+        if let Some(hnsw) = Arc::get_mut(&mut builder.hnsw) {
+          builder
+            .graph_searcher
+            .search_level_with_collector(candidates, &scorer, level, &eps, hnsw, None::<&B>)?;
+        } else {
+          builder.graph_searcher.search_level_with_collector(
+            candidates,
+            &scorer,
+            level,
+            &eps,
+            &mut builder.hnsw,
+            None::<&B>,
+          )?;
+        }
         eps[0] = candidates.pop_node()?;
       }
 
@@ -722,14 +723,20 @@ impl HnswGraphBuilderDefaults {
       for i in (0..scratch_per_level.len()).rev() {
         let level = i + lowest_unset_level;
         candidates.clear();
-        builder.graph_searcher.search_level_with_collector(
-          candidates,
-          &scorer,
-          level,
-          &eps,
-          &mut builder.hnsw,
-          None::<&B>,
-        )?;
+        if let Some(hnsw) = Arc::get_mut(&mut builder.hnsw) {
+          builder
+            .graph_searcher
+            .search_level_with_collector(candidates, &scorer, level, &eps, hnsw, None::<&B>)?;
+        } else {
+          builder.graph_searcher.search_level_with_collector(
+            candidates,
+            &scorer,
+            level,
+            &eps,
+            &mut builder.hnsw,
+            None::<&B>,
+          )?;
+        }
         eps = Cow::Owned(candidates.pop_until_nearest_k_nodes()?);
         let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), builder.m + 1), false);
         Self::pop_to_scratch(candidates, &mut scratch)?;
