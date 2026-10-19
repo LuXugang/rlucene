@@ -290,6 +290,7 @@ where
   }
 
   /// Index of a pp2 colliding with pp, or None if there is no collision.
+  #[inline(always)]
   fn collide(&self, pp_idx: usize) -> Result<Option<usize>> {
     let tp_pos = self.tp_pos(pp_idx);
     let rpt_group = self.pq.compare.phrase_positions[pp_idx]
