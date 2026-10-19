@@ -29,9 +29,7 @@ use crate::core::util::hnsw::hnsw_graph_builder::{
   HNSW_COMPONENT, HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderDefaults,
   HnswGraphBuilderHook, rand_seed,
 };
-use crate::core::util::hnsw::hnsw_graph_searcher::{
-  HnswGraphSearcher, HnswGraphSearcherBase, HnswGraphSearcherHook,
-};
+use crate::core::util::hnsw::hnsw_graph_searcher::{HnswGraphSearcher, HnswGraphSearcherHook};
 use crate::core::util::hnsw::hnsw_lock::HnswLock;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -288,8 +286,8 @@ impl MergeSearcher {
   }
 }
 
-impl HnswGraphSearcherBase for MergeSearcher {
-  fn graph_seek<T>(&mut self, graph: &mut T, level: usize, target_node: usize) -> Result<()>
+impl MergeSearcher {
+  pub(crate) fn graph_seek<T>(&mut self, graph: &T, level: usize, target_node: usize) -> Result<()>
   where
     T: HnswGraph,
   {
@@ -307,7 +305,7 @@ impl HnswGraphSearcherBase for MergeSearcher {
     Ok(())
   }
 
-  fn graph_next_neighbor<T>(&mut self, _graph: &mut T) -> Result<usize>
+  pub(crate) fn graph_next_neighbor<T>(&mut self, _graph: &T) -> Result<usize>
   where
     T: HnswGraph,
   {

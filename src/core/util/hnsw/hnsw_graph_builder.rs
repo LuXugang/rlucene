@@ -343,7 +343,7 @@ where
           debug_assert!(not_fully_connected.get(c0node)?);
           // link the nodes
           Self::link(
-            &mut self.hnsw,
+            self.hnsw.as_ref(),
             level,
             c0node,
             c.start,
@@ -377,7 +377,7 @@ where
   // Try to link two nodes bidirectionally; the forward connection will always be
   // made. Update notFullyConnected.
   fn link(
-    hnsw: &mut Arc<OnHeapHnswGraph>,
+    hnsw: &OnHeapHnswGraph,
     level: usize,
     n0: usize,
     n1: usize,
@@ -474,7 +474,7 @@ where
 
 impl HnswGraphBuilderDefaults {
   fn add_diverse_neighbors<T>(
-    hnsw: &mut Arc<OnHeapHnswGraph>,
+    hnsw: &OnHeapHnswGraph,
     scorer_supplier: &T,
     m: usize,
     hnsw_lock: Option<&HnswLock>,
@@ -527,7 +527,7 @@ impl HnswGraphBuilderDefaults {
   ///  This method will select neighbors to add and return a mask telling the
   /// caller which candidates are selected
   fn select_and_link_diverse<'a, T>(
-    hnsw: &Arc<OnHeapHnswGraph>,
+    hnsw: &OnHeapHnswGraph,
     scorer_supplier: &T,
     candidates: &NeighborArray,
     max_conn_on_level: usize,
@@ -710,7 +710,7 @@ impl HnswGraphBuilderDefaults {
             &scorer,
             level,
             &eps,
-            &mut builder.hnsw,
+            builder.hnsw.as_ref(),
             None::<&B>,
           )?;
         }
@@ -733,7 +733,7 @@ impl HnswGraphBuilderDefaults {
             &scorer,
             level,
             &eps,
-            &mut builder.hnsw,
+            builder.hnsw.as_ref(),
             None::<&B>,
           )?;
         }
@@ -747,7 +747,7 @@ impl HnswGraphBuilderDefaults {
       let len = scratch_per_level.len();
       for (i, scratch) in scratch_per_level.into_iter().enumerate() {
         Self::add_diverse_neighbors(
-          &mut builder.hnsw,
+          builder.hnsw.as_ref(),
           &builder.scorer_supplier,
           builder.m,
           builder.hnsw_lock.as_ref(),

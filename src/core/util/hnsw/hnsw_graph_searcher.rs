@@ -203,7 +203,7 @@ where
     scorer: &S,
     level: usize,
     eps: &[usize],
-    graph: &mut T,
+    mut graph: T,
     accept_ords: Option<&T2>,
   ) -> Result<()>
   where
@@ -212,7 +212,7 @@ where
     T: HnswGraph,
     T2: Bits,
   {
-    let size = get_graph_size(graph);
+    let size = get_graph_size(&graph);
     self.prepare_scratch_state(size)?;
 
     for &ep in eps {
@@ -241,10 +241,10 @@ where
       }
 
       let top_node = self.candidates.pop()?;
-      self.graph_seek(graph, level, top_node)?;
+      self.graph_seek(&mut graph, level, top_node)?;
       let mut friend_ord;
       while {
-        friend_ord = self.graph_next_neighbor(graph)?;
+        friend_ord = self.graph_next_neighbor(&mut graph)?;
         friend_ord != NO_MORE_DOCS as usize
       } {
         debug_assert!(friend_ord < size, "friendOrd={friend_ord} >= size={size}");
@@ -393,8 +393,8 @@ impl Default for OnHeapHnswGraphSearcher {
     }
   }
 }
-impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
-  fn graph_seek<T>(&mut self, _graph: &mut T, level: usize, target_node: usize) -> Result<()>
+impl OnHeapHnswGraphSearcher {
+  fn graph_seek<T>(&mut self, _graph: &T, level: usize, target_node: usize) -> Result<()>
   where
     T: HnswGraph,
   {
@@ -404,7 +404,7 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
     Ok(())
   }
 
-  fn graph_next_neighbor<T>(&mut self, graph: &mut T) -> Result<usize>
+  fn graph_next_neighbor<T>(&mut self, graph: &T) -> Result<usize>
   where
     T: HnswGraph,
   {
@@ -483,7 +483,6 @@ where
   S: RandomVectorScorer,
   T: Bits,
 {
-  let mut graph = graph;
   let mut knn_collector = TopKnnCollector::new(top_k, visited_limit)?;
   let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
   let neighbor_queue = NeighborQueue::new(top_k, true)?;
@@ -495,7 +494,7 @@ where
   search_with_searcher(
     scorer,
     &mut knn_collector,
-    &mut graph,
+    graph,
     &mut graph_searcher,
     accept_ords,
   )?;
@@ -505,7 +504,7 @@ where
 fn search_with_searcher<S, B, V, T, T2>(
   scorer: &S,
   knn_collector: &mut V,
-  graph: &mut T,
+  mut graph: T,
   graph_searcher: &mut HnswGraphSearcher<B>,
   accept_ords: Option<&T2>,
 ) -> Result<()>
@@ -516,7 +515,7 @@ where
   T: HnswGraph,
   T2: Bits,
 {
-  if let Some(ep) = graph_searcher.find_best_entry_point(scorer, graph, knn_collector)? {
+  if let Some(ep) = graph_searcher.find_best_entry_point(scorer, &mut graph, knn_collector)? {
     graph_searcher.search_level_with_collector(
       knn_collector,
       scorer,

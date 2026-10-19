@@ -145,6 +145,50 @@ where
     (**self).with_neighbors(level, node, action)
   }
 }
+// Preserve the graph's mutable cursor when a search owns only its access handle.
+// Shared on-heap graphs provide their separate implementation for `&OnHeapHnswGraph`.
+impl<T> HnswGraph for &mut T
+where
+  T: HnswGraph + ?Sized,
+{
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    (**self).seek(level, target)
+  }
+
+  fn size(&self) -> usize {
+    (**self).size()
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    (**self).max_node_id()
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    (**self).next_neighbor()
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    (**self).num_levels()
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    (**self).entry_node()
+  }
+
+  type NodeIterator = T::NodeIterator;
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    (**self).get_nodes_on_level(level)
+  }
+
+  fn with_neighbors<R, F>(&self, level: usize, node: usize, action: F) -> Result<R>
+  where
+    F: FnOnce(&NeighborArray) -> Result<R>,
+  {
+    (**self).with_neighbors(level, node, action)
+  }
+}
+
 pub struct EmptyHnswGraph;
 impl HnswGraph for EmptyHnswGraph {
   fn seek(&mut self, _level: usize, _target: usize) -> Result<()> {
