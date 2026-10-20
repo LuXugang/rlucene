@@ -16,12 +16,12 @@
  */
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::document::field::{Field, FieldBase, FieldDataEnum};
+use crate::core::document::field::{FieldBase, FieldDataEnum};
 use crate::core::document::field_type::FieldType;
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
+use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::{
   IndexableField, IndexingTokenStream, ReusedIndexingTokenStream,
 };
@@ -43,7 +43,9 @@ use std::fmt::{Display, Formatter};
 /// [`KnnFloatVectorField`] may be associated with a search similarity function defining the metric used
 /// for nearest-neighbor search among vectors of that field.
 pub struct KnnFloatVectorField {
-  parent_field: Field,
+  name: String,
+  field_type: FieldType,
+  vector: Vec<f32>,
 }
 
 impl KnnFloatVectorField {
@@ -124,10 +126,11 @@ impl KnnFloatVectorField {
     let vector = vector.into();
     let field_type = Self::create_type(vector.as_ref(), similarity_function)?;
     VectorUtil::check_finite(vector.as_ref())?;
-    let v: VectorValueEnum = vector.into();
-    let field = Field::new(name, v, field_type);
+
     Ok(Self {
-      parent_field: field,
+      name: name.into(),
+      field_type,
+      vector,
     })
   }
 
@@ -189,22 +192,17 @@ impl KnnFloatVectorField {
     }
 
     VectorUtil::check_finite(vector.as_ref())?;
-    let v: VectorValueEnum = vector.into();
-    let field = Field::new(name, v, field_type);
 
     Ok(Self {
-      parent_field: field,
+      name,
+      field_type,
+      vector,
     })
   }
 
-  /// Return the vector value of this field
-  pub fn vector_value(&self) -> Result<&VectorValueEnum> {
-    match self.parent_field.fields_data {
-      FieldDataEnum::VectorValue(ref v) => Ok(v),
-      _ => Err(LuceneError::illegal_state(
-        "field value is not a float vector",
-      )),
-    }
+  /// Returns the concrete vector slice owned by this field.
+  pub fn vector_value(&self) -> &[f32] {
+    &self.vector
   }
 
   /// Set the vector value of this field
@@ -221,15 +219,14 @@ impl KnnFloatVectorField {
     V: Into<Vec<f32>>,
   {
     let value = value.into();
-    if value.len() != self.parent_field.field_type().vector_dimension() as usize {
+    if value.len() != self.field_type.vector_dimension() as usize {
       return Err(LuceneError::illegal_argument(format!(
         "value length {} must match field dimension {}",
         value.len(),
-        self.parent_field.field_type().vector_dimension()
+        self.field_type.vector_dimension()
       )));
     }
-    let v: VectorValueEnum = value.into();
-    self.parent_field.fields_data = v.into();
+    self.vector = value;
     Ok(())
   }
 }
@@ -238,13 +235,17 @@ impl FieldBase for KnnFloatVectorField {}
 
 impl Display for KnnFloatVectorField {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    self.parent_field.fmt(f)
+    write!(
+      f,
+      "{}<{}:Float({:?})>",
+      self.field_type, self.name, self.vector
+    )
   }
 }
 
 impl IndexableField for KnnFloatVectorField {
   fn name(&self) -> &str {
-    self.parent_field.name()
+    &self.name
   }
 
   type FieldType<'a>
@@ -253,21 +254,28 @@ impl IndexableField for KnnFloatVectorField {
     Self: 'a;
 
   fn field_type(&self) -> Self::FieldType<'_> {
-    self.parent_field.field_type()
+    &self.field_type
   }
   fn token_stream<'a, A>(
     &'a mut self,
-    analyzer: &'a A,
+    _analyzer: &'a A,
     reuse_token_stream: &'a mut Option<ReusedIndexingTokenStream>,
   ) -> Result<IndexingTokenStream<'a>>
   where
     A: Analyzer,
   {
-    self.parent_field.token_stream(analyzer, reuse_token_stream)
+    if *self.field_type.index_options() == IndexOptions::None {
+      return Ok(None);
+    }
+    debug_assert!(reuse_token_stream.is_none());
+    Err(LuceneError::illegal_state(format!(
+      "Field must have either TokenStream, String, Reader or Number value; got {}",
+      self
+    )))
   }
 
   fn binary_value(&self) -> Result<Option<BinaryValueEnum<'_>>> {
-    self.parent_field.binary_value()
+    Ok(None)
   }
 
   fn take_binary_value(&mut self) -> Result<Option<BytesRef<Vec<u8>>>> {
@@ -275,19 +283,19 @@ impl IndexableField for KnnFloatVectorField {
   }
 
   fn string_value(&self) -> Result<Option<Cow<'_, String>>> {
-    self.parent_field.string_value()
+    Ok(None)
   }
 
   fn take_string_value(&mut self) -> Result<Option<String>> {
-    self.parent_field.take_string_value()
+    Ok(None)
   }
 
   fn take_reader_value(&mut self) -> Result<Option<ReaderEnum>> {
-    self.parent_field.take_reader_value()
+    Ok(None)
   }
 
   fn numeric_value(&self) -> Result<Option<Number>> {
-    self.parent_field.numeric_value()
+    Ok(None)
   }
 
   type StoredValue<'a>
@@ -296,13 +304,19 @@ impl IndexableField for KnnFloatVectorField {
     Self: 'a;
 
   fn stored_value(&self) -> Result<Option<Self::StoredValue<'_>>> {
-    self.parent_field.stored_value()
+    if self.field_type.stored() {
+      Err(LuceneError::illegal_state(
+        "stored field data must be numeric, binary, or a string",
+      ))
+    } else {
+      Ok(None)
+    }
   }
 
   fn invertable_type(&self) -> &InvertableType {
-    self.parent_field.invertable_type()
+    &InvertableType::TokenStream
   }
-  fn vector_value(&self) -> Result<&VectorValueEnum> {
-    self.parent_field.vector_value()
+  fn float_vector_value(&self) -> Result<&[f32]> {
+    Ok(&self.vector)
   }
 }

@@ -164,10 +164,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       &VectorSimilarityFunction::Euclidean,
       field.field_type().vector_similarity_function()
     );
-    match field.vector_value()? {
-      VectorValueEnum::Float(actual) => assert_eq!(v.as_slice(), actual.as_slice()),
-      _ => unreachable!(""),
-    }
+    assert_eq!(v.as_slice(), field.vector_value());
     Ok(())
   }
 
@@ -187,10 +184,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let mut field = KnnFloatVectorField::new("f", vec![0.0])?;
     let v1 = vec![1.0_f32];
     field.set_vector_value(v1.clone())?;
-    match field.vector_value()? {
-      VectorValueEnum::Float(actual) => assert_eq!(v1.as_slice(), actual.as_slice()),
-      _ => unreachable!(""),
-    }
+    assert_eq!(v1.as_slice(), field.vector_value());
 
     let err = field.set_vector_value(vec![1.0, 2.0]).unwrap_err();
     assert_eq!(

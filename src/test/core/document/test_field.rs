@@ -1827,12 +1827,7 @@ fn test_knn_vector_field() -> Result<()> {
     VectorSimilarityFunction::Euclidean,
   )?;
   assert!(byte_field.binary_value()?.is_none());
-  match byte_field.vector_value()? {
-    crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Byte(value) => {
-      assert_eq!(value.as_slice(), byte_vector.as_slice())
-    },
-    _ => unreachable!("expected byte vector"),
-  }
+  assert_eq!(byte_field.vector_value(), byte_vector.as_slice());
 
   let mismatched_float_field =
     KnnFloatVectorField::with_type("bogus", vec![1.0], byte_field.field_type().clone());

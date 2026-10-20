@@ -18,7 +18,6 @@
 use crate::core::analysis::analyzer::Analyzer;
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStreamEnum2};
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::document::field::{BinaryTokenStream, StringTokenStream};
 use crate::core::document::field::{FieldDataEnum, IndexingTokenStreamEnum3};
 use crate::core::document::fields::FieldTokenStreamEnum;
@@ -100,7 +99,13 @@ pub trait IndexableField: Display {
     false
   }
 
-  fn vector_value(&self) -> Result<&VectorValueEnum> {
+  /// Returns the floating-point vector without erasing its element type.
+  fn float_vector_value(&self) -> Result<&[f32]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  /// Returns the byte vector without erasing its element type.
+  fn byte_vector_value(&self) -> Result<&[u8]> {
     Err(LuceneError::unsupported_operation(""))
   }
 }

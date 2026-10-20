@@ -692,9 +692,16 @@ impl IndexableField for Field {
   fn invertable_type(&self) -> &InvertableType {
     &InvertableType::TokenStream
   }
-  fn vector_value(&self) -> Result<&VectorValueEnum> {
+  fn float_vector_value(&self) -> Result<&[f32]> {
     if let FieldDataEnum::VectorValue(v) = &self.fields_data {
-      Ok(v)
+      v.as_floats()
+    } else {
+      Err(LuceneError::unsupported_operation(""))
+    }
+  }
+  fn byte_vector_value(&self) -> Result<&[u8]> {
+    if let FieldDataEnum::VectorValue(v) = &self.fields_data {
+      v.as_bytes()
     } else {
       Err(LuceneError::unsupported_operation(""))
     }
