@@ -82,6 +82,8 @@ use crate::core::document::document::Document;
 #[cfg(test)]
 use crate::core::index::BytesRef;
 #[cfg(test)]
+use crate::core::index::byte_vector_values::ByteVectorValue;
+#[cfg(test)]
 use crate::core::index::codec_reader::CodecReader;
 #[cfg(test)]
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -3493,11 +3495,7 @@ impl<I> ByteVectorValues for CodecByteVectorValues<I>
 where
   I: IndexInput,
 {
-  fn vector_value(
-    &self,
-    ord: usize,
-  ) -> Result<std::borrow::Cow<'_, crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>>
-  {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     self.0.vector_value(ord)
   }
 

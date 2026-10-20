@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::knn_vector_values::{
@@ -123,14 +124,20 @@ impl KnnVectorValues for MockByteVectorValues {
 }
 
 impl ByteVectorValues for MockByteVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     let mut random = random_from_seed(self.seed);
     if random.random_bool(0.5) {
-      Ok(Cow::Owned(VectorValueEnum::Byte(self.values[ord].clone())))
+      Ok(
+        Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(self.values[ord].clone()))
+          .try_into()?,
+      )
     } else {
-      Ok(Cow::Owned(VectorValueEnum::Byte(
-        self.values[ord][0..self.dimension].to_vec(),
-      )))
+      Ok(
+        Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(
+          self.values[ord][0..self.dimension].to_vec(),
+        ))
+        .try_into()?,
+      )
     }
   }
 

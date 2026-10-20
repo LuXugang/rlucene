@@ -30,6 +30,7 @@ use crate::core::codecs::lucene99::off_heap_quantized_byte_vector_values::compre
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
@@ -493,8 +494,8 @@ impl<I> ByteVectorValues for TestQuantizedByteVectorValues<I>
 where
   I: IndexInput,
 {
-  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Ok(Cow::Owned(VectorValueEnum::Byte(vec![0; self.dimension])))
+  fn vector_value(&self, _ord: usize) -> Result<ByteVectorValue<'_>> {
+    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(vec![0; self.dimension])).try_into()?)
   }
 
   type ByteVectorValues = Self;

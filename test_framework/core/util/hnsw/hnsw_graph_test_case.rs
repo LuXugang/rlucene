@@ -27,6 +27,7 @@ use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::directory_reader;
@@ -1261,10 +1262,11 @@ impl KnnVectorValues for CircularByteVectorValues {
 }
 
 impl ByteVectorValues for CircularByteVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Ok(Cow::Owned(VectorValueEnum::Byte(
-      self.vector_value_bytes(ord),
-    )))
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+    Ok(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(self.vector_value_bytes(ord)))
+        .try_into()?,
+    )
   }
 
   type ByteVectorValues = Self;
@@ -1596,8 +1598,8 @@ where
 
     let u_vec = u.vector_value(ord)?;
     let v_vec = v.vector_value(ord)?;
-    let u_bytes = u_vec.as_ref().as_bytes()?;
-    let v_bytes = v_vec.as_ref().as_bytes()?;
+    let u_bytes = u_vec.as_ref();
+    let v_bytes = v_vec.as_ref();
     assert_eq!(u_bytes, v_bytes, "vectors do not match for doc={u_doc}");
   }
   Ok(())

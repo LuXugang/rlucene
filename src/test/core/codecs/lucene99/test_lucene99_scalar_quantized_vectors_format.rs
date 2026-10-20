@@ -215,7 +215,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
         let doc_index = doc_id as usize;
         let ord = iterator.index()? as usize;
         let vector = quantized_values.vector_value(ord)?;
-        assert_eq!(expected_vectors[doc_index], vector.as_ref().as_bytes()?);
+        assert_eq!(expected_vectors[doc_index], vector.as_ref());
         let correction = quantized_values.get_score_correction_constant(ord)?;
         assert!((expected_corrections[doc_index] - correction).abs() <= 0.00001);
         doc_id = iterator.next_doc()?;

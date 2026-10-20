@@ -26,6 +26,7 @@ use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::{DefaultStoredFieldsReader, StoredFieldsReader};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
   CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer, CRPointsReader,
@@ -320,7 +321,7 @@ where
   T: ByteVectorValues,
   U: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     match self {
       Self::A(values) => values.vector_value(ord),
       Self::B(values) => values.vector_value(ord),
@@ -2297,7 +2298,7 @@ impl<B> ByteVectorValues for MergedByteVectorValues<B>
 where
   B: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     debug_assert!(ord < self.size);
     let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
     self.last_sub_index.set(sub_index);

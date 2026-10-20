@@ -3311,10 +3311,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if supports_search && values.ord_to_doc(count)? % every_n_doc == 0 {
         let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         let vector = values.vector_value(count)?;
-        let vector = match vector {
-          Cow::Owned(VectorValueEnum::Byte(vector)) => vector,
-          Cow::Borrowed(VectorValueEnum::Byte(vector)) => vector.clone(),
-          Cow::Owned(VectorValueEnum::Float(_)) | Cow::Borrowed(VectorValueEnum::Float(_)) => {
+        let vector = match VectorValueEnum::from(vector) {
+          VectorValueEnum::Byte(vector) => vector,
+          VectorValueEnum::Float(_) => {
             return Err(LuceneError::corrupt_index(format!(
               "Field \"{}\" has BYTE vector encoding but returned a float vector",
               field_info.name

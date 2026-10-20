@@ -140,7 +140,7 @@ where
     let vector_value = self.vector_values.vector_value(node)?;
     Ok(
       (self.bit_dimensions as i32
-        - VECTOR_UTIL.xor_bit_count(self.query.as_ref(), vector_value.as_bytes()?)?) as f32
+        - VECTOR_UTIL.xor_bit_count(self.query.as_ref(), vector_value.as_ref())?) as f32
         / self.bit_dimensions as f32,
     )
   }
@@ -220,22 +220,14 @@ where
         let query = vector_values1.vector_value(ord)?;
         Ok(RandomVectorScorerEnum2::B(BitRandomVectorScorer::new(
           vector_values2,
-          match query {
-            Cow::Owned(VectorValueEnum::Byte(bytes)) => Cow::Owned(bytes),
-            Cow::Borrowed(value) => Cow::Borrowed(value.as_bytes()?),
-            Cow::Owned(value) => Cow::Owned(value.as_bytes()?.to_vec()),
-          },
+          Cow::from(query),
         )))
       },
       (None, None) => {
         let query = self.vector_values.vector_value(ord)?;
         Ok(RandomVectorScorerEnum2::A(BitRandomVectorScorer::new(
           &self.vector_values,
-          match query {
-            Cow::Owned(VectorValueEnum::Byte(bytes)) => Cow::Owned(bytes),
-            Cow::Borrowed(value) => Cow::Borrowed(value.as_bytes()?),
-            Cow::Owned(value) => Cow::Owned(value.as_bytes()?.to_vec()),
-          },
+          Cow::from(query),
         )))
       },
       _ => Err(LuceneError::illegal_state(

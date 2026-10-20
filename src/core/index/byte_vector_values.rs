@@ -26,14 +26,93 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
+/// A read-only byte slice that keeps its backing buffer borrowed until dropped.
+/// Convert into [`VectorValueEnum`] only when an independent owned value is needed.
+#[derive(Debug)]
+pub struct ByteVectorValue<'a>(pub(crate) ByteVectorValueStorage<'a>);
+
+#[derive(Debug)]
+pub(crate) enum ByteVectorValueStorage<'a> {
+  Borrowed(&'a [u8]),
+  Owned(Vec<u8>),
+  Buffer(parking_lot::MappedMutexGuard<'a, [u8]>),
+}
+
+impl std::ops::Deref for ByteVectorValue<'_> {
+  type Target = [u8];
+
+  fn deref(&self) -> &Self::Target {
+    match &self.0 {
+      ByteVectorValueStorage::Borrowed(value) => value,
+      ByteVectorValueStorage::Owned(value) => value.as_slice(),
+      ByteVectorValueStorage::Buffer(value) => value,
+    }
+  }
+}
+
+impl AsRef<[u8]> for ByteVectorValue<'_> {
+  fn as_ref(&self) -> &[u8] {
+    self
+  }
+}
+
+impl<'a> From<Cow<'a, [u8]>> for ByteVectorValue<'a> {
+  fn from(value: Cow<'a, [u8]>) -> Self {
+    Self(match value {
+      Cow::Borrowed(value) => ByteVectorValueStorage::Borrowed(value),
+      Cow::Owned(value) => ByteVectorValueStorage::Owned(value),
+    })
+  }
+}
+
+impl<'a> TryFrom<Cow<'a, VectorValueEnum>> for ByteVectorValue<'a> {
+  type Error = LuceneError;
+
+  fn try_from(value: Cow<'a, VectorValueEnum>) -> Result<Self> {
+    match value {
+      Cow::Borrowed(VectorValueEnum::Byte(value)) => {
+        Ok(Self(ByteVectorValueStorage::Borrowed(value.as_slice())))
+      },
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(value)) => {
+        Ok(Self(ByteVectorValueStorage::Owned(value)))
+      },
+      _ => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+}
+
+impl<'a> From<ByteVectorValue<'a>> for Cow<'a, [u8]> {
+  fn from(value: ByteVectorValue<'a>) -> Self {
+    match value.0 {
+      ByteVectorValueStorage::Borrowed(value) => Cow::Borrowed(value),
+      ByteVectorValueStorage::Owned(value) => Cow::Owned(value),
+      ByteVectorValueStorage::Buffer(value) => Cow::Owned(value.to_vec()),
+    }
+  }
+}
+
+impl From<ByteVectorValue<'_>> for VectorValueEnum {
+  fn from(value: ByteVectorValue<'_>) -> Self {
+    VectorValueEnum::Byte(match value.0 {
+      ByteVectorValueStorage::Borrowed(value) => value.to_vec(),
+      ByteVectorValueStorage::Owned(value) => value,
+      ByteVectorValueStorage::Buffer(value) => value.to_vec(),
+    })
+  }
+}
+
 /// This trait provides access to per-document byte vector values indexed as [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
 pub trait ByteVectorValues: KnnVectorValues {
   /// Returns the vector value for an ordinal in `0..size()`.
   /// Returns an out-of-bounds error for an invalid ordinal. The returned array may be shared across calls.
   ///
   /// # Returns
-  /// the vector value
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>>;
+  /// A byte slice view; vector encoding is already resolved by this interface.
+  ///
+  /// The returned view may hold the reader's buffer lock. Drop it before reading,
+  /// copying or otherwise accessing the same instance again. Use independent
+  /// [`Self::byte_copy`] instances for simultaneous reads of reusable buffers.
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>>;
 
   type ByteVectorValues: ByteVectorValues;
   /// Creates a copy of this [`KnnVectorValues`] when an independent instance is
@@ -46,7 +125,8 @@ pub trait ByteVectorValues: KnnVectorValues {
   /// Returning `Some(...)` means that a new independent object was created.
   ///
   /// Returning `None` means that no new object was created, and callers should
-  /// continue using `self` directly.
+  /// continue using `self` directly. In this case the instance must support
+  /// simultaneous vector views without locking a shared reusable buffer.
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -79,7 +159,7 @@ impl<T> ByteVectorValues for &T
 where
   T: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     (**self).vector_value(ord)
   }
 
@@ -203,8 +283,14 @@ impl KnnVectorValues for ByteVectorValuesImpl {
 }
 
 impl ByteVectorValues for ByteVectorValuesImpl {
-  fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
-    Ok(Cow::Borrowed(&self.vectors[target_ord]))
+  #[inline]
+  fn vector_value(&self, target_ord: usize) -> Result<ByteVectorValue<'_>> {
+    match &self.vectors[target_ord] {
+      VectorValueEnum::Byte(vector) => Ok(ByteVectorValue(ByteVectorValueStorage::Borrowed(
+        vector.as_slice(),
+      ))),
+      VectorValueEnum::Float(_) => Err(LuceneError::unsupported_operation("")),
+    }
   }
 
   type ByteVectorValues = Self;

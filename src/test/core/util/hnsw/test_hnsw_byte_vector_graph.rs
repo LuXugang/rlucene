@@ -146,16 +146,16 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
     for i in 0..vector_values.size() {
       let ord = vector_values.ord_to_doc(i)?;
       let value = vector_values.vector_value(i)?;
-      let bytes = value.as_ref().as_bytes()?;
+      let bytes = value.as_ref();
       let dimension = vector_values.dimension();
       debug_assert!(dimension <= bytes.len());
       let _ = &bytes[..dimension];
-      vectors[ord] = match value {
-        Cow::Owned(VectorValueEnum::Byte(mut vector)) => {
+      vectors[ord] = match VectorValueEnum::from(value) {
+        VectorValueEnum::Byte(mut vector) => {
           vector.truncate(dimension);
           vector
         },
-        value => value.as_ref().as_bytes()?[..dimension].to_vec(),
+        value => value.as_bytes()?[..dimension].to_vec(),
       };
     }
     Ok(TestsKnnVectorValues::A(MockByteVectorValues::from_values(
@@ -243,7 +243,7 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
   fn vector_value(&self, vectors: &TestsKnnVectorValues, ord: usize) -> Result<Vec<u8>> {
     match vectors {
       KnnVectorValuesEnm2::A(byte_vector_values) => {
-        match byte_vector_values.vector_value(ord)?.into_owned() {
+        match VectorValueEnum::from(byte_vector_values.vector_value(ord)?) {
           VectorValueEnum::Byte(v) => Ok(v),
           _ => unreachable!("unexpected vector value"),
         }

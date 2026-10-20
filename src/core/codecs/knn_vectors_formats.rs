@@ -30,6 +30,7 @@ use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVec
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_format::{
   Lucene99ScalarQuantizedVectorsFormat, NAME as LUCENE99_SCALAR_QUANTIZED_VECTORS_FORMAT_NAME,
 };
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
@@ -637,7 +638,7 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I>
 }
 
 impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I> {
-  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     match self {
       Self::Lucene99Hnsw(values) => values.vector_value(ord),
       Self::HnswBit(values) => values.vector_value(ord),
@@ -777,7 +778,7 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValues<I> {
 }
 
 impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValues<I> {
-  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     match self {
       Self::Lucene99Hnsw(values) => values.vector_value(ord),
       Self::HnswBit(values) => values.vector_value(ord),

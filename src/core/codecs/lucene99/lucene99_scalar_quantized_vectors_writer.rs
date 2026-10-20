@@ -40,6 +40,7 @@ use crate::core::codecs::lucene99::off_heap_quantized_byte_vector_values::{
   self, compress_bytes, compressed_array,
 };
 use crate::core::index::IndexFileNames;
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CRKnnVectorReader;
 use crate::core::index::codec_reader::CodecReader;
@@ -1181,7 +1182,7 @@ where
     // write vector
     let ord: usize = iter.index()?.try_convert()?;
     let binary_value = quantized_byte_vector_values.vector_value(ord)?;
-    let binary_value = binary_value.as_bytes()?;
+    let binary_value = binary_value.as_ref();
     debug_assert_eq!(
       binary_value.len(),
       quantized_byte_vector_values.dimension(),
@@ -1599,7 +1600,7 @@ where
   F: FloatVectorValues,
   Q: QuantizedByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     match self {
       Self::Requantized(values) => values.vector_value(ord),
       Self::OffsetCorrected(values) => values.vector_value(ord),
@@ -1849,7 +1850,7 @@ where
   V: QuantizedByteVectorValues,
   LiveBits: Bits,
 {
-  fn vector_value(&self, _ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, _ord: usize) -> Result<ByteVectorValue<'_>> {
     let state = self
       .iterator_state
       .borrow()
@@ -1861,9 +1862,12 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::Owned(
-      current_sub.values.vector_value(index)?.into_owned(),
-    ))
+    Ok(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
+        current_sub.values.vector_value(index)?,
+      ))
+      .try_into()?,
+    )
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -2070,16 +2074,17 @@ impl<FVV> ByteVectorValues for QuantizedFloatVectorValues<FVV>
 where
   FVV: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     let mut inner = self.inner.borrow_mut();
     let ord_i32: i32 = ord.try_convert()?;
     if ord_i32 != inner.last_ord {
       inner.offset_value = self.quantize(ord, &mut inner)?;
       inner.last_ord = ord_i32;
     }
-    Ok(Cow::Owned(VectorValueEnum::Byte(
-      inner.quantized_vector.clone(),
-    )))
+    Ok(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(inner.quantized_vector.clone()))
+        .try_into()?,
+    )
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -2206,7 +2211,7 @@ impl<Q> ByteVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
 where
   Q: QuantizedByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     self.in_.vector_value(ord)
   }
 
@@ -2230,7 +2235,7 @@ where
   fn get_score_correction_constant(&self, ord: usize) -> Result<f32> {
     let vector = self.in_.vector_value(ord)?;
     Ok(self.scalar_quantizer.recalculate_corrective_offset(
-      vector.as_bytes()?,
+      vector.as_ref(),
       &self.old_scalar_quantizer,
       self.vector_similarity_function,
     ))

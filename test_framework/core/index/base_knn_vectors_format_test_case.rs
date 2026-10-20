@@ -1374,7 +1374,7 @@ pub trait BaseKnnVectorsFormatTestCase:
                 }
                 checksum += byte_vector_values
                   .vector_value(iterator.index()? as usize)?
-                  .as_bytes()?[0] as f64;
+                  .as_ref()[0] as f64;
               }
             }
           }
@@ -1825,7 +1825,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         .unwrap()
         .as_ref()
     );
-    assert_eq!(-1, vector_values.vector_value(0)?.as_bytes()?[0] as i8);
+    assert_eq!(-1, vector_values.vector_value(0)?.as_ref()[0] as i8);
 
     assert_eq!(
       "2",
@@ -1835,7 +1835,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         .unwrap()
         .as_ref()
     );
-    assert_eq!(1, vector_values.vector_value(1)?.as_bytes()?[0] as i8);
+    assert_eq!(1, vector_values.vector_value(1)?.as_ref()[0] as i8);
 
     assert_eq!(
       "4",
@@ -1845,7 +1845,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         .unwrap()
         .as_ref()
     );
-    assert_eq!(0, vector_values.vector_value(2)?.as_bytes()?[0] as i8);
+    assert_eq!(0, vector_values.vector_value(2)?.as_ref()[0] as i8);
 
     assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
 
@@ -2145,7 +2145,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         }
 
         let v = vector_values.vector_value(iterator.index()? as usize)?;
-        let v = v.as_bytes()?;
+        let v = v.as_ref();
         assert_eq!(dimension, v.len());
 
         let doc = stored_fields.document(doc_id)?;
@@ -2758,7 +2758,7 @@ pub trait BaseKnnVectorsFormatTestCase:
             }
 
             let ord = iter.index()? as usize;
-            checksum += (byte_vector_values.vector_value(ord)?.as_bytes()?[0] as i8) as f64;
+            checksum += (byte_vector_values.vector_value(ord)?.as_ref()[0] as i8) as f64;
             let doc = stored_fields.document(leaf_doc_id)?;
             let id = doc
               .get_field("id")
@@ -2882,7 +2882,6 @@ pub trait BaseKnnVectorsFormatTestCase:
       byte_vectors
         .vector_value(iterator.index()? as usize)?
         .as_ref()
-        .as_bytes()?
     );
     assert_eq!(1, iterator.next_doc()?);
     assert_eq!(
@@ -2890,7 +2889,6 @@ pub trait BaseKnnVectorsFormatTestCase:
       byte_vectors
         .vector_value(iterator.index()? as usize)?
         .as_ref()
-        .as_bytes()?
     );
     assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
 

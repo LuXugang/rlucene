@@ -29,6 +29,7 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
   CRBits, CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer,
@@ -2478,7 +2479,7 @@ where
   T: ByteVectorValues,
   U: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     match self {
       Self::Filter(values) => values.vector_value(ord),
       Self::Sorting(values) => values.vector_value(ord),
@@ -2930,7 +2931,7 @@ impl<B> ByteVectorValues for SortingByteVectorValues<B>
 where
   B: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     self.delegate.vector_value(ord)
   }
 
@@ -4861,7 +4862,7 @@ where
   T: ByteVectorValues,
   U: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     match self {
       Self::A(values) => values.vector_value(ord),
       Self::B(values) => values.vector_value(ord),

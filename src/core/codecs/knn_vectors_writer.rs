@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
+use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CRKnnVectorReader;
 use crate::core::index::codec_reader::CodecReader;
@@ -831,7 +832,7 @@ where
   B: ByteVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
     let mut state = self.state.borrow_mut();
     let ord: i32 = ord.try_convert()?;
     if ord != state.last_ord + 1 {
@@ -846,9 +847,12 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::Owned(
-      current_sub.values.vector_value(index)?.into_owned(),
-    ))
+    Ok(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
+        current_sub.values.vector_value(index)?,
+      ))
+      .try_into()?,
+    )
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -957,9 +961,9 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::Owned(
-      current_sub.values.vector_value(index)?.into_owned(),
-    ))
+    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
+      current_sub.values.vector_value(index)?,
+    )))
   }
 }
 

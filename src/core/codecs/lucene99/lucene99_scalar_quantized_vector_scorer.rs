@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -417,7 +416,7 @@ where
   fn score(&self, node: usize) -> Result<f32> {
     let node_vector = self.values.vector_value(node)?;
     let square_distance =
-      VECTOR_UTIL.square_distance_u8(node_vector.as_bytes()?, &self.target_bytes)?;
+      VECTOR_UTIL.square_distance_u8(node_vector.as_ref(), &self.target_bytes)?;
     let adjusted_distance = square_distance as f32 * self.const_multiplier;
     Ok(1.0 / (1.0 + adjusted_distance))
   }
@@ -478,7 +477,7 @@ where
   fn score(&self, vector_ordinal: usize) -> Result<f32> {
     let stored_vector = self.values.vector_value(vector_ordinal)?;
     let vector_offset = self.values.get_score_correction_constant(vector_ordinal)?;
-    let dot_product = VECTOR_UTIL.dot_product_u8(stored_vector.as_bytes()?, &self.target_bytes)?;
+    let dot_product = VECTOR_UTIL.dot_product_u8(stored_vector.as_ref(), &self.target_bytes)?;
     debug_assert!(dot_product >= 0);
     let adjusted_distance =
       dot_product as f32 * self.const_multiplier + self.offset_correction + vector_offset;
@@ -609,8 +608,7 @@ where
   fn score(&self, vector_ordinal: usize) -> Result<f32> {
     let stored_vector = self.values.vector_value(vector_ordinal)?;
     let vector_offset = self.values.get_score_correction_constant(vector_ordinal)?;
-    let dot_product =
-      VECTOR_UTIL.int4_dot_product(stored_vector.as_bytes()?, &self.target_bytes)?;
+    let dot_product = VECTOR_UTIL.int4_dot_product(stored_vector.as_ref(), &self.target_bytes)?;
     debug_assert!(dot_product >= 0);
     let adjusted_distance =
       dot_product as f32 * self.const_multiplier + self.offset_correction + vector_offset;
@@ -693,10 +691,7 @@ where
 
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     let vector_value = self.values1.vector_value(ord)?;
-    let vector_value = match vector_value {
-      Cow::Owned(VectorValueEnum::Byte(vector)) => vector,
-      value => value.as_bytes()?.to_vec(),
-    };
+    let vector_value = Cow::<[u8]>::from(vector_value).into_owned();
     let offset_correction = self.values1.get_score_correction_constant(ord)?;
     from_vector_similarity(
       vector_value,

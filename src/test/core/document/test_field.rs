@@ -1858,7 +1858,7 @@ fn test_knn_vector_field() -> Result<()> {
   assert_eq!(1, binary.size());
   let mut byte_iterator = binary.iterator()?;
   assert_ne!(NO_MORE_DOCS, byte_iterator.next_doc()?);
-  assert_eq!(byte_vector.as_slice(), binary.vector_value(0)?.as_bytes()?);
+  assert_eq!(byte_vector.as_slice(), binary.vector_value(0)?.as_ref());
   assert_eq!(NO_MORE_DOCS, byte_iterator.next_doc()?);
   assert!(binary.vector_value(1).is_err());
 
