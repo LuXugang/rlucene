@@ -25,10 +25,8 @@ RLucene 目前基于 Apache Lucene 10.1。待当前移植版本功能完善并�
 
 ## 性能基准
 
-RLucene 的搜索性能基准参考了 Quickwit 的
-[Search Benchmark Game](https://github.com/quickwit-oss/search-benchmark-game)。目前主要与
-Java Lucene 10.1 进行直接对比，因为它正是 RLucene 当前移植和对齐的目标版本。
-基准测试覆盖多种查询模式，在比较搜索性能的同时，也会检查两个实现返回的结果是否一致。
+我们使用搜索社区中的多个基准测试，将 RLucene 与 Apache Lucene 放在相同的搜索负载下
+进行性能对比。
 
 查看[最新基准测试结果](https://amazingkoala.com.cn/benchmark/index.html)。
 
