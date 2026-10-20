@@ -1124,18 +1124,6 @@ impl DataInput for MemorySegmentIndexInput {
     if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
     {
-      #[cfg(target_endian = "little")]
-      // SAFETY: both slices cover exactly byte_len bytes. The mapped source is
-      // read-only and cannot overlap the caller's mutable destination. f32 has
-      // no padding and every bit pattern is valid; byte alignment is sufficient.
-      unsafe {
-        Self::copy_bytes(
-          bytes.as_ptr(),
-          target.as_mut_ptr().cast::<u8>(),
-          bytes.len(),
-        );
-      }
-      #[cfg(target_endian = "big")]
       for (value, chunk) in target.iter_mut().zip(bytes.as_chunks::<4>().0) {
         *value = f32::from_le_bytes(*chunk);
       }

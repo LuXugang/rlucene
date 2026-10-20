@@ -164,6 +164,7 @@ impl<I, F> FloatVectorValues for OffHeapFloatVectorValues<I, F>
 where
   I: IndexInput,
 {
+  #[inline(always)]
   fn vector_value(&self, target_ord: usize) -> Result<FloatVectorValue<'_>> {
     let mut inner = self.inner.lock();
     let same_ord = matches!(inner.last_ord, Some(last_ord) if last_ord == target_ord);
@@ -299,6 +300,7 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
+  #[inline(always)]
   fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     self.base.vector_value(ord)
   }
@@ -527,6 +529,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
+  #[inline(always)]
   fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     self.base.vector_value(ord)
   }
@@ -964,6 +967,7 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
+  #[inline(always)]
   fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.vector_value(ord),
