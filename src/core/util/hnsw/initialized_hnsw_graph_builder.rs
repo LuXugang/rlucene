@@ -46,7 +46,8 @@ where
   let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw, hook)?;
   Ok(base)
 }
-impl<B, S, BS> HnswGraphBuilderBase<B, S, BS> for InitializedHnswGraphBuilder<B>
+impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswGraphBuilderBase<B, S, BS, DEFAULT_SEARCHER>
+  for InitializedHnswGraphBuilder<B>
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
@@ -54,7 +55,7 @@ where
 {
   fn add_graph_node(
     &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS>,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
     node: usize,
   ) -> Result<()> {
     if self.initialized_nodes.get(node)? {

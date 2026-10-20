@@ -28,7 +28,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 /// Searches an HNSW graph to find nearest neighbors to a query vector.
 ///
 /// For more background on the search algorithm, see [`HnswGraph`].
-pub struct HnswGraphSearcher<B> {
+pub struct HnswGraphSearcher<B, const DEFAULT_HOOK: bool = true> {
   /// Scratch data structures that are used in each `search_level` call.
   /// These can be expensive to allocate, so they're cleared and reused across
   /// calls.
@@ -59,9 +59,18 @@ where
   /// * `visited` - bit set that will track nodes that have already been
   ///   visited
   pub fn new(candidates: NeighborQueue, visited: B) -> Self {
-    Self::with_hook(candidates, visited, HnswGraphSearcherHook::Default)
+    Self {
+      candidates,
+      visited,
+      hook: HnswGraphSearcherHook::Default,
+    }
   }
+}
 
+impl<B> HnswGraphSearcher<B, false>
+where
+  B: BitSet,
+{
   pub(crate) fn with_hook(
     candidates: NeighborQueue,
     visited: B,
@@ -73,6 +82,12 @@ where
       hook,
     }
   }
+}
+
+impl<B, const DEFAULT_HOOK: bool> HnswGraphSearcher<B, DEFAULT_HOOK>
+where
+  B: BitSet,
+{
   /// Searches for the nearest neighbors of a query vector in a given level.
   ///
   /// If the search stops early because it reaches the visited nodes limit,
@@ -279,13 +294,21 @@ where
   where
     T: HnswGraph,
   {
-    self.hook.graph_seek(graph, level, target_node)
+    if DEFAULT_HOOK {
+      HnswGraphSearcherDefaults::graph_seek(graph, level, target_node)
+    } else {
+      self.hook.graph_seek(graph, level, target_node)
+    }
   }
   fn graph_next_neighbor<T>(&mut self, graph: &mut T) -> Result<usize>
   where
     T: HnswGraph,
   {
-    self.hook.graph_next_neighbor(graph)
+    if DEFAULT_HOOK {
+      HnswGraphSearcherDefaults::graph_next_neighbor(graph)
+    } else {
+      self.hook.graph_next_neighbor(graph)
+    }
   }
   fn prepare_scratch_state(&mut self, capacity: usize) -> Result<()> {
     self.candidates.clear();
@@ -501,11 +524,11 @@ where
 
   Ok(knn_collector)
 }
-fn search_with_searcher<S, B, V, T, T2>(
+fn search_with_searcher<S, B, V, T, T2, const DEFAULT_HOOK: bool>(
   scorer: &S,
   knn_collector: &mut V,
   mut graph: T,
-  graph_searcher: &mut HnswGraphSearcher<B>,
+  graph_searcher: &mut HnswGraphSearcher<B, DEFAULT_HOOK>,
   accept_ords: Option<&T2>,
 ) -> Result<()>
 where

@@ -42,12 +42,12 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_
 use crate::core::util::splittable_random::SplittableRandom;
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
-pub struct HnswGraphBuilder<B, S, BS> {
+pub struct HnswGraphBuilder<B, S, BS, const DEFAULT_SEARCHER: bool = true> {
   m: usize,
   ml: f64,
   random: SplittableRandom,
   scorer_supplier: S,
-  graph_searcher: HnswGraphSearcher<BS>,
+  graph_searcher: HnswGraphSearcher<BS, DEFAULT_SEARCHER>,
   entry_candidates: GraphBuilderKnnCollector,
   beam_candidates: GraphBuilderKnnCollector,
   hnsw: Arc<OnHeapHnswGraph>,
@@ -130,7 +130,7 @@ where
     )
   }
 }
-impl<B, S, BS> HnswGraphBuilder<B, S, BS>
+impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>
 where
   S: RandomVectorScorerSupplier,
   BS: BitSet,
@@ -159,7 +159,7 @@ where
     seed: u64,
     hnsw: Arc<OnHeapHnswGraph>,
     hnsw_lock: Option<HnswLock>,
-    graph_searcher: HnswGraphSearcher<BS>,
+    graph_searcher: HnswGraphSearcher<BS, DEFAULT_SEARCHER>,
     hook: HnswGraphBuilderHook<B>,
   ) -> Result<Self> {
     if m == 0 {
@@ -424,7 +424,8 @@ where
   }
 }
 
-impl<B, S, BS> HnswBuilder for HnswGraphBuilder<B, S, BS>
+impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswBuilder
+  for HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>
 where
   S: RandomVectorScorerSupplier,
   BS: BitSet,
@@ -626,8 +627,8 @@ impl HnswGraphBuilderDefaults {
     }
   }
 
-  pub(crate) fn add_graph_node<B, S, BS>(
-    builder: &mut HnswGraphBuilder<B, S, BS>,
+  pub(crate) fn add_graph_node<B, S, BS, const DEFAULT_SEARCHER: bool>(
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
     node: usize,
   ) -> Result<()>
   where
@@ -781,17 +782,7 @@ impl HnswGraphBuilderDefaults {
   }
 }
 
-pub(crate) trait HnswGraphBuilderBase<B, S, BS>
-where
-  B: Bits,
-  S: RandomVectorScorerSupplier,
-  BS: BitSet,
-{
-  fn add_graph_node(&mut self, builder: &mut HnswGraphBuilder<B, S, BS>, node: usize)
-  -> Result<()>;
-}
-
-impl<B, S, BS> HnswGraphBuilderBase<B, S, BS> for HnswGraphBuilderHook<B>
+pub(crate) trait HnswGraphBuilderBase<B, S, BS, const DEFAULT_SEARCHER: bool>
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
@@ -799,7 +790,21 @@ where
 {
   fn add_graph_node(
     &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS>,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
+    node: usize,
+  ) -> Result<()>;
+}
+
+impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswGraphBuilderBase<B, S, BS, DEFAULT_SEARCHER>
+  for HnswGraphBuilderHook<B>
+where
+  B: Bits,
+  S: RandomVectorScorerSupplier,
+  BS: BitSet,
+{
+  fn add_graph_node(
+    &mut self,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
     node: usize,
   ) -> Result<()> {
     match self {

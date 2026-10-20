@@ -177,7 +177,8 @@ pub(crate) struct ConcurrentMergeWorkerHook {
   initialized_nodes: Option<Arc<FixedBitSet>>,
 }
 
-impl<B, S, BS> HnswGraphBuilderBase<B, S, BS> for ConcurrentMergeWorkerHook
+impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswGraphBuilderBase<B, S, BS, DEFAULT_SEARCHER>
+  for ConcurrentMergeWorkerHook
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
@@ -185,7 +186,7 @@ where
 {
   fn add_graph_node(
     &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS>,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
     node: usize,
   ) -> Result<()> {
     if let Some(initialized_nodes) = self.initialized_nodes.as_ref()
@@ -198,7 +199,7 @@ where
 }
 
 struct ConcurrentMergeWorker<S> {
-  base: HnswGraphBuilder<MatchNoBits, S, FixedBitSet>,
+  base: HnswGraphBuilder<MatchNoBits, S, FixedBitSet, false>,
   work_progress: Arc<AtomicUsize>,
   batch_size: usize,
 }
