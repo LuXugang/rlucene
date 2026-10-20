@@ -29,11 +29,8 @@ before the latest one.
 
 ## Benchmark
 
-RLucene's search benchmark is inspired by Quickwit's
-[Search Benchmark Game](https://github.com/quickwit-oss/search-benchmark-game).
-For now, it focuses on a direct comparison with Java Lucene 10.1, the version
-RLucene currently targets. The benchmark covers several query modes and checks
-result consistency alongside search performance.
+We use several benchmarks from the search community to compare RLucene with
+Apache Lucene under the same search workloads.
 
 See the [latest benchmark results](https://amazingkoala.com.cn/benchmark/index.html).
 
