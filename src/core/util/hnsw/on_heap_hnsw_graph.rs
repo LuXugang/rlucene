@@ -36,7 +36,7 @@ pub struct OnHeapHnswGraph {
   // the internal graph representation where the first dimension is node id and second dimension
   // is level
   // e.g. graph[1][2] is all the neighbours of node 1 at level 2
-  graph: Vec<OnceLock<Vec<RwLock<NeighborArray>>>>,
+  graph: Vec<OnceLock<Vec<RwLock<NeighborArray<true>>>>>,
   // essentially another 2d map which the first dimension is level and second dimension is node
   // id, this is only
   // generated on demand when there's someone calling getNodeOnLevel on a non-zero level
@@ -142,7 +142,7 @@ impl OnHeapHnswGraph {
     &mut self,
     level: usize,
     node: usize,
-  ) -> Result<&mut NeighborArray> {
+  ) -> Result<&mut NeighborArray<true>> {
     #[cfg(debug_assertions)]
     check_graph(&self.graph, level, node);
     let levels = self
@@ -160,7 +160,7 @@ impl OnHeapHnswGraph {
     &self,
     level: usize,
     node: usize,
-  ) -> Result<RwLockReadGuard<'_, NeighborArray>> {
+  ) -> Result<RwLockReadGuard<'_, NeighborArray<true>>> {
     #[cfg(debug_assertions)]
     check_graph(&self.graph, level, node);
     let levels = self
@@ -176,7 +176,7 @@ impl OnHeapHnswGraph {
 
   pub(crate) fn with_neighbors_mut<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
   where
-    F: FnOnce(&mut NeighborArray) -> Result<T>,
+    F: FnOnce(&mut NeighborArray<true>) -> Result<T>,
   {
     #[cfg(debug_assertions)]
     check_graph(&self.graph, level, node);
@@ -209,7 +209,7 @@ impl OnHeapHnswGraph {
           } else {
             self.nsize
           };
-          RwLock::new(NeighborArray::new(max_size, true))
+          RwLock::new(NeighborArray::<true>::new(max_size))
         })
         .collect()
     });
@@ -420,7 +420,7 @@ impl HnswGraph for OnHeapHnswGraph {
 
   fn with_neighbors<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
   where
-    F: FnOnce(&NeighborArray) -> Result<T>,
+    F: FnOnce(&NeighborArray<true>) -> Result<T>,
   {
     let neighbors = OnHeapHnswGraph::get_neighbors(self, level, node)?;
     action(&neighbors)
@@ -459,14 +459,14 @@ impl HnswGraph for &OnHeapHnswGraph {
 
   fn with_neighbors<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
   where
-    F: FnOnce(&NeighborArray) -> Result<T>,
+    F: FnOnce(&NeighborArray<true>) -> Result<T>,
   {
     let neighbors = (*self).get_neighbors(level, node)?;
     action(&neighbors)
   }
 }
 #[cfg(debug_assertions)]
-fn check_graph(graph: &[OnceLock<Vec<RwLock<NeighborArray>>>], level: usize, node: usize) {
+fn check_graph(graph: &[OnceLock<Vec<RwLock<NeighborArray<true>>>>], level: usize, node: usize) {
   let Some(entry) = graph.get(node) else {
     debug_assert!(false, "HNSW node {node} is out of bounds");
     return;
@@ -571,7 +571,7 @@ impl HnswGraph for Arc<OnHeapHnswGraph> {
 
   fn with_neighbors<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
   where
-    F: FnOnce(&NeighborArray) -> Result<T>,
+    F: FnOnce(&NeighborArray<true>) -> Result<T>,
   {
     let neighbors = self.as_ref().get_neighbors(level, node)?;
     action(&neighbors)

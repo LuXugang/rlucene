@@ -28,22 +28,20 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 /// the HNSW graph as a pair of growable arrays. Nodes are arranged in the
 /// sorted order of their scores in:
 ///
-/// - descending order if `scores_desc_order` is `true`
-/// - ascending order if `scores_desc_order` is `false`
+/// - descending order if `DESC_ORDER` is `true`
+/// - ascending order if `DESC_ORDER` is `false`
 #[derive(Clone, Default)]
-pub struct NeighborArray {
-  scores_desc_order: bool,
+pub struct NeighborArray<const DESC_ORDER: bool> {
   size: usize,
   scores: Vec<f32>,
   nodes: Vec<usize>,
   sorted_node_size: usize,
 }
 
-impl NeighborArray {
-  /// Creates a new NeighborArray with the given capacity and sort order.
-  pub fn new(max_size: usize, desc_order: bool) -> Self {
+impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
+  /// Creates an array with the given capacity and the sort order fixed by its type.
+  pub fn new(max_size: usize) -> Self {
     Self {
-      scores_desc_order: desc_order,
       size: 0,
       sorted_node_size: 0,
       scores: vec![0.0; max_size],
@@ -67,7 +65,7 @@ impl NeighborArray {
       debug_assert!(
         {
           let previous_score = self.scores[self.size - 1];
-          if self.scores_desc_order {
+          if DESC_ORDER {
             previous_score >= new_score
           } else {
             previous_score <= new_score
@@ -187,7 +185,7 @@ impl NeighborArray {
       tmp_score = scorer.score(tmp_node)?;
     }
 
-    let insertion_point = if self.scores_desc_order {
+    let insertion_point = if DESC_ORDER {
       self.desc_sort_find_rightmost_insertion_point(tmp_score, self.sorted_node_size)
     } else {
       self.asc_sort_find_rightmost_insertion_point(tmp_score, self.sorted_node_size)
@@ -378,13 +376,18 @@ impl NeighborArray {
   }
 }
 
-impl Accountable for NeighborArray {
+impl<const DESC_ORDER: bool> Accountable for NeighborArray<DESC_ORDER> {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(size_of_vec(&self.scores).saturating_add(size_of_vec(&self.nodes)))
   }
 }
-impl fmt::Display for NeighborArray {
+impl<const DESC_ORDER: bool> fmt::Display for NeighborArray<DESC_ORDER> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}[{}]", std::any::type_name::<Self>(), self.size)
+    write!(
+      f,
+      "{}[{}]",
+      concat!(module_path!(), "::NeighborArray"),
+      self.size
+    )
   }
 }

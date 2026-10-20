@@ -366,7 +366,7 @@ where
   }
   fn reconstruct_and_write_neighbours(
     vector_index: &mut F::IndexOutput,
-    neighbors: &mut NeighborArray,
+    neighbors: &mut NeighborArray<true>,
     old_to_new_map: &[usize],
     max_ord: usize,
   ) -> Result<()> {

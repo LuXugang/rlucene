@@ -481,7 +481,7 @@ impl HnswGraphBuilderDefaults {
     hnsw_lock: Option<&HnswLock>,
     level: usize,
     node: usize,
-    candidates: &NeighborArray,
+    candidates: &NeighborArray<false>,
   ) -> Result<()>
   where
     T: RandomVectorScorerSupplier,
@@ -530,7 +530,7 @@ impl HnswGraphBuilderDefaults {
   fn select_and_link_diverse<'a, T>(
     hnsw: &OnHeapHnswGraph,
     scorer_supplier: &T,
-    candidates: &NeighborArray,
+    candidates: &NeighborArray<false>,
     max_conn_on_level: usize,
     level: usize,
     node: usize,
@@ -583,7 +583,7 @@ impl HnswGraphBuilderDefaults {
   }
   pub(crate) fn pop_to_scratch(
     candidates: &mut GraphBuilderKnnCollector,
-    scratch: &mut NeighborArray,
+    scratch: &mut NeighborArray<false>,
   ) -> Result<()> {
     scratch.clear();
     let candidate_count = candidates.size();
@@ -606,7 +606,7 @@ impl HnswGraphBuilderDefaults {
   /// # Returns
   ///
   /// Whether the candidate is diverse given the existing neighbors.
-  fn diversity_check<T>(score: f32, scorer: &mut T, neighbors: &NeighborArray) -> Result<bool>
+  fn diversity_check<T>(score: f32, scorer: &mut T, neighbors: &NeighborArray<true>) -> Result<bool>
   where
     T: RandomVectorScorer,
   {
@@ -697,7 +697,8 @@ impl HnswGraphBuilderDefaults {
         }
       };
       let top = std::cmp::min(node_level, cur_max_level);
-      let mut scratch_per_level = vec![NeighborArray::default(); top - lowest_unset_level + 1];
+      let mut scratch_per_level =
+        vec![NeighborArray::<false>::default(); top - lowest_unset_level + 1];
       let candidates = &mut builder.entry_candidates;
       for level in (node_level + 1..=cur_max_level).rev() {
         candidates.clear();
@@ -739,7 +740,7 @@ impl HnswGraphBuilderDefaults {
           )?;
         }
         eps = Cow::Owned(candidates.pop_until_nearest_k_nodes()?);
-        let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), builder.m + 1), false);
+        let mut scratch = NeighborArray::<false>::new(std::cmp::max(candidates.k(), builder.m + 1));
         Self::pop_to_scratch(candidates, &mut scratch)?;
         scratch_per_level[i] = scratch;
       }

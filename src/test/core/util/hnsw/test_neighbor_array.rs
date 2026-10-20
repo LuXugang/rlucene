@@ -29,7 +29,7 @@ struct TestNeighborArray;
 
 #[test]
 fn test_scores_desc_order() -> Result<()> {
-  let mut neighbors = NeighborArray::new(10, true);
+  let mut neighbors = NeighborArray::<true>::new(10);
 
   neighbors.add_in_order(0, 1.0)?;
   neighbors.add_in_order(1, 0.8)?;
@@ -97,7 +97,7 @@ fn test_scores_desc_order() -> Result<()> {
 }
 #[test]
 fn test_scores_asc_order() -> Result<()> {
-  let mut neighbors = NeighborArray::new(10, false);
+  let mut neighbors = NeighborArray::<false>::new(10);
 
   neighbors.add_in_order(0, 0.1)?;
   neighbors.add_in_order(1, 0.3)?;
@@ -165,7 +165,7 @@ fn test_scores_asc_order() -> Result<()> {
 }
 #[test]
 fn test_sort_asc() -> Result<()> {
-  let mut neighbors = NeighborArray::new(10, false);
+  let mut neighbors = NeighborArray::<false>::new(10);
 
   neighbors.add_out_of_order(1, 2.0)?;
   #[cfg(debug_assertions)]
@@ -188,7 +188,7 @@ fn test_sort_asc() -> Result<()> {
   assert_nodes_equal(&[1, 2, 3, 4, 5, 6, 7], &neighbors);
   assert_scores_equal(&[2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &neighbors);
 
-  let mut neighbors2 = NeighborArray::new(10, false);
+  let mut neighbors2 = NeighborArray::<false>::new(10);
   neighbors2.add_in_order(0, 1.0)?;
   neighbors2.add_in_order(1, 2.0)?;
   neighbors2.add_in_order(4, 5.0)?;
@@ -206,7 +206,7 @@ fn test_sort_asc() -> Result<()> {
 }
 #[test]
 fn test_sort_desc() -> Result<()> {
-  let mut neighbors = NeighborArray::new(10, true);
+  let mut neighbors = NeighborArray::<true>::new(10);
 
   neighbors.add_out_of_order(1, 7.0)?;
   #[cfg(debug_assertions)]
@@ -229,7 +229,7 @@ fn test_sort_desc() -> Result<()> {
   assert_nodes_equal(&[1, 2, 3, 4, 5, 6, 7], &neighbors);
   assert_scores_equal(&[7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0], &neighbors);
 
-  let mut neighbors2 = NeighborArray::new(10, true);
+  let mut neighbors2 = NeighborArray::<true>::new(10);
   neighbors2.add_in_order(1, 7.0)?;
   neighbors2.add_in_order(2, 6.0)?;
   neighbors2.add_in_order(5, 3.0)?;
@@ -247,7 +247,7 @@ fn test_sort_desc() -> Result<()> {
 }
 #[test]
 fn test_add_with_scoring_function() -> Result<()> {
-  let mut neighbors = NeighborArray::new(10, true);
+  let mut neighbors = NeighborArray::<true>::new(10);
   neighbors.add_out_of_order(1, f32::NAN)?;
 
   #[cfg(debug_assertions)]
@@ -275,7 +275,7 @@ fn test_add_with_scoring_function() -> Result<()> {
 }
 #[test]
 fn test_add_with_scoring_function_large_ord() -> Result<()> {
-  let mut neighbors = NeighborArray::new(10, true);
+  let mut neighbors = NeighborArray::<true>::new(10);
   neighbors.add_out_of_order(11, f32::NAN)?;
 
   #[cfg(debug_assertions)]
@@ -302,7 +302,10 @@ fn test_add_with_scoring_function_large_ord() -> Result<()> {
   Ok(())
 }
 
-fn assert_scores_equal(expected: &[f32], neighbors: &NeighborArray) {
+fn assert_scores_equal<const DESC_ORDER: bool>(
+  expected: &[f32],
+  neighbors: &NeighborArray<DESC_ORDER>,
+) {
   for (i, &score) in expected.iter().enumerate() {
     assert!(
       (score - neighbors.scores()[i]).abs() <= 0.01,
@@ -314,7 +317,10 @@ fn assert_scores_equal(expected: &[f32], neighbors: &NeighborArray) {
   }
 }
 
-fn assert_nodes_equal(expected: &[usize], neighbors: &NeighborArray) {
+fn assert_nodes_equal<const DESC_ORDER: bool>(
+  expected: &[usize],
+  neighbors: &NeighborArray<DESC_ORDER>,
+) {
   for (i, &node) in expected.iter().enumerate() {
     assert_eq!(
       node,

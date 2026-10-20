@@ -1199,7 +1199,7 @@ where
 
   fn with_neighbors<R, F>(&self, level: usize, node: usize, action: F) -> Result<R>
   where
-    F: FnOnce(&NeighborArray) -> Result<R>,
+    F: FnOnce(&NeighborArray<true>) -> Result<R>,
   {
     self.delegate.with_neighbors(level, node, action)
   }

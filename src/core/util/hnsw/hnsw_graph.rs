@@ -99,7 +99,7 @@ pub trait HnswGraph {
   ///   ordinal on level 0.
   fn with_neighbors<T, F>(&self, _level: usize, _node: usize, _action: F) -> Result<T>
   where
-    F: FnOnce(&NeighborArray) -> Result<T>,
+    F: FnOnce(&NeighborArray<true>) -> Result<T>,
   {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -140,7 +140,7 @@ where
 
   fn with_neighbors<R, F>(&self, level: usize, node: usize, action: F) -> Result<R>
   where
-    F: FnOnce(&NeighborArray) -> Result<R>,
+    F: FnOnce(&NeighborArray<true>) -> Result<R>,
   {
     (**self).with_neighbors(level, node, action)
   }
@@ -183,7 +183,7 @@ where
 
   fn with_neighbors<R, F>(&self, level: usize, node: usize, action: F) -> Result<R>
   where
-    F: FnOnce(&NeighborArray) -> Result<R>,
+    F: FnOnce(&NeighborArray<true>) -> Result<R>,
   {
     (**self).with_neighbors(level, node, action)
   }
