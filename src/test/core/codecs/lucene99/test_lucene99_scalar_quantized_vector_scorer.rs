@@ -494,7 +494,12 @@ impl<I> ByteVectorValues for TestQuantizedByteVectorValues<I>
 where
   I: IndexInput,
 {
-  fn vector_value(&self, _ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, _ord: usize) -> Result<Self::VectorValue<'_>> {
     Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(vec![0; self.dimension])).try_into()?)
   }
 

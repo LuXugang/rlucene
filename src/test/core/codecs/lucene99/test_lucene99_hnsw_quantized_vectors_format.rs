@@ -360,7 +360,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
       let quantized_values = quantized_reader.get_quantized_vector_values("f")?;
       for ord in 0..quantized_values.size() {
         let vector = quantized_values.vector_value(ord)?;
-        assert_eq!(expected_vectors[ord], vector.as_ref());
+        assert_eq!(expected_vectors[ord], vector.as_slice());
         let correction = quantized_values.get_score_correction_constant(ord)?;
         assert!((expected_corrections[ord] - correction).abs() <= 0.00001);
       }

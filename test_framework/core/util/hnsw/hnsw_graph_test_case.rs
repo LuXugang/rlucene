@@ -1262,7 +1262,12 @@ impl KnnVectorValues for CircularByteVectorValues {
 }
 
 impl ByteVectorValues for CircularByteVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     Ok(
       Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(self.vector_value_bytes(ord)))
         .try_into()?,
@@ -1347,7 +1352,12 @@ impl KnnVectorValues for CircularFloatVectorValues {
 }
 
 impl FloatVectorValues for CircularFloatVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     Ok(
       Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.vector_value_f32(ord)))
         .try_into()?,

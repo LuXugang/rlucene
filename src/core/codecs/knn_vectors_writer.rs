@@ -597,7 +597,12 @@ where
   F: FloatVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     let state = self.state.borrow();
     let ord: i32 = ord.try_convert()?;
     if ord != state.last_ord {
@@ -612,9 +617,9 @@ where
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
     Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(Into::<FloatVectorValue<'_>>::into(
         current_sub.values.vector_value(index)?,
-      ))
+      )))
       .try_into()?,
     )
   }
@@ -724,9 +729,11 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::Owned(VectorValueEnum::from(
+    Ok(Cow::Owned(VectorValueEnum::from(Into::<
+      FloatVectorValue<'_>,
+    >::into(
       current_sub.values.vector_value(index)?,
-    )))
+    ))))
   }
 }
 
@@ -832,7 +839,12 @@ where
   B: ByteVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     let mut state = self.state.borrow_mut();
     let ord: i32 = ord.try_convert()?;
     if ord != state.last_ord + 1 {
@@ -848,9 +860,9 @@ where
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
     Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(Into::<ByteVectorValue<'_>>::into(
         current_sub.values.vector_value(index)?,
-      ))
+      )))
       .try_into()?,
     )
   }
@@ -962,7 +974,7 @@ where
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
     Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
-      current_sub.values.vector_value(index)?,
+      Into::<ByteVectorValue<'_>>::into(current_sub.values.vector_value(index)?),
     )))
   }
 }

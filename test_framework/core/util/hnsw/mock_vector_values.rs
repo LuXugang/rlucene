@@ -122,7 +122,12 @@ impl KnnVectorValues for MockVectorValues {
 }
 
 impl FloatVectorValues for MockVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     let mut random = random_from_seed(self.seed);
     if random.random_bool(0.5) {
       Ok(

@@ -241,7 +241,10 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
       let dimension = vector_values.dimension();
       debug_assert!(dimension <= floats.len());
       let _ = &floats[..dimension];
-      vectors[ord] = match VectorValueEnum::from(value) {
+      vectors[ord] = match VectorValueEnum::from(Into::<
+        crate::core::index::float_vector_values::FloatVectorValue<'_>,
+      >::into(value))
+      {
         VectorValueEnum::Float(mut vector) => {
           vector.truncate(dimension);
           vector

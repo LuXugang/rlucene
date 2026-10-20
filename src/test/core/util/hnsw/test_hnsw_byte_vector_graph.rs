@@ -150,7 +150,10 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
       let dimension = vector_values.dimension();
       debug_assert!(dimension <= bytes.len());
       let _ = &bytes[..dimension];
-      vectors[ord] = match VectorValueEnum::from(value) {
+      vectors[ord] = match VectorValueEnum::from(Into::<
+        crate::core::index::byte_vector_values::ByteVectorValue<'_>,
+      >::into(value))
+      {
         VectorValueEnum::Byte(mut vector) => {
           vector.truncate(dimension);
           vector

@@ -282,10 +282,15 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValuesCopy<I
 }
 
 impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValuesCopy<I> {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Lucene99Hnsw(values) => values.vector_value(ord),
-      Self::Lucene99ScalarQuantized(values) => values.vector_value(ord),
+      Self::Lucene99Hnsw(values) => values.vector_value(ord).map(Into::into),
+      Self::Lucene99ScalarQuantized(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -423,10 +428,15 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
 }
 
 impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Lucene99Hnsw(values) => values.vector_value(ord),
-      Self::Lucene99ScalarQuantized(values) => values.vector_value(ord),
+      Self::Lucene99Hnsw(values) => values.vector_value(ord).map(Into::into),
+      Self::Lucene99ScalarQuantized(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -638,10 +648,15 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I>
 }
 
 impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I> {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Lucene99Hnsw(values) => values.vector_value(ord),
-      Self::HnswBit(values) => values.vector_value(ord),
+      Self::Lucene99Hnsw(values) => values.vector_value(ord).map(Into::into),
+      Self::HnswBit(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -778,10 +793,15 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValues<I> {
 }
 
 impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValues<I> {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Lucene99Hnsw(values) => values.vector_value(ord),
-      Self::HnswBit(values) => values.vector_value(ord),
+      Self::Lucene99Hnsw(values) => values.vector_value(ord).map(Into::into),
+      Self::HnswBit(values) => values.vector_value(ord).map(Into::into),
     }
   }
 

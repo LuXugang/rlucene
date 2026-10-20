@@ -124,7 +124,12 @@ impl KnnVectorValues for MockByteVectorValues {
 }
 
 impl ByteVectorValues for MockByteVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     let mut random = random_from_seed(self.seed);
     if random.random_bool(0.5) {
       Ok(

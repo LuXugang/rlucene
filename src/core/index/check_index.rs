@@ -3245,7 +3245,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         if Self::vectors_reader_supports_search(codec_reader, &field_info.name)? {
           let vector = values.vector_value(count)?;
-          let vector = match VectorValueEnum::from(vector) {
+          let vector = match VectorValueEnum::from(Into::<
+            crate::core::index::float_vector_values::FloatVectorValue<'_>,
+          >::into(vector))
+          {
             VectorValueEnum::Float(vector) => vector,
             VectorValueEnum::Byte(_) => {
               return Err(LuceneError::corrupt_index(format!(
@@ -3311,7 +3314,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if supports_search && values.ord_to_doc(count)? % every_n_doc == 0 {
         let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         let vector = values.vector_value(count)?;
-        let vector = match VectorValueEnum::from(vector) {
+        let vector = match VectorValueEnum::from(Into::<
+          crate::core::index::byte_vector_values::ByteVectorValue<'_>,
+        >::into(vector))
+        {
           VectorValueEnum::Byte(vector) => vector,
           VectorValueEnum::Float(_) => {
             return Err(LuceneError::corrupt_index(format!(

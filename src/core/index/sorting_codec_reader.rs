@@ -2336,10 +2336,15 @@ where
   T: FloatVectorValues,
   U: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Filter(values) => values.vector_value(ord),
-      Self::Sorting(values) => values.vector_value(ord),
+      Self::Filter(values) => values.vector_value(ord).map(Into::into),
+      Self::Sorting(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -2479,10 +2484,15 @@ where
   T: ByteVectorValues,
   U: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Filter(values) => values.vector_value(ord),
-      Self::Sorting(values) => values.vector_value(ord),
+      Self::Filter(values) => values.vector_value(ord).map(Into::into),
+      Self::Sorting(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -2931,7 +2941,12 @@ impl<B> ByteVectorValues for SortingByteVectorValues<B>
 where
   B: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = B::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     self.delegate.vector_value(ord)
   }
 
@@ -3007,7 +3022,12 @@ impl<B> FloatVectorValues for SortingFloatVectorValues<B>
 where
   B: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = B::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     self.delegate.vector_value(ord)
   }
 
@@ -4714,10 +4734,15 @@ where
   T: FloatVectorValues,
   U: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::A(values) => values.vector_value(ord),
-      Self::B(values) => values.vector_value(ord),
+      Self::A(values) => values.vector_value(ord).map(Into::into),
+      Self::B(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -4862,10 +4887,15 @@ where
   T: ByteVectorValues,
   U: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::A(values) => values.vector_value(ord),
-      Self::B(values) => values.vector_value(ord),
+      Self::A(values) => values.vector_value(ord).map(Into::into),
+      Self::B(values) => values.vector_value(ord).map(Into::into),
     }
   }
 

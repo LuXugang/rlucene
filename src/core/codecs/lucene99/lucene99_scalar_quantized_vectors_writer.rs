@@ -1430,14 +1430,22 @@ impl KnnVectorValues for FloatVectorWrapper<'_> {
 }
 
 impl FloatVectorValues for FloatVectorWrapper<'_> {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = &'v [f32]
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     if ord >= self.vector_list.len() {
       return Err(LuceneError::io(std::io::Error::other(format!(
         "vector ord {} out of bounds",
         ord
       ))));
     }
-    Ok(Cow::Borrowed(&self.vector_list[ord]).try_into()?)
+    match &self.vector_list[ord] {
+      VectorValueEnum::Float(vector) => Ok(vector.as_slice()),
+      VectorValueEnum::Byte(_) => Err(LuceneError::unsupported_operation("")),
+    }
   }
 
   type FloatVectorValues = Self;
@@ -1600,10 +1608,15 @@ where
   F: FloatVectorValues,
   Q: QuantizedByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Requantized(values) => values.vector_value(ord),
-      Self::OffsetCorrected(values) => values.vector_value(ord),
+      Self::Requantized(values) => values.vector_value(ord).map(Into::into),
+      Self::OffsetCorrected(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -1850,7 +1863,12 @@ where
   V: QuantizedByteVectorValues,
   LiveBits: Bits,
 {
-  fn vector_value(&self, _ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, _ord: usize) -> Result<Self::VectorValue<'_>> {
     let state = self
       .iterator_state
       .borrow()
@@ -1863,9 +1881,9 @@ where
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
     Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(Into::<ByteVectorValue<'_>>::into(
         current_sub.values.vector_value(index)?,
-      ))
+      )))
       .try_into()?,
     )
   }
@@ -2074,7 +2092,12 @@ impl<FVV> ByteVectorValues for QuantizedFloatVectorValues<FVV>
 where
   FVV: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     let mut inner = self.inner.borrow_mut();
     let ord_i32: i32 = ord.try_convert()?;
     if ord_i32 != inner.last_ord {
@@ -2211,8 +2234,13 @@ impl<Q> ByteVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
 where
   Q: QuantizedByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
-    self.in_.vector_value(ord)
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
+    self.in_.vector_value(ord).map(Into::into)
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -2348,10 +2376,15 @@ impl<FVV> FloatVectorValues for MergeFloatVectorValues<FVV>
 where
   FVV: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Original(values) => values.vector_value(ord),
-      Self::Normalized(values) => values.vector_value(ord),
+      Self::Original(values) => values.vector_value(ord).map(Into::into),
+      Self::Normalized(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -2470,8 +2503,15 @@ impl<FVV> FloatVectorValues for NormalizedFloatVectorValues<FVV>
 where
   FVV: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
-    let vector_value = VectorValueEnum::from(self.values.vector_value(ord)?);
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
+    let vector_value = VectorValueEnum::from(Into::<FloatVectorValue<'_>>::into(
+      self.values.vector_value(ord)?,
+    ));
     let mut normalized_vector = match vector_value {
       VectorValueEnum::Float(vector) => vector,
       value => value.as_floats()?.to_vec(),

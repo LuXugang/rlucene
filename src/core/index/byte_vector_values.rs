@@ -56,6 +56,24 @@ impl AsRef<[u8]> for ByteVectorValue<'_> {
   }
 }
 
+impl<'a> From<&'a [u8]> for ByteVectorValue<'a> {
+  fn from(value: &'a [u8]) -> Self {
+    Self(ByteVectorValueStorage::Borrowed(value))
+  }
+}
+
+impl From<Vec<u8>> for ByteVectorValue<'_> {
+  fn from(value: Vec<u8>) -> Self {
+    Self(ByteVectorValueStorage::Owned(value))
+  }
+}
+
+impl<'a> From<parking_lot::MappedMutexGuard<'a, [u8]>> for ByteVectorValue<'a> {
+  fn from(value: parking_lot::MappedMutexGuard<'a, [u8]>) -> Self {
+    Self(ByteVectorValueStorage::Buffer(value))
+  }
+}
+
 impl<'a> From<Cow<'a, [u8]>> for ByteVectorValue<'a> {
   fn from(value: Cow<'a, [u8]>) -> Self {
     Self(match value {
@@ -103,6 +121,12 @@ impl From<ByteVectorValue<'_>> for VectorValueEnum {
 
 /// This trait provides access to per-document byte vector values indexed as [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
 pub trait ByteVectorValues: KnnVectorValues {
+  /// The concrete slice carrier for this provider. Borrowed heap values can return
+  /// `&[u8]`; buffered values keep their guard or independent snapshot.
+  type VectorValue<'v>: std::ops::Deref<Target = [u8]> + Into<ByteVectorValue<'v>>
+  where
+    Self: 'v;
+
   /// Returns the vector value for an ordinal in `0..size()`.
   /// Returns an out-of-bounds error for an invalid ordinal. The returned array may be shared across calls.
   ///
@@ -112,7 +136,7 @@ pub trait ByteVectorValues: KnnVectorValues {
   /// The returned view may hold the reader's buffer lock. Drop it before reading,
   /// copying or otherwise accessing the same instance again. Use independent
   /// [`Self::byte_copy`] instances for simultaneous reads of reusable buffers.
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>>;
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>>;
 
   type ByteVectorValues: ByteVectorValues;
   /// Creates a copy of this [`KnnVectorValues`] when an independent instance is
@@ -159,7 +183,12 @@ impl<T> ByteVectorValues for &T
 where
   T: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = T::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     (**self).vector_value(ord)
   }
 
@@ -283,12 +312,15 @@ impl KnnVectorValues for ByteVectorValuesImpl {
 }
 
 impl ByteVectorValues for ByteVectorValuesImpl {
+  type VectorValue<'v>
+    = &'v [u8]
+  where
+    Self: 'v;
+
   #[inline]
-  fn vector_value(&self, target_ord: usize) -> Result<ByteVectorValue<'_>> {
+  fn vector_value(&self, target_ord: usize) -> Result<Self::VectorValue<'_>> {
     match &self.vectors[target_ord] {
-      VectorValueEnum::Byte(vector) => Ok(ByteVectorValue(ByteVectorValueStorage::Borrowed(
-        vector.as_slice(),
-      ))),
+      VectorValueEnum::Byte(vector) => Ok(vector.as_slice()),
       VectorValueEnum::Float(_) => Err(LuceneError::unsupported_operation("")),
     }
   }

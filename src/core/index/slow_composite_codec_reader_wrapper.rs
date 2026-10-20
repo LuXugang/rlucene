@@ -173,10 +173,15 @@ where
   T: FloatVectorValues,
   U: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = FloatVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::A(values) => values.vector_value(ord),
-      Self::B(values) => values.vector_value(ord),
+      Self::A(values) => values.vector_value(ord).map(Into::into),
+      Self::B(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -321,10 +326,15 @@ where
   T: ByteVectorValues,
   U: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = ByteVectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::A(values) => values.vector_value(ord),
-      Self::B(values) => values.vector_value(ord),
+      Self::A(values) => values.vector_value(ord).map(Into::into),
+      Self::B(values) => values.vector_value(ord).map(Into::into),
     }
   }
 
@@ -2169,7 +2179,12 @@ impl<F> FloatVectorValues for MergedFloatVectorValues<F>
 where
   F: FloatVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = F::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     debug_assert!(ord < self.size);
     let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
     self.last_sub_index.set(sub_index);
@@ -2298,7 +2313,12 @@ impl<B> ByteVectorValues for MergedByteVectorValues<B>
 where
   B: ByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = B::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     debug_assert!(ord < self.size);
     let sub_index = find_sub(ord, self.last_sub_index.get(), &self.starts);
     self.last_sub_index.set(sub_index);

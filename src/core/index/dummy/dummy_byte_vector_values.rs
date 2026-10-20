@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
-use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
@@ -62,10 +61,15 @@ impl KnnVectorValues for DummyByteVectorValues {
 }
 
 impl ByteVectorValues for DummyByteVectorValues {
+  type VectorValue<'v>
+    = crate::core::index::byte_vector_values::ByteVectorValue<'v>
+  where
+    Self: 'v;
+
   fn vector_value(
     &self,
     _ord: usize,
-  ) -> crate::core::util::error::lucene_error::Result<ByteVectorValue<'_>> {
+  ) -> crate::core::util::error::lucene_error::Result<Self::VectorValue<'_>> {
     dummy_unreachable!()
   }
 

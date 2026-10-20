@@ -691,7 +691,10 @@ where
 
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     let vector_value = self.values1.vector_value(ord)?;
-    let vector_value = Cow::<[u8]>::from(vector_value).into_owned();
+    let vector_value = Cow::<[u8]>::from(Into::<
+      crate::core::index::byte_vector_values::ByteVectorValue<'_>,
+    >::into(vector_value))
+    .into_owned();
     let offset_correction = self.values1.get_score_correction_constant(ord)?;
     from_vector_similarity(
       vector_value,

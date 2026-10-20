@@ -414,7 +414,7 @@ impl ScalarQuantizer {
         let ord: usize = iterator.index()?.try_convert()?;
         let vector_value = float_vector_values.vector_value(ord)?;
         gather_sample(
-          vector_value,
+          vector_value.into(),
           &mut quantile_gathering_scratch,
           &mut sampled_docs,
           i,
@@ -446,7 +446,7 @@ impl ScalarQuantizer {
         let ord: usize = iterator.index()?.try_convert()?;
         let vector_value = float_vector_values.vector_value(ord)?;
         gather_sample(
-          vector_value,
+          vector_value.into(),
           &mut quantile_gathering_scratch,
           &mut sampled_docs,
           idx,

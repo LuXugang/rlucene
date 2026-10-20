@@ -58,6 +58,24 @@ impl AsRef<[f32]> for FloatVectorValue<'_> {
   }
 }
 
+impl<'a> From<&'a [f32]> for FloatVectorValue<'a> {
+  fn from(value: &'a [f32]) -> Self {
+    Self(FloatVectorValueStorage::Borrowed(value))
+  }
+}
+
+impl From<Vec<f32>> for FloatVectorValue<'_> {
+  fn from(value: Vec<f32>) -> Self {
+    Self(FloatVectorValueStorage::Owned(value))
+  }
+}
+
+impl<'a> From<parking_lot::MappedMutexGuard<'a, [f32]>> for FloatVectorValue<'a> {
+  fn from(value: parking_lot::MappedMutexGuard<'a, [f32]>) -> Self {
+    Self(FloatVectorValueStorage::Buffer(value))
+  }
+}
+
 impl<'a> From<Cow<'a, [f32]>> for FloatVectorValue<'a> {
   fn from(value: Cow<'a, [f32]>) -> Self {
     Self(match value {
@@ -92,6 +110,12 @@ impl From<FloatVectorValue<'_>> for VectorValueEnum {
 
 /// This trait provides access to per-document floating point vector values indexed as [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
 pub trait FloatVectorValues: KnnVectorValues {
+  /// The concrete slice carrier for this provider. Borrowed heap values can return
+  /// `&[f32]`; buffered values keep their guard or independent snapshot.
+  type VectorValue<'v>: std::ops::Deref<Target = [f32]> + Into<FloatVectorValue<'v>>
+  where
+    Self: 'v;
+
   /// Returns the vector value for an ordinal in `0..size()`.
   /// Returns an out-of-bounds error for an invalid ordinal. The returned array may be shared across calls.
   ///
@@ -101,7 +125,7 @@ pub trait FloatVectorValues: KnnVectorValues {
   /// The returned view may hold the reader's buffer lock. Drop it before reading,
   /// copying or otherwise accessing the same instance again. Use independent
   /// [`Self::float_copy`] instances for simultaneous reads of reusable buffers.
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>>;
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>>;
 
   type FloatVectorValues: FloatVectorValues;
   /// Creates a copy of this [`KnnVectorValues`] when an independent instance is
@@ -232,12 +256,15 @@ impl KnnVectorValues for FloatVectorValuesImpl {
 }
 
 impl FloatVectorValues for FloatVectorValuesImpl {
+  type VectorValue<'v>
+    = &'v [f32]
+  where
+    Self: 'v;
+
   #[inline]
-  fn vector_value(&self, target_ord: usize) -> Result<FloatVectorValue<'_>> {
+  fn vector_value(&self, target_ord: usize) -> Result<Self::VectorValue<'_>> {
     match &self.vectors[target_ord] {
-      VectorValueEnum::Float(vector) => Ok(FloatVectorValue(FloatVectorValueStorage::Borrowed(
-        vector.as_slice(),
-      ))),
+      VectorValueEnum::Float(vector) => Ok(vector.as_slice()),
       VectorValueEnum::Byte(_) => Err(LuceneError::unsupported_operation("")),
     }
   }

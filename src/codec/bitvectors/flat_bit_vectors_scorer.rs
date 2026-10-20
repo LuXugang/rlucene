@@ -220,14 +220,18 @@ where
         let query = vector_values1.vector_value(ord)?;
         Ok(RandomVectorScorerEnum2::B(BitRandomVectorScorer::new(
           vector_values2,
-          Cow::from(query),
+          Cow::from(Into::<
+            crate::core::index::byte_vector_values::ByteVectorValue<'_>,
+          >::into(query)),
         )))
       },
       (None, None) => {
         let query = self.vector_values.vector_value(ord)?;
         Ok(RandomVectorScorerEnum2::A(BitRandomVectorScorer::new(
           &self.vector_values,
-          Cow::from(query),
+          Cow::from(Into::<
+            crate::core::index::byte_vector_values::ByteVectorValue<'_>,
+          >::into(query)),
         )))
       },
       _ => Err(LuceneError::illegal_state(

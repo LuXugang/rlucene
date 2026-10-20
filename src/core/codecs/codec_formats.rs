@@ -82,7 +82,6 @@ use crate::core::document::document::Document;
 #[cfg(test)]
 use crate::core::index::BytesRef;
 #[cfg(test)]
-use crate::core::index::byte_vector_values::ByteVectorValue;
 #[cfg(test)]
 use crate::core::index::codec_reader::CodecReader;
 #[cfg(test)]
@@ -148,8 +147,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 #[cfg(test)]
 use crate::core::{
-  index::byte_vector_values::ByteVectorValues,
-  index::float_vector_values::{FloatVectorValue, FloatVectorValues},
+  index::byte_vector_values::ByteVectorValues, index::float_vector_values::FloatVectorValues,
 };
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::{
@@ -3291,7 +3289,12 @@ impl<I> FloatVectorValues for CodecFloatVectorValues<I>
 where
   I: IndexInput,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = <CodecFloatVectorValuesInner<I> as FloatVectorValues>::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     self.0.vector_value(ord)
   }
 
@@ -3495,7 +3498,12 @@ impl<I> ByteVectorValues for CodecByteVectorValues<I>
 where
   I: IndexInput,
 {
-  fn vector_value(&self, ord: usize) -> Result<ByteVectorValue<'_>> {
+  type VectorValue<'v>
+    = <CodecByteVectorValuesInner<I> as ByteVectorValues>::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     self.0.vector_value(ord)
   }
 

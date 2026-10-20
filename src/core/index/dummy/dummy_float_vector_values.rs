@@ -16,7 +16,7 @@
  */
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
-use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
@@ -60,10 +60,15 @@ impl KnnVectorValues for DummyFloatVectorValues {
 }
 
 impl FloatVectorValues for DummyFloatVectorValues {
+  type VectorValue<'v>
+    = crate::core::index::float_vector_values::FloatVectorValue<'v>
+  where
+    Self: 'v;
+
   fn vector_value(
     &self,
     _ord: usize,
-  ) -> crate::core::util::error::lucene_error::Result<FloatVectorValue<'_>> {
+  ) -> crate::core::util::error::lucene_error::Result<Self::VectorValue<'_>> {
     dummy_unreachable!()
   }
 

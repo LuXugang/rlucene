@@ -26,9 +26,7 @@ use crate::core::codecs::off_heap_vector_values::{
 };
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
-use crate::core::index::float_vector_values::{
-  FloatVectorValue, FloatVectorValueStorage, FloatVectorValues,
-};
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{
   DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, create_dense_iterator,
 };
@@ -162,8 +160,13 @@ impl<I, F> FloatVectorValues for OffHeapFloatVectorValues<I, F>
 where
   I: IndexInput,
 {
+  type VectorValue<'v>
+    = parking_lot::MappedMutexGuard<'v, [f32]>
+  where
+    Self: 'v;
+
   #[inline(always)]
-  fn vector_value(&self, target_ord: usize) -> Result<FloatVectorValue<'_>> {
+  fn vector_value(&self, target_ord: usize) -> Result<Self::VectorValue<'_>> {
     let mut inner = self.inner.lock();
     let same_ord = matches!(inner.last_ord, Some(last_ord) if last_ord == target_ord);
     if !same_ord {
@@ -171,9 +174,7 @@ where
       inner.last_ord = Some(target_ord);
     }
 
-    Ok(FloatVectorValue(FloatVectorValueStorage::Buffer(
-      MutexGuard::map(inner, |inner| inner.value.as_mut_slice()),
-    )))
+    Ok(MutexGuard::map(inner, |inner| inner.value.as_mut_slice()))
   }
 
   type FloatVectorValues = DummyFloatVectorValues;
@@ -298,8 +299,13 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
+  type VectorValue<'v>
+    = parking_lot::MappedMutexGuard<'v, [f32]>
+  where
+    Self: 'v;
+
   #[inline(always)]
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     self.base.vector_value(ord)
   }
 
@@ -527,8 +533,13 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
+  type VectorValue<'v>
+    = parking_lot::MappedMutexGuard<'v, [f32]>
+  where
+    Self: 'v;
+
   #[inline(always)]
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     self.base.vector_value(ord)
   }
 
@@ -691,7 +702,12 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
 }
 
 impl FloatVectorValues for EmptyOffHeapVectorValues {
-  fn vector_value(&self, _ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = parking_lot::MappedMutexGuard<'v, [f32]>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, _ord: usize) -> Result<Self::VectorValue<'_>> {
     debug_assert!(self.vectors.is_empty());
     Err(LuceneError::unsupported_operation(""))
   }
@@ -813,7 +829,12 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = parking_lot::MappedMutexGuard<'v, [f32]>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
       Self::Dense(values) => values.vector_value(ord),
       Self::Sparse(values) => values.vector_value(ord),
@@ -965,8 +986,13 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
+  type VectorValue<'v>
+    = parking_lot::MappedMutexGuard<'v, [f32]>
+  where
+    Self: 'v;
+
   #[inline(always)]
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.vector_value(ord),
       OffHeapFloatVectorValuesEnum::Dense(e) => e.vector_value(ord),

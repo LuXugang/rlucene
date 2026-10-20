@@ -32,7 +32,7 @@ use crate::core::codecs::lucene99::off_heap_quantized_byte_vector_values::OffHea
 use crate::core::index::IndexFileNames;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -702,7 +702,12 @@ where
   R: FloatVectorValues,
   Q: QuantizedByteVectorValues,
 {
-  fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
+  type VectorValue<'v>
+    = R::VectorValue<'v>
+  where
+    Self: 'v;
+
+  fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     self.raw_vector_values.vector_value(ord)
   }
 
