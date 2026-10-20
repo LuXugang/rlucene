@@ -1436,7 +1436,7 @@ impl FloatVectorValues for FloatVectorWrapper<'_> {
         ord
       ))));
     }
-    Ok(Cow::Borrowed(&self.vector_list[ord]).into())
+    Ok(Cow::Borrowed(&self.vector_list[ord]).try_into()?)
   }
 
   type FloatVectorValues = Self;
@@ -2015,7 +2015,7 @@ where
   fn quantize(&self, ord: usize, inner: &mut QuantizedFloatVectorValuesInner) -> Result<f32> {
     let vector = self.values.vector_value(ord)?;
     Ok(self.quantizer.quantize(
-      vector.as_floats()?,
+      vector.as_ref(),
       &mut inner.quantized_vector,
       self.vector_similarity_function,
     ))
@@ -2472,7 +2472,7 @@ where
       value => value.as_floats()?.to_vec(),
     };
     VectorUtil::l2normalize(&mut normalized_vector)?;
-    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(normalized_vector)).into())
+    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(normalized_vector)).try_into()?)
   }
 
   type FloatVectorValues = NormalizedFloatVectorValues<FVV::FloatVectorValues>;

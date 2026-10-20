@@ -614,7 +614,7 @@ where
       Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
         current_sub.values.vector_value(index)?,
       ))
-      .into(),
+      .try_into()?,
     )
   }
 

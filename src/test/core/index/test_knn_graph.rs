@@ -210,11 +210,7 @@ impl TestKnnGraph {
           .expect("numeric stored id");
         let expected = values[id].as_ref().expect("document should have a vector");
         let actual = vector_values.vector_value(iterator.index()?.try_convert()?)?;
-        assert!(array_equals_f32(
-          expected,
-          actual.as_ref().as_floats()?,
-          0.0
-        ));
+        assert!(array_equals_f32(expected, actual.as_ref(), 0.0));
         num_docs_with_vectors += 1;
         doc = iterator.next_doc()?;
       }

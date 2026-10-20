@@ -433,13 +433,8 @@ fn test_sort_on_add_indices_random() -> Result<()> {
     assert_eq!(ids.long_value()?, sorted_numeric_dv.next_value()?);
 
     let vector_value = vector_values.vector_value(values_iterator.index()? as usize)?;
-    match vector_value.as_ref() {
-      VectorValueEnum::Float(vector) => {
-        assert_eq!(1, vector.len());
-        assert!((vector[0] - ids.long_value()? as f32).abs() < 0.001);
-      },
-      _ => unreachable!("float vector field must return float vectors"),
-    }
+    assert_eq!(1, vector_value.len());
+    assert!((vector_value[0] - ids.long_value()? as f32).abs() < 0.001);
 
     let terms = term_vectors
       .get_field_terms(id_next, "term_vectors")?

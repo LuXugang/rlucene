@@ -125,13 +125,16 @@ impl FloatVectorValues for MockVectorValues {
   fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
     let mut random = random_from_seed(self.seed);
     if random.random_bool(0.5) {
-      Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.values[ord].clone())).into())
+      Ok(
+        Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.values[ord].clone()))
+          .try_into()?,
+      )
     } else {
       Ok(
         Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(
           self.values[ord][0..self.dimension].to_vec(),
         ))
-        .into(),
+        .try_into()?,
       )
     }
   }

@@ -63,7 +63,7 @@ struct OffHeapFloatVectorValues<I, F> {
 pub struct Inner<I> {
   pub(crate) slice: I,
   pub(crate) last_ord: Option<usize>,
-  pub(crate) value: VectorValueEnum,
+  pub(crate) value: Vec<f32>,
 }
 impl<I, F> OffHeapFloatVectorValues<I, F> {
   fn new(
@@ -77,7 +77,7 @@ impl<I, F> OffHeapFloatVectorValues<I, F> {
     let inner = Inner {
       slice,
       last_ord: None,
-      value: VectorValueEnum::Float(vec![0.0; dimension]),
+      value: vec![0.0; dimension],
     };
     Self {
       dimension,
@@ -99,9 +99,7 @@ where
       .checked_mul(self.byte_size)
       .ok_or_else(|| LuceneError::illegal_state("seek overflow"))?;
     inner.slice.seek(pos)?;
-    let VectorValueEnum::Float(value) = &mut inner.value else {
-      unreachable!("float vector buffer");
-    };
+    let value = &mut inner.value;
     let len = value.len();
     inner.slice.read_floats(value, 0, len)?;
 
@@ -174,7 +172,7 @@ where
     }
 
     Ok(FloatVectorValue(FloatVectorValueStorage::Buffer(
-      MutexGuard::map(inner, |inner| &mut inner.value),
+      MutexGuard::map(inner, |inner| inner.value.as_mut_slice()),
     )))
   }
 

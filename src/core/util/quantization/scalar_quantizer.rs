@@ -302,7 +302,7 @@ impl ScalarQuantizer {
       while iterator.next_doc()? != NO_MORE_DOCS {
         let ord: usize = iterator.index()?.try_convert()?;
         let vector_value = float_vector_values.vector_value(ord)?;
-        for &value in vector_value.as_floats()? {
+        for &value in vector_value.as_ref() {
           min = CoreHelper::min_f32(min, value);
           max = CoreHelper::max_f32(max, value);
         }
@@ -321,7 +321,7 @@ impl ScalarQuantizer {
       while iterator.next_doc()? != NO_MORE_DOCS {
         let ord: usize = iterator.index()?.try_convert()?;
         let vector_value = float_vector_values.vector_value(ord)?;
-        let vector_value = vector_value.as_floats()?;
+        let vector_value = vector_value.as_ref();
         let start = i * vector_value.len();
         quantile_gathering_scratch[start..start + vector_value.len()].copy_from_slice(vector_value);
         i += 1;
@@ -357,7 +357,7 @@ impl ScalarQuantizer {
       debug_assert!(iterator.doc_id() != NO_MORE_DOCS);
       let ord: usize = iterator.index()?.try_convert()?;
       let vector_value = float_vector_values.vector_value(ord)?;
-      let vector_value = vector_value.as_floats()?;
+      let vector_value = vector_value.as_ref();
       let start = idx * vector_value.len();
       quantile_gathering_scratch[start..start + vector_value.len()].copy_from_slice(vector_value);
       idx += 1;

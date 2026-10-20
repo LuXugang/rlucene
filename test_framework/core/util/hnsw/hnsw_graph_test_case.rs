@@ -1346,7 +1346,10 @@ impl KnnVectorValues for CircularFloatVectorValues {
 
 impl FloatVectorValues for CircularFloatVectorValues {
   fn vector_value(&self, ord: usize) -> Result<FloatVectorValue<'_>> {
-    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.vector_value_f32(ord))).into())
+    Ok(
+      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.vector_value_f32(ord)))
+        .try_into()?,
+    )
   }
 
   type FloatVectorValues = Self;
@@ -1614,8 +1617,8 @@ where
 
     let u_vec = u.vector_value(ord)?;
     let v_vec = v.vector_value(ord)?;
-    let u_floats = u_vec.as_ref().as_floats()?;
-    let v_floats = v_vec.as_ref().as_floats()?;
+    let u_floats = u_vec.as_ref();
+    let v_floats = v_vec.as_ref();
     assert_eq!(
       u_floats.len(),
       v_floats.len(),

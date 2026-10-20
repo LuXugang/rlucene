@@ -623,7 +623,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       let vector_values = r.get_float_vector_values(field_name)?.unwrap();
       let mut iterator = vector_values.iterator()?;
       assert_eq!(0, iterator.next_doc()?);
-      assert_eq!(0.0, vector_values.vector_value(0)?.as_floats()?[0]);
+      assert_eq!(0.0, vector_values.vector_value(0)?.as_ref()[0]);
       assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
       reader.close()?;
 
@@ -672,7 +672,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         0.0,
         vector_values
           .vector_value(iterator.index()? as usize)?
-          .as_floats()?[0]
+          .as_ref()[0]
       );
       assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
       reader.close()?;
@@ -729,11 +729,11 @@ pub trait BaseKnnVectorsFormatTestCase:
       let mut iterator = vector_values.iterator()?;
 
       assert_eq!(0, iterator.next_doc()?);
-      let mut value = vector_values.vector_value(0)?.as_floats()?[0];
+      let mut value = vector_values.vector_value(0)?.as_ref()[0];
       assert!(value == 0.0 || value == 1.0);
 
       assert_eq!(1, iterator.next_doc()?);
-      value += vector_values.vector_value(1)?.as_floats()?[0];
+      value += vector_values.vector_value(1)?.as_ref()[0];
       assert_eq!(1.0, value);
 
       reader.close()?;
@@ -1392,7 +1392,7 @@ pub trait BaseKnnVectorsFormatTestCase:
                 }
                 checksum += vector_values
                   .vector_value(iterator.index()? as usize)?
-                  .as_floats()?[0] as f64;
+                  .as_ref()[0] as f64;
               }
             }
           }
@@ -1709,15 +1709,15 @@ pub trait BaseKnnVectorsFormatTestCase:
 
     iterator.next_doc()?;
     assert_eq!(0, iterator.index()?);
-    assert_eq!(0.0, vector_values.vector_value(0)?.as_floats()?[0]);
+    assert_eq!(0.0, vector_values.vector_value(0)?.as_ref()[0]);
 
     iterator.next_doc()?;
     assert_eq!(1, iterator.index()?);
-    assert_eq!(1.0, vector_values.vector_value(1)?.as_floats()?[0]);
+    assert_eq!(1.0, vector_values.vector_value(1)?.as_ref()[0]);
 
     iterator.next_doc()?;
     assert_eq!(2, iterator.index()?);
-    assert_eq!(2.0, vector_values.vector_value(2)?.as_floats()?[0]);
+    assert_eq!(2.0, vector_values.vector_value(2)?.as_ref()[0]);
 
     iw.close()?;
     Ok(())
@@ -1760,7 +1760,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         .unwrap()
         .as_ref()
     );
-    assert_eq!(vec![-1.0, 0.0], vector_values.vector_value(0)?.as_floats()?);
+    assert_eq!(vec![-1.0, 0.0], vector_values.vector_value(0)?.as_ref());
 
     assert_eq!(
       "2",
@@ -1770,7 +1770,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         .unwrap()
         .as_ref()
     );
-    assert_eq!(vec![1.0, 0.0], vector_values.vector_value(1)?.as_floats()?);
+    assert_eq!(vec![1.0, 0.0], vector_values.vector_value(1)?.as_ref());
 
     assert_eq!(
       "4",
@@ -1780,7 +1780,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         .unwrap()
         .as_ref()
     );
-    assert_eq!(vec![0.0, 1.0], vector_values.vector_value(2)?.as_floats()?);
+    assert_eq!(vec![0.0, 1.0], vector_values.vector_value(2)?.as_ref());
 
     assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
 
@@ -1908,9 +1908,9 @@ pub trait BaseKnnVectorsFormatTestCase:
     assert_eq!(2, vector_values.size());
     let mut iterator = vector_values.iterator()?;
     iterator.next_doc()?;
-    assert_eq!(1.0, vector_values.vector_value(0)?.as_floats()?[0]);
+    assert_eq!(1.0, vector_values.vector_value(0)?.as_ref()[0]);
     iterator.next_doc()?;
-    assert_eq!(2.0, vector_values.vector_value(1)?.as_floats()?[0]);
+    assert_eq!(2.0, vector_values.vector_value(1)?.as_ref()[0]);
     assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
 
     let vector_values2 = leaf.get_float_vector_values("field2")?.unwrap();
@@ -1918,9 +1918,9 @@ pub trait BaseKnnVectorsFormatTestCase:
     assert_eq!(4, vector_values2.dimension());
     assert_eq!(2, vector_values2.size());
     it2.next_doc()?;
-    assert_eq!(2.0, vector_values2.vector_value(0)?.as_floats()?[1]);
+    assert_eq!(2.0, vector_values2.vector_value(0)?.as_ref()[1]);
     it2.next_doc()?;
-    assert_eq!(2.0, vector_values2.vector_value(1)?.as_floats()?[1]);
+    assert_eq!(2.0, vector_values2.vector_value(1)?.as_ref()[1]);
     assert_eq!(NO_MORE_DOCS, it2.next_doc()?);
 
     let vector_values3 = leaf.get_float_vector_values("field3")?.unwrap();
@@ -1928,7 +1928,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     assert_eq!(1, vector_values3.size());
     let mut it3 = vector_values3.iterator()?;
     it3.next_doc()?;
-    assert!((vector_values3.vector_value(0)?.as_floats()?[0] - 1.0).abs() <= 0.1);
+    assert!((vector_values3.vector_value(0)?.as_ref()[0] - 1.0).abs() <= 0.1);
     assert_eq!(NO_MORE_DOCS, it3.next_doc()?);
 
     iw.close()?;
@@ -2020,7 +2020,7 @@ pub trait BaseKnnVectorsFormatTestCase:
 
         let index = iterator.index()? as usize;
         let v = vector_values.vector_value(index)?;
-        let v = v.as_floats()?;
+        let v = v.as_ref();
         assert_eq!(dimension, v.len());
 
         let doc = stored_fields.document(doc_id)?;
@@ -2294,7 +2294,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         }
 
         let v = vector_values.vector_value(iterator.index()? as usize)?;
-        let v = v.as_floats()?;
+        let v = v.as_ref();
         assert_eq!(dimension, v.len());
 
         let document = stored_fields.document(doc_id)?;
@@ -2798,7 +2798,7 @@ pub trait BaseKnnVectorsFormatTestCase:
             }
 
             let ord = iter.index()? as usize;
-            checksum += vector_values.vector_value(ord)?.as_floats()?[0] as f64;
+            checksum += vector_values.vector_value(ord)?.as_ref()[0] as f64;
             let doc = stored_fields.document(leaf_doc_id)?;
             let id = doc
               .get_field("id")
@@ -2904,7 +2904,6 @@ pub trait BaseKnnVectorsFormatTestCase:
       float_vectors
         .vector_value(iterator.index()? as usize)?
         .as_ref()
-        .as_floats()?
     );
     assert_eq!(1, iterator.next_doc()?);
     assert_eq!(
@@ -2912,7 +2911,6 @@ pub trait BaseKnnVectorsFormatTestCase:
       float_vectors
         .vector_value(iterator.index()? as usize)?
         .as_ref()
-        .as_floats()?
     );
     assert_eq!(NO_MORE_DOCS, iterator.next_doc()?);
 

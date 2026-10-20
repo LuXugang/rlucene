@@ -396,18 +396,23 @@ where
   fn score(&self, node: usize) -> Result<f32> {
     debug_assert_eq!(self.vectors1.is_some(), self.vectors2.is_some());
 
-    let (ord_vector, node_vector) = match (&self.vectors1, &self.vectors2) {
-      (Some(v1), Some(v2)) => (v1.vector_value(self.ord)?, v2.vector_value(node)?),
-      (None, None) => (
-        self.vectors.vector_value(self.ord)?,
-        self.vectors.vector_value(node)?,
-      ),
-      _ => return Err(LuceneError::illegal_state("should not here")),
-    };
-
-    self
-      .similarity_function
-      .compare_f32(ord_vector.as_floats()?, node_vector.as_floats()?)
+    match (&self.vectors1, &self.vectors2) {
+      (Some(v1), Some(v2)) => {
+        let ord_vector = v1.vector_value(self.ord)?;
+        let node_vector = v2.vector_value(node)?;
+        self
+          .similarity_function
+          .compare_f32(ord_vector.as_ref(), node_vector.as_ref())
+      },
+      (None, None) => {
+        let ord_vector = self.vectors.vector_value(self.ord)?;
+        let node_vector = self.vectors.vector_value(node)?;
+        self
+          .similarity_function
+          .compare_f32(ord_vector.as_ref(), node_vector.as_ref())
+      },
+      _ => Err(LuceneError::illegal_state("should not here")),
+    }
   }
 
   fn max_ord(&self) -> usize {
@@ -461,7 +466,7 @@ where
 
     self
       .similarity_function
-      .compare_f32(self.query.as_slice(), value.as_floats()?)
+      .compare_f32(self.query.as_slice(), value.as_ref())
   }
 
   fn max_ord(&self) -> usize {

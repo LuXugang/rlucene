@@ -416,7 +416,7 @@ impl<F: Borrow<Vec<Vec<f32>>> + Clone> FloatVectorValues for TestSimpleFloatVect
       Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(
         self.floats.borrow()[self.ord_to_doc(ord)?].clone(),
       ))
-      .into(),
+      .try_into()?,
     )
   }
 

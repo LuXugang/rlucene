@@ -1868,7 +1868,7 @@ fn test_knn_vector_field() -> Result<()> {
   assert_ne!(NO_MORE_DOCS, float_iterator.next_doc()?);
   let stored_float_vector = float_values.vector_value(0)?;
   assert_eq!(float_vector.len(), stored_float_vector.len());
-  assert_eq!(float_vector[0], stored_float_vector.as_floats()?[0]);
+  assert_eq!(float_vector[0], stored_float_vector.as_ref()[0]);
   drop(stored_float_vector);
   assert_eq!(NO_MORE_DOCS, float_iterator.next_doc()?);
   assert!(float_values.vector_value(1).is_err());

@@ -237,7 +237,7 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
     for i in 0..vector_values.size() {
       let ord = vector_values.ord_to_doc(i)?;
       let value = vector_values.vector_value(i)?;
-      let floats = value.as_ref().as_floats()?;
+      let floats = value.as_ref();
       let dimension = vector_values.dimension();
       debug_assert!(dimension <= floats.len());
       let _ = &floats[..dimension];

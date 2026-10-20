@@ -28,45 +28,64 @@ use parking_lot::MappedMutexGuard;
 use std::borrow::Cow;
 use std::ops::Deref;
 
-/// A read-only vector view that keeps its backing buffer borrowed until dropped.
+/// A read-only floating-point slice that keeps its backing buffer borrowed until dropped.
 /// Convert into [`VectorValueEnum`] only when an independent owned value is needed.
 #[derive(Debug)]
 pub struct FloatVectorValue<'a>(pub(crate) FloatVectorValueStorage<'a>);
 
 #[derive(Debug)]
 pub(crate) enum FloatVectorValueStorage<'a> {
-  Value(Cow<'a, VectorValueEnum>),
-  Buffer(MappedMutexGuard<'a, VectorValueEnum>),
+  Borrowed(&'a [f32]),
+  Owned(Vec<f32>),
+  Buffer(MappedMutexGuard<'a, [f32]>),
 }
 
 impl Deref for FloatVectorValue<'_> {
-  type Target = VectorValueEnum;
+  type Target = [f32];
 
   fn deref(&self) -> &Self::Target {
     match &self.0 {
-      FloatVectorValueStorage::Value(value) => value.as_ref(),
+      FloatVectorValueStorage::Borrowed(value) => value,
+      FloatVectorValueStorage::Owned(value) => value.as_slice(),
       FloatVectorValueStorage::Buffer(value) => value,
     }
   }
 }
 
-impl AsRef<VectorValueEnum> for FloatVectorValue<'_> {
-  fn as_ref(&self) -> &VectorValueEnum {
+impl AsRef<[f32]> for FloatVectorValue<'_> {
+  fn as_ref(&self) -> &[f32] {
     self
   }
 }
 
-impl<'a> From<Cow<'a, VectorValueEnum>> for FloatVectorValue<'a> {
-  fn from(value: Cow<'a, VectorValueEnum>) -> Self {
-    Self(FloatVectorValueStorage::Value(value))
+impl<'a> From<Cow<'a, [f32]>> for FloatVectorValue<'a> {
+  fn from(value: Cow<'a, [f32]>) -> Self {
+    Self(match value {
+      Cow::Borrowed(value) => FloatVectorValueStorage::Borrowed(value),
+      Cow::Owned(value) => FloatVectorValueStorage::Owned(value),
+    })
+  }
+}
+
+impl<'a> TryFrom<Cow<'a, VectorValueEnum>> for FloatVectorValue<'a> {
+  type Error = LuceneError;
+
+  fn try_from(value: Cow<'a, VectorValueEnum>) -> Result<Self> {
+    let value = match value {
+      Cow::Borrowed(VectorValueEnum::Float(value)) => Cow::Borrowed(value.as_slice()),
+      Cow::Owned(VectorValueEnum::Float(value)) => Cow::Owned(value),
+      _ => return Err(LuceneError::unsupported_operation("")),
+    };
+    Ok(value.into())
   }
 }
 
 impl From<FloatVectorValue<'_>> for VectorValueEnum {
   fn from(value: FloatVectorValue<'_>) -> Self {
     match value.0 {
-      FloatVectorValueStorage::Value(value) => value.into_owned(),
-      FloatVectorValueStorage::Buffer(value) => value.clone(),
+      FloatVectorValueStorage::Borrowed(value) => VectorValueEnum::Float(value.to_vec()),
+      FloatVectorValueStorage::Owned(value) => VectorValueEnum::Float(value),
+      FloatVectorValueStorage::Buffer(value) => VectorValueEnum::Float(value.to_vec()),
     }
   }
 }
@@ -77,7 +96,7 @@ pub trait FloatVectorValues: KnnVectorValues {
   /// Returns an out-of-bounds error for an invalid ordinal. The returned array may be shared across calls.
   ///
   /// # Returns
-  /// the vector value
+  /// A floating-point slice view; vector encoding is already resolved by this interface.
   ///
   /// The returned view may hold the reader's buffer lock. Drop it before reading,
   /// copying or otherwise accessing the same instance again. Use independent
@@ -213,8 +232,14 @@ impl KnnVectorValues for FloatVectorValuesImpl {
 }
 
 impl FloatVectorValues for FloatVectorValuesImpl {
+  #[inline]
   fn vector_value(&self, target_ord: usize) -> Result<FloatVectorValue<'_>> {
-    Ok(Cow::Borrowed(&self.vectors[target_ord]).into())
+    match &self.vectors[target_ord] {
+      VectorValueEnum::Float(vector) => Ok(FloatVectorValue(FloatVectorValueStorage::Borrowed(
+        vector.as_slice(),
+      ))),
+      VectorValueEnum::Byte(_) => Err(LuceneError::unsupported_operation("")),
+    }
   }
 
   type FloatVectorValues = Self;
