@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::index::byte_vector_values::ByteVectorValue;
 use crate::core::index::byte_vector_values::ByteVectorValues;
@@ -46,7 +46,6 @@ use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStream;
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -175,10 +174,10 @@ where
     Ok(())
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     _doc_id: i32,
-    _vector_value: &VectorValueEnum,
+    _vector_value: &V,
     _field_vectors_writers_idx: usize,
   ) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
@@ -295,10 +294,10 @@ where
     }
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     match self {
@@ -617,10 +616,9 @@ where
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
     Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(Into::<FloatVectorValue<'_>>::into(
-        current_sub.values.vector_value(index)?,
-      )))
-      .try_into()?,
+      Into::<FloatVectorValue<'_>>::into(current_sub.values.vector_value(index)?)
+        .into_owned()
+        .into(),
     )
   }
 
@@ -714,7 +712,8 @@ where
   F: FloatVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  type Element = f32;
+  fn vector_value(&self, ord: usize) -> Result<Vec<f32>> {
     let state = self.state.borrow();
     let ord: i32 = ord.try_convert()?;
     if ord != state.last_ord {
@@ -729,11 +728,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::Owned(VectorValueEnum::from(Into::<
-      FloatVectorValue<'_>,
-    >::into(
-      current_sub.values.vector_value(index)?,
-    ))))
+    Ok(Into::<FloatVectorValue<'_>>::into(current_sub.values.vector_value(index)?).into_owned())
   }
 }
 
@@ -860,10 +855,9 @@ where
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
     Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(Into::<ByteVectorValue<'_>>::into(
-        current_sub.values.vector_value(index)?,
-      )))
-      .try_into()?,
+      Into::<ByteVectorValue<'_>>::into(current_sub.values.vector_value(index)?)
+        .into_owned()
+        .into(),
     )
   }
 
@@ -957,7 +951,8 @@ where
   B: ByteVectorValues,
   DM: MergeDocMap,
 {
-  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+  type Element = u8;
+  fn vector_value(&self, ord: usize) -> Result<Vec<u8>> {
     let mut state = self.state.borrow_mut();
     let ord: i32 = ord.try_convert()?;
     if ord != state.last_ord + 1 {
@@ -973,14 +968,13 @@ where
       .ok_or_else(|| LuceneError::illegal_state("missing current vector sub"))?;
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
-    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(
-      Into::<ByteVectorValue<'_>>::into(current_sub.values.vector_value(index)?),
-    )))
+    Ok(Into::<ByteVectorValue<'_>>::into(current_sub.values.vector_value(index)?).into_owned())
   }
 }
 
 pub(crate) trait MergeVectorValues {
-  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>>;
+  type Element;
+  fn vector_value(&self, ord: usize) -> Result<Vec<Self::Element>>;
 }
 
 fn merge_vector_values<D, CR, V, S, VSupplier, NewSub>(

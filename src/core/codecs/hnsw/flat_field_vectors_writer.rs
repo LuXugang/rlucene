@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
+use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
+use crate::core::index::vector_buffer::{VectorBuffers, VectorElement};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
 
 /// Vectors' writer for a field
 pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   /// Returns a list of vectors to be written.
-  fn get_vectors(&self) -> Result<Arc<Vec<VectorValueEnum>>> {
+  fn get_vectors(&self) -> Result<VectorBuffers> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -35,10 +36,10 @@ pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   /// Returns true if the writer is done and no new vectors are allowed to be added.
   fn is_finished(&self) -> bool;
 
-  fn flat_add_value(
+  fn flat_add_value<T: VectorElement, V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
-    vector: &mut Vec<VectorValueEnum>,
+    vector_value: &V,
+    vector: &mut Vec<Vec<T>>,
   ) -> Result<()>;
 }

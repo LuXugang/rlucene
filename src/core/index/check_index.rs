@@ -18,7 +18,6 @@ use crate::core::codecs::codec::Codecs;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::fields_producer::FieldsProducer;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_reader::PointsReader;
@@ -3245,18 +3244,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         if Self::vectors_reader_supports_search(codec_reader, &field_info.name)? {
           let vector = values.vector_value(count)?;
-          let vector = match VectorValueEnum::from(Into::<
-            crate::core::index::float_vector_values::FloatVectorValue<'_>,
-          >::into(vector))
-          {
-            VectorValueEnum::Float(vector) => vector,
-            VectorValueEnum::Byte(_) => {
-              return Err(LuceneError::corrupt_index(format!(
-                "Field \"{}\" has FLOAT32 vector encoding but returned a byte vector",
-                field_info.name
-              )));
-            },
-          };
+          let vector =
+            Into::<crate::core::index::float_vector_values::FloatVectorValue<'_>>::into(vector)
+              .into_owned();
           CodecReader::search_nearest_vectors_f32(
             codec_reader,
             &field_info.name,
@@ -3314,18 +3304,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if supports_search && values.ord_to_doc(count)? % every_n_doc == 0 {
         let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         let vector = values.vector_value(count)?;
-        let vector = match VectorValueEnum::from(Into::<
-          crate::core::index::byte_vector_values::ByteVectorValue<'_>,
-        >::into(vector))
-        {
-          VectorValueEnum::Byte(vector) => vector,
-          VectorValueEnum::Float(_) => {
-            return Err(LuceneError::corrupt_index(format!(
-              "Field \"{}\" has BYTE vector encoding but returned a float vector",
-              field_info.name
-            )));
-          },
-        };
+        let vector =
+          Into::<crate::core::index::byte_vector_values::ByteVectorValue<'_>>::into(vector)
+            .into_owned();
         CodecReader::search_nearest_vectors_u8(
           codec_reader,
           &field_info.name,

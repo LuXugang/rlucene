@@ -156,7 +156,13 @@ where
     &self,
     vectors: KnnVectorValuesEnm2<B, F>,
     _random: &mut R,
-  ) -> Result<<DefaultFlatVectorScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<B, F>>
+  ) -> Result<
+    crate::core::codecs::hnsw::flat_vectors_scorer::RandomVectorScorerSupplierFor<
+      DefaultFlatVectorScorer,
+      B,
+      F,
+    >,
+  >
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send,

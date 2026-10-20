@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
@@ -282,10 +282,10 @@ where
     Ok(())
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     let (identity, delegate_index) = self

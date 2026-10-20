@@ -18,7 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::{
   KnnVectorsWriter, has_vector_values, map_old_ord_to_new_ord, merge_float_vector_values,
@@ -26,7 +26,7 @@ use crate::core::codecs::knn_vectors_writer::{
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriter as HnswFieldWriter;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriterEnum as HnswFieldWriter;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::{
   Lucene99ScalarQuantizedVectorScorer, ScalarQuantizedRandomVectorScorerSupplier,
   ScalarQuantizedVectorsScorer,
@@ -73,9 +73,7 @@ use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::{
-  CloseableRandomVectorScorerSupplier, CloseableRandomVectorScorerSupplierEnum2,
-};
+use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
@@ -83,7 +81,6 @@ use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByte
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::vector_util::VectorUtil;
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 use std::sync::Arc;
@@ -256,7 +253,7 @@ where
     field_data: &ScalarQuantizedFieldWriter,
     flat_field_vectors_writers: &mut [FW],
     max_doc: i32,
-    vectors: &[VectorValueEnum],
+    vectors: &[Vec<f32>],
     scalar_quantizer: &ScalarQuantizer,
     version: i32,
   ) -> Result<()>
@@ -292,7 +289,7 @@ where
     flat_field_vectors_writers: &mut [FW],
     max_doc: i32,
     sort_map: &DM,
-    vectors: &[VectorValueEnum],
+    vectors: &[Vec<f32>],
     scalar_quantizer: &ScalarQuantizer,
     version: i32,
   ) -> Result<()>
@@ -352,7 +349,7 @@ where
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     merged_quantization_state: ScalarQuantizer,
-  ) -> Result<<Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'a, D2>>
+  ) -> Result<<Self as FlatVectorsWriter>::FloatMergeScorerSupplier<'a, D2>>
   where
     D2: Directory<IndexOutput = R::IndexOutput>,
     CR: CodecReader,
@@ -383,7 +380,7 @@ where
     let mut quantization_data_input = None;
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-      || -> Result<<Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'_, D2>> {
+      || -> Result<<Self as FlatVectorsWriter>::FloatMergeScorerSupplier<'_, D2>> {
         let byte_vector_values = MergedQuantizedVectorValues::merge_quantized_byte_vector_values(
           field_info,
           merge_state,
@@ -448,7 +445,7 @@ where
         let quantization_data_input = quantization_data_input
           .take()
           .ok_or_else(|| LuceneError::illegal_state("quantization data input is missing"))?;
-        Ok(CloseableRandomVectorScorerSupplierEnum2::B(
+        Ok(
           ScalarQuantizedCloseableRandomVectorScorerSupplier::new_quantized(
             docs_with_field.cardinality(),
             random_vector_scorer_supplier,
@@ -456,7 +453,7 @@ where
             std::mem::take(&mut temp_quantized_vector_name),
             quantization_data_input,
           ),
-        ))
+        )
       },
     ));
 
@@ -538,7 +535,7 @@ where
       };
       let scalar_quantizer = {
         let flat_field_vectors_writers = self.raw_vector_delegate.get_fields_mut();
-        field.create_quantizer(flat_field_vectors_writers, vectors.as_ref())?
+        field.create_quantizer(flat_field_vectors_writers, vectors.as_slices().as_floats()?)?
       };
       let flat_field_vectors_writers = self.raw_vector_delegate.get_fields_mut();
       if let Some(sort_map) = sort_map {
@@ -549,7 +546,7 @@ where
           flat_field_vectors_writers,
           max_doc,
           sort_map,
-          vectors.as_ref(),
+          vectors.as_slices().as_floats()?,
           &scalar_quantizer,
           self.version,
         )?;
@@ -560,7 +557,7 @@ where
           field,
           flat_field_vectors_writers,
           max_doc,
-          vectors.as_ref(),
+          vectors.as_slices().as_floats()?,
           &scalar_quantizer,
           self.version,
         )?;
@@ -642,10 +639,10 @@ where
     Ok(())
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     self
@@ -692,15 +689,16 @@ where
     Ok(raw_vector_delegate)
   }
 
-  fn flat_flush<DM, SS>(
+  fn flat_flush<DM, BS, SS>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[HnswFieldWriter<SS>],
+    fields: &[HnswFieldWriter<BS, SS>],
   ) -> Result<()>
   where
     DM: DocMap,
-    SS: RandomVectorScorerSupplier,
+    BS: BufferedVectorScorerSupplier<Element = u8>,
+    SS: BufferedVectorScorerSupplier<Element = f32>,
   {
     self
       .raw_vector_delegate
@@ -711,9 +709,8 @@ where
       let vectors = fields
         .get(field.flat_field_vectors_writer_idx)
         .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?
-        .hnsw_graph_builder
-        .get_scorer_supplier()
-        .get_vector()?;
+        .get_vectors()?
+        .as_floats()?;
       let scalar_quantizer = {
         let flat_field_vectors_writers = self.raw_vector_delegate.get_fields_mut();
         field.create_quantizer(flat_field_vectors_writers, vectors)?
@@ -755,66 +752,77 @@ where
     self.raw_vector_delegate.get_fields_mut()
   }
 
-  type CloseableRandomVectorScorerSupplier<'a, D>
-    = CloseableRandomVectorScorerSupplierEnum2<
-    R::CloseableRandomVectorScorerSupplier<'a, D>,
-    ScalarQuantizedCloseableRandomVectorScorerSupplier<
-      'a,
-      ScalarQuantizedRandomVectorScorerSupplier<
-        off_heap_quantized_byte_vector_values::DenseOffHeapVectorValues<
-          D::IndexInput,
-          Lucene99ScalarQuantizedVectorScorer<S>,
-        >,
+  type ByteMergeScorerSupplier<'a, D>
+    = R::ByteMergeScorerSupplier<'a, D>
+  where
+    D: Directory,
+    Self: 'a,
+    D: 'a;
+  type FloatMergeScorerSupplier<'a, D>
+    = ScalarQuantizedCloseableRandomVectorScorerSupplier<
+    'a,
+    ScalarQuantizedRandomVectorScorerSupplier<
+      off_heap_quantized_byte_vector_values::DenseOffHeapVectorValues<
+        D::IndexInput,
+        Lucene99ScalarQuantizedVectorScorer<S>,
       >,
-      D,
     >,
+    D,
   >
   where
     D: Directory,
     Self: 'a,
     D: 'a;
 
-  fn merge_one_field_to_index<'a, D1, D2, CR>(
+  fn merge_one_field_to_index_byte<'a, D1, D2, CR>(
     &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     segment_write_state: &SegmentWriteState<'a, &'a D2>,
-  ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2>>
+  ) -> Result<Self::ByteMergeScorerSupplier<'a, D2>>
   where
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
   {
-    if *field_info.get_vector_encoding() == VectorEncoding::FLOAT32(BitUtil::FLOAT_BYTES) {
-      // Simply merge the underlying delegate, which just copies the raw vector data to a new
-      // segment file
-      let field_info_arc = merge_state
-        .merge_field_infos
-        .field_info_by_name(&field_info.name)?
-        .ok_or_else(|| {
-          LuceneError::illegal_argument(format!("field=\"{}\" not found", field_info.name))
-        })?;
-      self
-        .raw_vector_delegate
-        .merge_one_field(field_info_arc, merge_state, segment_write_state)?;
-      let merged_quantization_state = merge_and_recalculate_quantiles(
-        merge_state,
-        field_info,
-        self.confidence_interval,
-        self.bits,
-      )?;
-      return self.merge_one_field_to_index_with_quantization_state(
-        segment_write_state,
-        field_info,
-        merge_state,
-        merged_quantization_state,
-      );
-    }
-    // We only merge the delegate, since the field type isn't float32, quantization wasn't
-    // supported, so bypass it.
+    self.raw_vector_delegate.merge_one_field_to_index_byte(
+      field_info,
+      merge_state,
+      segment_write_state,
+    )
+  }
+  fn merge_one_field_to_index_float<'a, D1, D2, CR>(
+    &'a mut self,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
+  ) -> Result<Self::FloatMergeScorerSupplier<'a, D2>>
+  where
+    D2: Directory<IndexOutput = Self::IndexOutput>,
+    CR: CodecReader,
+  {
+    // Simply merge the underlying delegate, which just copies the raw vector data to a new
+    // segment file
+    let field_info_arc = merge_state
+      .merge_field_infos
+      .field_info_by_name(&field_info.name)?
+      .ok_or_else(|| {
+        LuceneError::illegal_argument(format!("field=\"{}\" not found", field_info.name))
+      })?;
     self
       .raw_vector_delegate
-      .merge_one_field_to_index(field_info, merge_state, segment_write_state)
-      .map(CloseableRandomVectorScorerSupplierEnum2::A)
+      .merge_one_field(field_info_arc, merge_state, segment_write_state)?;
+    let merged_quantization_state = merge_and_recalculate_quantiles(
+      merge_state,
+      field_info,
+      self.confidence_interval,
+      self.bits,
+    )?;
+    self.merge_one_field_to_index_with_quantization_state(
+      segment_write_state,
+      field_info,
+      merge_state,
+      merged_quantization_state,
+    )
   }
 }
 
@@ -883,7 +891,7 @@ where
 fn write_quantized_vectors<O>(
   quantized_vector_data: &mut O,
   field_data: &ScalarQuantizedFieldWriter,
-  vectors: &[VectorValueEnum],
+  vectors: &[Vec<f32>],
   scalar_quantizer: &ScalarQuantizer,
 ) -> Result<()>
 where
@@ -908,12 +916,12 @@ where
       let copy = copy
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("missing normalized vector buffer"))?;
-      copy.copy_from_slice(v.as_floats()?);
+      copy.copy_from_slice(v.as_slice());
       VectorUtil::l2normalize(copy)?;
       borrowed = copy.as_slice();
       borrowed
     } else {
-      v.as_floats()?
+      v.as_slice()
     };
 
     let offset_correction = scalar_quantizer.quantize(
@@ -937,7 +945,7 @@ fn write_sorted_quantized_vectors<O>(
   quantized_vector_data: &mut O,
   field_data: &ScalarQuantizedFieldWriter,
   ord_map: &[usize],
-  vectors: &[VectorValueEnum],
+  vectors: &[Vec<f32>],
   scalar_quantizer: &ScalarQuantizer,
 ) -> Result<()>
 where
@@ -964,12 +972,12 @@ where
       let copy = copy
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("missing normalized vector buffer"))?;
-      copy.copy_from_slice(v.as_floats()?);
+      copy.copy_from_slice(v.as_slice());
       VectorUtil::l2normalize(copy)?;
       borrowed = copy.as_slice();
       borrowed
     } else {
-      v.as_floats()?
+      v.as_slice()
     };
     let offset_correction = scalar_quantizer.quantize(
       vector_value,
@@ -1272,7 +1280,7 @@ impl ScalarQuantizedFieldWriter {
   fn create_quantizer<FW>(
     &self,
     flat_field_vectors_writers: &mut [FW],
-    vectors: &[VectorValueEnum],
+    vectors: &[Vec<f32>],
   ) -> Result<ScalarQuantizer>
   where
     FW: FlatFieldVectorsWriter,
@@ -1381,11 +1389,11 @@ where
 
 #[derive(Clone, Copy)]
 pub(crate) struct FloatVectorWrapper<'a> {
-  vector_list: &'a [VectorValueEnum],
+  vector_list: &'a [Vec<f32>],
 }
 
 impl<'a> FloatVectorWrapper<'a> {
-  pub(crate) fn new(vector_list: &'a [VectorValueEnum]) -> Self {
+  pub(crate) fn new(vector_list: &'a [Vec<f32>]) -> Self {
     Self { vector_list }
   }
 }
@@ -1442,10 +1450,7 @@ impl FloatVectorValues for FloatVectorWrapper<'_> {
         ord
       ))));
     }
-    match &self.vector_list[ord] {
-      VectorValueEnum::Float(vector) => Ok(vector.as_slice()),
-      VectorValueEnum::Byte(_) => Err(LuceneError::unsupported_operation("")),
-    }
+    Ok(self.vector_list[ord].as_slice())
   }
 
   type FloatVectorValues = Self;
@@ -1881,10 +1886,9 @@ where
     let current_sub = &state.doc_id_merger.get_subs()[current].sub;
     let index: usize = current_sub.index()?.try_convert()?;
     Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::from(Into::<ByteVectorValue<'_>>::into(
-        current_sub.values.vector_value(index)?,
-      )))
-      .try_into()?,
+      Into::<ByteVectorValue<'_>>::into(current_sub.values.vector_value(index)?)
+        .into_owned()
+        .into(),
     )
   }
 
@@ -2104,10 +2108,7 @@ where
       inner.offset_value = self.quantize(ord, &mut inner)?;
       inner.last_ord = ord_i32;
     }
-    Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(inner.quantized_vector.clone()))
-        .try_into()?,
-    )
+    Ok(inner.quantized_vector.clone().into())
   }
 
   type ByteVectorValues = DummyByteVectorValues;
@@ -2421,14 +2422,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     match self {
       Self::Original(values) => values.get_vectors_mut(),
       Self::Normalized(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     match self {
       Self::Original(values) => values.get_vectors(),
       Self::Normalized(values) => values.get_vectors(),
@@ -2509,15 +2510,10 @@ where
     Self: 'v;
 
   fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
-    let vector_value = VectorValueEnum::from(Into::<FloatVectorValue<'_>>::into(
-      self.values.vector_value(ord)?,
-    ));
-    let mut normalized_vector = match vector_value {
-      VectorValueEnum::Float(vector) => vector,
-      value => value.as_floats()?.to_vec(),
-    };
+    let mut normalized_vector =
+      Into::<FloatVectorValue<'_>>::into(self.values.vector_value(ord)?).into_owned();
     VectorUtil::l2normalize(&mut normalized_vector)?;
-    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(normalized_vector)).try_into()?)
+    Ok(normalized_vector.into())
   }
 
   type FloatVectorValues = NormalizedFloatVectorValues<FVV::FloatVectorValues>;
@@ -2592,14 +2588,6 @@ where
     self.supplier.copy()
   }
 
-  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
-    self.supplier.get_vector()
-  }
-
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
-    self.supplier.get_vector_mut()
-  }
-
   fn ram_bytes_used(&self) -> Result<i64> {
     self.supplier.ram_bytes_used()
   }
@@ -2641,3 +2629,5 @@ where
     let _ = self.close();
   }
 }
+
+use crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier;

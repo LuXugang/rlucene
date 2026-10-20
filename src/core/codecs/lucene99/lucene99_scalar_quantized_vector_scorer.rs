@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -175,29 +175,42 @@ impl<F> FlatVectorsScorer for Lucene99ScalarQuantizedVectorScorer<F>
 where
   F: FlatVectorsScorer,
 {
-  type RandomVectorScorerSupplier<B, FV>
-    = F::RandomVectorScorerSupplier<B, FV>
+  type ByteScorerSupplier<B>
+    = F::ByteScorerSupplier<B>
   where
     B: ByteVectorValues + TryClone + Send,
-    B::ByteVectorValues: Send,
-    FV: FloatVectorValues + TryClone + Send,
-    FV::FloatVectorValues: Send;
-
-  fn get_random_vector_scorer_supplier<B, FV>(
+    B::ByteVectorValues: Send;
+  fn get_byte_scorer_supplier<B>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: FlatVectorValuesEnum<B, FV>,
-  ) -> Result<Self::RandomVectorScorerSupplier<B, FV>>
+    vector_values: B,
+  ) -> Result<Self::ByteScorerSupplier<B>>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send,
+  {
+    self
+      .non_quantized_delegate
+      .get_byte_scorer_supplier(similarity_function, vector_values)
+  }
+
+  type FloatScorerSupplier<FV>
+    = F::FloatScorerSupplier<FV>
+  where
+    FV: FloatVectorValues + TryClone + Send,
+    FV::FloatVectorValues: Send;
+  fn get_float_scorer_supplier<FV>(
+    &self,
+    similarity_function: VectorSimilarityFunction,
+    vector_values: FV,
+  ) -> Result<Self::FloatScorerSupplier<FV>>
+  where
     FV: FloatVectorValues + TryClone + Send,
     FV::FloatVectorValues: Send,
   {
-    // It is possible to get to this branch during initial indexing and flush.
     self
       .non_quantized_delegate
-      .get_random_vector_scorer_supplier(similarity_function, vector_values)
+      .get_float_scorer_supplier(similarity_function, vector_values)
   }
 
   type RandomVectorScorerF32<T>

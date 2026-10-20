@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::knn_vector_values::{BitsImpl, KnnVectorValues};
 use crate::core::index::leaf_reader::LeafReader;
@@ -29,7 +28,7 @@ use std::borrow::Cow;
 use std::ops::Deref;
 
 /// A read-only floating-point slice that keeps its backing buffer borrowed until dropped.
-/// Convert into [`VectorValueEnum`] only when an independent owned value is needed.
+/// Use [`FloatVectorValue::into_owned`] only when an independent snapshot is needed.
 #[derive(Debug)]
 pub struct FloatVectorValue<'a>(pub(crate) FloatVectorValueStorage<'a>);
 
@@ -98,13 +97,20 @@ impl<'a> TryFrom<Cow<'a, VectorValueEnum>> for FloatVectorValue<'a> {
   }
 }
 
+impl FloatVectorValue<'_> {
+  /// Returns an independent snapshot, moving an already-owned vector without copying.
+  pub fn into_owned(self) -> Vec<f32> {
+    match self.0 {
+      FloatVectorValueStorage::Borrowed(value) => value.to_vec(),
+      FloatVectorValueStorage::Owned(value) => value,
+      FloatVectorValueStorage::Buffer(value) => value.to_vec(),
+    }
+  }
+}
+
 impl From<FloatVectorValue<'_>> for VectorValueEnum {
   fn from(value: FloatVectorValue<'_>) -> Self {
-    match value.0 {
-      FloatVectorValueStorage::Borrowed(value) => VectorValueEnum::Float(value.to_vec()),
-      FloatVectorValueStorage::Owned(value) => VectorValueEnum::Float(value),
-      FloatVectorValueStorage::Buffer(value) => VectorValueEnum::Float(value.to_vec()),
-    }
+    Self::Float(value.into_owned())
   }
 }
 
@@ -156,10 +162,10 @@ pub trait FloatVectorValues: KnnVectorValues {
     VectorEncoding::FLOAT32(4)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     Err(LuceneError::unsupported_operation(""))
   }
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -200,7 +206,7 @@ pub fn from_floats(dim: usize) -> FloatVectorValuesImpl {
 }
 
 pub struct FloatVectorValuesImpl {
-  vectors: Vec<VectorValueEnum>,
+  vectors: Vec<Vec<f32>>,
   dim: usize,
 }
 // TODO IMPORTANT avoid CLone ?
@@ -263,10 +269,7 @@ impl FloatVectorValues for FloatVectorValuesImpl {
 
   #[inline]
   fn vector_value(&self, target_ord: usize) -> Result<Self::VectorValue<'_>> {
-    match &self.vectors[target_ord] {
-      VectorValueEnum::Float(vector) => Ok(vector.as_slice()),
-      VectorValueEnum::Byte(_) => Err(LuceneError::unsupported_operation("")),
-    }
+    Ok(self.vectors[target_ord].as_slice())
   }
 
   type FloatVectorValues = Self;
@@ -277,11 +280,11 @@ impl FloatVectorValues for FloatVectorValuesImpl {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     Ok(&mut self.vectors)
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     Ok(&self.vectors)
   }
 
@@ -289,3 +292,5 @@ impl FloatVectorValues for FloatVectorValuesImpl {
     Ok(self.vectors.capacity())
   }
 }
+
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;

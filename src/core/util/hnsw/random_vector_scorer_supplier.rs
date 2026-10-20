@@ -14,10 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::util::accountable::Accountable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::index::vector_buffer::VectorElement;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::{RandomVectorScorer, RandomVectorScorerEnum2};
+use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
 pub trait RandomVectorScorerSupplier {
@@ -43,30 +43,24 @@ pub trait RandomVectorScorerSupplier {
   where
     Self: Sized;
 
-  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(0)
   }
 }
 
-pub(crate) fn vector_values_ram_bytes_used(
-  vectors: &[VectorValueEnum],
-  capacity: usize,
-) -> Result<i64> {
-  let capacity = if capacity > i64::MAX as usize {
-    i64::MAX
-  } else {
-    capacity as i64
-  };
-  let mut size = (std::mem::size_of::<VectorValueEnum>() as i64).saturating_mul(capacity);
+/// Mutable, homogeneous storage used while building an in-memory graph.
+/// Encoding-independent and off-heap suppliers only require RandomVectorScorerSupplier.
+pub trait BufferedVectorScorerSupplier: RandomVectorScorerSupplier {
+  type Element: VectorElement;
+  fn get_vector(&self) -> Result<&[Vec<Self::Element>]>;
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<Self::Element>>>;
+}
+
+pub(crate) fn vector_values_ram_bytes_used<T>(vectors: &[Vec<T>], capacity: usize) -> Result<i64> {
+  let capacity = i64::try_from(capacity).unwrap_or(i64::MAX);
+  let mut size = (std::mem::size_of::<Vec<T>>() as i64).saturating_mul(capacity);
   for vector in vectors {
-    size = size.saturating_add(vector.ram_bytes_used()?);
+    size = size.saturating_add(size_of_vec(vector));
   }
   Ok(size)
 }
@@ -91,10 +85,6 @@ where
     Self: Sized,
   {
     (**self).copy()
-  }
-
-  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
-    (**self).get_vector()
   }
 
   fn ram_bytes_used(&self) -> Result<i64> {
@@ -137,18 +127,6 @@ macro_rules! either_random_vector_scorer_supplier {
             {
                 match self {
                     $( Self::$Variant(inner) => inner.copy().map(Self::RandomVectorScorerSupplier::$Variant), )+
-                }
-            }
-
-            fn get_vector(&self) -> Result<&[VectorValueEnum]> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_vector(), )+
-                }
-            }
-
-            fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_vector_mut(), )+
                 }
             }
 

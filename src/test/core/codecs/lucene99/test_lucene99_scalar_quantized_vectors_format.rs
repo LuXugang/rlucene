@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::codec_formats::CodecKnnVectorsReaderInner;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_format::Lucene99ScalarQuantizedVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_writer::{
   FloatVectorWrapper, build_scalar_quantizer,
@@ -136,11 +135,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
       dim += 1;
     }
     let vectors = (0..num_vectors)
-      .map(|_| {
-        VectorValueEnum::Float(TestLucene99ScalarQuantizedVectorsFormat::random_vector(
-          random, dim,
-        ))
-      })
+      .map(|_| TestLucene99ScalarQuantizedVectorsFormat::random_vector(random, dim))
       .collect::<Vec<_>>();
     let scalar_quantizer = build_scalar_quantizer(
       FloatVectorWrapper::new(&vectors),
@@ -152,7 +147,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
     let mut expected_corrections = vec![0.0; num_vectors];
     let mut expected_vectors = vec![vec![0; dim]; num_vectors];
     for (i, vector) in vectors.iter().enumerate() {
-      let mut vector = std::borrow::Cow::Borrowed(vector.as_floats()?);
+      let mut vector = std::borrow::Cow::Borrowed(vector.as_slice());
       if normalize {
         VectorUtil::l2normalize(vector.to_mut())?;
       }
@@ -169,7 +164,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
     config.set_merge_policy(NoMergePolicy::default());
     let writer = IndexWriter::new(dir.clone(), config)?;
     for vector in &vectors {
-      let vector = vector.as_floats()?;
+      let vector = vector.as_slice();
       let value = if random.random_bool(0.5) {
         randomly_reused_vector.copy_from_slice(vector);
         randomly_reused_vector.clone()

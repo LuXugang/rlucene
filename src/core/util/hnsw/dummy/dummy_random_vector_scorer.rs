@@ -47,3 +47,30 @@ impl RandomVectorScorer for DummyRandomVectorScorer {
     dummy_unreachable!()
   }
 }
+
+/// Type placeholder for codecs that reject supplier construction for an encoding.
+pub struct DummyRandomVectorScorerSupplier;
+impl crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier
+  for DummyRandomVectorScorerSupplier
+{
+  type Scorer<'a> = DummyRandomVectorScorer;
+  type RandomVectorScorerSupplier = Self;
+  fn scorer(&self, _ord: usize) -> Result<Self::Scorer<'_>> {
+    dummy_unreachable!()
+  }
+  fn copy(&self) -> Result<Self> {
+    dummy_unreachable!()
+  }
+}
+
+impl crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier
+  for DummyRandomVectorScorerSupplier
+{
+  type Element = f32;
+  fn get_vector(&self) -> Result<&[Vec<f32>]> {
+    dummy_unreachable!()
+  }
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+    dummy_unreachable!()
+  }
+}

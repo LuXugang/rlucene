@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::KnnVectorValues;
@@ -38,36 +37,40 @@ use std::fmt::{Display, Formatter};
 pub struct FlatBitVectorsScorer;
 
 impl FlatVectorsScorer for FlatBitVectorsScorer {
-  type RandomVectorScorerSupplier<B, F>
+  type ByteScorerSupplier<B>
     = BitRandomVectorScorerSupplier<B>
   where
     B: ByteVectorValues + TryClone + Send,
-    B::ByteVectorValues: Send,
-    F: FloatVectorValues + TryClone + Send,
-    F::FloatVectorValues: Send;
-
-  fn get_random_vector_scorer_supplier<B, F>(
+    B::ByteVectorValues: Send;
+  fn get_byte_scorer_supplier<B>(
     &self,
     _similarity_function: VectorSimilarityFunction,
-    vector_values: FlatVectorValuesEnum<B, F>,
-  ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
+    vector_values: B,
+  ) -> Result<Self::ByteScorerSupplier<B>>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send,
+  {
+    debug_assert!(KnnVectorValues::get_encoding(&vector_values) == VectorEncoding::BYTE(1));
+    BitRandomVectorScorerSupplier::new(vector_values)
+  }
+  type FloatScorerSupplier<F>
+    = crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorerSupplier
+  where
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send;
+  fn get_float_scorer_supplier<F>(
+    &self,
+    _similarity_function: VectorSimilarityFunction,
+    _vector_values: F,
+  ) -> Result<Self::FloatScorerSupplier<F>>
+  where
     F: FloatVectorValues + TryClone + Send,
     F::FloatVectorValues: Send,
   {
-    match vector_values {
-      FlatVectorValuesEnum::Byte(byte_vector_values) => {
-        debug_assert!(
-          KnnVectorValues::get_encoding(&byte_vector_values) == VectorEncoding::BYTE(1)
-        );
-        BitRandomVectorScorerSupplier::new(byte_vector_values)
-      },
-      FlatVectorValuesEnum::Float(_) => Err(LuceneError::illegal_argument(
-        "vectorValues must be an instance of ByteVectorValues",
-      )),
-    }
+    Err(LuceneError::illegal_argument(
+      "vectorValues must be an instance of ByteVectorValues",
+    ))
   }
 
   type RandomVectorScorerF32<T>
@@ -249,14 +252,6 @@ where
     BitRandomVectorScorerSupplier::new(self.vector_values.try_clone()?)
   }
 
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
-    self.vector_values.get_vectors_mut()
-  }
-
-  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
-    self.vector_values.get_vectors()
-  }
-
   fn ram_bytes_used(&self) -> Result<i64> {
     let Ok(vectors) = self.vector_values.get_vectors() else {
       return Ok(0);
@@ -272,5 +267,21 @@ where
 impl Display for FlatBitVectorsScorer {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "FlatBitVectorsScorer()")
+  }
+}
+
+use crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier;
+
+impl<BV> BufferedVectorScorerSupplier for BitRandomVectorScorerSupplier<BV>
+where
+  BV: ByteVectorValues + TryClone + Send,
+  BV::ByteVectorValues: Send,
+{
+  type Element = u8;
+  fn get_vector(&self) -> Result<&[Vec<u8>]> {
+    self.vector_values.get_vectors()
+  }
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+    self.vector_values.get_vectors_mut()
   }
 }

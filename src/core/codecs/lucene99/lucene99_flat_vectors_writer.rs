@@ -16,9 +16,10 @@
  */
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
-use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
-use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
+use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_writer::{
   KnnVectorsWriter, MergeVectorValues, MergedByteVectorValues, MergedFloat32VectorValues,
   map_old_ord_to_new_ord, merge_byte_vector_values, merge_float_vector_values,
@@ -30,7 +31,7 @@ use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONI
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::{
   META_CODEC_NAME, META_EXTENSION, VECTOR_DATA_CODEC_NAME, VECTOR_DATA_EXTENSION, VERSION_CURRENT,
 };
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriter;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriterEnum;
 use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
@@ -151,26 +152,22 @@ where
     })
   }
 
-  fn write_float32_vectors(
-    vector_data: &mut O,
-    dim: usize,
-    vectors: &[VectorValueEnum],
-  ) -> Result<()> {
+  fn write_float32_vectors(vector_data: &mut O, dim: usize, vectors: &[Vec<f32>]) -> Result<()> {
     let byte_size = BitUtil::FLOAT_BYTES;
     stack_or_heap_buffer!(buffer, u8, dim * byte_size, 128, 0);
 
     for vector in vectors.iter() {
       debug_assert_eq!(vector.len(), dim);
-      vector.write_float(buffer)?;
+      write_float_vector(vector, buffer)?;
       vector_data.write_bytes_range(buffer, 0, buffer.len())?;
     }
 
     Ok(())
   }
 
-  fn write_byte_vectors(vector_data: &mut O, vectors: &[VectorValueEnum]) -> Result<()> {
+  fn write_byte_vectors(vector_data: &mut O, vectors: &[Vec<u8>]) -> Result<()> {
     for vector in vectors.iter() {
-      vector_data.write_bytes_range(vector.as_bytes()?, 0, vector.len())?;
+      vector_data.write_bytes_range(vector, 0, vector.len())?;
     }
 
     Ok(())
@@ -179,7 +176,7 @@ where
     vector_data: &mut O,
     field_data: &FlatFieldWriter,
     ord_map: &[usize],
-    vectors: &[VectorValueEnum],
+    vectors: &[Vec<f32>],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -193,7 +190,7 @@ where
     for &ord in ord_map {
       let vector = &vectors[ord];
       debug_assert_eq!(vector.len(), dim);
-      vector.write_float(buffer)?;
+      write_float_vector(vector, buffer)?;
       vector_data.write_bytes_range(buffer, 0, buffer.len())?;
     }
 
@@ -202,7 +199,7 @@ where
   fn write_sorted_byte_vectors(
     vector_data: &mut O,
     ord_map: &[usize],
-    vectors: &[VectorValueEnum],
+    vectors: &[Vec<u8>],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -210,7 +207,7 @@ where
     let vector_data_offset = vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
     for &ord in ord_map {
       let vector = &vectors[ord];
-      vector_data.write_bytes_range(vector.as_bytes()?, 0, vector.len())?;
+      vector_data.write_bytes_range(vector, 0, vector.len())?;
     }
     Ok(vector_data_offset)
   }
@@ -218,7 +215,7 @@ where
     &mut self,
     field_data_idx: usize,
     max_doc: i32,
-    vectors: &[VectorValueEnum],
+    vectors: VectorSlices<'_>,
   ) -> Result<()>
   where
     O: IndexOutput,
@@ -229,11 +226,11 @@ where
     field_data.docs_with_field.finish();
     let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
 
-    match field_data.field_info.get_vector_encoding() {
-      VectorEncoding::BYTE(_) => {
+    match vectors {
+      VectorSlices::Byte(vectors) => {
         Self::write_byte_vectors(&mut self.vector_data, vectors)?;
       },
-      VectorEncoding::FLOAT32(_) => {
+      VectorSlices::Float(vectors) => {
         Self::write_float32_vectors(&mut self.vector_data, field_data.dim, vectors)?;
       },
     }
@@ -257,7 +254,7 @@ where
     field_data_idx: usize,
     max_doc: i32,
     sort_map: &DM,
-    vectors: &[VectorValueEnum],
+    vectors: VectorSlices<'_>,
   ) -> Result<()>
   where
     DM: DocMap,
@@ -284,11 +281,11 @@ where
     new_docs_with_field.finish();
 
     // write vector values
-    let vector_data_offset = match field_data.field_info.get_vector_encoding() {
-      VectorEncoding::BYTE(_) => {
+    let vector_data_offset = match vectors {
+      VectorSlices::Byte(vectors) => {
         Self::write_sorted_byte_vectors(&mut self.vector_data, &ord_map, vectors)?
       },
-      VectorEncoding::FLOAT32(_) => {
+      VectorSlices::Float(vectors) => {
         Self::write_sorted_float32_vectors(&mut self.vector_data, field_data, &ord_map, vectors)?
       },
     };
@@ -352,9 +349,9 @@ where
     for field_idx in 0..self.fields.len() {
       let vectors = self.fields[field_idx].get_vectors()?;
       if let Some(sort_map) = sort_map {
-        self.write_sorting_field(field_idx, max_doc, sort_map, vectors.as_ref())?;
+        self.write_sorting_field(field_idx, max_doc, sort_map, vectors.as_slices())?;
       } else {
-        self.write_field(field_idx, max_doc, vectors.as_ref())?;
+        self.write_field(field_idx, max_doc, vectors.as_slices())?;
       }
       self.fields[field_idx].finish()?;
     }
@@ -411,10 +408,10 @@ where
     Ok(())
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     let field = self
@@ -438,11 +435,24 @@ where
     }
     debug_assert!(doc_id > field.last_doc_id);
 
-    let copy = field.copy_value(vector_value)?;
-    let vector_bytes = copy.ram_bytes_used()?;
-    field.docs_with_field.add(doc_id)?;
-    Arc::make_mut(&mut field.vectors).push(copy);
-    field.vector_buffer_bytes = field.vector_buffer_bytes.saturating_add(vector_bytes);
+    match &mut field.vectors {
+      VectorBuffers::Byte(vectors) => append_vector(
+        vectors,
+        vector_value,
+        field.dim,
+        &mut field.docs_with_field,
+        &mut field.vector_buffer_bytes,
+        doc_id,
+      )?,
+      VectorBuffers::Float(vectors) => append_vector(
+        vectors,
+        vector_value,
+        field.dim,
+        &mut field.docs_with_field,
+        &mut field.vector_buffer_bytes,
+        doc_id,
+      )?,
+    }
     field.last_doc_id = doc_id;
     Ok(())
   }
@@ -467,20 +477,20 @@ where
     Ok(len)
   }
 
-  fn flat_flush<DM, S>(
+  fn flat_flush<DM, B, S>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriter<S>],
+    fields: &[FieldWriterEnum<B, S>],
   ) -> Result<()>
   where
     DM: DocMap,
-    S: RandomVectorScorerSupplier,
+    B: BufferedVectorScorerSupplier<Element = u8>,
+    S: BufferedVectorScorerSupplier<Element = f32>,
   {
     for idx in 0..self.fields.len() {
       let fields = &fields[idx];
-      let ss = fields.hnsw_graph_builder.get_scorer_supplier();
-      let vectors = ss.get_vector()?;
+      let vectors = fields.get_vectors()?;
       if let Some(sm) = sort_map {
         self.write_sorting_field(idx, max_doc, sm, vectors)?;
       } else {
@@ -497,11 +507,51 @@ where
     self.fields.as_mut()
   }
 
-  type CloseableRandomVectorScorerSupplier<'a, D>
+  type ByteMergeScorerSupplier<'a, D>
     = FlatCloseableRandomVectorScorerSupplier<
     'a,
-    <F as FlatVectorsScorer>::RandomVectorScorerSupplier<
+    <F as FlatVectorsScorer>::ByteScorerSupplier<
       off_heap_byte_vector_values::DenseOffHeapVectorValues<D::IndexInput, F>,
+    >,
+    D,
+  >
+  where
+    D: Directory,
+    Self: 'a,
+    D: 'a;
+
+  fn merge_one_field_to_index_byte<'a, D1, D2, CR>(
+    &'a mut self,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
+  ) -> Result<Self::ByteMergeScorerSupplier<'a, D2>>
+  where
+    D2: Directory<IndexOutput = Self::IndexOutput>,
+    CR: CodecReader,
+  {
+    self.merge_one_field_with_supplier(
+      field_info,
+      merge_state,
+      segment_write_state,
+      |scorer, input, count| {
+        let dimension = field_info.get_vector_dimension() as usize;
+        let values = off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
+          dimension,
+          count,
+          input,
+          dimension * VectorEncoding::BYTE(1).byte_size(),
+          scorer.clone(),
+          *field_info.get_vector_similarity_function(),
+        );
+        scorer.get_byte_scorer_supplier(*field_info.get_vector_similarity_function(), values)
+      },
+    )
+  }
+  type FloatMergeScorerSupplier<'a, D>
+    = FlatCloseableRandomVectorScorerSupplier<
+    'a,
+    <F as FlatVectorsScorer>::FloatScorerSupplier<
       off_heap_float_vector_values::DenseOffHeapVectorValues<D::IndexInput, F>,
     >,
     D,
@@ -511,15 +561,53 @@ where
     Self: 'a,
     D: 'a;
 
-  fn merge_one_field_to_index<'a, D1, D2, CR>(
+  fn merge_one_field_to_index_float<'a, D1, D2, CR>(
     &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
-    segment_write_state: &SegmentWriteState<&'a D2>,
-  ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2>>
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
+  ) -> Result<Self::FloatMergeScorerSupplier<'a, D2>>
   where
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
+  {
+    self.merge_one_field_with_supplier(
+      field_info,
+      merge_state,
+      segment_write_state,
+      |scorer, input, count| {
+        let dimension = field_info.get_vector_dimension() as usize;
+        let values = off_heap_float_vector_values::DenseOffHeapVectorValues::new(
+          dimension,
+          count,
+          input,
+          dimension * VectorEncoding::FLOAT32(4).byte_size(),
+          scorer.clone(),
+          *field_info.get_vector_similarity_function(),
+        )?;
+        scorer.get_float_scorer_supplier(*field_info.get_vector_similarity_function(), values)
+      },
+    )
+  }
+}
+
+impl<O, F> Lucene99FlatVectorsWriter<O, F>
+where
+  O: IndexOutput,
+  F: FlatVectorsScorer + Clone + Send,
+{
+  fn merge_one_field_with_supplier<'a, D1, D2, CR, SS, Make>(
+    &'a mut self,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
+    make_supplier: Make,
+  ) -> Result<FlatCloseableRandomVectorScorerSupplier<'a, SS, D2>>
+  where
+    D2: Directory<IndexOutput = O>,
+    CR: CodecReader,
+    SS: RandomVectorScorerSupplier,
+    Make: FnOnce(&F, D2::IndexInput, usize) -> Result<SS>,
   {
     let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
     let mut temp_vector_data = segment_write_state.directory.create_temp_output(
@@ -531,7 +619,7 @@ where
     let mut vector_data_input = None;
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-      || -> Result<Self::CloseableRandomVectorScorerSupplier<'_, D2>> {
+      || -> Result<FlatCloseableRandomVectorScorerSupplier<'_, SS, D2>> {
         let docs_with_field = match field_info.get_vector_encoding() {
           VectorEncoding::BYTE(_) => {
             let mut merged_bytes = merge_byte_vector_values(field_info, merge_state)?;
@@ -575,35 +663,11 @@ where
         success = true;
 
         let vector_values_input = vector_data_input_ref.try_clone()?;
-        let dimension = field_info.get_vector_dimension() as usize;
-        let random_vector_scorer_supplier = match field_info.get_vector_encoding() {
-          VectorEncoding::BYTE(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
-            *field_info.get_vector_similarity_function(),
-            FlatVectorValuesEnum::Byte(off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
-              dimension,
-              docs_with_field.cardinality() as usize,
-              vector_values_input,
-              dimension * VectorEncoding::BYTE(1).byte_size(),
-              self.flat_vectors_scorer.clone(),
-              *field_info.get_vector_similarity_function(),
-            )),
-          )?,
-          VectorEncoding::FLOAT32(_) => {
-            self.flat_vectors_scorer.get_random_vector_scorer_supplier(
-              *field_info.get_vector_similarity_function(),
-              FlatVectorValuesEnum::Float(
-                off_heap_float_vector_values::DenseOffHeapVectorValues::new(
-                  dimension,
-                  docs_with_field.cardinality() as usize,
-                  vector_values_input,
-                  dimension * VectorEncoding::FLOAT32(4).byte_size(),
-                  self.flat_vectors_scorer.clone(),
-                  *field_info.get_vector_similarity_function(),
-                )?,
-              ),
-            )?
-          },
-        };
+        let random_vector_scorer_supplier = make_supplier(
+          &self.flat_vectors_scorer,
+          vector_values_input,
+          docs_with_field.cardinality() as usize,
+        )?;
         let vector_data_input = vector_data_input
           .take()
           .ok_or_else(|| LuceneError::illegal_state("temporary vector data input is missing"))?;
@@ -685,7 +749,7 @@ where
     let ord: usize = iter.index()?.try_convert()?;
     let value = iter.vector_value(ord)?;
     debug_assert_eq!(value.len(), dim);
-    output.write_bytes_range(value.as_bytes()?, 0, value.len())?;
+    output.write_bytes_range(&value, 0, value.len())?;
     docs_with_field.add(doc)?;
   }
   docs_with_field.finish();
@@ -715,7 +779,7 @@ where
     }
     let ord: usize = iter.index()?.try_convert()?;
     let value = iter.vector_value(ord)?;
-    for (i, &v) in value.as_floats()?.iter().enumerate() {
+    for (i, &v) in value.iter().enumerate() {
       let bytes = v.to_le_bytes();
       let start = i * byte_size;
       buffer[start..start + byte_size].copy_from_slice(&bytes);
@@ -732,19 +796,20 @@ pub struct FlatFieldWriter {
   docs_with_field: DocsWithFieldSet,
   finished: bool,
   last_doc_id: i32,
-  vectors: Arc<Vec<VectorValueEnum>>,
+  vectors: VectorBuffers,
   vector_buffer_bytes: i64,
 }
 impl FlatFieldWriter {
   pub fn new(field_info: Arc<FieldInfo>) -> Self {
     let dim = field_info.get_vector_dimension() as usize;
+    let vectors = VectorBuffers::new(*field_info.get_vector_encoding());
     Self {
       field_info,
       dim,
       docs_with_field: DocsWithFieldSet::new(),
       finished: false,
       last_doc_id: -1,
-      vectors: Arc::new(Vec::new()),
+      vectors,
       vector_buffer_bytes: 0,
     }
   }
@@ -752,8 +817,7 @@ impl FlatFieldWriter {
 
 impl Accountable for FlatFieldWriter {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let size =
-      std::mem::size_of_val(self.vectors.as_ref()) as i64 + size_of_vec(self.vectors.as_ref());
+    let size = self.vectors.shallow_buffer_bytes();
     Ok(
       size
         .saturating_add(self.vector_buffer_bytes)
@@ -763,12 +827,15 @@ impl Accountable for FlatFieldWriter {
 }
 
 impl KnnFieldVectorsWriter for FlatFieldWriter {
-  fn copy_value(&self, vector_value: &VectorValueEnum) -> Result<VectorValueEnum> {
-    Ok(vector_value.copy_value(0, self.dim))
+  fn copy_value<T: VectorElement, V: VectorInput + ?Sized>(
+    &self,
+    vector_value: &V,
+  ) -> Result<Vec<T>> {
+    T::copy_value(vector_value, self.dim)
   }
 }
 impl FlatFieldVectorsWriter for FlatFieldWriter {
-  fn get_vectors(&self) -> Result<Arc<Vec<VectorValueEnum>>> {
+  fn get_vectors(&self) -> Result<VectorBuffers> {
     Ok(self.vectors.clone())
   }
 
@@ -788,11 +855,11 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
     self.finished
   }
 
-  fn flat_add_value(
+  fn flat_add_value<T: VectorElement, V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
-    vector: &mut Vec<VectorValueEnum>,
+    vector_value: &V,
+    vector: &mut Vec<Vec<T>>,
   ) -> Result<()> {
     if self.finished {
       return Err(LuceneError::illegal_state(
@@ -809,7 +876,7 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
 
     debug_assert!(doc_id > self.last_doc_id);
 
-    let copy = self.copy_value(vector_value)?;
+    let copy = T::copy_value(vector_value, self.dim)?;
 
     self.docs_with_field.add(doc_id)?;
     vector.push(copy);
@@ -879,14 +946,6 @@ where
     self.supplier.copy()
   }
 
-  fn get_vector(&self) -> Result<&[VectorValueEnum]> {
-    self.supplier.get_vector()
-  }
-
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
-    self.supplier.get_vector_mut()
-  }
-
   fn ram_bytes_used(&self) -> Result<i64> {
     self.supplier.ram_bytes_used()
   }
@@ -925,4 +984,24 @@ where
   fn drop(&mut self) {
     let _ = self.close();
   }
+}
+
+use crate::core::codecs::knn_field_vectors_writer::write_float_vector;
+use crate::core::index::vector_buffer::{VectorBuffers, VectorElement, VectorSlices};
+use crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier;
+
+fn append_vector<T: VectorElement, V: VectorInput + ?Sized>(
+  vectors: &mut Arc<Vec<Vec<T>>>,
+  value: &V,
+  dimension: usize,
+  docs: &mut DocsWithFieldSet,
+  vector_buffer_bytes: &mut i64,
+  doc_id: i32,
+) -> Result<()> {
+  let copy = T::copy_value(value, dimension)?;
+  let vector_bytes = size_of_vec(&copy);
+  docs.add(doc_id)?;
+  Arc::make_mut(vectors).push(copy);
+  *vector_buffer_bytes = vector_buffer_bytes.saturating_add(vector_bytes);
+  Ok(())
 }

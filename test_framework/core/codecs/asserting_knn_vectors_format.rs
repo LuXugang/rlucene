@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_format::{DEFAULT_MAX_DIMENSIONS, KnnVectorsFormat};
 use crate::core::codecs::knn_vectors_formats::KnnVectorsFormatsReader;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
@@ -195,10 +195,10 @@ where
     self.delegate.finish()
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     self

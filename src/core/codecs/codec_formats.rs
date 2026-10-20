@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(test)]
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 
 #[cfg(test)]
 use crate::core::codecs::Codec;
@@ -29,8 +31,6 @@ use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 #[cfg(test)]
 use crate::core::codecs::fields_consumer::{FieldsConsumer, FieldsConsumerEnum2};
-#[cfg(test)]
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 #[cfg(test)]
 use crate::core::codecs::knn_vectors_formats::KnnVectorsFormatsReader;
@@ -2962,10 +2962,10 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for CodecKnnVectorsWriter<O> {
     }
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     match self {
@@ -3321,15 +3321,11 @@ where
     FloatVectorValues::get_encoding(&self.0)
   }
 
-  fn get_vectors_mut(
-    &mut self,
-  ) -> Result<&mut Vec<crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     self.0.get_vectors_mut()
   }
 
-  fn get_vectors(
-    &self,
-  ) -> Result<&[crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     self.0.get_vectors()
   }
 
@@ -3530,15 +3526,11 @@ where
     ByteVectorValues::get_encoding(&self.0)
   }
 
-  fn get_vectors_mut(
-    &mut self,
-  ) -> Result<&mut Vec<crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     self.0.get_vectors_mut()
   }
 
-  fn get_vectors(
-    &self,
-  ) -> Result<&[crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     self.0.get_vectors()
   }
 

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_writer::{
   FloatVectorWrapper, build_scalar_quantizer,
 };
@@ -149,7 +148,7 @@ fn assert_scalar_quantizer(
     if vector_similarity_function == VectorSimilarityFunction::DotProduct {
       VectorUtil::l2normalize(&mut vector)?;
     }
-    vectors.push(VectorValueEnum::Float(vector));
+    vectors.push(vector);
   }
 
   let vector_values = FloatVectorWrapper::new(&vectors);

@@ -18,7 +18,6 @@ use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::indexed_disi::{
   DocIndexIteratorImpl, IndexedDISIDocIndexIterator, IndexedDISIImpl, get_doc_index_iterator,
 };
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::off_heap_vector_values::{
@@ -869,14 +868,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     match self {
       Self::Dense(values) => values.get_vectors_mut(),
       Self::Sparse(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     match self {
       Self::Dense(values) => values.get_vectors(),
       Self::Sparse(values) => values.get_vectors(),
@@ -1042,7 +1041,7 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.get_vectors_mut(),
       OffHeapFloatVectorValuesEnum::Dense(e) => e.get_vectors_mut(),
@@ -1050,7 +1049,7 @@ where
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     match self {
       OffHeapFloatVectorValuesEnum::Empty(e) => e.get_vectors(),
       OffHeapFloatVectorValuesEnum::Dense(e) => e.get_vectors(),

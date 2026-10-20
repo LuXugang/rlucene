@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::codec_formats::CodecKnnVectorsReaderInner;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene99::lucene99_hnsw_scalar_quantized_vectors_format::Lucene99HnswScalarQuantizedVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
   DEFAULT_BEAM_WIDTH, DEFAULT_MAX_CONN, MAXIMUM_BEAM_WIDTH, MAXIMUM_MAX_CONN,
@@ -285,11 +284,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
       dim += 1;
     }
     let vectors = (0..num_vectors)
-      .map(|_| {
-        VectorValueEnum::Float(TestLucene99HnswQuantizedVectorsFormat::random_vector(
-          random, dim,
-        ))
-      })
+      .map(|_| TestLucene99HnswQuantizedVectorsFormat::random_vector(random, dim))
       .collect::<Vec<_>>();
     let scalar_quantizer = build_scalar_quantizer(
       FloatVectorWrapper::new(&vectors),
@@ -301,7 +296,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
     let mut expected_corrections = vec![0.0; num_vectors];
     let mut expected_vectors = vec![vec![0; dim]; num_vectors];
     for (i, vector) in vectors.iter().enumerate() {
-      let mut vector = std::borrow::Cow::Borrowed(vector.as_floats()?);
+      let mut vector = std::borrow::Cow::Borrowed(vector.as_slice());
       if similarity_function == VectorSimilarityFunction::Cosine {
         VectorUtil::l2normalize(vector.to_mut())?;
       }
@@ -318,7 +313,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
     config.set_merge_policy(NoMergePolicy::default());
     let writer = IndexWriter::new(dir.clone(), config)?;
     for vector in &vectors {
-      let vector = vector.as_floats()?;
+      let vector = vector.as_slice();
       let value = if random.random_bool(0.5) {
         randomly_reused_vector.copy_from_slice(vector);
         randomly_reused_vector.clone()

@@ -16,9 +16,10 @@
  */
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
-use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
+use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_writer::{FlatVectorsWriter, FlatVectorsWriterSs};
-use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
+use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_writer::{
   KnnVectorsWriter, has_vector_values, map_old_ord_to_new_ord, merge_byte_vector_values,
   merge_float_vector_values,
@@ -48,7 +49,9 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::concurrent_hnsw_merger::ConcurrentHnswMerger;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
+use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::{
+  CloseableRandomVectorScorerSupplier, CloseableRandomVectorScorerSupplierEnum2,
+};
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, CollectionNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnum2,
@@ -82,7 +85,7 @@ where
   merge_exec: Option<Arc<TaskExecutor>>,
   finished: bool,
   info_stream: InfoStreamMT,
-  fields: Vec<FieldWriter<DefaultRandomVectorScorerSupplier<F>>>,
+  fields: Vec<EncodedFieldWriter<F::FlatVectorsScorer>>,
 }
 pub type DefaultRandomVectorScorerSupplier<F> =
   FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>;
@@ -194,7 +197,7 @@ where
     let cardinality = field_data
       .get_docs_with_field_set(flat_field_vectors_writers)?
       .cardinality();
-    let field_info = field_data.field_info.clone();
+    let field_info = field_data.field_info().clone();
     let mut graph = field_data.get_graph(flat_field_vectors_writers)?;
     let graph_level_node_offsets = Self::write_graph(&mut self.vector_index, graph.as_deref_mut())?;
 
@@ -239,7 +242,7 @@ where
 
     let vector_index_offset = self.vector_index.get_file_pointer()?;
 
-    let field_info = field_data.field_info.clone();
+    let field_info = field_data.field_info().clone();
 
     let count = field_data
       .get_docs_with_field_set(flat_field_vectors_writers)?
@@ -675,84 +678,37 @@ where
     D2: Directory<IndexOutput = F::IndexOutput>,
     CR: CodecReader,
   {
-    let merge_exec = self.merge_exec.as_ref();
-    let num_merge_workers = self.num_merge_workers;
-    let mut scorer_supplier = self.flat_vector_writer.merge_one_field_to_index(
+    let supplier = self.flat_vector_writer.merge_one_field_to_index(
       field_info.as_ref(),
       merge_state,
       segment_write_state,
     )?;
-    let mut success = false;
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      let vector_index_offset = self.vector_index.get_file_pointer()?;
-
-      let mut graph = None;
-      let mut vector_index_node_offsets = Vec::new();
-
-      if scorer_supplier.total_vector_count()? > 0 {
-        let mut merger = Self::create_graph_merger(
-          field_info.clone(),
-          &scorer_supplier,
-          self.m,
-          self.beam_width,
-          merge_exec,
-          num_merge_workers,
-          Some(&merge_state.intra_merge_task_executor),
-          num_merge_workers,
-        );
-
-        for i in 0..merge_state.live_docs.len() {
-          if !has_vector_values(&merge_state.field_infos[i], &field_info.name)? {
-            continue;
-          }
-
-          if let Some(reader) = merge_state.knn_vectors_readers[i].as_ref() {
-            merger.add_reader(i, reader, i, merge_state.live_docs[i].as_ref())?;
-          }
-        }
-        let merged_graph = match field_info.get_vector_encoding() {
-          VectorEncoding::BYTE(_) => merger.merge(
-            merge_byte_vector_values(field_info.as_ref(), merge_state)?,
-            segment_write_state.info_stream.clone(),
-            scorer_supplier.total_vector_count()?,
-            merge_state.knn_vectors_readers.as_ref(),
-            merge_state.doc_maps.as_ref(),
-          )?,
-          VectorEncoding::FLOAT32(_) => merger.merge(
-            merge_float_vector_values(field_info.as_ref(), merge_state)?,
-            segment_write_state.info_stream.clone(),
-            scorer_supplier.total_vector_count()?,
-            merge_state.knn_vectors_readers.as_ref(),
-            merge_state.doc_maps.as_ref(),
-          )?,
-        };
-
-        graph = Some(merged_graph);
-        vector_index_node_offsets = Self::write_graph(&mut self.vector_index, graph.as_mut())?;
-      }
-
-      let vector_index_length = self.vector_index.get_file_pointer()? - vector_index_offset;
-      Self::write_meta(
+    match supplier {
+      CloseableRandomVectorScorerSupplierEnum2::A(supplier) => Self::merge_with_supplier(
         &mut self.vector_index,
         &mut self.meta,
         self.m,
+        self.beam_width,
+        self.merge_exec.as_ref(),
+        self.num_merge_workers,
+        supplier,
         field_info,
-        vector_index_offset.try_convert()?,
-        vector_index_length.try_convert()?,
-        scorer_supplier.total_vector_count()?,
-        graph.as_mut(),
-        &vector_index_node_offsets,
-      )?;
-      success = true;
-      Ok(())
-    }));
-
-    if success {
-      scorer_supplier.close()?;
-    } else {
-      IOUtils::close_while_handling_exception(&mut scorer_supplier);
+        merge_state,
+        segment_write_state,
+      ),
+      CloseableRandomVectorScorerSupplierEnum2::B(supplier) => Self::merge_with_supplier(
+        &mut self.vector_index,
+        &mut self.meta,
+        self.m,
+        self.beam_width,
+        self.merge_exec.as_ref(),
+        self.num_merge_workers,
+        supplier,
+        field_info,
+        merge_state,
+        segment_write_state,
+      ),
     }
-    unwrap_caught_result!(result)
   }
 
   fn finish(&mut self) -> Result<()> {
@@ -771,10 +727,10 @@ where
     Ok(())
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     debug_assert!(field_vectors_writers_idx <= self.fields.len());
@@ -803,19 +759,118 @@ pub(crate) fn create_field_writer<S>(
   m: usize,
   beam_width: usize,
   info_stream: InfoStreamMT,
-) -> Result<FieldWriter<S::RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl>>>
+) -> Result<EncodedFieldWriter<S>>
 where
   S: FlatVectorsScorer,
 {
-  FieldWriter::new(
-    scorer,
-    flat_field_vectors_writer_idx,
-    field_info,
-    m,
-    beam_width,
-    info_stream,
-  )
+  let similarity = *field_info.get_vector_similarity_function();
+  let dimension = field_info.get_vector_dimension() as usize;
+  match field_info.get_vector_encoding() {
+    VectorEncoding::BYTE(_) => {
+      let supplier = scorer.get_byte_scorer_supplier(similarity, from_bytes(dimension))?;
+      FieldWriter::new(
+        supplier,
+        flat_field_vectors_writer_idx,
+        field_info,
+        m,
+        beam_width,
+        info_stream,
+      )
+      .map(FieldWriterEnum::Byte)
+    },
+    VectorEncoding::FLOAT32(_) => {
+      let supplier = scorer.get_float_scorer_supplier(similarity, from_floats(dimension))?;
+      FieldWriter::new(
+        supplier,
+        flat_field_vectors_writer_idx,
+        field_info,
+        m,
+        beam_width,
+        info_stream,
+      )
+      .map(FieldWriterEnum::Float)
+    },
+  }
 }
+
+pub type EncodedFieldWriter<S> = FieldWriterEnum<
+  <S as FlatVectorsScorer>::ByteScorerSupplier<ByteVectorValuesImpl>,
+  <S as FlatVectorsScorer>::FloatScorerSupplier<FloatVectorValuesImpl>,
+>;
+
+/// Dispatches once per field operation, retaining a concrete supplier in each builder.
+pub enum FieldWriterEnum<B, F> {
+  Byte(FieldWriter<B>),
+  Float(FieldWriter<F>),
+}
+impl<B: BufferedVectorScorerSupplier<Element = u8>, F: BufferedVectorScorerSupplier<Element = f32>>
+  FieldWriterEnum<B, F>
+{
+  fn field_info(&self) -> &Arc<FieldInfo> {
+    match self {
+      Self::Byte(w) => &w.field_info,
+      Self::Float(w) => &w.field_info,
+    }
+  }
+  pub(crate) fn get_vectors(&self) -> Result<VectorSlices<'_>> {
+    match self {
+      Self::Byte(w) => w
+        .hnsw_graph_builder
+        .get_scorer_supplier()
+        .get_vector()
+        .map(VectorSlices::Byte),
+      Self::Float(w) => w
+        .hnsw_graph_builder
+        .get_scorer_supplier()
+        .get_vector()
+        .map(VectorSlices::Float),
+    }
+  }
+  fn get_docs_with_field_set<'a, W: FlatFieldVectorsWriter>(
+    &self,
+    writers: &'a mut [W],
+  ) -> Result<&'a DocsWithFieldSet> {
+    match self {
+      Self::Byte(w) => w.get_docs_with_field_set(writers),
+      Self::Float(w) => w.get_docs_with_field_set(writers),
+    }
+  }
+  fn get_graph<W: FlatFieldVectorsWriter>(
+    &mut self,
+    writers: &mut [W],
+  ) -> Result<Option<&mut OnHeapHnswGraph>> {
+    match self {
+      Self::Byte(w) => w.get_graph(writers),
+      Self::Float(w) => w.get_graph(writers),
+    }
+  }
+}
+impl<B: BufferedVectorScorerSupplier<Element = u8>, F: BufferedVectorScorerSupplier<Element = f32>>
+  Accountable for FieldWriterEnum<B, F>
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::Byte(w) => w.ram_bytes_used(),
+      Self::Float(w) => w.ram_bytes_used(),
+    }
+  }
+}
+impl<B: BufferedVectorScorerSupplier<Element = u8>, F: BufferedVectorScorerSupplier<Element = f32>>
+  KnnFieldVectorsWriter for FieldWriterEnum<B, F>
+{
+  fn add_value<W: FlatFieldVectorsWriter, V: VectorInput + ?Sized>(
+    &mut self,
+    doc_id: i32,
+    vector_value: &V,
+    writers: &mut [W],
+  ) -> Result<()> {
+    match self {
+      Self::Byte(w) => w.add_value(doc_id, vector_value, writers),
+      Self::Float(w) => w.add_value(doc_id, vector_value, writers),
+    }
+  }
+}
+
 pub struct FieldWriter<S> {
   field_info: Arc<FieldInfo>,
   pub(crate) hnsw_graph_builder: DefaultHnswGraphBuilder<S>,
@@ -829,39 +884,14 @@ impl<S> FieldWriter<S>
 where
   S: RandomVectorScorerSupplier,
 {
-  fn new<T>(
-    scorer: &T,
+  fn new(
+    scorer_supplier: S,
     flat_field_vectors_writer_idx: usize,
     field_info: Arc<FieldInfo>,
     m: usize,
     beam_width: usize,
     info_stream: InfoStreamMT,
-  ) -> Result<Self>
-  where
-    T: FlatVectorsScorer<
-      RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
-    >,
-  {
-    let scorer_supplier = match field_info.get_vector_encoding() {
-      VectorEncoding::BYTE(_) => {
-        let random_vector_scorer_supplier = from_bytes(field_info.get_vector_dimension() as usize);
-        scorer.get_random_vector_scorer_supplier(
-          *field_info.get_vector_similarity_function(),
-          FlatVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Byte(
-            random_vector_scorer_supplier,
-          ),
-        )?
-      },
-      VectorEncoding::FLOAT32(_) => {
-        let random_vector_scorer_supplier = from_floats(field_info.get_vector_dimension() as usize);
-        scorer.get_random_vector_scorer_supplier(
-          *field_info.get_vector_similarity_function(),
-          FlatVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Float(
-            random_vector_scorer_supplier,
-          ),
-        )?
-      },
-    };
+  ) -> Result<Self> {
     let mut hnsw_graph_builder = create(scorer_supplier, m, beam_width, rand_seed())?;
     hnsw_graph_builder.set_info_stream(info_stream);
 
@@ -925,12 +955,12 @@ where
 
 impl<S> KnnFieldVectorsWriter for FieldWriter<S>
 where
-  S: RandomVectorScorerSupplier,
+  S: BufferedVectorScorerSupplier,
 {
-  fn add_value<F>(
+  fn add_value<F, V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     flat_field_vectors_writers: &mut [F],
   ) -> Result<()>
   where
@@ -957,7 +987,7 @@ where
     self.vectors_ram_bytes = self
       .vectors_ram_bytes
       .saturating_add(size_of_vec(vectors).saturating_sub(previous_capacity_bytes))
-      .saturating_add(vectors.last().map_or(Ok(0), Accountable::ram_bytes_used)?);
+      .saturating_add(vectors.last().map_or(0, size_of_vec));
     self.hnsw_graph_builder.add_graph_node(self.node)?;
     self.node += 1;
     self.last_doc_id = doc_id;
@@ -1022,3 +1052,99 @@ impl<'a> HnswGraph for HnswGraphImpl<'a> {
     }
   }
 }
+
+impl<F: FlatVectorsWriter> Lucene99HnswVectorsWriter<F> {
+  #[allow(clippy::too_many_arguments)]
+  fn merge_with_supplier<D1, D2, CR, S>(
+    vector_index: &mut F::IndexOutput,
+    meta: &mut F::IndexOutput,
+    m: usize,
+    beam_width: usize,
+    merge_exec: Option<&Arc<TaskExecutor>>,
+    num_merge_workers: usize,
+    mut scorer_supplier: S,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<()>
+  where
+    D2: Directory<IndexOutput = F::IndexOutput>,
+    CR: CodecReader,
+    S: CloseableRandomVectorScorerSupplier,
+  {
+    let mut success = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let vector_index_offset = vector_index.get_file_pointer()?;
+
+      let mut graph = None;
+      let mut vector_index_node_offsets = Vec::new();
+
+      if scorer_supplier.total_vector_count()? > 0 {
+        let mut merger = Self::create_graph_merger(
+          field_info.clone(),
+          &scorer_supplier,
+          m,
+          beam_width,
+          merge_exec,
+          num_merge_workers,
+          Some(&merge_state.intra_merge_task_executor),
+          num_merge_workers,
+        );
+
+        for i in 0..merge_state.live_docs.len() {
+          if !has_vector_values(&merge_state.field_infos[i], &field_info.name)? {
+            continue;
+          }
+
+          if let Some(reader) = merge_state.knn_vectors_readers[i].as_ref() {
+            merger.add_reader(i, reader, i, merge_state.live_docs[i].as_ref())?;
+          }
+        }
+        let merged_graph = match field_info.get_vector_encoding() {
+          VectorEncoding::BYTE(_) => merger.merge(
+            merge_byte_vector_values(field_info.as_ref(), merge_state)?,
+            segment_write_state.info_stream.clone(),
+            scorer_supplier.total_vector_count()?,
+            merge_state.knn_vectors_readers.as_ref(),
+            merge_state.doc_maps.as_ref(),
+          )?,
+          VectorEncoding::FLOAT32(_) => merger.merge(
+            merge_float_vector_values(field_info.as_ref(), merge_state)?,
+            segment_write_state.info_stream.clone(),
+            scorer_supplier.total_vector_count()?,
+            merge_state.knn_vectors_readers.as_ref(),
+            merge_state.doc_maps.as_ref(),
+          )?,
+        };
+
+        graph = Some(merged_graph);
+        vector_index_node_offsets = Self::write_graph(vector_index, graph.as_mut())?;
+      }
+
+      let vector_index_length = vector_index.get_file_pointer()? - vector_index_offset;
+      Self::write_meta(
+        vector_index,
+        meta,
+        m,
+        field_info,
+        vector_index_offset.try_convert()?,
+        vector_index_length.try_convert()?,
+        scorer_supplier.total_vector_count()?,
+        graph.as_mut(),
+        &vector_index_node_offsets,
+      )?;
+      success = true;
+      Ok(())
+    }));
+
+    if success {
+      scorer_supplier.close()?;
+    } else {
+      IOUtils::close_while_handling_exception(&mut scorer_supplier);
+    }
+    unwrap_caught_result!(result)
+  }
+}
+
+use crate::core::index::vector_buffer::VectorSlices;
+use crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier;

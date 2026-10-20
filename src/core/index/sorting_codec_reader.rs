@@ -20,7 +20,6 @@ use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
@@ -2377,14 +2376,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     match self {
       Self::Filter(values) => values.get_vectors_mut(),
       Self::Sorting(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     match self {
       Self::Filter(values) => values.get_vectors(),
       Self::Sorting(values) => values.get_vectors(),
@@ -2525,14 +2524,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     match self {
       Self::Filter(values) => values.get_vectors_mut(),
       Self::Sorting(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     match self {
       Self::Filter(values) => values.get_vectors(),
       Self::Sorting(values) => values.get_vectors(),
@@ -4775,14 +4774,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     match self {
       Self::A(values) => values.get_vectors_mut(),
       Self::B(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     match self {
       Self::A(values) => values.get_vectors(),
       Self::B(values) => values.get_vectors(),
@@ -4928,14 +4927,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     match self {
       Self::A(values) => values.get_vectors_mut(),
       Self::B(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     match self {
       Self::A(values) => values.get_vectors(),
       Self::B(values) => values.get_vectors(),

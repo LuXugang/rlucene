@@ -18,7 +18,7 @@ use crate::codec::bitvectors::hnsw_bit_vectors_format::{
   HnswBitVectorsFormat, NAME as HNSW_BIT_VECTORS_FORMAT_NAME,
 };
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
@@ -330,14 +330,14 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValuesCopy
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors(),
@@ -476,14 +476,14 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors(),
@@ -695,14 +695,14 @@ impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::HnswBit(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::HnswBit(values) => values.get_vectors(),
@@ -842,14 +842,14 @@ impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValues<I> {
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::HnswBit(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::HnswBit(values) => values.get_vectors(),
@@ -991,10 +991,10 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for KnnVectorsFormatsWriter<O> {
     }
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     match self {

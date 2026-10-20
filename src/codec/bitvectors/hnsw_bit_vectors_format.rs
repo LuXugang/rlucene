@@ -16,7 +16,7 @@
  */
 use crate::codec::bitvectors::flat_bit_vectors_scorer::FlatBitVectorsScorer;
 use crate::core::codecs::hnsw::flat_vectors_format::FlatVectorsFormat;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::Lucene99FlatVectorsFormat;
@@ -276,10 +276,10 @@ where
     self.delegate.flush(max_doc, sort_map)
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     self

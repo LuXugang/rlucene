@@ -24,7 +24,7 @@ use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_formats::{KnnVectorsFormats, KnnVectorsFormatsReader};
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
@@ -878,10 +878,10 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for AssertingCodecKnnVectorsWriter<O> {
     }
   }
 
-  fn add_value(
+  fn add_value<V: VectorInput + ?Sized>(
     &mut self,
     doc_id: i32,
-    vector_value: &VectorValueEnum,
+    vector_value: &V,
     field_vectors_writers_idx: usize,
   ) -> Result<()> {
     match self {

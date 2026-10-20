@@ -17,17 +17,20 @@
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriter;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriterEnum;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
+use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
-use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
+use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::{
+  CloseableRandomVectorScorerSupplier, CloseableRandomVectorScorerSupplierEnum2,
+};
+use crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier;
 use std::sync::Arc;
 
 /// Vectors' writer for a field that allows additional indexing logic to be implemented by the caller
@@ -51,56 +54,81 @@ pub trait FlatVectorsWriter: KnnVectorsWriter<Self::IndexOutput> {
   fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize>;
 
   /// Flushes all buffered data on disk.
-  fn flat_flush<DM, S>(
+  fn flat_flush<DM, B, F>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriter<S>],
+    fields: &[FieldWriterEnum<B, F>],
   ) -> Result<()>
   where
     DM: DocMap,
-    S: RandomVectorScorerSupplier;
+    B: BufferedVectorScorerSupplier<Element = u8>,
+    F: BufferedVectorScorerSupplier<Element = f32>;
 
   type FlatFieldVectorsWriter: FlatFieldVectorsWriter;
   fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter];
 
-  type CloseableRandomVectorScorerSupplier<'a, D>: CloseableRandomVectorScorerSupplier
+  type ByteMergeScorerSupplier<'a, D>: CloseableRandomVectorScorerSupplier
   where
     D: Directory,
     Self: 'a,
     D: 'a;
-  /// Write the field for merging, providing a scorer over the newly merged flat vectors. This way
-  /// callers may implement any additional merging logic.
-  ///
-  /// # Arguments
-  ///
-  /// * `field_info` - fieldInfo of the field to merge
-  /// * `merge_state` - mergeState of the segments to merge
-  ///
-  /// # Returns
-  ///
-  /// A scorer over the newly merged flat vectors, which should be closed as it holds a temporary
-  /// file handle to read over the newly merged vectors.
-  ///
-  /// # Errors
-  ///
-  /// Returns an error if an I/O error occurs when merging.
+  type FloatMergeScorerSupplier<'a, D>: CloseableRandomVectorScorerSupplier
+  where
+    D: Directory,
+    Self: 'a,
+    D: 'a;
+
+  fn merge_one_field_to_index_byte<'a, D1, D2, CR>(
+    &'a mut self,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
+  ) -> Result<Self::ByteMergeScorerSupplier<'a, D2>>
+  where
+    D2: Directory<IndexOutput = Self::IndexOutput>,
+    CR: CodecReader;
+
+  fn merge_one_field_to_index_float<'a, D1, D2, CR>(
+    &'a mut self,
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
+  ) -> Result<Self::FloatMergeScorerSupplier<'a, D2>>
+  where
+    D2: Directory<IndexOutput = Self::IndexOutput>,
+    CR: CodecReader;
+
+  /// Writes the flat vectors and selects the concrete supplier for graph construction.
   fn merge_one_field_to_index<'a, D1, D2, CR>(
     &'a mut self,
-    _field_info: &FieldInfo,
-    _merge_state: &MergeState<'_, D1, CR>,
-    _segment_write_state: &SegmentWriteState<'a, &D2>,
-  ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2>>
+    field_info: &FieldInfo,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<'a, &'a D2>,
+  ) -> Result<MergeScorerSupplier<'a, Self, D2>>
   where
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
   {
-    Err(crate::core::util::error::lucene_error::LuceneError::unsupported_operation(""))
+    match field_info.get_vector_encoding() {
+      VectorEncoding::BYTE(_) => self
+        .merge_one_field_to_index_byte(field_info, merge_state, segment_write_state)
+        .map(CloseableRandomVectorScorerSupplierEnum2::A),
+      VectorEncoding::FLOAT32(_) => self
+        .merge_one_field_to_index_float(field_info, merge_state, segment_write_state)
+        .map(CloseableRandomVectorScorerSupplierEnum2::B),
+    }
   }
 }
 
 pub type FlatVectorsWriterSs<F, BV, FV> =
-  <<F as FlatVectorsWriter>::FlatVectorsScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<
+  crate::core::codecs::hnsw::flat_vectors_scorer::RandomVectorScorerSupplierFor<
+    <F as FlatVectorsWriter>::FlatVectorsScorer,
     BV,
     FV,
   >;
+
+pub type MergeScorerSupplier<'a, F, D> = CloseableRandomVectorScorerSupplierEnum2<
+  <F as FlatVectorsWriter>::ByteMergeScorerSupplier<'a, D>,
+  <F as FlatVectorsWriter>::FloatMergeScorerSupplier<'a, D>,
+>;

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;

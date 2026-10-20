@@ -57,24 +57,6 @@ where
     }
   }
 
-  fn get_vector(
-    &self,
-  ) -> Result<&[crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
-    match self {
-      Self::A(supplier) => supplier.get_vector(),
-      Self::B(supplier) => supplier.get_vector(),
-    }
-  }
-
-  fn get_vector_mut(
-    &mut self,
-  ) -> Result<&mut Vec<crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
-    match self {
-      Self::A(supplier) => supplier.get_vector_mut(),
-      Self::B(supplier) => supplier.get_vector_mut(),
-    }
-  }
-
   fn ram_bytes_used(&self) -> Result<i64> {
     match self {
       Self::A(supplier) => supplier.ram_bytes_used(),

@@ -19,6 +19,7 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_format::PointsFormat;
@@ -1397,7 +1398,10 @@ where
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?;
     let vector_value = field.vector_value()?;
-    writer.add_value(doc_id, vector_value, field_writer_idx)
+    match vector_value {
+      VectorValueEnum::Float(value) => writer.add_value(doc_id, value.as_slice(), field_writer_idx),
+      VectorValueEnum::Byte(value) => writer.add_value(doc_id, value.as_slice(), field_writer_idx),
+    }
   }
 
   fn get_per_field(&self, name: &str) -> Option<usize> {

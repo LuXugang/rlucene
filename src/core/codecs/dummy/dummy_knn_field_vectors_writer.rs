@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
-use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
+use crate::core::codecs::knn_field_vectors_writer::KnnFieldVectorsWriter;
+use crate::core::codecs::knn_field_vectors_writer::VectorInput;
+use crate::core::index::vector_buffer::VectorElement;
 use crate::core::util::accountable::Accountable;
 
 pub struct DummyKnnFieldVectorsWriter;
@@ -27,10 +29,10 @@ impl Accountable for DummyKnnFieldVectorsWriter {
 }
 
 impl KnnFieldVectorsWriter for DummyKnnFieldVectorsWriter {
-  fn add_value<F>(
+  fn add_value<F, V: VectorInput + ?Sized>(
     &mut self,
     _doc_id: i32,
-    _vector_value: &VectorValueEnum,
+    _vector_value: &V,
     _flat_field_vectors_writers: &mut [F],
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
@@ -39,10 +41,10 @@ impl KnnFieldVectorsWriter for DummyKnnFieldVectorsWriter {
     dummy_unreachable!()
   }
 
-  fn copy_value(
+  fn copy_value<T: VectorElement, V: VectorInput + ?Sized>(
     &self,
-    _vector_value: &VectorValueEnum,
-  ) -> crate::core::util::error::lucene_error::Result<VectorValueEnum> {
+    _vector_value: &V,
+  ) -> crate::core::util::error::lucene_error::Result<Vec<T>> {
     dummy_unreachable!()
   }
 }

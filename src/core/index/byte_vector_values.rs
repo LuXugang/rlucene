@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::knn_vector_values::{BitsImpl, KnnVectorValues};
 use crate::core::index::leaf_reader::LeafReader;
@@ -27,7 +26,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
 /// A read-only byte slice that keeps its backing buffer borrowed until dropped.
-/// Convert into [`VectorValueEnum`] only when an independent owned value is needed.
+/// Use [`ByteVectorValue::into_owned`] only when an independent snapshot is needed.
 #[derive(Debug)]
 pub struct ByteVectorValue<'a>(pub(crate) ByteVectorValueStorage<'a>);
 
@@ -109,13 +108,20 @@ impl<'a> From<ByteVectorValue<'a>> for Cow<'a, [u8]> {
   }
 }
 
-impl From<ByteVectorValue<'_>> for VectorValueEnum {
-  fn from(value: ByteVectorValue<'_>) -> Self {
-    VectorValueEnum::Byte(match value.0 {
+impl ByteVectorValue<'_> {
+  /// Returns an independent snapshot, moving an already-owned vector without copying.
+  pub fn into_owned(self) -> Vec<u8> {
+    match self.0 {
       ByteVectorValueStorage::Borrowed(value) => value.to_vec(),
       ByteVectorValueStorage::Owned(value) => value,
       ByteVectorValueStorage::Buffer(value) => value.to_vec(),
-    })
+    }
+  }
+}
+
+impl From<ByteVectorValue<'_>> for VectorValueEnum {
+  fn from(value: ByteVectorValue<'_>) -> Self {
+    Self::Byte(value.into_owned())
   }
 }
 
@@ -167,10 +173,10 @@ pub trait ByteVectorValues: KnnVectorValues {
     VectorEncoding::BYTE(1)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     Err(LuceneError::unsupported_operation(""))
   }
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -212,11 +218,11 @@ where
     <T as ByteVectorValues>::get_encoding(*self)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     (**self).get_vectors()
   }
 
@@ -256,7 +262,7 @@ pub fn from_bytes(dim: usize) -> ByteVectorValuesImpl {
 }
 
 pub struct ByteVectorValuesImpl {
-  vectors: Vec<VectorValueEnum>,
+  vectors: Vec<Vec<u8>>,
   dim: usize,
 }
 // TODO IMPORTANT avoid CLone ?
@@ -319,10 +325,7 @@ impl ByteVectorValues for ByteVectorValuesImpl {
 
   #[inline]
   fn vector_value(&self, target_ord: usize) -> Result<Self::VectorValue<'_>> {
-    match &self.vectors[target_ord] {
-      VectorValueEnum::Byte(vector) => Ok(vector.as_slice()),
-      VectorValueEnum::Float(_) => Err(LuceneError::unsupported_operation("")),
-    }
+    Ok(self.vectors[target_ord].as_slice())
   }
 
   type ByteVectorValues = Self;
@@ -333,11 +336,11 @@ impl ByteVectorValues for ByteVectorValuesImpl {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
     Ok(&mut self.vectors)
   }
 
-  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
     Ok(&self.vectors)
   }
 
@@ -345,3 +348,5 @@ impl ByteVectorValues for ByteVectorValuesImpl {
     Ok(self.vectors.capacity())
   }
 }
+
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;

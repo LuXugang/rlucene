@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::DocIndexIterator;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -532,10 +531,7 @@ fn gather_sample(
   sampled_docs: &mut Vec<Vec<f32>>,
   i: usize,
 ) -> Result<()> {
-  let vector_value = match VectorValueEnum::from(vector_value) {
-    VectorValueEnum::Float(values) => values,
-    value => value.as_floats()?.to_vec(),
-  };
+  let vector_value = vector_value.into_owned();
   let len = vector_value.len();
   sampled_docs.push(vector_value);
   let start = i * len;

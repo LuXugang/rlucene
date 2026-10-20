@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
+use crate::core::index::vector_buffer::VectorElement;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -29,10 +30,10 @@ use crate::impl_from_for_enum;
 pub trait KnnFieldVectorsWriter: Accountable {
   /// Adds a new doc ID with its vector value to the given field for indexing.
   /// Doc IDs must be added in increasing order.
-  fn add_value<F>(
+  fn add_value<F, V: VectorInput + ?Sized>(
     &mut self,
     _doc_id: i32,
-    _vector_value: &VectorValueEnum,
+    _vector_value: &V,
     _flat_field_vectors_writers: &mut [F],
   ) -> Result<()>
   where
@@ -49,8 +50,50 @@ pub trait KnnFieldVectorsWriter: Accountable {
   /// # Returns
   ///
   /// A copy of the value; a new array.
-  fn copy_value(&self, _vector_value: &VectorValueEnum) -> Result<VectorValueEnum> {
+  fn copy_value<T: VectorElement, V: VectorInput + ?Sized>(
+    &self,
+    _vector_value: &V,
+  ) -> Result<Vec<T>> {
     Err(LuceneError::unsupported_operation(""))
+  }
+}
+/// Read-only vector input. Concrete slice types remain concrete through writer forwarding.
+/// The enum implementation is retained only for callers at heterogeneous document boundaries.
+pub trait VectorInput {
+  fn as_floats(&self) -> Result<&[f32]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+  fn as_bytes(&self) -> Result<&[u8]> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+impl VectorInput for [f32] {
+  fn as_floats(&self) -> Result<&[f32]> {
+    Ok(self)
+  }
+}
+impl VectorInput for [u8] {
+  fn as_bytes(&self) -> Result<&[u8]> {
+    Ok(self)
+  }
+}
+impl<T> VectorInput for Vec<T>
+where
+  [T]: VectorInput,
+{
+  fn as_floats(&self) -> Result<&[f32]> {
+    self.as_slice().as_floats()
+  }
+  fn as_bytes(&self) -> Result<&[u8]> {
+    self.as_slice().as_bytes()
+  }
+}
+impl VectorInput for VectorValueEnum {
+  fn as_floats(&self) -> Result<&[f32]> {
+    VectorValueEnum::as_floats(self)
+  }
+  fn as_bytes(&self) -> Result<&[u8]> {
+    VectorValueEnum::as_bytes(self)
   }
 }
 #[derive(Clone, Debug)]
@@ -103,25 +146,7 @@ impl VectorValueEnum {
   pub fn write_float(&self, chunk: &mut [u8]) -> Result<()> {
     match self {
       Self::Byte(_) => Err(LuceneError::unsupported_operation("")),
-      Self::Float(v) => {
-        let byte_len = v.len() * 4;
-        debug_assert!(chunk.len() == byte_len);
-
-        if v.len() > 16 && v.len() & 15 == 0 && chunk.len() >= byte_len {
-          for (f, component) in v.iter().zip(chunk[..byte_len].as_chunks_mut::<4>().0) {
-            let bytes = f.to_le_bytes();
-            component.copy_from_slice(&bytes);
-          }
-        } else {
-          let mut offset = 0;
-          for f in v {
-            let bytes = f.to_le_bytes();
-            chunk[offset..offset + 4].copy_from_slice(&bytes);
-            offset += 4;
-          }
-        }
-        Ok(())
-      },
+      Self::Float(v) => write_float_vector(v, chunk),
     }
   }
 }
@@ -133,4 +158,24 @@ impl Accountable for VectorValueEnum {
       Self::Float(vector) => size_of_vec(vector),
     })
   }
+}
+
+pub(crate) fn write_float_vector(v: &[f32], chunk: &mut [u8]) -> Result<()> {
+  let byte_len = v.len() * 4;
+  debug_assert!(chunk.len() == byte_len);
+
+  if v.len() > 16 && v.len() & 15 == 0 && chunk.len() >= byte_len {
+    for (f, component) in v.iter().zip(chunk[..byte_len].as_chunks_mut::<4>().0) {
+      let bytes = f.to_le_bytes();
+      component.copy_from_slice(&bytes);
+    }
+  } else {
+    let mut offset = 0;
+    for f in v {
+      let bytes = f.to_le_bytes();
+      chunk[offset..offset + 4].copy_from_slice(&bytes);
+      offset += 4;
+    }
+  }
+  Ok(())
 }
