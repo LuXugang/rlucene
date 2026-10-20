@@ -36,6 +36,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarity;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
@@ -360,13 +361,15 @@ where
     &self.vector_scorer
   }
 
-  type RandomVectorScorerF32 = F::RandomVectorScorerF32<OffHeapFloatVectorValuesEnum<Arc<I>, F>>;
+  type RandomVectorScorerF32<Sim: VectorSimilarity> =
+    F::RandomVectorScorerF32<OffHeapFloatVectorValuesEnum<Arc<I>, F>, Sim>;
 
-  fn get_random_vector_scorer_f32<TV>(
+  fn get_random_vector_scorer_f32<TV, Sim: VectorSimilarity>(
     &self,
     field: &str,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerF32>
+    similarity: Sim,
+  ) -> Result<Self::RandomVectorScorerF32<Sim>>
   where
     TV: Into<Vec<f32>>,
   {
@@ -383,19 +386,21 @@ where
       self.vector_data.clone(),
     )?;
     self.vector_scorer.get_random_vector_scorer_f32(
-      field_entry.similarity_function,
+      similarity,
       off_heap_float_vector_values,
       target,
     )
   }
 
-  type RandomVectorScorerU8 = F::RandomVectorScorerU8<OffHeapByteVectorValuesEnum<Arc<I>, F>>;
+  type RandomVectorScorerU8<Sim: VectorSimilarity> =
+    F::RandomVectorScorerU8<OffHeapByteVectorValuesEnum<Arc<I>, F>, Sim>;
 
-  fn get_random_vector_scorer_u8<TV>(
+  fn get_random_vector_scorer_u8<TV, Sim: VectorSimilarity>(
     &self,
     field: &str,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerU8>
+    similarity: Sim,
+  ) -> Result<Self::RandomVectorScorerU8<Sim>>
   where
     TV: Into<Vec<u8>>,
   {
@@ -411,11 +416,9 @@ where
       field_entry.vector_data_length,
       self.vector_data.clone(),
     )?;
-    self.vector_scorer.get_random_vector_scorer_u8(
-      field_entry.similarity_function,
-      off_heap_float_vector_values,
-      target,
-    )
+    self
+      .vector_scorer
+      .get_random_vector_scorer_u8(similarity, off_heap_float_vector_values, target)
   }
 }
 

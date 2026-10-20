@@ -37,6 +37,7 @@ use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarity;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
@@ -447,16 +448,17 @@ where
     &self.flat_vector_scorer
   }
 
-  type RandomVectorScorerF32 = RandomVectorScorerEnum2<
-    R::RandomVectorScorerF32,
+  type RandomVectorScorerF32<Sim: VectorSimilarity> = RandomVectorScorerEnum2<
+    R::RandomVectorScorerF32<Sim>,
     F::QuantizedRandomVectorScorer<OffHeapQuantizedByteVectorValuesEnum<Arc<I>, F>>,
   >;
 
-  fn get_random_vector_scorer_f32<TV>(
+  fn get_random_vector_scorer_f32<TV, Sim: VectorSimilarity>(
     &self,
     field: &str,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerF32>
+    similarity: Sim,
+  ) -> Result<Self::RandomVectorScorerF32<Sim>>
   where
     TV: Into<Vec<f32>>,
   {
@@ -465,7 +467,7 @@ where
     if field_entry.scalar_quantizer.is_none() {
       return self
         .raw_vectors_reader
-        .get_random_vector_scorer_f32(field, target)
+        .get_random_vector_scorer_f32(field, target, similarity)
         .map(RandomVectorScorerEnum2::A);
     }
     let vector_values = OffHeapQuantizedByteVectorValuesEnum::load(
@@ -490,20 +492,21 @@ where
       .map(RandomVectorScorerEnum2::B)
   }
 
-  type RandomVectorScorerU8 = R::RandomVectorScorerU8;
+  type RandomVectorScorerU8<Sim: VectorSimilarity> = R::RandomVectorScorerU8<Sim>;
 
-  fn get_random_vector_scorer_u8<TV>(
+  fn get_random_vector_scorer_u8<TV, Sim: VectorSimilarity>(
     &self,
     field: &str,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerU8>
+    similarity: Sim,
+  ) -> Result<Self::RandomVectorScorerU8<Sim>>
   where
     TV: Into<Vec<u8>>,
   {
     let target = target.into();
     self
       .raw_vectors_reader
-      .get_random_vector_scorer_u8(field, target)
+      .get_random_vector_scorer_u8(field, target, similarity)
   }
 }
 

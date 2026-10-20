@@ -31,7 +31,7 @@ use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONI
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::{
   META_CODEC_NAME, META_EXTENSION, VECTOR_DATA_CODEC_NAME, VECTOR_DATA_EXTENSION, VERSION_CURRENT,
 };
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriterEnum;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::EncodedFieldWriter;
 use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
@@ -44,6 +44,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarity;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -477,16 +478,15 @@ where
     Ok(len)
   }
 
-  fn flat_flush<DM, B, S>(
+  fn flat_flush<DM, FS>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriterEnum<B, S>],
+    fields: &[EncodedFieldWriter<FS>],
   ) -> Result<()>
   where
     DM: DocMap,
-    B: BufferedVectorScorerSupplier<Element = u8>,
-    S: BufferedVectorScorerSupplier<Element = f32>,
+    FS: FlatVectorsScorer,
   {
     for idx in 0..self.fields.len() {
       let fields = &fields[idx];
@@ -507,11 +507,12 @@ where
     self.fields.as_mut()
   }
 
-  type ByteMergeScorerSupplier<'a, D>
+  type ByteMergeScorerSupplier<'a, D, Sim: VectorSimilarity>
     = FlatCloseableRandomVectorScorerSupplier<
     'a,
     <F as FlatVectorsScorer>::ByteScorerSupplier<
       off_heap_byte_vector_values::DenseOffHeapVectorValues<D::IndexInput, F>,
+      Sim,
     >,
     D,
   >
@@ -520,12 +521,13 @@ where
     Self: 'a,
     D: 'a;
 
-  fn merge_one_field_to_index_byte<'a, D1, D2, CR>(
+  fn merge_one_field_to_index_byte<'a, D1, D2, CR, Sim: VectorSimilarity>(
     &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     segment_write_state: &SegmentWriteState<'a, &'a D2>,
-  ) -> Result<Self::ByteMergeScorerSupplier<'a, D2>>
+    similarity: Sim,
+  ) -> Result<Self::ByteMergeScorerSupplier<'a, D2, Sim>>
   where
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
@@ -544,15 +546,16 @@ where
           scorer.clone(),
           *field_info.get_vector_similarity_function(),
         );
-        scorer.get_byte_scorer_supplier(*field_info.get_vector_similarity_function(), values)
+        scorer.get_byte_scorer_supplier(similarity, values)
       },
     )
   }
-  type FloatMergeScorerSupplier<'a, D>
+  type FloatMergeScorerSupplier<'a, D, Sim: VectorSimilarity>
     = FlatCloseableRandomVectorScorerSupplier<
     'a,
     <F as FlatVectorsScorer>::FloatScorerSupplier<
       off_heap_float_vector_values::DenseOffHeapVectorValues<D::IndexInput, F>,
+      Sim,
     >,
     D,
   >
@@ -561,12 +564,13 @@ where
     Self: 'a,
     D: 'a;
 
-  fn merge_one_field_to_index_float<'a, D1, D2, CR>(
+  fn merge_one_field_to_index_float<'a, D1, D2, CR, Sim: VectorSimilarity>(
     &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     segment_write_state: &SegmentWriteState<'a, &'a D2>,
-  ) -> Result<Self::FloatMergeScorerSupplier<'a, D2>>
+    similarity: Sim,
+  ) -> Result<Self::FloatMergeScorerSupplier<'a, D2, Sim>>
   where
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
@@ -585,7 +589,7 @@ where
           scorer.clone(),
           *field_info.get_vector_similarity_function(),
         )?;
-        scorer.get_float_scorer_supplier(*field_info.get_vector_similarity_function(), values)
+        scorer.get_float_scorer_supplier(similarity, values)
       },
     )
   }
@@ -988,7 +992,6 @@ where
 
 use crate::core::codecs::knn_field_vectors_writer::write_float_vector;
 use crate::core::index::vector_buffer::{VectorBuffers, VectorElement, VectorSlices};
-use crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier;
 
 fn append_vector<T: VectorElement, V: VectorInput + ?Sized>(
   vectors: &mut Arc<Vec<Vec<T>>>,

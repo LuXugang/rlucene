@@ -322,7 +322,10 @@ where
   }
 
   type VectorScorer = DenseVectorScorer<
-    <F as FlatVectorsScorer>::RandomVectorScorerF32<DenseOffHeapVectorValues<I, F>>,
+    <F as FlatVectorsScorer>::RandomVectorScorerF32<
+      DenseOffHeapVectorValues<I, F>,
+      VectorSimilarityFunction,
+    >,
   >;
 
   fn scorer<'a, TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
@@ -558,7 +561,10 @@ where
 
   type VectorScorer = SparseVectorScorer<
     I,
-    <F as FlatVectorsScorer>::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
+    <F as FlatVectorsScorer>::RandomVectorScorerF32<
+      SparseOffHeapVectorValues<I, F>,
+      VectorSimilarityFunction,
+    >,
   >;
 
   fn scorer<'a, TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
@@ -1063,8 +1069,20 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
-  Dense(DenseVectorScorer<F::RandomVectorScorerF32<DenseOffHeapVectorValues<I::IndexInput, F>>>),
-  Sparse(SparseVectorScorer<I, F::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>>),
+  Dense(
+    DenseVectorScorer<
+      F::RandomVectorScorerF32<
+        DenseOffHeapVectorValues<I::IndexInput, F>,
+        VectorSimilarityFunction,
+      >,
+    >,
+  ),
+  Sparse(
+    SparseVectorScorer<
+      I,
+      F::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>, VectorSimilarityFunction>,
+    >,
+  ),
 }
 impl<I, F> VectorScorer for VectorScorerEnum<I, F>
 where

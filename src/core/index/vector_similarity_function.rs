@@ -78,49 +78,142 @@ impl Default for VectorSimilarityFunction {
     VectorSimilarityFunction::Euclidean
   }
 }
+/// Scoring policy selected before entering a vector scoring loop.
+/// Concrete zero-sized policies preserve the same arithmetic as the metadata enum.
+pub trait VectorSimilarity: Copy + Send + Sync + std::fmt::Debug {
+  fn function(self) -> VectorSimilarityFunction;
+  fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32>;
+  fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32>;
+}
+
+/// Concrete `Euclidean` scoring policy.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct EuclideanSimilarity;
+
+impl VectorSimilarity for EuclideanSimilarity {
+  fn function(self) -> VectorSimilarityFunction {
+    VectorSimilarityFunction::Euclidean
+  }
+  #[inline]
+  fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32> {
+    let distance = VECTOR_UTIL.square_distance_f32(v1, v2)?;
+    Ok(1.0 / (1.0 + distance))
+  }
+  #[inline]
+  fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32> {
+    let distance = VECTOR_UTIL.square_distance_u8(v1, v2)? as f32;
+    Ok(1.0 / (1.0 + distance))
+  }
+}
+
+/// Concrete `DotProduct` scoring policy.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct DotProductSimilarity;
+
+impl VectorSimilarity for DotProductSimilarity {
+  fn function(self) -> VectorSimilarityFunction {
+    VectorSimilarityFunction::DotProduct
+  }
+  fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32> {
+    let dot = VECTOR_UTIL.dot_product_f32(v1, v2)?;
+    Ok(CoreHelper::max_f32((1.0 + dot) / 2.0, 0.0))
+  }
+  fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32> {
+    VECTOR_UTIL.dot_product_score(v1, v2)
+  }
+}
+
+/// Concrete `Cosine` scoring policy.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CosineSimilarity;
+
+impl VectorSimilarity for CosineSimilarity {
+  fn function(self) -> VectorSimilarityFunction {
+    VectorSimilarityFunction::Cosine
+  }
+  fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32> {
+    let cosine = VECTOR_UTIL.cosine_f32(v1, v2)?;
+    Ok(CoreHelper::max_f32((1.0 + cosine) / 2.0, 0.0))
+  }
+  fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32> {
+    let cosine = VECTOR_UTIL.cosine_u8(v1, v2)?;
+    Ok((1.0 + cosine) / 2.0)
+  }
+}
+
+/// Concrete `MaximumInnerProduct` scoring policy.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct MaximumInnerProductSimilarity;
+
+impl VectorSimilarity for MaximumInnerProductSimilarity {
+  fn function(self) -> VectorSimilarityFunction {
+    VectorSimilarityFunction::MaximumInnerProduct
+  }
+  fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32> {
+    let dot = VECTOR_UTIL.dot_product_f32(v1, v2)?;
+    Ok(VectorUtil::scale_max_inner_product_score(dot))
+  }
+  fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32> {
+    let dot = VECTOR_UTIL.dot_product_u8(v1, v2)? as f32;
+    Ok(VectorUtil::scale_max_inner_product_score(dot))
+  }
+}
+
 impl VectorSimilarityFunction {
-  /// Calculates a similarity score between the two vectors with a
-  /// specified function. Higher similarity scores correspond to
-  /// closer vectors.
+  /// Compares vectors using the similarity recorded in field metadata.
   pub fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32> {
     match self {
-      VectorSimilarityFunction::Euclidean => {
-        let distance = VECTOR_UTIL.square_distance_f32(v1, v2)?;
-        Ok(1.0 / (1.0 + distance))
-      },
-      VectorSimilarityFunction::DotProduct => {
-        let dot = VECTOR_UTIL.dot_product_f32(v1, v2)?;
-        Ok(CoreHelper::max_f32((1.0 + dot) / 2.0, 0.0))
-      },
-      VectorSimilarityFunction::Cosine => {
-        let cosine = VECTOR_UTIL.cosine_f32(v1, v2)?;
-        Ok(CoreHelper::max_f32((1.0 + cosine) / 2.0, 0.0))
-      },
-      VectorSimilarityFunction::MaximumInnerProduct => {
-        let dot = VECTOR_UTIL.dot_product_f32(v1, v2)?;
-        Ok(VectorUtil::scale_max_inner_product_score(dot))
-      },
+      Self::Euclidean => EuclideanSimilarity.compare_f32(v1, v2),
+      Self::DotProduct => DotProductSimilarity.compare_f32(v1, v2),
+      Self::Cosine => CosineSimilarity.compare_f32(v1, v2),
+      Self::MaximumInnerProduct => MaximumInnerProductSimilarity.compare_f32(v1, v2),
     }
   }
-
-  /// Calculates a similarity score between the two vectors with a
-  /// specified function. Higher similarity scores correspond to
-  /// closer vectors. Each (signed) byte represents a vector dimension.
+  /// Compares vectors using the similarity recorded in field metadata.
   pub fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32> {
     match self {
-      VectorSimilarityFunction::Euclidean => {
-        let distance = VECTOR_UTIL.square_distance_u8(v1, v2)? as f32;
-        Ok(1.0 / (1.0 + distance))
-      },
-      VectorSimilarityFunction::DotProduct => VECTOR_UTIL.dot_product_score(v1, v2),
-      VectorSimilarityFunction::Cosine => {
-        let cosine = VECTOR_UTIL.cosine_u8(v1, v2)?;
-        Ok((1.0 + cosine) / 2.0)
-      },
-      VectorSimilarityFunction::MaximumInnerProduct => {
-        let dot = VECTOR_UTIL.dot_product_u8(v1, v2)? as f32;
-        Ok(VectorUtil::scale_max_inner_product_score(dot))
-      },
+      Self::Euclidean => EuclideanSimilarity.compare_u8(v1, v2),
+      Self::DotProduct => DotProductSimilarity.compare_u8(v1, v2),
+      Self::Cosine => CosineSimilarity.compare_u8(v1, v2),
+      Self::MaximumInnerProduct => MaximumInnerProductSimilarity.compare_u8(v1, v2),
     }
   }
+}
+
+impl VectorSimilarity for VectorSimilarityFunction {
+  fn function(self) -> VectorSimilarityFunction {
+    self
+  }
+  fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32> {
+    VectorSimilarityFunction::compare_f32(self, v1, v2)
+  }
+  fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32> {
+    VectorSimilarityFunction::compare_u8(self, v1, v2)
+  }
+}
+
+/// Dispatches at a field or query boundary, keeping a concrete policy inside each arm.
+#[macro_export]
+macro_rules! with_vector_similarity {
+  ($function:expr, $similarity:ident, $body:expr) => {{
+    use $crate::core::index::vector_similarity_function::*;
+    match $function {
+      VectorSimilarityFunction::Euclidean => {
+        let $similarity = EuclideanSimilarity;
+        $body
+      },
+      VectorSimilarityFunction::DotProduct => {
+        let $similarity = DotProductSimilarity;
+        $body
+      },
+      VectorSimilarityFunction::Cosine => {
+        let $similarity = CosineSimilarity;
+        $body
+      },
+      VectorSimilarityFunction::MaximumInnerProduct => {
+        let $similarity = MaximumInnerProductSimilarity;
+        $body
+      },
+    }
+  }};
 }

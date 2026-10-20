@@ -105,7 +105,7 @@ fn test_multiple_byte_scorers() -> Result<()> {
       VectorSimilarityFunction::Euclidean,
     )?;
     let supplier = scorer
-      .get_random_vector_scorer_supplier::<TestByteVectorValues, TestFloatVectorValues>(
+      .get_random_vector_scorer_supplier::<TestByteVectorValues, TestFloatVectorValues, _>(
         VectorSimilarityFunction::Euclidean,
         FlatVectorValuesEnum::Byte(vector_values),
       )?;
@@ -153,7 +153,7 @@ fn test_multiple_float_scorers() -> Result<()> {
       VectorSimilarityFunction::Euclidean,
     )?;
     let supplier = scorer
-      .get_random_vector_scorer_supplier::<TestByteVectorValues, TestFloatVectorValues>(
+      .get_random_vector_scorer_supplier::<TestByteVectorValues, TestFloatVectorValues, _>(
         VectorSimilarityFunction::Euclidean,
         FlatVectorValuesEnum::Float(vector_values),
       )?;

@@ -502,10 +502,12 @@ where
   {
     let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
-    self.search(field_entry, knn_collector, accept_docs, || {
-      self
-        .flat_vectors_reader
-        .get_random_vector_scorer_f32(field, target)
+    crate::with_vector_similarity!(field_entry.similarity_function, similarity, {
+      self.search(field_entry, knn_collector, accept_docs, || {
+        self
+          .flat_vectors_reader
+          .get_random_vector_scorer_f32(field, target, similarity)
+      })
     })
   }
 
@@ -523,10 +525,12 @@ where
   {
     let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
-    self.search(field_entry, knn_collector, accept_docs, || {
-      self
-        .flat_vectors_reader
-        .get_random_vector_scorer_u8(field, target)
+    crate::with_vector_similarity!(field_entry.similarity_function, similarity, {
+      self.search(field_entry, knn_collector, accept_docs, || {
+        self
+          .flat_vectors_reader
+          .get_random_vector_scorer_u8(field, target, similarity)
+      })
     })
   }
 
@@ -616,7 +620,6 @@ where
 
 #[derive(Clone)]
 pub struct FieldEntry {
-  #[allow(dead_code)]
   similarity_function: VectorSimilarityFunction,
   vector_encoding: VectorEncoding,
   vector_index_offset: usize,

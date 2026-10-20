@@ -72,6 +72,7 @@ impl VectorUtil {
     Ok(self.impl_.cosine_u8(a, b))
   }
 
+  #[inline]
   pub fn square_distance_f32(&self, a: &[f32], b: &[f32]) -> Result<f32> {
     if a.len() != b.len() {
       return Err(LuceneError::illegal_argument(format!(
@@ -85,6 +86,7 @@ impl VectorUtil {
     Ok(r)
   }
 
+  #[inline]
   pub fn square_distance_u8(&self, a: &[u8], b: &[u8]) -> Result<i32> {
     if a.len() != b.len() {
       return Err(LuceneError::illegal_argument(format!(

@@ -40,7 +40,10 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
-use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::index::vector_similarity_function::{
+  CosineSimilarity, DotProductSimilarity, EuclideanSimilarity, MaximumInnerProductSimilarity,
+  VectorSimilarity, VectorSimilarityFunction,
+};
 use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
@@ -678,37 +681,40 @@ where
     D2: Directory<IndexOutput = F::IndexOutput>,
     CR: CodecReader,
   {
-    let supplier = self.flat_vector_writer.merge_one_field_to_index(
-      field_info.as_ref(),
-      merge_state,
-      segment_write_state,
-    )?;
-    match supplier {
-      CloseableRandomVectorScorerSupplierEnum2::A(supplier) => Self::merge_with_supplier(
-        &mut self.vector_index,
-        &mut self.meta,
-        self.m,
-        self.beam_width,
-        self.merge_exec.as_ref(),
-        self.num_merge_workers,
-        supplier,
-        field_info,
+    crate::with_vector_similarity!(*field_info.get_vector_similarity_function(), similarity, {
+      let supplier = self.flat_vector_writer.merge_one_field_to_index(
+        field_info.as_ref(),
         merge_state,
         segment_write_state,
-      ),
-      CloseableRandomVectorScorerSupplierEnum2::B(supplier) => Self::merge_with_supplier(
-        &mut self.vector_index,
-        &mut self.meta,
-        self.m,
-        self.beam_width,
-        self.merge_exec.as_ref(),
-        self.num_merge_workers,
-        supplier,
-        field_info,
-        merge_state,
-        segment_write_state,
-      ),
-    }
+        similarity,
+      )?;
+      match supplier {
+        CloseableRandomVectorScorerSupplierEnum2::A(supplier) => Self::merge_with_supplier(
+          &mut self.vector_index,
+          &mut self.meta,
+          self.m,
+          self.beam_width,
+          self.merge_exec.as_ref(),
+          self.num_merge_workers,
+          supplier,
+          field_info,
+          merge_state,
+          segment_write_state,
+        ),
+        CloseableRandomVectorScorerSupplierEnum2::B(supplier) => Self::merge_with_supplier(
+          &mut self.vector_index,
+          &mut self.meta,
+          self.m,
+          self.beam_width,
+          self.merge_exec.as_ref(),
+          self.num_merge_workers,
+          supplier,
+          field_info,
+          merge_state,
+          segment_write_state,
+        ),
+      }
+    })
   }
 
   fn finish(&mut self) -> Result<()> {
@@ -763,7 +769,62 @@ pub(crate) fn create_field_writer<S>(
 where
   S: FlatVectorsScorer,
 {
-  let similarity = *field_info.get_vector_similarity_function();
+  match *field_info.get_vector_similarity_function() {
+    VectorSimilarityFunction::Euclidean => create_field_writer_with_similarity(
+      scorer,
+      flat_field_vectors_writer_idx,
+      field_info,
+      m,
+      beam_width,
+      info_stream,
+      EuclideanSimilarity,
+    )
+    .map(EncodedFieldWriter::Euclidean),
+    VectorSimilarityFunction::DotProduct => create_field_writer_with_similarity(
+      scorer,
+      flat_field_vectors_writer_idx,
+      field_info,
+      m,
+      beam_width,
+      info_stream,
+      DotProductSimilarity,
+    )
+    .map(EncodedFieldWriter::DotProduct),
+    VectorSimilarityFunction::Cosine => create_field_writer_with_similarity(
+      scorer,
+      flat_field_vectors_writer_idx,
+      field_info,
+      m,
+      beam_width,
+      info_stream,
+      CosineSimilarity,
+    )
+    .map(EncodedFieldWriter::Cosine),
+    VectorSimilarityFunction::MaximumInnerProduct => create_field_writer_with_similarity(
+      scorer,
+      flat_field_vectors_writer_idx,
+      field_info,
+      m,
+      beam_width,
+      info_stream,
+      MaximumInnerProductSimilarity,
+    )
+    .map(EncodedFieldWriter::MaximumInnerProduct),
+  }
+}
+
+fn create_field_writer_with_similarity<S, Sim: VectorSimilarity>(
+  scorer: &S,
+  flat_field_vectors_writer_idx: usize,
+  field_info: Arc<FieldInfo>,
+  m: usize,
+  beam_width: usize,
+  info_stream: InfoStreamMT,
+  similarity: Sim,
+) -> Result<SimilarityFieldWriter<S, Sim>>
+where
+  S: FlatVectorsScorer,
+{
   let dimension = field_info.get_vector_dimension() as usize;
   match field_info.get_vector_encoding() {
     VectorEncoding::BYTE(_) => {
@@ -793,10 +854,65 @@ where
   }
 }
 
-pub type EncodedFieldWriter<S> = FieldWriterEnum<
-  <S as FlatVectorsScorer>::ByteScorerSupplier<ByteVectorValuesImpl>,
-  <S as FlatVectorsScorer>::FloatScorerSupplier<FloatVectorValuesImpl>,
+pub type SimilarityFieldWriter<S, Sim> = FieldWriterEnum<
+  <S as FlatVectorsScorer>::ByteScorerSupplier<ByteVectorValuesImpl, Sim>,
+  <S as FlatVectorsScorer>::FloatScorerSupplier<FloatVectorValuesImpl, Sim>,
 >;
+
+/// The field chooses its policy once; each variant owns a fully concrete builder.
+pub enum EncodedFieldWriter<S: FlatVectorsScorer> {
+  Euclidean(SimilarityFieldWriter<S, EuclideanSimilarity>),
+  DotProduct(SimilarityFieldWriter<S, DotProductSimilarity>),
+  Cosine(SimilarityFieldWriter<S, CosineSimilarity>),
+  MaximumInnerProduct(SimilarityFieldWriter<S, MaximumInnerProductSimilarity>),
+}
+
+macro_rules! with_similarity_field {
+  ($owner:expr, $field:ident, $body:expr) => {
+    match $owner {
+      Self::Euclidean($field) => $body,
+      Self::DotProduct($field) => $body,
+      Self::Cosine($field) => $body,
+      Self::MaximumInnerProduct($field) => $body,
+    }
+  };
+}
+
+impl<S: FlatVectorsScorer> EncodedFieldWriter<S> {
+  fn field_info(&self) -> &Arc<FieldInfo> {
+    with_similarity_field!(self, field, field.field_info())
+  }
+  pub(crate) fn get_vectors(&self) -> Result<VectorSlices<'_>> {
+    with_similarity_field!(self, field, field.get_vectors())
+  }
+  fn get_docs_with_field_set<'a, W: FlatFieldVectorsWriter>(
+    &self,
+    writers: &'a mut [W],
+  ) -> Result<&'a DocsWithFieldSet> {
+    with_similarity_field!(self, field, field.get_docs_with_field_set(writers))
+  }
+  fn get_graph<W: FlatFieldVectorsWriter>(
+    &mut self,
+    writers: &mut [W],
+  ) -> Result<Option<&mut OnHeapHnswGraph>> {
+    with_similarity_field!(self, field, field.get_graph(writers))
+  }
+}
+impl<S: FlatVectorsScorer> Accountable for EncodedFieldWriter<S> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    with_similarity_field!(self, field, field.ram_bytes_used())
+  }
+}
+impl<S: FlatVectorsScorer> KnnFieldVectorsWriter for EncodedFieldWriter<S> {
+  fn add_value<W: FlatFieldVectorsWriter, V: VectorInput + ?Sized>(
+    &mut self,
+    doc_id: i32,
+    vector_value: &V,
+    writers: &mut [W],
+  ) -> Result<()> {
+    with_similarity_field!(self, field, field.add_value(doc_id, vector_value, writers))
+  }
+}
 
 /// Dispatches once per field operation, retaining a concrete supplier in each builder.
 pub enum FieldWriterEnum<B, F> {

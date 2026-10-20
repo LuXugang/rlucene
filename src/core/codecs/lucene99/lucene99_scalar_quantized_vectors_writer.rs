@@ -26,7 +26,7 @@ use crate::core::codecs::knn_vectors_writer::{
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriterEnum as HnswFieldWriter;
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::EncodedFieldWriter;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::{
   Lucene99ScalarQuantizedVectorScorer, ScalarQuantizedRandomVectorScorerSupplier,
   ScalarQuantizedVectorsScorer,
@@ -59,6 +59,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarity;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set::DocIdSet;
@@ -349,7 +350,7 @@ where
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     merged_quantization_state: ScalarQuantizer,
-  ) -> Result<<Self as FlatVectorsWriter>::FloatMergeScorerSupplier<'a, D2>>
+  ) -> Result<<Self as FlatVectorsWriter>::FloatMergeScorerSupplier<'a, D2, VectorSimilarityFunction>>
   where
     D2: Directory<IndexOutput = R::IndexOutput>,
     CR: CodecReader,
@@ -380,7 +381,7 @@ where
     let mut quantization_data_input = None;
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-      || -> Result<<Self as FlatVectorsWriter>::FloatMergeScorerSupplier<'_, D2>> {
+      || -> Result<<Self as FlatVectorsWriter>::FloatMergeScorerSupplier<'_, D2, VectorSimilarityFunction>> {
         let byte_vector_values = MergedQuantizedVectorValues::merge_quantized_byte_vector_values(
           field_info,
           merge_state,
@@ -689,16 +690,15 @@ where
     Ok(raw_vector_delegate)
   }
 
-  fn flat_flush<DM, BS, SS>(
+  fn flat_flush<DM, FS>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[HnswFieldWriter<BS, SS>],
+    fields: &[EncodedFieldWriter<FS>],
   ) -> Result<()>
   where
     DM: DocMap,
-    BS: BufferedVectorScorerSupplier<Element = u8>,
-    SS: BufferedVectorScorerSupplier<Element = f32>,
+    FS: FlatVectorsScorer,
   {
     self
       .raw_vector_delegate
@@ -752,13 +752,13 @@ where
     self.raw_vector_delegate.get_fields_mut()
   }
 
-  type ByteMergeScorerSupplier<'a, D>
-    = R::ByteMergeScorerSupplier<'a, D>
+  type ByteMergeScorerSupplier<'a, D, Sim: VectorSimilarity>
+    = R::ByteMergeScorerSupplier<'a, D, Sim>
   where
     D: Directory,
     Self: 'a,
     D: 'a;
-  type FloatMergeScorerSupplier<'a, D>
+  type FloatMergeScorerSupplier<'a, D, Sim: VectorSimilarity>
     = ScalarQuantizedCloseableRandomVectorScorerSupplier<
     'a,
     ScalarQuantizedRandomVectorScorerSupplier<
@@ -774,12 +774,13 @@ where
     Self: 'a,
     D: 'a;
 
-  fn merge_one_field_to_index_byte<'a, D1, D2, CR>(
+  fn merge_one_field_to_index_byte<'a, D1, D2, CR, Sim: VectorSimilarity>(
     &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     segment_write_state: &SegmentWriteState<'a, &'a D2>,
-  ) -> Result<Self::ByteMergeScorerSupplier<'a, D2>>
+    similarity: Sim,
+  ) -> Result<Self::ByteMergeScorerSupplier<'a, D2, Sim>>
   where
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
@@ -788,14 +789,16 @@ where
       field_info,
       merge_state,
       segment_write_state,
+      similarity,
     )
   }
-  fn merge_one_field_to_index_float<'a, D1, D2, CR>(
+  fn merge_one_field_to_index_float<'a, D1, D2, CR, Sim: VectorSimilarity>(
     &'a mut self,
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     segment_write_state: &SegmentWriteState<'a, &'a D2>,
-  ) -> Result<Self::FloatMergeScorerSupplier<'a, D2>>
+    _similarity: Sim,
+  ) -> Result<Self::FloatMergeScorerSupplier<'a, D2, Sim>>
   where
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
@@ -2629,5 +2632,3 @@ where
     let _ = self.close();
   }
 }
-
-use crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScorerSupplier;

@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
+use crate::core::index::vector_similarity_function::VectorSimilarity;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
@@ -68,7 +69,7 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
     Ok(())
   }
 
-  type RandomVectorScorerF32: RandomVectorScorer;
+  type RandomVectorScorerF32<Sim: VectorSimilarity>: RandomVectorScorer;
   /// Returns a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Arguments
@@ -80,15 +81,16 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   ///
   /// # Errors
   /// if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_f32<TV>(
+  fn get_random_vector_scorer_f32<TV, Sim: VectorSimilarity>(
     &self,
     field: &str,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerF32>
+    similarity: Sim,
+  ) -> Result<Self::RandomVectorScorerF32<Sim>>
   where
     TV: Into<Vec<f32>>;
 
-  type RandomVectorScorerU8: RandomVectorScorer;
+  type RandomVectorScorerU8<Sim: VectorSimilarity>: RandomVectorScorer;
   /// Returns a `RandomVectorScorer` for the given field and target vector.
   ///
   /// # Arguments
@@ -100,11 +102,12 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   ///
   /// # Errors
   /// if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_u8<TV>(
+  fn get_random_vector_scorer_u8<TV, Sim: VectorSimilarity>(
     &self,
     field: &str,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerU8>
+    similarity: Sim,
+  ) -> Result<Self::RandomVectorScorerU8<Sim>>
   where
     TV: Into<Vec<u8>>;
 

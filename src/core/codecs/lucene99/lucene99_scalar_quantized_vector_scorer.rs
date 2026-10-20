@@ -17,7 +17,7 @@
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::index::vector_similarity_function::{VectorSimilarity, VectorSimilarityFunction};
 use crate::core::util::CoreHelper;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
@@ -175,16 +175,16 @@ impl<F> FlatVectorsScorer for Lucene99ScalarQuantizedVectorScorer<F>
 where
   F: FlatVectorsScorer,
 {
-  type ByteScorerSupplier<B>
-    = F::ByteScorerSupplier<B>
+  type ByteScorerSupplier<B, Sim: VectorSimilarity>
+    = F::ByteScorerSupplier<B, Sim>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send;
-  fn get_byte_scorer_supplier<B>(
+  fn get_byte_scorer_supplier<B, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: B,
-  ) -> Result<Self::ByteScorerSupplier<B>>
+  ) -> Result<Self::ByteScorerSupplier<B, Sim>>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send,
@@ -194,16 +194,16 @@ where
       .get_byte_scorer_supplier(similarity_function, vector_values)
   }
 
-  type FloatScorerSupplier<FV>
-    = F::FloatScorerSupplier<FV>
+  type FloatScorerSupplier<FV, Sim: VectorSimilarity>
+    = F::FloatScorerSupplier<FV, Sim>
   where
     FV: FloatVectorValues + TryClone + Send,
     FV::FloatVectorValues: Send;
-  fn get_float_scorer_supplier<FV>(
+  fn get_float_scorer_supplier<FV, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: FV,
-  ) -> Result<Self::FloatScorerSupplier<FV>>
+  ) -> Result<Self::FloatScorerSupplier<FV, Sim>>
   where
     FV: FloatVectorValues + TryClone + Send,
     FV::FloatVectorValues: Send,
@@ -213,17 +213,17 @@ where
       .get_float_scorer_supplier(similarity_function, vector_values)
   }
 
-  type RandomVectorScorerF32<T>
-    = F::RandomVectorScorerF32<T>
+  type RandomVectorScorerF32<T, Sim: VectorSimilarity>
+    = F::RandomVectorScorerF32<T, Sim>
   where
     T: FloatVectorValues;
 
-  fn get_random_vector_scorer_f32<K, TV>(
+  fn get_random_vector_scorer_f32<K, TV, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: K,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerF32<K>>
+  ) -> Result<Self::RandomVectorScorerF32<K, Sim>>
   where
     TV: Into<Vec<f32>>,
     K: FloatVectorValues,
@@ -237,17 +237,17 @@ where
     )
   }
 
-  type RandomVectorScorerU8<T>
-    = F::RandomVectorScorerU8<T>
+  type RandomVectorScorerU8<T, Sim: VectorSimilarity>
+    = F::RandomVectorScorerU8<T, Sim>
   where
     T: ByteVectorValues;
 
-  fn get_random_vector_scorer_u8<K, TV>(
+  fn get_random_vector_scorer_u8<K, TV, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: K,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerU8<K>>
+  ) -> Result<Self::RandomVectorScorerU8<K, Sim>>
   where
     TV: Into<Vec<u8>>,
     K: ByteVectorValues,

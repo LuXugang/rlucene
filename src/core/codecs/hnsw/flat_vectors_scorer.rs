@@ -16,7 +16,7 @@
  */
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::index::vector_similarity_function::{VectorSimilarity, VectorSimilarityFunction};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
@@ -35,42 +35,42 @@ pub enum FlatVectorValuesEnum<B, F> {
 /// for providing flexibility to the codec utilizing the vectors
 pub trait FlatVectorsScorer: Display {
   /// Supplier for a field whose byte encoding is fixed at construction.
-  type ByteScorerSupplier<B>: BufferedVectorScorerSupplier<Element = u8>
+  type ByteScorerSupplier<B, Sim: VectorSimilarity>: BufferedVectorScorerSupplier<Element = u8>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send;
 
-  fn get_byte_scorer_supplier<B>(
+  fn get_byte_scorer_supplier<B, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: B,
-  ) -> Result<Self::ByteScorerSupplier<B>>
+  ) -> Result<Self::ByteScorerSupplier<B, Sim>>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send;
 
   /// Supplier for a field whose float encoding is fixed at construction.
-  type FloatScorerSupplier<F>: BufferedVectorScorerSupplier<Element = f32>
+  type FloatScorerSupplier<F, Sim: VectorSimilarity>: BufferedVectorScorerSupplier<Element = f32>
   where
     F: FloatVectorValues + TryClone + Send,
     F::FloatVectorValues: Send;
 
-  fn get_float_scorer_supplier<F>(
+  fn get_float_scorer_supplier<F, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: F,
-  ) -> Result<Self::FloatScorerSupplier<F>>
+  ) -> Result<Self::FloatScorerSupplier<F, Sim>>
   where
     F: FloatVectorValues + TryClone + Send,
     F::FloatVectorValues: Send;
 
   /// Constructs a supplier at an encoding boundary. Consumers that construct
   /// a builder must unpack this enum before entering their generic hot loop.
-  fn get_random_vector_scorer_supplier<B, F>(
+  fn get_random_vector_scorer_supplier<B, F, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: FlatVectorValuesEnum<B, F>,
-  ) -> Result<RandomVectorScorerSupplierFor<Self, B, F>>
+  ) -> Result<RandomVectorScorerSupplierFor<Self, B, F, Sim>>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send,
@@ -87,7 +87,7 @@ pub trait FlatVectorsScorer: Display {
     }
   }
 
-  type RandomVectorScorerF32<T>: RandomVectorScorer
+  type RandomVectorScorerF32<T, Sim: VectorSimilarity>: RandomVectorScorer
   where
     T: FloatVectorValues;
   /// Returns a `RandomVectorScorer` for the given set of vectors and target vector.
@@ -102,17 +102,17 @@ pub trait FlatVectorsScorer: Display {
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_f32<K, TV>(
+  fn get_random_vector_scorer_f32<K, TV, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: K,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerF32<K>>
+  ) -> Result<Self::RandomVectorScorerF32<K, Sim>>
   where
     TV: Into<Vec<f32>>,
     K: FloatVectorValues;
 
-  type RandomVectorScorerU8<T>: RandomVectorScorer
+  type RandomVectorScorerU8<T, Sim: VectorSimilarity>: RandomVectorScorer
   where
     T: ByteVectorValues;
   /// Returns a `RandomVectorScorer` for the given set of vectors and target vector.
@@ -127,12 +127,12 @@ pub trait FlatVectorsScorer: Display {
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_u8<K, TV>(
+  fn get_random_vector_scorer_u8<K, TV, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: K,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerU8<K>>
+  ) -> Result<Self::RandomVectorScorerU8<K, Sim>>
   where
     TV: Into<Vec<u8>>,
     K: ByteVectorValues;
@@ -142,16 +142,16 @@ impl<FV> FlatVectorsScorer for Arc<FV>
 where
   FV: FlatVectorsScorer,
 {
-  type ByteScorerSupplier<B>
-    = FV::ByteScorerSupplier<B>
+  type ByteScorerSupplier<B, Sim: VectorSimilarity>
+    = FV::ByteScorerSupplier<B, Sim>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send;
-  fn get_byte_scorer_supplier<B>(
+  fn get_byte_scorer_supplier<B, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: B,
-  ) -> Result<Self::ByteScorerSupplier<B>>
+  ) -> Result<Self::ByteScorerSupplier<B, Sim>>
   where
     B: ByteVectorValues + TryClone + Send,
     B::ByteVectorValues: Send,
@@ -159,16 +159,16 @@ where
     (**self).get_byte_scorer_supplier(similarity_function, vector_values)
   }
 
-  type FloatScorerSupplier<FV2>
-    = FV::FloatScorerSupplier<FV2>
+  type FloatScorerSupplier<FV2, Sim: VectorSimilarity>
+    = FV::FloatScorerSupplier<FV2, Sim>
   where
     FV2: FloatVectorValues + TryClone + Send,
     FV2::FloatVectorValues: Send;
-  fn get_float_scorer_supplier<FV2>(
+  fn get_float_scorer_supplier<FV2, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: FV2,
-  ) -> Result<Self::FloatScorerSupplier<FV2>>
+  ) -> Result<Self::FloatScorerSupplier<FV2, Sim>>
   where
     FV2: FloatVectorValues + TryClone + Send,
     FV2::FloatVectorValues: Send,
@@ -176,17 +176,17 @@ where
     (**self).get_float_scorer_supplier(similarity_function, vector_values)
   }
 
-  type RandomVectorScorerF32<T>
-    = FV::RandomVectorScorerF32<T>
+  type RandomVectorScorerF32<T, Sim: VectorSimilarity>
+    = FV::RandomVectorScorerF32<T, Sim>
   where
     T: FloatVectorValues;
 
-  fn get_random_vector_scorer_f32<K, TV>(
+  fn get_random_vector_scorer_f32<K, TV, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: K,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerF32<K>>
+  ) -> Result<Self::RandomVectorScorerF32<K, Sim>>
   where
     TV: Into<Vec<f32>>,
     K: FloatVectorValues,
@@ -195,17 +195,17 @@ where
     (**self).get_random_vector_scorer_f32(similarity_function, vector_values, target)
   }
 
-  type RandomVectorScorerU8<T>
-    = FV::RandomVectorScorerU8<T>
+  type RandomVectorScorerU8<T, Sim: VectorSimilarity>
+    = FV::RandomVectorScorerU8<T, Sim>
   where
     T: ByteVectorValues;
 
-  fn get_random_vector_scorer_u8<K, TV>(
+  fn get_random_vector_scorer_u8<K, TV, Sim: VectorSimilarity>(
     &self,
-    similarity_function: VectorSimilarityFunction,
+    similarity_function: Sim,
     vector_values: K,
     target: TV,
-  ) -> Result<Self::RandomVectorScorerU8<K>>
+  ) -> Result<Self::RandomVectorScorerU8<K, Sim>>
   where
     TV: Into<Vec<u8>>,
     K: ByteVectorValues,
@@ -216,7 +216,8 @@ where
 }
 
 /// Encoding-dependent suppliers are joined only at a construction boundary.
-pub type RandomVectorScorerSupplierFor<S, B, F> = RandomVectorScorerSupplierEnum2<
-  <S as FlatVectorsScorer>::ByteScorerSupplier<B>,
-  <S as FlatVectorsScorer>::FloatScorerSupplier<F>,
->;
+pub type RandomVectorScorerSupplierFor<S, B, F, Sim = VectorSimilarityFunction> =
+  RandomVectorScorerSupplierEnum2<
+    <S as FlatVectorsScorer>::ByteScorerSupplier<B, Sim>,
+    <S as FlatVectorsScorer>::FloatScorerSupplier<F, Sim>,
+  >;
