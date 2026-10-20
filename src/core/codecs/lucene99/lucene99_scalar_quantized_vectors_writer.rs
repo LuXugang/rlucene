@@ -1620,8 +1620,8 @@ where
 
   fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
-      Self::Requantized(values) => values.vector_value(ord).map(Into::into),
-      Self::OffsetCorrected(values) => values.vector_value(ord).map(Into::into),
+      Self::Requantized(values) => values.vector_value(ord),
+      Self::OffsetCorrected(values) => values.vector_value(ord),
     }
   }
 
@@ -2385,7 +2385,7 @@ where
   fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
     match self {
       Self::Original(values) => values.vector_value(ord).map(Into::into),
-      Self::Normalized(values) => values.vector_value(ord).map(Into::into),
+      Self::Normalized(values) => values.vector_value(ord),
     }
   }
 

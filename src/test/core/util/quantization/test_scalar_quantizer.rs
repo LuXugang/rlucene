@@ -417,12 +417,10 @@ impl<F: Borrow<Vec<Vec<f32>>> + Clone> FloatVectorValues for TestSimpleFloatVect
     Self: 'v;
 
   fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
-    Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(
-        self.floats.borrow()[self.ord_to_doc(ord)?].clone(),
-      ))
-      .try_into()?,
-    )
+    Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(
+      self.floats.borrow()[self.ord_to_doc(ord)?].clone(),
+    ))
+    .try_into()
   }
 
   type FloatVectorValues = Self;

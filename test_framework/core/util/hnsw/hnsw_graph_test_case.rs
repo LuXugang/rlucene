@@ -1274,10 +1274,7 @@ impl ByteVectorValues for CircularByteVectorValues {
     Self: 'v;
 
   fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
-    Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(self.vector_value_bytes(ord)))
-        .try_into()?,
-    )
+    Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(self.vector_value_bytes(ord))).try_into()
   }
 
   type ByteVectorValues = Self;
@@ -1364,10 +1361,7 @@ impl FloatVectorValues for CircularFloatVectorValues {
     Self: 'v;
 
   fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>> {
-    Ok(
-      Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.vector_value_f32(ord)))
-        .try_into()?,
-    )
+    Cow::<VectorValueEnum>::Owned(VectorValueEnum::Float(self.vector_value_f32(ord))).try_into()
   }
 
   type FloatVectorValues = Self;

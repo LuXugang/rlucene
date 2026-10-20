@@ -500,7 +500,7 @@ where
     Self: 'v;
 
   fn vector_value(&self, _ord: usize) -> Result<Self::VectorValue<'_>> {
-    Ok(Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(vec![0; self.dimension])).try_into()?)
+    Cow::<VectorValueEnum>::Owned(VectorValueEnum::Byte(vec![0; self.dimension])).try_into()
   }
 
   type ByteVectorValues = Self;
