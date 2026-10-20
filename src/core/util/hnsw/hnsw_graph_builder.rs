@@ -115,7 +115,7 @@ where
   ) -> Result<Self> {
     let size = hnsw.size();
     let searcher = HnswGraphSearcher::new(
-      NeighborQueue::new(beam_width, true)?,
+      NeighborQueue::<true>::new(beam_width)?,
       FixedBitSet::new(size),
     );
     Self::new(
@@ -820,14 +820,14 @@ where
 ///
 /// This collector does **not** support [`TopDocs`].
 pub struct GraphBuilderKnnCollector {
-  queue: NeighborQueue,
+  queue: NeighborQueue<false>,
   k: usize,
   visited_count: usize,
 }
 impl GraphBuilderKnnCollector {
   pub fn new(k: usize) -> Result<Self> {
     Ok(Self {
-      queue: NeighborQueue::new(k, false)?,
+      queue: NeighborQueue::<false>::new(k)?,
       k,
       visited_count: 0,
     })

@@ -223,7 +223,7 @@ where
   ) -> Result<Self> {
     let graph_size = hnsw.max_node_id().map_or(0, |node| node + 1);
     let graph_searcher = HnswGraphSearcher::with_hook(
-      NeighborQueue::new(beam_width, true)?,
+      NeighborQueue::<true>::new(beam_width)?,
       FixedBitSet::new(graph_size),
       HnswGraphSearcherHook::Merge(MergeSearcher::new(hnsw_lock.clone())),
     );

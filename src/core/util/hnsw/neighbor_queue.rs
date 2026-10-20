@@ -23,29 +23,31 @@ use crate::core::util::numeric_utils::NumericUtils;
 ///
 /// The queue provides both fixed-size and unbounded operations via
 /// [`insert_with_overflow(i32, f32)`](NeighborQueue::insert_with_overflow) and
-/// [`add(i32, f32)`](NeighborQueue::add), and provides MIN and MAX heap
-/// Neighbor priority queue implementation.
-pub struct NeighborQueue {
+/// [`add(i32, f32)`](NeighborQueue::add).
+///
+/// The heap direction is fixed by `MAX_HEAP`: `false` for MIN, `true` for MAX.
+/// It is part of the type and cannot change after construction.
+pub struct NeighborQueue<const MAX_HEAP: bool> {
   pub heap: LongHeap,
-  pub order: Order,
   // Used to track the number of neighbors visited during a single graph traversal
   pub visited_count: i32,
   // Whether the search stopped early because it reached the visited nodes limit
   pub incomplete: bool,
 }
-impl NeighborQueue {
-  pub fn new(initial_size: usize, max_heap: bool) -> Result<Self> {
+impl<const MAX_HEAP: bool> NeighborQueue<MAX_HEAP> {
+  pub fn new(initial_size: usize) -> Result<Self> {
     Ok(NeighborQueue {
       heap: LongHeap::new(initial_size)?,
-      order: if max_heap {
-        Order::MaxHeap
-      } else {
-        Order::MinHeap
-      },
       visited_count: 0,
       incomplete: false,
     })
   }
+  // Same involution as Java's Order.apply, specialized for this queue's direction.
+  // Unlike negation, -1 - v also reverses i64::MIN and i64::MAX correctly.
+  fn apply_order(v: i64) -> i64 {
+    if MAX_HEAP { -1 - v } else { v }
+  }
+
   /// return the number of elements in the heap
   pub fn size(&self) -> usize {
     self.heap.size()
@@ -104,16 +106,16 @@ impl NeighborQueue {
     debug_assert!(node <= i64::MAX as usize);
     let encoded_score = NumericUtils::float_to_sortable_int(score) as i64;
     let encoded_node = !(node as i64) & 0xFFFF_FFFF;
-    self.order.apply((encoded_score << 32) | encoded_node)
+    Self::apply_order((encoded_score << 32) | encoded_node)
   }
 
   fn decode_score(&self, heap_value: i64) -> f32 {
-    let sortable = (self.order.apply(heap_value) >> 32) as i32;
+    let sortable = (Self::apply_order(heap_value) >> 32) as i32;
     NumericUtils::sortable_int_to_float(sortable)
   }
 
   fn decode_node_id(&self, heap_value: i64) -> usize {
-    let v = (!self.order.apply(heap_value)) as i32;
+    let v = (!Self::apply_order(heap_value)) as i32;
     v as usize
   }
   /// Removes the top element and returns its node id.
@@ -165,22 +167,8 @@ impl NeighborQueue {
     self.incomplete = true;
   }
 }
-impl std::fmt::Display for NeighborQueue {
+impl<const MAX_HEAP: bool> std::fmt::Display for NeighborQueue<MAX_HEAP> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "Neighbors[{}]", self.heap.size())
-  }
-}
-
-pub enum Order {
-  MinHeap,
-  MaxHeap,
-}
-
-impl Order {
-  pub fn apply(&self, v: i64) -> i64 {
-    match self {
-      Order::MinHeap => v,
-      Order::MaxHeap => -1 - v,
-    }
   }
 }

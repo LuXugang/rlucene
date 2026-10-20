@@ -953,7 +953,7 @@ where
       )?;
       let top_docs = actual.top_docs()?;
 
-      let mut expected = NeighborQueue::new(top_k, false)?;
+      let mut expected = NeighborQueue::<false>::new(top_k)?;
       for j in 0..size {
         if accept_ords
           .as_ref()

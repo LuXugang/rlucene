@@ -32,7 +32,7 @@ pub struct HnswGraphSearcher<B, const DEFAULT_HOOK: bool = true> {
   /// Scratch data structures that are used in each `search_level` call.
   /// These can be expensive to allocate, so they're cleared and reused across
   /// calls.
-  candidates: NeighborQueue,
+  candidates: NeighborQueue<true>,
   visited: B,
   hook: HnswGraphSearcherHook,
 }
@@ -58,7 +58,7 @@ where
   /// * `candidates` - max heap that will track the candidate nodes to explore
   /// * `visited` - bit set that will track nodes that have already been
   ///   visited
-  pub fn new(candidates: NeighborQueue, visited: B) -> Self {
+  pub fn new(candidates: NeighborQueue<true>, visited: B) -> Self {
     Self {
       candidates,
       visited,
@@ -72,7 +72,7 @@ where
   B: BitSet,
 {
   pub(crate) fn with_hook(
-    candidates: NeighborQueue,
+    candidates: NeighborQueue<true>,
     visited: B,
     hook: HnswGraphSearcherHook,
   ) -> Self {
@@ -469,7 +469,7 @@ where
 {
   let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
   let top_k = knn_collector.k();
-  let neighbor_queue = NeighborQueue::new(top_k, true)?;
+  let neighbor_queue = NeighborQueue::<true>::new(top_k)?;
   let mut graph_searcher = HnswGraphSearcher::new(neighbor_queue, bitset);
   search_with_searcher(
     scorer,
@@ -508,7 +508,7 @@ where
 {
   let mut knn_collector = TopKnnCollector::new(top_k, visited_limit)?;
   let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
-  let neighbor_queue = NeighborQueue::new(top_k, true)?;
+  let neighbor_queue = NeighborQueue::<true>::new(top_k)?;
   let mut graph_searcher = HnswGraphSearcher::with_hook(
     neighbor_queue,
     bitset,

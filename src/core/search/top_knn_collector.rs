@@ -29,7 +29,7 @@ use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 /// A min-heap is used to keep track of the currently collected vectors,
 /// allowing for efficient updates as better vectors are collected.
 pub struct TopKnnCollector {
-  queue: NeighborQueue,
+  queue: NeighborQueue<false>,
   base: AbstractKnnCollectorBase,
 }
 
@@ -41,7 +41,7 @@ impl TopKnnCollector {
   pub fn new(k: usize, visit_limit: usize) -> Result<Self> {
     let base = AbstractKnnCollectorBase::new(k, visit_limit);
     Ok(Self {
-      queue: NeighborQueue::new(k, false)?,
+      queue: NeighborQueue::<false>::new(k)?,
       base,
     })
   }

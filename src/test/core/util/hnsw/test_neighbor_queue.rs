@@ -24,7 +24,7 @@ use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 struct TestNeighborQueue;
 #[test]
 fn test_neighbors_product() -> Result<()> {
-  let mut nn = NeighborQueue::new(2, false)?;
+  let mut nn = NeighborQueue::<false>::new(2)?;
 
   assert!(nn.insert_with_overflow(2, 0.5)?);
   assert!(nn.insert_with_overflow(1, 0.2)?);
@@ -38,7 +38,7 @@ fn test_neighbors_product() -> Result<()> {
 }
 #[test]
 fn test_neighbors_max_heap() -> Result<()> {
-  let mut nn = NeighborQueue::new(2, true)?;
+  let mut nn = NeighborQueue::<true>::new(2)?;
 
   assert!(nn.insert_with_overflow(2, 2.0)?);
   assert!(nn.insert_with_overflow(1, 1.0)?);
@@ -52,7 +52,7 @@ fn test_neighbors_max_heap() -> Result<()> {
 }
 #[test]
 fn test_top_max_heap() -> Result<()> {
-  let mut nn = NeighborQueue::new(2, true)?;
+  let mut nn = NeighborQueue::<true>::new(2)?;
 
   nn.add(1, 2.0)?;
   nn.add(2, 1.0)?;
@@ -64,7 +64,7 @@ fn test_top_max_heap() -> Result<()> {
 }
 #[test]
 fn test_top_min_heap() -> Result<()> {
-  let mut nn = NeighborQueue::new(2, false)?;
+  let mut nn = NeighborQueue::<false>::new(2)?;
 
   nn.add(1, 0.5)?;
   nn.add(2, -0.5)?;
@@ -76,7 +76,7 @@ fn test_top_min_heap() -> Result<()> {
 }
 #[test]
 fn test_visited_count() -> Result<()> {
-  let mut nn = NeighborQueue::new(2, false)?;
+  let mut nn = NeighborQueue::<false>::new(2)?;
 
   nn.set_visited_count(100);
   assert_eq!(nn.visited_count(), 100);
@@ -85,7 +85,7 @@ fn test_visited_count() -> Result<()> {
 }
 #[test]
 fn test_clear() -> Result<()> {
-  let mut nn = NeighborQueue::new(2, false)?;
+  let mut nn = NeighborQueue::<false>::new(2)?;
 
   nn.add(1, 1.1)?;
   nn.add(2, -2.2)?;
@@ -101,7 +101,7 @@ fn test_clear() -> Result<()> {
 }
 #[test]
 fn test_max_size_queue() -> Result<()> {
-  let mut nn = NeighborQueue::new(2, false)?;
+  let mut nn = NeighborQueue::<false>::new(2)?;
 
   nn.add(1, 1.0)?;
   nn.add(2, 2.0)?;
@@ -121,7 +121,7 @@ fn test_max_size_queue() -> Result<()> {
 #[test]
 fn test_unbounded_queue() -> Result<()> {
   let mut random = random();
-  let mut nn = NeighborQueue::new(1, true)?;
+  let mut nn = NeighborQueue::<true>::new(1)?;
   let mut max_score = -2.0f32;
   let mut max_node: Option<usize> = None;
 
@@ -142,12 +142,12 @@ fn test_unbounded_queue() -> Result<()> {
 }
 #[test]
 fn test_invalid_arguments() {
-  let result = NeighborQueue::new(0, false);
+  let result = NeighborQueue::<false>::new(0);
   assert!(result.is_err());
 }
 #[test]
 fn test_to_string() -> Result<()> {
-  let nn = NeighborQueue::new(2, false)?;
+  let nn = NeighborQueue::<false>::new(2)?;
   assert_eq!(nn.to_string(), "Neighbors[0]");
   Ok(())
 }
