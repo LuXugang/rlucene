@@ -138,6 +138,7 @@ impl OnHeapHnswGraph {
     Ok(())
   }
 
+  #[inline]
   pub(crate) fn get_neighbors_mut(
     &mut self,
     level: usize,
@@ -349,6 +350,7 @@ impl HnswGraph for OnHeapHnswGraph {
     }
   }
 
+  #[inline]
   fn next_neighbor(&mut self) -> Result<usize> {
     let upto = self.upto.map_or(0, |upto| upto + 1);
     self.upto = Some(upto);

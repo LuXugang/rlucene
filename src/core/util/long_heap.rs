@@ -129,15 +129,21 @@ impl LongHeap {
   pub fn clear(&mut self) {
     self.size = 0;
   }
-  fn up_heap(&mut self, mut i: usize) {
+  fn up_heap(&mut self, i: usize) {
     let value = self.heap[i]; // save bottom value
-    let mut j = i >> 1;
-    while j > 0 && value < self.heap[j] {
-      self.heap[i] = self.heap[j]; // shift parents down
-      i = j;
-      j >>= 1;
+    let (mut slot, mut parents) = self.heap[..=i].split_last_mut().unwrap();
+    while parents.len() > 1 {
+      let parent_index = parents.len() >> 1;
+      let (head, tail) = parents.split_at_mut(parent_index);
+      let parent = &mut tail[0];
+      if value >= *parent {
+        break;
+      }
+      *slot = *parent; // shift parent down
+      slot = parent;
+      parents = head;
     }
-    self.heap[i] = value;
+    *slot = value;
   }
 
   fn down_heap(&mut self, mut i: usize) {

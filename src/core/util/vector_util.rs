@@ -16,16 +16,14 @@
  */
 use crate::core::internal::vectorization::default_vector_util_support::DefaultVectorUtilSupport;
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
-use crate::core::internal::vectorization::vectorization_provider::{
-  DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
-};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::sync::LazyLock;
 
-pub static VECTOR_UTIL: LazyLock<VectorUtil> = LazyLock::new(|| VectorUtil {
-  impl_: DEFAULT_VECTORIZATION_PROVIDER.get_vector_util_support(),
-});
+// The backend is a stateless concrete type selected at compile time.
+// Static initialization avoids a lazy-initialization check on every score.
+pub static VECTOR_UTIL: VectorUtil = VectorUtil {
+  impl_: DefaultVectorUtilSupport,
+};
 
 pub struct VectorUtil {
   impl_: DefaultVectorUtilSupport,
