@@ -28,7 +28,7 @@ RLucene 目前基于 Apache Lucene 10.1。待当前移植版本功能完善并�
 我们使用搜索社区中的多个基准测试，将 RLucene 与 Apache Lucene 放在相同的搜索负载下
 进行性能对比。
 
-查看[最新基准测试结果](https://amazingkoala.com.cn/benchmark/index.html)。
+查看[最新基准测试结果](https://benchmark.amazingkoala.com.cn/)。
 
 ## 项目状态
 

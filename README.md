@@ -32,7 +32,7 @@ before the latest one.
 We use several benchmarks from the search community to compare RLucene with
 Apache Lucene under the same search workloads.
 
-See the [latest benchmark results](https://amazingkoala.com.cn/benchmark/index.html).
+See the [latest benchmark results](https://benchmark.amazingkoala.com.cn/).
 
 ## Project Status
 
