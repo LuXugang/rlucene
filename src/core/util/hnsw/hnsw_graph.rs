@@ -163,6 +163,7 @@ where
     (**self).max_node_id()
   }
 
+  #[inline]
   fn next_neighbor(&mut self) -> Result<usize> {
     (**self).next_neighbor()
   }
