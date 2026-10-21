@@ -21,12 +21,12 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexing_chain::IndexContext;
 use crate::core::index::parallel_postings_array::{
-  ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
+  ParallelPostingsArray, PostingsArray, PostingsArrayBase,
 };
 use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::core::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::core::index::terms_hash_per_field::{
-  PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
+  PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase,
 };
 use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::store::directory::Directory;
@@ -51,7 +51,7 @@ pub(crate) struct FreqProxTermsWriterPerField {
 
   pub(crate) next_per_field: Option<TermVectorsConsumerPerField>,
 
-  pub(crate) base: TermsHashPerField,
+  pub(crate) base: TermsHashPerField<FreqProxPostingsArray>,
 }
 impl FreqProxTermsWriterPerField {
   pub fn new<D>(
@@ -79,9 +79,7 @@ impl FreqProxTermsWriterPerField {
     } else {
       1
     };
-    let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::FreqProx(
-      FreqProx::new(index_options),
-    ));
+    let postings_array_wrapper = PostingsArrayWrapper::new(index_options);
     let base = TermsHashPerField::new(
       stream_count,
       terms_hash.base.bytes_used.clone(),
@@ -137,23 +135,15 @@ impl FreqProxTermsWriterPerField {
         .base
         .write_vint(1, prox_code << 1, int_pool, byte_pool)?;
     }
-    let postings_array_enum = self
+    let postings_array = self
       .base
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
-    match postings_array_enum {
-      PostingsArrayEnum::FreqProx(f) => {
-        f.last_positions
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("last_positions not initialized"))?[term_id] =
-          field_state.position();
-      },
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "expected FreqProx posting array",
-        ));
-      },
-    }
+    postings_array
+      .last_positions
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("last_positions not initialized"))?[term_id] =
+      field_state.position();
 
     Ok(())
   }
@@ -179,31 +169,21 @@ impl FreqProxTermsWriterPerField {
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
-    let (v1, v2) = match postings_array {
-      PostingsArrayEnum::FreqProx(f) => {
-        let last_offsets = f
-          .last_offsets
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("last_offsets not available"))?;
-        let last_offset = last_offsets[term_id];
+    let last_offsets = postings_array
+      .last_offsets
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("last_offsets not available"))?;
+    let last_offset = last_offsets[term_id];
 
-        debug_assert!(
-          start_offset - last_offset >= 0,
-          "start_offset must not go backwards"
-        );
-        let v1 = start_offset - last_offset;
-        let v2 = end_offset - start_offset;
+    debug_assert!(
+      start_offset - last_offset >= 0,
+      "start_offset must not go backwards"
+    );
+    let v1 = start_offset - last_offset;
+    let v2 = end_offset - start_offset;
 
-        last_offsets[term_id] = start_offset;
+    last_offsets[term_id] = start_offset;
 
-        (v1, v2)
-      },
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "expected FreqProx posting array",
-        ));
-      },
-    };
     self.base.write_vint(1, v1, int_pool, byte_pool)?;
     self.base.write_vint(1, v2, int_pool, byte_pool)?;
 
@@ -417,58 +397,49 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     // First time we're seeing this term since the last
     // flush
     let tf = self.get_term_freq(attribute_source)?;
-    let postings_array_enum = self
+    let postings = self
       .base
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
-    match postings_array_enum {
-      PostingsArrayEnum::FreqProx(postings) => {
-        postings.last_doc_ids[term_id] = doc_id;
+    postings.last_doc_ids[term_id] = doc_id;
 
-        if !self.has_freq {
-          debug_assert!(postings.term_freqs.is_none());
-          postings.last_doc_codes[term_id] = doc_id;
-          field_state.max_term_frequency = field_state.max_term_frequency.max(1);
-        } else {
-          postings.last_doc_codes[term_id] = doc_id << 1;
-          postings
-            .term_freqs
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id] = tf;
+    if !self.has_freq {
+      debug_assert!(postings.term_freqs.is_none());
+      postings.last_doc_codes[term_id] = doc_id;
+      field_state.max_term_frequency = field_state.max_term_frequency.max(1);
+    } else {
+      postings.last_doc_codes[term_id] = doc_id << 1;
+      postings
+        .term_freqs
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id] = tf;
 
-          if self.has_prox {
-            self.write_prox(
-              term_id,
-              field_state.position,
-              field_state,
-              attribute_source,
-              int_pool,
-              byte_pool,
-            )?;
-            if self.has_offsets {
-              self.write_offsets(
-                term_id,
-                field_state.offset,
-                attribute_source,
-                int_pool,
-                byte_pool,
-              )?;
-            }
-          } else {
-            debug_assert!(!self.has_offsets);
-          }
-
-          field_state.max_term_frequency = field_state.max_term_frequency.max(tf);
+      if self.has_prox {
+        self.write_prox(
+          term_id,
+          field_state.position,
+          field_state,
+          attribute_source,
+          int_pool,
+          byte_pool,
+        )?;
+        if self.has_offsets {
+          self.write_offsets(
+            term_id,
+            field_state.offset,
+            attribute_source,
+            int_pool,
+            byte_pool,
+          )?;
         }
-        field_state.unique_term_count += 1;
-      },
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "expected FreqProx posting array",
-        ));
-      },
+      } else {
+        debug_assert!(!self.has_offsets);
+      }
+
+      field_state.max_term_frequency = field_state.max_term_frequency.max(tf);
     }
+    field_state.unique_term_count += 1;
 
     Ok(())
   }
@@ -486,156 +457,145 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     AS: AttributeSource,
   {
     let tf = self.get_term_freq(attribute_source)?;
-    let postings_enum = self
+    let postings = self
       .base
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     let mut v = [None; 2];
-    match postings_enum {
-      PostingsArrayEnum::FreqProx(postings) => {
-        if self.has_freq {
-          debug_assert!(
-            postings
-              .term_freqs
-              .as_ref()
-              .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id]
-              > 0
-          );
+    if self.has_freq {
+      debug_assert!(
+        postings
+          .term_freqs
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id]
+          > 0
+      );
+    }
+
+    if !self.has_freq {
+      debug_assert!(postings.term_freqs.is_none());
+
+      if tf != 1 {
+        return Err(LuceneError::illegal_state(format!(
+          "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
+          self.field_info.name
+        )));
+      }
+
+      if doc_id != postings.last_doc_ids[term_id] {
+        debug_assert!(doc_id > postings.last_doc_ids[term_id]);
+        v[0] = Some(postings.last_doc_codes[term_id]);
+        postings.last_doc_codes[term_id] = doc_id - postings.last_doc_ids[term_id];
+        postings.last_doc_ids[term_id] = doc_id;
+        field_state.unique_term_count += 1;
+      }
+      // Due to borrow conflict, we add later before handle prox/offset
+      for x in v.into_iter().flatten() {
+        self.base.write_vint(0, x, int_pool, byte_pool)?
+      }
+    } else if doc_id != postings.last_doc_ids[term_id] {
+      debug_assert!(
+        doc_id > postings.last_doc_ids[term_id],
+        "docID = {}, postingsID = {}, termID = {}",
+        doc_id,
+        postings.last_doc_ids[term_id],
+        term_id
+      );
+
+      let freq = postings
+        .term_freqs
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id];
+      // Term not yet seen in the current doc but previously
+      // seen in other doc(s) since the last flush
+
+      // Now that we know doc freq for previous doc,
+      // write it & lastDocCode
+      if freq == 1 {
+        v[0] = Some(postings.last_doc_codes[term_id] | 1);
+      } else {
+        v[0] = Some(postings.last_doc_codes[term_id]);
+        v[1] = Some(freq);
+      }
+
+      // Init freq for the current document
+      postings
+        .term_freqs
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id] = tf;
+
+      field_state.max_term_frequency = field_state.max_term_frequency.max(tf);
+
+      postings.last_doc_codes[term_id] = (doc_id - postings.last_doc_ids[term_id]) << 1;
+      postings.last_doc_ids[term_id] = doc_id;
+
+      if self.has_prox && self.has_offsets {
+        postings
+          .last_offsets
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("last_offsets not initialized"))?[term_id] = 0;
+      }
+      // Due to borrow conflict, we add later before handle prox/offset
+      for x in v.into_iter().flatten() {
+        self.base.write_vint(0, x, int_pool, byte_pool)?
+      }
+      if self.has_prox {
+        self.write_prox(
+          term_id,
+          field_state.position,
+          field_state,
+          attribute_source,
+          int_pool,
+          byte_pool,
+        )?;
+        if self.has_offsets {
+          self.write_offsets(
+            term_id,
+            field_state.offset,
+            attribute_source,
+            int_pool,
+            byte_pool,
+          )?;
         }
+      } else {
+        debug_assert!(!self.has_offsets);
+      }
+      field_state.unique_term_count += 1;
+    } else {
+      let term_freqs = postings
+        .term_freqs
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?;
+      term_freqs[term_id] = term_freqs[term_id]
+        .checked_add(tf)
+        .ok_or_else(|| LuceneError::illegal_state("term frequency overflow"))?;
 
-        if !self.has_freq {
-          debug_assert!(postings.term_freqs.is_none());
+      field_state.max_term_frequency = field_state.max_term_frequency.max(term_freqs[term_id]);
 
-          if tf != 1 {
-            return Err(LuceneError::illegal_state(format!(
-              "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
-              self.field_info.name
-            )));
-          }
-
-          if doc_id != postings.last_doc_ids[term_id] {
-            debug_assert!(doc_id > postings.last_doc_ids[term_id]);
-            v[0] = Some(postings.last_doc_codes[term_id]);
-            postings.last_doc_codes[term_id] = doc_id - postings.last_doc_ids[term_id];
-            postings.last_doc_ids[term_id] = doc_id;
-            field_state.unique_term_count += 1;
-          }
-          // Due to borrow conflict, we add later before handle prox/offset
-          for x in v.into_iter().flatten() {
-            self.base.write_vint(0, x, int_pool, byte_pool)?
-          }
-        } else if doc_id != postings.last_doc_ids[term_id] {
-          debug_assert!(
-            doc_id > postings.last_doc_ids[term_id],
-            "docID = {}, postingsID = {}, termID = {}",
-            doc_id,
-            postings.last_doc_ids[term_id],
-            term_id
-          );
-
-          let freq = postings
-            .term_freqs
+      if self.has_prox {
+        let delta = field_state.position
+          - postings
+            .last_positions
             .as_ref()
-            .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id];
-          // Term not yet seen in the current doc but previously
-          // seen in other doc(s) since the last flush
-
-          // Now that we know doc freq for previous doc,
-          // write it & lastDocCode
-          if freq == 1 {
-            v[0] = Some(postings.last_doc_codes[term_id] | 1);
-          } else {
-            v[0] = Some(postings.last_doc_codes[term_id]);
-            v[1] = Some(freq);
-          }
-
-          // Init freq for the current document
-          postings
-            .term_freqs
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?[term_id] = tf;
-
-          field_state.max_term_frequency = field_state.max_term_frequency.max(tf);
-
-          postings.last_doc_codes[term_id] = (doc_id - postings.last_doc_ids[term_id]) << 1;
-          postings.last_doc_ids[term_id] = doc_id;
-
-          if self.has_prox && self.has_offsets {
-            postings
-              .last_offsets
-              .as_mut()
-              .ok_or_else(|| LuceneError::illegal_state("last_offsets not initialized"))?
-              [term_id] = 0;
-          }
-          // Due to borrow conflict, we add later before handle prox/offset
-          for x in v.into_iter().flatten() {
-            self.base.write_vint(0, x, int_pool, byte_pool)?
-          }
-          if self.has_prox {
-            self.write_prox(
-              term_id,
-              field_state.position,
-              field_state,
-              attribute_source,
-              int_pool,
-              byte_pool,
-            )?;
-            if self.has_offsets {
-              self.write_offsets(
-                term_id,
-                field_state.offset,
-                attribute_source,
-                int_pool,
-                byte_pool,
-              )?;
-            }
-          } else {
-            debug_assert!(!self.has_offsets);
-          }
-          field_state.unique_term_count += 1;
-        } else {
-          let term_freqs = postings
-            .term_freqs
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("term_freqs not initialized"))?;
-          term_freqs[term_id] = term_freqs[term_id]
-            .checked_add(tf)
-            .ok_or_else(|| LuceneError::illegal_state("term frequency overflow"))?;
-
-          field_state.max_term_frequency = field_state.max_term_frequency.max(term_freqs[term_id]);
-
-          if self.has_prox {
-            let delta = field_state.position
-              - postings
-                .last_positions
-                .as_ref()
-                .ok_or_else(|| LuceneError::illegal_state("last_positions not initialized"))?
-                [term_id];
-            self.write_prox(
-              term_id,
-              delta,
-              field_state,
-              attribute_source,
-              int_pool,
-              byte_pool,
-            )?;
-            if self.has_offsets {
-              self.write_offsets(
-                term_id,
-                field_state.offset,
-                attribute_source,
-                int_pool,
-                byte_pool,
-              )?;
-            }
-          }
+            .ok_or_else(|| LuceneError::illegal_state("last_positions not initialized"))?[term_id];
+        self.write_prox(
+          term_id,
+          delta,
+          field_state,
+          attribute_source,
+          int_pool,
+          byte_pool,
+        )?;
+        if self.has_offsets {
+          self.write_offsets(
+            term_id,
+            field_state.offset,
+            attribute_source,
+            int_pool,
+            byte_pool,
+          )?;
         }
-      },
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "expected FreqProx posting array",
-        ));
-      },
+      }
     }
     Ok(())
   }
@@ -738,11 +698,32 @@ impl PostingsArrayBase for FreqProxPostingsArray {
   }
 }
 
-pub(crate) struct FreqProx {
-  pub(crate) index_options: IndexOptions,
-}
-impl FreqProx {
-  pub fn new(index_options: IndexOptions) -> Self {
-    FreqProx { index_options }
+impl PostingsArray for FreqProxPostingsArray {
+  fn new_for_index(size: usize, index_options: IndexOptions) -> Self {
+    let has_freq = index_options >= IndexOptions::DocsAndFreqs;
+    let has_prox = index_options >= IndexOptions::DocsAndFreqsAndPositions;
+    let has_offsets = index_options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
+    Self::new(size, has_freq, has_prox, has_offsets)
+  }
+  fn get_size(&self) -> usize {
+    self.size
+  }
+  fn get_address_offset(&self) -> &[i32] {
+    self.parent.address_offset.as_slice()
+  }
+  fn set_address_offset(&mut self, index: usize, value: i32) {
+    self.parent.address_offset[index] = value;
+  }
+  fn get_text_starts(&self) -> &[i32] {
+    self.parent.text_starts.as_slice()
+  }
+  fn set_text_starts(&mut self, index: usize, value: i32) {
+    self.parent.text_starts[index] = value;
+  }
+  fn get_byte_starts(&self) -> &[i32] {
+    self.parent.byte_starts.as_slice()
+  }
+  fn set_byte_starts(&mut self, index: usize, value: i32) {
+    self.parent.byte_starts[index] = value;
   }
 }

@@ -19,7 +19,6 @@ use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::parallel_postings_array::PostingsArrayEnum;
 use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::core::index::terms_hash_per_field::TermsHashPerField;
 use crate::core::util::error::lucene_error::LuceneError;
@@ -43,20 +42,16 @@ impl TermsHashPerFieldMock {
     base: &mut TermsHashPerField,
   ) -> crate::core::util::error::lucene_error::Result<()> {
     self.new_called.fetch_add(1, Ordering::SeqCst);
-    match base.postings_array_mut().unwrap() {
-      PostingsArrayEnum::FreqProx(f) => {
-        f.last_doc_ids[term_id] = doc_id;
-        f.last_doc_codes[term_id] = doc_id << 1;
-        match &mut f.term_freqs {
-          Some(term_freqs) => {
-            term_freqs[term_id] = 1;
-          },
-          None => unreachable!(),
-        }
-        Ok(())
+    let f = base.postings_array_mut().unwrap();
+    f.last_doc_ids[term_id] = doc_id;
+    f.last_doc_codes[term_id] = doc_id << 1;
+    match &mut f.term_freqs {
+      Some(term_freqs) => {
+        term_freqs[term_id] = 1;
       },
-      _ => unreachable!(),
+      None => unreachable!(),
     }
+    Ok(())
   }
 
   pub(crate) fn add_term(
@@ -70,38 +65,34 @@ impl TermsHashPerFieldMock {
     self.add_called.fetch_add(1, Ordering::SeqCst);
     let mut v = Vec::new();
     let mut need_write = false;
-    match base.postings_array_mut().unwrap() {
-      PostingsArrayEnum::FreqProx(postings) => {
-        if doc_id != postings.last_doc_ids[term_id] {
-          match &mut postings.term_freqs {
-            Some(term_freqs) => {
-              need_write = true;
-              if 1 == term_freqs[term_id] {
-                v.push(postings.last_doc_codes[term_id] | 1);
-              } else {
-                v.push(postings.last_doc_codes[term_id]);
-                v.push(term_freqs[term_id]);
-              }
-              term_freqs[term_id] = 1;
-            },
-            None => unreachable!(),
+    let postings = base.postings_array_mut().unwrap();
+    if doc_id != postings.last_doc_ids[term_id] {
+      match &mut postings.term_freqs {
+        Some(term_freqs) => {
+          need_write = true;
+          if 1 == term_freqs[term_id] {
+            v.push(postings.last_doc_codes[term_id] | 1);
+          } else {
+            v.push(postings.last_doc_codes[term_id]);
+            v.push(term_freqs[term_id]);
           }
-          postings.last_doc_codes[term_id] = (doc_id - postings.last_doc_ids[term_id]) << 1;
-          postings.last_doc_ids[term_id] = doc_id;
-        } else {
-          match &mut postings.term_freqs {
-            Some(term_freqs) => {
-              let value = term_freqs[term_id] as i64 + 1;
-              if value > i32::MAX as i64 {
-                return Err(LuceneError::number_overflow("term_freqs"));
-              }
-              term_freqs[term_id] += 1;
-            },
-            None => unreachable!(),
+          term_freqs[term_id] = 1;
+        },
+        None => unreachable!(),
+      }
+      postings.last_doc_codes[term_id] = (doc_id - postings.last_doc_ids[term_id]) << 1;
+      postings.last_doc_ids[term_id] = doc_id;
+    } else {
+      match &mut postings.term_freqs {
+        Some(term_freqs) => {
+          let value = term_freqs[term_id] as i64 + 1;
+          if value > i32::MAX as i64 {
+            return Err(LuceneError::number_overflow("term_freqs"));
           }
-        }
-      },
-      _ => unreachable!(),
+          term_freqs[term_id] += 1;
+        },
+        None => unreachable!(),
+      }
     }
     if need_write {
       for x in v {

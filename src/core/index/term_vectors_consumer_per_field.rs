@@ -23,11 +23,11 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::parallel_postings_array::{
-  ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
+  ParallelPostingsArray, PostingsArray, PostingsArrayBase,
 };
 use crate::core::index::term_vectors_consumer::{PerFieldMeta, TermVectorsConsumer};
 use crate::core::index::terms_hash_per_field::{
-  PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
+  PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase,
 };
 use crate::core::store::directory::Directory;
 use crate::core::util::ByteBlockPool;
@@ -47,7 +47,7 @@ pub(crate) struct TermVectorsConsumerPerField {
   do_vector_payloads: bool,
   term_byte_pool: BytesRefBlockPool,
   has_payloads: bool,
-  base: TermsHashPerField,
+  base: TermsHashPerField<TermVectorsPostingsArray>,
 }
 impl TermVectorsConsumerPerField {
   pub(crate) fn new<D>(
@@ -57,7 +57,7 @@ impl TermVectorsConsumerPerField {
   where
     D: Directory,
   {
-    let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::TermVectors);
+    let postings_array_wrapper = PostingsArrayWrapper::new(field_info.index_options);
     let base = TermsHashPerField::new(
       2,
       terms_hash.base.bytes_used.clone(),
@@ -116,52 +116,47 @@ impl TermVectorsConsumerPerField {
       self.do_vector_offsets,
       self.has_payloads,
     )?;
-    let postings_array_enum = self
+    let postings = self
       .base
       .postings_array()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
-    match postings_array_enum {
-      PostingsArrayEnum::TermVectors(postings) => {
-        let mut off_reader = ByteSliceReader::new(byte_pool);
-        let mut pos_reader = ByteSliceReader::new(byte_pool);
-        for &term_id in &term_ids[..num_postings] {
-          let term_id = term_id as usize;
-          let freq = postings.freqs[term_id];
-          let position = self
-            .term_byte_pool
-            .fill_bytes_ref(postings.parent.text_starts[term_id], term_byte_pool);
-          let block = term_byte_pool.get_buffer(position.block_index);
-          let flush_term = BytesRef {
-            bytes: &block[position.offset..position.offset + position.length],
-            offset: 0,
-            length: position.length,
-          };
-          tv.start_term(&flush_term, freq)?;
+    let mut off_reader = ByteSliceReader::new(byte_pool);
+    let mut pos_reader = ByteSliceReader::new(byte_pool);
+    for &term_id in &term_ids[..num_postings] {
+      let term_id = term_id as usize;
+      let freq = postings.freqs[term_id];
+      let position = self
+        .term_byte_pool
+        .fill_bytes_ref(postings.parent.text_starts[term_id], term_byte_pool);
+      let block = term_byte_pool.get_buffer(position.block_index);
+      let flush_term = BytesRef {
+        bytes: &block[position.offset..position.offset + position.length],
+        offset: 0,
+        length: position.length,
+      };
+      tv.start_term(&flush_term, freq)?;
 
-          if self.do_vector_positions || self.do_vector_offsets {
-            let positions = if self.do_vector_positions {
-              self
-                .base
-                .init_reader(&mut pos_reader, term_id, 0, int_pool)?;
-              Some(&mut pos_reader)
-            } else {
-              None
-            };
-            let offsets = if self.do_vector_offsets {
-              self
-                .base
-                .init_reader(&mut off_reader, term_id, 1, int_pool)?;
-              Some(&mut off_reader)
-            } else {
-              None
-            };
-            tv.add_prox(freq as usize, positions, offsets)?;
-          }
+      if self.do_vector_positions || self.do_vector_offsets {
+        let positions = if self.do_vector_positions {
+          self
+            .base
+            .init_reader(&mut pos_reader, term_id, 0, int_pool)?;
+          Some(&mut pos_reader)
+        } else {
+          None
+        };
+        let offsets = if self.do_vector_offsets {
+          self
+            .base
+            .init_reader(&mut off_reader, term_id, 1, int_pool)?;
+          Some(&mut off_reader)
+        } else {
+          None
+        };
+        tv.add_prox(freq as usize, positions, offsets)?;
+      }
 
-          tv.finish_term()?;
-        }
-      },
-      _ => return Err(LuceneError::illegal_state("Expected TermVectors postings")),
+      tv.finish_term()?;
     }
 
     tv.finish_field()?;
@@ -328,75 +323,65 @@ impl TermVectorsConsumerPerField {
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     let mut last_offset = None;
     let mut last_position = None;
-    match postings {
-      PostingsArrayEnum::TermVectors(postings) => {
-        if self.do_vector_offsets {
-          let start = attribute_source.start_offset()?;
-          let end = attribute_source.end_offset()?;
+    if self.do_vector_offsets {
+      let start = attribute_source.start_offset()?;
+      let end = attribute_source.end_offset()?;
 
-          let start_offset = field_state.offset + start;
-          let end_offset = field_state.offset + end;
+      let start_offset = field_state.offset + start;
+      let end_offset = field_state.offset + end;
 
-          self.base.write_vint(
-            1,
-            start_offset - postings.last_offsets[term_id],
+      self.base.write_vint(
+        1,
+        start_offset - postings.last_offsets[term_id],
+        int_pool,
+        byte_pool,
+      )?;
+      self
+        .base
+        .write_vint(1, end_offset - start_offset, int_pool, byte_pool)?;
+      last_offset = Some(end_offset);
+    }
+
+    if self.do_vector_positions {
+      let pos = field_state.position - postings.last_positions[term_id];
+
+      if self.do_vector_payloads
+        && let Some(payload) = attribute_source.get_payload()?
+      {
+        if payload.length > 0 {
+          self
+            .base
+            .write_vint(0, (pos << 1) | 1, int_pool, byte_pool)?;
+          self
+            .base
+            .write_vint(0, payload.length as i32, int_pool, byte_pool)?;
+          self.base.write_bytes(
+            0,
+            &payload.bytes,
+            payload.offset,
+            payload.length,
             int_pool,
             byte_pool,
           )?;
-          self
-            .base
-            .write_vint(1, end_offset - start_offset, int_pool, byte_pool)?;
-          last_offset = Some(end_offset);
+          self.has_payloads = true;
+        } else {
+          self.base.write_vint(0, pos << 1, int_pool, byte_pool)?;
         }
+      } else {
+        self.base.write_vint(0, pos << 1, int_pool, byte_pool)?;
+      }
 
-        if self.do_vector_positions {
-          let pos = field_state.position - postings.last_positions[term_id];
-
-          if self.do_vector_payloads
-            && let Some(payload) = attribute_source.get_payload()?
-          {
-            if payload.length > 0 {
-              self
-                .base
-                .write_vint(0, (pos << 1) | 1, int_pool, byte_pool)?;
-              self
-                .base
-                .write_vint(0, payload.length as i32, int_pool, byte_pool)?;
-              self.base.write_bytes(
-                0,
-                &payload.bytes,
-                payload.offset,
-                payload.length,
-                int_pool,
-                byte_pool,
-              )?;
-              self.has_payloads = true;
-            } else {
-              self.base.write_vint(0, pos << 1, int_pool, byte_pool)?;
-            }
-          } else {
-            self.base.write_vint(0, pos << 1, int_pool, byte_pool)?;
-          }
-
-          last_position = Some(field_state.position);
-        }
-      },
-      _ => return Err(LuceneError::illegal_state("Expected TermVectors postings")),
+      last_position = Some(field_state.position);
     }
     let postings = self
       .base
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
-    match postings {
-      PostingsArrayEnum::TermVectors(postings) => {
-        if let Some(offset) = last_offset {
-          postings.last_offsets[term_id] = offset;
-        }
-        if let Some(pos) = last_position {
-          postings.last_positions[term_id] = pos;
-        }
-      },
-      _ => return Err(LuceneError::illegal_state("Expected TermVectors postings")),
+    if let Some(offset) = last_offset {
+      postings.last_offsets[term_id] = offset;
+    }
+    if let Some(pos) = last_position {
+      postings.last_positions[term_id] = pos;
     }
 
     Ok(())
@@ -452,19 +437,15 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     AS: AttributeSource,
   {
     let freq = self.get_term_freq(attribute_source)?;
-    let postings_enum = self
+    let postings = self
       .base
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
-    if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
-      postings.freqs[term_id] = freq;
-      postings.last_offsets[term_id] = 0;
-      postings.last_positions[term_id] = 0;
+    postings.freqs[term_id] = freq;
+    postings.last_offsets[term_id] = 0;
+    postings.last_positions[term_id] = 0;
 
-      self.write_prox(term_id, field_state, attribute_source, int_pool, byte_pool)?;
-    } else {
-      return Err(LuceneError::illegal_state("Expected TermVectors postings"));
-    }
+    self.write_prox(term_id, field_state, attribute_source, int_pool, byte_pool)?;
     Ok(())
   }
 
@@ -481,17 +462,13 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     AS: AttributeSource,
   {
     let freq = self.get_term_freq(attribute_source)?;
-    let postings_enum = self
+    let postings = self
       .base
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
-    if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
-      postings.freqs[term_id] += freq;
-      self.write_prox(term_id, state, attribute_source, int_pool, byte_pool)?;
-    } else {
-      return Err(LuceneError::illegal_state("Expected TermVectors postings"));
-    }
+    postings.freqs[term_id] += freq;
+    self.write_prox(term_id, state, attribute_source, int_pool, byte_pool)?;
 
     Ok(())
   }
@@ -528,5 +505,32 @@ impl PostingsArrayBase for TermVectorsPostingsArray {
     ArrayUtil::grow_exact(&mut self.last_offsets, new_size, || 0)?;
     ArrayUtil::grow_exact(&mut self.last_positions, new_size, || 0)?;
     Ok(())
+  }
+}
+
+impl PostingsArray for TermVectorsPostingsArray {
+  fn new_for_index(size: usize, _index_options: IndexOptions) -> Self {
+    Self::new(size)
+  }
+  fn get_size(&self) -> usize {
+    self.size
+  }
+  fn get_address_offset(&self) -> &[i32] {
+    self.parent.address_offset.as_slice()
+  }
+  fn set_address_offset(&mut self, index: usize, value: i32) {
+    self.parent.address_offset[index] = value;
+  }
+  fn get_text_starts(&self) -> &[i32] {
+    self.parent.text_starts.as_slice()
+  }
+  fn set_text_starts(&mut self, index: usize, value: i32) {
+    self.parent.text_starts[index] = value;
+  }
+  fn get_byte_starts(&self) -> &[i32] {
+    self.parent.byte_starts.as_slice()
+  }
+  fn set_byte_starts(&mut self, index: usize, value: i32) {
+    self.parent.byte_starts[index] = value;
   }
 }

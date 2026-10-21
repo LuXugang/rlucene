@@ -17,10 +17,9 @@
 use crate::core::index::byte_slice_pool::ByteSlicePool;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::field_invert_state::FieldInvertState;
-use crate::core::index::freq_prox_terms_writer_per_field::{FreqProx, FreqProxPostingsArray};
+use crate::core::index::freq_prox_terms_writer_per_field::FreqProxPostingsArray;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::parallel_postings_array::PostingsArrayEnum;
-use crate::core::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
+use crate::core::index::parallel_postings_array::PostingsArray;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, BytesStartArray};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -41,7 +40,7 @@ use std::ops::Deref;
 /// by a [`ByteSliceReader`] for each term. Terms are first deduplicated in a
 /// [`BytesRefHash`]. Once this is done, internal data structures point to the
 /// current offset of each stream that can be written to.
-pub struct TermsHashPerField {
+pub struct TermsHashPerField<PA: PostingsArray = FreqProxPostingsArray> {
   slice_pool: ByteSlicePool,
   // for each term we store an integer per stream that points into the
   // bytePool above the address is updated once data is written to the
@@ -57,20 +56,20 @@ pub struct TermsHashPerField {
   // This stores the actual term bytes for postings and offsets into the
   // parent hash in the case that this TermsHashPerField is hashing term
   // vectors.
-  pub(crate) bytes_hash: BytesRefHash<PostingsBytesStartArray>,
+  pub(crate) bytes_hash: BytesRefHash<PostingsBytesStartArray<PA>>,
   // Sorted term IDs stay in bytes_hash.ids; track whether they are available separately.
   #[cfg(debug_assertions)]
   is_sorted: bool,
   last_doc_id: i32, // only used with debug/asserts
   pub(crate) index_options: IndexOptions,
 }
-impl TermsHashPerField {
+impl<PA: PostingsArray> TermsHashPerField<PA> {
   ///  streamCount: how many streams this field stores per term. E.g.
   /// doc(+freq) is 1 stream, prox+offset is a second.
   pub(crate) fn new(
     stream_count: i32,
     bytes_used: SharedCounter,
-    postings_array_wrapper: PostingsArrayWrapper,
+    postings_array_wrapper: PostingsArrayWrapper<PA>,
     index_options: IndexOptions,
   ) -> Result<Self> {
     debug_assert!(index_options != IndexOptions::None);
@@ -240,7 +239,7 @@ impl TermsHashPerField {
     self.bytes_hash.size()
   }
 
-  pub(crate) fn postings_array(&self) -> Option<&PostingsArrayEnum> {
+  pub(crate) fn postings_array(&self) -> Option<&PA> {
     self
       .bytes_hash
       .bytes_start_array
@@ -249,7 +248,7 @@ impl TermsHashPerField {
       .as_ref()
   }
 
-  pub(crate) fn postings_array_mut(&mut self) -> Option<&mut PostingsArrayEnum> {
+  pub(crate) fn postings_array_mut(&mut self) -> Option<&mut PA> {
     self
       .bytes_hash
       .bytes_start_array
@@ -388,42 +387,35 @@ pub(crate) trait TermsHashPerFieldBase {
   fn new_postings_array(&mut self) -> Result<()> {
     Err(LuceneError::not_implemented("should nerve called"))
   }
-  /// Creates a new postings array of the specified size.
-  #[allow(dead_code)]
-  fn create_postings_array(&self, _size: i32) -> Result<PostingsArrayEnum> {
-    Err(LuceneError::not_implemented(
-      "should nerve called".to_string(),
-    ))
-  }
 }
-pub(crate) struct PostingsArrayWrapper {
-  pub(crate) postings_array: Option<PostingsArrayEnum>,
-  pub(crate) terms_hash_per_field_type: TermsHashPerFieldType,
+pub(crate) struct PostingsArrayWrapper<PA: PostingsArray> {
+  pub(crate) postings_array: Option<PA>,
+  pub(crate) index_options: IndexOptions,
 }
 
-impl PostingsArrayWrapper {
-  pub fn new(terms_hash_per_field_type: TermsHashPerFieldType) -> Self {
+impl<PA: PostingsArray> PostingsArrayWrapper<PA> {
+  pub fn new(index_options: IndexOptions) -> Self {
     Self {
       postings_array: None,
-      terms_hash_per_field_type,
+      index_options,
     }
   }
 }
 
-pub(crate) struct PostingsBytesStartArray {
-  pub(crate) per_field: PostingsArrayWrapper,
+pub(crate) struct PostingsBytesStartArray<PA: PostingsArray> {
+  pub(crate) per_field: PostingsArrayWrapper<PA>,
   bytes_used: SharedCounter,
 }
 
-impl PostingsBytesStartArray {
-  pub(crate) fn new(per_field: PostingsArrayWrapper, bytes_used: SharedCounter) -> Self {
+impl<PA: PostingsArray> PostingsBytesStartArray<PA> {
+  pub(crate) fn new(per_field: PostingsArrayWrapper<PA>, bytes_used: SharedCounter) -> Self {
     Self {
       per_field,
       bytes_used,
     }
   }
 
-  fn postings_array(&self) -> Result<&PostingsArrayEnum> {
+  fn postings_array(&self) -> Result<&PA> {
     debug_assert!(self.per_field.postings_array.is_some());
     self
       .per_field
@@ -432,7 +424,7 @@ impl PostingsBytesStartArray {
       .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))
   }
 
-  fn postings_array_mut(&mut self) -> Result<&mut PostingsArrayEnum> {
+  fn postings_array_mut(&mut self) -> Result<&mut PA> {
     debug_assert!(self.per_field.postings_array.is_some());
     self
       .per_field
@@ -441,11 +433,10 @@ impl PostingsBytesStartArray {
       .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))
   }
 }
-impl BytesStartArray for PostingsBytesStartArray {
+impl<PA: PostingsArray> BytesStartArray for PostingsBytesStartArray<PA> {
   fn init(&mut self) -> Result<()> {
     if self.per_field.postings_array.is_none() {
-      self.per_field.postings_array =
-        Option::from(self.per_field.terms_hash_per_field_type.new_per_field(2));
+      self.per_field.postings_array = Some(PA::new_for_index(2, self.per_field.index_options));
       if let Some(ref mut postings_array) = self.per_field.postings_array {
         let byte_used = postings_array.bytes_per_posting() * postings_array.get_size();
         let _ = self.bytes_used.add_and_get(byte_used as i64);
@@ -512,30 +503,6 @@ impl BytesStartArray for PostingsBytesStartArray {
     match self.per_field.postings_array.as_ref() {
       Some(postings_array) => Ok(size_of_slice(postings_array.get_text_starts())),
       None => Ok(0),
-    }
-  }
-}
-pub(crate) enum TermsHashPerFieldType {
-  TermVectors,
-  FreqProx(FreqProx),
-}
-impl TermsHashPerFieldType {
-  pub(crate) fn new_per_field(&self, size: usize) -> PostingsArrayEnum {
-    match self {
-      TermsHashPerFieldType::TermVectors => {
-        PostingsArrayEnum::TermVectors(TermVectorsPostingsArray::new(size))
-      },
-      TermsHashPerFieldType::FreqProx(f) => {
-        let has_freq = f.index_options >= IndexOptions::DocsAndFreqs;
-        let has_prox = f.index_options >= IndexOptions::DocsAndFreqsAndPositions;
-        let has_offsets = f.index_options >= IndexOptions::DocsAndFreqsAndPositionsAndOffsets;
-        PostingsArrayEnum::FreqProx(FreqProxPostingsArray::new(
-          size,
-          has_freq,
-          has_prox,
-          has_offsets,
-        ))
-      },
     }
   }
 }

@@ -25,7 +25,6 @@ use crate::core::document::stored_field::StoredField;
 use crate::core::index::BytesRef;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::indexing_chain::IntBlockAllocator;
-use crate::core::index::parallel_postings_array::PostingsArrayEnum;
 use crate::core::index::terms_hash_per_field::TermsHashPerField;
 use crate::core::store::DataInput;
 
@@ -247,10 +246,7 @@ fn test_add_and_update_term() -> Result<()> {
   let mut reader = ByteSliceReader::new(&byte_pool);
   base.base.init_reader(&mut reader, 0, 0, &int_pool)?;
 
-  let postings_array = match base.base.postings_array() {
-    Some(PostingsArrayEnum::FreqProx(postings_array)) => postings_array,
-    _ => unreachable!(),
-  };
+  let postings_array = base.base.postings_array().unwrap();
 
   assert!(assert_doc_and_freq(
     &mut reader,
@@ -430,10 +426,7 @@ fn test_add_and_update_random() -> Result<()> {
   values.shuffle(&mut random);
   let mut reader = ByteSliceReader::new(&byte_pool);
 
-  let postings_array = match base.base.postings_array() {
-    Some(PostingsArrayEnum::FreqProx(postings_array)) => postings_array,
-    _ => unreachable!(),
-  };
+  let postings_array = base.base.postings_array().unwrap();
   for posting in values {
     base
       .base

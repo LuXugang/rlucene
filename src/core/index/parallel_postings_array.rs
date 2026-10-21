@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::freq_prox_terms_writer_per_field::FreqProxPostingsArray;
-use crate::core::index::term_vectors_consumer_per_field::TermVectorsPostingsArray;
+use crate::core::index::index_options::IndexOptions;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
@@ -54,76 +53,54 @@ impl PostingsArrayBase for ParallelPostingsArray {
   }
 }
 
+impl PostingsArray for ParallelPostingsArray {
+  fn new_for_index(size: usize, _index_options: IndexOptions) -> Self {
+    Self::new(size)
+  }
+  fn get_size(&self) -> usize {
+    self.size
+  }
+  fn get_address_offset(&self) -> &[i32] {
+    self.address_offset.as_slice()
+  }
+  fn set_address_offset(&mut self, index: usize, value: i32) {
+    self.address_offset[index] = value;
+  }
+  fn get_text_starts(&self) -> &[i32] {
+    self.text_starts.as_slice()
+  }
+  fn set_text_starts(&mut self, index: usize, value: i32) {
+    self.text_starts[index] = value;
+  }
+  fn get_byte_starts(&self) -> &[i32] {
+    self.byte_starts.as_slice()
+  }
+  fn set_byte_starts(&mut self, index: usize, value: i32) {
+    self.byte_starts[index] = value;
+  }
+}
+
 pub(crate) trait PostingsArrayBase {
   fn bytes_per_posting(&self) -> usize;
   #[allow(dead_code)]
   fn new_instance(&self, _size: i32) {}
   fn copy_to(&mut self, new_size: usize) -> Result<()>;
 }
-pub(crate) enum PostingsArrayEnum {
-  FreqProx(FreqProxPostingsArray),
-  TermVectors(TermVectorsPostingsArray),
-}
-impl PostingsArrayEnum {
-  pub(crate) fn bytes_per_posting(&self) -> usize {
-    match self {
-      PostingsArrayEnum::FreqProx(p) => p.bytes_per_posting(),
-      PostingsArrayEnum::TermVectors(p) => p.bytes_per_posting(),
-    }
+
+/// Concrete postings-array behavior fixed when a field's `TermsHashPerField` is created.
+/// The implementation is selected by the type parameter, not by a per-term match.
+pub(crate) trait PostingsArray: PostingsArrayBase + Sized {
+  fn new_for_index(size: usize, index_options: IndexOptions) -> Self;
+
+  fn grow(&mut self) -> Result<()> {
+    let new_size = ArrayUtil::oversize(self.get_size() + 1, self.bytes_per_posting())?;
+    self.copy_to(new_size)
   }
-  pub(crate) fn grow(&mut self) -> Result<()> {
-    let bytes_per_posting = match self {
-      PostingsArrayEnum::FreqProx(f) => f.bytes_per_posting(),
-      PostingsArrayEnum::TermVectors(t) => t.bytes_per_posting(),
-    };
-    let size = self.get_size();
-    let new_size = ArrayUtil::oversize(size + 1, bytes_per_posting)?;
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.copy_to(new_size)?,
-      PostingsArrayEnum::TermVectors(t) => t.copy_to(new_size)?,
-    };
-    Ok(())
-  }
-  pub(crate) fn get_address_offset(&self) -> &[i32] {
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.parent.address_offset.as_slice(),
-      PostingsArrayEnum::TermVectors(t) => t.parent.address_offset.as_slice(),
-    }
-  }
-  pub(crate) fn set_address_offset(&mut self, index: usize, value: i32) {
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.parent.address_offset[index] = value,
-      PostingsArrayEnum::TermVectors(t) => t.parent.address_offset[index] = value,
-    }
-  }
-  pub(crate) fn get_text_starts(&self) -> &[i32] {
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.parent.text_starts.as_slice(),
-      PostingsArrayEnum::TermVectors(t) => t.parent.text_starts.as_slice(),
-    }
-  }
-  pub(crate) fn set_text_starts(&mut self, index: usize, value: i32) {
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.parent.text_starts[index] = value,
-      PostingsArrayEnum::TermVectors(t) => t.parent.text_starts[index] = value,
-    }
-  }
-  pub(crate) fn get_byte_starts(&self) -> &[i32] {
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.parent.byte_starts.as_slice(),
-      PostingsArrayEnum::TermVectors(t) => t.parent.byte_starts.as_slice(),
-    }
-  }
-  pub(crate) fn set_byte_starts(&mut self, index: usize, value: i32) {
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.parent.byte_starts[index] = value,
-      PostingsArrayEnum::TermVectors(t) => t.parent.byte_starts[index] = value,
-    }
-  }
-  pub(crate) fn get_size(&self) -> usize {
-    match self {
-      PostingsArrayEnum::FreqProx(f) => f.size,
-      PostingsArrayEnum::TermVectors(t) => t.size,
-    }
-  }
+  fn get_size(&self) -> usize;
+  fn get_address_offset(&self) -> &[i32];
+  fn set_address_offset(&mut self, index: usize, value: i32);
+  fn get_text_starts(&self) -> &[i32];
+  fn set_text_starts(&mut self, index: usize, value: i32);
+  fn get_byte_starts(&self) -> &[i32];
+  fn set_byte_starts(&mut self, index: usize, value: i32);
 }

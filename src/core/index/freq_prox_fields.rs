@@ -24,7 +24,6 @@ use crate::core::index::fields::Fields;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::parallel_postings_array::PostingsArrayEnum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::postings_enum::{
   FREQS, OFFSETS, POSITIONS, PostingsEnumEnum2, feature_requested,
@@ -280,7 +279,7 @@ impl BytesRefIterator for FreqProxTermsEnum {
 
     let postings_array_enum = self.terms.base.postings_array();
 
-    let Some(PostingsArrayEnum::FreqProx(p)) = postings_array_enum else {
+    let Some(p) = postings_array_enum else {
       return Err(LuceneError::illegal_state(
         "Expected FreqProx postings array",
       ));
@@ -333,10 +332,6 @@ impl TermsEnum for FreqProxTermsEnum {
     let postings_array_enum = self.terms.base.postings_array();
     let Some(postings_array) = postings_array_enum else {
       return Err(LuceneError::illegal_state("Postings array is none"));
-    };
-
-    let PostingsArrayEnum::FreqProx(postings_array) = postings_array else {
-      return Err(LuceneError::illegal_state("Unexpected postings array type"));
     };
 
     let sorted_term_ids = self.terms.base.get_sorted_term_ids();
@@ -405,7 +400,7 @@ impl TermsEnum for FreqProxTermsEnum {
 
     let postings_array_enum = self.terms.base.postings_array();
 
-    let Some(PostingsArrayEnum::FreqProx(p)) = postings_array_enum else {
+    let Some(p) = postings_array_enum else {
       return Err(LuceneError::illegal_state(
         "Expected FreqProx postings array",
       ));
@@ -596,9 +591,7 @@ impl DocIdSetIterator for FreqProxDocsEnum {
             return Err(LuceneError::illegal_state("Postings array is none"));
           };
 
-          let PostingsArrayEnum::FreqProx(p) = postings_array else {
-            return Err(LuceneError::illegal_state("Unexpected postings array type"));
-          };
+          let p = postings_array;
           let term_id = self
             .term_id
             .ok_or_else(|| LuceneError::illegal_state("postings enum has no current term"))?;
@@ -625,7 +618,7 @@ impl DocIdSetIterator for FreqProxDocsEnum {
       }
       debug_assert!(matches!(
         self.terms.base.postings_array(),
-        Some(PostingsArrayEnum::FreqProx(p)) if self.term_id.is_some_and(|term_id| self.doc_id != p.last_doc_ids[term_id])
+        Some(p) if self.term_id.is_some_and(|term_id| self.doc_id != p.last_doc_ids[term_id])
       ));
     }
 
@@ -758,9 +751,7 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
             return Err(LuceneError::illegal_state("Postings array is none"));
           };
 
-          let PostingsArrayEnum::FreqProx(p) = postings_array else {
-            return Err(LuceneError::illegal_state("Unexpected postings array type"));
-          };
+          let p = postings_array;
 
           self.doc_id = p.last_doc_ids[self.term_id];
           self.freq = p
@@ -779,7 +770,7 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
       }
       debug_assert!(matches!(
         self.terms.base.postings_array(),
-        Some(PostingsArrayEnum::FreqProx(p)) if self.doc_id != p.last_doc_ids[self.term_id]
+        Some(p) if self.doc_id != p.last_doc_ids[self.term_id]
       ));
     }
 
