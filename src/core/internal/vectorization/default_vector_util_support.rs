@@ -41,6 +41,21 @@ use wide::{f32x16 as FloatVector, i32x16 as IntVector};
 pub struct DefaultVectorUtilSupport;
 
 impl DefaultVectorUtilSupport {
+  fn square_distance_f32_impl(a: &[f32], b: &[f32]) -> f32 {
+    let mut i = 0;
+    let mut res = 0.0;
+    if a.len() > 2 * Self::LANES {
+      i = a.len() / Self::LANES * Self::LANES;
+      res += Self::square_distance_body(a, b, i);
+    }
+    while i < a.len() {
+      let diff = a[i] - b[i];
+      res = Self::fma_scalar(diff, diff, res);
+      i += 1;
+    }
+    res
+  }
+
   /// Compile-time vector width, not a runtime CPU capability probe.
   pub const VECTOR_BITSIZE: usize = size_of::<FloatVector>() * 8;
   const LANES: usize = Self::VECTOR_BITSIZE / 32;
@@ -567,19 +582,9 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
     res
   }
 
+  #[inline]
   fn square_distance_f32(&self, a: &[f32], b: &[f32]) -> f32 {
-    let mut i = 0;
-    let mut res = 0.0;
-    if a.len() > 2 * Self::LANES {
-      i = a.len() / Self::LANES * Self::LANES;
-      res += Self::square_distance_body(a, b, i);
-    }
-    while i < a.len() {
-      let diff = a[i] - b[i];
-      res = Self::fma_scalar(diff, diff, res);
-      i += 1;
-    }
-    res
+    Self::square_distance_f32_impl(a, b)
   }
 
   fn cosine_f32(&self, a: &[f32], b: &[f32]) -> f32 {
