@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
+use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -27,12 +28,10 @@ use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
-use crate::core::util::hnsw::hnsw_concurrent_merge_builder::ConcurrentMergeWorkerHook;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_searcher::HnswGraphSearcher;
 use crate::core::util::hnsw::hnsw_lock::HnswLock;
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
-use crate::core::util::hnsw::initialized_hnsw_graph_builder::InitializedHnswGraphBuilder;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -42,7 +41,13 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_
 use crate::core::util::splittable_random::SplittableRandom;
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
-pub struct HnswGraphBuilder<B, S, BS, const DEFAULT_SEARCHER: bool = true> {
+pub struct HnswGraphBuilder<
+  B,
+  S,
+  BS,
+  const DEFAULT_SEARCHER: bool = true,
+  Hook = HnswGraphBuilderDefaults,
+> {
   m: usize,
   ml: f64,
   random: SplittableRandom,
@@ -54,23 +59,18 @@ pub struct HnswGraphBuilder<B, S, BS, const DEFAULT_SEARCHER: bool = true> {
   hnsw_lock: Option<HnswLock>,
   info_stream: InfoStreamMT,
   frozen: bool,
-  hook: HnswGraphBuilderHook<B>,
+  pub(super) hook: Hook,
+  _bits: PhantomData<B>,
 }
 
-#[derive(Default)]
-pub(crate) enum HnswGraphBuilderHook<B> {
-  #[default]
-  Default,
-  Initialized(InitializedHnswGraphBuilder<B>),
-  Concurrent(ConcurrentMergeWorkerHook),
-}
+/// Default node insertion, corresponding to Java's base HnswGraphBuilder.
+pub struct HnswGraphBuilderDefaults;
 
-pub(crate) struct HnswGraphBuilderDefaults;
-
-impl<B, S> HnswGraphBuilder<B, S, FixedBitSet>
+impl<B, S, Hook> HnswGraphBuilder<B, S, FixedBitSet, true, Hook>
 where
   S: RandomVectorScorerSupplier,
   B: Bits,
+  Hook: HnswGraphBuilderBase<B, S, FixedBitSet, true>,
 {
   /// Reads all the vectors from vector values, builds a graph connecting them
   /// by their dense ordinals, using the given hyperparameter settings,
@@ -93,7 +93,7 @@ where
     beam_width: usize,
     random: u64,
     graph_size: i32,
-    hook: HnswGraphBuilderHook<B>,
+    hook: Hook,
   ) -> Result<Self> {
     Self::from_hnsw(
       scorer_supplier,
@@ -111,7 +111,7 @@ where
     beam_width: usize,
     random: u64,
     hnsw: OnHeapHnswGraph,
-    hook: HnswGraphBuilderHook<B>,
+    hook: Hook,
   ) -> Result<Self> {
     let size = hnsw.size();
     let searcher = HnswGraphSearcher::new(
@@ -130,10 +130,12 @@ where
     )
   }
 }
-impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>
+impl<B, S, BS, const DEFAULT_SEARCHER: bool, Hook>
+  HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER, Hook>
 where
   S: RandomVectorScorerSupplier,
   BS: BitSet,
+  Hook: HnswGraphBuilderBase<B, S, BS, DEFAULT_SEARCHER>,
   B: Bits,
 {
   /// Reads all the vectors from vector values, builds a graph connecting them
@@ -160,7 +162,7 @@ where
     hnsw: Arc<OnHeapHnswGraph>,
     hnsw_lock: Option<HnswLock>,
     graph_searcher: HnswGraphSearcher<BS, DEFAULT_SEARCHER>,
-    hook: HnswGraphBuilderHook<B>,
+    hook: Hook,
   ) -> Result<Self> {
     if m == 0 {
       return Err(LuceneError::illegal_argument(
@@ -188,6 +190,7 @@ where
       info_stream: get_default_info_stream(),
       frozen: false,
       hook,
+      _bits: PhantomData,
     })
   }
   /// add vectors in range [minOrd, maxOrd)
@@ -424,11 +427,12 @@ where
   }
 }
 
-impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswBuilder
-  for HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>
+impl<B, S, BS, const DEFAULT_SEARCHER: bool, Hook> HnswBuilder
+  for HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER, Hook>
 where
   S: RandomVectorScorerSupplier,
   BS: BitSet,
+  Hook: HnswGraphBuilderBase<B, S, BS, DEFAULT_SEARCHER>,
   B: Bits,
 {
   fn build(&mut self, max_ord: usize) -> Result<&mut OnHeapHnswGraph> {
@@ -450,10 +454,7 @@ where
   }
 
   fn add_graph_node(&mut self, node: usize) -> Result<()> {
-    let mut hook = std::mem::take(&mut self.hook);
-    let result = hook.add_graph_node(self, node);
-    self.hook = hook;
-    result
+    Hook::add_graph_node(self, node)
   }
 
   fn set_info_stream(&mut self, info_stream: InfoStreamMT) {
@@ -628,14 +629,15 @@ impl HnswGraphBuilderDefaults {
     }
   }
 
-  pub(crate) fn add_graph_node<B, S, BS, const DEFAULT_SEARCHER: bool>(
-    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
+  pub(crate) fn add_graph_node<B, S, BS, const DEFAULT_SEARCHER: bool, Hook>(
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER, Hook>,
     node: usize,
   ) -> Result<()>
   where
     B: Bits,
     S: RandomVectorScorerSupplier,
     BS: BitSet,
+    Hook: HnswGraphBuilderBase<B, S, BS, DEFAULT_SEARCHER>,
   {
     /*
     Note: this implementation is thread safe when graph size is fixed (e.g. when merging)
@@ -784,36 +786,32 @@ impl HnswGraphBuilderDefaults {
   }
 }
 
-pub(crate) trait HnswGraphBuilderBase<B, S, BS, const DEFAULT_SEARCHER: bool>
+/// Node insertion behavior selected by the existing Java builder class.
+pub trait HnswGraphBuilderBase<B, S, BS, const DEFAULT_SEARCHER: bool>: Sized
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
   BS: BitSet,
 {
   fn add_graph_node(
-    &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER, Self>,
     node: usize,
   ) -> Result<()>;
 }
 
 impl<B, S, BS, const DEFAULT_SEARCHER: bool> HnswGraphBuilderBase<B, S, BS, DEFAULT_SEARCHER>
-  for HnswGraphBuilderHook<B>
+  for HnswGraphBuilderDefaults
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
   BS: BitSet,
 {
+  #[inline]
   fn add_graph_node(
-    &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER, Self>,
     node: usize,
   ) -> Result<()> {
-    match self {
-      Self::Default => HnswGraphBuilderDefaults::add_graph_node(builder, node),
-      Self::Initialized(hook) => hook.add_graph_node(builder, node),
-      Self::Concurrent(hook) => hook.add_graph_node(builder, node),
-    }
+    HnswGraphBuilderDefaults::add_graph_node(builder, node)
   }
 }
 
@@ -960,7 +958,7 @@ where
     beam_width,
     random,
     -1,
-    HnswGraphBuilderHook::Default,
+    HnswGraphBuilderDefaults,
   )
 }
 
@@ -982,7 +980,7 @@ where
     beam_width,
     random,
     graph_size,
-    HnswGraphBuilderHook::Default,
+    HnswGraphBuilderDefaults,
   )
 }
 pub type DefaultHnswGraphBuilder<S> = HnswGraphBuilder<MatchNoBits, S, FixedBitSet>;

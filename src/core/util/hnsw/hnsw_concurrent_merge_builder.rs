@@ -26,8 +26,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::{
-  HNSW_COMPONENT, HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderDefaults,
-  HnswGraphBuilderHook, rand_seed,
+  HNSW_COMPONENT, HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderDefaults, rand_seed,
 };
 use crate::core::util::hnsw::hnsw_graph_searcher::{HnswGraphSearcher, HnswGraphSearcherHook};
 use crate::core::util::hnsw::hnsw_lock::HnswLock;
@@ -185,11 +184,10 @@ where
   BS: BitSet,
 {
   fn add_graph_node(
-    &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER, Self>,
     node: usize,
   ) -> Result<()> {
-    if let Some(initialized_nodes) = self.initialized_nodes.as_ref()
+    if let Some(initialized_nodes) = builder.hook.initialized_nodes.as_ref()
       && initialized_nodes.get(node)?
     {
       return Ok(());
@@ -199,7 +197,7 @@ where
 }
 
 struct ConcurrentMergeWorker<S> {
-  base: HnswGraphBuilder<MatchNoBits, S, FixedBitSet, false>,
+  base: HnswGraphBuilder<MatchNoBits, S, FixedBitSet, false, ConcurrentMergeWorkerHook>,
   work_progress: Arc<AtomicUsize>,
   batch_size: usize,
 }
@@ -227,7 +225,7 @@ where
       FixedBitSet::new(graph_size),
       HnswGraphSearcherHook::Merge(MergeSearcher::new(hnsw_lock.clone())),
     );
-    let hook = HnswGraphBuilderHook::Concurrent(ConcurrentMergeWorkerHook { initialized_nodes });
+    let hook = ConcurrentMergeWorkerHook { initialized_nodes };
     let mut builder = HnswGraphBuilder::new(
       scorer_supplier,
       m,

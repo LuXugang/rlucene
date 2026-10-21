@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::{
-  HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderDefaults, HnswGraphBuilderHook,
+  HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderDefaults,
 };
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
@@ -37,12 +37,12 @@ pub fn new<B, S>(
   random: u64,
   hnsw: OnHeapHnswGraph,
   initialized_nodes: B,
-) -> Result<HnswGraphBuilder<B, S, FixedBitSet>>
+) -> Result<HnswGraphBuilder<B, S, FixedBitSet, true, InitializedHnswGraphBuilder<B>>>
 where
   B: Bits,
   S: RandomVectorScorerSupplier,
 {
-  let hook = HnswGraphBuilderHook::Initialized(InitializedHnswGraphBuilder { initialized_nodes });
+  let hook = InitializedHnswGraphBuilder { initialized_nodes };
   let base = HnswGraphBuilder::from_hnsw(scorer_supplier, m, beam_width, random, hnsw, hook)?;
   Ok(base)
 }
@@ -54,11 +54,10 @@ where
   BS: BitSet,
 {
   fn add_graph_node(
-    &mut self,
-    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER>,
+    builder: &mut HnswGraphBuilder<B, S, BS, DEFAULT_SEARCHER, Self>,
     node: usize,
   ) -> Result<()> {
-    if self.initialized_nodes.get(node)? {
+    if builder.hook.initialized_nodes.get(node)? {
       return Ok(());
     }
     HnswGraphBuilderDefaults::add_graph_node(builder, node)
@@ -95,7 +94,7 @@ pub fn from_graph<B, S, G>(
   new_ord_map: &[usize],
   initialized_nodes: B,
   total_number_of_vectors: i32,
-) -> Result<HnswGraphBuilder<B, S, FixedBitSet>>
+) -> Result<HnswGraphBuilder<B, S, FixedBitSet, true, InitializedHnswGraphBuilder<B>>>
 where
   G: HnswGraph,
   B: Bits,
