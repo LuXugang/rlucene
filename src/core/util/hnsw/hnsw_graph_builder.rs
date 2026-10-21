@@ -606,6 +606,7 @@ impl HnswGraphBuilderDefaults {
   /// # Returns
   ///
   /// Whether the candidate is diverse given the existing neighbors.
+  #[inline]
   fn diversity_check<T>(score: f32, scorer: &mut T, neighbors: &NeighborArray<true>) -> Result<bool>
   where
     T: RandomVectorScorer,

@@ -252,19 +252,15 @@ where
 
     match (&self.vectors1, &self.vectors2) {
       (Some(v1), Some(v2)) => {
-        let ord_vector = v1.vector_value(self.ord)?;
-        let node_vector = v2.vector_value(node)?;
-        self
-          .similarity_function
-          .compare_u8(ord_vector.as_ref(), node_vector.as_ref())
+        score_byte_vectors(*v1, *v2, &self.similarity_function, self.ord, node)
       },
-      (None, None) => {
-        let ord_vector = self.vectors.vector_value(self.ord)?;
-        let node_vector = self.vectors.vector_value(node)?;
-        self
-          .similarity_function
-          .compare_u8(ord_vector.as_ref(), node_vector.as_ref())
-      },
+      (None, None) => score_byte_vectors(
+        self.vectors,
+        self.vectors,
+        &self.similarity_function,
+        self.ord,
+        node,
+      ),
       _ => Err(LuceneError::illegal_state("should not here")),
     }
   }
@@ -392,19 +388,15 @@ where
 
     match (&self.vectors1, &self.vectors2) {
       (Some(v1), Some(v2)) => {
-        let ord_vector = v1.vector_value(self.ord)?;
-        let node_vector = v2.vector_value(node)?;
-        self
-          .similarity_function
-          .compare_f32(ord_vector.as_ref(), node_vector.as_ref())
+        score_float_vectors(*v1, *v2, &self.similarity_function, self.ord, node)
       },
-      (None, None) => {
-        let ord_vector = self.vectors.vector_value(self.ord)?;
-        let node_vector = self.vectors.vector_value(node)?;
-        self
-          .similarity_function
-          .compare_f32(ord_vector.as_ref(), node_vector.as_ref())
-      },
+      (None, None) => score_float_vectors(
+        self.vectors,
+        self.vectors,
+        &self.similarity_function,
+        self.ord,
+        node,
+      ),
       _ => Err(LuceneError::illegal_state("should not here")),
     }
   }
@@ -429,6 +421,30 @@ where
   {
     Ok(self.vectors.get_accept_ords(accept_docs))
   }
+}
+
+fn score_float_vectors<FV: FloatVectorValues, Sim: VectorSimilarity>(
+  vectors1: &FV,
+  vectors2: &FV,
+  similarity: &Sim,
+  ord: usize,
+  node: usize,
+) -> Result<f32> {
+  let ord_vector = vectors1.vector_value(ord)?;
+  let node_vector = vectors2.vector_value(node)?;
+  similarity.compare_f32(ord_vector.as_ref(), node_vector.as_ref())
+}
+
+fn score_byte_vectors<BV: ByteVectorValues, Sim: VectorSimilarity>(
+  vectors1: &BV,
+  vectors2: &BV,
+  similarity: &Sim,
+  ord: usize,
+  node: usize,
+) -> Result<f32> {
+  let ord_vector = vectors1.vector_value(ord)?;
+  let node_vector = vectors2.vector_value(node)?;
+  similarity.compare_u8(ord_vector.as_ref(), node_vector.as_ref())
 }
 
 pub struct FloatVectorScorer<FV, Sim: VectorSimilarity = VectorSimilarityFunction> {
