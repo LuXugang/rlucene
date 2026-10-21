@@ -19,7 +19,6 @@ use std::fmt;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use std::sync::LazyLock;
 
 use crate::core::codecs::Codecs;
 use crate::core::codecs::codec;
@@ -48,7 +47,7 @@ use crate::test_framework::core::util::failure_context::{
 use num_bigint::BigInt;
 use std::io::{Error, ErrorKind, Write};
 
-static INFO_STREAM: LazyLock<Mutex<Option<OutputEnum>>> = LazyLock::new(|| Mutex::new(None));
+static INFO_STREAM: Mutex<Option<OutputEnum>> = Mutex::new(None);
 
 /// A collection of [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo) objects with methods for operating on those
 /// segments in relation to the file system.

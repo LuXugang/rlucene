@@ -375,12 +375,12 @@ impl UTF8Sequence {
   }
 }
 
-use std::sync::LazyLock;
-
-static MASKS: LazyLock<[u8; 8]> = LazyLock::new(|| {
+static MASKS: [u8; 8] = {
   let mut masks = [0u8; 8];
-  for i in 0..7 {
+  let mut i = 0;
+  while i < 7 {
     masks[i + 1] = ((2 << i) - 1) as u8;
+    i += 1;
   }
   masks
-});
+};

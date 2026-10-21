@@ -19,7 +19,7 @@ use crate::core::geo::component2d::{
   Component2D, Component2DEnum2, WithinRelation, contains_point, disjoint, point_in_triangle,
   within,
 };
-use crate::core::geo::geo_encoding_utils::{GeoEncodingUtils, MAX_LON_ENCODED, MIN_LON_ENCODED};
+use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
 use crate::core::geo::xy_rectangle::XYRectangle;
@@ -29,7 +29,6 @@ use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::sync::LazyLock;
 
 /// 2D rectangle implementation containing cartesian spatial logic.
 #[derive(Debug)]
@@ -320,11 +319,12 @@ impl std::hash::Hash for Rectangle2D {
     (BitUtil::double_to_long_bits(self.max_y) as u64).hash(state);
   }
 }
-static MIN_LON_INCL_QUANTIZE: LazyLock<f64> =
-  LazyLock::new(|| GeoEncodingUtils::decode_longitude(*MIN_LON_ENCODED));
-
-static MAX_LON_INCL_QUANTIZE: LazyLock<f64> =
-  LazyLock::new(|| GeoEncodingUtils::decode_longitude(*MAX_LON_ENCODED));
+// Encoding the fixed longitude endpoints yields i32::MIN/MAX. Preserve the
+// decoder's multiplication by the reciprocal scale, including its rounding.
+const MIN_LON_INCL_QUANTIZE: f64 =
+  i32::MIN as f64 * (1.0 / ((1u64 << GeoEncodingUtils::BITS) as f64 / 360.0));
+const MAX_LON_INCL_QUANTIZE: f64 =
+  i32::MAX as f64 * (1.0 / ((1u64 << GeoEncodingUtils::BITS) as f64 / 360.0));
 pub(crate) fn create_from_xy_rectangle(rectangle: &XYRectangle) -> Rectangle2D {
   Rectangle2D::new(
     rectangle.min_x as f64,
@@ -354,8 +354,8 @@ pub(crate) fn create_from_rectangle(rectangle: &Rectangle) -> Result<Rectangle2D
 
   if crosses_dateline {
     let components = [
-      Rectangle2D::new(*MIN_LON_INCL_QUANTIZE, q_max_lon, q_min_lat, q_max_lat),
-      Rectangle2D::new(q_min_lon, *MAX_LON_INCL_QUANTIZE, q_min_lat, q_max_lat),
+      Rectangle2D::new(MIN_LON_INCL_QUANTIZE, q_max_lon, q_min_lat, q_max_lat),
+      Rectangle2D::new(q_min_lon, MAX_LON_INCL_QUANTIZE, q_min_lat, q_max_lat),
     ];
     Ok(Rectangle2DType::A(create(components)?))
   } else {

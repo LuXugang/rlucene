@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::LazyLock;
-
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -139,7 +137,7 @@ impl SmallFloat {
         "Only supports positive values, got {i}"
       )));
     }
-    let num_free_values = *NUM_FREE_VALUES;
+    let num_free_values = NUM_FREE_VALUES;
     if i < num_free_values {
       Ok(i as u8)
     } else {
@@ -150,7 +148,7 @@ impl SmallFloat {
   /// Decode values that have been encoded with `int_to_byte4`.
   pub fn byte4_to_int(b: u8) -> Result<i32> {
     let i = b as i32;
-    let num_free_values = *NUM_FREE_VALUES;
+    let num_free_values = NUM_FREE_VALUES;
     if i < num_free_values {
       Ok(i)
     } else {
@@ -160,10 +158,7 @@ impl SmallFloat {
   }
 }
 
-static MAX_INT4: LazyLock<i32> = LazyLock::new(|| {
-  expect_invariant!(
-    SmallFloat::long_to_int4(i32::MAX as i64),
-    "i32::MAX is supported by the built-in small-float encoding"
-  )
-});
-static NUM_FREE_VALUES: LazyLock<i32> = LazyLock::new(|| 255 - *MAX_INT4);
+// i32::MAX has 31 significant bits, so long_to_int4 uses shift = 31 - 4.
+// Its low three encoded mantissa bits are all one; the exponent is shift + 1.
+const MAX_INT4: i32 = ((i32::BITS as i32 - 4) << 3) | 0x07;
+const NUM_FREE_VALUES: i32 = 255 - MAX_INT4;

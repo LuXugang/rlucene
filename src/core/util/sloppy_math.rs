@@ -56,24 +56,7 @@ const ASIN_QS2: f64 = f64::from_bits(0x40002AE59C598AC8);
 const ASIN_QS3: f64 = f64::from_bits(0xBFE6066C1B8D0159);
 const ASIN_QS4: f64 = f64::from_bits(0x3FB3B8C5B12E9282);
 
-static SIN_TAB: LazyLock<[f64; SIN_COS_TABS_SIZE]> = LazyLock::new(|| {
-  let mut sin_tab = [0.0; SIN_COS_TABS_SIZE];
-  let sin_cos_pi_index = (SIN_COS_TABS_SIZE - 1) / 2;
-  let sin_cos_pi_mul_2_index = 2 * sin_cos_pi_index;
-
-  for (i, value) in sin_tab.iter_mut().enumerate() {
-    let angle = (i as f64) * SIN_COS_DELTA_HI + (i as f64) * SIN_COS_DELTA_LO;
-    let mut sin_angle = angle.sin();
-    if i == sin_cos_pi_index || i == sin_cos_pi_mul_2_index {
-      sin_angle = 0.0;
-    }
-    *value = sin_angle;
-  }
-
-  sin_tab
-});
-
-static COS_TAB: LazyLock<[f64; SIN_COS_TABS_SIZE]> = LazyLock::new(|| {
+static SIN_COS_TABS: LazyLock<[[f64; SIN_COS_TABS_SIZE]; 2]> = LazyLock::new(|| {
   let mut cos_tab = [0.0; SIN_COS_TABS_SIZE];
   let sin_cos_pi_index = (SIN_COS_TABS_SIZE - 1) / 2;
   let sin_cos_pi_mul_0_5_index = sin_cos_pi_index / 2;
@@ -88,7 +71,20 @@ static COS_TAB: LazyLock<[f64; SIN_COS_TABS_SIZE]> = LazyLock::new(|| {
     *value = cos_angle;
   }
 
-  cos_tab
+  let mut sin_tab = [0.0; SIN_COS_TABS_SIZE];
+  let sin_cos_pi_index = (SIN_COS_TABS_SIZE - 1) / 2;
+  let sin_cos_pi_mul_2_index = 2 * sin_cos_pi_index;
+
+  for (i, value) in sin_tab.iter_mut().enumerate() {
+    let angle = (i as f64) * SIN_COS_DELTA_HI + (i as f64) * SIN_COS_DELTA_LO;
+    let mut sin_angle = angle.sin();
+    if i == sin_cos_pi_index || i == sin_cos_pi_mul_2_index {
+      sin_angle = 0.0;
+    }
+    *value = sin_angle;
+  }
+
+  [cos_tab, sin_tab]
 });
 
 type AsinTables = (
@@ -167,8 +163,9 @@ impl SloppyMath {
     let delta = (a - (index as f64) * SIN_COS_DELTA_HI) - (index as f64) * SIN_COS_DELTA_LO;
     index &= SIN_COS_TABS_SIZE - 2;
 
-    let index_cos = COS_TAB[index];
-    let index_sin = SIN_TAB[index];
+    let [cos_tab, sin_tab] = &*SIN_COS_TABS;
+    let index_cos = cos_tab[index];
+    let index_sin = sin_tab[index];
 
     index_cos
       + delta

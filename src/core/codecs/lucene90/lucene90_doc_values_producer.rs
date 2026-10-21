@@ -1628,6 +1628,7 @@ where
         "target must be bigger than current interval"
       );
 
+      let jump_lengths = &*SKIP_INDEX_JUMP_LENGTH_PER_LEVEL;
       loop {
         self.levels = self.input.read_byte()? as usize;
 
@@ -1645,7 +1646,7 @@ where
           let max_doc = self.input.read_int()?;
           self.max_doc_id[level] = max_doc;
           if max_doc < target {
-            IndexInput::skip_bytes(&mut self.input, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL[level])?;
+            IndexInput::skip_bytes(&mut self.input, jump_lengths[level])?;
             valid = false;
             break;
           }
