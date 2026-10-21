@@ -71,7 +71,7 @@ impl LongHeap {
       ArrayUtil::grow_with(&mut self.heap, new_capacity, || 0)?;
     }
     self.heap[self.size] = element;
-    self.up_heap(self.size);
+    self.up_heap(self.size)?;
     Ok(self.heap[1])
   }
   /// Adds a value in O(log(n)) time. If the number of values would exceed
@@ -129,9 +129,13 @@ impl LongHeap {
   pub fn clear(&mut self) {
     self.size = 0;
   }
-  fn up_heap(&mut self, i: usize) {
-    let value = self.heap[i]; // save bottom value
-    let (mut slot, mut parents) = self.heap[..=i].split_last_mut().unwrap();
+  fn up_heap(&mut self, i: usize) -> Result<()> {
+    let (mut slot, mut parents) = self
+      .heap
+      .get_mut(..=i)
+      .and_then(|heap| heap.split_last_mut())
+      .ok_or_else(|| LuceneError::illegal_state("Heap slot is out of bounds"))?;
+    let value = *slot; // save bottom value
     while parents.len() > 1 {
       let parent_index = parents.len() >> 1;
       let (head, tail) = parents.split_at_mut(parent_index);
@@ -144,6 +148,7 @@ impl LongHeap {
       parents = head;
     }
     *slot = value;
+    Ok(())
   }
 
   fn down_heap(&mut self, mut i: usize) {
