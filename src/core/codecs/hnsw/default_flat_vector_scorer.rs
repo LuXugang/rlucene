@@ -252,12 +252,12 @@ where
 
     match (&self.vectors1, &self.vectors2) {
       (Some(v1), Some(v2)) => {
-        score_byte_vectors(*v1, *v2, &self.similarity_function, self.ord, node)
+        score_byte_vectors(*v1, *v2, self.similarity_function, self.ord, node)
       },
       (None, None) => score_byte_vectors(
         self.vectors,
         self.vectors,
-        &self.similarity_function,
+        self.similarity_function,
         self.ord,
         node,
       ),
@@ -388,12 +388,12 @@ where
 
     match (&self.vectors1, &self.vectors2) {
       (Some(v1), Some(v2)) => {
-        score_float_vectors(*v1, *v2, &self.similarity_function, self.ord, node)
+        score_float_vectors(*v1, *v2, self.similarity_function, self.ord, node)
       },
       (None, None) => score_float_vectors(
         self.vectors,
         self.vectors,
-        &self.similarity_function,
+        self.similarity_function,
         self.ord,
         node,
       ),
@@ -426,7 +426,7 @@ where
 fn score_float_vectors<FV: FloatVectorValues, Sim: VectorSimilarity>(
   vectors1: &FV,
   vectors2: &FV,
-  similarity: &Sim,
+  similarity: Sim,
   ord: usize,
   node: usize,
 ) -> Result<f32> {
@@ -438,7 +438,7 @@ fn score_float_vectors<FV: FloatVectorValues, Sim: VectorSimilarity>(
 fn score_byte_vectors<BV: ByteVectorValues, Sim: VectorSimilarity>(
   vectors1: &BV,
   vectors2: &BV,
-  similarity: &Sim,
+  similarity: Sim,
   ord: usize,
   node: usize,
 ) -> Result<f32> {
