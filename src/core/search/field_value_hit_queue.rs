@@ -37,7 +37,7 @@ pub struct FieldValueHitQueue;
 pub fn new(
   fields: &[SortFieldEnum],
   size: usize,
-) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
+) -> Result<PriorityQueue<Entry, FieldValueHitQueueComparator>> {
   let num_comparators = fields.len();
   let mut comparators = Vec::with_capacity(num_comparators);
   let mut reverse_mul = Vec::with_capacity(num_comparators);
@@ -81,7 +81,7 @@ pub fn new(
 pub fn create(
   fields: &[SortFieldEnum],
   size: usize,
-) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
+) -> Result<PriorityQueue<Entry, FieldValueHitQueueComparator>> {
   if fields.is_empty() {
     return Err(LuceneError::illegal_argument(
       "Sort must contain at least one field",
@@ -143,18 +143,18 @@ impl OneComparatorComparator {
     }
   }
 }
-impl Compare<TopFieldScoreDoc> for OneComparatorComparator {
-  fn less_than(&self, hit_a: &TopFieldScoreDoc, hit_b: &TopFieldScoreDoc) -> Result<bool> {
+impl Compare<Entry> for OneComparatorComparator {
+  fn less_than(&self, hit_a: &Entry, hit_b: &Entry) -> Result<bool> {
     debug_assert!(self.one_comparator.len() == self.one_reverse_mul.len());
-    debug_assert_ne!(hit_a.slot()?, hit_b.slot()?);
+    debug_assert_ne!(hit_a.slot, hit_b.slot);
 
-    let cmp_result = self.one_comparator[0].compare(hit_a.slot()?, hit_b.slot()?);
+    let cmp_result = self.one_comparator[0].compare(hit_a.slot, hit_b.slot);
     let c = self.one_reverse_mul[0] * cmp_result;
 
     if c != 0 {
       Ok(c > 0)
     } else {
-      Ok(hit_a.doc() > hit_b.doc())
+      Ok(hit_a.base.doc > hit_b.base.doc)
     }
   }
 }
@@ -178,32 +178,32 @@ impl MultiComparatorsComparator {
   }
 }
 
-impl Compare<TopFieldScoreDoc> for MultiComparatorsComparator {
-  fn less_than(&self, hit_a: &TopFieldScoreDoc, hit_b: &TopFieldScoreDoc) -> Result<bool> {
+impl Compare<Entry> for MultiComparatorsComparator {
+  fn less_than(&self, hit_a: &Entry, hit_b: &Entry) -> Result<bool> {
     debug_assert_eq!(
       self.comparators.len(),
       self.reverse_mul.len(),
       "comparators/reverse_mul length mismatch"
     );
-    debug_assert_ne!(hit_a.slot()?, hit_b.slot()?);
+    debug_assert_ne!(hit_a.slot, hit_b.slot);
 
     let num_comparators = self.comparators.len();
 
     for i in 0..num_comparators {
-      let cmp_result = self.comparators[i].compare(hit_a.slot()?, hit_b.slot()?);
+      let cmp_result = self.comparators[i].compare(hit_a.slot, hit_b.slot);
       let c = self.reverse_mul[i] * cmp_result;
 
       if c != 0 {
         return Ok(c > 0);
       }
     }
-    Ok(hit_a.doc() > hit_b.doc())
+    Ok(hit_a.base.doc > hit_b.base.doc)
   }
 }
 pub type FieldValueHitQueueComparator =
   CompareEnum2<OneComparatorComparator, MultiComparatorsComparator>;
 
-impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
+impl PriorityQueue<Entry, FieldValueHitQueueComparator> {
   pub fn get_leaf_comparator<LR>(
     &mut self,
     context: &LeafReaderContext<LR>,
@@ -262,24 +262,17 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
   /// # Returns
   ///
   /// The newly created [`FieldDoc`].
-  pub(crate) fn fill_fields(&self, entry: TopFieldScoreDoc) -> Result<TopFieldScoreDoc> {
-    match entry {
-      TopFieldScoreDoc::Entry(entry) => {
-        let comparators = self.get_comparators();
-        let n = comparators.len();
-        let mut fields = Vec::with_capacity(n);
-        for comp in comparators {
-          let value = comp
-            .value(entry.slot)
-            .unwrap_or_else(FieldComparatorValue::missing);
-          fields.push(value);
-        }
-        Ok(FieldDoc::with_fields(entry.base.doc, entry.base.score, fields).into())
-      },
-      _ => Err(LuceneError::illegal_state(
-        "TopFieldScoreDoc must be Entry variant in fill_fields",
-      )),
+  pub(crate) fn fill_fields(&self, entry: Entry) -> FieldDoc {
+    let comparators = self.get_comparators();
+    let n = comparators.len();
+    let mut fields = Vec::with_capacity(n);
+    for comp in comparators {
+      let value = comp
+        .value(entry.slot)
+        .unwrap_or_else(FieldComparatorValue::missing);
+      fields.push(value);
     }
+    FieldDoc::with_fields(entry.base.doc, entry.base.score, fields)
   }
 }
 

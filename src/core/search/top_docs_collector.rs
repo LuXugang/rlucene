@@ -38,7 +38,8 @@ pub static EMPTY_TOP_DOCS: LazyLock<TopDocs<ScoreDoc>> =
 /// - The associated [`TopDocs`] represents the search results (hits + metadata).
 /// - The `total_hits` counter and the [`PriorityQueue`] are the common state shared by all implementations.
 pub trait TopDocsCollector: Collector {
-  type Item: ScoreDocLike + Default;
+  /// The concrete priority-queue entry. The result type is provided by `TopDocsLike`.
+  type Item: ScoreDocLike + Default + Into<<Self::TopDocsLike as TopDocsLike>::ScoreDocLike>;
   type Cmp: Compare<Self::Item>;
   type TopDocsLike: TopDocsLike;
   fn pq(&self) -> &PriorityQueue<Self::Item, Self::Cmp>;
@@ -49,11 +50,15 @@ pub trait TopDocsCollector: Collector {
 
   /// Populates the results array with the ScoreDoc instances.
   /// This can be overridden in case a different ScoreDoc type should be returned.
-  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+  fn populate_results(
+    &mut self,
+    results: &mut [<Self::TopDocsLike as TopDocsLike>::ScoreDocLike],
+    how_many: usize,
+  ) -> Result<()> {
     let pq = self.pq_mut();
     debug_assert!(how_many <= pq.size());
     for i in (0..how_many).rev() {
-      results[i] = pq.pop_unchecked()?
+      results[i] = pq.pop_unchecked()?.into()
     }
     Ok(())
   }
@@ -65,14 +70,18 @@ pub trait TopDocsCollector: Collector {
   ///
   /// # Notes
   /// Builds top docs from a score-doc slice and a starting offset.
-  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
+  fn new_top_docs(
+    &self,
+    results: Option<Vec<<Self::TopDocsLike as TopDocsLike>::ScoreDocLike>>,
+    _start: i32,
+  ) -> Self::TopDocsLike
   where
     Self: Sized;
   fn default_new_top_docs(
     &self,
-    results: Option<Vec<Self::Item>>,
+    results: Option<Vec<<Self::TopDocsLike as TopDocsLike>::ScoreDocLike>>,
     _start: i32,
-  ) -> TopDocs<Self::Item>
+  ) -> TopDocs<<Self::TopDocsLike as TopDocsLike>::ScoreDocLike>
   where
     Self: Sized,
   {
@@ -176,7 +185,7 @@ pub trait TopDocsCollector: Collector {
     Ok(self.new_top_docs(Some(results), start))
   }
   /// This is used in case topDocs() is called with illegal parameters, or there simply aren't (enough) results.
-  fn empty_top_docs() -> TopDocs<Self::Item>
+  fn empty_top_docs() -> TopDocs<<Self::TopDocsLike as TopDocsLike>::ScoreDocLike>
   where
     Self: Sized,
   {

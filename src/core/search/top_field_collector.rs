@@ -60,7 +60,7 @@ use std::vec;
 /// See [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) for creating a
 /// [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) with support for concurrency in [`IndexSearcher`].
 pub struct TopFieldCollector {
-  base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+  base: TopDocsCollectorBase<Entry, FieldValueHitQueueComparator>,
   num_hits: usize,
   total_hits_threshold: usize,
   can_set_min_score: bool,
@@ -76,7 +76,7 @@ pub struct TopFieldCollector {
 }
 impl TopFieldCollector {
   pub fn new(
-    pq: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+    pq: PriorityQueue<Entry, FieldValueHitQueueComparator>,
     num_hits: usize,
     total_hits_threshold: usize,
     needs_scores: bool,
@@ -180,7 +180,7 @@ impl TopFieldCollector {
 
       let first_comparator = &self.base.pq.get_comparators()[0];
       let min_score = first_comparator
-        .value(bottom.slot()?)
+        .value(bottom.slot)
         .and_then(FieldComparatorValue::into_f32)
         .ok_or_else(|| LuceneError::illegal_state("first comparator is not a float"))?;
 
@@ -198,7 +198,7 @@ impl TopFieldCollector {
   }
   pub(crate) fn add(&mut self, slot: usize, doc: i32) -> Result<()> {
     let global_doc = doc + self.doc_base;
-    self.pq_mut().add(Entry::new(slot, global_doc).into())?;
+    self.pq_mut().add(Entry::new(slot, global_doc))?;
 
     // The queue is full either when total_hits == num_hits (in SimpleFieldCollector),
     // in which case slot = total_hits - 1, or when hits_collected == num_hits (in
@@ -211,13 +211,13 @@ impl TopFieldCollector {
   pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
     let global_doc = doc + self.doc_base;
     let bottom = self.bottom_mut()?;
-    bottom.score_doc_mut().doc = global_doc;
+    bottom.base.doc = global_doc;
     let pq = self.pq_mut();
     pq.update_top()?;
     Ok(())
   }
   #[inline]
-  fn bottom(&self) -> Result<&TopFieldScoreDoc> {
+  fn bottom(&self) -> Result<&Entry> {
     self
       .base
       .pq
@@ -225,7 +225,7 @@ impl TopFieldCollector {
       .ok_or_else(|| LuceneError::illegal_state("priority queue bottom missing"))
   }
   #[inline]
-  fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
+  fn bottom_mut(&mut self) -> Result<&mut Entry> {
     self
       .base
       .pq
@@ -351,7 +351,7 @@ impl Collector for TopFieldCollector {
 }
 
 impl TopDocsCollector for TopFieldCollector {
-  type Item = TopFieldScoreDoc;
+  type Item = Entry;
   type Cmp = FieldValueHitQueueComparator;
   type TopDocsLike = TopFieldDocs;
 
@@ -371,20 +371,20 @@ impl TopDocsCollector for TopFieldCollector {
     self.base.total_hits_relation
   }
 
-  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+  fn populate_results(&mut self, results: &mut [TopFieldScoreDoc], how_many: usize) -> Result<()> {
     let pq = &mut self.base.pq;
     for i in (0..how_many).rev() {
       let entry = pq.pop_unchecked()?;
-      results[i] = pq.fill_fields(entry)?;
+      results[i] = pq.fill_fields(entry).into();
     }
     Ok(())
   }
 
-  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
+  fn new_top_docs(&self, results: Option<Vec<TopFieldScoreDoc>>, _start: i32) -> Self::TopDocsLike
   where
     Self: Sized,
   {
-    let result = results.unwrap_or_else(std::vec::Vec::new);
+    let result = results.unwrap_or_default();
     // The concrete Simple/Paging collector attaches its sort fields in its result callback.
     TopFieldDocs::new(
       TotalHits::new(self.total_hits(), self.get_total_hits_relation()),
@@ -533,13 +533,13 @@ where
       let bottom = self.bottom()?;
       self
         .comparator
-        .copy(bottom.slot()?, doc, scorer, self.base.comparators_mut())?;
+        .copy(bottom.slot, doc, scorer, self.base.comparators_mut())?;
     }
     self.base.update_bottom(doc)?;
     let bottom = self.bottom()?;
     self
       .comparator
-      .set_bottom(bottom.slot()?, self.base.comparators_mut())?;
+      .set_bottom(bottom.slot, self.base.comparators_mut())?;
     self.base.update_min_competitive_score(scorer)?;
 
     Ok(())
@@ -564,13 +564,13 @@ where
       let bottom = self.bottom()?;
       self
         .comparator
-        .set_bottom(bottom.slot()?, self.base.comparators_mut())?;
+        .set_bottom(bottom.slot, self.base.comparators_mut())?;
       self.base.update_min_competitive_score(scorer)?;
     }
     Ok(())
   }
   #[inline]
-  fn bottom(&self) -> Result<&TopFieldScoreDoc> {
+  fn bottom(&self) -> Result<&Entry> {
     self.base.bottom()
   }
 }
@@ -666,7 +666,7 @@ impl SimpleFieldCollector {
 
   pub fn new(
     sort: Arc<Sort>,
-    queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+    queue: PriorityQueue<Entry, FieldValueHitQueueComparator>,
     num_hits: usize,
     total_hits_threshold: usize,
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
@@ -740,11 +740,11 @@ impl TopDocsCollector for SimpleFieldCollector {
     self.base.get_total_hits_relation()
   }
 
-  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+  fn populate_results(&mut self, results: &mut [TopFieldScoreDoc], how_many: usize) -> Result<()> {
     self.base.populate_results(results, how_many)
   }
 
-  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
+  fn new_top_docs(&self, results: Option<Vec<TopFieldScoreDoc>>, start: i32) -> Self::TopDocsLike
   where
     Self: Sized,
   {
@@ -836,7 +836,7 @@ impl PagingFieldCollector {
 
   pub fn new<A>(
     sort: Arc<Sort>,
-    queue: PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>,
+    queue: PriorityQueue<Entry, FieldValueHitQueueComparator>,
     after: A,
     num_hits: usize,
     total_hits_threshold: usize,
@@ -936,11 +936,11 @@ impl TopDocsCollector for PagingFieldCollector {
     self.base.get_total_hits_relation()
   }
 
-  fn populate_results(&mut self, results: &mut [Self::Item], how_many: usize) -> Result<()> {
+  fn populate_results(&mut self, results: &mut [TopFieldScoreDoc], how_many: usize) -> Result<()> {
     self.base.populate_results(results, how_many)
   }
 
-  fn new_top_docs(&self, results: Option<Vec<Self::Item>>, start: i32) -> Self::TopDocsLike
+  fn new_top_docs(&self, results: Option<Vec<TopFieldScoreDoc>>, start: i32) -> Self::TopDocsLike
   where
     Self: Sized,
   {
