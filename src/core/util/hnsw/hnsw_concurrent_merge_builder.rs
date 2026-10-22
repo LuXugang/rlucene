@@ -271,7 +271,7 @@ where
 /// seeking so concurrent graph modification cannot affect an active search.
 pub(crate) struct MergeSearcher {
   hnsw_lock: HnswLock,
-  node_buffer: Vec<usize>,
+  node_buffer: Vec<u32>,
   upto: usize,
 }
 
@@ -311,7 +311,7 @@ impl MergeSearcher {
     if self.upto < self.node_buffer.len() {
       let node = self.node_buffer[self.upto];
       self.upto += 1;
-      Ok(node)
+      Ok(node as usize)
     } else {
       Ok(NO_MORE_DOCS as usize)
     }

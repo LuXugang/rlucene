@@ -379,14 +379,14 @@ where
     let nnodes = neighbors.nodes_mut();
 
     for node in nnodes.iter_mut().take(size) {
-      *node = old_to_new_map[*node];
+      *node = old_to_new_map[*node as usize].try_convert()?;
     }
 
     nnodes[..size].sort_unstable();
 
     for i in (1..size).rev() {
       debug_assert!(
-        nnodes[i] < max_ord,
+        (nnodes[i] as usize) < max_ord,
         "node too large: {} >= {}",
         nnodes[i],
         max_ord
@@ -438,7 +438,7 @@ where
 
         for i in (1..size).rev() {
           debug_assert!(
-            nnodes[i] < count_on_level0,
+            (nnodes[i] as usize) < count_on_level0,
             "node too large: {} >= {}",
             nnodes[i],
             count_on_level0

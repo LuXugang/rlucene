@@ -435,7 +435,7 @@ impl OnHeapHnswGraphSearcher {
       let upto = self.upto.map_or(0, |upto| upto + 1);
       self.upto = Some(upto);
       if upto < neighbors.size() {
-        Ok(neighbors.nodes()[upto])
+        Ok(neighbors.nodes()[upto] as usize)
       } else {
         Ok(NO_MORE_DOCS as usize)
       }

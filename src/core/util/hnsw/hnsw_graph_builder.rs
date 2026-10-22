@@ -515,7 +515,7 @@ impl HnswGraphBuilderDefaults {
       if !mask[i] {
         continue;
       }
-      let nbr = candidates.nodes()[i];
+      let nbr = candidates.nodes()[i] as usize;
       let score = candidates.scores()[i];
       let guard = hnsw_lock.map(|lock| lock.write(level, nbr));
       hnsw.with_neighbors_mut(level, nbr, |neighbors| {
@@ -558,7 +558,7 @@ impl HnswGraphBuilderDefaults {
         // compare each neighbor (in distance order) against the closer neighbors
         // selected so far, only adding it if it is closer to the target
         // than to any of the other selected neighbors
-        let c_node = candidates.nodes()[i];
+        let c_node = candidates.nodes()[i] as usize;
         let c_score = candidates.scores()[i];
         debug_assert!({
           match max_node_id {
@@ -613,7 +613,7 @@ impl HnswGraphBuilderDefaults {
     T: RandomVectorScorer,
   {
     for i in 0..neighbors.size() {
-      let neighbor_similarity = scorer.score(neighbors.nodes()[i])?;
+      let neighbor_similarity = scorer.score(neighbors.nodes()[i] as usize)?;
       if neighbor_similarity >= score {
         return Ok(false);
       }

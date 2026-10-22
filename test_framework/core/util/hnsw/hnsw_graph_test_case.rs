@@ -502,7 +502,7 @@ where
       let nnodes = neighbors.nodes();
       for &neighbor in nnodes.iter().take(neighbors.size()) {
         assert!(
-          neighbor < n_doc,
+          (neighbor as usize) < n_doc,
           "neighbor node id {neighbor} is out of range"
         );
       }
@@ -1482,7 +1482,7 @@ where
       let neighbors = graph.get_neighbors(level, new_ordinals[node])?;
       let actual_neighbors: HashSet<usize> = neighbors.nodes()[..neighbors.size()]
         .iter()
-        .copied()
+        .map(|&node| node as usize)
         .collect();
       assert_eq!(
         actual_neighbors, expected_neighbors,
@@ -1503,7 +1503,10 @@ pub fn assert_level0_neighbors(
   expected.sort_unstable();
 
   let nn = graph.get_neighbors(0, node)?;
-  let mut actual = nn.nodes()[..nn.size()].to_vec();
+  let mut actual = nn.nodes()[..nn.size()]
+    .iter()
+    .map(|&node| node as usize)
+    .collect::<Vec<_>>();
   actual.sort_unstable();
 
   assert_eq!(

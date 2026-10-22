@@ -356,7 +356,7 @@ impl HnswGraph for OnHeapHnswGraph {
     self.upto = Some(upto);
     let cur = self.get_neighbors_mut(self.cur_level, self.cur_node)?;
     if upto < cur.size() {
-      Ok(cur.nodes()[upto])
+      Ok(cur.nodes()[upto] as usize)
     } else {
       Ok(NO_MORE_DOCS as usize)
     }

@@ -324,7 +324,7 @@ fn assert_nodes_equal<const DESC_ORDER: bool>(
   for (i, &node) in expected.iter().enumerate() {
     assert_eq!(
       node,
-      neighbors.nodes()[i],
+      neighbors.nodes()[i] as usize,
       "Mismatch at index {}: expected {}, got {}",
       i,
       node,

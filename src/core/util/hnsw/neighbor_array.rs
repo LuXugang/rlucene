@@ -16,6 +16,7 @@
  */
 use std::fmt;
 
+use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -30,11 +31,14 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 ///
 /// - descending order if `DESC_ORDER` is `true`
 /// - ascending order if `DESC_ORDER` is `false`
+///
+/// Valid Lucene vector ordinals fit in 32 bits. Adding a Rust-only node ID
+/// larger than [`u32::MAX`] returns a conversion error.
 #[derive(Clone, Default)]
 pub struct NeighborArray<const DESC_ORDER: bool> {
   size: usize,
   scores: Vec<f32>,
-  nodes: Vec<usize>,
+  nodes: Vec<u32>,
   sorted_node_size: usize,
 }
 
@@ -77,7 +81,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
       );
     }
 
-    self.nodes[self.size] = new_node;
+    self.nodes[self.size] = new_node.try_convert()?;
     self.scores[self.size] = new_score;
     self.size += 1;
     self.sorted_node_size += 1;
@@ -91,7 +95,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     }
 
     self.scores[self.size] = new_score;
-    self.nodes[self.size] = new_node;
+    self.nodes[self.size] = new_node.try_convert()?;
     self.size += 1;
 
     Ok(())
@@ -182,7 +186,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     let mut tmp_score = self.scores[self.sorted_node_size];
 
     if tmp_score.is_nan() {
-      tmp_score = scorer.score(tmp_node)?;
+      tmp_score = scorer.score(tmp_node as usize)?;
     }
 
     let insertion_point = if DESC_ORDER {
@@ -216,12 +220,12 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
   pub fn size(&self) -> usize {
     self.size
   }
-  /// irect access to the internal list of node ids; provided for efficient
-  /// writing of the graph
-  pub fn nodes(&self) -> &[usize] {
+  /// Direct access to the 32-bit node ordinals, matching Java int[] storage.
+  /// Provided for efficient graph writing without a conversion buffer.
+  pub fn nodes(&self) -> &[u32] {
     &self.nodes
   }
-  pub fn nodes_mut(&mut self) -> &mut [usize] {
+  pub fn nodes_mut(&mut self) -> &mut [u32] {
     &mut self.nodes
   }
 
@@ -348,13 +352,13 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
   {
     let min_accepted_similarity = self.scores[candidate_index];
     let candidate_node = self.nodes[candidate_index];
-    let scorer = scorer_supplier.scorer(candidate_node)?;
+    let scorer = scorer_supplier.scorer(candidate_node as usize)?;
 
     if candidate_index == unchecked_indexes[unchecked_cursor] {
       // the candidate itself is unchecked
       for i in (0..candidate_index).rev() {
         let neighbor_node = self.nodes[i];
-        let neighbor_similarity = scorer.score(neighbor_node)?;
+        let neighbor_similarity = scorer.score(neighbor_node as usize)?;
         if neighbor_similarity >= min_accepted_similarity {
           return Ok(true);
         }
@@ -365,7 +369,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
       debug_assert!(candidate_index > unchecked_indexes[unchecked_cursor],);
       for &unchecked_idx in unchecked_indexes.iter().take(unchecked_cursor + 1).rev() {
         let neighbor_node = self.nodes[unchecked_idx];
-        let neighbor_similarity = scorer.score(neighbor_node)?;
+        let neighbor_similarity = scorer.score(neighbor_node as usize)?;
         if neighbor_similarity >= min_accepted_similarity {
           return Ok(true);
         }
