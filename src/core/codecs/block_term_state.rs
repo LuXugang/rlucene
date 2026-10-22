@@ -89,6 +89,7 @@ impl TermStateEnum {
       _ => Err(LuceneError::unsupported_operation("")),
     }
   }
+  #[inline]
   pub fn get_block_term_state(&self) -> Result<&BlockTermState> {
     match self {
       TermStateEnum::Int(int) => Ok(&int.base),

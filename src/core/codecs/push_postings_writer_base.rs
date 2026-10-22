@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_writer_base::PostingsWriterBase;
 use crate::core::index::field_info::FieldInfo;
@@ -98,6 +97,8 @@ impl<S> PostingsWriterBase for PushPostingsWriterBase<S>
 where
   S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
+  type TermState = S::TermState;
+
   fn init<D1, D2, IO>(
     &mut self,
     terms_out: &mut IO,
@@ -118,7 +119,7 @@ where
     docs_seen: &mut FixedBitSet,
     norms: Option<&N>,
     postings_enum: Option<PE>,
-  ) -> Result<(Option<PE>, Option<TermStateEnum>)>
+  ) -> Result<(Option<PE>, Option<Self::TermState>)>
   where
     N: NormsProducer,
     PE: PostingsEnum,
@@ -195,7 +196,7 @@ where
     }
 
     let mut upper = self.sub.new_term_state()?;
-    let state = upper.get_block_term_state_mut()?;
+    let state = upper.as_mut();
     state.doc_freq = doc_freq;
     state.total_term_freq = if self.options.write_freqs {
       total_term_freq
@@ -210,7 +211,7 @@ where
     &mut self,
     out: &mut DO,
     field_info: &FieldInfo,
-    state: Cow<TermStateEnum>,
+    state: Cow<Self::TermState>,
     absolute: bool,
   ) -> Result<()>
   where
@@ -250,9 +251,9 @@ where
     self.sub.set_field(field_info)
   }
 }
-pub trait PushPostingsWriterBaseAbstract {
+pub trait PushPostingsWriterBaseAbstract: PostingsWriterBase {
   /// Return a newly created empty TermState
-  fn new_term_state(&mut self) -> Result<TermStateEnum>;
+  fn new_term_state(&mut self) -> Result<Self::TermState>;
 
   /// Start a new term.
   /// A matching call to [`finish_term`](Self::finish_term) will be done only
@@ -262,7 +263,8 @@ pub trait PushPostingsWriterBaseAbstract {
   /// Finishes the current term. The provided [`BlockTermState`](crate::core::codecs::block_term_state::BlockTermState) contains
   /// the term's summary statistics and will hold metadata from PBF when
   /// returned.
-  fn finish_term(&mut self, state: &mut TermStateEnum, options: &FieldWriteOptions) -> Result<()>;
+  fn finish_term(&mut self, state: &mut Self::TermState, options: &FieldWriteOptions)
+  -> Result<()>;
 
   /// Adds a new doc in this term. `freq` will be -1 when term
   /// frequencies are omitted for the field.
@@ -296,7 +298,7 @@ pub trait PushPostingsWriterBaseAbstract {
     &mut self,
     out: &mut DO,
     field_info: &FieldInfo,
-    state: Cow<TermStateEnum>,
+    state: Cow<Self::TermState>,
     absolute: bool,
     options: &FieldWriteOptions,
   ) -> Result<()>

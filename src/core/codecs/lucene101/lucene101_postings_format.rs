@@ -17,7 +17,7 @@
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, OnceLock};
 
-use crate::core::codecs::block_term_state::BlockTermState;
+use crate::core::codecs::block_term_state::{BlockTermState, TermStateEnum};
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::Lucene90BlockTreeTermsReader;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_writer::{
   DEFAULT_MAX_BLOCK_SIZE, DEFAULT_MIN_BLOCK_SIZE, Lucene90BlockTreeTermsWriter,
@@ -454,6 +454,39 @@ impl Display for IntBlockTermState {
       self.last_pos_block_offset,
       self.singleton_doc_id
     )
+  }
+}
+
+// Borrow the Java BlockTermState superclass without changing state ownership.
+impl AsRef<BlockTermState> for IntBlockTermState {
+  fn as_ref(&self) -> &BlockTermState {
+    &self.base
+  }
+}
+
+impl AsMut<BlockTermState> for IntBlockTermState {
+  fn as_mut(&mut self) -> &mut BlockTermState {
+    &mut self.base
+  }
+}
+
+impl<'a> TryFrom<&'a TermStateEnum> for &'a IntBlockTermState {
+  type Error = &'static str;
+  fn try_from(state: &'a TermStateEnum) -> std::result::Result<Self, Self::Error> {
+    match state {
+      TermStateEnum::Int(state) => Ok(state),
+      _ => Err("term_state should be IntBlockTermState"),
+    }
+  }
+}
+
+impl<'a> TryFrom<&'a mut TermStateEnum> for &'a mut IntBlockTermState {
+  type Error = &'static str;
+  fn try_from(state: &'a mut TermStateEnum) -> std::result::Result<Self, Self::Error> {
+    match state {
+      TermStateEnum::Int(state) => Ok(state),
+      _ => Err("term_state should be IntBlockTermState"),
+    }
   }
 }
 

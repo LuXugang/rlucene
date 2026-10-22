@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::lucene101_postings_format::{
@@ -284,28 +283,30 @@ where
     Ok(())
   }
 
-  fn new_term_state(&self) -> Result<TermStateEnum> {
-    Ok(TermStateEnum::Int(IntBlockTermState::new()))
+  type TermState = IntBlockTermState;
+  type TermStateRef<'a> = &'a IntBlockTermState;
+  type TermStateMut<'a> = &'a mut IntBlockTermState;
+
+  fn new_term_state(&self) -> Result<Self::TermState> {
+    Ok(IntBlockTermState::new())
   }
 
-  fn decode_term<DI>(
+  #[inline(always)]
+  fn decode_term<'a, DI, S, E>(
     &self,
     input: &mut DI,
     field_info: &Arc<FieldInfo>,
-    term_state: &mut TermStateEnum,
+    term_state: S,
     absolute: bool,
   ) -> Result<()>
   where
     DI: DataInput,
+    S: TryInto<Self::TermStateMut<'a>, Error = E>,
+    E: Display,
   {
-    let term_state = match term_state {
-      TermStateEnum::Int(s) => s,
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "term_state should be IntBlockTermState",
-        ));
-      },
-    };
+    let term_state = term_state
+      .try_into()
+      .map_err(|_| LuceneError::illegal_state("term_state should be IntBlockTermState"))?;
     if absolute {
       term_state.doc_start_fp = 0;
       term_state.pos_start_fp = 0;
@@ -346,13 +347,17 @@ where
 
   type PostingsEnum = BlockPostingsEnum<I>;
 
-  fn postings(
+  fn postings<'a, S, E>(
     &self,
     field_info: &FieldInfo,
-    term_state: &TermStateEnum,
+    term_state: S,
     reuse: Option<Self::PostingsEnum>,
     flags: i32,
-  ) -> Result<Option<Self::PostingsEnum>> {
+  ) -> Result<Option<Self::PostingsEnum>>
+  where
+    S: TryInto<Self::TermStateRef<'a>, Error = E>,
+    E: Display,
+  {
     if let Some(mut e) = reuse
       && e.can_reuse(&self.doc_in_identity, field_info, flags, false)
     {
@@ -367,12 +372,16 @@ where
 
   type ImpactsEnum = BlockPostingsEnum<I>;
 
-  fn impacts(
+  fn impacts<'a, S, E>(
     &self,
     field_info: &FieldInfo,
-    term_state: &TermStateEnum,
+    term_state: S,
     flags: i32,
-  ) -> Result<Self::ImpactsEnum> {
+  ) -> Result<Self::ImpactsEnum>
+  where
+    S: TryInto<Self::TermStateRef<'a>, Error = E>,
+    E: Display,
+  {
     let mut block = BlockPostingsEnum::new(field_info, flags, true, self)?;
     block.reset(term_state, flags, self)?;
     Ok(block)
@@ -685,20 +694,19 @@ where
       && self.needs_impacts == needs_impacts
   }
 
-  pub fn reset(
+  pub fn reset<'a, S>(
     &mut self,
-    term_state: &TermStateEnum,
+    term_state: S,
     _flags: i32,
     reader: &Lucene101PostingsReader<I>,
-  ) -> Result<&mut Self> {
-    let term_state = match term_state {
-      TermStateEnum::Int(s) => s,
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "term_state should be IntBlockTermState",
-        ));
-      },
-    };
+  ) -> Result<&mut Self>
+  where
+    S: TryInto<&'a IntBlockTermState>,
+    S::Error: Display,
+  {
+    let term_state = term_state
+      .try_into()
+      .map_err(|_| LuceneError::illegal_state("term_state should be IntBlockTermState"))?;
     self.doc_freq = term_state.base.doc_freq;
     self.singleton_doc_id = term_state.singleton_doc_id;
     if self.doc_freq > 1 {

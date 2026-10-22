@@ -14,13 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::codecs::block_term_state::BlockTermState;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::index::term_state::TermState;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
@@ -37,6 +38,8 @@ use std::sync::Arc;
 /// See also:
 /// - [`PostingsReaderBase`](crate::core::codecs::postings_reader_base::PostingsReaderBase)
 pub trait PostingsWriterBase: Closeable {
+  type TermState: TermState + AsRef<BlockTermState> + AsMut<BlockTermState>;
+
   /// Called once after startup, before any terms have been added.
   /// Implementations typically write a header to the provided `termsOut`.
   fn init<D1, D2, IO>(
@@ -63,7 +66,7 @@ pub trait PostingsWriterBase: Closeable {
     docs_seen: &mut FixedBitSet,
     norms: Option<&N>,
     postings_enum: Option<PE>,
-  ) -> Result<(Option<PE>, Option<TermStateEnum>)>
+  ) -> Result<(Option<PE>, Option<Self::TermState>)>
   where
     N: NormsProducer,
     PE: PostingsEnum,
@@ -78,7 +81,7 @@ pub trait PostingsWriterBase: Closeable {
     &mut self,
     out: &mut DO,
     field_info: &FieldInfo,
-    state: Cow<TermStateEnum>,
+    state: Cow<Self::TermState>,
     absolute: bool,
   ) -> Result<()>
   where

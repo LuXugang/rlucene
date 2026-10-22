@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::codecs::block_term_state::{BlockTermState, TermStateEnum};
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::NO_OUTPUT;
 use crate::core::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
@@ -31,7 +31,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use std::sync::Arc;
 
-pub struct SegmentTermsEnumFrame {
+pub struct SegmentTermsEnumFrame<S = TermStateEnum> {
   /// Stack ordinal; -1 for the static frame.
   pub(crate) ord: i32,
 
@@ -85,7 +85,7 @@ pub struct SegmentTermsEnumFrame {
   // metaData
   pub(crate) meta_data_upto: i32,
 
-  pub(crate) state: TermStateEnum,
+  pub(crate) state: S,
 
   // metadata buffer
   pub(crate) bytes_reader: ByteArrayDataInput<Vec<u8>>,
@@ -95,19 +95,21 @@ pub struct SegmentTermsEnumFrame {
   sub_code: i64,
   pub(crate) compression_alg: CompressionAlgorithm,
 }
-impl SegmentTermsEnumFrame {
+impl<S> SegmentTermsEnumFrame<S> {
   pub fn new<I, P>(ord: i32, fr: &FieldReader<I, P>) -> Result<Self>
   where
     I: IndexInput,
     P: PostingsReaderBase,
+    P::TermState: Into<S>,
   {
-    let mut state = fr
+    let mut state: P::TermState = fr
       .parent
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("block-tree terms reader is missing"))?
       .postings_reader
       .new_term_state()?;
-    state.get_block_term_state_mut()?.total_term_freq = -1;
+    state.as_mut().total_term_freq = -1;
+    let state = <P::TermState as Into<S>>::into(state);
     let suffix_bytes = vec![0u8; 32];
     let suffixes_reader = ByteArrayDataInput::with_bytes(suffix_bytes);
     let suffix_length_bytes = vec![0u8; 32];
@@ -161,6 +163,22 @@ impl SegmentTermsEnumFrame {
       compression_alg: CompressionAlgorithm::NoCompression,
     })
   }
+  pub(crate) fn get_term_block_ord<F>(&self, get_state: F) -> Result<i32>
+  where
+    F: for<'a> FnOnce(&'a S) -> Result<&'a BlockTermState>,
+  {
+    if self.is_leaf_block {
+      Ok(self.next_ent)
+    } else {
+      Ok(get_state(&self.state)?.term_block_ord)
+    }
+  }
+}
+
+impl<S> SegmentTermsEnumFrame<S>
+where
+  S: AsRef<BlockTermState> + AsMut<BlockTermState>,
+{
   pub(crate) fn set_floor_data(&mut self, output_accumulator: &OutputAccumulator) -> Result<()> {
     output_accumulator.set_floor_data(&mut self.floor_data_reader);
     debug_assert!(self.floor_data_reader.get_position() <= i32::MAX as usize);
@@ -169,20 +187,14 @@ impl SegmentTermsEnumFrame {
     self.next_floor_label = self.floor_data_reader.read_byte()? as i32;
     Ok(())
   }
-  pub(crate) fn get_term_block_ord(&self) -> Result<i32> {
-    if self.is_leaf_block {
-      Ok(self.next_ent)
-    } else {
-      Ok(self.state.get_block_term_state()?.term_block_ord)
-    }
-  }
+
   pub(crate) fn load_next_floor_block<I, P>(
     frame_idx: usize,
     ste: &mut SegmentTermsEnum<I, P>,
   ) -> Result<bool>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ste.stack[frame_idx];
     debug_assert!(
@@ -203,7 +215,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let (next_ent, fp) = {
       let frame = &ste.stack[frame_idx];
@@ -241,7 +253,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<bool>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     // Clone the IndexInput lazily, so that consumers
     // that just pull a TermsEnum to
@@ -339,7 +351,7 @@ impl SegmentTermsEnumFrame {
     frame.stats_singleton_run_length = 0;
     frame.meta_data_upto = 0;
 
-    frame.state.get_block_term_state_mut()?.term_block_ord = 0;
+    frame.state.as_mut().term_block_ord = 0;
     frame.next_ent = 0;
     frame.last_sub_fp = None;
     // metadata
@@ -372,7 +384,7 @@ impl SegmentTermsEnumFrame {
   pub fn next<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<bool>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ste.stack[frame_idx];
     if frame.is_leaf_block {
@@ -385,7 +397,7 @@ impl SegmentTermsEnumFrame {
   pub fn next_leaf<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ste.stack[frame_idx];
     debug_assert!(
@@ -421,7 +433,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<bool>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     loop {
       let v = {
@@ -475,7 +487,7 @@ impl SegmentTermsEnumFrame {
         // Normal term
         ste.term_exists = true;
         frame.sub_code = 0;
-        frame.state.get_block_term_state_mut()?.term_block_ord += 1;
+        frame.state.as_mut().term_block_ord += 1;
         Ok(false)
       } else {
         // A sub-block; make sub-FP absolute:
@@ -489,7 +501,7 @@ impl SegmentTermsEnumFrame {
   pub fn scan_to_floor_frame<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     Self::scan_to_floor_frame_with_target(frame_idx, &BytesRef::<Vec<u8>>::new(), ste, false)
   }
@@ -501,7 +513,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
     BS: ByteSource,
   {
     let frame = &mut ste.stack[frame_idx];
@@ -550,60 +562,119 @@ impl SegmentTermsEnumFrame {
 
     Ok(())
   }
-  pub fn decode_meta_data<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
+
+  pub fn decode_meta_data<'a, const STATIC: bool, I, P>(
+    frame_idx: usize,
+    ste: &'a mut SegmentTermsEnum<I, P>,
+  ) -> Result<&'a BlockTermState>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
+    S: 'a,
   {
-    let frame = &mut ste.stack[frame_idx];
-    let limit = frame.get_term_block_ord()?;
-    let mut absolute = frame.meta_data_upto == 0;
-    debug_assert!(limit > 0);
+    if STATIC {
+      let frame = &mut ste.static_frame;
+      let limit = frame.get_term_block_ord(TermStateEnum::get_block_term_state)?;
+      let mut absolute = frame.meta_data_upto == 0;
+      debug_assert!(limit > 0);
 
-    while frame.meta_data_upto < limit {
-      let state = frame.state.get_block_term_state_mut()?;
+      while frame.meta_data_upto < limit {
+        let state = frame.state.get_block_term_state_mut()?;
 
-      if frame.stats_singleton_run_length > 0 {
-        state.doc_freq = 1;
-        state.total_term_freq = 1;
-        frame.stats_singleton_run_length -= 1;
-      } else {
-        let token = frame.stats_reader.read_vint()?;
-        if (token & 1) == 1 {
+        if frame.stats_singleton_run_length > 0 {
           state.doc_freq = 1;
           state.total_term_freq = 1;
-          frame.stats_singleton_run_length = (token as u32 >> 1) as i32;
+          frame.stats_singleton_run_length -= 1;
         } else {
-          state.doc_freq = (token as u32 >> 1) as i32;
-          if *ste.fr.field_info.get_index_options() == IndexOptions::Docs {
-            state.total_term_freq = state.doc_freq as i64;
+          let token = frame.stats_reader.read_vint()?;
+          if (token & 1) == 1 {
+            state.doc_freq = 1;
+            state.total_term_freq = 1;
+            frame.stats_singleton_run_length = (token as u32 >> 1) as i32;
           } else {
-            state.total_term_freq = state.doc_freq as i64 + frame.stats_reader.read_vlong()?;
+            state.doc_freq = (token as u32 >> 1) as i32;
+            if *ste.fr.field_info.get_index_options() == IndexOptions::Docs {
+              state.total_term_freq = state.doc_freq as i64;
+            } else {
+              state.total_term_freq = state.doc_freq as i64 + frame.stats_reader.read_vlong()?;
+            }
           }
         }
+
+        ste
+          .fr
+          .parent
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("block-tree terms reader is missing"))?
+          .postings_reader
+          .decode_term(
+            &mut frame.bytes_reader,
+            &ste.fr.field_info,
+            &mut frame.state,
+            absolute,
+          )?;
+
+        frame.meta_data_upto += 1;
+        absolute = false;
       }
 
-      ste
-        .fr
-        .parent
-        .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("block-tree terms reader is missing"))?
-        .postings_reader
-        .decode_term(
-          &mut frame.bytes_reader,
-          &ste.fr.field_info,
-          &mut frame.state,
-          absolute,
-        )?;
+      let state = frame.state.get_block_term_state_mut()?;
+      state.term_block_ord = frame.meta_data_upto;
 
-      frame.meta_data_upto += 1;
-      absolute = false;
+      Ok(state)
+    } else {
+      let frame = &mut ste.stack[frame_idx];
+      let limit = frame.get_term_block_ord(|state| Ok(state.as_ref()))?;
+      let mut absolute = frame.meta_data_upto == 0;
+      debug_assert!(limit > 0);
+
+      while frame.meta_data_upto < limit {
+        let state = frame.state.as_mut();
+
+        if frame.stats_singleton_run_length > 0 {
+          state.doc_freq = 1;
+          state.total_term_freq = 1;
+          frame.stats_singleton_run_length -= 1;
+        } else {
+          let token = frame.stats_reader.read_vint()?;
+          if (token & 1) == 1 {
+            state.doc_freq = 1;
+            state.total_term_freq = 1;
+            frame.stats_singleton_run_length = (token as u32 >> 1) as i32;
+          } else {
+            state.doc_freq = (token as u32 >> 1) as i32;
+            if *ste.fr.field_info.get_index_options() == IndexOptions::Docs {
+              state.total_term_freq = state.doc_freq as i64;
+            } else {
+              state.total_term_freq = state.doc_freq as i64 + frame.stats_reader.read_vlong()?;
+            }
+          }
+        }
+
+        ste
+          .fr
+          .parent
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("block-tree terms reader is missing"))?
+          .postings_reader
+          .decode_term(
+            &mut frame.bytes_reader,
+            &ste.fr.field_info,
+            &mut frame.state,
+            absolute,
+          )?;
+
+        frame.meta_data_upto += 1;
+        absolute = false;
+      }
+
+      let state = frame.state.as_mut();
+      state.term_block_ord = frame.meta_data_upto;
+
+      Ok(state)
     }
-
-    frame.state.get_block_term_state_mut()?.term_block_ord = frame.meta_data_upto;
-
-    Ok(())
   }
+
   /// Used only in debug assertions: does target prefix match the current
   /// term?
   fn prefix_matches<I, P, BS>(
@@ -613,7 +684,7 @@ impl SegmentTermsEnumFrame {
   ) -> bool
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
     BS: ByteSource,
   {
     let frame = &ste.stack[frame_idx];
@@ -634,7 +705,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ste.stack[frame_idx];
     debug_assert!(!frame.is_leaf_block);
@@ -661,7 +732,7 @@ impl SegmentTermsEnumFrame {
           return Ok(());
         }
       } else {
-        frame.state.get_block_term_state_mut()?.term_block_ord += 1;
+        frame.state.as_mut().term_block_ord += 1;
       }
     }
   }
@@ -675,7 +746,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
     BS: ByteSource,
   {
     let frame = &mut ste.stack[frame_idx];
@@ -699,7 +770,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
     BS: ByteSource,
   {
     {
@@ -782,7 +853,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
     BS: ByteSource,
   {
     {
@@ -876,7 +947,7 @@ impl SegmentTermsEnumFrame {
   ) -> Result<SeekStatus>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
     BS: ByteSource,
   {
     debug_assert!({
@@ -917,7 +988,7 @@ impl SegmentTermsEnumFrame {
           ste.term_exists
         };
         if exists {
-          frame.state.get_block_term_state_mut()?.term_block_ord += 1;
+          frame.state.as_mut().term_block_ord += 1;
           frame.sub_code = 0;
         } else {
           frame.sub_code = frame.suffix_lengths_reader.read_vlong()?;
@@ -994,7 +1065,7 @@ impl SegmentTermsEnumFrame {
   pub(crate) fn fill_term<I, P>(frame_idx: usize, ste: &mut SegmentTermsEnum<I, P>) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ste.stack[frame_idx];
     let term_length = frame.prefix_length + frame.suffix_length;

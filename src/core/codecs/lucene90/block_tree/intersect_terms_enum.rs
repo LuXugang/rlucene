@@ -49,7 +49,7 @@ where
   PR: PostingsReaderBase,
 {
   pub(crate) input: I,
-  pub(crate) stack: Vec<IntersectTermsEnumFrame>,
+  pub(crate) stack: Vec<IntersectTermsEnumFrame<PR::TermState>>,
   arcs: Vec<Arc<BytesRef<std::sync::Arc<Vec<u8>>>>>,
   pub(crate) automaton: AutomatonEnum,
   common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
@@ -287,7 +287,7 @@ where
             f.start_byte_pos,
             f.suffix,
             f.last_sub_fp,
-            f.term_state.get_block_term_state()?.term_block_ord,
+            f.term_state.as_ref().term_block_ord,
           )
         };
 
@@ -342,7 +342,7 @@ where
               f.suffix = save_suffix;
               f.suffixes_reader.set_position(save_pos);
               f.suffix_lengths_reader.set_position(save_len_pos);
-              f.term_state.get_block_term_state_mut()?.term_block_ord = save_term_block_ord;
+              f.term_state.as_mut().term_block_ord = save_term_block_ord;
             }
 
             {
@@ -684,20 +684,11 @@ where
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
-    IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?;
-    let current_frame = &self.stack[self.current_frame];
-    Ok(current_frame.term_state.get_block_term_state()?.doc_freq)
+    Ok(IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?.doc_freq)
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
-    IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?;
-    let current_frame = &self.stack[self.current_frame];
-    Ok(
-      current_frame
-        .term_state
-        .get_block_term_state()?
-        .total_term_freq,
-    )
+    Ok(IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?.total_term_freq)
   }
 
   type PostingsEnum = PR::PostingsEnum;
@@ -737,6 +728,6 @@ where
   fn term_state(&mut self) -> Result<TermStateEnum> {
     IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?;
     let current_frame = &self.stack[self.current_frame];
-    Ok(current_frame.term_state.clone())
+    Ok(current_frame.term_state.clone().into())
   }
 }

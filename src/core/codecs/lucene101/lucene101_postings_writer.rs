@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::core::codecs::lucene101::lucene101_postings_format::{
@@ -476,6 +475,8 @@ impl<O> PostingsWriterBase for Lucene101PostingsWriter<O>
 where
   O: IndexOutput,
 {
+  type TermState = IntBlockTermState;
+
   fn init<D1, D2, IO>(
     &mut self,
     terms_out: &mut IO,
@@ -504,7 +505,7 @@ where
     _docs_seen: &mut FixedBitSet,
     _norms: Option<&N>,
     _postings_enum: Option<PE>,
-  ) -> Result<(Option<PE>, Option<TermStateEnum>)>
+  ) -> Result<(Option<PE>, Option<Self::TermState>)>
   where
     N: NormsProducer,
     PE: PostingsEnum,
@@ -517,7 +518,7 @@ where
     &mut self,
     _out: &mut DO,
     _field_info: &FieldInfo,
-    _state: Cow<TermStateEnum>,
+    _state: Cow<Self::TermState>,
     _absolute: bool,
   ) -> Result<()>
   where
@@ -596,8 +597,8 @@ impl<O> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O>
 where
   O: IndexOutput,
 {
-  fn new_term_state(&mut self) -> Result<TermStateEnum> {
-    Ok(TermStateEnum::Int(IntBlockTermState::new()))
+  fn new_term_state(&mut self) -> Result<Self::TermState> {
+    Ok(IntBlockTermState::new())
   }
 
   fn start_term(&mut self, options: &FieldWriteOptions) -> Result<()> {
@@ -625,15 +626,11 @@ where
     Ok(())
   }
 
-  fn finish_term(&mut self, state: &mut TermStateEnum, options: &FieldWriteOptions) -> Result<()> {
-    let state = match state {
-      TermStateEnum::Int(state) => state,
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "not IntBlockTermState".to_string(),
-        ));
-      },
-    };
+  fn finish_term(
+    &mut self,
+    state: &mut Self::TermState,
+    options: &FieldWriteOptions,
+  ) -> Result<()> {
     debug_assert!(state.base.doc_freq > 0);
     debug_assert_eq!(state.base.doc_freq, self.doc_count);
 
@@ -875,22 +872,13 @@ where
     &mut self,
     out: &mut DO,
     _field_info: &FieldInfo,
-    state: Cow<TermStateEnum>,
+    state: Cow<Self::TermState>,
     absolute: bool,
     options: &FieldWriteOptions,
   ) -> Result<()>
   where
     DO: DataOutput,
   {
-    let state = match state {
-      Cow::Borrowed(TermStateEnum::Int(state)) => Cow::Borrowed(state),
-      Cow::Owned(TermStateEnum::Int(state)) => Cow::Owned(state),
-      _ => {
-        return Err(LuceneError::illegal_state(
-          "not IntBlockTermState".to_string(),
-        ));
-      },
-    };
     if absolute {
       self.last_state = IntBlockTermState::new();
       debug_assert_eq!(self.last_state.doc_start_fp, 0);

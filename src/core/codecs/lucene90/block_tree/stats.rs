@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::BlockTermState;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
@@ -113,7 +114,7 @@ impl Stats {
     }
   }
 
-  pub(crate) fn start_block(&mut self, frame: &SegmentTermsEnumFrame, is_floor: bool) {
+  pub(crate) fn start_block<S>(&mut self, frame: &SegmentTermsEnumFrame<S>, is_floor: bool) {
     self.total_block_count += 1;
     if is_floor {
       if frame.fp == frame.fp_orig {
@@ -138,11 +139,14 @@ impl Stats {
     self.compression_algorithms[frame.compression_alg.code() as usize] += 1;
   }
 
-  pub(crate) fn end_block(&mut self, frame: &SegmentTermsEnumFrame) -> Result<()> {
+  pub(crate) fn end_block<S: AsRef<BlockTermState>>(
+    &mut self,
+    frame: &SegmentTermsEnumFrame<S>,
+  ) -> Result<()> {
     let term_count = if frame.is_leaf_block {
       frame.ent_count
     } else {
-      frame.state.get_block_term_state()?.term_block_ord
+      frame.state.as_ref().term_block_ord
     };
     let sub_block_count = frame.ent_count - term_count;
     self.total_term_count += term_count as i64;

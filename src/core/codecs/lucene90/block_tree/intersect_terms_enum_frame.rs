@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::codecs::block_term_state::BlockTermState;
 use crate::core::codecs::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::core::codecs::block_tree::field_reader::FieldReader;
 use crate::core::codecs::block_tree::intersect_terms_enum::IntersectTermsEnum;
@@ -32,7 +32,7 @@ use crate::core::util::automation::transition::Transition;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
-pub(crate) struct IntersectTermsEnumFrame {
+pub(crate) struct IntersectTermsEnumFrame<S> {
   pub(crate) ord: usize,
   pub(crate) fp: usize,
   pub(crate) fp_orig: usize,
@@ -67,18 +67,21 @@ pub(crate) struct IntersectTermsEnumFrame {
   pub(crate) transition_count: i32,
   pub(crate) arc: usize,
   // arc: FstArcBytesRef,
-  pub(crate) term_state: TermStateEnum,
+  pub(crate) term_state: S,
   /// metadata buffer
   bytes_reader: ByteArrayDataInput<Vec<u8>>,
   pub(crate) output_num: usize,
   pub(crate) start_byte_pos: usize,
   pub(crate) suffix: usize,
 }
-impl IntersectTermsEnumFrame {
+impl<S> IntersectTermsEnumFrame<S>
+where
+  S: AsRef<BlockTermState> + AsMut<BlockTermState>,
+{
   pub fn new<I, P>(ord: usize, fr: &FieldReader<I, P>) -> Result<Self>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     // newTermState()
     let mut term_state = fr
@@ -88,7 +91,7 @@ impl IntersectTermsEnumFrame {
       .postings_reader
       .new_term_state()?;
 
-    term_state.get_block_term_state_mut()?.total_term_freq = -1;
+    term_state.as_mut().total_term_freq = -1;
     let suffix_length_bytes = vec![0u8; 32];
     let suffix_bytes = vec![0u8; 128];
     let stat_bytes = vec![0u8; 64];
@@ -142,7 +145,7 @@ impl IntersectTermsEnumFrame {
   ) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ite.stack[frame_idx];
     debug_assert!(
@@ -171,7 +174,7 @@ impl IntersectTermsEnumFrame {
   }
   pub(crate) fn set_state(
     automaton: &mut AutomatonEnum,
-    frame: &mut IntersectTermsEnumFrame,
+    frame: &mut IntersectTermsEnumFrame<S>,
     state: i32,
   ) -> Result<()> {
     frame.state = state;
@@ -198,7 +201,7 @@ impl IntersectTermsEnumFrame {
   ) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ite.stack[frame_idx];
     frame.floor_data_reader.reset_with_range(
@@ -215,7 +218,7 @@ impl IntersectTermsEnumFrame {
   ) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ite.stack[frame_idx];
     ite.output_accumulator.prepare_read();
@@ -232,7 +235,7 @@ impl IntersectTermsEnumFrame {
   ) -> Result<()>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
   {
     let frame = &mut ite.stack[frame_idx];
     if let Some(block_code) = block_code {
@@ -342,7 +345,7 @@ impl IntersectTermsEnumFrame {
     frame.stats_reader.reset_meta(0, num_bytes);
     frame.stats_singleton_run_length = 0;
     frame.meta_data_upto = 0;
-    frame.term_state.get_block_term_state_mut()?.term_block_ord = 0;
+    frame.term_state.as_mut().term_block_ord = 0;
     frame.next_ent = 0;
 
     // metadata
@@ -399,7 +402,7 @@ impl IntersectTermsEnumFrame {
     self.start_byte_pos = self.suffixes_reader.get_position();
     self.suffixes_reader.skip_bytes(self.suffix as i64)?;
     if (code & 1) == 0 {
-      self.term_state.get_block_term_state_mut()?.term_block_ord += 1;
+      self.term_state.as_mut().term_block_ord += 1;
       Ok(false)
     } else {
       let delta = self.suffix_lengths_reader.read_vlong()?;
@@ -411,16 +414,17 @@ impl IntersectTermsEnumFrame {
     if self.is_leaf_block {
       Ok(self.next_ent)
     } else {
-      Ok(self.term_state.get_block_term_state()?.term_block_ord)
+      Ok(self.term_state.as_ref().term_block_ord)
     }
   }
-  pub(crate) fn decode_meta_data<I, P>(
-    ite: &mut IntersectTermsEnum<I, P>,
+  pub(crate) fn decode_meta_data<'a, I, P>(
+    ite: &'a mut IntersectTermsEnum<I, P>,
     frame_idx: usize,
-  ) -> Result<()>
+  ) -> Result<&'a BlockTermState>
   where
     I: IndexInput,
-    P: PostingsReaderBase,
+    P: PostingsReaderBase<TermState = S>,
+    S: 'a,
   {
     let frame = &mut ite.stack[frame_idx];
     // lazily catch up on metadata decode:
@@ -428,7 +432,7 @@ impl IntersectTermsEnumFrame {
     let mut absolute = frame.meta_data_upto == 0;
     debug_assert!(limit > 0);
     while frame.meta_data_upto < limit {
-      let term_state = frame.term_state.get_block_term_state_mut()?;
+      let term_state = frame.term_state.as_mut();
 
       if frame.stats_singleton_run_length > 0 {
         term_state.doc_freq = 1;
@@ -471,8 +475,9 @@ impl IntersectTermsEnumFrame {
       absolute = false;
     }
 
-    frame.term_state.get_block_term_state_mut()?.term_block_ord = frame.meta_data_upto;
+    let state = frame.term_state.as_mut();
+    state.term_block_ord = frame.meta_data_upto;
 
-    Ok(())
+    Ok(state)
   }
 }

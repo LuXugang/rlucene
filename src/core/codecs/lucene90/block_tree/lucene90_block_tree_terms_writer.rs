@@ -492,11 +492,11 @@ where
     }
   }
 }
-pub struct PendingTerm {
+pub struct PendingTerm<S = TermStateEnum> {
   pub term_bytes: Arc<Vec<u8>>,
-  pub state: TermStateEnum,
+  pub state: S,
 }
-impl Default for PendingTerm {
+impl Default for PendingTerm<TermStateEnum> {
   fn default() -> Self {
     Self {
       term_bytes: Arc::new(vec![]),
@@ -505,8 +505,8 @@ impl Default for PendingTerm {
   }
 }
 
-impl PendingTerm {
-  pub fn new(mut term: BytesRef<Vec<u8>>, state: TermStateEnum) -> Self {
+impl<S> PendingTerm<S> {
+  pub fn new(mut term: BytesRef<Vec<u8>>, state: S) -> Self {
     debug_assert!(term.offset == 0);
     debug_assert!(term.length == term.bytes.len());
     Self {
@@ -515,7 +515,7 @@ impl PendingTerm {
     }
   }
 }
-impl fmt::Display for PendingTerm {
+impl<S> fmt::Display for PendingTerm<S> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let term = BytesRef::from_slice(
       Cow::Borrowed(self.term_bytes.as_ref()),
@@ -735,7 +735,7 @@ where
   // we append to this stack, and once the top of the stack has enough
   // terms starting with a common prefix, we write a new block with
   // those terms and replace those terms in the stack with a new block:
-  pending: Vec<PendingEntryEnum>,
+  pending: Vec<PendingEntryEnum<PW::TermState>>,
   // Reused in writeBlocks:
   new_blocks: Vec<PendingBlock>,
   suffix_lengths_writer: ByteBuffersDataOutput,
@@ -992,17 +992,8 @@ where
           floor_lead_label == -1 || (term.term_bytes[prefix_length] as i32) >= floor_lead_label
         );
 
-        match state {
-          TermStateEnum::Block(block) => {
-            stats_writer.add(block.doc_freq, block.total_term_freq)?;
-          },
-          TermStateEnum::Int(int) => {
-            stats_writer.add(int.base.doc_freq, int.base.total_term_freq)?;
-          },
-          _ => {
-            return Err(LuceneError::illegal_state("should be Block or Int"));
-          },
-        }
+        let base = state.as_ref();
+        stats_writer.add(base.doc_freq, base.total_term_freq)?;
 
         self.postings_writer.encode_term(
           &mut self.meta_writer,
@@ -1034,17 +1025,8 @@ where
             self
               .suffix_writer
               .append_with_range(&term.term_bytes, prefix_length, suffix_len)?;
-            match state {
-              TermStateEnum::Block(block) => {
-                stats_writer.add(block.doc_freq, block.total_term_freq)?;
-              },
-              TermStateEnum::Int(int) => {
-                stats_writer.add(int.base.doc_freq, int.base.total_term_freq)?;
-              },
-              _ => {
-                return Err(LuceneError::illegal_state("should be Block or Int"));
-              },
-            }
+            let base = state.as_ref();
+            stats_writer.add(base.doc_freq, base.total_term_freq)?;
             // meta
             self.postings_writer.encode_term(
               &mut self.meta_writer,
@@ -1227,19 +1209,9 @@ where
     )?;
 
     if let Some(state) = state_opt {
-      let (total_term_freq, doc_freq) = match &state {
-        TermStateEnum::Block(block) => {
-          debug_assert!(block.doc_freq != 0);
-          (block.total_term_freq, block.doc_freq)
-        },
-        TermStateEnum::Int(int) => {
-          debug_assert!(int.base.doc_freq != 0);
-          (int.base.total_term_freq, int.base.doc_freq)
-        },
-        _ => {
-          return Err(LuceneError::illegal_state("should be Block or Int"));
-        },
-      };
+      let base = state.as_ref();
+      debug_assert!(base.doc_freq != 0);
+      let (total_term_freq, doc_freq) = (base.total_term_freq, base.doc_freq);
       debug_assert!(
         *self.field_info.get_index_options() == IndexOptions::Docs
           || total_term_freq >= doc_freq as i64
@@ -1395,8 +1367,9 @@ where
   }
 }
 
-enum PendingEntryEnum {
-  Term(PendingTerm),
+#[allow(clippy::large_enum_variant)] // Keep pending terms and blocks inline without per-block allocation.
+enum PendingEntryEnum<S> {
+  Term(PendingTerm<S>),
   Block(PendingBlock),
 }
 
