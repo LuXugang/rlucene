@@ -42,6 +42,7 @@ impl<T> MSBRadixSorterBase for StableMSBRadixSorter<T>
 where
   T: StableMSBRadixSorterBase,
 {
+  #[inline(always)]
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     self.delegate.byte_at(i, k)
   }
@@ -243,6 +244,7 @@ impl<T> Sorter for MergeSorterImpl<'_, T>
 where
   T: StableMSBRadixSorterBase,
 {
+  #[inline(always)]
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
     for o in self.k..self.max_length {
       let b1 = self.delegate.byte_at(i, o)?;

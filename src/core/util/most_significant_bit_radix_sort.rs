@@ -440,6 +440,7 @@ pub trait MSBRadixSorterBase: Sorter {
     Ok(())
   }
 
+  #[inline(always)]
   fn get_bucket(&mut self, i: usize, k: usize) -> Result<usize> {
     Ok((self.byte_at(i, k)? + 1) as usize)
   }

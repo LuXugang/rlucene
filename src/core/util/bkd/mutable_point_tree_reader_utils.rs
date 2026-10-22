@@ -264,6 +264,7 @@ impl<M> MSBRadixSorterBase for StableMSBRadixSorterImpl<'_, M>
 where
   M: MutablePointTree,
 {
+  #[inline(always)]
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     if k < self.config.packed_bytes_length() {
       Ok(self.reader.get_byte_at(i, k) as i32)
