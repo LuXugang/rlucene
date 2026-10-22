@@ -76,7 +76,12 @@ def templates = [:]
   String source = new File(repo, 'ci/jenkins/' + path).text
   // Validate the entire unchanged production body, not only the reduced probe.
   assert Converter.scriptToPipelineDef(source) != null
-  assert source.count("lock(resource: 'rlucene-vm-build')") == 1
+  assert source.count("lock(resource: 'rlucene-vm-build'") == 1
+  if (name == 'ci') {
+    assert source.contains("lock(resource: 'rlucene-vm-build', priority: -100)")
+  } else {
+    assert !source.contains("lock(resource: 'rlucene-vm-build', priority:")
+  }
   assert source.contains('agent none') && source.contains('disableConcurrentBuilds()')
   int stages = source.indexOf('      stages {')
   int post = source.indexOf('      post {')
@@ -185,12 +190,38 @@ pipeline {
     assert second.get(60, TimeUnit.SECONDS).result == Result.SUCCESS
     record('SAME_SCENARIO_FIXED CI then commit execute without overlap')
 
+    // A later default-priority PR must pass a CI request that is already
+    // waiting at priority -100. The current holder is never interrupted.
+    trace.text = ''
+    def priorityHolder = create('priority-holder',
+      templates.commit("sleep time: 6, unit: 'SECONDS'"))
+    def priorityHolderFuture = trigger(priorityHolder)
+    await('priority holder enters') { trace.text.contains('ENTER priority-holder') }
+    def priorityCi = create('priority-ci', templates.ci("echo 'low-priority CI'"))
+    def priorityCiFuture = trigger(priorityCi)
+    await('low-priority CI waits first') { manager.queuedContexts.size() == 1 }
+    def priorityPr = create('priority-pr', templates.pr("echo 'default-priority PR'"))
+    def priorityPrFuture = trigger(priorityPr)
+    await('default-priority PR waits second') { manager.queuedContexts.size() == 2 }
+    assert activeExecutors() == 1
+    assert priorityHolderFuture.get(60, TimeUnit.SECONDS).result == Result.SUCCESS
+    assert priorityPrFuture.get(60, TimeUnit.SECONDS).result == Result.SUCCESS
+    assert priorityCiFuture.get(60, TimeUnit.SECONDS).result == Result.SUCCESS
+    List<String> priorityEntries = trace.readLines().findAll { it.startsWith('ENTER ') }
+    assert priorityEntries == [
+      'ENTER priority-holder',
+      'ENTER priority-pr',
+      'ENTER priority-ci'
+    ]
+    assert !resource.locked && manager.queuedContexts.isEmpty()
+    record('PRIORITY_PASSED later PR ran before waiting CI without preemption')
+
     // Failure/timeout/abort must clean up under the lock and unblock the next
     // node; cancelling a waiter must not steal or release the holder's lock.
     [failure: "error('expected probe failure')", timeout: "sleep time: 30, unit: 'SECONDS'",
      abort: "sleep time: 30, unit: 'SECONDS'", cancelWaiter: "sleep time: 6, unit: 'SECONDS'"].each { mode, action ->
       String source = templates.ci(action)
-      if (mode == 'timeout') source = source.replace("timeout(time: 30, unit: 'MINUTES')", "timeout(time: 3, unit: 'SECONDS')")
+      if (mode == 'timeout') source = source.replace("timeout(time: 45, unit: 'MINUTES')", "timeout(time: 3, unit: 'SECONDS')")
       def owner = create('owner-' + mode, source)
       def ownerFuture = trigger(owner)
       await('owner ' + mode) { trace.text.contains('ENTER owner-' + mode) }

@@ -6,8 +6,10 @@ pipeline {
     timestamps()
     disableConcurrentBuilds()
     // One shared lock across CI, commit, PR, nightly and monster jobs.
+    // CI has the lowest queue priority: any other waiting job may pass it.
+    // This never interrupts CI after it has acquired the lock.
     // agent none keeps lock waiters off both VM executors.
-    lock(resource: 'rlucene-vm-build')
+    lock(resource: 'rlucene-vm-build', priority: -100)
     buildDiscarder(logRotator(numToKeepStr: '500'))
   }
 

@@ -107,15 +107,23 @@ tests, and stage `post` actions (including archiving and cleanup).
 Only one job can execute that protected body across the controller and PR
 agent. Existing per-job `disableConcurrentBuilds()` is retained.
 
+`rlucene-ci` requests the lock with priority `-100`; the other four jobs use
+the plugin default priority `0`. A commit, PR, nightly, or monster build that
+arrives after CI has started waiting therefore moves ahead of that waiting CI.
+Priority changes only the wait queue: it never interrupts a build that already
+holds the lock. Equal-priority waiters retain their normal queue order. Under a
+continuous stream of higher-priority work, CI waits until that work drains.
+
 Waiting Pipelines can appear as running builds in Jenkins, but do not hold
 an executor or start Cargo. Fetching the trusted Jenkinsfile from SCM happens
 before the Pipeline lock; this lightweight bootstrap is not a test build.
 The execution timeout begins after acquiring the lock and includes waiting
 for the selected node. Existing test subprocess timeouts are unchanged.
-The lock uses FIFO ordering, without interrupting the holder or skipping
-requests; long manual suites therefore delay automatic tests. Trigger policies
-and the CI one-minute schedule are unchanged. New jobs must use the same
-wrapper before they are allowed to run resource-intensive work on this VM.
+The lock selects the highest-priority waiter without interrupting the holder;
+long manual suites therefore still delay automatic tests once they start.
+Trigger policies and the CI one-minute schedule are unchanged. New jobs must
+use the same wrapper before they are allowed to run resource-intensive work on
+this VM.
 
 The former CI-only queue gate is retired, and `RLUCENE_CI_REQUIRE_IDLE` is
 no longer used. Do not combine it with lock waiters, which Jenkins already
@@ -177,10 +185,11 @@ Neither has SCM polling, webhook, or upstream triggers; the Pipeline accepts
 user causes for both jobs and timer causes only for nightly. GitHub's
 PR/commit service account does not receive build permission on these jobs.
 Both use `main` and `ci/jenkins/manual/Jenkinsfile` from SCM, on the controller
-like `rlucene-ci`. No pause/priority scheduler is installed. Scheduled nightly
-builds wait for the same global lock as all other production jobs; two hours
-is the trigger interval, not a guarantee of the actual start time. Existing
-per-job non-concurrency and the 72-hour execution budget remain unchanged.
+like `rlucene-ci`. Scheduled nightly builds wait for the same global lock as all
+other production jobs and, like every non-CI job, outrank a waiting `rlucene-ci`;
+two hours is the trigger interval, not a guarantee of the actual start time.
+Existing per-job non-concurrency and the 72-hour execution budget remain
+unchanged.
 
 - `rlucene-nightly`: only tests added by the `nightly` feature,
   with `tests.nightly=true` and `tests.light=false`.

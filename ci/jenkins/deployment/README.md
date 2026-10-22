@@ -165,7 +165,9 @@ recreating the controller; copying the initializer alone is not sufficient.
 Use a maintenance window with no running builds, preserve the named Jenkins
 home volume and the local `.env`, and run `docker compose config --quiet` before
 applying the deployment. No extra plugin, credential, GitHub workflow, or
-priority/pause scheduler is required.
+queue-sorting plugin is required: the pinned Lockable Resources plugin provides
+the CI lock priority. It reorders only waiting requests and never preempts the
+current lock holder.
 
 After deployment, start the jobs **one at a time**, observe actual release
 compilation with the corresponding feature enabled, cancel, and verify there
