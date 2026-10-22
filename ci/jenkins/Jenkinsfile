@@ -5,12 +5,12 @@ pipeline {
     skipDefaultCheckout(true)
     timestamps()
     disableConcurrentBuilds()
-    // One shared lock across CI, commit, PR, nightly and monster jobs.
-    // CI has the lowest queue priority: any other waiting job may pass it.
-    // This never interrupts CI after it has acquired the lock.
-    // agent none keeps lock waiters off both VM executors.
-    lock(resource: 'rlucene-vm-build', priority: -100)
     buildDiscarder(logRotator(numToKeepStr: '500'))
+  }
+
+  environment {
+    CI_STATE_ROOT = "${JENKINS_HOME}/ci-state/${JOB_NAME}"
+    LAST_SUCCESSFUL_SHA_FILE = "${JENKINS_HOME}/ci-state/${JOB_NAME}/last-successful-sha"
   }
 
   triggers {
@@ -18,10 +18,65 @@ pipeline {
   }
 
   stages {
+    stage('Observe main revision') {
+      agent { label 'built-in' }
+      options {
+        timeout(time: 5, unit: 'MINUTES')
+      }
+
+      steps {
+        // This checkout is intentionally outside the VM build lock. It is a
+        // lightweight revision probe and never starts Cargo.
+        checkout(scm)
+        script {
+          String observedSha = sh(
+            returnStdout: true,
+            script: 'git rev-parse HEAD'
+          ).trim()
+          if (!observedSha) {
+            error('Unable to determine the observed main commit SHA')
+          }
+          env.OBSERVED_SHA = observedSha
+
+          int alreadyTested = sh(
+            returnStatus: true,
+            script: '''#!/bin/bash
+              set -euo pipefail
+              test -f "$LAST_SUCCESSFUL_SHA_FILE"
+              test "$(cat "$LAST_SUCCESSFUL_SHA_FILE")" = "$OBSERVED_SHA"
+            '''
+          )
+          env.YIELD_TO_TRIGGERED_BUILDS = alreadyTested == 0 ? 'false' : 'true'
+          if (env.YIELD_TO_TRIGGERED_BUILDS == 'true') {
+            currentBuild.description =
+              "${observedSha.take(12)}: yielding to commit/PR"
+            echo """Observed untested main commit ${observedSha}.
+Waiting 30 seconds before requesting the VM build lock so its commit or PR
+build can arrive first."""
+          }
+        }
+      }
+    }
+
+    stage('Yield to commit and PR builds') {
+      agent none
+      when {
+        expression { env.YIELD_TO_TRIGGERED_BUILDS == 'true' }
+      }
+      steps {
+        // Pipeline sleep is outside both node and lock: no executor or shared
+        // build resource is held during this webhook/Actions arrival window.
+        sleep time: 30, unit: 'SECONDS'
+      }
+    }
+
     stage('Exclusive VM build') {
       agent { label 'built-in' }
       options {
-        // Lock waiting is outside the execution timeout.
+        // Stage options wrap in declaration order: wait for the low-priority
+        // lock first, then start the execution timeout and allocate the agent.
+        // A commit/PR queued during the grace window therefore runs first.
+        lock(resource: 'rlucene-vm-build', priority: -100)
         timeout(time: 45, unit: 'MINUTES')
       }
 
@@ -32,8 +87,6 @@ pipeline {
         CARGO_BUILD_JOBS = '4'
         // Keep release artifacts across builds; release compilation is expensive.
         CARGO_TARGET_DIR = "${JENKINS_HOME}/cargo-target/${JOB_NAME}"
-        CI_STATE_ROOT = "${JENKINS_HOME}/ci-state/${JOB_NAME}"
-        LAST_SUCCESSFUL_SHA_FILE = "${JENKINS_HOME}/ci-state/${JOB_NAME}/last-successful-sha"
         CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = 'true'
         CARGO_TERM_COLOR = 'never'
         RUST_BACKTRACE = 'full'

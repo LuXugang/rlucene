@@ -40,14 +40,17 @@ The script starts a real local remoting agent on a second node and runs:
    four Pipelines wait for the lock. An atomic marker remains owned through
    post/cleanup, so any overlap causes a failure.
 4. The same CI-first/commit-second scenario with the new wrappers, both passing.
-5. CI queues first behind a holder, then a later PR queues; the PR must acquire
+5. CI detects an untested revision and enters a shortened grace window without
+   holding an executor or lock. A later commit build finishes first; CI then
+   acquires the lock and continues.
+6. CI queues first behind a holder, then a later PR queues; the PR must acquire
    the lock before the lower-priority CI without interrupting the holder.
-6. Controlled failure, execution timeout, holder cancellation and waiter
+7. Controlled failure, execution timeout, holder cancellation and waiter
    cancellation. The next build must proceed and no lock/marker may remain.
-7. Re-evaluation of the resource initializer while a holder and waiters exist,
+8. Re-evaluation of the resource initializer while a holder and waiters exist,
    confirming it preserves ownership and queue state. This is an idempotence
    check, **not** a substitute for an actual controller-restart acceptance test.
-8. A waiter spends longer waiting for the lock than its shortened execution
+9. A CI waiter spends longer waiting for the lock than its shortened execution
    timeout, then still finishes successfully after acquiring the resource.
 
 Read `<temporary-directory>/result.log`; a successful run ends with `SUCCESS`.

@@ -167,7 +167,8 @@ home volume and the local `.env`, and run `docker compose config --quiet` before
 applying the deployment. No extra plugin, credential, GitHub workflow, or
 queue-sorting plugin is required: the pinned Lockable Resources plugin provides
 the CI lock priority. It reorders only waiting requests and never preempts the
-current lock holder.
+current lock holder. The CI Pipeline's 30-second new-revision grace window is
+also defined in its Jenkinsfile and requires no controller configuration.
 
 After deployment, start the jobs **one at a time**, observe actual release
 compilation with the corresponding feature enabled, cancel, and verify there

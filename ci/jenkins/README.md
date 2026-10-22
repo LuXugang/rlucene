@@ -94,18 +94,29 @@ repository file, or console log.
 
 Run the new job once using **Build Now**. That run installs the Pipeline's
 schedule and options: every minute (`* * * * *`), no concurrent builds,
-500 retained builds, and a 45-minute execution-stage timeout. The schedule is
-defined directly in `Jenkinsfile`. After a schedule change is pushed, the next build
-loads the updated file and applies it without restarting the controller.
+500 retained builds, a 30-second new-revision grace window, and a 45-minute
+execution-stage timeout. The schedule is defined directly in `Jenkinsfile`.
+After a schedule change is pushed, the next build loads the updated file and
+applies it without restarting the controller.
 The former `RLUCENE_CRON` environment setting is no longer used.
 
 All five managed jobs (`rlucene-ci`, `rlucene-commit`, `rlucene-pr`,
 `rlucene-nightly`, `rlucene-monster`) acquire the same Lockable Resources
 resource, `rlucene-vm-build`. The top-level Pipeline has `agent none`; its
-lock surrounds the execution stage, node allocation, environment, checkout,
-tests, and stage `post` actions (including archiving and cleanup).
-Only one job can execute that protected body across the controller and PR
-agent. Existing per-job `disableConcurrentBuilds()` is retained.
+lock surrounds the resource-intensive execution stage, its node allocation,
+environment, final checkout, tests, and stage `post` actions (including
+archiving and cleanup). Only one job can execute that protected body across the
+controller and PR agent. Existing per-job `disableConcurrentBuilds()` is
+retained.
+
+Before requesting the lock, `rlucene-ci` performs a lightweight checkout on the
+controller and compares the observed `main` SHA with its last successful SHA.
+If the revision has not passed CI, the Pipeline releases the executor and waits
+30 seconds without holding the global lock. This gives the GitHub-triggered
+`rlucene-commit` or `rlucene-pr` request time to reach Jenkins. After the grace
+window CI requests the lock at its lower priority and refreshes the checkout
+again, so a newer revision that arrived during the wait is not missed. An
+already-successful unchanged revision skips the grace window.
 
 `rlucene-ci` requests the lock with priority `-100`; the other four jobs use
 the plugin default priority `0`. A commit, PR, nightly, or monster build that
@@ -115,10 +126,10 @@ holds the lock. Equal-priority waiters retain their normal queue order. Under a
 continuous stream of higher-priority work, CI waits until that work drains.
 
 Waiting Pipelines can appear as running builds in Jenkins, but do not hold
-an executor or start Cargo. Fetching the trusted Jenkinsfile from SCM happens
-before the Pipeline lock; this lightweight bootstrap is not a test build.
-The execution timeout begins after acquiring the lock and includes waiting
-for the selected node. Existing test subprocess timeouts are unchanged.
+an executor or start Cargo. Fetching the trusted Jenkinsfile and the lightweight
+revision probe happen before the Pipeline lock; neither is a test build. The
+execution timeout begins after acquiring the lock and includes waiting for the
+selected node. Existing test subprocess timeouts are unchanged.
 The lock selects the highest-priority waiter without interrupting the holder;
 long manual suites therefore still delay automatic tests once they start.
 Trigger policies and the CI one-minute schedule are unchanged. New jobs must
@@ -145,8 +156,10 @@ repository and later builds normally fetch only changes to the configured branch
 The most recent successfully tested SHA is stored at
 `$JENKINS_HOME/ci-state/$JOB_NAME/last-successful-sha` (the default job retains
 the original `/var/jenkins_home/ci-state/rlucene-ci/last-successful-sha` path).
-If the current SHA is unchanged, Jenkins skips dependency and infrastructure preflight, but still
-runs nextest and doctests.
+Before locking, this state controls the 30-second grace window. After locking,
+Jenkins refreshes the checkout and checks the state again; if the current SHA is
+unchanged, it skips dependency and infrastructure preflight, but still runs
+nextest and doctests.
 
 The persistent Cargo target is
 `$JENKINS_HOME/cargo-target/$JOB_NAME`. Do not run `cargo clean` on every

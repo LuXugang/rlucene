@@ -71,6 +71,7 @@ def probePost = """
         }
 """
 def templates = [:]
+def graceCiTemplate = null
 ['ci': 'Jenkinsfile', 'commit': 'commit/Jenkinsfile', 'pr': 'pr/Jenkinsfile',
  'nightly': 'manual/Jenkinsfile', 'monster': 'manual/Jenkinsfile'].each { name, path ->
   String source = new File(repo, 'ci/jenkins/' + path).text
@@ -79,16 +80,54 @@ def templates = [:]
   assert source.count("lock(resource: 'rlucene-vm-build'") == 1
   if (name == 'ci') {
     assert source.contains("lock(resource: 'rlucene-vm-build', priority: -100)")
+    int observe = source.indexOf("stage('Observe main revision')")
+    int grace = source.indexOf("stage('Yield to commit and PR builds')")
+    int exclusive = source.indexOf("stage('Exclusive VM build')")
+    int lock = source.indexOf("lock(resource: 'rlucene-vm-build', priority: -100)")
+    int timeout = source.indexOf("timeout(time: 45, unit: 'MINUTES')")
+    assert 0 < observe && observe < grace && grace < exclusive
+    assert exclusive < lock && lock < timeout
+    assert source.contains("sleep time: 30, unit: 'SECONDS'")
+    assert source.contains("env.YIELD_TO_TRIGGERED_BUILDS = alreadyTested == 0 ? 'false' : 'true'")
   } else {
     assert !source.contains("lock(resource: 'rlucene-vm-build', priority:")
   }
   assert source.contains('agent none') && source.contains('disableConcurrentBuilds()')
-  int stages = source.indexOf('      stages {')
-  int post = source.indexOf('      post {')
-  assert stages > 0 && post > stages
-  String prefix = source.substring(0, stages)
-    .replaceAll(/(?s)  triggers \{.*?\n  \}\n/, '')
-  templates[name] = { action -> prefix + """
+  if (name == 'ci') {
+    def syntheticCi = { String action, boolean untestedRevision -> """
+pipeline {
+  agent none
+  options {
+    skipDefaultCheckout(true)
+    timestamps()
+    disableConcurrentBuilds()
+  }
+  stages {
+    stage('Observe main revision') {
+      agent { label 'built-in' }
+      steps {
+        echo 'SMOKE_REVISION_PROBE'
+        script {
+          env.YIELD_TO_TRIGGERED_BUILDS = '${untestedRevision}'
+        }
+      }
+    }
+    stage('Yield to commit and PR builds') {
+      agent none
+      when {
+        expression { env.YIELD_TO_TRIGGERED_BUILDS == 'true' }
+      }
+      steps {
+        echo 'SMOKE_GRACE_ACTIVE'
+        sleep time: 6, unit: 'SECONDS'
+      }
+    }
+    stage('Exclusive VM build') {
+      agent { label 'built-in' }
+      options {
+        lock(resource: 'rlucene-vm-build', priority: -100)
+        timeout(time: 45, unit: 'MINUTES')
+      }
       stages {
         stage('Probe') {
           steps { ${probeSteps(action)} }
@@ -99,6 +138,26 @@ def templates = [:]
   }
 }
 """ }
+    templates[name] = { action -> syntheticCi(action, false) }
+    graceCiTemplate = { action -> syntheticCi(action, true) }
+  } else {
+    int stages = source.indexOf('      stages {')
+    int post = source.indexOf('      post {')
+    assert stages > 0 && post > stages
+    String prefix = source.substring(0, stages)
+      .replaceAll(/(?s)  triggers \{.*?\n  \}\n/, '')
+    templates[name] = { action -> prefix + """
+      stages {
+        stage('Probe') {
+          steps { ${probeSteps(action)} }
+        }
+      }
+      post { ${probePost} }
+    }
+  }
+}
+""" }
+  }
   record('VALIDATED ' + path)
 }
 
@@ -190,6 +249,27 @@ pipeline {
     assert second.get(60, TimeUnit.SECONDS).result == Result.SUCCESS
     record('SAME_SCENARIO_FIXED CI then commit execute without overlap')
 
+    // An untested main revision must release the probe executor and leave the
+    // lock free during its grace window. A commit arriving in that window runs
+    // first; CI resumes afterward without overlap.
+    trace.text = ''
+    def graceCi = create('grace-ci', graceCiTemplate("echo 'CI after grace'"))
+    def graceCiFuture = trigger(graceCi)
+    await('untested revision enters grace window') {
+      graceCi.lastBuild?.logFile?.text?.contains('SMOKE_GRACE_ACTIVE')
+    }
+    assert !resource.locked && activeExecutors() == 0
+    def graceCommit = create('grace-commit',
+      templates.commit("sleep time: 2, unit: 'SECONDS'"))
+    def graceCommitFuture = trigger(graceCommit)
+    await('grace commit enters') { trace.text.contains('ENTER grace-commit') }
+    assert graceCommitFuture.get(60, TimeUnit.SECONDS).result == Result.SUCCESS
+    assert graceCiFuture.get(60, TimeUnit.SECONDS).result == Result.SUCCESS
+    List<String> graceEntries = trace.readLines().findAll { it.startsWith('ENTER ') }
+    assert graceEntries == ['ENTER grace-commit', 'ENTER grace-ci']
+    assert !resource.locked && manager.queuedContexts.isEmpty()
+    record('NEW_REVISION_GRACE_PASSED later commit completed before yielded CI')
+
     // A later default-priority PR must pass a CI request that is already
     // waiting at priority -100. The current holder is never interrupted.
     trace.text = ''
@@ -244,11 +324,12 @@ pipeline {
       assert !new File(shared, 'busy').exists()
       record('RECOVERY_PASSED ' + mode)
     }
-    def longOwner = create('wait-budget-owner', templates.ci("sleep time: 9, unit: 'SECONDS'"))
+    // CI's stage-level lock must remain outside its execution timeout.
+    def longOwner = create('wait-budget-owner', templates.commit("sleep time: 9, unit: 'SECONDS'"))
     def longFuture = trigger(longOwner)
     await('wait-budget owner enters') { trace.text.contains('ENTER wait-budget-owner') }
-    def shortWaiter = create('wait-budget-follower', templates.pr("echo 'short execution'")
-      .replace("timeout(time: 35, unit: 'MINUTES')", "timeout(time: 5, unit: 'SECONDS')"))
+    def shortWaiter = create('wait-budget-follower', templates.ci("echo 'short execution'")
+      .replace("timeout(time: 45, unit: 'MINUTES')", "timeout(time: 5, unit: 'SECONDS')"))
     def shortFuture = trigger(shortWaiter)
     await('wait-budget follower waits') { manager.queuedContexts.size() == 1 }
     Thread.sleep(6000)
