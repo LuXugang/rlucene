@@ -567,7 +567,7 @@ impl HnswGraphBuilderDefaults {
           }
         });
         let mut v = scorer_supplier.scorer(c_node)?;
-        if Self::diversity_check(c_score, &mut v, neighbors)? {
+        if Self::diversity_check(c_score, &mut v, &neighbors.nodes()[..neighbors.size()])? {
           mask[i] = true;
           // here we don't need to lock, because there's no incoming link so no others is
           // able to discover this node such that no others will modify
@@ -608,12 +608,12 @@ impl HnswGraphBuilderDefaults {
   ///
   /// Whether the candidate is diverse given the existing neighbors.
   #[inline]
-  fn diversity_check<T>(score: f32, scorer: &mut T, neighbors: &NeighborArray<true>) -> Result<bool>
+  fn diversity_check<T>(score: f32, scorer: &mut T, neighbors: &[u32]) -> Result<bool>
   where
     T: RandomVectorScorer,
   {
-    for i in 0..neighbors.size() {
-      let neighbor_similarity = scorer.score(neighbors.nodes()[i] as usize)?;
+    for &neighbor in neighbors {
+      let neighbor_similarity = scorer.score(neighbor as usize)?;
       if neighbor_similarity >= score {
         return Ok(false);
       }
