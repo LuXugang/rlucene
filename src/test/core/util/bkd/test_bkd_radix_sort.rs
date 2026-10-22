@@ -153,7 +153,12 @@ where
         get_random_common_prefix(config.clone(), points, start, end, split_dim, random)?;
     }
 
-    radix_selector.heap_radix_sort(points, start, end, split_dim, common_prefix_length)?;
+    match points {
+      PointWriterEnum::Heap(heap) => {
+        radix_selector.heap_radix_sort(heap, start, end, split_dim, common_prefix_length)?;
+      },
+      PointWriterEnum::Offline(_) => unreachable!("sort fixtures construct heap writers"),
+    }
 
     let mut previous = vec![0u8; config.packed_bytes_length()];
     let mut previous_doc_id = -1;

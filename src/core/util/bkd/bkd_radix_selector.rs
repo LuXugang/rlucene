@@ -20,9 +20,10 @@ use crate::core::store::directory::Directory;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::heap_point_write::HeapPointWriter;
+use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::core::util::bkd::point_reader::PointReader;
-use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
+use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -36,9 +37,9 @@ use crate::core::util::{
 use std::sync::Arc;
 
 /// Offline Radix selector for BKD tree.
-pub struct BKDRadixSelector {
+pub struct BKDRadixSelector<const N: usize = 0> {
   // histogram array
-  histogram: [usize; Self::HISTOGRAM_SIZE],
+  histogram: [usize; 256],
   // Number of bytes to sort: `config.bytes_per_dim() + INT_BYTES`.
   bytes_sorted: usize,
   // flag to when we are moving to sort on heap
@@ -54,31 +55,31 @@ pub struct BKDRadixSelector {
   // BKD tree configuration
   config: BKDConfig,
 }
-pub struct SelectorSlice<O>
+pub struct SelectorSlice<O, const N: usize = 0>
 where
   O: IndexOutput,
 {
   pub(crate) partition: Vec<u8>,
 
-  pub(crate) left_writer: Option<PointWriterEnum<O>>,
+  pub(crate) left_writer: Option<PointWriterEnum<O, N>>,
   pub(crate) left_from: usize,
   pub(crate) left_to: usize,
 
-  pub(crate) right_writer: Option<PointWriterEnum<O>>,
+  pub(crate) right_writer: Option<PointWriterEnum<O, N>>,
   pub(crate) right_from: usize,
   pub(crate) right_to: usize,
 }
-impl<O> SelectorSlice<O>
+impl<O, const N: usize> SelectorSlice<O, N>
 where
   O: IndexOutput,
 {
   fn new(
     partition: Vec<u8>,
-    left_writer: Option<PointWriterEnum<O>>,
+    left_writer: Option<PointWriterEnum<O, N>>,
     left_from: usize,
     left_to: usize,
 
-    right_writer: Option<PointWriterEnum<O>>,
+    right_writer: Option<PointWriterEnum<O, N>>,
     right_from: usize,
     right_to: usize,
   ) -> Self {
@@ -93,16 +94,26 @@ where
     }
   }
 }
-impl BKDRadixSelector {
+#[cfg(test)]
+impl BKDRadixSelector<0> {
+  pub fn new<P: Into<Arc<str>>>(
+    config: BKDConfig,
+    max_points_sort_in_heap: usize,
+    prefix: P,
+  ) -> Self {
+    Self::new_with_bytes(config, max_points_sort_in_heap, prefix)
+  }
+}
+impl<const N: usize> BKDRadixSelector<N> {
   // size of the histogram
   const HISTOGRAM_SIZE: usize = 256;
   // size of the online buffer: 8 KB
   const MAX_SIZE_OFFLINE_BUFFER: usize = 1024 * 8;
   /// Creates a new instance.
-  pub fn new<N: Into<Arc<str>>>(
+  pub fn new_with_bytes<P: Into<Arc<str>>>(
     config: BKDConfig,
     max_points_sort_in_heap: usize,
-    temp_file_name_prefix: N,
+    temp_file_name_prefix: P,
   ) -> Self {
     // Selection and sorting is done in a given dimension. In case the value
     // of the dimension are equal
@@ -116,7 +127,7 @@ impl BKDRadixSelector {
     let number_of_points_offline = Self::MAX_SIZE_OFFLINE_BUFFER / config.bytes_per_doc();
     let offline_buffer = vec![0u8; number_of_points_offline * config.bytes_per_doc()];
     let partition_bucket = vec![0; bytes_sorted];
-    let histogram = [0; Self::HISTOGRAM_SIZE];
+    let histogram = [0; 256];
     let scratch = vec![0u8; bytes_sorted];
     BKDRadixSelector {
       config,
@@ -146,22 +157,21 @@ impl BKDRadixSelector {
   #[allow(clippy::too_many_arguments)]
   pub fn select<D>(
     &mut self,
-    points: &mut PathSlice<D::IndexOutput>,
+    points: &mut PathSlice<D::IndexOutput, N>,
     from: usize,
     to: usize,
     partition_point: usize,
     dim: usize,
     dim_common_prefix: usize,
     temp_dir: &D,
-  ) -> Result<SelectorSlice<D::IndexOutput>>
+  ) -> Result<SelectorSlice<D::IndexOutput, N>>
   where
     D: Directory,
   {
     Self::check_args(from, to, partition_point)?;
-    let is_heap = { matches!(points.writer, PointWriterEnum::Heap(_)) };
-    if is_heap {
+    if let PointWriterEnum::Heap(heap_writer) = points.writer {
       let partition = self.heap_radix_select(
-        points.writer,
+        heap_writer,
         dim,
         from,
         to,
@@ -195,10 +205,18 @@ impl BKDRadixSelector {
       };
       if let PointWriterEnum::Offline(offline_point_writer) = points.writer {
         let partition_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          self.build_histogram_and_partition(
-            offline_point_writer,
-            &mut left_writer,
-            &mut right_writer,
+          let heap_sizes = (
+            match &left_writer {
+              PointWriterEnum::Heap(writer) => writer.size,
+              PointWriterEnum::Offline(_) => 0,
+            },
+            match &right_writer {
+              PointWriterEnum::Heap(writer) => writer.size,
+              PointWriterEnum::Offline(_) => 0,
+            },
+          );
+          let args = (
+            heap_sizes,
             from,
             to,
             partition_point,
@@ -206,7 +224,21 @@ impl BKDRadixSelector {
             dim_common_prefix,
             dim,
             temp_dir,
-          )
+          );
+          match (&mut left_writer, &mut right_writer) {
+            (PointWriterEnum::Heap(left), PointWriterEnum::Heap(right)) => {
+              self.build_histogram_and_partition(offline_point_writer, (left, right), args)
+            },
+            (PointWriterEnum::Heap(left), PointWriterEnum::Offline(right)) => {
+              self.build_histogram_and_partition(offline_point_writer, (left, right), args)
+            },
+            (PointWriterEnum::Offline(left), PointWriterEnum::Heap(right)) => {
+              self.build_histogram_and_partition(offline_point_writer, (left, right), args)
+            },
+            (PointWriterEnum::Offline(left), PointWriterEnum::Offline(right)) => {
+              self.build_histogram_and_partition(offline_point_writer, (left, right), args)
+            },
+          }
         }));
         let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
           IOUtils::close([&mut right_writer, &mut left_writer])
@@ -240,6 +272,122 @@ impl BKDRadixSelector {
     Ok(())
   }
 
+  #[allow(clippy::too_many_arguments)]
+  fn histogram_from_reader<R: PointReader>(
+    &mut self,
+    reader: &mut R,
+    from: usize,
+    to: usize,
+    dim_common_prefix: usize,
+    offset: usize,
+    mut common_prefix_position: usize,
+  ) -> Result<usize> {
+    debug_assert!(common_prefix_position > dim_common_prefix);
+    reader.next()?;
+    {
+      let point_value = reader.point_value()?;
+      let value = point_value.packed_value_doc_id_bytes();
+
+      let mut start = value.offset + offset;
+      let mut end = start + self.config.bytes_per_dim;
+      self.scratch.copy_from(&value.bytes[start..end], 0);
+
+      start = value.offset + self.config.packed_index_bytes_length();
+      end = start
+        + ((self.config.num_dims - self.config.num_index_dims) * self.config.bytes_per_dim)
+        + BitUtil::INT_BYTES;
+      self
+        .scratch
+        .copy_from(&value.bytes[start..end], self.config.bytes_per_dim);
+    }
+    let mut histogram_index;
+    for i in (from + 1)..to {
+      reader.next()?;
+      if common_prefix_position == dim_common_prefix {
+        {
+          let point_value = reader.point_value()?;
+          histogram_index = self.get_bucket(offset, common_prefix_position, &point_value);
+          self.histogram[histogram_index] += 1;
+        }
+        for _ in (i + 1)..to {
+          reader.next()?;
+          let point_value = reader.point_value()?;
+          histogram_index = self.get_bucket(offset, common_prefix_position, &point_value);
+          self.histogram[histogram_index] += 1;
+        }
+        break;
+      } else {
+        let point_value = reader.point_value()?;
+        // Check common prefix and adjust histogram
+        let scratch_start_index = std::cmp::min(dim_common_prefix, self.config.bytes_per_dim);
+        let scratch_end_index = std::cmp::min(common_prefix_position, self.config.bytes_per_dim);
+        let value = point_value.packed_value_doc_id_bytes();
+        let packed_value_start_index = (value.offset + offset) + scratch_start_index;
+        let packed_value_end_index = (value.offset + offset) + scratch_end_index;
+        let j = CoreHelper::miss_match_u8(
+          &self.scratch[scratch_start_index..scratch_end_index],
+          &value.bytes[packed_value_start_index..packed_value_end_index],
+        );
+        if j == -1 {
+          if common_prefix_position > self.config.bytes_per_dim {
+            let start_tie_break = self.config.packed_index_bytes_length();
+            let end_tie_break =
+              start_tie_break + common_prefix_position - self.config.bytes_per_dim;
+            let k = CoreHelper::miss_match_u8(
+              &self.scratch[self.config.bytes_per_dim..common_prefix_position],
+              &value.bytes[(value.offset + start_tie_break)..(value.offset + end_tie_break)],
+            );
+            if k != -1 {
+              common_prefix_position = self.config.bytes_per_dim + k as usize;
+              self.histogram.fill(0);
+              self.histogram[self.scratch[common_prefix_position] as usize] = i - from;
+            }
+          }
+        } else {
+          common_prefix_position = dim_common_prefix + j as usize;
+          self.histogram.fill(0);
+          self.histogram[self.scratch[common_prefix_position] as usize] = i - from;
+        }
+        if common_prefix_position != self.bytes_sorted {
+          histogram_index = self.get_bucket(offset, common_prefix_position, &point_value);
+          self.histogram[histogram_index] += 1;
+        }
+      }
+    }
+    Ok(common_prefix_position)
+  }
+  #[allow(clippy::too_many_arguments)]
+  fn partition_from_reader<RD: PointReader, L: PointWriter, R: PointWriter, W: PointWriter>(
+    &self,
+    reader: &mut RD,
+    left: &mut L,
+    right: &mut R,
+    mut delta_points: Option<&mut W>,
+    offset: usize,
+    byte_position: usize,
+    num_docs_tiebreak: usize,
+    mut tiebreak_counter: usize,
+  ) -> Result<()> {
+    while reader.next()? {
+      let point_value = reader.point_value()?;
+      let bucket = self.get_bucket(offset, byte_position, &point_value);
+      if bucket < self.partition_bucket[byte_position] {
+        left.append_point_value(&point_value)?;
+      } else if bucket > self.partition_bucket[byte_position] {
+        right.append_point_value(&point_value)?;
+      } else if byte_position == self.bytes_sorted - 1 {
+        if tiebreak_counter < num_docs_tiebreak {
+          left.append_point_value(&point_value)?;
+          tiebreak_counter += 1;
+        } else {
+          right.append_point_value(&point_value)?;
+        }
+      } else if let Some(dp) = delta_points.as_mut() {
+        dp.append_point_value(&point_value)?;
+      }
+    }
+    Ok(())
+  }
   fn find_common_prefix_and_histogram<D>(
     &mut self,
     points: &mut OfflinePointWriter<D::IndexOutput>,
@@ -252,7 +400,7 @@ impl BKDRadixSelector {
   where
     D: Directory,
   {
-    let mut common_prefix_position = self.bytes_sorted;
+    let common_prefix_position = self.bytes_sorted;
     let offset = dim * self.config.bytes_per_dim;
     let mut reader = points.get_reader_with_buffer(
       from,
@@ -262,89 +410,28 @@ impl BKDRadixSelector {
     )?;
     let body_result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<usize> {
-        debug_assert!(common_prefix_position > dim_common_prefix);
-        reader.next()?;
-        {
-          let point_value = reader.point_value()?;
-          let value = point_value.packed_value_doc_id_bytes();
-
-          let mut start = value.offset + offset;
-          let mut end = start + self.config.bytes_per_dim;
-          self.scratch.copy_from(&value.bytes[start..end], 0);
-
-          start = value.offset + self.config.packed_index_bytes_length();
-          end = start
-            + ((self.config.num_dims - self.config.num_index_dims) * self.config.bytes_per_dim)
-            + BitUtil::INT_BYTES;
-          self
-            .scratch
-            .copy_from(&value.bytes[start..end], self.config.bytes_per_dim);
+        match &mut reader {
+          OfflinePointReader::Plain(reader) => self.histogram_from_reader(
+            reader,
+            from,
+            to,
+            dim_common_prefix,
+            offset,
+            common_prefix_position,
+          ),
+          OfflinePointReader::Checksum(reader) => self.histogram_from_reader(
+            reader,
+            from,
+            to,
+            dim_common_prefix,
+            offset,
+            common_prefix_position,
+          ),
         }
-        let mut histogram_index;
-        for i in (from + 1)..to {
-          reader.next()?;
-          if common_prefix_position == dim_common_prefix {
-            {
-              let point_value = reader.point_value()?;
-              histogram_index = self.get_bucket(offset, common_prefix_position, point_value);
-              self.histogram[histogram_index] += 1;
-            }
-            for _ in (i + 1)..to {
-              reader.next()?;
-              let point_value = reader.point_value()?;
-              histogram_index = self.get_bucket(offset, common_prefix_position, point_value);
-              self.histogram[histogram_index] += 1;
-            }
-            break;
-          } else {
-            let point_value = reader.point_value()?;
-            // Check common prefix and adjust histogram
-            let scratch_start_index = std::cmp::min(dim_common_prefix, self.config.bytes_per_dim);
-            let scratch_end_index =
-              std::cmp::min(common_prefix_position, self.config.bytes_per_dim);
-            let value = point_value.packed_value_doc_id_bytes();
-            let packed_value_start_index = (value.offset + offset) + scratch_start_index;
-            let packed_value_end_index = (value.offset + offset) + scratch_end_index;
-            let j = CoreHelper::miss_match_u8(
-              &self.scratch[scratch_start_index..scratch_end_index],
-              &value.bytes[packed_value_start_index..packed_value_end_index],
-            );
-            if j == -1 {
-              if common_prefix_position > self.config.bytes_per_dim {
-                let start_tie_break = self.config.packed_index_bytes_length();
-                let end_tie_break =
-                  start_tie_break + common_prefix_position - self.config.bytes_per_dim;
-                let k = CoreHelper::miss_match_u8(
-                  &self.scratch[self.config.bytes_per_dim..common_prefix_position],
-                  &value.bytes[(value.offset + start_tie_break)..(value.offset + end_tie_break)],
-                );
-                if k != -1 {
-                  common_prefix_position = self.config.bytes_per_dim + k as usize;
-                  self.histogram.fill(0);
-                  self.histogram[self.scratch[common_prefix_position] as usize] = i - from;
-                }
-              }
-            } else {
-              common_prefix_position = dim_common_prefix + j as usize;
-              self.histogram.fill(0);
-              self.histogram[self.scratch[common_prefix_position] as usize] = i - from;
-            }
-            if common_prefix_position != self.bytes_sorted {
-              histogram_index = self.get_bucket(offset, common_prefix_position, point_value);
-              self.histogram[histogram_index] += 1;
-            }
-          }
-        }
-        Ok(common_prefix_position)
       }));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<usize> {
-      match &mut reader.point_value {
-        PointValueEnum::Offline(offline_point_value) => {
-          self.offline_buffer = std::mem::take(&mut offline_point_value.value);
-        },
-        _ => {
-          debug_assert!(false, "PointValueEnum must be Offline");
-        },
+      {
+        self.offline_buffer = reader.take_buffer();
       }
       unwrap_caught_result!(body_result)
     }));
@@ -357,11 +444,11 @@ impl BKDRadixSelector {
     Ok(common_prefix_position)
   }
 
-  fn get_bucket(
+  fn get_bucket<V: PointValue + ?Sized>(
     &self,
     offset: usize,
     common_prefix_position: usize,
-    point_value: &PointValueEnum,
+    point_value: &V,
   ) -> usize {
     if common_prefix_position < self.config.bytes_per_dim {
       let packed_value = point_value.packed_value();
@@ -375,23 +462,20 @@ impl BKDRadixSelector {
       packed_value.bytes[index] as usize
     }
   }
-  #[allow(clippy::too_many_arguments)]
-  fn build_histogram_and_partition<D>(
+  fn build_histogram_and_partition<D, L, R>(
     &mut self,
     points: &mut OfflinePointWriter<D::IndexOutput>,
-    left: &mut PointWriterEnum<D::IndexOutput>,
-    right: &mut PointWriterEnum<D::IndexOutput>,
-    from: usize,
-    to: usize,
-    partition_point: usize,
-    iteration: usize,
-    base_common_prefix: usize,
-    dim: usize,
-    temp_dir: &D,
+    writers: (&mut L, &mut R),
+    args: ((usize, usize), usize, usize, usize, usize, usize, usize, &D),
   ) -> Result<Vec<u8>>
   where
     D: Directory,
+    L: PointWriter,
+    R: PointWriter,
   {
+    let (left, right) = writers;
+    let (heap_sizes, from, to, partition_point, iteration, base_common_prefix, dim, temp_dir) =
+      args;
     // Find common prefix from baseCommonPrefix and build histogram
     let common_prefix =
       self.find_common_prefix_and_histogram(points, from, to, dim, base_common_prefix, temp_dir)?;
@@ -402,7 +486,7 @@ impl BKDRadixSelector {
         points,
         left,
         right,
-        None,
+        None::<&mut HeapPointWriter<N>>,
         from,
         to,
         dim,
@@ -445,7 +529,7 @@ impl BKDRadixSelector {
         points,
         left,
         right,
-        None,
+        None::<&mut HeapPointWriter<N>>,
         from,
         to,
         dim,
@@ -457,21 +541,34 @@ impl BKDRadixSelector {
     }
 
     // Create the delta points writer
-    let mut delta_points = self.get_delta_point_writer(left, right, delta, iteration, temp_dir)?;
-    let partition_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      self.offline_partition(
-        points,
-        left,
-        right,
-        Some(&mut delta_points),
-        from,
-        to,
-        dim,
-        common_prefix,
-        0,
-        temp_dir,
-      )
-    }));
+    let mut delta_points = self.get_delta_point_writer(heap_sizes, delta, iteration, temp_dir)?;
+    let partition_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match &mut delta_points {
+        PointWriterEnum::Heap(delta) => self.offline_partition(
+          points,
+          left,
+          right,
+          Some(delta),
+          from,
+          to,
+          dim,
+          common_prefix,
+          0,
+          temp_dir,
+        ),
+        PointWriterEnum::Offline(delta) => self.offline_partition(
+          points,
+          left,
+          right,
+          Some(delta),
+          from,
+          to,
+          dim,
+          common_prefix,
+          0,
+          temp_dir,
+        ),
+      }));
     let close_result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| delta_points.close()));
     IOUtils::use_or_suppress_caught_result(partition_result, close_result)?;
@@ -481,8 +578,8 @@ impl BKDRadixSelector {
     // partition method.
     let count = delta_points.count();
     match delta_points {
-      PointWriterEnum::Heap(_) => self.heap_partition(
-        delta_points,
+      PointWriterEnum::Heap(heap_writer) => self.heap_partition(
+        heap_writer,
         left,
         right,
         dim,
@@ -493,26 +590,28 @@ impl BKDRadixSelector {
       ),
       PointWriterEnum::Offline(mut offline_writer) => self.build_histogram_and_partition(
         &mut offline_writer,
-        left,
-        right,
-        0,
-        count,
-        new_partition_point,
-        iteration + 1,
-        common_prefix + 1,
-        dim,
-        temp_dir,
+        (left, right),
+        (
+          heap_sizes,
+          0,
+          count,
+          new_partition_point,
+          iteration + 1,
+          common_prefix + 1,
+          dim,
+          temp_dir,
+        ),
       ),
     }
   }
 
   #[allow(clippy::too_many_arguments)]
-  fn offline_partition<D>(
+  fn offline_partition<D, L, R, W>(
     &mut self,
     points: &mut OfflinePointWriter<D::IndexOutput>,
-    left: &mut PointWriterEnum<D::IndexOutput>,
-    right: &mut PointWriterEnum<D::IndexOutput>,
-    mut delta_points: Option<&mut PointWriterEnum<D::IndexOutput>>,
+    left: &mut L,
+    right: &mut R,
+    delta_points: Option<&mut W>,
     from: usize,
     to: usize,
     dim: usize,
@@ -522,10 +621,13 @@ impl BKDRadixSelector {
   ) -> Result<()>
   where
     D: Directory,
+    L: PointWriter,
+    R: PointWriter,
+    W: PointWriter,
   {
     debug_assert!(byte_position == self.bytes_sorted - 1 || delta_points.is_some());
     let offset = dim * self.config.bytes_per_dim;
-    let mut tiebreak_counter = 0usize;
+    let tiebreak_counter = 0usize;
     let mut reader = points.get_reader_with_buffer(
       from,
       to - from,
@@ -533,34 +635,32 @@ impl BKDRadixSelector {
       temp_dir,
     )?;
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      while reader.next()? {
-        let point_value = reader.point_value()?;
-        let bucket = self.get_bucket(offset, byte_position, point_value);
-        if bucket < self.partition_bucket[byte_position] {
-          left.append_point_value(point_value)?;
-        } else if bucket > self.partition_bucket[byte_position] {
-          right.append_point_value(point_value)?;
-        } else if byte_position == self.bytes_sorted - 1 {
-          if tiebreak_counter < num_docs_tiebreak {
-            left.append_point_value(point_value)?;
-            tiebreak_counter += 1;
-          } else {
-            right.append_point_value(point_value)?;
-          }
-        } else if let Some(dp) = delta_points.as_mut() {
-          dp.append_point_value(point_value)?;
-        }
+      match &mut reader {
+        OfflinePointReader::Plain(reader) => self.partition_from_reader(
+          reader,
+          left,
+          right,
+          delta_points,
+          offset,
+          byte_position,
+          num_docs_tiebreak,
+          tiebreak_counter,
+        ),
+        OfflinePointReader::Checksum(reader) => self.partition_from_reader(
+          reader,
+          left,
+          right,
+          delta_points,
+          offset,
+          byte_position,
+          num_docs_tiebreak,
+          tiebreak_counter,
+        ),
       }
-      Ok(())
     }));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      match &mut reader.point_value {
-        PointValueEnum::Offline(offline_point_value) => {
-          self.offline_buffer = std::mem::take(&mut offline_point_value.value);
-        },
-        _ => {
-          debug_assert!(false, "PointValueEnum must be Offline");
-        },
+      {
+        self.offline_buffer = reader.take_buffer();
       }
       unwrap_caught_result!(body_result)
     }));
@@ -584,11 +684,11 @@ impl BKDRadixSelector {
   }
 
   #[allow(clippy::too_many_arguments)]
-  fn heap_partition<O>(
+  fn heap_partition<L, R>(
     &mut self,
-    mut points: PointWriterEnum<O>,
-    left: &mut PointWriterEnum<O>,
-    right: &mut PointWriterEnum<O>,
+    mut points: HeapPointWriter<N>,
+    left: &mut L,
+    right: &mut R,
     dim: usize,
     from: usize,
     to: usize,
@@ -596,42 +696,34 @@ impl BKDRadixSelector {
     common_prefix: usize,
   ) -> Result<Vec<u8>>
   where
-    O: IndexOutput,
+    L: PointWriter,
+    R: PointWriter,
   {
     let partition =
       self.heap_radix_select(&mut points, dim, from, to, partition_point, common_prefix)?;
-    match points {
-      PointWriterEnum::Heap(ref mut heap_writer) => {
-        for i in from..to {
-          let value = heap_writer.get_packed_value_slice(i)?;
-          if i < partition_point {
-            left.append_point_value(value)?;
-          } else {
-            right.append_point_value(value)?;
-          }
+    {
+      for i in from..to {
+        let value = points.get_packed_value_slice(i)?;
+        if i < partition_point {
+          left.append_point_value(value)?;
+        } else {
+          right.append_point_value(value)?;
         }
-        Ok(partition)
-      },
-      _ => {
-        debug_assert!(false, "Point writer is not a heap writer");
-        Ok(vec![0u8; 0])
-      },
+      }
+      Ok(partition)
     }
   }
   /// Sort the heap writer by the specified dim. It is used to sort the leaves
   /// of the tree/`.
-  pub fn heap_radix_select<O>(
+  pub fn heap_radix_select(
     &mut self,
-    points: &mut PointWriterEnum<O>,
+    points: &mut HeapPointWriter<N>,
     dim: usize,
     from: usize,
     to: usize,
     partition_point: usize,
     common_prefix_length: usize,
-  ) -> Result<Vec<u8>>
-  where
-    O: IndexOutput,
-  {
+  ) -> Result<Vec<u8>> {
     let bytes_per_dim = self.config.bytes_per_dim;
     let dim_offset = dim * bytes_per_dim + common_prefix_length;
     let max_length = self
@@ -663,36 +755,28 @@ impl BKDRadixSelector {
 
     let mut partition = vec![0u8; bytes_per_dim];
 
-    match points {
-      PointWriterEnum::Heap(heap_writer) => {
-        let point_value = heap_writer.get_packed_value_slice(partition_point)?;
-        let bytes = point_value.packed_value();
+    {
+      let point_value = points.get_packed_value_slice(partition_point)?;
+      let bytes = point_value.packed_value();
 
-        let start = bytes.offset + (dim * bytes_per_dim);
-        let end = start + bytes_per_dim;
+      let start = bytes.offset + (dim * bytes_per_dim);
+      let end = start + bytes_per_dim;
 
-        partition.copy_from(&bytes.bytes[start..end], 0);
-        Ok(partition)
-      },
-      _ => Err(LuceneError::unreachable(
-        "Point writer is not a heap writer",
-      )),
+      partition.copy_from(&bytes.bytes[start..end], 0);
+      Ok(partition)
     }
   }
 
   /// Sort the heap writer by the specified dim. It is used to sort the leaves
   /// of the tree.
-  pub fn heap_radix_sort<O>(
+  pub fn heap_radix_sort(
     &mut self,
-    points: &mut PointWriterEnum<O>,
+    points: &mut HeapPointWriter<N>,
     from: usize,
     to: usize,
     dim: usize,
     common_prefix_length: usize,
-  ) -> Result<()>
-  where
-    O: IndexOutput,
-  {
+  ) -> Result<()> {
     let bytes_per_dim = self.config.bytes_per_dim;
     let dim_offset = dim * bytes_per_dim + common_prefix_length;
     let max_length = self
@@ -723,20 +807,19 @@ impl BKDRadixSelector {
 
   fn get_delta_point_writer<D>(
     &mut self,
-    left: &mut PointWriterEnum<D::IndexOutput>,
-    right: &mut PointWriterEnum<D::IndexOutput>,
+    heap_sizes: (usize, usize),
     delta: usize,
     iteration: usize,
     temp_dir: &D,
-  ) -> Result<PointWriterEnum<D::IndexOutput>>
+  ) -> Result<PointWriterEnum<D::IndexOutput, N>>
   where
     D: Directory,
   {
     if delta >= i32::MAX as usize {
       return Err(LuceneError::number_overflow("Delta is too large"));
     }
-    if delta <= self.get_max_points_sort_in_heap(left, right) {
-      Ok(PointWriterEnum::Heap(HeapPointWriter::new(
+    if delta <= self.get_max_points_sort_in_heap(heap_sizes) {
+      Ok(PointWriterEnum::Heap(HeapPointWriter::<N>::new_with_bytes(
         self.config.clone(),
         delta,
       )))
@@ -751,21 +834,8 @@ impl BKDRadixSelector {
     }
   }
 
-  fn get_max_points_sort_in_heap<O>(
-    &self,
-    left: &mut PointWriterEnum<O>,
-    right: &mut PointWriterEnum<O>,
-  ) -> usize
-  where
-    O: IndexOutput,
-  {
-    let mut points_used = 0;
-    if let &mut PointWriterEnum::Heap(ref heap_writer) = left {
-      points_used += heap_writer.size;
-    }
-    if let &mut PointWriterEnum::Heap(ref heap_writer) = right {
-      points_used += heap_writer.size;
-    }
+  fn get_max_points_sort_in_heap(&self, heap_sizes: (usize, usize)) -> usize {
+    let points_used = heap_sizes.0 + heap_sizes.1;
     debug_assert!(self.max_points_sort_in_heap >= points_used);
     self.max_points_sort_in_heap - points_used
   }
@@ -775,7 +845,7 @@ impl BKDRadixSelector {
     count: usize,
     desc: std::fmt::Arguments<'_>,
     temp_dir: &D,
-  ) -> Result<PointWriterEnum<D::IndexOutput>>
+  ) -> Result<PointWriterEnum<D::IndexOutput, N>>
   where
     D: Directory,
   {
@@ -784,7 +854,7 @@ impl BKDRadixSelector {
     // points we can have on-heap.
     if count <= self.max_points_sort_in_heap / 2 {
       let size = count;
-      Ok(PointWriterEnum::Heap(HeapPointWriter::new(
+      Ok(PointWriterEnum::Heap(HeapPointWriter::<N>::new_with_bytes(
         self.config.clone(),
         size,
       )))
@@ -800,19 +870,19 @@ impl BKDRadixSelector {
   }
 }
 /// Sliced reference to points in an PointWriter.
-pub struct PathSlice<'a, O>
+pub struct PathSlice<'a, O, const N: usize = 0>
 where
   O: IndexOutput,
 {
-  pub writer: &'a mut PointWriterEnum<O>,
+  pub writer: &'a mut PointWriterEnum<O, N>,
   pub start: usize,
   pub count: usize,
 }
-impl<'a, O> PathSlice<'a, O>
+impl<'a, O, const N: usize> PathSlice<'a, O, N>
 where
   O: IndexOutput,
 {
-  pub fn new(writer: &'a mut PointWriterEnum<O>, start: usize, count: usize) -> Self {
+  pub fn new(writer: &'a mut PointWriterEnum<O, N>, start: usize, count: usize) -> Self {
     PathSlice {
       writer,
       start,
@@ -821,11 +891,8 @@ where
   }
 }
 
-struct MSBRadixSorterImpl<'a, O>
-where
-  O: IndexOutput,
-{
-  points: &'a mut PointWriterEnum<O>,
+struct MSBRadixSorterImpl<'a, const N: usize> {
+  points: &'a mut HeapPointWriter<N>,
   dim_cmp_bytes: usize,
   dim_offset: usize,
   data_offset: usize,
@@ -835,32 +902,20 @@ where
   scratch: &'a mut [u8],
 }
 
-impl<O> Sorter for MSBRadixSorterImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> Sorter for MSBRadixSorterImpl<'_, N> {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => heap_writer.swap(i, j),
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
-    }
+    self.points.swap(i, j)
   }
 }
 
-impl<O> MSBRadixSorterBase for MSBRadixSorterImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> MSBRadixSorterBase for MSBRadixSorterImpl<'_, N> {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     let pos = if k < self.dim_cmp_bytes {
       self.dim_offset + k
     } else {
       self.data_offset + k
     };
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => heap_writer.byte_at(i, pos),
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
-    }
+    self.points.byte_at(i, pos)
   }
 
   fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter
@@ -879,68 +934,50 @@ where
   }
 }
 
-struct IntroSorterImpl<'a, O>
-where
-  O: IndexOutput,
-{
-  points: &'a mut PointWriterEnum<O>,
+struct IntroSorterImpl<'a, const N: usize> {
+  points: &'a mut HeapPointWriter<N>,
   skyped_bytes: usize,
   dim_start: usize,
   scratch: &'a mut [u8],
   bytes_per_dim: usize,
 }
 
-impl<O> Sorter for IntroSorterImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> Sorter for IntroSorterImpl<'_, N> {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => {
-        if self.skyped_bytes < self.bytes_per_dim {
-          let cmp = heap_writer.compare_dim(i, j, self.dim_start)?;
-          if cmp != 0 {
-            return Ok(cmp);
-          }
-        }
-        heap_writer.compare_data_dims_and_doc(i, j)
-      },
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
+    if self.skyped_bytes < self.bytes_per_dim {
+      let cmp = self.points.compare_dim(i, j, self.dim_start)?;
+      if cmp != 0 {
+        return Ok(cmp);
+      }
     }
+    self.points.compare_data_dims_and_doc(i, j)
   }
 
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => heap_writer.swap(i, j),
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
-    }
+    self.points.swap(i, j)
   }
 
   fn set_pivot(&mut self, i: usize) -> Result<()> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => {
-        if self.skyped_bytes < self.bytes_per_dim {
-          heap_writer.copy_dim(i, self.dim_start, self.scratch, 0)?;
-        }
-        heap_writer.copy_data_dims_and_doc(i, self.scratch, self.bytes_per_dim)
-      },
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
+    if self.skyped_bytes < self.bytes_per_dim {
+      self.points.copy_dim(i, self.dim_start, self.scratch, 0)?;
     }
+    self
+      .points
+      .copy_data_dims_and_doc(i, self.scratch, self.bytes_per_dim)
   }
 
   fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => {
-        if self.skyped_bytes < self.bytes_per_dim {
-          let cmp = heap_writer.compare_dim_with_scratch(j, self.scratch, 0, self.dim_start)?;
-          if cmp != 0 {
-            return Ok(cmp);
-          }
-        }
-        heap_writer.compare_data_dims_and_doc_with(j, self.scratch, self.bytes_per_dim)
-      },
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
+    if self.skyped_bytes < self.bytes_per_dim {
+      let cmp = self
+        .points
+        .compare_dim_with_scratch(j, self.scratch, 0, self.dim_start)?;
+      if cmp != 0 {
+        return Ok(cmp);
+      }
     }
+    self
+      .points
+      .compare_data_dims_and_doc_with(j, self.scratch, self.bytes_per_dim)
   }
   fn sort(&mut self, from: usize, to: usize) -> Result<()> {
     IntroSorter::sort_range(self, from, to)?;
@@ -948,13 +985,10 @@ where
   }
 }
 
-impl<O> IntroSorter for IntroSorterImpl<'_, O> where O: IndexOutput {}
+impl<const N: usize> IntroSorter for IntroSorterImpl<'_, N> {}
 
-struct RadixSelectorImpl<'a, O>
-where
-  O: IndexOutput,
-{
-  points: &'a mut PointWriterEnum<O>,
+struct RadixSelectorImpl<'a, const N: usize> {
+  points: &'a mut HeapPointWriter<N>,
   common_prefix_length: usize,
   bytes_per_dim: usize,
   dim_cmp_bytes: usize,
@@ -964,32 +998,20 @@ where
   scratch: &'a mut [u8],
 }
 
-impl<O> Selector for RadixSelectorImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> Selector for RadixSelectorImpl<'_, N> {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => heap_writer.swap(i, j),
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
-    }
+    self.points.swap(i, j)
   }
 }
 
-impl<O> RadixSelectorBase for RadixSelectorImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> RadixSelectorBase for RadixSelectorImpl<'_, N> {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     let pos = if k < self.dim_cmp_bytes {
       self.dim_offset + k
     } else {
       self.data_offset + k
     };
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => heap_writer.byte_at(i, pos),
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
-    }
+    self.points.byte_at(i, pos)
   }
 
   fn get_fallback_selector(&mut self, d: usize, _max_length: usize) -> impl Selector
@@ -1009,77 +1031,55 @@ where
   }
 }
 
-struct IntroSelectorImpl<'a, O>
-where
-  O: IndexOutput,
-{
-  points: &'a mut PointWriterEnum<O>,
+struct IntroSelectorImpl<'a, const N: usize> {
+  points: &'a mut HeapPointWriter<N>,
   skyped_bytes: usize,
   bytes_per_dim: usize,
   dim_start: usize,
   scratch: &'a mut [u8],
 }
 
-impl<O> IntroSelectorBaseDefault for IntroSelectorImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> IntroSelectorBaseDefault for IntroSelectorImpl<'_, N> {
   fn set_pivot(&mut self, i: usize) -> Result<()> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => {
-        if self.skyped_bytes < self.bytes_per_dim {
-          heap_writer.copy_dim(i, self.dim_start, self.scratch, 0)?;
-        }
-        heap_writer.copy_data_dims_and_doc(i, self.scratch, self.bytes_per_dim)
-      },
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
+    {
+      if self.skyped_bytes < self.bytes_per_dim {
+        self.points.copy_dim(i, self.dim_start, self.scratch, 0)?;
+      }
+      self
+        .points
+        .copy_data_dims_and_doc(i, self.scratch, self.bytes_per_dim)
     }
   }
 
   fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => {
-        if self.skyped_bytes < self.bytes_per_dim {
-          let cmp = heap_writer.compare_dim_with_scratch(j, self.scratch, 0, self.dim_start)?;
-          if cmp != 0 {
-            return Ok(cmp);
-          }
-        }
-        heap_writer.compare_data_dims_and_doc_with(j, self.scratch, self.bytes_per_dim)
-      },
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
+    if self.skyped_bytes < self.bytes_per_dim {
+      let cmp = self
+        .points
+        .compare_dim_with_scratch(j, self.scratch, 0, self.dim_start)?;
+      if cmp != 0 {
+        return Ok(cmp);
+      }
     }
+    self
+      .points
+      .compare_data_dims_and_doc_with(j, self.scratch, self.bytes_per_dim)
   }
 }
 
-impl<O> Selector for IntroSelectorImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> Selector for IntroSelectorImpl<'_, N> {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => heap_writer.swap(i, j),
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
-    }
+    self.points.swap(i, j)
   }
 }
 
-impl<O> IntroSelectorBase for IntroSelectorImpl<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> IntroSelectorBase for IntroSelectorImpl<'_, N> {
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-    match self.points {
-      PointWriterEnum::Heap(heap_writer) => {
-        if self.skyped_bytes < self.bytes_per_dim {
-          let cmp = heap_writer.compare_dim(i, j, self.dim_start)?;
-          if cmp != 0 {
-            return Ok(cmp);
-          }
-        }
-        heap_writer.compare_data_dims_and_doc(i, j)
-      },
-      _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
+    if self.skyped_bytes < self.bytes_per_dim {
+      let cmp = self.points.compare_dim(i, j, self.dim_start)?;
+      if cmp != 0 {
+        return Ok(cmp);
+      }
     }
+    self.points.compare_data_dims_and_doc(i, j)
   }
 }

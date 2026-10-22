@@ -66,6 +66,107 @@ where
       segment_info,
     )
   }
+  #[allow(clippy::too_many_arguments)]
+  fn write_field_with_bytes<D1, D2, T, const N: usize>(
+    &mut self,
+    values: T,
+    config: BKDConfig,
+    max_doc: i32,
+    total: i64,
+    dir: &D1,
+    segment_info: &SegmentInfo<D2>,
+    field_info: &FieldInfo,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    T: PointTree,
+  {
+    let mut writer = BKDWriter::<_, N>::new_with_bytes(
+      max_doc,
+      dir,
+      &segment_info.name,
+      config,
+      self.max_mb_sort_in_heap,
+      total,
+    )?;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      match values.into_mutable() {
+        PointTreeEnum::Mutable(mut mutable_tree) => {
+          match writer.write_field(&mut self.data_out, &mut mutable_tree, &field_info.name)? {
+            Some(finalizer) => {
+              self.meta_out.write_int(field_info.number)?;
+              writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
+            },
+            None => Ok(()),
+          }
+        },
+        PointTreeEnum::Other(mut tree) => {
+          let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
+          tree.visit_doc_values(&mut intersect_visitor)?;
+          match writer.finish(&mut self.data_out)? {
+            Some(finalizer) => {
+              self.meta_out.write_int(field_info.number)?;
+              writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
+            },
+            None => Ok(()),
+          }
+        },
+      }
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
+    IOUtils::use_or_suppress_caught_result(result, close_result)
+  }
+  #[allow(clippy::too_many_arguments)]
+  fn merge_with_bytes<D1, D2, CR, const N: usize>(
+    &mut self,
+    merge_state: &MergeState<D1, CR>,
+    dir: &D2,
+    field_info: &FieldInfo,
+    config: BKDConfig,
+    total_max_size: usize,
+  ) -> Result<()>
+  where
+    D2: Directory,
+    CR: crate::core::index::codec_reader::CodecReader,
+  {
+    let mut writer = BKDWriter::<_, N>::new_with_bytes(
+      merge_state.segment_info.max_doc()?,
+      dir,
+      &merge_state.segment_info.name,
+      config,
+      self.max_mb_sort_in_heap,
+      total_max_size.try_convert()?,
+    )?;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let mut point_values = Vec::with_capacity(merge_state.points_readers.len());
+      let mut doc_maps = Vec::with_capacity(merge_state.points_readers.len());
+      for (i, reader) in merge_state.points_readers.iter().enumerate() {
+        let Some(reader) = reader.as_ref() else {
+          continue;
+        };
+        let Some(reader_field_info) =
+          merge_state.field_infos[i].field_info_by_name(&field_info.name)?
+        else {
+          continue;
+        };
+        if reader_field_info.get_point_dimension_count() == 0 {
+          continue;
+        }
+        if let Some(values) = reader.get_values(&reader_field_info.name)? {
+          point_values.push(values);
+          doc_maps.push(merge_state.doc_maps[i].clone());
+        }
+      }
+
+      if let Some(finalizer) = writer.merge(&mut self.data_out, Some(doc_maps), point_values)? {
+        self.meta_out.write_int(field_info.number)?;
+        writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)?;
+      }
+      Ok(())
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
+    IOUtils::use_or_suppress_caught_result(result, close_result)
+  }
   pub fn new<D1, D2>(
     write_state: &SegmentWriteState<D1>,
     max_points_in_leaf_node: usize,
@@ -211,40 +312,37 @@ where
       field_info.get_point_num_bytes(),
       self.max_points_in_leaf_node,
     )?;
-    let mut writer = BKDWriter::new(
-      segment_info.max_doc()?,
-      dir,
-      &segment_info.name,
-      config,
-      self.max_mb_sort_in_heap,
-      values.size()?.try_convert()?,
-    )?;
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      match values.into_mutable() {
-        PointTreeEnum::Mutable(mut mutable_tree) => {
-          match writer.write_field(&mut self.data_out, &mut mutable_tree, &field_info.name)? {
-            Some(finalizer) => {
-              self.meta_out.write_int(field_info.number)?;
-              writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
-            },
-            None => Ok(()),
-          }
-        },
-        PointTreeEnum::Other(mut tree) => {
-          let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
-          tree.visit_doc_values(&mut intersect_visitor)?;
-          match writer.finish(&mut self.data_out)? {
-            Some(finalizer) => {
-              self.meta_out.write_int(field_info.number)?;
-              writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
-            },
-            None => Ok(()),
-          }
-        },
-      }
-    }));
-    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
-    IOUtils::use_or_suppress_caught_result(result, close_result)
+    let max_doc = segment_info.max_doc()?;
+    let total = values.size()?.try_convert()?;
+    match config.bytes_per_dim {
+      4 => self.write_field_with_bytes::<_, _, _, 4>(
+        values,
+        config,
+        max_doc,
+        total,
+        dir,
+        segment_info,
+        field_info,
+      ),
+      8 => self.write_field_with_bytes::<_, _, _, 8>(
+        values,
+        config,
+        max_doc,
+        total,
+        dir,
+        segment_info,
+        field_info,
+      ),
+      _ => self.write_field_with_bytes::<_, _, _, 0>(
+        values,
+        config,
+        max_doc,
+        total,
+        dir,
+        segment_info,
+        field_info,
+      ),
+    }
   }
 
   fn finish(&mut self) -> Result<()> {
@@ -313,64 +411,50 @@ where
         field_info.get_point_num_bytes(),
         self.max_points_in_leaf_node,
       )?;
-      let mut writer = BKDWriter::new(
-        merge_state.segment_info.max_doc()?,
-        dir,
-        &merge_state.segment_info.name,
-        config,
-        self.max_mb_sort_in_heap,
-        total_max_size.try_convert()?,
-      )?;
-      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-        let mut point_values = Vec::with_capacity(merge_state.points_readers.len());
-        let mut doc_maps = Vec::with_capacity(merge_state.points_readers.len());
-        for (i, reader) in merge_state.points_readers.iter().enumerate() {
-          let Some(reader) = reader.as_ref() else {
-            continue;
-          };
-          let Some(reader_field_info) =
-            merge_state.field_infos[i].field_info_by_name(&field_info.name)?
-          else {
-            continue;
-          };
-          if reader_field_info.get_point_dimension_count() == 0 {
-            continue;
-          }
-          if let Some(values) = reader.get_values(&reader_field_info.name)? {
-            point_values.push(values);
-            doc_maps.push(merge_state.doc_maps[i].clone());
-          }
-        }
-
-        if let Some(finalizer) = writer.merge(&mut self.data_out, Some(doc_maps), point_values)? {
-          self.meta_out.write_int(field_info.number)?;
-          writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)?;
-        }
-        Ok(())
-      }));
-      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
-      IOUtils::use_or_suppress_caught_result(result, close_result)?;
+      match config.bytes_per_dim {
+        4 => self.merge_with_bytes::<_, _, _, 4>(
+          merge_state,
+          dir,
+          field_info,
+          config,
+          total_max_size,
+        )?,
+        8 => self.merge_with_bytes::<_, _, _, 8>(
+          merge_state,
+          dir,
+          field_info,
+          config,
+          total_max_size,
+        )?,
+        _ => self.merge_with_bytes::<_, _, _, 0>(
+          merge_state,
+          dir,
+          field_info,
+          config,
+          total_max_size,
+        )?,
+      }
     }
 
     self.finish()
   }
 }
 
-struct IntersectVisitorImpl<'a, D>
+struct IntersectVisitorImpl<'a, D, const N: usize>
 where
   D: Directory,
 {
-  writer: &'a mut BKDWriter<D>,
+  writer: &'a mut BKDWriter<D, N>,
 }
-impl<'a, D> IntersectVisitorImpl<'a, D>
+impl<'a, D, const N: usize> IntersectVisitorImpl<'a, D, N>
 where
   D: Directory,
 {
-  pub fn new(writer: &'a mut BKDWriter<D>) -> Self {
+  pub fn new(writer: &'a mut BKDWriter<D, N>) -> Self {
     Self { writer }
   }
 }
-impl<'a, D> IntersectVisitor for IntersectVisitorImpl<'a, D>
+impl<'a, D, const N: usize> IntersectVisitor for IntersectVisitorImpl<'a, D, N>
 where
   D: Directory,
 {

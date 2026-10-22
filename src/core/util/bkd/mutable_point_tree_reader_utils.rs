@@ -16,7 +16,8 @@
  */
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
-use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
+use crate::core::util::array_util::ByteArrayComparator;
+use crate::core::util::bkd::bkd_bytes::BKDBytes;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::intro_sorter::IntroSorter;
@@ -91,7 +92,55 @@ impl MutablePointTreeReaderUtils {
     M: MutablePointTree,
   {
     // Get an unsigned comparator for the byte arrays.
-    let comparator = ArrayUtil::get_unsigned_comparator(config.bytes_per_dim);
+    match config.bytes_per_dim {
+      4 => Self::sort_by_dim_with_bytes::<_, 4>(
+        config,
+        sorted_dim,
+        _common_prefix_lengths,
+        reader,
+        from,
+        to,
+        scratch1,
+        scratch2,
+      ),
+      8 => Self::sort_by_dim_with_bytes::<_, 8>(
+        config,
+        sorted_dim,
+        _common_prefix_lengths,
+        reader,
+        from,
+        to,
+        scratch1,
+        scratch2,
+      ),
+      _ => Self::sort_by_dim_with_bytes::<_, 0>(
+        config,
+        sorted_dim,
+        _common_prefix_lengths,
+        reader,
+        from,
+        to,
+        scratch1,
+        scratch2,
+      ),
+    }
+  }
+  #[allow(clippy::too_many_arguments)]
+  pub(crate) fn sort_by_dim_with_bytes<M, const N: usize>(
+    config: &BKDConfig,
+    sorted_dim: usize,
+    _common_prefix_lengths: &[usize],
+    reader: &mut M,
+    from: usize,
+    to: usize,
+    scratch1: &mut BytesRef<Vec<u8>>,
+    scratch2: &mut BytesRef<Vec<u8>>,
+  ) -> Result<()>
+  where
+    M: MutablePointTree,
+  {
+    // Get an unsigned comparator for the byte arrays.
+    let comparator = BKDBytes::<N>::new(config.bytes_per_dim);
     let start = sorted_dim * config.bytes_per_dim;
     // No need for a fancy radix sort here, this is called on the leaves
     // only so there are not many values to sort.
@@ -126,6 +175,61 @@ impl MutablePointTreeReaderUtils {
   where
     M: MutablePointTree,
   {
+    match config.bytes_per_dim {
+      4 => Self::partition_with_bytes::<_, 4>(
+        config,
+        max_doc,
+        split_dim,
+        common_prefix_len,
+        reader,
+        from,
+        to,
+        mid,
+        scratch1,
+        scratch2,
+      ),
+      8 => Self::partition_with_bytes::<_, 8>(
+        config,
+        max_doc,
+        split_dim,
+        common_prefix_len,
+        reader,
+        from,
+        to,
+        mid,
+        scratch1,
+        scratch2,
+      ),
+      _ => Self::partition_with_bytes::<_, 0>(
+        config,
+        max_doc,
+        split_dim,
+        common_prefix_len,
+        reader,
+        from,
+        to,
+        mid,
+        scratch1,
+        scratch2,
+      ),
+    }
+  }
+  #[allow(clippy::too_many_arguments)]
+  pub(crate) fn partition_with_bytes<M, const N: usize>(
+    config: &BKDConfig,
+    max_doc: i32,
+    split_dim: usize,
+    common_prefix_len: usize,
+    reader: &mut M,
+    from: usize,
+    to: usize,
+    mid: usize,
+    scratch1: &mut BytesRef<Vec<u8>>,
+    scratch2: &mut BytesRef<Vec<u8>>,
+  ) -> Result<()>
+  where
+    M: MutablePointTree,
+  {
     let dim_offset = split_dim * config.bytes_per_dim + common_prefix_len;
     let dim_cmp_bytes = config.bytes_per_dim - common_prefix_len;
     debug_assert!(config.num_dims >= config.num_index_dims);
@@ -134,7 +238,7 @@ impl MutablePointTreeReaderUtils {
     let bits_per_doc_id = PackedInts::bits_required((max_doc - 1) as i64)? as usize;
     let max_length = data_cmp_bytes + bits_per_doc_id.div_ceil(8);
 
-    let sub_selector = RadixSelectorImpl {
+    let sub_selector = RadixSelectorImpl::<_, N> {
       split_dim,
       config,
       dim_cmp_bytes,
@@ -195,16 +299,16 @@ where
   }
 }
 
-struct IntroSorterImpl<'a, M> {
+struct IntroSorterImpl<'a, M, const N: usize> {
   reader: &'a mut M,
   config: &'a BKDConfig,
   pivot: &'a mut BytesRef<Vec<u8>>,
   scratch2: &'a mut BytesRef<Vec<u8>>,
   pivot_doc: i32,
-  comparator: ByteArrayComparatorEnum,
+  comparator: BKDBytes<N>,
   start: usize,
 }
-impl<M> Sorter for IntroSorterImpl<'_, M>
+impl<M, const N: usize> Sorter for IntroSorterImpl<'_, M, N>
 where
   M: MutablePointTree,
 {
@@ -262,9 +366,9 @@ where
   }
 }
 
-impl<M> IntroSorter for IntroSorterImpl<'_, M> where M: MutablePointTree {}
+impl<M, const N: usize> IntroSorter for IntroSorterImpl<'_, M, N> where M: MutablePointTree {}
 
-struct RadixSelectorImpl<'a, M> {
+struct RadixSelectorImpl<'a, M, const N: usize> {
   split_dim: usize,
   config: &'a BKDConfig,
   dim_cmp_bytes: usize,
@@ -276,7 +380,7 @@ struct RadixSelectorImpl<'a, M> {
   scratch2: &'a mut BytesRef<Vec<u8>>,
 }
 
-impl<M> Selector for RadixSelectorImpl<'_, M>
+impl<M, const N: usize> Selector for RadixSelectorImpl<'_, M, N>
 where
   M: MutablePointTree,
 {
@@ -286,7 +390,7 @@ where
   }
 }
 
-impl<M> RadixSelectorBase for RadixSelectorImpl<'_, M>
+impl<M, const N: usize> RadixSelectorBase for RadixSelectorImpl<'_, M, N>
 where
   M: MutablePointTree,
 {
@@ -317,7 +421,7 @@ where
       self.config.packed_index_bytes_length() + k - self.dim_cmp_bytes
     };
     let data_end = self.config.num_dims * self.config.bytes_per_dim;
-    let dim_comparator = ArrayUtil::get_unsigned_comparator(self.config.bytes_per_dim);
+    let dim_comparator = BKDBytes::<N>::new(self.config.bytes_per_dim);
 
     let sub_selector = IntroSelectorImpl {
       dim_cmp_bytes: self.dim_cmp_bytes,
@@ -336,7 +440,7 @@ where
   }
 }
 
-struct IntroSelectorImpl<'a, M> {
+struct IntroSelectorImpl<'a, M, const N: usize> {
   dim_cmp_bytes: usize,
   data_cmp_bytes: usize,
   pivot: &'a mut BytesRef<Vec<u8>>,
@@ -344,13 +448,13 @@ struct IntroSelectorImpl<'a, M> {
   pivot_doc: i32,
   k: usize,
   scratch2: &'a mut BytesRef<Vec<u8>>,
-  dim_comparator: ByteArrayComparatorEnum,
+  dim_comparator: BKDBytes<N>,
   dim_start: usize,
   data_start: usize,
   data_end: usize,
 }
 
-impl<M> IntroSelectorBaseDefault for IntroSelectorImpl<'_, M>
+impl<M, const N: usize> IntroSelectorBaseDefault for IntroSelectorImpl<'_, M, N>
 where
   M: MutablePointTree,
 {
@@ -391,7 +495,7 @@ where
   }
 }
 
-impl<M> Selector for IntroSelectorImpl<'_, M>
+impl<M, const N: usize> Selector for IntroSelectorImpl<'_, M, N>
 where
   M: MutablePointTree,
 {
@@ -401,4 +505,4 @@ where
   }
 }
 
-impl<M> IntroSelectorBase for IntroSelectorImpl<'_, M> where M: MutablePointTree {}
+impl<M, const N: usize> IntroSelectorBase for IntroSelectorImpl<'_, M, N> where M: MutablePointTree {}

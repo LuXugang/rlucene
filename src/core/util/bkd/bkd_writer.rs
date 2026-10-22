@@ -24,17 +24,19 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::store::directory::Directory;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
-use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
+use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bkd::bkd_bytes::{BKDBytes, BKDEquals, BKDPrefix};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_radix_selector::{BKDRadixSelector, PathSlice};
-use crate::core::util::bkd::bkd_util::{BKDUtil, ByteArrayPredicate, ByteArrayPredicateEnum};
+use crate::core::util::bkd::bkd_util::ByteArrayPredicate;
 use crate::core::util::bkd::doc_ids_writer::DocIdsWriter;
 use crate::core::util::bkd::heap_point_write::HeapPointWriter;
 use crate::core::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
+use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::offline_point_write::OfflinePointWriter;
-use crate::core::util::bkd::point_reader::PointReader;
+use crate::core::util::bkd::point_reader::{PointReader, PointReaderEnum};
 use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -63,13 +65,13 @@ use std::sync::Arc;
 ///
 /// **NOTE**: This can write at most `i32::MAX * config.max_points_in_leaf_node
 /// / config.bytes_per_dim` total points.
-pub struct BKDWriter<D>
+pub struct BKDWriter<D, const N: usize = 0>
 where
   D: Directory,
 {
   config: BKDConfig,
-  comparator: ByteArrayComparatorEnum,
-  common_prefix_comparator: ByteArrayComparatorEnum,
+  comparator: BKDBytes<N>,
+  common_prefix_comparator: BKDPrefix<N>,
   temp_dir: TrackingDirectoryWrapper<D>,
   temp_file_name_prefix: Arc<str>,
 
@@ -82,7 +84,7 @@ where
   common_prefix_lengths: Vec<usize>,
   used_bytes: Vec<Option<FixedBitSet>>,
   docs_seen: FixedBitSet,
-  point_writer: Option<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>>,
+  point_writer: Option<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput, N>>,
   finished: bool,
   max_points_sort_in_heap: usize,
   /// Minimum per-dim values, packed.
@@ -93,16 +95,30 @@ where
   /// An upper bound on how many points the caller will add (includes
   /// deletions).
   total_point_count: i64,
-  equals_predicate: ByteArrayPredicateEnum,
+  equals_predicate: BKDEquals<N>,
   max_doc: i32,
   doc_ids_writer: DocIdsWriter,
 }
 
-impl<D> BKDWriter<D>
+#[cfg(test)]
+impl<D: Directory> BKDWriter<D> {
+  pub fn new(
+    max_doc: i32,
+    temp_dir: D,
+    prefix: &str,
+    config: BKDConfig,
+    max_mb: f64,
+    total: i64,
+  ) -> Result<Self> {
+    Self::new_with_bytes(max_doc, temp_dir, prefix, config, max_mb, total)
+  }
+}
+
+impl<D, const N: usize> BKDWriter<D, N>
 where
   D: Directory,
 {
-  pub fn new(
+  pub fn new_with_bytes(
     max_doc: i32,
     temp_dir: D,
     temp_file_name_prefix: &str,
@@ -116,9 +132,9 @@ where
     let packed_bytes_length = config.packed_bytes_length();
     let packed_index_bytes_length = config.packed_index_bytes_length();
     let temp_dir = TrackingDirectoryWrapper::new(temp_dir);
-    let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
-    let equals_predicate = BKDUtil::get_equals_predicate(bytes_per_dim);
-    let common_prefix_comparator = BKDUtil::get_prefix_length_comparator(bytes_per_dim);
+    let comparator = BKDBytes::new(bytes_per_dim);
+    let equals_predicate = BKDEquals(BKDBytes::new(bytes_per_dim));
+    let common_prefix_comparator = BKDPrefix(BKDBytes::new(bytes_per_dim));
     let docs_seen = FixedBitSet::new(max_doc as usize);
 
     let scratch_diff = vec![0u8; config.bytes_per_dim];
@@ -199,7 +215,7 @@ where
       )?;
       self.point_writer = Some(PointWriterEnum::Offline(writer));
     } else {
-      self.point_writer = Some(PointWriterEnum::Heap(HeapPointWriter::new(
+      self.point_writer = Some(PointWriterEnum::Heap(HeapPointWriter::<N>::new_with_bytes(
         self.config.clone(),
         self.total_point_count.try_convert()?,
       )));
@@ -480,8 +496,31 @@ where
       None => true,
       Some(ref doc_maps) => doc_maps.len() == readers_len,
     });
-    let mut queue =
-      PriorityQueue::new(readers_len, MergeReaderCmp::new(self.config.bytes_per_dim))?;
+    match doc_maps {
+      Some(doc_maps) => self.merge_with_doc_map(data_out, readers, |i| {
+        let doc_map = doc_maps[i].as_ref();
+        move |doc_id| doc_map.get(doc_id)
+      }),
+      None => self.merge_with_doc_map(data_out, readers, |_| |doc_id| Ok(doc_id)),
+    }
+  }
+  fn merge_with_doc_map<S, DM, IO, F>(
+    &mut self,
+    data_out: &mut IO,
+    readers: Vec<S>,
+    make_doc_map: F,
+  ) -> Result<Option<IORunnable>>
+  where
+    S: PointValues,
+    DM: Fn(i32) -> Result<i32>,
+    IO: IndexOutput,
+    F: Fn(usize) -> DM,
+  {
+    let readers_len = readers.len();
+    let mut queue = PriorityQueue::new(
+      readers_len,
+      MergeReaderCmp::<N>::new(self.config.bytes_per_dim),
+    )?;
 
     for (i, mut point_values) in readers.into_iter().enumerate() {
       debug_assert_eq!(point_values.get_num_dimensions()?, self.config.num_dims);
@@ -493,7 +532,7 @@ where
         point_values.get_num_index_dimensions()?,
         self.config.num_index_dims
       );
-      let doc_map = doc_maps.as_ref().map(|doc_maps| doc_maps[i].as_ref());
+      let doc_map = make_doc_map(i);
       let mut reader = MergeReader::new(&mut point_values, doc_map)?;
       if reader.next()? {
         queue.add(Box::new(reader))?;
@@ -575,13 +614,14 @@ where
     // Mark as finished
     self.finished = true;
 
-    let mut point_writer = match self.point_writer.take() {
+    match self.point_writer.as_mut() {
       None => return Err(LuceneError::illegal_state("point writer is None")),
-      Some(mut writer) => {
-        writer.close()?;
-        writer
-      },
-    };
+      Some(writer) => writer.close()?,
+    }
+    let mut point_writer = expect_invariant!(
+      self.point_writer.take(),
+      "closing the initialized point writer does not remove its owner"
+    );
     let mut points = PathSlice::new(&mut point_writer, 0, self.point_count as usize);
 
     let max_points_in_leaf_node = self.config.max_points_in_leaf_node;
@@ -615,7 +655,7 @@ where
 
     // We re-use the selector so we do not need to create an object every
     // time.
-    let mut radix_selector = BKDRadixSelector::new(
+    let mut radix_selector = BKDRadixSelector::<N>::new_with_bytes(
       self.config.clone(),
       self.max_points_sort_in_heap,
       Arc::clone(&self.temp_file_name_prefix),
@@ -698,6 +738,7 @@ where
     leaf_block_fps: Vec<usize>,
     data_start_fp: usize,
   ) -> Result<Option<IORunnable>> {
+    let num_leaves = leaf_block_fps.len();
     let leaf_nodes = BKDTreeLeafNodesEnum::MultiDimensions(BKDTreeLeafNodesImpl {
       scratch_bytes_ref1: split_packed_values,
       leaf_block_fps,
@@ -706,13 +747,14 @@ where
     });
     Ok(Option::from(IORunnable {
       leaf_nodes,
+      num_leaves,
       count_per_leaf: self.config.max_points_in_leaf_node,
       data_start_fp,
     }))
   }
   /// Packs the two arrays, representing a semi-balanced binary tree, into a
   /// compact byte structure.
-  fn pack_index(&self, leaf_nodes: &BKDTreeLeafNodesEnum) -> Result<Vec<u8>> {
+  fn pack_index<T: BKDTreeLeafNodes>(&self, leaf_nodes: &T) -> Result<Vec<u8>> {
     // Reused while packing the index
     let mut write_buffer = ByteBuffersDataOutput::new_resettable_instance();
 
@@ -783,10 +825,10 @@ where
   /// lastSplitValues is per-dimension split value previously seen; we use
   /// this to prefix-code the split bytes on each inner node
   #[allow(clippy::too_many_arguments)]
-  fn recurse_pack_index(
+  fn recurse_pack_index<T: BKDTreeLeafNodes>(
     &self,
     write_buffer: &mut ByteBuffersDataOutput,
-    leaf_nodes: &BKDTreeLeafNodesEnum,
+    leaf_nodes: &T,
     min_block_fp: usize,
     blocks: &mut Vec<Option<Vec<u8>>>,
     last_split_values: &mut [u8],
@@ -953,7 +995,10 @@ where
   where
     O: IndexOutput,
   {
-    let packed_index = self.pack_index(&data.leaf_nodes)?;
+    let packed_index = match &data.leaf_nodes {
+      BKDTreeLeafNodesEnum::OneDimension(leaf) => self.pack_index(leaf)?,
+      BKDTreeLeafNodesEnum::MultiDimensions(leaf) => self.pack_index(leaf)?,
+    };
     self.write_index_with_packed_index(meta_out, index_out, &packed_index, data)
   }
   pub fn write_index_with_packed_index<IO, IO2>(
@@ -974,7 +1019,7 @@ where
     meta_out.write_vint(data.count_per_leaf as i32)?;
     meta_out.write_vint(self.config.bytes_per_dim as i32)?;
 
-    let num_leaves = data.leaf_nodes.num_leaves().try_convert()?;
+    let num_leaves = data.num_leaves.try_convert()?;
     meta_out.write_vint(num_leaves)?;
     meta_out.write_bytes_range(
       &self.min_packed_value,
@@ -1381,7 +1426,7 @@ where
   fn verify_checksum<T, R>(
     &self,
     prior_result: CaughtResult<T>,
-    writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
+    writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput, N>,
   ) -> Result<R> {
     if let PointWriterEnum::Offline(writer) = writer {
       // We are reading from a temp file; go verify the checksum:
@@ -1465,12 +1510,25 @@ where
     }
     split_dim.ok_or_else(|| LuceneError::illegal_state("no split dimension was selected"))
   }
-  /// Pull a partition back into heap once the point count is low enough while
-  /// recursing.
+  fn copy_points_to_heap<R: PointReader>(
+    reader: &mut R,
+    writer: &mut HeapPointWriter<N>,
+    count: usize,
+  ) -> Result<()> {
+    for _ in 0..count {
+      let has_next = reader.next()?;
+      debug_assert!(has_next);
+      let value = reader.point_value()?;
+      writer.append_point_value(&value)?;
+    }
+    Ok(())
+  }
+
+  /// Pull a partition back into heap once the point count is low enough while recursing.
   fn switch_to_heap(
     &mut self,
-    source: &mut PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
-  ) -> Result<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>> {
+    source: &mut PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput, N>,
+  ) -> Result<HeapPointWriter<N>> {
     let source_count = source.count();
     if source_count > i32::MAX as usize {
       return Err(LuceneError::unsupported_operation(
@@ -1482,7 +1540,10 @@ where
     let mut writer = None;
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       reader = Some(source.get_reader(0, source_count, &self.temp_dir)?);
-      writer = Some(HeapPointWriter::new(self.config.clone(), count));
+      writer = Some(HeapPointWriter::<N>::new_with_bytes(
+        self.config.clone(),
+        count,
+      ));
       let reader = expect_invariant!(
         reader.as_mut(),
         "reader initialization succeeded before copying points"
@@ -1491,10 +1552,12 @@ where
         writer.as_mut(),
         "writer initialization succeeded before copying points"
       );
-      for _ in 0..count {
-        let has_next = reader.next()?;
-        debug_assert!(has_next);
-        writer.append_point_value(reader.point_value()?)?;
+      match reader {
+        PointReaderEnum::Heap(reader) => Self::copy_points_to_heap(reader, writer, count)?,
+        PointReaderEnum::Offline(reader) => match reader {
+          OfflinePointReader::Plain(reader) => Self::copy_points_to_heap(reader, writer, count)?,
+          OfflinePointReader::Checksum(reader) => Self::copy_points_to_heap(reader, writer, count)?,
+        },
       }
       source.destroy(&self.temp_dir)?;
       Ok(())
@@ -1512,10 +1575,10 @@ where
       return self.verify_checksum(result, source);
     }
 
-    Ok(PointWriterEnum::Heap(expect_invariant!(
+    Ok(expect_invariant!(
       writer,
       "successful point copy and close require an initialized heap writer"
-    )))
+    ))
   }
 
   /// Recursively reorders the provided reader and writes the bkd-tree on the
@@ -1612,7 +1675,7 @@ where
         }
 
         // sort by sortedDim
-        MutablePointTreeReaderUtils::sort_by_dim(
+        MutablePointTreeReaderUtils::sort_by_dim_with_bytes::<_, N>(
           &self.config,
           sorted_dim,
           &self.common_prefix_lengths,
@@ -1736,7 +1799,7 @@ where
         split_dim * self.config.bytes_per_dim,
       );
 
-      MutablePointTreeReaderUtils::partition(
+      MutablePointTreeReaderUtils::partition_with_bytes::<_, N>(
         &self.config,
         self.max_doc,
         split_dim,
@@ -1814,9 +1877,66 @@ where
     Ok(())
   }
 
+  fn compute_packed_value_bounds_from_reader<R: PointReader>(
+    &self,
+    reader: &mut R,
+    min_packed_value: &mut [u8],
+    max_packed_value: &mut [u8],
+  ) -> Result<()> {
+    if !reader.next()? {
+      return Ok(());
+    }
+    {
+      let point_value = reader.point_value()?;
+      let value = point_value.packed_value();
+      let offset = value.offset;
+      let value = value.bytes;
+      min_packed_value.copy_from(
+        &value[offset..(offset + self.config.packed_index_bytes_length())],
+        0,
+      );
+      max_packed_value.copy_from(
+        &value[offset..(offset + self.config.packed_index_bytes_length())],
+        0,
+      );
+    }
+
+    while reader.next()? {
+      let point_value = reader.point_value()?;
+      let value = point_value.packed_value();
+      let offset = value.offset;
+      let value = value.bytes;
+      for dim in 0..self.config.num_index_dims {
+        let start_offset = dim * self.config.bytes_per_dim;
+        if self
+          .comparator
+          .compare(value, offset + start_offset, min_packed_value, start_offset)
+          < 0
+        {
+          min_packed_value.copy_from(
+            &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
+            start_offset,
+          );
+        } else if self.comparator.compare(
+          value,
+          offset + start_offset,
+          max_packed_value,
+          start_offset,
+        ) > 0
+        {
+          max_packed_value.copy_from(
+            &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
+            start_offset,
+          );
+        }
+      }
+    }
+    Ok(())
+  }
+
   fn compute_packed_value_bounds(
     &mut self,
-    slice: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
+    slice: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput, N>,
     min_packed_value: &mut [u8],
     max_packed_value: &mut [u8],
   ) -> Result<()> {
@@ -1825,55 +1945,19 @@ where
       .get_reader(slice.start, slice.count, &self.temp_dir)?;
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      if !reader.next()? {
-        return Ok(());
+      match &mut reader {
+        PointReaderEnum::Heap(reader) => {
+          self.compute_packed_value_bounds_from_reader(reader, min_packed_value, max_packed_value)
+        },
+        PointReaderEnum::Offline(reader) => match reader {
+          OfflinePointReader::Plain(reader) => {
+            self.compute_packed_value_bounds_from_reader(reader, min_packed_value, max_packed_value)
+          },
+          OfflinePointReader::Checksum(reader) => {
+            self.compute_packed_value_bounds_from_reader(reader, min_packed_value, max_packed_value)
+          },
+        },
       }
-      {
-        let point_value = reader.point_value()?;
-        let value = point_value.packed_value();
-        let offset = value.offset;
-        let value = value.bytes;
-        min_packed_value.copy_from(
-          &value[offset..(offset + self.config.packed_index_bytes_length())],
-          0,
-        );
-        max_packed_value.copy_from(
-          &value[offset..(offset + self.config.packed_index_bytes_length())],
-          0,
-        );
-      }
-
-      while reader.next()? {
-        let point_value = reader.point_value()?;
-        let value = point_value.packed_value();
-        let offset = value.offset;
-        let value = value.bytes;
-        for dim in 0..self.config.num_index_dims {
-          let start_offset = dim * self.config.bytes_per_dim;
-          if self
-            .comparator
-            .compare(value, offset + start_offset, min_packed_value, start_offset)
-            < 0
-          {
-            min_packed_value.copy_from(
-              &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
-              start_offset,
-            );
-          } else if self.comparator.compare(
-            value,
-            offset + start_offset,
-            max_packed_value,
-            start_offset,
-          ) > 0
-          {
-            max_packed_value.copy_from(
-              &value[offset + start_offset..offset + start_offset + self.config.bytes_per_dim],
-              start_offset,
-            );
-          }
-        }
-      }
-      Ok(())
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reader.close()));
     slice.writer.take_data(reader.remove_points());
@@ -1888,9 +1972,9 @@ where
     &mut self,
     leaves_offset: usize,
     num_leaves: usize,
-    points: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
+    points: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput, N>,
     out: &mut IO,
-    radix_selector: &mut BKDRadixSelector,
+    radix_selector: &mut BKDRadixSelector<N>,
     min_packed_value: &mut [u8],
     max_packed_value: &mut [u8],
     parent_splits: &mut [i32],
@@ -1903,73 +1987,69 @@ where
     IO: IndexOutput,
   {
     if num_leaves == 1 {
-      let is_heap = { matches!(&points.writer, PointWriterEnum::Heap(_)) };
-      let heap_source = if is_heap {
-        &mut points.writer
-      } else {
-        &mut self.switch_to_heap(points.writer)?
+      let mut heap_writer;
+      let heap_source = match &mut *points.writer {
+        PointWriterEnum::Heap(heap) => heap,
+        source => {
+          heap_writer = self.switch_to_heap(source)?;
+          &mut heap_writer
+        },
       };
 
       let from = points.start;
       let to = points.start + points.count;
 
       let mut sorted_dim = 0;
-      match heap_source {
-        PointWriterEnum::Heap(heap_source) => {
-          self.compute_common_prefix_length(heap_source, from, to)?;
-          let mut sorted_dim_cardinality = i32::MAX as usize;
-          if self.used_bytes.is_empty() {
-            self.used_bytes = vec![None; self.config.num_dims];
-          }
-          let used_bytes = &mut self.used_bytes;
-          for (dim, used) in used_bytes.iter_mut().take(self.config.num_dims).enumerate() {
-            if self.common_prefix_lengths[dim] < self.config.bytes_per_dim {
-              match used {
-                Some(set) => set.clear()?,
-                None => *used = Some(FixedBitSet::new(256)),
-              }
-            } else {
-              *used = None;
+      {
+        self.compute_common_prefix_length(heap_source, from, to)?;
+        let mut sorted_dim_cardinality = i32::MAX as usize;
+        if self.used_bytes.is_empty() {
+          self.used_bytes = vec![None; self.config.num_dims];
+        }
+        let used_bytes = &mut self.used_bytes;
+        for (dim, used) in used_bytes.iter_mut().take(self.config.num_dims).enumerate() {
+          if self.common_prefix_lengths[dim] < self.config.bytes_per_dim {
+            match used {
+              Some(set) => set.clear()?,
+              None => *used = Some(FixedBitSet::new(256)),
             }
+          } else {
+            *used = None;
           }
+        }
 
-          #[allow(clippy::needless_range_loop)]
-          for dim in 0..self.config.num_dims {
-            let prefix = self.common_prefix_lengths[dim];
-            if prefix < self.config.bytes_per_dim {
-              let offset = dim * self.config.bytes_per_dim;
-              for i in from..to {
-                let value = heap_source.get_packed_value_slice(i)?.packed_value();
-                let bucket = value.bytes[value.offset + offset + prefix] as usize;
-                match used_bytes[dim] {
-                  Some(ref mut set) => set.set(bucket)?,
-                  None => {
-                    return Err(LuceneError::illegal_state(
-                      "used_bytes[dim] should not be None",
-                    ));
-                  },
-                }
-              }
-              let cardinality = match used_bytes[dim] {
-                Some(ref set) => set.cardinality(),
+        #[allow(clippy::needless_range_loop)]
+        for dim in 0..self.config.num_dims {
+          let prefix = self.common_prefix_lengths[dim];
+          if prefix < self.config.bytes_per_dim {
+            let offset = dim * self.config.bytes_per_dim;
+            for i in from..to {
+              let value = heap_source.get_packed_value_slice(i)?.packed_value();
+              let bucket = value.bytes[value.offset + offset + prefix] as usize;
+              match used_bytes[dim] {
+                Some(ref mut set) => set.set(bucket)?,
                 None => {
                   return Err(LuceneError::illegal_state(
                     "used_bytes[dim] should not be None",
                   ));
                 },
-              };
-              if cardinality < sorted_dim_cardinality {
-                sorted_dim = dim;
-                sorted_dim_cardinality = cardinality;
               }
             }
+            let cardinality = match used_bytes[dim] {
+              Some(ref set) => set.cardinality(),
+              None => {
+                return Err(LuceneError::illegal_state(
+                  "used_bytes[dim] should not be None",
+                ));
+              },
+            };
+            if cardinality < sorted_dim_cardinality {
+              sorted_dim = dim;
+              sorted_dim_cardinality = cardinality;
+            }
           }
-        },
-        _ => {
-          debug_assert!(false);
-        },
+        }
       }
-      let mut leaf_cardinality: usize = 0;
       radix_selector.heap_radix_sort(
         heap_source,
         from,
@@ -1978,19 +2058,16 @@ where
         self.common_prefix_lengths[sorted_dim],
       )?;
       let count = to - from;
-      match heap_source {
-        PointWriterEnum::Heap(heap_source) => {
-          leaf_cardinality =
-            heap_source.compute_cardinality(from, to, &self.common_prefix_lengths)?;
-          leaf_block_fps[leaves_offset] = out.get_file_pointer()?;
+      let leaf_cardinality =
+        heap_source.compute_cardinality(from, to, &self.common_prefix_lengths)?;
+      {
+        leaf_block_fps[leaves_offset] = out.get_file_pointer()?;
 
-          debug_assert!(count > 0);
-          debug_assert!(count <= spare_doc_ids.len());
-          for (i, out) in spare_doc_ids.iter_mut().take(count).enumerate() {
-            *out = heap_source.get_packed_value_slice(from + i)?.doc_id();
-          }
-        },
-        _ => debug_assert!(false),
+        debug_assert!(count > 0);
+        debug_assert!(count <= spare_doc_ids.len());
+        for (i, out) in spare_doc_ids.iter_mut().take(count).enumerate() {
+          *out = heap_source.get_packed_value_slice(from + i)?.doc_id();
+        }
       };
 
       self.write_leaf_block_docs(out, spare_doc_ids, 0, count)?;
@@ -2131,7 +2208,7 @@ where
 
   fn compute_common_prefix_length(
     &mut self,
-    heap_point_writer: &mut HeapPointWriter,
+    heap_point_writer: &mut HeapPointWriter<N>,
     from: usize,
     to: usize,
   ) -> Result<()> {
@@ -2180,7 +2257,13 @@ where
     self.finished = true;
     if let Some(PointWriterEnum::Offline(offline_point_writer)) = self.point_writer.as_mut() {
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        offline_point_writer.close()
+        // Exception cleanup closes the output directly, without writing a footer.
+        // Record the attempt so Rust Drop does not repeat the writer-level close.
+        offline_point_writer.close_attempted = true;
+        match offline_point_writer.out.as_mut() {
+          Some(out) => out.close(),
+          None => Ok(()),
+        }
       }));
       let delete_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -2197,7 +2280,7 @@ where
   }
 }
 
-impl<D> Closeable for BKDWriter<D>
+impl<D, const N: usize> Closeable for BKDWriter<D, N>
 where
   D: Directory,
 {
@@ -2206,7 +2289,7 @@ where
   }
 }
 
-pub struct OneDimensionBKDWriter<'a, D, O>
+pub struct OneDimensionBKDWriter<'a, D, O, const N: usize>
 where
   D: Directory,
   O: IndexOutput,
@@ -2225,15 +2308,15 @@ where
   last_packed_value: Vec<u8>,
   #[cfg(debug_assertions)]
   last_doc_id: i32,
-  bkd_writer: &'a mut BKDWriter<D>,
+  bkd_writer: &'a mut BKDWriter<D, N>,
 }
 
-impl<'a, D, O> OneDimensionBKDWriter<'a, D, O>
+impl<'a, D, O, const N: usize> OneDimensionBKDWriter<'a, D, O, N>
 where
   D: Directory,
   O: IndexOutput,
 {
-  pub fn new(data_out: &'a mut O, bkd_writer: &'a mut BKDWriter<D>) -> Result<Self> {
+  pub fn new(data_out: &'a mut O, bkd_writer: &'a mut BKDWriter<D, N>) -> Result<Self> {
     if bkd_writer.config.num_index_dims != 1 {
       return Err(LuceneError::unsupported_operation(format!(
         "config.num_index_dims() must be 1 but got {}",
@@ -2350,6 +2433,7 @@ where
         == self.leaf_block_fps.len()
     );
 
+    let num_leaves = self.leaf_block_fps.len();
     let leaf_nodes = BKDTreeLeafNodesEnum::OneDimension(BKDTreeLeafNodesOneDimension {
       leaf_block_fps: std::mem::take(&mut self.leaf_block_fps),
       offset: 0,
@@ -2358,6 +2442,7 @@ where
     });
     Ok(Option::from(IORunnable {
       leaf_nodes,
+      num_leaves,
       count_per_leaf: self.bkd_writer.config.max_points_in_leaf_node,
       data_start_fp: self.data_start_fp,
     }))
@@ -2589,26 +2674,29 @@ fn value_in_bounds(
   }
   true
 }
-struct MergeReader<'a, S, DM>
+struct MergeReader<PT, DM>
 where
-  S: PointValues,
-  DM: DocMap,
+  PT: PointTree,
+  DM: Fn(i32) -> Result<i32>,
 {
-  point_tree: Option<S::PointTree>,
+  point_tree: Option<PT>,
   packed_bytes_length: usize,
-  doc_map: Option<&'a DM>,
+  doc_map: DM,
   merge_intersects_visitor: MergeIntersectsVisitor,
   doc_block_upto: usize,
   doc_id: i32,
   packed_value_offset: usize,
 }
 
-impl<'a, S, DM> MergeReader<'a, S, DM>
+impl<PT, DM> MergeReader<PT, DM>
 where
-  S: PointValues,
-  DM: DocMap,
+  PT: PointTree,
+  DM: Fn(i32) -> Result<i32>,
 {
-  fn new(point_values: &mut S, doc_map: Option<&'a DM>) -> Result<Self> {
+  fn new<S>(point_values: &mut S, doc_map: DM) -> Result<Self>
+  where
+    S: PointValues<PointTree = PT>,
+  {
     let packed_bytes_length =
       point_values.get_bytes_per_dimension()? * point_values.get_num_dimensions()?;
     let mut point_tree = point_values.get_point_tree()?;
@@ -2643,10 +2731,7 @@ where
       self.doc_block_upto += 1;
       let old_doc_id = self.merge_intersects_visitor.doc_ids[index];
 
-      let mapped_doc_id = match self.doc_map.as_ref() {
-        None => old_doc_id,
-        Some(doc_map) => doc_map.get(old_doc_id)?,
-      };
+      let mapped_doc_id = (self.doc_map)(old_doc_id)?;
 
       if mapped_doc_id != -1 {
         // Not deleted!
@@ -2746,26 +2831,22 @@ impl IntersectVisitor for MergeIntersectsVisitor {
   }
 }
 
-struct MergeReaderCmp {
-  comparator: ByteArrayComparatorEnum,
+struct MergeReaderCmp<const N: usize> {
+  comparator: BKDBytes<N>,
 }
-impl MergeReaderCmp {
+impl<const N: usize> MergeReaderCmp<N> {
   fn new(bytes_per_dim: usize) -> Self {
     Self {
-      comparator: ArrayUtil::get_unsigned_comparator(bytes_per_dim),
+      comparator: BKDBytes::new(bytes_per_dim),
     }
   }
 }
-impl<S, DM> Compare<Box<MergeReader<'_, S, DM>>> for MergeReaderCmp
+impl<PT, DM, const N: usize> Compare<Box<MergeReader<PT, DM>>> for MergeReaderCmp<N>
 where
-  S: PointValues,
-  DM: DocMap,
+  PT: PointTree,
+  DM: Fn(i32) -> Result<i32>,
 {
-  fn less_than(
-    &self,
-    a: &Box<MergeReader<'_, S, DM>>,
-    b: &Box<MergeReader<'_, S, DM>>,
-  ) -> Result<bool> {
+  fn less_than(&self, a: &Box<MergeReader<PT, DM>>, b: &Box<MergeReader<PT, DM>>) -> Result<bool> {
     debug_assert!(!std::ptr::eq(a, b));
     let cmp = self.comparator.compare(
       &a.merge_intersects_visitor.packed_values,
@@ -2862,50 +2943,21 @@ enum BKDTreeLeafNodesEnum {
   OneDimension(BKDTreeLeafNodesOneDimension),
   MultiDimensions(BKDTreeLeafNodesImpl),
 }
-impl BKDTreeLeafNodes for BKDTreeLeafNodesEnum {
-  fn num_leaves(&self) -> usize {
-    match self {
-      BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.num_leaves(),
-      BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.num_leaves(),
-    }
-  }
-
-  fn get_leaf_lp(&self, index: usize) -> usize {
-    match self {
-      BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_leaf_lp(index),
-      BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_leaf_lp(index),
-    }
-  }
-
-  fn get_split_value(&self, index: usize) -> BytesRef<&[u8]> {
-    match self {
-      BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_split_value(index),
-      BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_split_value(index),
-    }
-  }
-
-  fn get_split_dimension(&self, index: usize) -> usize {
-    match self {
-      BKDTreeLeafNodesEnum::OneDimension(leaf) => leaf.get_split_dimension(index),
-      BKDTreeLeafNodesEnum::MultiDimensions(leaf) => leaf.get_split_dimension(index),
-    }
-  }
-}
-
 pub struct IORunnable {
   leaf_nodes: BKDTreeLeafNodesEnum,
+  num_leaves: usize,
   count_per_leaf: usize,
   data_start_fp: usize,
 }
 
-struct IntersectVisitorImpl<'a, D, O>
+struct IntersectVisitorImpl<'a, D, O, const N: usize>
 where
   D: Directory,
   O: IndexOutput,
 {
-  pub one_dim_writer: OneDimensionBKDWriter<'a, D, O>,
+  pub one_dim_writer: OneDimensionBKDWriter<'a, D, O, N>,
 }
-impl<D, O> IntersectVisitor for IntersectVisitorImpl<'_, D, O>
+impl<D, O, const N: usize> IntersectVisitor for IntersectVisitorImpl<'_, D, O, N>
 where
   D: Directory,
   O: IndexOutput,
@@ -2957,26 +3009,18 @@ where
     self.reader.get_value(i + self.from, &mut self.scratch)
   }
 }
-struct PackedValuesImpl3<'a, O>
-where
-  O: IndexOutput,
-{
-  heap_source: &'a mut PointWriterEnum<O>,
+struct PackedValuesImpl3<'a, const N: usize> {
+  heap_source: &'a mut HeapPointWriter<N>,
   from: usize,
 }
-impl<O> PackedValues for PackedValuesImpl3<'_, O>
-where
-  O: IndexOutput,
-{
+impl<const N: usize> PackedValues for PackedValuesImpl3<'_, N> {
   fn get_value(&mut self, i: usize) -> Result<BytesRef<&[u8]>> {
-    match self.heap_source {
-      PointWriterEnum::Heap(heap_source) => Ok(
-        heap_source
-          .get_packed_value_slice(self.from + i)?
-          .packed_value(),
-      ),
-      _ => Err(LuceneError::illegal_argument("heap_source should be Heap")),
-    }
+    Ok(
+      self
+        .heap_source
+        .get_packed_value_slice(self.from + i)?
+        .packed_value(),
+    )
   }
 }
 

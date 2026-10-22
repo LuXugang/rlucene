@@ -23,7 +23,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
-use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
+use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::PointWriter;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -39,7 +39,7 @@ where
   pub config: BKDConfig,
   pub count: usize,
   pub closed: bool,
-  close_attempted: bool,
+  pub(super) close_attempted: bool,
   pub expected_count: usize,
 }
 
@@ -174,7 +174,7 @@ where
     Ok(())
   }
 
-  fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
+  fn append_point_value<V: PointValue + ?Sized>(&mut self, point_value: &V) -> Result<()> {
     debug_assert!(!self.closed, "Point writer is already closed");
     let value = point_value.packed_value_doc_id_bytes();
     debug_assert_eq!(

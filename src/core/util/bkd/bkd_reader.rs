@@ -21,7 +21,8 @@ use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues,
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::{DataInput, IndexInput};
-use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
+use crate::core::util::array_util::ByteArrayComparator;
+use crate::core::util::bkd::bkd_bytes::BKDBytes;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_writer::{
   CODEC_NAME, VERSION_CURRENT, VERSION_LEAF_STORES_BOUNDS, VERSION_LOW_CARDINALITY_LEAVES,
@@ -117,7 +118,7 @@ where
     let max_packed_value = meta_in.get_bytes(packed_index_bytes_length)?.into_owned();
 
     let bytes_per_dim = config.bytes_per_dim;
-    let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);
+    let comparator = BKDBytes::<0>::new(bytes_per_dim);
     for dim in 0..config.num_index_dims {
       let offset = dim * bytes_per_dim;
       if comparator.compare(&min_packed_value, offset, &max_packed_value, offset) > 0 {
@@ -454,7 +455,7 @@ where
     );
 
     debug_assert!(
-      ArrayUtil::get_unsigned_comparator(bytes_per_dim).compare(
+      BKDBytes::<0>::new(bytes_per_dim).compare(
         &self.max_packed_value,
         split_dim_pos,
         &self.split_values_stack[level],
@@ -491,7 +492,7 @@ where
     );
 
     debug_assert!(
-      ArrayUtil::get_unsigned_comparator(bytes_per_dim).compare(
+      BKDBytes::<0>::new(bytes_per_dim).compare(
         &self.min_packed_value,
         split_dim_pos,
         &self.split_values_stack[level],

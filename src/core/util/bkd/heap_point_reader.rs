@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
+use crate::core::util::bkd::heap_point_write::HeapPointValue;
 use crate::core::util::bkd::point_reader::PointReader;
-use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct HeapPointReader {
-  points: Option<PointValueEnum>,
+  points: Option<HeapPointValue>,
   cur_read: Option<usize>,
   end: usize,
   bytes_per_doc: usize,
@@ -29,7 +29,7 @@ pub struct HeapPointReader {
 
 impl HeapPointReader {
   pub fn new(
-    get_slice: Option<PointValueEnum>,
+    get_slice: Option<HeapPointValue>,
     start: usize,
     end: usize,
     bytes_per_doc: usize,
@@ -41,7 +41,7 @@ impl HeapPointReader {
       bytes_per_doc,
     }
   }
-  pub fn remove_points(&mut self) -> Option<PointValueEnum> {
+  pub fn remove_points(&mut self) -> Option<HeapPointValue> {
     self.points.take()
   }
 }
@@ -56,7 +56,9 @@ impl PointReader for HeapPointReader {
     Ok(matches!(self.cur_read, Some(i) if i < self.end))
   }
 
-  fn point_value(&mut self) -> Result<&PointValueEnum> {
+  type Value<'a> = &'a HeapPointValue;
+
+  fn point_value(&mut self) -> Result<Self::Value<'_>> {
     let cur_read = match self.cur_read {
       Some(i) => i,
       None => return Err(LuceneError::illegal_state("Iterator not yet advanced")),

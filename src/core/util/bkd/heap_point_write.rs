@@ -17,11 +17,12 @@
 use crate::core::index::BytesRef;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
-use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
+use crate::core::util::array_util::ByteArrayComparator;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bkd::bkd_bytes::BKDBytes;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::heap_point_reader::HeapPointReader;
-use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
+use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::PointWriter;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -30,26 +31,26 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 /// Utility struct to write new points into in-heap arrays.
-pub struct HeapPointWriter {
+pub struct HeapPointWriter<const N: usize = 0> {
   pub block: Vec<u8>,
   pub size: usize,
   pub config: BKDConfig,
   pub scratch: Vec<u8>,
-  pub dim_comparator: ByteArrayComparatorEnum,
+  pub(crate) dim_comparator: BKDBytes<N>,
   // length is composed by the data dimensions plus the docID
   pub data_dims_and_doc_length: usize,
   pub next_write: usize,
   pub closed: bool,
-  pub point_value: Option<PointValueEnum>,
+  pub point_value: Option<HeapPointValue>,
 }
-impl Default for HeapPointWriter {
+impl<const N: usize> Default for HeapPointWriter<N> {
   fn default() -> Self {
     Self {
       block: vec![],
       size: 0,
       config: BKDConfig::default(),
       scratch: vec![],
-      dim_comparator: ArrayUtil::get_unsigned_comparator(1),
+      dim_comparator: BKDBytes::new(1),
       data_dims_and_doc_length: 0,
       next_write: 0,
       closed: false,
@@ -58,13 +59,19 @@ impl Default for HeapPointWriter {
   }
 }
 
-impl HeapPointWriter {
+#[cfg(test)]
+impl HeapPointWriter<0> {
   pub fn new(config: BKDConfig, size: usize) -> Self {
+    Self::new_with_bytes(config, size)
+  }
+}
+impl<const N: usize> HeapPointWriter<N> {
+  pub fn new_with_bytes(config: BKDConfig, size: usize) -> Self {
     let data_dims_and_doc_length = config.bytes_per_doc() - config.packed_index_bytes_length();
     let bytes_per_doc = config.bytes_per_doc();
     let block = vec![0u8; bytes_per_doc * size];
     let point_value = if size > 0 {
-      Some(PointValueEnum::Heap(HeapPointValue::new(&config, vec![])))
+      Some(HeapPointValue::new(&config, vec![]))
     } else {
       None
     };
@@ -74,14 +81,14 @@ impl HeapPointWriter {
       size,
       config,
       scratch: vec![0u8; bytes_per_doc],
-      dim_comparator: ArrayUtil::get_unsigned_comparator(bytes_per_dim),
+      dim_comparator: BKDBytes::new(bytes_per_dim),
       data_dims_and_doc_length,
       next_write: 0,
       closed: false,
       point_value,
     }
   }
-  pub fn get_packed_value_slice(&mut self, index: usize) -> Result<&PointValueEnum> {
+  pub fn get_packed_value_slice(&mut self, index: usize) -> Result<&HeapPointValue> {
     debug_assert!(self.closed);
     debug_assert!(
       index < self.next_write,
@@ -102,10 +109,7 @@ impl HeapPointWriter {
   pub(crate) fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref mut v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref mut v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -127,10 +131,7 @@ impl HeapPointWriter {
   pub fn byte_at(&self, i: usize, k: usize) -> Result<i32> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -143,10 +144,7 @@ impl HeapPointWriter {
   pub fn copy_dim(&self, i: usize, dim: usize, bytes: &mut [u8], offset: usize) -> Result<()> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -162,10 +160,7 @@ impl HeapPointWriter {
   pub fn copy_data_dims_and_doc(&self, i: usize, bytes: &mut [u8], offset: usize) -> Result<()> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -181,10 +176,7 @@ impl HeapPointWriter {
   pub fn compare_dim(&self, i: usize, j: usize, dim: usize) -> Result<i32> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -208,10 +200,7 @@ impl HeapPointWriter {
   ) -> Result<i32> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -237,10 +226,7 @@ impl HeapPointWriter {
   pub fn compare_data_dims_and_doc(&self, i: usize, j: usize) -> Result<i32> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -265,10 +251,7 @@ impl HeapPointWriter {
   ) -> Result<i32> {
     debug_assert!(self.closed);
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -305,10 +288,7 @@ impl HeapPointWriter {
     debug_assert!(self.closed);
 
     let heap_value = match self.point_value {
-      Some(PointValueEnum::Heap(ref v)) => v,
-      Some(_) => {
-        return Err(LuceneError::illegal_state("point_value is not heap"));
-      },
+      Some(ref v) => v,
       None => {
         return Err(LuceneError::illegal_state("point_value is None"));
       },
@@ -341,11 +321,11 @@ impl HeapPointWriter {
 
     Ok(leaf_cardinality)
   }
-  pub fn take_data(&mut self, data: Option<PointValueEnum>) {
+  pub fn take_data(&mut self, data: Option<HeapPointValue>) {
     self.point_value = data
   }
 }
-impl PointWriter for HeapPointWriter {
+impl<const N: usize> PointWriter for HeapPointWriter<N> {
   fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
     debug_assert!(!self.closed, "point writer is already closed");
     debug_assert_eq!(
@@ -375,7 +355,7 @@ impl PointWriter for HeapPointWriter {
     Ok(())
   }
 
-  fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
+  fn append_point_value<V: PointValue + ?Sized>(&mut self, point_value: &V) -> Result<()> {
     debug_assert!(!self.closed, "point writer is already closed");
     debug_assert!(
       self.next_write < self.size,
@@ -458,25 +438,20 @@ impl PointWriter for HeapPointWriter {
     Ok(())
   }
 }
-impl Closeable for HeapPointWriter {
+impl<const N: usize> Closeable for HeapPointWriter<N> {
   fn close(&mut self) -> Result<()> {
     self.closed = true;
     if let Some(ref mut point_value) = self.point_value {
-      match point_value {
-        PointValueEnum::Heap(heap_value) => {
-          // Since `block` is no longer updated, its ownership is now transferred to
-          // `point_value`.
-          heap_value.value = std::mem::take(&mut self.block);
-        },
-        _ => {
-          debug_assert!(false, "should not be here")
-        },
+      {
+        // Since `block` is no longer updated, its ownership is now transferred to
+        // `point_value`.
+        point_value.value = std::mem::take(&mut self.block);
       }
     }
     Ok(())
   }
 }
-impl Display for HeapPointWriter {
+impl<const N: usize> Display for HeapPointWriter<N> {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(
       f,
@@ -487,7 +462,7 @@ impl Display for HeapPointWriter {
     )
   }
 }
-impl Drop for HeapPointWriter {
+impl<const N: usize> Drop for HeapPointWriter<N> {
   fn drop(&mut self) {
     let _ = self.close();
   }
@@ -511,12 +486,11 @@ impl HeapPointValue {
       packed_value_doc_id_length: config.bytes_per_doc(),
     }
   }
-}
-impl PointValue for HeapPointValue {
-  fn set_offset(&mut self, offset: usize) {
+  pub fn set_offset(&mut self, offset: usize) {
     self.offset = offset;
   }
-
+}
+impl PointValue for HeapPointValue {
   fn packed_value(&self) -> BytesRef<&[u8]> {
     BytesRef {
       bytes: self.value.as_slice(),

@@ -16,22 +16,22 @@
  */
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
-use crate::core::util::bkd::heap_point_write::HeapPointWriter;
+use crate::core::util::bkd::heap_point_write::{HeapPointValue, HeapPointWriter};
 use crate::core::util::bkd::offline_point_write::OfflinePointWriter;
 use crate::core::util::bkd::point_reader::{PointReader, PointReaderEnum};
-use crate::core::util::bkd::point_value::PointValueEnum;
+use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 /// Appends many points, and then at the end provides a PointReader to iterate
 /// those points. This abstracts away whether we write to disk, or use simple
 /// arrays in heap.
-pub trait PointWriter: Closeable {
+pub(crate) trait PointWriter: Closeable {
   /// Add a new point from the packed value and docId
   fn append_bytes(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()>;
 
   /// Add a new point from a PointValue
-  fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()>;
+  fn append_point_value<V: PointValue + ?Sized>(&mut self, point_value: &V) -> Result<()>;
 
   /// Returns a PointReader iterator to step through all previously added
   /// points
@@ -56,14 +56,14 @@ pub trait PointWriter: Closeable {
     D: Directory;
 }
 
-pub enum PointWriterEnum<O>
+pub enum PointWriterEnum<O, const N: usize = 0>
 where
   O: IndexOutput,
 {
-  Heap(HeapPointWriter),
+  Heap(HeapPointWriter<N>),
   Offline(OfflinePointWriter<O>),
 }
-impl<O> Default for PointWriterEnum<O>
+impl<O, const N: usize> Default for PointWriterEnum<O, N>
 where
   O: IndexOutput,
 {
@@ -71,18 +71,18 @@ where
     PointWriterEnum::Heap(HeapPointWriter::default())
   }
 }
-impl<O> PointWriterEnum<O>
+impl<O, const N: usize> PointWriterEnum<O, N>
 where
   O: IndexOutput,
 {
-  pub fn take_data(&mut self, v: Option<PointValueEnum>) {
+  pub fn take_data(&mut self, v: Option<HeapPointValue>) {
     match self {
       PointWriterEnum::Offline(_) => {},
       PointWriterEnum::Heap(heap) => heap.take_data(v),
     }
   }
 }
-impl<O> Closeable for PointWriterEnum<O>
+impl<O, const N: usize> Closeable for PointWriterEnum<O, N>
 where
   O: IndexOutput,
 {
@@ -93,7 +93,7 @@ where
     }
   }
 }
-impl<O> PointWriter for PointWriterEnum<O>
+impl<O, const N: usize> PointWriter for PointWriterEnum<O, N>
 where
   O: IndexOutput,
 {
@@ -104,7 +104,7 @@ where
     }
   }
 
-  fn append_point_value(&mut self, point_value: &PointValueEnum) -> Result<()> {
+  fn append_point_value<V: PointValue + ?Sized>(&mut self, point_value: &V) -> Result<()> {
     match self {
       PointWriterEnum::Offline(offline) => offline.append_point_value(point_value),
       PointWriterEnum::Heap(heap) => heap.append_point_value(point_value),

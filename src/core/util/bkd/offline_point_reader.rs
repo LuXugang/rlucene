@@ -23,42 +23,46 @@ use crate::core::store::{DataInput, IOContext, IndexInput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::point_reader::PointReader;
-use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
+use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 
-pub struct OfflinePointReader<I>
-where
-  I: IndexInput,
-{
-  count_left: usize,
-  input: Option<I>,
-  check_sum_input: Option<BufferedChecksumIndexInput<I>>,
-  offset: usize,
-  checked: bool,
-  closed: bool,
-  config: BKDConfig,
-  points_in_buffer: usize,
-  max_point_on_heap: usize,
-  pub(crate) point_value: PointValueEnum,
+pub(crate) trait OfflineInput<I: IndexInput> {
+  type Input: IndexInput;
+  const CHECKSUM: bool;
+  fn check_footer(input: &mut Self::Input) -> Result<()>;
+}
+pub(crate) struct PlainInput;
+pub(crate) struct ChecksumInput;
+impl<I: IndexInput> OfflineInput<I> for PlainInput {
+  type Input = I;
+  const CHECKSUM: bool = false;
+  fn check_footer(_input: &mut I) -> Result<()> {
+    Ok(())
+  }
+}
+impl<I: IndexInput> OfflineInput<I> for ChecksumInput {
+  type Input = BufferedChecksumIndexInput<I>;
+  const CHECKSUM: bool = true;
+  fn check_footer(input: &mut Self::Input) -> Result<()> {
+    CodecUtil::check_footer(input).map(|_| ())
+  }
 }
 
-impl<I> OfflinePointReader<I>
-where
-  I: IndexInput,
-{
-  pub fn new<D>(
+pub enum OfflinePointReader<I: IndexInput> {
+  Plain(OfflinePointReaderImpl<I, PlainInput>),
+  Checksum(OfflinePointReaderImpl<I, ChecksumInput>),
+}
+impl<I: IndexInput> OfflinePointReader<I> {
+  pub fn new<D: Directory<IndexInput = I>>(
     config: BKDConfig,
     temp_dir: &D,
     temp_file_name: &str,
     start: usize,
     length: usize,
     reusable_buffer: Vec<u8>,
-  ) -> Result<Self>
-  where
-    D: Directory<IndexInput = I>,
-  {
+  ) -> Result<Self> {
     let bytes_per_doc = config.bytes_per_doc();
     let footer_length = CodecUtil::footer_length();
     let file_length = temp_dir.file_length(temp_file_name)?;
@@ -83,24 +87,86 @@ where
     debug_assert!(reusable_buffer_len <= i32::MAX as usize);
     let max_point_on_heap = reusable_buffer_len / config.bytes_per_doc();
     let seek_fp = start * bytes_per_doc;
-    let (check_sum_input, input) =
-      if start == 0 && (length * bytes_per_doc == file_length - footer_length) {
-        let mut check_sum_input = temp_dir.open_checksum_input(temp_file_name)?;
-        IndexInput::seek(&mut check_sum_input, seek_fp)?;
-        (Some(check_sum_input), None)
-      } else {
-        let mut input = temp_dir.open_input(temp_file_name, &IOContext::read_once_io_context()?)?;
-        input.seek(seek_fp)?;
-        (None, Some(input))
-      };
 
-    let count_left = length;
-    let point_value = PointValueEnum::Offline(OfflinePointValue::new(&config, reusable_buffer));
+    if start == 0 && length * bytes_per_doc == file_length - footer_length {
+      let mut input = temp_dir.open_checksum_input(temp_file_name)?;
+      IndexInput::seek(&mut input, seek_fp)?;
+      Ok(Self::Checksum(OfflinePointReaderImpl::new(
+        config,
+        input,
+        length,
+        reusable_buffer,
+        max_point_on_heap,
+      )))
+    } else {
+      let mut input = temp_dir.open_input(temp_file_name, &IOContext::read_once_io_context()?)?;
+      input.seek(seek_fp)?;
+      Ok(Self::Plain(OfflinePointReaderImpl::new(
+        config,
+        input,
+        length,
+        reusable_buffer,
+        max_point_on_heap,
+      )))
+    }
+  }
+  pub(crate) fn take_buffer(&mut self) -> Vec<u8> {
+    match self {
+      Self::Plain(reader) => std::mem::take(&mut reader.point_value.value),
+      Self::Checksum(reader) => std::mem::take(&mut reader.point_value.value),
+    }
+  }
+}
+impl<I: IndexInput> Closeable for OfflinePointReader<I> {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::Plain(reader) => reader.close(),
+      Self::Checksum(reader) => reader.close(),
+    }
+  }
+}
+impl<I: IndexInput> PointReader for OfflinePointReader<I> {
+  fn next(&mut self) -> Result<bool> {
+    match self {
+      Self::Plain(reader) => reader.next(),
+      Self::Checksum(reader) => reader.next(),
+    }
+  }
+  type Value<'a>
+    = &'a OfflinePointValue
+  where
+    Self: 'a;
+  fn point_value(&mut self) -> Result<Self::Value<'_>> {
+    match self {
+      Self::Plain(reader) => reader.point_value(),
+      Self::Checksum(reader) => reader.point_value(),
+    }
+  }
+}
 
-    Ok(OfflinePointReader {
+pub struct OfflinePointReaderImpl<I: IndexInput, M: OfflineInput<I>> {
+  count_left: usize,
+  input: Option<M::Input>,
+  offset: usize,
+  checked: bool,
+  closed: bool,
+  config: BKDConfig,
+  points_in_buffer: usize,
+  max_point_on_heap: usize,
+  pub(crate) point_value: OfflinePointValue,
+}
+impl<I: IndexInput, M: OfflineInput<I>> OfflinePointReaderImpl<I, M> {
+  fn new(
+    config: BKDConfig,
+    input: M::Input,
+    count_left: usize,
+    buffer: Vec<u8>,
+    max_point_on_heap: usize,
+  ) -> Self {
+    let point_value = OfflinePointValue::new(&config, buffer);
+    Self {
       count_left,
-      input,
-      check_sum_input,
+      input: Some(input),
       offset: 0,
       checked: false,
       closed: false,
@@ -108,33 +174,27 @@ where
       points_in_buffer: 0,
       max_point_on_heap,
       point_value,
-    })
+    }
   }
 }
-impl<I> Closeable for OfflinePointReader<I>
-where
-  I: IndexInput,
-{
+impl<I: IndexInput, M: OfflineInput<I>> Closeable for OfflinePointReaderImpl<I, M> {
   fn close(&mut self) -> Result<()> {
     if self.closed {
       return Ok(());
     }
-
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       if self.count_left == 0
-        && let Some(check_sum_input) = self.check_sum_input.as_mut()
+        && M::CHECKSUM
         && !self.checked
+        && let Some(input) = self.input.as_mut()
       {
         self.checked = true;
-        CodecUtil::check_footer(check_sum_input)?;
+        M::check_footer(input)?;
       }
       Ok(())
     }));
-
     let close_result = if let Some(input) = self.input.take() {
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()))
-    } else if let Some(check_sum_input) = self.check_sum_input.take() {
-      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| check_sum_input.close()))
     } else {
       Ok(Ok(()))
     };
@@ -142,71 +202,23 @@ where
     IOUtils::finally_caught_result(result, close_result)
   }
 }
-impl<I> PointReader for OfflinePointReader<I>
-where
-  I: IndexInput,
-{
+impl<I: IndexInput, M: OfflineInput<I>> PointReader for OfflinePointReaderImpl<I, M> {
   fn next(&mut self) -> Result<bool> {
     let bytes_per_doc = self.config.bytes_per_doc();
     if self.points_in_buffer == 0 {
       if self.count_left == 0 {
         return Ok(false);
       }
-      let read_len;
-      if self.count_left > self.max_point_on_heap {
-        read_len = self.max_point_on_heap * bytes_per_doc;
-        match &mut self.point_value {
-          PointValueEnum::Offline(offline) => {
-            match (self.check_sum_input.as_mut(), self.input.as_mut()) {
-              (Some(input), None) => {
-                input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
-              },
-              (None, Some(input)) => {
-                input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
-              },
-              _ => {
-                return Err(LuceneError::illegal_state(
-                  "invalid state: exactly one of check_sum_input and input must be Some",
-                ));
-              },
-            }
-          },
-          _ => {
-            return Err(LuceneError::illegal_argument(
-              "PointValueEnum must be Offline",
-            ));
-          },
-        }
-
-        self.points_in_buffer = self.max_point_on_heap - 1;
-        self.count_left -= self.max_point_on_heap;
-      } else {
-        read_len = self.count_left * bytes_per_doc;
-        match &mut self.point_value {
-          PointValueEnum::Offline(offline) => {
-            match (self.check_sum_input.as_mut(), self.input.as_mut()) {
-              (Some(check_sum_input), None) => {
-                check_sum_input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
-              },
-              (None, Some(input)) => {
-                input.read_bytes(&mut offline.value[0..read_len], 0, read_len)?;
-              },
-              _ => {
-                return Err(LuceneError::illegal_state(
-                  "invalid state: exactly one of check_sum_input and input must be Some",
-                ));
-              },
-            }
-          },
-          _ => {
-            return Err(LuceneError::illegal_argument(
-              "PointValueEnum must be Offline",
-            ));
-          },
-        }
-        self.points_in_buffer = self.count_left - 1;
-        self.count_left = 0;
-      }
+      let count = self.count_left.min(self.max_point_on_heap);
+      let read_len = count * bytes_per_doc;
+      let input = self.input.as_mut().ok_or_else(|| {
+        LuceneError::illegal_state(
+          "invalid state: exactly one of check_sum_input and input must be Some",
+        )
+      })?;
+      input.read_bytes(&mut self.point_value.value[0..read_len], 0, read_len)?;
+      self.points_in_buffer = count - 1;
+      self.count_left -= count;
       self.offset = 0;
     } else {
       self.points_in_buffer -= 1;
@@ -214,25 +226,16 @@ where
     }
     Ok(true)
   }
-
-  fn point_value(&mut self) -> Result<&PointValueEnum> {
-    match &mut self.point_value {
-      PointValueEnum::Offline(offline) => {
-        offline.set_offset(self.offset);
-      },
-      _ => {
-        return Err(LuceneError::illegal_argument(
-          "PointValueEnum must be Offline",
-        ));
-      },
-    }
+  type Value<'a>
+    = &'a OfflinePointValue
+  where
+    Self: 'a;
+  fn point_value(&mut self) -> Result<Self::Value<'_>> {
+    self.point_value.set_offset(self.offset);
     Ok(&self.point_value)
   }
 }
-impl<I> Drop for OfflinePointReader<I>
-where
-  I: IndexInput,
-{
+impl<I: IndexInput, M: OfflineInput<I>> Drop for OfflinePointReaderImpl<I, M> {
   fn drop(&mut self) {
     let _ = self.close();
   }
@@ -254,12 +257,11 @@ impl OfflinePointValue {
       packed_value_doc_id_length: config.bytes_per_doc(),
     }
   }
-}
-impl PointValue for OfflinePointValue {
-  fn set_offset(&mut self, offset: usize) {
+  pub fn set_offset(&mut self, offset: usize) {
     self.offset = offset;
   }
-
+}
+impl PointValue for OfflinePointValue {
   fn packed_value(&self) -> BytesRef<&[u8]> {
     BytesRef {
       bytes: self.value.as_slice(),

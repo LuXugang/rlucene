@@ -21,9 +21,6 @@ use crate::core::util::bkd::offline_point_reader::OfflinePointValue;
 
 /// Represents a dimensional point value written in the BKD tree.
 pub(crate) trait PointValue {
-  /// Sets a new value by changing the offset.
-  fn set_offset(&mut self, offset: usize);
-
   /// Returns the packed values for the dimensions.
   fn packed_value(&self) -> BytesRef<&[u8]>;
 
@@ -35,37 +32,53 @@ pub(crate) trait PointValue {
   fn packed_value_doc_id_bytes(&self) -> BytesRef<&[u8]>;
 }
 
-pub(crate) enum PointValueEnum {
-  Heap(HeapPointValue),
-  Offline(OfflinePointValue),
+/// Borrowed view used only by the heterogeneous reader adapter.
+pub(crate) enum PointValueRef<'a> {
+  Heap(&'a HeapPointValue),
+  Offline(&'a OfflinePointValue),
 }
 
-impl PointValue for PointValueEnum {
-  fn set_offset(&mut self, offset: usize) {
-    match self {
-      PointValueEnum::Heap(heap) => heap.set_offset(offset),
-      PointValueEnum::Offline(offline) => offline.set_offset(offset),
+impl<'a> PointValueRef<'a> {
+  pub fn packed_value(&self) -> BytesRef<&'a [u8]> {
+    match *self {
+      Self::Heap(value) => value.packed_value(),
+      Self::Offline(value) => value.packed_value(),
     }
   }
+  pub fn doc_id(&self) -> i32 {
+    match *self {
+      Self::Heap(value) => value.doc_id(),
+      Self::Offline(value) => value.doc_id(),
+    }
+  }
+  pub fn packed_value_doc_id_bytes(&self) -> BytesRef<&'a [u8]> {
+    match *self {
+      Self::Heap(value) => value.packed_value_doc_id_bytes(),
+      Self::Offline(value) => value.packed_value_doc_id_bytes(),
+    }
+  }
+}
 
+impl PointValue for PointValueRef<'_> {
   fn packed_value(&self) -> BytesRef<&[u8]> {
-    match self {
-      PointValueEnum::Heap(heap) => heap.packed_value(),
-      PointValueEnum::Offline(offline) => offline.packed_value(),
-    }
+    self.packed_value()
   }
-
   fn doc_id(&self) -> i32 {
-    match self {
-      PointValueEnum::Heap(heap) => heap.doc_id(),
-      PointValueEnum::Offline(offline) => offline.doc_id(),
-    }
+    self.doc_id()
   }
-
   fn packed_value_doc_id_bytes(&self) -> BytesRef<&[u8]> {
-    match self {
-      PointValueEnum::Heap(heap) => heap.packed_value_doc_id_bytes(),
-      PointValueEnum::Offline(offline) => offline.packed_value_doc_id_bytes(),
-    }
+    self.packed_value_doc_id_bytes()
+  }
+}
+
+impl<V: PointValue + ?Sized> PointValue for &V {
+  fn packed_value(&self) -> BytesRef<&[u8]> {
+    (**self).packed_value()
+  }
+  fn doc_id(&self) -> i32 {
+    (**self).doc_id()
+  }
+  fn packed_value_doc_id_bytes(&self) -> BytesRef<&[u8]> {
+    (**self).packed_value_doc_id_bytes()
   }
 }

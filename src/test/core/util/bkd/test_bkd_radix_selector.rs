@@ -505,7 +505,7 @@ where
   let mut reader = points.get_reader(0, count, dir)?;
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
-    copy.append_point_value(point_value_ref)?
+    copy.append_point_value(&point_value_ref)?
   }
   reader.close()?;
   points.take_data(reader.remove_points());

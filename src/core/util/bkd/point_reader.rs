@@ -17,15 +17,16 @@
 
 use crate::core::store::IndexInput;
 use crate::core::util::bkd::heap_point_reader::HeapPointReader;
+use crate::core::util::bkd::heap_point_write::HeapPointValue;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
-use crate::core::util::bkd::point_value::PointValueEnum;
+use crate::core::util::bkd::point_value::{PointValue, PointValueRef};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 
 /// One-pass iterator through all points previously written with a PointWriter,
 /// abstracting away whether points are read from offline disk or from arrays in
 /// heap.
-pub trait PointReader: Closeable {
+pub(crate) trait PointReader: Closeable {
   /// Advances the iterator.
   ///
   /// Returns `Ok(true)` if there is another point available,
@@ -37,7 +38,10 @@ pub trait PointReader: Closeable {
   fn next(&mut self) -> Result<bool>;
 
   /// Returns the current point value.
-  fn point_value(&mut self) -> Result<&PointValueEnum>;
+  type Value<'a>: PointValue
+  where
+    Self: 'a;
+  fn point_value(&mut self) -> Result<Self::Value<'_>>;
 }
 
 pub enum PointReaderEnum<I>
@@ -51,7 +55,7 @@ impl<I> PointReaderEnum<I>
 where
   I: IndexInput,
 {
-  pub fn remove_points(&mut self) -> Option<PointValueEnum> {
+  pub fn remove_points(&mut self) -> Option<HeapPointValue> {
     match self {
       PointReaderEnum::Offline(_) => None,
       PointReaderEnum::Heap(heap) => heap.remove_points(),
@@ -80,10 +84,15 @@ where
     }
   }
 
-  fn point_value(&mut self) -> Result<&PointValueEnum> {
+  type Value<'a>
+    = PointValueRef<'a>
+  where
+    Self: 'a;
+
+  fn point_value(&mut self) -> Result<Self::Value<'_>> {
     match self {
-      PointReaderEnum::Offline(offline) => offline.point_value(),
-      PointReaderEnum::Heap(heap) => heap.point_value(),
+      PointReaderEnum::Offline(offline) => Ok(PointValueRef::Offline(offline.point_value()?)),
+      PointReaderEnum::Heap(heap) => Ok(PointValueRef::Heap(heap.point_value()?)),
     }
   }
 }

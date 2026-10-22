@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
-use crate::core::codecs::mutable_point_tree::MutablePointTreeEnum2;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::index::BytesRef;
@@ -131,100 +130,84 @@ impl PointValuesWriter {
       bytes_reader,
       self.packed_bytes_length,
     );
-    let values = match sort_map {
-      Some(doc_map) => MutablePointTreeEnum2::B(MutableSortingPointValues::new(points, doc_map)),
-      None => MutablePointTreeEnum2::A(points),
-    };
-    let mut reader = PointsReaderImpl::new(values, self.field_info.as_ref());
-
-    writer.write_field(&self.field_info, &mut reader, state, segment_info)
+    match sort_map {
+      Some(doc_map) => {
+        let values = MutableSortingPointValues::new(points, doc_map);
+        let mut reader = PointsReaderImpl::new(
+          values,
+          move || MutableSortingPointValues::new(MutablePointTreeImpl::default(), doc_map),
+          self.field_info.as_ref(),
+        );
+        writer.write_field(&self.field_info, &mut reader, state, segment_info)
+      },
+      None => {
+        let mut reader = PointsReaderImpl::new(
+          points,
+          MutablePointTreeImpl::default,
+          self.field_info.as_ref(),
+        );
+        writer.write_field(&self.field_info, &mut reader, state, segment_info)
+      },
+    }
   }
 }
-struct PointsReaderImpl<'a, DM> {
-  values: RefCell<
-    MutablePointTreeEnum2<
-      MutablePointTreeImpl,
-      MutableSortingPointValues<MutablePointTreeImpl, DM>,
-    >,
-  >,
+struct PointsReaderImpl<'a, M, F> {
+  values: RefCell<M>,
+  make_empty: F,
   field_info: &'a FieldInfo,
 }
 
-impl<DM> CloseableRef for PointsReaderImpl<'_, DM> {}
+impl<M, F> CloseableRef for PointsReaderImpl<'_, M, F> {}
 
-impl<'a, DM> PointsReaderImpl<'a, DM> {
-  pub(crate) fn new(
-    values: MutablePointTreeEnum2<
-      MutablePointTreeImpl,
-      MutableSortingPointValues<MutablePointTreeImpl, DM>,
-    >,
-    field_info: &'a FieldInfo,
-  ) -> Self {
+impl<'a, M, F> PointsReaderImpl<'a, M, F> {
+  pub(crate) fn new(values: M, make_empty: F, field_info: &'a FieldInfo) -> Self {
     Self {
       values: RefCell::new(values),
+      make_empty,
       field_info,
     }
   }
 }
 
-impl<DM> PointsReader for PointsReaderImpl<'_, DM>
+impl<M, F> PointsReader for PointsReaderImpl<'_, M, F>
 where
-  DM: DocMap + Clone,
+  M: MutablePointTree,
+  F: Fn() -> M + Copy,
 {
   fn check_integrity(&self) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  type PointValuesType = PointValuesImpl<DM>;
+  type PointValuesType = PointValuesImpl<M, F>;
 
   fn get_values(&self, field_name: &str) -> Result<Option<Self::PointValuesType>> {
     if !field_name.eq(self.field_info.name.as_str()) {
       return Err(LuceneError::illegal_argument("fieldName must be the same"));
     }
-    let values = self.values.take();
-    Ok(Some(PointValuesImpl::new(values)))
+    let values = self.values.replace((self.make_empty)());
+    Ok(Some(PointValuesImpl::new(values, self.make_empty)))
   }
 }
 
-struct PointValuesImpl<DM> {
-  values: RefCell<
-    MutablePointTreeEnum2<
-      MutablePointTreeImpl,
-      MutableSortingPointValues<MutablePointTreeImpl, DM>,
-    >,
-  >,
+struct PointValuesImpl<M, F> {
+  values: RefCell<M>,
+  make_empty: F,
   taken: AtomicBool,
 }
-// for padding
-impl<DM> Default
-  for MutablePointTreeEnum2<
-    MutablePointTreeImpl,
-    MutableSortingPointValues<MutablePointTreeImpl, DM>,
-  >
-where
-  DM: DocMap + Clone,
-{
-  fn default() -> Self {
-    MutablePointTreeEnum2::A(MutablePointTreeImpl::default())
-  }
-}
 
-impl<DM> PointValuesImpl<DM> {
-  pub(crate) fn new(
-    values: MutablePointTreeEnum2<
-      MutablePointTreeImpl,
-      MutableSortingPointValues<MutablePointTreeImpl, DM>,
-    >,
-  ) -> Self {
+impl<M, F> PointValuesImpl<M, F> {
+  pub(crate) fn new(values: M, make_empty: F) -> Self {
     Self {
       values: RefCell::new(values),
+      make_empty,
       taken: AtomicBool::new(false),
     }
   }
 }
-impl<DM> PointValues for PointValuesImpl<DM>
+impl<M, F> PointValues for PointValuesImpl<M, F>
 where
-  DM: DocMap + Clone,
+  M: MutablePointTree,
+  F: Fn() -> M + Copy,
 {
   fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
     Err(LuceneError::unsupported_operation(""))
@@ -254,10 +237,7 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  type PointTree = MutablePointTreeEnum2<
-    MutablePointTreeImpl,
-    MutableSortingPointValues<MutablePointTreeImpl, DM>,
-  >;
+  type PointTree = M;
 
   fn get_point_tree(&self) -> Result<Self::PointTree> {
     if self.taken.swap(true, Relaxed) {
@@ -266,7 +246,7 @@ where
         std::any::type_name::<Self>()
       )));
     }
-    Ok(self.values.take())
+    Ok(self.values.replace((self.make_empty)()))
   }
 }
 
