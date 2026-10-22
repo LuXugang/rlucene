@@ -93,7 +93,6 @@ where
     let mut end: i32 = -1;
     loop {
       if self.buffer_index >= self.data_len {
-        self.offset += self.data_len as i32;
         // // read supplementary char aware with CharacterUtils
         CharacterUtils::fill(&mut self.io_buffer, &mut self.tokenizer_base.input)?;
         if self.io_buffer.get_length() == 0 {
@@ -111,13 +110,16 @@ where
       }
       let c = self.io_buffer.get_buffer()[self.buffer_index];
       self.buffer_index += 1;
+      // Rust buffers contain scalar values; Lucene offsets count UTF-16 code units.
+      let char_count = c.len_utf16() as i32;
+      self.offset += char_count;
       if self.sub.is_token_char(&c) {
         let att = &mut self.tokenizer_base.token_stream_base.att;
         let mut buffer = att.buffer_mut()?;
         if length == 0 {
           // start of token
           debug_assert_eq!(start, -1);
-          start = self.offset + self.buffer_index as i32 - 1;
+          start = self.offset - char_count;
           end = start;
         } else if length >= buffer.len() - 1 {
           buffer = att.resize_buffer(2 + length)?;
@@ -125,9 +127,9 @@ where
 
         buffer[length] = c;
         length += 1;
-        end += 1;
+        end += char_count;
 
-        if length >= self.max_token_len {
+        if end - start >= self.max_token_len as i32 {
           break;
         }
       } else if length > 0 {
