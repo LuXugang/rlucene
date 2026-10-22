@@ -73,15 +73,15 @@ impl Sorter {
     self.sort.to_string()
   }
   /// Computes the old-to-new permutation over the given comparator.
-  fn sort_impl<DC>(max_doc: i32, comparator: DC) -> Result<Option<DocMapImpl>>
+  fn sort_impl<F>(max_doc: i32, comparator: F) -> Result<Option<DocMapImpl>>
   where
-    DC: DocComparator,
+    F: Fn(usize, usize) -> i32,
   {
     // check if the index is sorted
     let doc_count = max_doc as usize;
     let mut sorted = true;
     for i in 1..doc_count {
-      if comparator.compare(i - 1, i) > 0 {
+      if comparator(i - 1, i) > 0 {
         sorted = false;
         break;
       }
@@ -187,7 +187,19 @@ impl Sorter {
   where
     DC: DocComparator,
   {
-    let composite = DocComparatorSorterImpl::new(comparators);
+    let composite = {
+      #[inline(never)]
+      move |doc_id1: usize, doc_id2: usize| {
+        for cmp in &comparators {
+          let comp = cmp.compare(doc_id1, doc_id2);
+          if comp != 0 {
+            return comp;
+          }
+        }
+        // docid order tiebreak
+        doc_id1.cmp(&doc_id2).to_int()
+      }
+    };
     Self::sort_impl(max_doc, composite)
   }
 }
@@ -243,17 +255,17 @@ where
   }
 }
 
-struct DocValueSorter<'a, DC> {
+struct DocValueSorter<'a, F> {
   docs: &'a mut [i32],
-  comparator: DC,
+  comparator: F,
   tmp: Vec<i32>,
   pivot_index: usize,
 }
-impl<'a, DC> DocValueSorter<'a, DC>
+impl<'a, F> DocValueSorter<'a, F>
 where
-  DC: DocComparator,
+  F: Fn(usize, usize) -> i32,
 {
-  pub fn new(docs: &'a mut [i32], comparator: DC) -> TimSorter<DocValueSorter<'a, DC>> {
+  pub fn new(docs: &'a mut [i32], comparator: F) -> TimSorter<DocValueSorter<'a, F>> {
     let max_temp_slots = docs.len() / 64;
     let tmp = vec![0i32; max_temp_slots];
     let sub = DocValueSorter {
@@ -265,9 +277,9 @@ where
     TimSorter::new(max_temp_slots, sub)
   }
 }
-impl<'a, DC> TimSorterBase for DocValueSorter<'a, DC>
+impl<'a, F> TimSorterBase for DocValueSorter<'a, F>
 where
-  DC: DocComparator,
+  F: Fn(usize, usize) -> i32,
 {
   fn copy(&mut self, src: usize, dest: usize) -> Result<()> {
     self.docs[dest] = self.docs[src];
@@ -283,24 +295,24 @@ where
     self.docs[j] = self.tmp[i];
   }
 
+  #[inline]
   fn compare_saved(&self, i: usize, j: usize) -> Result<i32> {
-    Ok(
-      self
-        .comparator
-        .compare(self.tmp[i] as usize, self.docs[j] as usize),
-    )
+    Ok((self.comparator)(
+      self.tmp[i] as usize,
+      self.docs[j] as usize,
+    ))
   }
 }
-impl<'a, DC> crate::core::util::Sorter for DocValueSorter<'a, DC>
+impl<'a, F> crate::core::util::Sorter for DocValueSorter<'a, F>
 where
-  DC: DocComparator,
+  F: Fn(usize, usize) -> i32,
 {
+  #[inline]
   fn compare(&mut self, i: usize, j: usize) -> Result<i32> {
-    Ok(
-      self
-        .comparator
-        .compare(self.docs[i] as usize, self.docs[j] as usize),
-    )
+    Ok((self.comparator)(
+      self.docs[i] as usize,
+      self.docs[j] as usize,
+    ))
   }
 
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
@@ -344,30 +356,6 @@ impl DocMap for DocMapImpl {
 
   fn size(&self) -> i32 {
     self.max_doc
-  }
-}
-
-struct DocComparatorSorterImpl<DC> {
-  comparators: Vec<DC>,
-}
-impl<DC> DocComparatorSorterImpl<DC> {
-  pub fn new(comparators: Vec<DC>) -> Self {
-    DocComparatorSorterImpl { comparators }
-  }
-}
-impl<DC> DocComparator for DocComparatorSorterImpl<DC>
-where
-  DC: DocComparator,
-{
-  fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
-    for cmp in self.comparators.iter() {
-      let comp = cmp.compare(doc_id1, doc_id2);
-      if comp != 0 {
-        return comp;
-      }
-    }
-    // docid order tiebreak
-    doc_id1.cmp(&doc_id2).to_int()
   }
 }
 
