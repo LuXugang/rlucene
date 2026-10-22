@@ -58,8 +58,8 @@ pub struct OnHeapHnswGraph {
   nsize0: usize,
   // if an initial size is passed in, we don't expect the graph to grow itself
   no_growth: bool,
-  // KnnGraphValues iterator members
-  upto: Option<usize>,
+  // Index of the next neighbor to read; seek resets it to zero.
+  upto: usize,
   cur_node: usize,
   cur_level: usize,
 }
@@ -104,7 +104,7 @@ impl OnHeapHnswGraph {
       nsize,
       nsize0,
       no_growth,
-      upto: None,
+      upto: 0,
       cur_node: 0,
       cur_level: 0,
     }
@@ -321,7 +321,7 @@ impl HnswGraph for OnHeapHnswGraph {
   fn seek(&mut self, level: usize, target_node: usize) -> Result<()> {
     self.cur_node = target_node;
     self.cur_level = level;
-    self.upto = None;
+    self.upto = 0;
     Ok(())
   }
 
@@ -352,8 +352,8 @@ impl HnswGraph for OnHeapHnswGraph {
 
   #[inline]
   fn next_neighbor(&mut self) -> Result<usize> {
-    let upto = self.upto.map_or(0, |upto| upto + 1);
-    self.upto = Some(upto);
+    let upto = self.upto;
+    self.upto += 1;
     let cur = self.get_neighbors_mut(self.cur_level, self.cur_node)?;
     if upto < cur.size() {
       Ok(cur.nodes()[upto] as usize)
