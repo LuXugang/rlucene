@@ -53,8 +53,7 @@ pub trait PointValues {
   /// point.
   fn get_doc_count(&self) -> Result<i32>;
   type PointTree: PointTree;
-  type MutablePointTree: MutablePointTree;
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>>;
+  fn get_point_tree(&self) -> Result<Self::PointTree>;
 
   /// Finds all documents and points matching the provided visitor.
   /// This method does not enforce live documents, so it's up to the caller
@@ -378,6 +377,9 @@ impl Relation {
 }
 /// Basic operations to read the KD-tree.
 pub trait PointTree: TryClone {
+  /// Concrete mutable capability exposed by this tree.
+  type MutablePointTree: MutablePointTree;
+
   /// Move to the first child node and return `true` upon success.
   /// Returns `false` for leaf nodes and `true` otherwise.
   fn move_to_child(&mut self) -> Result<bool> {
@@ -435,6 +437,20 @@ pub trait PointTree: TryClone {
     Err(LuceneError::need_implemented(
       "visit_doc_values not implement",
     ))
+  }
+
+  /// Select the mutable capability of this already acquired tree.
+  ///
+  /// This is the owned Rust counterpart of Java's `instanceof MutablePointTree`
+  /// and cast. The conversion must only move the existing tree: it must not fetch
+  /// another tree, allocate, clone, visit points, or invoke user callbacks.
+  /// Mutable trees return `PointTreeEnum::Mutable(self)` with `Self` as their
+  /// associated mutable type. Wrappers preserve their own exposed capability.
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self>
+  where
+    Self: Sized,
+  {
+    PointTreeEnum::Other(self)
   }
 }
 /// We recurse the [PointTree], using a provided instance of this to guide the
@@ -553,6 +569,15 @@ where
   M: MutablePointTree,
   O: PointTree,
 {
+  type MutablePointTree = M;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    match self {
+      Self::Mutable(tree) => PointTreeEnum::Mutable(tree),
+      Self::Other(tree) => PointTreeEnum::Other(Self::Other(tree)),
+    }
+  }
+
   fn move_to_child(&mut self) -> Result<bool> {
     match self {
       PointTreeEnum::Mutable(mpt) => mpt.move_to_child(),
@@ -642,6 +667,9 @@ where
   A: PointTree,
   B: PointTree,
 {
+  type MutablePointTree =
+    crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     match self {
       PointTreeEnum2::A(tree) => tree.move_to_child(),
@@ -738,13 +766,9 @@ where
   }
 
   type PointTree = T::PointTree;
-  type MutablePointTree = T::MutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    match (**self).get_point_tree()? {
-      PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(tree)),
-      PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(tree)),
-    }
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
+    (**self).get_point_tree()
   }
 
   fn intersect<V>(&self, visitor: &mut V) -> Result<()>

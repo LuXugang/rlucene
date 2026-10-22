@@ -16,11 +16,10 @@
  */
 // Migrated from src/core/util/doc_id_set_builder.rs
 
-use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_point_tree::DummyPointTree;
 use crate::core::index::dummy::dummy_terms_enum::DummyTermsEnum;
-use crate::core::index::point_values::{PointTreeEnum, PointValues};
+use crate::core::index::point_values::PointValues;
 use crate::core::index::terms::Terms;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -403,9 +402,8 @@ impl PointValues for DummyPointValues {
   }
 
   type PointTree = DummyPointTree;
-  type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
     unreachable!()
   }
 }

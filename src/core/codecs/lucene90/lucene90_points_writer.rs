@@ -201,7 +201,7 @@ where
     PR: PointsReader,
     D1: Directory,
   {
-    let mut values = reader
+    let values = reader
       .get_values(&field_info.name)?
       .ok_or_else(|| LuceneError::illegal_state("PointValues is None"))?
       .get_point_tree()?;
@@ -219,27 +219,29 @@ where
       self.max_mb_sort_in_heap,
       values.size()?.try_convert()?,
     )?;
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match values {
-      PointTreeEnum::Mutable(ref mut mutable_tree) => {
-        match writer.write_field(&mut self.data_out, mutable_tree, &field_info.name)? {
-          Some(finalizer) => {
-            self.meta_out.write_int(field_info.number)?;
-            writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
-          },
-          None => Ok(()),
-        }
-      },
-      PointTreeEnum::Other(mut tree) => {
-        let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
-        tree.visit_doc_values(&mut intersect_visitor)?;
-        match writer.finish(&mut self.data_out)? {
-          Some(finalizer) => {
-            self.meta_out.write_int(field_info.number)?;
-            writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
-          },
-          None => Ok(()),
-        }
-      },
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      match values.into_mutable() {
+        PointTreeEnum::Mutable(mut mutable_tree) => {
+          match writer.write_field(&mut self.data_out, &mut mutable_tree, &field_info.name)? {
+            Some(finalizer) => {
+              self.meta_out.write_int(field_info.number)?;
+              writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
+            },
+            None => Ok(()),
+          }
+        },
+        PointTreeEnum::Other(mut tree) => {
+          let mut intersect_visitor = IntersectVisitorImpl::new(&mut writer);
+          tree.visit_doc_values(&mut intersect_visitor)?;
+          match writer.finish(&mut self.data_out)? {
+            Some(finalizer) => {
+              self.meta_out.write_int(field_info.number)?;
+              writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)
+            },
+            None => Ok(()),
+          }
+        },
+      }
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
     IOUtils::use_or_suppress_caught_result(result, close_result)

@@ -2549,16 +2549,18 @@ where
     self.in_.get_doc_count()
   }
 
-  type PointTree = AssertingPointTree<PV::PointTree>;
-  type MutablePointTree = AssertingMutablePointTree<PV::MutablePointTree>;
+  type PointTree = PointTreeEnum<
+    AssertingMutablePointTree<<PV::PointTree as PointTree>::MutablePointTree>,
+    AssertingPointTree<PV::PointTree>,
+  >;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
     assert_thread("Points", self.creation_thread);
     let point_tree = self.in_.get_point_tree()?;
     let num_data_dims = self.in_.get_num_dimensions()?;
     let num_index_dims = self.in_.get_num_index_dimensions()?;
     let bytes_per_dim = self.in_.get_bytes_per_dimension()?;
-    Ok(match point_tree {
+    Ok(match point_tree.into_mutable() {
       PointTreeEnum::Mutable(point_tree) => PointTreeEnum::Mutable(AssertingMutablePointTree::new(
         point_tree,
         num_data_dims,
@@ -2614,6 +2616,9 @@ impl<PT> PointTree for AssertingPointTree<PT>
 where
   PT: PointTree,
 {
+  type MutablePointTree =
+    crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     self.in_.move_to_child()
   }
@@ -2706,6 +2711,12 @@ impl<MPT> PointTree for AssertingMutablePointTree<MPT>
 where
   MPT: MutablePointTree,
 {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn move_to_child(&mut self) -> Result<bool> {
     self.in_.move_to_child()
   }

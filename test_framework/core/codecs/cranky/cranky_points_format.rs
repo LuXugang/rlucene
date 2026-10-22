@@ -21,7 +21,7 @@ use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::MergeState;
-use crate::core::index::point_values::{IntersectVisitor, PointTree, PointTreeEnum, PointValues};
+use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -268,14 +268,13 @@ where
     self.delegate.get_doc_count()
   }
 
-  type PointTree = CrankyPointTree<PointTreeEnum<PV::MutablePointTree, PV::PointTree>>;
-  type MutablePointTree = DummyMutablePointTree;
+  type PointTree = CrankyPointTree<PV::PointTree>;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    Ok(PointTreeEnum::Other(CrankyPointTree::Cranky {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
+    Ok(CrankyPointTree::Cranky {
       delegate: self.delegate.get_point_tree()?,
       random: Arc::clone(&self.random),
-    }))
+    })
   }
 }
 
@@ -304,6 +303,8 @@ impl<PT> PointTree for CrankyPointTree<PT>
 where
   PT: PointTree,
 {
+  type MutablePointTree = DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     match self {
       Self::Cranky { delegate, .. } | Self::Delegate(delegate) => delegate.move_to_child(),

@@ -33,8 +33,8 @@ use crate::core::index::multi_bits::get_live_docs;
 use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::{
-  IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointTreeEnum,
-  PointValues, Relation,
+  IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointValues,
+  Relation,
 };
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
@@ -1625,12 +1625,11 @@ impl PointValues for TestPointValues {
   }
 
   type PointTree = TestPointTree;
-  type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    Ok(PointTreeEnum::Other(TestPointTree {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
+    Ok(TestPointTree {
       estimated_point_count: self.estimated_point_count,
-    }))
+    })
   }
 }
 
@@ -1650,6 +1649,8 @@ impl TryClone for TestPointTree {
 }
 
 impl PointTree for TestPointTree {
+  type MutablePointTree = DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     Ok(false)
   }

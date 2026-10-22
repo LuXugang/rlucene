@@ -18,7 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::point_values::{
-  IntersectVisitor, MAX_NUM_BYTES, PointTree, PointTreeEnum, PointValues, Relation,
+  IntersectVisitor, MAX_NUM_BYTES, PointTree, PointValues, Relation,
 };
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::store::directory::Directory;
@@ -2594,7 +2594,7 @@ where
   S: PointValues,
   DM: DocMap,
 {
-  point_tree: Option<PointTreeEnum<S::MutablePointTree, S::PointTree>>,
+  point_tree: Option<S::PointTree>,
   packed_bytes_length: usize,
   doc_map: Option<&'a DM>,
   merge_intersects_visitor: MergeIntersectsVisitor,

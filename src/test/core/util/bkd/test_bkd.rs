@@ -19,8 +19,8 @@ use crate::core::index::BytesRef;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::point_values::{
-  IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointValues,
-  Relation,
+  IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointTreeEnum,
+  PointValues, Relation,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -2062,6 +2062,12 @@ pub struct MutablePointTreeMock1 {
 }
 
 impl PointTree for MutablePointTreeMock1 {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn size(&self) -> Result<usize> {
     Ok(self.num_points_added)
   }
@@ -2167,6 +2173,12 @@ pub struct MutablePointTreeMock2 {
 }
 
 impl PointTree for MutablePointTreeMock2 {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn size(&self) -> Result<usize> {
     Ok(11)
   }

@@ -21,9 +21,7 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::point_values::Relation::CellCrossesQuery;
-use crate::core::index::point_values::{
-  IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
-};
+use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::clone::TryClone;
@@ -298,13 +296,12 @@ where
   }
 
   type PointTree = PointTreeImpl<P, DM>;
-  type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    Ok(PointTreeEnum::Other(PointTreeImpl::new(
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
+    Ok(PointTreeImpl::new(
       self.final_max_point_count,
       self.point_values.clone(),
-    )))
+    ))
   }
 }
 
@@ -339,6 +336,8 @@ where
   P: PointValues,
   DM: DocMap,
 {
+  type MutablePointTree = DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     Ok(false)
   }

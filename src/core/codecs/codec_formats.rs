@@ -2508,6 +2508,8 @@ impl<I: IndexInput> TryClone for CodecPointTree<I> {
 
 #[cfg(test)]
 impl<I: IndexInput> PointTree for CodecPointTree<I> {
+  type MutablePointTree = DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     match self {
       Self::Lucene90(tree) => tree.move_to_child(),
@@ -2728,29 +2730,24 @@ impl<I: IndexInput> PointValues for CodecPointValues<I> {
   }
 
   type PointTree = CodecPointTree<I>;
-  type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
     match self {
-      Self::Lucene90(values) => match values.get_point_tree()? {
+      Self::Lucene90(values) => match values.get_point_tree()?.into_mutable() {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(CodecPointTree::Lucene90(tree))),
+        PointTreeEnum::Other(tree) => Ok(CodecPointTree::Lucene90(tree)),
       },
-      Self::Asserting(values) => match values.get_point_tree()? {
+      Self::Asserting(values) => match values.get_point_tree()?.into_mutable() {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(CodecPointTree::Asserting(tree))),
+        PointTreeEnum::Other(tree) => Ok(CodecPointTree::Asserting(tree)),
       },
-      Self::CrankyLucene101(values) => match values.get_point_tree()? {
+      Self::CrankyLucene101(values) => match values.get_point_tree()?.into_mutable() {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => {
-          Ok(PointTreeEnum::Other(CodecPointTree::CrankyLucene101(tree)))
-        },
+        PointTreeEnum::Other(tree) => Ok(CodecPointTree::CrankyLucene101(tree)),
       },
-      Self::CrankyAsserting(values) => match values.get_point_tree()? {
+      Self::CrankyAsserting(values) => match values.get_point_tree()?.into_mutable() {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => {
-          Ok(PointTreeEnum::Other(CodecPointTree::CrankyAsserting(tree)))
-        },
+        PointTreeEnum::Other(tree) => Ok(CodecPointTree::CrankyAsserting(tree)),
       },
     }
   }

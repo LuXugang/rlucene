@@ -30,6 +30,9 @@ impl TryClone for DummyPointTree {
   }
 }
 impl PointTree for DummyPointTree {
+  type MutablePointTree =
+    crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     dummy_unreachable!()
   }

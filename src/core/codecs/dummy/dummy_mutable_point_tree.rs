@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
-use crate::core::index::point_values::{IntersectVisitor, PointTree};
+use crate::core::index::point_values::{IntersectVisitor, PointTree, PointTreeEnum};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
@@ -33,6 +33,12 @@ impl TryClone for DummyMutablePointTree {
 }
 
 impl PointTree for DummyMutablePointTree {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn move_to_child(&mut self) -> Result<bool> {
     dummy_unreachable!()
   }

@@ -17,9 +17,7 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::index::BytesRef;
-use crate::core::index::point_values::{
-  IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
-};
+use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::{DataInput, IndexInput};
@@ -227,9 +225,8 @@ where
   }
 
   type PointTree = BKDPointTree<I>;
-  type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
     let slice = match self.index_in {
       Some(ref index_in) => index_in.slice(
         "packedIndex",
@@ -257,7 +254,7 @@ where
         }
       },
     };
-    Ok(PointTreeEnum::Other(BKDPointTree::new(
+    BKDPointTree::new(
       slice,
       self.data_in.clone(),
       self.config.clone(),
@@ -267,7 +264,7 @@ where
       &self.min_packed_value,
       &self.max_packed_value,
       self.is_tree_balanced,
-    )?))
+    )
   }
 }
 
@@ -1140,6 +1137,8 @@ impl<I> PointTree for BKDPointTree<I>
 where
   I: IndexInput,
 {
+  type MutablePointTree = DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     if self.is_leaf_node() {
       return Ok(false);

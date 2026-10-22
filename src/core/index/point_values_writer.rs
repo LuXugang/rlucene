@@ -19,7 +19,6 @@ use crate::core::codecs::mutable_point_tree::MutablePointTreeEnum2;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::index::BytesRef;
-use crate::core::index::dummy::dummy_point_tree::DummyPointTree;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
@@ -255,20 +254,19 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  type PointTree = DummyPointTree;
-  type MutablePointTree = MutablePointTreeEnum2<
+  type PointTree = MutablePointTreeEnum2<
     MutablePointTreeImpl,
     MutableSortingPointValues<MutablePointTreeImpl, DM>,
   >;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
     if self.taken.swap(true, Relaxed) {
       return Err(LuceneError::illegal_state(format!(
         "{} get_point_tree can only be called once",
         std::any::type_name::<Self>()
       )));
     }
-    Ok(PointTreeEnum::Mutable(self.values.take()))
+    Ok(self.values.take())
   }
 }
 
@@ -338,6 +336,12 @@ where
   M: MutablePointTree,
   DM: DocMap + Clone,
 {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn size(&self) -> Result<usize> {
     self.input.size()
   }
@@ -409,6 +413,12 @@ impl MutablePointTreeImpl {
 }
 
 impl PointTree for MutablePointTreeImpl {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn size(&self) -> Result<usize> {
     Ok(self.num_points)
   }

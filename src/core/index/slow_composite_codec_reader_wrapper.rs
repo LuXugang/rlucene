@@ -451,16 +451,18 @@ where
     }
   }
 
-  type PointTree = PointTreeEnum2<T::PointTree, U::PointTree>;
-  type MutablePointTree = T::MutablePointTree;
+  type PointTree = PointTreeEnum<
+    <T::PointTree as PointTree>::MutablePointTree,
+    PointTreeEnum2<T::PointTree, U::PointTree>,
+  >;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
     match self {
-      Self::A(values) => match values.get_point_tree()? {
+      Self::A(values) => match values.get_point_tree()?.into_mutable() {
         PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(tree)),
         PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::A(tree))),
       },
-      Self::B(values) => match values.get_point_tree()? {
+      Self::B(values) => match values.get_point_tree()?.into_mutable() {
         PointTreeEnum::Mutable(_) => Err(LuceneError::unsupported_operation("")),
         PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::B(tree))),
       },
@@ -2508,12 +2510,9 @@ where
   }
 
   type PointTree = PointTreeImpl<PV>;
-  type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    Ok(PointTreeEnum::Other(PointTreeImpl::new(
-      self.values.clone(),
-    )))
+  fn get_point_tree(&self) -> Result<Self::PointTree> {
+    Ok(PointTreeImpl::new(self.values.clone()))
   }
 }
 
@@ -2550,6 +2549,8 @@ impl<PV> PointTree for PointTreeImpl<PV>
 where
   PV: PointValues,
 {
+  type MutablePointTree = DummyMutablePointTree;
+
   fn move_to_child(&mut self) -> Result<bool> {
     Ok(false)
   }

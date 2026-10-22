@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::point_values::{IntersectVisitor, PointTree};
+use crate::core::index::point_values::{IntersectVisitor, PointTree, PointTreeEnum};
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error;
 use std::borrow::Cow;
@@ -59,6 +59,12 @@ where
   A: MutablePointTree,
   B: MutablePointTree,
 {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn move_to_child(&mut self) -> lucene_error::Result<bool> {
     match self {
       MutablePointTreeEnum2::A(t) => t.move_to_child(),

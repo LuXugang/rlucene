@@ -24,7 +24,7 @@ use rand::RngExt;
 
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
-use crate::core::index::point_values::PointTree;
+use crate::core::index::point_values::{PointTree, PointTreeEnum};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::mutable_point_tree_reader_utils::MutablePointTreeReaderUtils;
 use crate::core::util::clone::TryClone;
@@ -420,6 +420,12 @@ impl DummyPointsReader {
   }
 }
 impl PointTree for DummyPointsReader {
+  type MutablePointTree = Self;
+
+  fn into_mutable(self) -> PointTreeEnum<Self::MutablePointTree, Self> {
+    PointTreeEnum::Mutable(self)
+  }
+
   fn move_to_child(&mut self) -> Result<bool> {
     Ok(false)
   }
