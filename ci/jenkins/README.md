@@ -68,6 +68,12 @@ available as the dependency download cache, while compiler output is not kept
 between revisions. All commit builds are retained, with no age or count limit.
 The scheduled `rlucene-ci` release job remains separate.
 
+Both commit-check Pipelines set `CARGO_PROFILE_DEV_DEBUG=0` and
+`CARGO_PROFILE_TEST_DEBUG=0`. This removes compiler debuginfo from the xtask,
+tidy and test artifacts to reduce temporary disk and memory pressure. It does
+not disable debug assertions or overflow checks, so test behavior remains the
+normal non-release behavior.
+
 ## Jenkins prerequisites
 
 - Jenkins 2.568.2 with Java 21, as pinned in the controller image.

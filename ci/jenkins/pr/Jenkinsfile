@@ -22,6 +22,10 @@ pipeline {
       environment {
         CARGO_HOME = '/opt/cargo'
         RUSTUP_HOME = '/opt/rustup'
+        // Keep compiler debug information at Cargo's minimum for the xtask,
+        // tidy and test profiles. Debug assertions and overflow checks remain.
+        CARGO_PROFILE_DEV_DEBUG = '0'
+        CARGO_PROFILE_TEST_DEBUG = '0'
         CARGO_TARGET_DIR = "/home/rlucene/cargo-target/rlucene-pr/${BUILD_NUMBER}"
       }
 

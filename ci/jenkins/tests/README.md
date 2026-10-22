@@ -31,8 +31,9 @@ the disposable loopback test server; retain normal security on deployments.
 The script starts a real local remoting agent on a second node and runs:
 
 1. Full Declarative validation of all four production Jenkinsfiles, covering
-   all five jobs. Heavy bodies are then replaced by small shell probes while
-   retaining the actual lock, agent, environment, timeout, and post structure.
+   all five jobs, including the commit/PR minimum-debuginfo environment. Heavy
+   bodies are then replaced by small shell probes while retaining the actual
+   lock, agent, environment, timeout, and post structure.
 2. A deterministic baseline reproduction using the former idle dispatcher:
    CI is already working when a commit job on the other node attempts to work.
    Atomic directory creation detects the overlap; the baseline commit fails.

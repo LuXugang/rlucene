@@ -92,6 +92,11 @@ def graceCiTemplate = null
   } else {
     assert !source.contains("lock(resource: 'rlucene-vm-build', priority:")
   }
+  if (name in ['commit', 'pr']) {
+    assert source.count("CARGO_PROFILE_DEV_DEBUG = '0'") == 1
+    assert source.count("CARGO_PROFILE_TEST_DEBUG = '0'") == 1
+    assert source.contains('Debug assertions and overflow checks remain.')
+  }
   assert source.contains('agent none') && source.contains('disableConcurrentBuilds()')
   if (name == 'ci') {
     def syntheticCi = { String action, boolean untestedRevision -> """
