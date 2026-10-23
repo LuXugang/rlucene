@@ -19,6 +19,7 @@ use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use std::convert::Infallible;
 use std::sync::Arc;
 
 /// Trait for [`BitSet`]-like structures.
@@ -53,6 +54,22 @@ pub trait Bits: HasIdentity {
   }
   fn to_string(&self) -> String {
     std::any::type_name::<Self>().to_string()
+  }
+}
+
+impl HasIdentity for Infallible {
+  fn identity(&self) -> &Identity {
+    match *self {}
+  }
+}
+
+impl Bits for Infallible {
+  fn get(&self, _index: usize) -> Result<bool> {
+    match *self {}
+  }
+
+  fn length(&self) -> usize {
+    match *self {}
   }
 }
 

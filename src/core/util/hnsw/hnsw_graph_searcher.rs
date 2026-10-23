@@ -19,12 +19,12 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_concurrent_merge_builder::MergeSearcher;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::GraphBuilderKnnCollector;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
+use std::convert::Infallible;
 /// Searches an HNSW graph to find nearest neighbors to a query vector.
 ///
 /// For more background on the search algorithm, see [`HnswGraph`].
@@ -125,7 +125,7 @@ where
       level,
       eps,
       graph,
-      None::<&FixedBitSet>,
+      &None::<Infallible>,
     )?;
     Ok(results)
   }
@@ -219,7 +219,7 @@ where
     level: usize,
     eps: &[usize],
     mut graph: T,
-    accept_ords: Option<&T2>,
+    accept_ords: &Option<T2>,
   ) -> Result<()>
   where
     S: RandomVectorScorer,
@@ -545,7 +545,7 @@ where
       0,
       &[ep],
       graph,
-      accept_ords,
+      &accept_ords,
     )?;
   }
   Ok(())

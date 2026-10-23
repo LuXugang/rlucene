@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::borrow::Cow;
+use std::convert::Infallible;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Instant;
@@ -331,7 +332,7 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          Some(&not_fully_connected),
+          &Some(&not_fully_connected),
         )?;
 
         let mut linked = false;
@@ -706,9 +707,14 @@ impl HnswGraphBuilderDefaults {
       for level in (node_level + 1..=cur_max_level).rev() {
         candidates.clear();
         if let Some(hnsw) = Arc::get_mut(&mut builder.hnsw) {
-          builder
-            .graph_searcher
-            .search_level_with_collector(candidates, &scorer, level, &eps, hnsw, None::<&B>)?;
+          builder.graph_searcher.search_level_with_collector(
+            candidates,
+            &scorer,
+            level,
+            &eps,
+            hnsw,
+            &None::<Infallible>,
+          )?;
         } else {
           builder.graph_searcher.search_level_with_collector(
             candidates,
@@ -716,7 +722,7 @@ impl HnswGraphBuilderDefaults {
             level,
             &eps,
             builder.hnsw.as_ref(),
-            None::<&B>,
+            &None::<Infallible>,
           )?;
         }
         eps[0] = candidates.pop_node()?;
@@ -729,9 +735,14 @@ impl HnswGraphBuilderDefaults {
         let level = i + lowest_unset_level;
         candidates.clear();
         if let Some(hnsw) = Arc::get_mut(&mut builder.hnsw) {
-          builder
-            .graph_searcher
-            .search_level_with_collector(candidates, &scorer, level, &eps, hnsw, None::<&B>)?;
+          builder.graph_searcher.search_level_with_collector(
+            candidates,
+            &scorer,
+            level,
+            &eps,
+            hnsw,
+            &None::<Infallible>,
+          )?;
         } else {
           builder.graph_searcher.search_level_with_collector(
             candidates,
@@ -739,7 +750,7 @@ impl HnswGraphBuilderDefaults {
             level,
             &eps,
             builder.hnsw.as_ref(),
-            None::<&B>,
+            &None::<Infallible>,
           )?;
         }
         eps = if i == 0 {
