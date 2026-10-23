@@ -29,13 +29,12 @@ use crate::core::index::point_values::{
   IntersectVisitor, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointValues, Relation,
 };
 use crate::core::index::prefix_coded_terms::{
-  PrefixCodedTermsArc, PrefixCodedTermsBuilder, TermIteratorArc,
+  PrefixCodedTerms, PrefixCodedTermsBuilder, TermIteratorRef,
 };
 use crate::core::index::{BytesRef, BytesRefValue};
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -72,7 +71,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct PointInSetQuery {
   id: Identity,
-  sorted_packed_points: Arc<PrefixCodedTermsArc>,
+  sorted_packed_points: Arc<PrefixCodedTerms>,
   sorted_packed_points_hash_code: u64,
   field: Arc<str>,
   num_dims: usize,
@@ -142,7 +141,7 @@ impl PointInSetQuery {
       previous_buffer.bytes_mut().bytes.truncate(packed_length);
     }
 
-    let sorted_packed_points: PrefixCodedTermsArc = builder.finish().into();
+    let sorted_packed_points = builder.finish();
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     sorted_packed_points.hash(&mut hasher);
     let sorted_packed_points_hash_code = hasher.finish();
@@ -406,7 +405,7 @@ pub struct MergePointScorerSupplier<PV> {
   values: PV,
   max_doc: i32,
   field: Arc<str>,
-  sorted_packed_points: Arc<PrefixCodedTermsArc>,
+  sorted_packed_points: Arc<PrefixCodedTerms>,
   bytes_per_dim: usize,
   cost: i64,
 }
@@ -418,7 +417,7 @@ impl<PV> MergePointScorerSupplier<PV> {
     values: PV,
     max_doc: i32,
     field: FName,
-    sorted_packed_points: Arc<PrefixCodedTermsArc>,
+    sorted_packed_points: Arc<PrefixCodedTerms>,
     bytes_per_dim: usize,
   ) -> Self
   where
@@ -446,7 +445,7 @@ where
   IRCLeafReader<IRC>: LeafReader,
 {
   type Scorer =
-    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>;
+    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
@@ -464,7 +463,7 @@ where
       self.bytes_per_dim,
     )?;
     self.values.intersect(&mut visitor)?;
-    let iterator = visitor.result.build()?.iterator()?;
+    let iterator = visitor.result.build_iterator()?;
     Ok(ConstantScoreScorer::from_disi(
       self.score,
       self.score_mode,
@@ -510,7 +509,7 @@ pub struct SinglePointScorerSupplier<PV> {
   values: PV,
   max_doc: i32,
   field: Arc<str>,
-  sorted_packed_points: Arc<PrefixCodedTermsArc>,
+  sorted_packed_points: Arc<PrefixCodedTerms>,
   num_dims: usize,
   bytes_per_dim: usize,
   cost: i64,
@@ -524,7 +523,7 @@ impl<PV> SinglePointScorerSupplier<PV> {
     values: PV,
     max_doc: i32,
     field: FName,
-    sorted_packed_points: Arc<PrefixCodedTermsArc>,
+    sorted_packed_points: Arc<PrefixCodedTerms>,
     num_dims: usize,
     bytes_per_dim: usize,
   ) -> Self
@@ -554,7 +553,7 @@ where
   IRCLeafReader<IRC>: LeafReader,
 {
   type Scorer =
-    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>;
+    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
@@ -573,7 +572,7 @@ where
       visitor.set_point(&point.bytes[point.offset..point.offset + point.length]);
       self.values.intersect(&mut visitor)?;
     }
-    let iterator = visitor.result.build()?.iterator()?;
+    let iterator = visitor.result.build_iterator()?;
     Ok(ConstantScoreScorer::from_disi(
       self.score,
       self.score_mode,
@@ -618,16 +617,16 @@ where
 
 /// Essentially does a merge sort, collecting hits when the indexed point and
 /// query point are the same. This is an optimization for the 1D case.
-pub struct MergePointVisitor {
+pub struct MergePointVisitor<'a> {
   result: DocIdSetBuilder,
-  iterator: RefCell<TermIteratorArc>,
+  iterator: RefCell<TermIteratorRef<'a>>,
   next_query_point: RefCell<Option<BytesRef<Vec<u8>>>>,
   comparator: ByteArrayComparatorEnum,
 }
 
-impl MergePointVisitor {
+impl<'a> MergePointVisitor<'a> {
   pub fn new(
-    sorted_packed_points: &PrefixCodedTermsArc,
+    sorted_packed_points: &'a PrefixCodedTerms,
     result: DocIdSetBuilder,
     bytes_per_dim: usize,
   ) -> Result<Self> {
@@ -677,7 +676,7 @@ impl MergePointVisitor {
   }
 }
 
-impl IntersectVisitor for MergePointVisitor {
+impl IntersectVisitor for MergePointVisitor<'_> {
   fn grow(&mut self, count: usize) -> Result<()> {
     self.result.grow(count)?;
     Ok(())
@@ -855,7 +854,7 @@ impl IntersectVisitor for SinglePointVisitor {
 }
 
 #[cfg(test)]
-fn packed_points_as_vec(sorted_packed_points: &PrefixCodedTermsArc) -> Result<Vec<Vec<u8>>> {
+fn packed_points_as_vec(sorted_packed_points: &PrefixCodedTerms) -> Result<Vec<Vec<u8>>> {
   let mut iterator = sorted_packed_points.iterator()?;
   let mut points = Vec::with_capacity(sorted_packed_points.size().try_convert()?);
   while let Some(point) = iterator.next()? {

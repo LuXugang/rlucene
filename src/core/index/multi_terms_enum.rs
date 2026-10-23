@@ -30,7 +30,6 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{Comparator, ToInt};
-use std::rc::Rc;
 
 /// Exposes [`TermsEnum`] API, merged from [`TermsEnum`] API of sub-segments. This does a
 /// merge sort, by term text, of the sub-readers.
@@ -56,7 +55,7 @@ where
 {
   pub fn new<I>(slices: I) -> Result<Self>
   where
-    I: IntoIterator<Item = Rc<ReaderSlice>>,
+    I: IntoIterator<Item = ReaderSlice>,
     I::IntoIter: ExactSizeIterator,
   {
     let slices = slices.into_iter();
@@ -67,7 +66,7 @@ where
     let mut sub_docs = Vec::with_capacity(len);
     let mut all_terms_enum_with_slice = Vec::with_capacity(len);
     for (i, slice) in slices.enumerate() {
-      all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i, slice.clone()));
+      all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i, slice));
       sub_docs.push(EnumWithSlice::with_slice(slice));
       subs[i] = i;
     }
@@ -525,7 +524,7 @@ where
         terms_enum.postings_with_flags(docs_enum.sub_postings_enums[sub_index].take(), flags)?;
       docs_enum.sub_postings_enums[sub_index] = Some(sub_postings_enum);
       self.sub_docs[upto].postings_enum_idx = sub_index;
-      self.sub_docs[upto].slice = entry.sub_slice.clone();
+      self.sub_docs[upto].slice = entry.sub_slice;
       upto += 1;
     }
     docs_enum.reset(&self.sub_docs, upto);
@@ -739,13 +738,13 @@ where
 
 struct TermsEnumWithSlice<TE> {
   base: TermsEnumIndex<TE>,
-  sub_slice: Rc<ReaderSlice>,
+  sub_slice: ReaderSlice,
 }
 impl<TE> TermsEnumWithSlice<TE>
 where
   TE: TermsEnum,
 {
-  pub fn new(index: usize, sub_slice: Rc<ReaderSlice>) -> Self {
+  pub fn new(index: usize, sub_slice: ReaderSlice) -> Self {
     debug_assert!(sub_slice.length >= 0, "length={}", sub_slice.length);
 
     Self {

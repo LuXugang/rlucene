@@ -25,7 +25,6 @@ use crate::core::index::point_values::{IntersectVisitor, PointValues, Relation};
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
   AllDISI, DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI,
@@ -492,7 +491,7 @@ pub struct RelationScorerSupplier<PV, V> {
 type SpatialScorer = crate::core::search::scorer::ScorerEnum3<
   ConstantScoreDisiScorer<BitSetIterator<FixedBitSet>>,
   ConstantScoreDisiScorer<DocIdSetIteratorEnum2<EmptyDISI, BitSetIterator<FixedBitSet>>>,
-  ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>,
+  ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator>,
 >;
 impl<PV, V> RelationScorerSupplier<PV, V> {
   #[allow(clippy::too_many_arguments)]
@@ -595,7 +594,7 @@ where
         self.query_relation,
         &mut doc_id_set_builder,
       ))?;
-      let iterator = doc_id_set_builder.build()?.iterator()?;
+      let iterator = doc_id_set_builder.build_iterator()?;
       Ok(SpatialScorer::C(ConstantScoreScorer::from_disi(
         self.score,
         self.score_mode,

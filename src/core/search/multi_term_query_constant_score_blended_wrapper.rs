@@ -33,7 +33,6 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
@@ -45,7 +44,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
-use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
+use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, OwnedDocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::{Debug, Formatter};
@@ -193,7 +192,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
     = DisjunctionDISIApproximation<
     ConstantScoreScorer<
       crate::core::search::constant_score_scorer::DisiState<
-        DocIdSetIteratorEnum2<DocIdSetBuilderIterator, TermsPosting<T>>,
+        DocIdSetIteratorEnum2<OwnedDocIdSetBuilderIterator, TermsPosting<T>>,
       >,
     >,
   >
@@ -308,7 +307,7 @@ impl RewritingWeightBase for BlendedRewritingWeight {
       all_scorers.push(DisiWrapper::new(scorer)?);
       subs.add(idx, all_scorers.as_slice());
     }
-    let scorer = wrap_with_dummy_scorer(DocIdSetIteratorEnum2::A(other_terms.build()?.iterator()?));
+    let scorer = wrap_with_dummy_scorer(DocIdSetIteratorEnum2::A(other_terms.build_iterator()?));
     all_scorers.push(DisiWrapper::new(scorer)?);
     let len = all_scorers.len() - 1;
     subs.add(len, all_scorers.as_slice());

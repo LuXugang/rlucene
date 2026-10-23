@@ -29,7 +29,6 @@ use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
 };
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, dispatch_multi_term_query,
@@ -40,7 +39,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
-use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
+use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, OwnedDocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
@@ -184,7 +183,7 @@ impl Eq for MultiTermQueryConstantScoreWrapper {}
 pub struct StandardRewritingWeight;
 impl RewritingWeightBase for StandardRewritingWeight {
   type Iter<T>
-    = DocIdSetBuilderIterator
+    = OwnedDocIdSetBuilderIterator
   where
     T: Terms,
     TermsPosting<T>: 'static;
@@ -258,7 +257,7 @@ impl RewritingWeightBase for StandardRewritingWeight {
       }
     }
 
-    let iterator = builder.build()?.iterator()?;
+    let iterator = builder.build_iterator()?;
 
     Ok(WeightOrDocIdSetIterator::from_iterator(iterator))
   }

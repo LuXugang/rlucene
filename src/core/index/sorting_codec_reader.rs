@@ -108,7 +108,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub enum CachedObject {
-  Numeric(NumericDVs<FixedBitSet>),
+  Numeric(Arc<NumericDVs<FixedBitSet>>),
   Binary(Arc<BinaryDVs>),
   Sorted(Arc<Vec<i32>>),
   SortedNumeric(Arc<LongValues>),
@@ -705,7 +705,7 @@ where
           self.max_doc as usize,
           &self.doc_map,
         )?;
-        Ok(CachedObject::Numeric(numeric))
+        Ok(CachedObject::Numeric(Arc::new(numeric)))
       },
       &self.inner,
     )?;
@@ -831,7 +831,7 @@ where
           self.max_doc as usize,
           &self.doc_map,
         )?;
-        Ok(CachedObject::Numeric(v))
+        Ok(CachedObject::Numeric(Arc::new(v)))
       },
       &self.inner,
     )?;
@@ -857,7 +857,7 @@ where
           &self.doc_map,
           &mut self.delegate.get_binary(field)?,
         )?;
-        Ok(CachedObject::Binary(binary))
+        Ok(CachedObject::Binary(Arc::new(binary)))
       },
       &self.inner,
     )?;

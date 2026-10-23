@@ -110,7 +110,7 @@ pub struct NotDocDocIdSetIterator<D> {
 }
 
 impl<D: DocIdSetIterator> NotDocDocIdSetIterator<D> {
-  fn new(in_iterator: D, max_doc: i32) -> Self {
+  pub(crate) fn new(in_iterator: D, max_doc: i32) -> Self {
     NotDocDocIdSetIterator {
       in_iterator,
       doc: -1,

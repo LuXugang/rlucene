@@ -43,7 +43,7 @@ use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 /// stays valid while an input retains its owner. The last owner releases the mappings.
 struct MappedFile {
   resource_desc: Box<str>,
-  segments: Box<[Arc<Mmap>]>,
+  segments: Box<[Mmap]>,
 }
 
 struct SegmentState {
@@ -265,7 +265,7 @@ impl MemorySegmentIndexInput {
         .file
         .segments
         .get((self.start >> self.power) + index)
-        .map(|m| (m.as_ref(), start, length)),
+        .map(|m| (m, start, length)),
     )
   }
   #[inline]
@@ -514,7 +514,7 @@ impl MemorySegmentIndexInput {
         black_box(value);
       }
 
-      segments.push(Arc::new(mmap));
+      segments.push(mmap);
       start_offset += seg_size;
     }
 

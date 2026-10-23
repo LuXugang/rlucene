@@ -85,7 +85,7 @@ pub trait PointsWriter: Closeable {
       point_values.push((values, merge_state.doc_maps[i].clone()));
     }
     let mut points_reader: PointsReaderImpl<'_, _, Rc<MergeStateDocMap<CR>>> =
-      PointsReaderImpl::new(field_info.as_ref(), max_point_count, point_values);
+      PointsReaderImpl::new(field_info.as_ref(), max_point_count, &point_values);
     self.write_field(
       field_info,
       &mut points_reader,
@@ -206,7 +206,7 @@ where
 struct PointsReaderImpl<'a, P, DM> {
   field_info: &'a FieldInfo,
   final_max_point_count: usize,
-  point_values: Rc<Vec<(P, DM)>>,
+  point_values: &'a [(P, DM)],
 }
 
 impl<P, DM> CloseableRef for PointsReaderImpl<'_, P, DM> {}
@@ -215,17 +215,17 @@ impl<'a, P, DM> PointsReaderImpl<'a, P, DM> {
   fn new(
     field_info: &'a FieldInfo,
     final_max_point_count: usize,
-    point_values: Vec<(P, DM)>,
+    point_values: &'a [(P, DM)],
   ) -> Self {
     Self {
       field_info,
       final_max_point_count,
-      point_values: Rc::new(point_values),
+      point_values,
     }
   }
 }
 
-impl<P, DM> PointsReader for PointsReaderImpl<'_, P, DM>
+impl<'a, P, DM> PointsReader for PointsReaderImpl<'a, P, DM>
 where
   P: PointValues,
   DM: DocMap,
@@ -234,7 +234,7 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  type PointValuesType = PointValuesImpl<P, DM>;
+  type PointValuesType = PointValuesImpl<'a, P, DM>;
 
   fn get_values(&self, field_name: &str) -> Result<Option<Self::PointValuesType>> {
     if field_name != self.field_info.name {
@@ -244,17 +244,17 @@ where
     }
     Ok(Some(PointValuesImpl::new(
       self.final_max_point_count,
-      self.point_values.clone(),
+      self.point_values,
     )))
   }
 }
 
-struct PointValuesImpl<P, DM> {
+struct PointValuesImpl<'a, P, DM> {
   final_max_point_count: usize,
-  point_values: Rc<Vec<(P, DM)>>,
+  point_values: &'a [(P, DM)],
 }
-impl<P, DM> PointValuesImpl<P, DM> {
-  fn new(final_max_point_count: usize, point_values: Rc<Vec<(P, DM)>>) -> Self {
+impl<'a, P, DM> PointValuesImpl<'a, P, DM> {
+  fn new(final_max_point_count: usize, point_values: &'a [(P, DM)]) -> Self {
     Self {
       final_max_point_count,
       point_values,
@@ -262,7 +262,7 @@ impl<P, DM> PointValuesImpl<P, DM> {
   }
 }
 
-impl<P, DM> PointValues for PointValuesImpl<P, DM>
+impl<'a, P, DM> PointValues for PointValuesImpl<'a, P, DM>
 where
   P: PointValues,
   DM: DocMap,
@@ -295,22 +295,22 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  type PointTree = PointTreeImpl<P, DM>;
+  type PointTree = PointTreeImpl<'a, P, DM>;
 
   fn get_point_tree(&self) -> Result<Self::PointTree> {
     Ok(PointTreeImpl::new(
       self.final_max_point_count,
-      self.point_values.clone(),
+      self.point_values,
     ))
   }
 }
 
-struct PointTreeImpl<P, DM> {
+struct PointTreeImpl<'a, P, DM> {
   final_max_point_count: usize,
-  point_values: Rc<Vec<(P, DM)>>,
+  point_values: &'a [(P, DM)],
 }
-impl<P, DM> PointTreeImpl<P, DM> {
-  fn new(final_max_point_count: usize, point_values: Rc<Vec<(P, DM)>>) -> Self {
+impl<'a, P, DM> PointTreeImpl<'a, P, DM> {
+  fn new(final_max_point_count: usize, point_values: &'a [(P, DM)]) -> Self {
     Self {
       final_max_point_count,
       point_values,
@@ -318,7 +318,7 @@ impl<P, DM> PointTreeImpl<P, DM> {
   }
 }
 
-impl<P, DM> TryClone for PointTreeImpl<P, DM>
+impl<'a, P, DM> TryClone for PointTreeImpl<'a, P, DM>
 where
   P: PointValues,
   DM: DocMap,
@@ -331,7 +331,7 @@ where
   }
 }
 
-impl<P, DM> PointTree for PointTreeImpl<P, DM>
+impl<'a, P, DM> PointTree for PointTreeImpl<'a, P, DM>
 where
   P: PointValues,
   DM: DocMap,

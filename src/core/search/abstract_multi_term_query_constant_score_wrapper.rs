@@ -398,14 +398,14 @@ where
         ConstantScoreScorer<
           crate::core::search::constant_score_scorer::DisiState<
             crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-              crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+              crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator,
               TermsPosting<T>,
             >,
           >,
         >,
       >,
     >,
-    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>,
+    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator>,
   >;
   type BulkScorer = BulkScorerEnum4<
     DefaultBulkScorer<ConstantScoreDisiScorer<EmptyDISI>>,
@@ -416,7 +416,7 @@ where
           ConstantScoreScorer<
             crate::core::search::constant_score_scorer::DisiState<
               crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2<
-                crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator,
+                crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator,
                 TermsPosting<T>,
               >,
             >,
@@ -425,7 +425,7 @@ where
       >,
     >,
     DefaultBulkScorer<
-      ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>,
+      ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator>,
     >,
   >;
 

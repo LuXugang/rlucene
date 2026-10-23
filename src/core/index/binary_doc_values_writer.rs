@@ -186,7 +186,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
       self.max_length,
       &self.bytes_out.paged_bytes,
       &self.docs_with_field,
-      sorted,
+      sorted.as_ref(),
     )?;
     dv_consumer.add_binary_field(write_state, segment_info, &self.field_info, &producer)
   }
@@ -222,7 +222,7 @@ pub(crate) struct DocValuesProducerImpl<'a> {
   max_length: usize,
   paged_bytes: &'a PagedBytes,
   docs_with_field: &'a DocsWithFieldSet,
-  sorted: Option<Arc<BinaryDVs>>,
+  sorted: Option<&'a BinaryDVs>,
 }
 
 impl CloseableRef for DocValuesProducerImpl<'_> {
@@ -238,7 +238,7 @@ impl<'a> DocValuesProducerImpl<'a> {
     max_length: usize,
     paged_bytes: &'a PagedBytes,
     docs_with_field: &'a DocsWithFieldSet,
-    sorted: Option<Arc<BinaryDVs>>,
+    sorted: Option<&'a BinaryDVs>,
   ) -> Result<Self> {
     Ok(Self {
       field_info,
@@ -251,12 +251,14 @@ impl<'a> DocValuesProducerImpl<'a> {
   }
 }
 
-pub(crate) enum BufferedSortingBinaryDocValues<V = PackedLongValues> {
+pub(crate) enum BufferedSortingBinaryDocValues<V = PackedLongValues, D = Arc<BinaryDVs>> {
   Buffered(BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput, V>),
-  Sorting(SortingBinaryDocValues),
+  Sorting(SortingBinaryDocValues<D>),
 }
 
-impl<V: Borrow<PackedLongValues>> DocValuesIterator for BufferedSortingBinaryDocValues<V> {
+impl<V: Borrow<PackedLongValues>, D: Borrow<BinaryDVs>> DocValuesIterator
+  for BufferedSortingBinaryDocValues<V, D>
+{
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
     match self {
       Self::Buffered(inner) => inner.advance_exact(_target),
@@ -265,17 +267,20 @@ impl<V: Borrow<PackedLongValues>> DocValuesIterator for BufferedSortingBinaryDoc
   }
 }
 
-impl<V: Borrow<PackedLongValues>>
+impl<V: Borrow<PackedLongValues>, D: Borrow<BinaryDVs>>
   crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BufferedSortingBinaryDocValues<V>
+  for BufferedSortingBinaryDocValues<V, D>
 {
 }
-impl<V: Borrow<PackedLongValues>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for BufferedSortingBinaryDocValues<V>
+impl<V: Borrow<PackedLongValues>, D: Borrow<BinaryDVs>>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortingBinaryDocValues<V, D>
 {
 }
 
-impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingBinaryDocValues<V> {
+impl<V: Borrow<PackedLongValues>, D: Borrow<BinaryDVs>> DocIdSetIterator
+  for BufferedSortingBinaryDocValues<V, D>
+{
   fn doc_id(&self) -> i32 {
     match self {
       Self::Buffered(inner) => inner.doc_id(),
@@ -305,7 +310,9 @@ impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingBinaryDocV
   }
 }
 
-impl<V: Borrow<PackedLongValues>> BinaryDocValues for BufferedSortingBinaryDocValues<V> {
+impl<V: Borrow<PackedLongValues>, D: Borrow<BinaryDVs>> BinaryDocValues
+  for BufferedSortingBinaryDocValues<V, D>
+{
   type Value<'a>
     = BytesRefValueEnum<'a>
   where
@@ -323,15 +330,15 @@ impl<V: Borrow<PackedLongValues>> BinaryDocValues for BufferedSortingBinaryDocVa
 
 impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
   type NumericDocValues = DummyNumericDocValues;
-  type BinaryDocValues = BufferedSortingBinaryDocValues<&'a PackedLongValues>;
+  type BinaryDocValues = BufferedSortingBinaryDocValues<&'a PackedLongValues, &'a BinaryDVs>;
 
   fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     if !Arc::ptr_eq(field_info, self.field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
-    match &self.sorted {
+    match self.sorted {
       Some(sorted) => Ok(BufferedSortingBinaryDocValues::Sorting(
-        SortingBinaryDocValues::new(sorted.clone()),
+        SortingBinaryDocValues::new(sorted),
       )),
       None => Ok(BufferedSortingBinaryDocValues::Buffered(
         BufferedBinaryDocValues::new(
@@ -449,24 +456,27 @@ where
   }
 }
 
-pub struct SortingBinaryDocValues {
-  dvs: Arc<BinaryDVs>,
+pub struct SortingBinaryDocValues<D = Arc<BinaryDVs>> {
+  dvs: D,
   doc_id: i32,
 }
 
-impl SortingBinaryDocValues {
-  pub(crate) fn new(dvs: Arc<BinaryDVs>) -> Self {
+impl<D: Borrow<BinaryDVs>> SortingBinaryDocValues<D> {
+  pub(crate) fn new(dvs: D) -> Self {
     Self { dvs, doc_id: -1 }
   }
 }
 
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortingBinaryDocValues
+impl<D: Borrow<BinaryDVs>> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingBinaryDocValues<D>
 {
 }
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SortingBinaryDocValues {}
+impl<D: Borrow<BinaryDVs>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortingBinaryDocValues<D>
+{
+}
 
-impl DocIdSetIterator for SortingBinaryDocValues {
+impl<D: Borrow<BinaryDVs>> DocIdSetIterator for SortingBinaryDocValues<D> {
   fn doc_id(&self) -> i32 {
     self.doc_id
   }
@@ -475,11 +485,11 @@ impl DocIdSetIterator for SortingBinaryDocValues {
     loop {
       self.doc_id += 1;
       let doc_index = self.doc_id as usize;
-      if doc_index == self.dvs.offsets.len() {
+      if doc_index == self.dvs.borrow().offsets.len() {
         self.doc_id = NO_MORE_DOCS;
         break;
       }
-      if self.dvs.offsets[doc_index] > 0 {
+      if self.dvs.borrow().offsets[doc_index] > 0 {
         break;
       }
     }
@@ -491,22 +501,25 @@ impl DocIdSetIterator for SortingBinaryDocValues {
   }
 
   fn cost(&self) -> Result<i64> {
-    Ok(self.dvs.values.size() as i64)
+    Ok(self.dvs.borrow().values.size() as i64)
   }
 }
 
-impl DocValuesIterator for SortingBinaryDocValues {
+impl<D: Borrow<BinaryDVs>> DocValuesIterator for SortingBinaryDocValues<D> {
   fn advance_exact(&mut self, _target: i32) -> Result<bool> {
     Err(LuceneError::unsupported_operation("use next_doc instead"))
   }
 }
 
-impl BinaryDocValues for SortingBinaryDocValues {
-  type Value<'a> = crate::core::index::BytesRefValueEnum<'a>;
+impl<D: Borrow<BinaryDVs>> BinaryDocValues for SortingBinaryDocValues<D> {
+  type Value<'a>
+    = crate::core::index::BytesRefValueEnum<'a>
+  where
+    Self: 'a;
 
   fn binary_value(&self) -> Result<Self::Value<'_>> {
-    let idx = self.dvs.offsets[self.doc_id as usize] - 1;
-    self.dvs.values.get(idx)
+    let idx = self.dvs.borrow().offsets[self.doc_id as usize] - 1;
+    self.dvs.borrow().values.get(idx)
   }
 }
 
@@ -516,7 +529,7 @@ pub struct BinaryDVs {
 }
 
 impl BinaryDVs {
-  pub(crate) fn new<DM, T>(max_doc: usize, sort_map: &DM, old_values: &mut T) -> Result<Arc<Self>>
+  pub(crate) fn new<DM, T>(max_doc: usize, sort_map: &DM, old_values: &mut T) -> Result<Self>
   where
     DM: DocMap,
     T: BinaryDocValues,
@@ -537,7 +550,7 @@ impl BinaryDVs {
       offsets[new_doc] = offset;
       offset += 1;
     }
-    Ok(Arc::new(BinaryDVs { offsets, values }))
+    Ok(BinaryDVs { offsets, values })
   }
 }
 

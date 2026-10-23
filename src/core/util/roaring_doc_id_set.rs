@@ -14,20 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
+use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::bit_doc_id_set::BitDocIdSet;
-use crate::core::util::bit_set::BitSet;
+use crate::core::util::bit_set::{BitSet, BitSetExtensions};
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::not_doc_id_set::{NotDocDocIdSetIterator, NotDocIdSet};
+use crate::core::util::not_doc_id_set::NotDocDocIdSetIterator;
 use crate::core::util::ram_usage_estimator::size_of_vec;
+use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::either_docidsetiterator_named;
+use std::borrow::Borrow;
 use std::mem;
 use std::sync::Arc;
 
@@ -213,21 +216,19 @@ impl Builder {
           excluded_doc == self.dense_buffer.length()
             || self.dense_buffer.next_set_bit(excluded_doc) == NO_MORE_DOCS as usize
         );
-        let dense: Option<DocIdSetEnum> = Some(DocIdSetEnum::Dense(NotDocIdSet::new(
-          BLOCK_SIZE as i32,
-          ShortArrayDocIdSet::new(excluded_docs),
-        )));
+        let dense: Option<DocIdSetEnum> =
+          Some(DocIdSetEnum::Dense(ShortArrayDocIdSet::new(excluded_docs)));
         self.buffer.clear();
         self.sets[self.current_block.ok_or_else(|| {
           LuceneError::illegal_state("non-empty roaring block has no current block")
         })?] = dense;
       } else {
-        let result = BitDocIdSet::with_cost(
-          Some(std::mem::take(&mut self.dense_buffer)),
-          self.current_block_cardinality as i64,
-        )?;
+        let result = std::mem::take(&mut self.dense_buffer);
 
-        let medium: Option<DocIdSetEnum> = Some(DocIdSetEnum::Medium(result));
+        let medium: Option<DocIdSetEnum> = Some(DocIdSetEnum::Medium(
+          result,
+          self.current_block_cardinality as i64,
+        ));
         self.buffer.clear();
         self.sets[self.current_block.ok_or_else(|| {
           LuceneError::illegal_state("non-empty roaring block has no current block")
@@ -242,14 +243,12 @@ impl Builder {
   }
 }
 
-pub struct ShortArrayDocIdSet {
-  doc_ids: Arc<Vec<i16>>,
+pub struct ShortArrayDocIdSet<D = Arc<Vec<i16>>> {
+  doc_ids: D,
 }
-impl ShortArrayDocIdSet {
-  fn new(doc_ids: Vec<i16>) -> ShortArrayDocIdSet {
-    ShortArrayDocIdSet {
-      doc_ids: Arc::new(doc_ids),
-    }
+impl<D> ShortArrayDocIdSet<D> {
+  fn new(doc_ids: D) -> Self {
+    ShortArrayDocIdSet { doc_ids }
   }
 }
 
@@ -259,6 +258,12 @@ impl Accountable for ShortArrayDocIdSet {
       (mem::size_of_val(self.doc_ids.as_ref()) as i64)
         .saturating_add(size_of_vec(self.doc_ids.as_ref())),
     )
+  }
+}
+
+impl Accountable for ShortArrayDocIdSet<Vec<i16>> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(size_of_vec(&self.doc_ids))
   }
 }
 
@@ -276,13 +281,13 @@ impl DocIdSet for ShortArrayDocIdSet {
   }
 }
 
-pub struct ShortArrayDISI {
+pub struct ShortArrayDISI<D = Arc<Vec<i16>>> {
   i: Option<usize>,
   doc: i32,
-  doc_ids: Arc<Vec<i16>>,
+  doc_ids: D,
 }
-impl ShortArrayDISI {
-  fn new(doc_ids: Arc<Vec<i16>>) -> Self {
+impl<D: Borrow<Vec<i16>>> ShortArrayDISI<D> {
+  fn new(doc_ids: D) -> Self {
     ShortArrayDISI {
       i: None,
       doc: -1,
@@ -290,13 +295,19 @@ impl ShortArrayDISI {
     }
   }
   fn doc_id_index(&self, i: usize) -> i32 {
-    self.doc_ids[i] as i32 & 0xFFFF
+    <D as Borrow<Vec<i16>>>::borrow(&self.doc_ids)[i] as i32 & 0xFFFF
   }
 }
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ShortArrayDISI {}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ShortArrayDISI {}
+impl<D: Borrow<Vec<i16>>> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ShortArrayDISI<D>
+{
+}
+impl<D: Borrow<Vec<i16>>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for ShortArrayDISI<D>
+{
+}
 
-impl DocIdSetIterator for ShortArrayDISI {
+impl<D: Borrow<Vec<i16>>> DocIdSetIterator for ShortArrayDISI<D> {
   fn doc_id(&self) -> i32 {
     self.doc
   }
@@ -304,7 +315,7 @@ impl DocIdSetIterator for ShortArrayDISI {
   fn next_doc(&mut self) -> Result<i32> {
     let i = self.i.map_or(0, |i| i + 1);
     self.i = Some(i);
-    if i >= self.doc_ids.len() {
+    if i >= <D as Borrow<Vec<i16>>>::borrow(&self.doc_ids).len() {
       self.doc = NO_MORE_DOCS;
       return Ok(self.doc);
     }
@@ -314,7 +325,7 @@ impl DocIdSetIterator for ShortArrayDISI {
 
   fn advance(&mut self, target: i32) -> Result<i32> {
     let mut lo = self.i.map_or(0, |i| i + 1);
-    let mut hi = self.doc_ids.len();
+    let mut hi = <D as Borrow<Vec<i16>>>::borrow(&self.doc_ids).len();
     while lo < hi {
       // Preserve the inclusive-range midpoint with an exclusive upper bound.
       let mid = lo + ((hi - lo - 1) >> 1);
@@ -325,8 +336,8 @@ impl DocIdSetIterator for ShortArrayDISI {
         hi = mid;
       }
     }
-    if lo == self.doc_ids.len() {
-      self.i = Some(self.doc_ids.len());
+    if lo == <D as Borrow<Vec<i16>>>::borrow(&self.doc_ids).len() {
+      self.i = Some(<D as Borrow<Vec<i16>>>::borrow(&self.doc_ids).len());
       self.doc = NO_MORE_DOCS;
     } else {
       self.i = Some(lo);
@@ -336,7 +347,7 @@ impl DocIdSetIterator for ShortArrayDISI {
   }
 
   fn cost(&self) -> Result<i64> {
-    Ok(self.doc_ids.len() as i64)
+    Ok(<D as Borrow<Vec<i16>>>::borrow(&self.doc_ids).len() as i64)
   }
 }
 
@@ -370,7 +381,7 @@ impl Iterator {
       }
 
       if let Some(doc_id_set) = self.doc_id_sets[block].as_ref() {
-        self.sub = doc_id_set.iterator()?;
+        self.sub = doc_id_set.iterator(&self.doc_id_sets, block)?;
         let sub_next = self.sub.next_doc()?;
         debug_assert!(sub_next != NO_MORE_DOCS);
         self.doc = ((block as i32) << 16) | sub_next;
@@ -414,7 +425,7 @@ impl DocIdSetIterator for Iterator {
       match slot.as_ref() {
         None => return self.first_doc_from_next_block(),
         Some(doc_id_set) => {
-          self.sub = doc_id_set.iterator()?;
+          self.sub = doc_id_set.iterator(&self.doc_id_sets, target_block)?;
         },
       }
     }
@@ -436,41 +447,195 @@ impl DocIdSetIterator for Iterator {
   }
 }
 enum DocIdSetEnum {
-  Sparse(ShortArrayDocIdSet),
-  Medium(BitDocIdSet<FixedBitSet>),
-  Dense(NotDocIdSet<ShortArrayDocIdSet>),
+  Sparse(ShortArrayDocIdSet<Vec<i16>>),
+  Medium(FixedBitSet, i64),
+  Dense(ShortArrayDocIdSet<Vec<i16>>),
 }
 impl Accountable for DocIdSetEnum {
   fn ram_bytes_used(&self) -> Result<i64> {
     match self {
       Self::Sparse(set) => set.ram_bytes_used(),
-      Self::Medium(set) => set.ram_bytes_used(),
+      Self::Medium(set, _) => set.ram_bytes_used(),
       Self::Dense(set) => set.ram_bytes_used(),
     }
   }
 }
 
-impl DocIdSet for DocIdSetEnum {
-  type DocIdSetIterator = Disi;
-
-  fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+impl DocIdSetEnum {
+  fn iterator(&self, directory: &Arc<Vec<Option<DocIdSetEnum>>>, block: usize) -> Result<Disi> {
     match self {
-      DocIdSetEnum::Sparse(s) => Ok(DocIdSetIteratorEnum::Sparse(s.iterator()?)),
-      DocIdSetEnum::Medium(m) => Ok(DocIdSetIteratorEnum::Medium(m.iterator()?)),
-      DocIdSetEnum::Dense(d) => Ok(DocIdSetIteratorEnum::Dense(d.iterator()?)),
+      Self::Sparse(_) => Ok(DocIdSetIteratorEnum::Sparse(ShortArrayDISI::new(
+        RoaringShortValues {
+          directory: directory.clone(),
+          block,
+        },
+      ))),
+      Self::Medium(_, cost) => Ok(DocIdSetIteratorEnum::Medium(BitSetIterator::new(
+        RoaringBitSetView {
+          directory: directory.clone(),
+          block,
+        },
+        *cost,
+      )?)),
+      Self::Dense(_) => Ok(DocIdSetIteratorEnum::Dense(NotDocDocIdSetIterator::new(
+        ShortArrayDISI::new(RoaringShortValues {
+          directory: directory.clone(),
+          block,
+        }),
+        BLOCK_SIZE as i32,
+      ))),
     }
-  }
-
-  type Bits = DummyBits;
-
-  fn bits(&self) -> Option<Self::Bits> {
-    None
   }
 }
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum{ Sparse: A, Medium: B,Dense:C,Empty:D});
 pub type Disi = DocIdSetIteratorEnum<
-  ShortArrayDISI,
-  BitSetIterator<Arc<FixedBitSet>>,
-  NotDocDocIdSetIterator<ShortArrayDISI>,
+  ShortArrayDISI<RoaringShortValues>,
+  BitSetIterator<RoaringBitSetView>,
+  NotDocDocIdSetIterator<ShortArrayDISI<RoaringShortValues>>,
   EmptyDISI,
 >;
+
+/// Retains a sparse or inverted sparse block in its immutable directory.
+pub struct RoaringShortValues {
+  directory: Arc<Vec<Option<DocIdSetEnum>>>,
+  block: usize,
+}
+impl Borrow<Vec<i16>> for RoaringShortValues {
+  fn borrow(&self) -> &Vec<i16> {
+    // Only DocIdSetEnum::iterator creates this view, for the selected immutable block.
+    match &self.directory[self.block] {
+      Some(DocIdSetEnum::Sparse(values) | DocIdSetEnum::Dense(values)) => &values.doc_ids,
+      _ => panic_invariant!(
+        "Only the private Sparse/Dense iterator arms create this view and its directory never changes",
+        "a short-array view retains its original immutable block kind"
+      ),
+    }
+  }
+}
+
+/// A read-only bit-set projection that keeps the immutable directory alive.
+pub struct RoaringBitSetView {
+  directory: Arc<Vec<Option<DocIdSetEnum>>>,
+  block: usize,
+}
+impl RoaringBitSetView {
+  fn fixed_bits(&self) -> &FixedBitSet {
+    // Creation is confined to the Medium arm of DocIdSetEnum::iterator; the directory never changes.
+    match &self.directory[self.block] {
+      Some(DocIdSetEnum::Medium(bits, _)) => bits,
+      _ => panic_invariant!(
+        "Only the private Medium iterator arm creates this view and its directory never changes",
+        "a bit-set view retains its original immutable block kind"
+      ),
+    }
+  }
+}
+impl HasIdentity for RoaringBitSetView {
+  fn identity(&self) -> &Identity {
+    self.fixed_bits().identity()
+  }
+}
+impl Accountable for RoaringBitSetView {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.fixed_bits().ram_bytes_used()
+  }
+}
+impl Bits for RoaringBitSetView {
+  fn get(&self, index: usize) -> Result<bool> {
+    self.fixed_bits().get(index)
+  }
+  fn length(&self) -> usize {
+    self.fixed_bits().length()
+  }
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    Bits::copy_of(self.fixed_bits())
+  }
+  fn to_string(&self) -> String {
+    Bits::to_string(self.fixed_bits())
+  }
+}
+impl BitSet for RoaringBitSetView {
+  fn clear(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+
+  fn set(&mut self, _i: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+
+  fn get_and_set(&mut self, _i: usize) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+
+  fn clear_with_index(&mut self, _i: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+
+  fn clear_range(&mut self, _start_index: usize, _end_index: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+
+  fn cardinality(&self) -> usize {
+    self.fixed_bits().cardinality()
+  }
+
+  fn approximate_cardinality(&self) -> usize {
+    self.fixed_bits().approximate_cardinality()
+  }
+
+  fn prev_set_bit(&self, index: usize) -> Option<usize> {
+    self.fixed_bits().prev_set_bit(index)
+  }
+
+  fn next_set_bit(&self, index: usize) -> usize {
+    self.fixed_bits().next_set_bit(index)
+  }
+
+  fn next_set_bit_range(&self, start: usize, end: usize) -> usize {
+    self.fixed_bits().next_set_bit_range(start, end)
+  }
+
+  fn or<T1>(&mut self, _iter: &mut T1) -> Result<()>
+  where
+    T1: DocIdSetIterator,
+  {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+
+  fn default_or<T1>(&mut self, _iter: &mut T1) -> Result<()>
+  where
+    T1: DocIdSetIterator,
+  {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+
+  fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
+  }
+}
+
+impl BitSetExtensions for RoaringBitSetView {
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    self.fixed_bits().as_fixed_bit_set()
+  }
+
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    self.fixed_bits().as_sparse_fixed_bit_set()
+  }
+}

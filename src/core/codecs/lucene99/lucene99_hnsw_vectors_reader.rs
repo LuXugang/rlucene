@@ -40,7 +40,9 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, EmptyHnswGraph, HnswGraph};
+use crate::core::util::hnsw::hnsw_graph::{
+  ArrayNodesIterator, EmptyHnswGraph, HnswGraph, NodesIteratorEnum2,
+};
 use crate::core::util::hnsw::hnsw_graph_searcher::search;
 use crate::core::util::hnsw::ordinal_translated_knn_collector::OrdinalTranslatedKnnCollector;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
@@ -50,6 +52,7 @@ use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, 
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::core::util::ram_usage_estimator::size_of_vec;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
@@ -116,12 +119,12 @@ where
     }
   }
 
-  type NodeIterator = ArrayNodesIterator;
+  type NodeIterator = NodesIteratorEnum2<ArrayNodesIterator<HnswLevelNodes>, ArrayNodesIterator>;
 
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
     match self {
-      Self::Disk(graph) => graph.get_nodes_on_level(level),
-      Self::Empty(graph) => graph.get_nodes_on_level(level),
+      Self::Disk(graph) => Ok(NodesIteratorEnum2::A(graph.get_nodes_on_level(level)?)),
+      Self::Empty(graph) => Ok(NodesIteratorEnum2::B(graph.get_nodes_on_level(level)?)),
     }
   }
 }
@@ -628,7 +631,7 @@ pub struct FieldEntry {
   num_levels: usize,
   dimension: i32,
   size: usize,
-  nodes_by_level: Arc<Vec<Option<Arc<Vec<usize>>>>>,
+  nodes_by_level: Arc<Vec<Vec<usize>>>,
   // for each level the start offsets in vectorIndex file from where to read neighbours
   offsets_meta: Option<Meta>,
   offsets_offset: usize,
@@ -672,10 +675,10 @@ impl FieldEntry {
             level_nodes.push(node);
           }
         }
-        nodes_by_level.push(Some(Arc::new(level_nodes)));
+        nodes_by_level.push(level_nodes);
       } else {
         number_of_offsets += size as i64;
-        nodes_by_level.push(None);
+        nodes_by_level.push(Vec::new());
       }
     }
 
@@ -721,10 +724,8 @@ impl Accountable for FieldEntry {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut size = (mem::size_of_val(self.nodes_by_level.as_ref()) as i64)
       .saturating_add(size_of_vec(self.nodes_by_level.as_ref()));
-    for nodes in self.nodes_by_level.iter().flatten() {
-      size = size
-        .saturating_add(mem::size_of_val(nodes.as_ref()) as i64)
-        .saturating_add(size_of_vec(nodes.as_ref()));
+    for nodes in self.nodes_by_level.iter().skip(1) {
+      size = size.saturating_add(size_of_vec(nodes));
     }
     if let Some(offsets_meta) = self.offsets_meta.as_ref() {
       size = size.saturating_add(offsets_meta.ram_bytes_used()?);
@@ -733,12 +734,24 @@ impl Accountable for FieldEntry {
   }
 }
 
+/// Retains the immutable level directory while an independent node cursor is alive.
+pub struct HnswLevelNodes {
+  nodes_by_level: Arc<Vec<Vec<usize>>>,
+  level: usize,
+}
+
+impl Borrow<Vec<usize>> for HnswLevelNodes {
+  fn borrow(&self) -> &Vec<usize> {
+    &self.nodes_by_level[self.level]
+  }
+}
+
 pub struct OffHeapHnswGraph<I>
 where
   I: IndexInput,
 {
   data_in: I::IndexInput,
-  nodes_by_level: Arc<Vec<Option<Arc<Vec<usize>>>>>,
+  nodes_by_level: Arc<Vec<Vec<usize>>>,
   num_levels: usize,
   entry_node: usize,
   size: usize,
@@ -764,9 +777,7 @@ where
     let nodes_by_level = entry.nodes_by_level.clone();
     let num_levels = entry.num_levels;
     let entry_node = if num_levels > 1 {
-      nodes_by_level[num_levels - 1]
-        .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("nonzero graph level has no nodes"))?[0]
+      nodes_by_level[num_levels - 1][0]
     } else {
       0
     };
@@ -790,10 +801,8 @@ where
     graph_level_node_index_offsets[0] = 0;
 
     for i in 1..num_levels {
-      let node_count = match &nodes_by_level[i - 1] {
-        Some(nodes) if !nodes.is_empty() => nodes.len(),
-        _ => size,
-      };
+      let nodes = &nodes_by_level[i - 1];
+      let node_count = if nodes.is_empty() { size } else { nodes.len() };
       graph_level_node_index_offsets[i] = graph_level_node_index_offsets[i - 1] + node_count;
     }
 
@@ -820,9 +829,7 @@ where
     let target_index = if level == 0 {
       target_ord
     } else {
-      let nodes = self.nodes_by_level[level]
-        .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("nonzero graph level has no nodes"))?;
+      let nodes = &self.nodes_by_level[level];
       match nodes.binary_search(&target_ord) {
         Ok(idx) => idx,
         Err(_) => {
@@ -879,17 +886,17 @@ where
     Ok(Some(self.entry_node))
   }
 
-  type NodeIterator = ArrayNodesIterator;
+  type NodeIterator = ArrayNodesIterator<HnswLevelNodes>;
 
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
     if level == 0 {
       Ok(ArrayNodesIterator::from_size(self.size()))
     } else {
-      let nodes = self.nodes_by_level[level]
-        .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("nonzero graph level has no nodes"))?
-        .clone();
-      let len = nodes.len();
+      let len = self.nodes_by_level[level].len();
+      let nodes = HnswLevelNodes {
+        nodes_by_level: self.nodes_by_level.clone(),
+        level,
+      };
       Ok(ArrayNodesIterator::from_nodes(Some(nodes), len))
     }
   }

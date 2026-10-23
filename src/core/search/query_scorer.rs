@@ -76,7 +76,7 @@ use crate::core::search::{
   index_sort_sorted_numeric_doc_values_range_query, lru_query_cache,
 };
 use crate::core::util::bit_set_iterator::BitSetIterator;
-use crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator;
+use crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::sandbox::search::term_automaton_scorer::TermAutomatonScorer;
@@ -313,7 +313,7 @@ type FieldExistsIterator<ST> = DocIdSetIteratorEnum4<
 type BlendedIterator<ST> = DisjunctionDISIApproximation<
   ConstantScoreScorer<
     crate::core::search::constant_score_scorer::DisiState<
-      DocIdSetIteratorEnum2<DocIdSetBuilderIterator, <ST as ScorerTypes>::Posting>,
+      DocIdSetIteratorEnum2<OwnedDocIdSetBuilderIterator, <ST as ScorerTypes>::Posting>,
     >,
   >,
 >;
@@ -383,8 +383,8 @@ scorer_nodes! {
     TermPostings: TermScorer<PostingsTermState<ST::Posting, Arc<TermQuerySimScorer<ST::Similarity>>>, ST::Norm>,
     TermImpacts: TermScorer<ImpactsTermState<ST::Impacts, Arc<TermQuerySimScorer<ST::Similarity>>>, ST::Norm>,
     TermCompetitive: TermScorer<crate::core::search::impacts_disi::SourceImpactsDISI<ST::Impacts, Arc<TermQuerySimScorer<ST::Similarity>>>, ST::Norm>,
-    BuiltSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<DocIdSetBuilderIterator>>,
-    BuiltSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<DocIdSetBuilderIterator>>,
+    BuiltSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<OwnedDocIdSetBuilderIterator>>,
+    BuiltSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<OwnedDocIdSetBuilderIterator>>,
     BitSet: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BitSetIterator<FixedBitSet>>>,
     BitSetTop: ConstantScoreScorer<crate::core::search::constant_score_scorer::TopDisiState<BitSetIterator<FixedBitSet>>>,
     ConstantIterator: ConstantScoreScorer<crate::core::search::constant_score_scorer::DisiState<BuiltinQueryScorer<ST>>>,

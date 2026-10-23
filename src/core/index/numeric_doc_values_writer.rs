@@ -47,6 +47,7 @@ use crate::core::util::{ByteBlockPool, Counter, SharedCounter};
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::fmt::{Display, Formatter};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Buffers pending `i64` values per document, then writes them during segment flush.
@@ -129,12 +130,13 @@ impl DocValuesWriter for NumericDocValuesWriter {
       Some(final_values) => final_values,
       slot @ None => slot.insert(std::mem::take(&mut self.pending).build()?),
     };
-    let producer = get_doc_values_producer(
-      &self.field_info,
-      final_values,
+    let sorted = get_sorted_values(final_values, &self.docs_with_field, sort_map)?;
+    let producer = DocValuesProducerImpl::new(
+      sorted.as_ref(),
       &self.docs_with_field,
-      sort_map,
-    )?;
+      final_values,
+      &self.field_info,
+    );
     dv_consumer.add_numeric_field(write_state, segment_info, &self.field_info, &producer)?;
     Ok(())
   }
@@ -161,7 +163,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
 }
 
 pub(crate) struct DocValuesProducerImpl<'a> {
-  sorted: Option<NumericDVs<FixedBitSet>>,
+  sorted: Option<&'a NumericDVs<FixedBitSet>>,
   docs_with_field: &'a DocsWithFieldSet,
   values: &'a PackedLongValues,
   writer_field_info: &'a Arc<FieldInfo>,
@@ -175,7 +177,7 @@ impl CloseableRef for DocValuesProducerImpl<'_> {
 
 impl<'a> DocValuesProducerImpl<'a> {
   pub(crate) fn new(
-    sorted: Option<NumericDVs<FixedBitSet>>,
+    sorted: Option<&'a NumericDVs<FixedBitSet>>,
     docs_with_field: &'a DocsWithFieldSet,
     values: &'a PackedLongValues,
     writer_field_info: &'a Arc<FieldInfo>,
@@ -189,15 +191,16 @@ impl<'a> DocValuesProducerImpl<'a> {
   }
 }
 impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
-  type NumericDocValues = BufferedSortingNumericDocValues<&'a PackedLongValues>;
+  type NumericDocValues =
+    BufferedSortingNumericDocValues<&'a PackedLongValues, &'a NumericDVs<FixedBitSet>>;
 
   fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     if !Arc::ptr_eq(field_info, self.writer_field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     match self.sorted {
-      Some(ref sorted) => Ok(BufferedSortingNumericDocValues::Sorting(
-        SortingNumericDocValues::new(sorted.clone()),
+      Some(sorted) => Ok(BufferedSortingNumericDocValues::Sorting(
+        SortingNumericDocValues::new(sorted),
       )),
       None => Ok(BufferedSortingNumericDocValues::Buffered(
         BufferedNumericDocValues::new(self.values, self.docs_with_field.iterator()?)?,
@@ -272,59 +275,65 @@ impl<V: Borrow<PackedLongValues>> NumericDocValues for BufferedNumericDocValues<
   }
 }
 
-pub struct SortingNumericDocValues<T> {
-  dvs: NumericDVs<T>,
+pub struct SortingNumericDocValues<T, D = Arc<NumericDVs<T>>> {
+  dvs: D,
+  marker: PhantomData<T>,
   doc_id: i32,
   cost: Cell<i64>,
 }
 
-impl<T> SortingNumericDocValues<T> {
-  pub(crate) fn new(dvs: NumericDVs<T>) -> Self {
+impl<T, D> SortingNumericDocValues<T, D> {
+  pub(crate) fn new(dvs: D) -> Self {
     Self {
       dvs,
+      marker: PhantomData,
       doc_id: -1,
       cost: Cell::new(-1),
     }
   }
 }
 
-impl<T> DocValuesIterator for SortingNumericDocValues<T>
+impl<T, D> DocValuesIterator for SortingNumericDocValues<T, D>
 where
   T: BitSet,
+  D: Borrow<NumericDVs<T>>,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     // needed in IndexSorter#{Long|Int|Double|Float}Sorter
     self.doc_id = target;
-    Ok(self.dvs.advance_exact(target))
+    Ok(self.dvs.borrow().advance_exact(target))
   }
 }
 
-impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortingNumericDocValues<T>
+impl<T, D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingNumericDocValues<T, D>
 where
   T: BitSet,
+  D: Borrow<NumericDVs<T>>,
 {
 }
-impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for SortingNumericDocValues<T>
+impl<T, D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortingNumericDocValues<T, D>
 where
   T: BitSet,
+  D: Borrow<NumericDVs<T>>,
 {
 }
 
-impl<T> DocIdSetIterator for SortingNumericDocValues<T>
+impl<T, D> DocIdSetIterator for SortingNumericDocValues<T, D>
 where
   T: BitSet,
+  D: Borrow<NumericDVs<T>>,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    if self.doc_id + 1 == self.dvs.max_doc() {
+    if self.doc_id + 1 == self.dvs.borrow().max_doc() {
       self.doc_id = NO_MORE_DOCS;
     } else {
-      self.doc_id = self.dvs.advance(self.doc_id + 1);
+      self.doc_id = self.dvs.borrow().advance(self.doc_id + 1);
     }
     Ok(self.doc_id)
   }
@@ -335,27 +344,33 @@ where
 
   fn cost(&self) -> Result<i64> {
     if self.cost.get() == -1 {
-      self.cost.set(self.dvs.cost());
+      self.cost.set(self.dvs.borrow().cost());
     }
     Ok(self.cost.get())
   }
 }
 
-impl<T> NumericDocValues for SortingNumericDocValues<T>
+impl<T, D> NumericDocValues for SortingNumericDocValues<T, D>
 where
   T: BitSet,
+  D: Borrow<NumericDVs<T>>,
 {
   fn long_value(&mut self) -> Result<i64> {
-    Ok(self.dvs.values[self.doc_id as usize])
+    Ok(self.dvs.borrow().values[self.doc_id as usize])
   }
 }
 
-pub(crate) enum BufferedSortingNumericDocValues<V = PackedLongValues> {
+pub(crate) enum BufferedSortingNumericDocValues<
+  V = PackedLongValues,
+  D = Arc<NumericDVs<FixedBitSet>>,
+> {
   Buffered(BufferedNumericDocValues<V>),
-  Sorting(SortingNumericDocValues<FixedBitSet>),
+  Sorting(SortingNumericDocValues<FixedBitSet, D>),
 }
 
-impl<V: Borrow<PackedLongValues>> DocValuesIterator for BufferedSortingNumericDocValues<V> {
+impl<V: Borrow<PackedLongValues>, D: Borrow<NumericDVs<FixedBitSet>>> DocValuesIterator
+  for BufferedSortingNumericDocValues<V, D>
+{
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
       Self::Buffered(inner) => inner.advance_exact(target),
@@ -364,17 +379,20 @@ impl<V: Borrow<PackedLongValues>> DocValuesIterator for BufferedSortingNumericDo
   }
 }
 
-impl<V: Borrow<PackedLongValues>>
+impl<V: Borrow<PackedLongValues>, D: Borrow<NumericDVs<FixedBitSet>>>
   crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BufferedSortingNumericDocValues<V>
+  for BufferedSortingNumericDocValues<V, D>
 {
 }
-impl<V: Borrow<PackedLongValues>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for BufferedSortingNumericDocValues<V>
+impl<V: Borrow<PackedLongValues>, D: Borrow<NumericDVs<FixedBitSet>>>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortingNumericDocValues<V, D>
 {
 }
 
-impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingNumericDocValues<V> {
+impl<V: Borrow<PackedLongValues>, D: Borrow<NumericDVs<FixedBitSet>>> DocIdSetIterator
+  for BufferedSortingNumericDocValues<V, D>
+{
   fn doc_id(&self) -> i32 {
     match self {
       Self::Buffered(inner) => inner.doc_id(),
@@ -411,7 +429,9 @@ impl<V: Borrow<PackedLongValues>> DocIdSetIterator for BufferedSortingNumericDoc
   }
 }
 
-impl<V: Borrow<PackedLongValues>> NumericDocValues for BufferedSortingNumericDocValues<V> {
+impl<V: Borrow<PackedLongValues>, D: Borrow<NumericDVs<FixedBitSet>>> NumericDocValues
+  for BufferedSortingNumericDocValues<V, D>
+{
   fn long_value(&mut self) -> Result<i64> {
     match self {
       Self::Buffered(inner) => inner.long_value(),
@@ -420,20 +440,18 @@ impl<V: Borrow<PackedLongValues>> NumericDocValues for BufferedSortingNumericDoc
   }
 }
 
-#[derive(Clone)]
 pub struct NumericDVs<T> {
-  pub values: Arc<Vec<i64>>,
-  pub docs_with_field: Option<Arc<T>>,
+  pub values: Vec<i64>,
+  pub docs_with_field: Option<T>,
   pub max_doc: i32,
 }
 
 impl<T> NumericDVs<T> {
   pub(crate) fn new(values: Vec<i64>, docs_with_field: Option<T>) -> Self {
     debug_assert!(values.len() <= i32::MAX as usize);
-    let docs_with_field = docs_with_field.map(Arc::new);
     let max_doc = values.len() as i32;
     Self {
-      values: Arc::new(values),
+      values,
       docs_with_field,
       max_doc,
     }
@@ -505,12 +523,11 @@ where
   Ok(NumericDVs::new(values, docs_with_field))
 }
 
-pub(crate) fn get_doc_values_producer<'a, DM>(
-  writer_field_info: &'a Arc<FieldInfo>,
-  values: &'a PackedLongValues,
-  docs_with_field: &'a DocsWithFieldSet,
+pub(crate) fn get_sorted_values<DM>(
+  values: &PackedLongValues,
+  docs_with_field: &DocsWithFieldSet,
   sort_map: Option<&DM>,
-) -> Result<DocValuesProducerImpl<'a>>
+) -> Result<Option<NumericDVs<FixedBitSet>>>
 where
   DM: DocMap,
 {
@@ -523,10 +540,5 @@ where
   } else {
     None
   };
-  Ok(DocValuesProducerImpl::new(
-    sorter,
-    docs_with_field,
-    values,
-    writer_field_info,
-  ))
+  Ok(sorter)
 }

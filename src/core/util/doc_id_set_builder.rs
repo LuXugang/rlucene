@@ -27,6 +27,8 @@ use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSetIterator};
+use std::borrow::Borrow;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// A builder of [`DocIdSet`]s. Initially, it uses a sparse structure to gather
@@ -157,12 +159,52 @@ impl DocIdSetBuilder {
     Ok(())
   }
   pub fn build(&mut self) -> Result<DocIdSetBuilderEnum> {
+    self.build_with(
+      |bits, cost| {
+        Ok(DocIdSetBuilderEnum::BitDoc(BitDocIdSet::with_cost(
+          Some(bits),
+          cost,
+        )?))
+      },
+      |docs, length| {
+        Ok(DocIdSetBuilderEnum::IntArray(IntArrayDocIdSet::new(
+          docs, length,
+        )?))
+      },
+    )
+  }
+
+  /// Moves the completed doc IDs into a single independent iterator.
+  pub fn build_iterator(&mut self) -> Result<OwnedDocIdSetBuilderIterator> {
+    self.build_with(
+      |bits, cost| {
+        Ok(DocIdSetBuilderIterator::BitSet(BitSetIterator::new(
+          bits, cost,
+        )?))
+      },
+      |docs, length| {
+        Ok(DocIdSetBuilderIterator::IntArray(
+          IntArrayDocIdSetIterator::new(docs, length),
+        ))
+      },
+    )
+  }
+
+  fn build_with<T, FB, FA>(&mut self, bit_set: FB, int_array: FA) -> Result<T>
+  where
+    FB: FnOnce(FixedBitSet, i64) -> Result<T>,
+    FA: FnOnce(Vec<i32>, usize) -> Result<T>,
+  {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       if self.bit_set.is_some() {
         debug_assert!(self.counter >= 0);
         let cost = (self.counter as f64 / self.num_values_per_doc).round();
-        let result = BitDocIdSet::with_cost(self.bit_set.take(), cost as i64)?;
-        Ok(DocIdSetBuilderEnum::BitDoc(result))
+        let bits = self.bit_set.take().ok_or_else(|| {
+          crate::core::util::error::lucene_error::LuceneError::illegal_state(
+            "missing builder bit set",
+          )
+        })?;
+        bit_set(bits, cost as i64)
       } else {
         self.buffer.sort_unstable();
         if self.multi_valued {
@@ -172,8 +214,7 @@ impl DocIdSetBuilder {
         }
         self.buffer.push(NO_MORE_DOCS);
         let l = self.buffer.len() - 1;
-        let result = IntArrayDocIdSet::new(std::mem::take(&mut self.buffer), l)?;
-        Ok(DocIdSetBuilderEnum::IntArray(result))
+        int_array(std::mem::take(&mut self.buffer), l)
       }
     }));
     self.buffer.clear();
@@ -228,15 +269,17 @@ impl DocIdSet for DocIdSetBuilderEnum {
     }
   }
 }
-pub enum DocIdSetBuilderIterator {
-  BitSet(BitSetIterator<Arc<FixedBitSet>>),
-  IntArray(IntArrayDocIdSetIterator),
+pub enum DocIdSetBuilderIterator<D = Rc<Vec<i32>>, B = Arc<FixedBitSet>> {
+  BitSet(BitSetIterator<B>),
+  IntArray(IntArrayDocIdSetIterator<D>),
 }
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for DocIdSetBuilderIterator
+pub type OwnedDocIdSetBuilderIterator = DocIdSetBuilderIterator<Vec<i32>, FixedBitSet>;
+impl<D: Borrow<Vec<i32>>, B: BitSet>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetBuilderIterator<D, B>
 {
 }
-impl BitSetIteratorAccess for DocIdSetBuilderIterator {
+impl<D: Borrow<Vec<i32>>, B: BitSet> BitSetIteratorAccess for DocIdSetBuilderIterator<D, B> {
   fn is_bit_iter(&self) -> bool {
     match self {
       Self::BitSet(iterator) => iterator.is_bit_iter(),
@@ -266,7 +309,7 @@ impl BitSetIteratorAccess for DocIdSetBuilderIterator {
   }
 }
 
-impl DocIdSetIterator for DocIdSetBuilderIterator {
+impl<D: Borrow<Vec<i32>>, B: BitSet> DocIdSetIterator for DocIdSetBuilderIterator<D, B> {
   fn doc_id(&self) -> i32 {
     match self {
       DocIdSetBuilderIterator::BitSet(bit_set) => bit_set.doc_id(),

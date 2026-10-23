@@ -425,8 +425,7 @@ where
     }
 
     let leaf_comparators = base.pq_mut().get_leaf_comparator(context)?;
-    let comparator =
-      MultiLeafFieldComparator::new(leaf_comparators, base.pq().get_reverse_mul_shared())?;
+    let comparator = MultiLeafFieldComparator::new(leaf_comparators, base.pq().get_reverse_mul())?;
 
     Ok(Self {
       base,
@@ -458,8 +457,10 @@ where
   where
     S: Scorable + ?Sized,
   {
-    let comparators = self.base.comparators_mut();
-    self.comparator.compare_top(doc, scorer, comparators)
+    let (comparators, reverse_mul) = self.base.pq_mut().get_comparators_and_reverse_mul();
+    self
+      .comparator
+      .compare_top(doc, scorer, comparators, reverse_mul)
   }
 
   pub(crate) fn count_hit<S>(&mut self, scorer: &mut S, _doc: i32) -> Result<()>
@@ -495,8 +496,10 @@ where
     let cmp_check = if self.collected_all_competitive_hits {
       true
     } else {
-      let comparators = self.base.comparators_mut();
-      let cmp = self.comparator.compare_bottom(doc, scorer, comparators)?;
+      let (comparators, reverse_mul) = self.base.pq_mut().get_comparators_and_reverse_mul();
+      let cmp = self
+        .comparator
+        .compare_bottom(doc, scorer, comparators, reverse_mul)?;
       cmp <= 0
     };
 

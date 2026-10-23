@@ -29,7 +29,6 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
 
 /// Abstract API that consumes terms, doc, freq, prox, offset and payloads postings. Concrete
 /// implementations of this actually do "something" with the postings (write it into the index in a
@@ -99,7 +98,7 @@ pub trait FieldsConsumer: Closeable {
 
       if let Some(f) = f {
         f.check_integrity()?;
-        slices.push(Rc::new(ReaderSlice::new(doc_base, max_doc, reader_index)));
+        slices.push(ReaderSlice::new(doc_base, max_doc, reader_index));
         fields.push(f);
       }
 

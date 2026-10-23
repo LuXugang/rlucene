@@ -37,7 +37,6 @@ use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNume
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::approximation_disi::ApproximationBitSetAccess;
 use crate::core::search::approximation_disi::ApproximationDISI;
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::BitSetIteratorAccess;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum2, EmptyDISI};
@@ -55,7 +54,7 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::Weight;
 use crate::core::util::CoreHelper;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
+use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, OwnedDocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::sloppy_math::SloppyMath;
@@ -557,7 +556,7 @@ where
     }
 
     self.point_values.intersect(&mut visitor)?;
-    let it = visitor.result.build()?.iterator()?;
+    let it = visitor.result.build_iterator()?;
     self.disi.set_builder_iterator(it);
     Ok(())
   }
@@ -770,7 +769,7 @@ impl IntersectVisitor for DistanceScorerIntersectVisitor {
 }
 
 pub struct DocIdSetIteratorImpl<ND> {
-  it: Option<DocIdSetIteratorEnum2<EmptyDISI, DocIdSetBuilderIterator>>,
+  it: Option<DocIdSetIteratorEnum2<EmptyDISI, OwnedDocIdSetBuilderIterator>>,
   doc_values: ND,
   doc: i32,
 }
@@ -787,7 +786,7 @@ impl<ND> DocIdSetIteratorImpl<ND> {
     self.it = Some(DocIdSetIteratorEnum2::A(EmptyDISI::new()));
   }
 
-  fn set_builder_iterator(&mut self, it: DocIdSetBuilderIterator) {
+  fn set_builder_iterator(&mut self, it: OwnedDocIdSetBuilderIterator) {
     self.it = Some(DocIdSetIteratorEnum2::B(it));
   }
 }

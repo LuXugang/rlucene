@@ -21,7 +21,6 @@ use crate::core::search::leaf_field_comparator::{
 };
 use crate::core::search::scorable::Scorable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
 
 pub struct MultiLeafFieldComparator<LR>
 where
@@ -30,7 +29,6 @@ where
   first_comparator: LeafFieldComparatorEnum<LR>,
   first_reverse_mul: i32,
   comparators: Vec<LeafFieldComparatorEnum<LR>>,
-  reverse_mul: Arc<Vec<i32>>,
 }
 impl<LR> MultiLeafFieldComparator<LR>
 where
@@ -38,7 +36,7 @@ where
 {
   pub(crate) fn new(
     mut comparators: Vec<LeafFieldComparatorEnum<LR>>,
-    reverse_mul: Arc<Vec<i32>>,
+    reverse_mul: &[i32],
   ) -> Result<Self> {
     if comparators.len() != reverse_mul.len() {
       return Err(LuceneError::illegal_argument(format!(
@@ -58,7 +56,6 @@ where
       first_comparator,
       first_reverse_mul,
       comparators,
-      reverse_mul,
     })
   }
   pub(crate) fn set_bottom(
@@ -92,6 +89,7 @@ where
     doc: i32,
     scorer: &mut S,
     comparators: &mut [FieldComparatorEnum],
+    reverse_mul: &[i32],
   ) -> Result<i32>
   where
     S: Scorable + ?Sized,
@@ -108,8 +106,7 @@ where
     if cmp != 0 {
       return Ok(cmp);
     }
-    for ((reverse, comp_self), comp_arg) in self
-      .reverse_mul
+    for ((reverse, comp_self), comp_arg) in reverse_mul
       .iter()
       .skip(1)
       .zip(self.comparators.iter_mut())
@@ -129,6 +126,7 @@ where
     doc: i32,
     scorer: &mut S,
     comparators: &mut [FieldComparatorEnum],
+    reverse_mul: &[i32],
   ) -> Result<i32>
   where
     S: Scorable + ?Sized,
@@ -147,8 +145,7 @@ where
       return Ok(cmp);
     }
 
-    for ((reverse, comp_self), comp_arg) in self
-      .reverse_mul
+    for ((reverse, comp_self), comp_arg) in reverse_mul
       .iter()
       .skip(1)
       .zip(self.comparators.iter_mut())

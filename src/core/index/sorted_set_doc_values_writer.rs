@@ -31,7 +31,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_doc_values_writer::{
-  BufferedSortedDocValues, SortedDocValuesWriterValues, get_doc_values_producer,
+  BufferedSortedDocValues, SortedDocValuesWriterValues, get_sorted_values,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
@@ -528,8 +528,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       .ok_or_else(|| LuceneError::illegal_state("must be finished before flushing"))?;
 
     if ord_counts.is_none() {
-      let single_value_producer = get_doc_values_producer(
-        &self.field_info,
+      let sorted = get_sorted_values(
         frozen_hash,
         pool,
         ords,
@@ -537,6 +536,16 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         &self.docs_with_field,
         sort_map,
       )?;
+      let single_value_producer =
+        crate::core::index::sorted_doc_values_writer::DocValuesProducerImpl::new(
+          frozen_hash,
+          pool,
+          ords,
+          ord_map,
+          &self.docs_with_field,
+          &self.field_info,
+          sorted.as_ref(),
+        )?;
       let producer = DocValuesProducerImpl2::new(single_value_producer);
       dv_consumer.add_sorted_set_field(write_state, segment_info, &self.field_info, &producer)?;
       return Ok(());
@@ -741,7 +750,7 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl2<'a> {
   type SortedDocValues = DummySortedDocValues;
   type SortedNumericDocValues = DummySortedNumericDocValues;
   type SortedSetDocValues =
-    SingletonSortedSetDocValues<SortedDocValuesWriterValues<&'a PackedLongValues>>;
+    SingletonSortedSetDocValues<SortedDocValuesWriterValues<&'a PackedLongValues, &'a Vec<i32>>>;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     DocValues::singleton_sorted(self.single_value_producer.get_sorted(field_info)?)

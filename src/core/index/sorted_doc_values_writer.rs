@@ -62,15 +62,16 @@ type BufferedWriterSortedDocValues<V = PackedLongValues> =
 pub(crate) enum SortedDocValuesWriterTermsEnum<
   'a,
   V: Borrow<PackedLongValues> + 'a = PackedLongValues,
+  M: Borrow<Vec<i32>> + 'a = Arc<Vec<i32>>,
 > {
   Buffered(<BufferedWriterSortedDocValues<V> as SortedDocValues>::TermsEnum<'a>),
   Sorting(
-    <SortingSortedDocValues<BufferedWriterSortedDocValues<V>> as SortedDocValues>::TermsEnum<'a>,
+    <SortingSortedDocValues<BufferedWriterSortedDocValues<V>, M> as SortedDocValues>::TermsEnum<'a>,
   ),
 }
 
-impl<'a, V: Borrow<PackedLongValues> + 'a> BytesRefIterator
-  for SortedDocValuesWriterTermsEnum<'a, V>
+impl<'a, V: Borrow<PackedLongValues> + 'a, M: Borrow<Vec<i32>> + 'a> BytesRefIterator
+  for SortedDocValuesWriterTermsEnum<'a, V, M>
 {
   type Value<'b>
     = BytesRefValueEnum<'b>
@@ -92,7 +93,9 @@ impl<'a, V: Borrow<PackedLongValues> + 'a> BytesRefIterator
   }
 }
 
-impl<'a, V: Borrow<PackedLongValues> + 'a> TermsEnum for SortedDocValuesWriterTermsEnum<'a, V> {
+impl<'a, V: Borrow<PackedLongValues> + 'a, M: Borrow<Vec<i32>> + 'a> TermsEnum
+  for SortedDocValuesWriterTermsEnum<'a, V, M>
+{
   type AttributeSource<'b>
     = <<BufferedWriterSortedDocValues<V> as SortedDocValues>::TermsEnum<'a> as TermsEnum>::AttributeSource<'b>
   where
@@ -232,12 +235,17 @@ impl<'a, V: Borrow<PackedLongValues> + 'a> TermsEnum for SortedDocValuesWriterTe
   }
 }
 
-pub(crate) enum SortedDocValuesWriterValues<V: Borrow<PackedLongValues> = PackedLongValues> {
+pub(crate) enum SortedDocValuesWriterValues<
+  V: Borrow<PackedLongValues> = PackedLongValues,
+  M: Borrow<Vec<i32>> = Arc<Vec<i32>>,
+> {
   Buffered(BufferedWriterSortedDocValues<V>),
-  Sorting(SortingSortedDocValues<BufferedWriterSortedDocValues<V>>),
+  Sorting(SortingSortedDocValues<BufferedWriterSortedDocValues<V>, M>),
 }
 
-impl<V: Borrow<PackedLongValues>> DocValuesIterator for SortedDocValuesWriterValues<V> {
+impl<V: Borrow<PackedLongValues>, M: Borrow<Vec<i32>>> DocValuesIterator
+  for SortedDocValuesWriterValues<V, M>
+{
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
       Self::Buffered(values) => values.advance_exact(target),
@@ -246,17 +254,20 @@ impl<V: Borrow<PackedLongValues>> DocValuesIterator for SortedDocValuesWriterVal
   }
 }
 
-impl<V: Borrow<PackedLongValues>>
+impl<V: Borrow<PackedLongValues>, M: Borrow<Vec<i32>>>
   crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortedDocValuesWriterValues<V>
+  for SortedDocValuesWriterValues<V, M>
 {
 }
-impl<V: Borrow<PackedLongValues>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for SortedDocValuesWriterValues<V>
+impl<V: Borrow<PackedLongValues>, M: Borrow<Vec<i32>>>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedDocValuesWriterValues<V, M>
 {
 }
 
-impl<V: Borrow<PackedLongValues>> DocIdSetIterator for SortedDocValuesWriterValues<V> {
+impl<V: Borrow<PackedLongValues>, M: Borrow<Vec<i32>>> DocIdSetIterator
+  for SortedDocValuesWriterValues<V, M>
+{
   fn doc_id(&self) -> i32 {
     match self {
       Self::Buffered(values) => values.doc_id(),
@@ -293,7 +304,9 @@ impl<V: Borrow<PackedLongValues>> DocIdSetIterator for SortedDocValuesWriterValu
   }
 }
 
-impl<V: Borrow<PackedLongValues>> SortedDocValues for SortedDocValuesWriterValues<V> {
+impl<V: Borrow<PackedLongValues>, M: Borrow<Vec<i32>>> SortedDocValues
+  for SortedDocValuesWriterValues<V, M>
+{
   type OrdValue<'a>
     = BytesRef<&'a [u8]>
   where
@@ -328,7 +341,7 @@ impl<V: Borrow<PackedLongValues>> SortedDocValues for SortedDocValuesWriterValue
   }
 
   type TermsEnum<'a>
-    = SortedDocValuesWriterTermsEnum<'a, V>
+    = SortedDocValuesWriterTermsEnum<'a, V, M>
   where
     Self: 'a;
 
@@ -509,20 +522,24 @@ impl DocValuesWriter for SortedDocValuesWriter {
       .pool
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("must be finished before getting doc values"))?;
-    dv_consumer.add_sorted_field(
-      write_state,
-      segment_info,
-      &self.field_info,
-      &get_doc_values_producer(
-        &self.field_info,
-        frozen_hash,
-        pool,
-        final_ords,
-        final_ord_map,
-        &self.docs_with_field,
-        sort_map,
-      )?,
+    let sorted = get_sorted_values(
+      frozen_hash,
+      pool,
+      final_ords,
+      final_ord_map,
+      &self.docs_with_field,
+      sort_map,
     )?;
+    let producer = DocValuesProducerImpl::new(
+      frozen_hash,
+      pool,
+      final_ords,
+      final_ord_map,
+      &self.docs_with_field,
+      &self.field_info,
+      sorted.as_ref(),
+    )?;
+    dv_consumer.add_sorted_field(write_state, segment_info, &self.field_info, &producer)?;
     Ok(())
   }
 
@@ -595,7 +612,7 @@ pub(crate) struct DocValuesProducerImpl<'a> {
   ord_map: &'a Arc<Vec<i32>>,
   docs_with_field: &'a DocsWithFieldSet,
   writer_field_info: &'a Arc<FieldInfo>,
-  sorted: Option<Arc<Vec<i32>>>,
+  sorted: Option<&'a Vec<i32>>,
 }
 
 impl CloseableRef for DocValuesProducerImpl<'_> {
@@ -612,7 +629,7 @@ impl<'a> DocValuesProducerImpl<'a> {
     ord_map: &'a Arc<Vec<i32>>,
     docs_with_field: &'a DocsWithFieldSet,
     writer_field_info: &'a Arc<FieldInfo>,
-    sorted: Option<Arc<Vec<i32>>>,
+    sorted: Option<&'a Vec<i32>>,
   ) -> Result<Self> {
     Ok(Self {
       hash,
@@ -629,7 +646,7 @@ impl<'a> DocValuesProducerImpl<'a> {
 impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
-  type SortedDocValues = SortedDocValuesWriterValues<&'a PackedLongValues>;
+  type SortedDocValues = SortedDocValuesWriterValues<&'a PackedLongValues, &'a Vec<i32>>;
 
   fn get_sorted(&self, field_info_in: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
     if !Arc::ptr_eq(self.writer_field_info, field_info_in) {
@@ -642,9 +659,9 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
       self.ord_map.clone(),
       self.docs_with_field.iterator()?,
     )?;
-    match self.sorted.as_ref() {
+    match self.sorted {
       Some(sorted) => Ok(SortedDocValuesWriterValues::Sorting(
-        SortingSortedDocValues::new(buf, sorted.clone()),
+        SortingSortedDocValues::new(buf, sorted),
       )),
       None => Ok(SortedDocValuesWriterValues::Buffered(buf)),
     }
@@ -778,14 +795,14 @@ where
   }
 }
 
-pub struct SortingSortedDocValues<S> {
+pub struct SortingSortedDocValues<S, M = Arc<Vec<i32>>> {
   input: S,
-  ords: Arc<Vec<i32>>,
+  ords: M,
   doc_id: i32,
 }
 
-impl<S> SortingSortedDocValues<S> {
-  pub(crate) fn new(input: S, ords: Arc<Vec<i32>>) -> Self {
+impl<S, M> SortingSortedDocValues<S, M> {
+  pub(crate) fn new(input: S, ords: M) -> Self {
     Self {
       input,
       ords,
@@ -794,31 +811,37 @@ impl<S> SortingSortedDocValues<S> {
   }
 }
 
-impl<S> DocValuesIterator for SortingSortedDocValues<S>
+impl<S, M> DocValuesIterator for SortingSortedDocValues<S, M>
 where
   S: SortedDocValues,
+  M: Borrow<Vec<i32>>,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     // Needed by `IndexSorter::StringSorter`.
     self.doc_id = target;
-    Ok(self.ords[target as usize] != -1)
+    Ok(<M as Borrow<Vec<i32>>>::borrow(&self.ords)[target as usize] != -1)
   }
 }
 
-impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SortingSortedDocValues<S>
+impl<S, M> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingSortedDocValues<S, M>
 where
   S: SortedDocValues,
+  M: Borrow<Vec<i32>>,
 {
 }
-impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SortingSortedDocValues<S> where
-  S: SortedDocValues
+impl<S, M> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortingSortedDocValues<S, M>
+where
+  S: SortedDocValues,
+  M: Borrow<Vec<i32>>,
 {
 }
 
-impl<S> DocIdSetIterator for SortingSortedDocValues<S>
+impl<S, M> DocIdSetIterator for SortingSortedDocValues<S, M>
 where
   S: SortedDocValues,
+  M: Borrow<Vec<i32>>,
 {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -828,11 +851,11 @@ where
     loop {
       self.doc_id += 1;
       let doc_index = self.doc_id as usize;
-      if doc_index == self.ords.len() {
+      if doc_index == <M as Borrow<Vec<i32>>>::borrow(&self.ords).len() {
         self.doc_id = NO_MORE_DOCS;
         break;
       }
-      if self.ords[doc_index] != -1 {
+      if <M as Borrow<Vec<i32>>>::borrow(&self.ords)[doc_index] != -1 {
         break;
       }
       // skip missing docs
@@ -849,9 +872,10 @@ where
   }
 }
 
-impl<S> SortedDocValues for SortingSortedDocValues<S>
+impl<S, M> SortedDocValues for SortingSortedDocValues<S, M>
 where
   S: SortedDocValues,
+  M: Borrow<Vec<i32>>,
 {
   type OrdValue<'a>
     = S::OrdValue<'a>
@@ -859,7 +883,7 @@ where
     Self: 'a;
 
   fn ord_value(&mut self) -> Result<i32> {
-    Ok(self.ords[self.doc_id as usize])
+    Ok(<M as Borrow<Vec<i32>>>::borrow(&self.ords)[self.doc_id as usize])
   }
 
   fn lookup_ord(&mut self, ord: i32) -> Result<Self::OrdValue<'_>> {
@@ -873,22 +897,21 @@ where
   type TermsEnum<'a>
     = SortedDocValuesTermsEnum<&'a mut Self>
   where
-    S: 'a;
+    Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     self.default_terms_enum()
   }
 }
 
-pub(crate) fn get_doc_values_producer<'a, DM>(
-  writer_field_info: &'a Arc<FieldInfo>,
-  hash: &'a Arc<DirectBytesRefHash>,
-  pool: &'a Arc<ByteBlockPool>,
-  ords: &'a PackedLongValues,
-  ord_map: &'a Arc<Vec<i32>>,
-  docs_with_field: &'a DocsWithFieldSet,
+pub(crate) fn get_sorted_values<DM>(
+  hash: &Arc<DirectBytesRefHash>,
+  pool: &Arc<ByteBlockPool>,
+  ords: &PackedLongValues,
+  ord_map: &Arc<Vec<i32>>,
+  docs_with_field: &DocsWithFieldSet,
   sort_map: Option<&DM>,
-) -> Result<DocValuesProducerImpl<'a>>
+) -> Result<Option<Vec<i32>>>
 where
   DM: DocMap,
 {
@@ -901,22 +924,14 @@ where
       ord_map.clone(),
       docs_iter,
     )?;
-    Some(Arc::new(SortedDocValuesWriter::sort_doc_values(
+    Some(SortedDocValuesWriter::sort_doc_values(
       sort_map.size() as usize,
       sort_map,
       &mut old_values,
-    )?))
+    )?)
   } else {
     None
   };
 
-  DocValuesProducerImpl::new(
-    hash,
-    pool,
-    ords,
-    ord_map,
-    docs_with_field,
-    writer_field_info,
-    sorted,
-  )
+  Ok(sorted)
 }

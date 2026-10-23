@@ -30,12 +30,11 @@ use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
-use std::rc::Rc;
 
 /// Exposes flex API, merged from flex API of sub-segments.
 pub struct MultiTerms<T> {
   subs: Vec<T>,
-  sub_slices: Vec<Rc<ReaderSlice>>,
+  sub_slices: Vec<ReaderSlice>,
   has_freqs: bool,
   has_offsets: bool,
   has_positions: bool,
@@ -50,7 +49,7 @@ where
   /// # Parameters
   /// * `subs` – The [`Terms`] instances of all sub-readers.
   /// * `sub_slices` – A parallel array (matching `subs`) describing the sub-reader slices.
-  pub fn new(subs: Vec<T>, sub_slices: Vec<Rc<ReaderSlice>>) -> Result<Self> {
+  pub fn new(subs: Vec<T>, sub_slices: Vec<ReaderSlice>) -> Result<Self> {
     debug_assert!(
       !subs.is_empty(),
       "inefficient: don't use MultiTerms over one sub"
@@ -101,7 +100,7 @@ where
     }
 
     if !terms_enums.is_empty() {
-      let v = MultiTermsEnum::new(self.sub_slices.iter().cloned())?;
+      let v = MultiTermsEnum::new(self.sub_slices.iter().copied())?;
       v.reset(terms_enums)
     } else {
       Ok(MultiTermsEnumType::B(EmptyTermsEnum))
@@ -125,7 +124,7 @@ where
       i += 1;
     }
     if !terms_enums.is_empty() {
-      let v = MultiTermsEnum::new(self.sub_slices.iter().cloned())?;
+      let v = MultiTermsEnum::new(self.sub_slices.iter().copied())?;
       v.reset(terms_enums)
     } else {
       Ok(MultiTermsEnumType::B(EmptyTermsEnum))
@@ -366,7 +365,7 @@ where
   for (leaf_idx, ctx) in leaves.iter().enumerate() {
     if let Some(sub_terms) = ctx.reader().terms(field)? {
       terms_per_leaf.push(sub_terms);
-      slice_per_leaf.push(Rc::new(ReaderSlice::new(ctx.doc_base, max_doc, leaf_idx)));
+      slice_per_leaf.push(ReaderSlice::new(ctx.doc_base, max_doc, leaf_idx));
     }
   }
 

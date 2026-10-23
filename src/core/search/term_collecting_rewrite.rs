@@ -25,7 +25,6 @@ use crate::core::search::multi_term_query::{MultiTermQuery, RewriteMethod};
 use crate::core::search::query::Query;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::Result;
-use std::rc::Rc;
 
 pub trait TermCollectingRewrite: RewriteMethod {
   type B;
@@ -73,7 +72,7 @@ pub trait TermCollectingRewrite: RewriteMethod {
         continue;
       };
 
-      let mut terms_enum = self.get_terms_enum(query, Rc::new(terms))?;
+      let mut terms_enum = self.get_terms_enum(query, &terms)?;
 
       // TODO IMPORTANT 这里要判断是否为 EMPTY
       collector.set_reader_context(context)?;

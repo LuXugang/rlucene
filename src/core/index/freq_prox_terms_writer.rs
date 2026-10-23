@@ -59,7 +59,6 @@ use crate::core::util::{
   ByteBlockPool, IOUtils, SharedCounter, SliceCopyOps, Sorter, TimSorter, TimSorterBase, ToInt,
 };
 use std::borrow::Cow;
-use std::rc::Rc;
 use std::sync::Arc;
 
 pub(crate) struct FreqProxTermsWriter<D>
@@ -95,7 +94,7 @@ where
         return Ok(());
       }
 
-      let mut iterator = TermDocsIterator::new(TermsProviderImpl1::new(fields), true);
+      let mut iterator = TermDocsIterator::new(TermsProviderImpl1::new(&fields), true);
       seg_deletes.for_each_ordered(&mut |field: &str, bytes: &BytesRef<&[u8]>, doc_id: i32| {
         if let Some(postings) = iterator.next_term(field, bytes)? {
           debug_assert!(doc_id < NO_MORE_DOCS);
@@ -175,21 +174,24 @@ where
       if per_field.base.get_num_terms() > 0 {
         per_field.base.sort_terms(&byte_pool)?;
         debug_assert!(per_field.base.index_options != IndexOptions::None);
-        all_fields.push(Rc::new(per_field));
+        all_fields.push(per_field);
       }
     }
     // Sort by field name
     CollectionUtil::intro_sort(&mut all_fields)?;
-    let mut fields = FreqProxFields::new(all_fields, int_pool, byte_pool);
+    let fields = FreqProxFields::new(all_fields, int_pool, byte_pool);
     self.apply_deletes(state, &fields, info, seg_updates)?;
 
     let mut consumer = codec.postings_format().fields_consumer(state, info)?;
     let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let owned_fields = fields;
+      let mut field_view = &owned_fields;
       if let Some(doc_map) = sort_map {
-        let mut filter_fields = FilterFieldsImpl::new(fields, state.field_infos.as_ref(), doc_map);
+        let mut filter_fields =
+          FilterFieldsImpl::new(field_view, state.field_infos.as_ref(), doc_map);
         consumer.write(state, info, &mut filter_fields, norms)?;
       } else {
-        consumer.write(state, info, &mut fields, norms)?;
+        consumer.write(state, info, &mut field_view, norms)?;
       }
       Ok(())
     }));

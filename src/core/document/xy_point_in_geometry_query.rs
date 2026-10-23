@@ -28,7 +28,6 @@ use crate::core::index::point_values::{IntersectVisitor, PointValues, Relation};
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
@@ -293,7 +292,7 @@ where
   IRCLeafReader<IRC>: LeafReader,
 {
   type Scorer =
-    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::DocIdSetBuilderIterator>;
+    ConstantScoreDisiScorer<crate::core::util::doc_id_set_builder::OwnedDocIdSetBuilderIterator>;
   type BulkScorer = crate::core::search::weight::DefaultBulkScorer<Self::Scorer>;
 
   fn get(
@@ -306,7 +305,7 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     self.values.intersect(&mut self.visitor)?;
-    let iterator = self.visitor.adder.build()?.iterator()?;
+    let iterator = self.visitor.adder.build_iterator()?;
     Ok(ConstantScoreScorer::from_disi(
       self.score,
       self.score_mode,

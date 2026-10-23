@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 /// Subreader slice from a parent composite reader.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ReaderSlice {
   pub start: usize,
   pub length: i32,

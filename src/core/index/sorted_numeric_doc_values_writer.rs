@@ -27,8 +27,8 @@ use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values_writer::{
-  BufferedNumericDocValues, BufferedSortingNumericDocValues, DocValuesProducerImpl,
-  get_doc_values_producer,
+  BufferedNumericDocValues, BufferedSortingNumericDocValues, DocValuesProducerImpl, NumericDVs,
+  get_sorted_values,
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -335,8 +335,13 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
       },
     };
     let Some(value_counts) = value_counts else {
-      let single_value_producer =
-        get_doc_values_producer(&self.field_info, values, &self.docs_with_field, sort_map)?;
+      let sorted = get_sorted_values(values, &self.docs_with_field, sort_map)?;
+      let single_value_producer = DocValuesProducerImpl::new(
+        sorted.as_ref(),
+        &self.docs_with_field,
+        values,
+        &self.field_info,
+      );
       let producer = DocValuesProducerImpl1::new(single_value_producer)?;
       dv_consumer.add_sorted_numeric_field(
         write_state,
@@ -423,8 +428,12 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl1<'a> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
-  type SortedNumericDocValues =
-    SingletonSortedNumericDocValues<BufferedSortingNumericDocValues<&'a PackedLongValues>>;
+  type SortedNumericDocValues = SingletonSortedNumericDocValues<
+    BufferedSortingNumericDocValues<
+      &'a PackedLongValues,
+      &'a NumericDVs<crate::core::util::fixed_bit_set::FixedBitSet>,
+    >,
+  >;
 
   fn get_sorted_numeric(
     &self,

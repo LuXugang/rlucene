@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
-use std::sync::Arc;
+use std::borrow::{Borrow, Cow};
 
 use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValueEnum};
 use crate::core::util::access::ByteSource;
@@ -216,10 +215,10 @@ impl BytesRefArray {
   /// [`IndexedBytesRefIterator`]
   ///
   /// [`BytesRef`]
-  pub fn iterator_with_state(
-    &'_ self,
-    sort_state: Arc<SortState>,
-  ) -> IndexedBytesRefIteratorImpl<'_> {
+  pub fn iterator_with_state<S: Borrow<SortState>>(
+    &self,
+    sort_state: S,
+  ) -> IndexedBytesRefIteratorImpl<'_, S> {
     IndexedBytesRefIteratorImpl::new(Some(sort_state), self)
   }
 }
@@ -282,7 +281,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
     C: BytesRefComparator<Cow<'a, Vec<u8>>>,
   {
     let ords = self.sort(comp, false)?;
-    Ok(self.iterator_with_state(Arc::from(ords)))
+    Ok(self.iterator_with_state(ords))
   }
 }
 
@@ -301,20 +300,23 @@ impl Accountable for SortState {
   }
 }
 
-pub struct IndexedBytesRefIteratorImpl<'a> {
+pub struct IndexedBytesRefIteratorImpl<'a, S = SortState> {
   pos: usize,
   pub(crate) ord: usize,
-  sort_state: Option<Arc<SortState>>,
+  sort_state: Option<S>,
   size: usize,
   bytes_ref_array: &'a BytesRefArray,
   result: BytesRef<Vec<u8>>,
 }
-impl<'a> IndexedBytesRefIteratorImpl<'a> {
-  fn new(
-    sort_state: Option<Arc<SortState>>,
+impl<'a, S: Borrow<SortState>> IndexedBytesRefIteratorImpl<'a, S> {
+  pub(crate) fn new(
+    sort_state: Option<S>,
     bytes_ref_array: &'a BytesRefArray,
-  ) -> IndexedBytesRefIteratorImpl<'a> {
-    if let Some(indices) = sort_state.as_ref().and_then(|state| state.indices.as_ref()) {
+  ) -> IndexedBytesRefIteratorImpl<'a, S> {
+    if let Some(indices) = sort_state
+      .as_ref()
+      .and_then(|state| state.borrow().indices.as_ref())
+    {
       debug_assert_eq!(indices.len(), bytes_ref_array.size());
     }
     Self {
@@ -327,13 +329,13 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
     }
   }
 }
-impl IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_> {
+impl<S: Borrow<SortState>> IndexedBytesRefIterator for IndexedBytesRefIteratorImpl<'_, S> {
   fn next(&mut self) -> Result<Option<(usize, BytesRefValueEnum<'_>)>> {
     if self.pos < self.size {
       self.ord = match self
         .sort_state
         .as_ref()
-        .and_then(|state| state.indices.as_ref())
+        .and_then(|state| state.borrow().indices.as_ref())
       {
         None => self.pos,
         Some(indices) => indices[self.pos],

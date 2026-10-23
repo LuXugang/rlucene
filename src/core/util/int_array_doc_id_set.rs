@@ -21,6 +21,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
+use std::borrow::Borrow;
 use std::mem;
 use std::rc::Rc;
 
@@ -101,14 +102,14 @@ impl Accountable for IntArrayDocIdSet {
   }
 }
 
-pub struct IntArrayDocIdSetIterator {
-  docs: Rc<Vec<i32>>,
+pub struct IntArrayDocIdSetIterator<D = Rc<Vec<i32>>> {
+  docs: D,
   length: usize,
   i: usize,
   doc: i32,
 }
-impl IntArrayDocIdSetIterator {
-  pub fn new(docs: Rc<Vec<i32>>, length: usize) -> IntArrayDocIdSetIterator {
+impl<D: Borrow<Vec<i32>>> IntArrayDocIdSetIterator<D> {
+  pub fn new(docs: D, length: usize) -> Self {
     IntArrayDocIdSetIterator {
       docs,
       length,
@@ -117,25 +118,29 @@ impl IntArrayDocIdSetIterator {
     }
   }
 }
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for IntArrayDocIdSetIterator
+impl<D: Borrow<Vec<i32>>> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for IntArrayDocIdSetIterator<D>
 {
 }
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for IntArrayDocIdSetIterator {}
+impl<D: Borrow<Vec<i32>>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for IntArrayDocIdSetIterator<D>
+{
+}
 
-impl DocIdSetIterator for IntArrayDocIdSetIterator {
+impl<D: Borrow<Vec<i32>>> DocIdSetIterator for IntArrayDocIdSetIterator<D> {
   fn doc_id(&self) -> i32 {
     self.doc
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.doc = self.docs[self.i];
+    self.doc = <D as Borrow<Vec<i32>>>::borrow(&self.docs)[self.i];
     self.i += 1;
     Ok(self.doc)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    if let Some(docs) = self.docs.get(..=self.length) {
+    let docs = <D as Borrow<Vec<i32>>>::borrow(&self.docs);
+    if let Some(docs) = docs.get(..=self.length) {
       let length = docs.len() - 1;
       let mut bound = 1;
       while (self.i + bound < length) && (docs[self.i + bound] < target) {
@@ -154,16 +159,16 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator {
     let mut bound = 1;
     // given that we use this for small arrays only, this is very unlikely
     // to overflow
-    while (self.i + bound < self.length) && (self.docs[self.i + bound] < target) {
+    while (self.i + bound < self.length) && (docs[self.i + bound] < target) {
       bound *= 2;
     }
     let mut start = self.i + bound / 2;
     let end = std::cmp::min(self.i + bound + 1, self.length);
-    let index = self.docs[start..end]
+    let index = docs[start..end]
       .binary_search(&target)
       .unwrap_or_else(|index| index);
     start += index;
-    self.doc = self.docs[start];
+    self.doc = docs[start];
     self.i = start + 1;
     Ok(self.doc)
   }

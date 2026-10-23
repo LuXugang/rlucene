@@ -16,7 +16,6 @@
  */
 use std::borrow::Cow;
 use std::cmp::{Ordering, max, min};
-use std::sync::Arc;
 
 use crate::core::index::BytesRef;
 use crate::core::index::bytes_ref::{BytesRefValue, BytesRefValueEnum};
@@ -62,7 +61,7 @@ pub(crate) struct FieldUpdatesBuffer {
   // a stable sort to sort to apply the terms in order
   // since by definition we store them in order.
   term_values: BytesRefArray,
-  term_sort_state: Option<Arc<SortState>>,
+  term_sort_state: Option<SortState>,
   // `None` when buffering numeric values.
   byte_values: Option<BytesRefArray>,
   docs_upto: Vec<i32>,
@@ -345,7 +344,7 @@ impl FieldUpdatesBuffer {
     let sorted_terms =
       self.has_single_value() && self.has_values.is_none() && self.fields.len() == 1;
     if sorted_terms {
-      self.term_sort_state = Some(Arc::new(self.term_values.sort(NaturalOrder, true)?));
+      self.term_sort_state = Some(self.term_values.sort(NaturalOrder, true)?);
       debug_assert!(self.assert_term_and_doc_in_order()?);
       self.bytes_used.add_and_get(
         self
@@ -360,10 +359,8 @@ impl FieldUpdatesBuffer {
   }
   fn assert_term_and_doc_in_order(&mut self) -> Result<bool> {
     // it's used for debug_assert! , so we roughly copy data
-    let mut iterator = match &self.term_sort_state {
-      Some(state) => self.term_values.iterator_with_state(state.clone()),
-      None => self.term_values.iterator(),
-    };
+    let mut iterator =
+      IndexedBytesRefIteratorImpl::new(self.term_sort_state.as_ref(), &self.term_values);
     let mut last = None;
     let mut last_ord = 0;
 
@@ -435,8 +432,8 @@ impl FieldUpdatesBuffer {
 }
 /// An iterator that iterates over all updates in insertion order.
 pub struct BufferedUpdateIterator<'a> {
-  term_values_iterator: IndexedBytesRefIteratorImpl<'a>,
-  look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
+  term_values_iterator: IndexedBytesRefIteratorImpl<'a, &'a SortState>,
+  look_ahead_term_iterator: Option<IndexedBytesRefIteratorImpl<'a, &'a SortState>>,
   byte_values_iterator: Option<IndexedBytesRefIteratorImpl<'a>>,
   buffered_update: BufferedUpdate<'a>,
   updates_with_value: Option<UpdateBits<'a>>,
@@ -448,17 +445,14 @@ pub struct BufferedUpdateIterator<'a> {
 
 impl<'a> BufferedUpdateIterator<'a> {
   pub fn new(field_updates_buffer: &'a FieldUpdatesBuffer) -> Result<Self> {
-    let term_values_iterator = match &field_updates_buffer.term_sort_state {
-      Some(state) => field_updates_buffer
-        .term_values
-        .iterator_with_state(state.clone()),
-      None => field_updates_buffer.term_values.iterator(),
-    };
-    let look_ahead_term_iterator = field_updates_buffer.term_sort_state.as_ref().map(|state| {
-      field_updates_buffer
-        .term_values
-        .iterator_with_state(state.clone())
-    });
+    let term_values_iterator = IndexedBytesRefIteratorImpl::new(
+      field_updates_buffer.term_sort_state.as_ref(),
+      &field_updates_buffer.term_values,
+    );
+    let look_ahead_term_iterator = field_updates_buffer
+      .term_sort_state
+      .as_ref()
+      .map(|state| field_updates_buffer.term_values.iterator_with_state(state));
     let byte_values_iterator = if field_updates_buffer.is_numeric {
       None
     } else {

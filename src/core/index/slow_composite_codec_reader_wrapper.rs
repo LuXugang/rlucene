@@ -1741,11 +1741,7 @@ where
     for (i, producer) in producers.into_iter().enumerate() {
       if let Some(p) = producer {
         subs.push(p);
-        slices.push(Rc::new(ReaderSlice::new(
-          doc_starts[i],
-          i as i32,
-          doc_starts[i + 1],
-        )));
+        slices.push(ReaderSlice::new(doc_starts[i], i as i32, doc_starts[i + 1]));
       }
     }
 

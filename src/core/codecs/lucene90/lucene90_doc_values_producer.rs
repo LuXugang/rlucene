@@ -79,7 +79,7 @@ pub struct Lucene90DocValuesProducer<I> {
   sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
   sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
   sorted_numerics: Arc<HashMap<i32, Arc<SortedNumericEntry>>>,
-  skippers: Arc<HashMap<i32, Arc<DocValuesSkipperEntry>>>,
+  skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
   data: Arc<I>,
   max_doc: i32,
   version: i32,
@@ -213,7 +213,7 @@ where
     sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
     sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
     sorted_numerics: Arc<HashMap<i32, Arc<SortedNumericEntry>>>,
-    skippers: Arc<HashMap<i32, Arc<DocValuesSkipperEntry>>>,
+    skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
     data: &I,
     max_doc: i32,
     version: i32,
@@ -241,7 +241,7 @@ where
     sorted: &mut HashMap<i32, Arc<SortedEntry>>,
     sorted_sets: &mut HashMap<i32, Arc<SortedSetEntry>>,
     sorted_numerics: &mut HashMap<i32, Arc<SortedNumericEntry>>,
-    skippers: &mut HashMap<i32, Arc<DocValuesSkipperEntry>>,
+    skippers: &mut HashMap<i32, DocValuesSkipperEntry>,
   ) -> Result<()>
   where
     II: IndexInput,
@@ -260,7 +260,7 @@ where
       let type_byte = meta.read_byte()?;
 
       if info.doc_values_skip_index_type() != &DocValuesSkipIndexType::None {
-        let skipper = Arc::new(Self::read_doc_value_skipper_meta(meta)?);
+        let skipper = Self::read_doc_value_skipper_meta(meta)?;
         skippers.insert(info.number, skipper);
       }
 
@@ -1049,7 +1049,7 @@ where
     if input.length()? > 0 {
       input.prefetch(0, 1)?;
     }
-    Ok(Some(DocValuesSkipperImpl::new(input, entry.clone())))
+    Ok(Some(DocValuesSkipperImpl::new(input, *entry)))
   }
 
   fn check_integrity(&self) -> Result<()> {
@@ -1594,10 +1594,10 @@ pub struct DocValuesSkipperImpl<I> {
   doc_count: [i32; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
   levels: usize,
   input: I,
-  entry: Arc<DocValuesSkipperEntry>,
+  entry: DocValuesSkipperEntry,
 }
 impl<I> DocValuesSkipperImpl<I> {
-  pub fn new(input: I, entry: Arc<DocValuesSkipperEntry>) -> Self {
+  pub fn new(input: I, entry: DocValuesSkipperEntry) -> Self {
     Self {
       min_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
       max_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],

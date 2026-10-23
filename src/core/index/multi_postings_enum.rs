@@ -22,7 +22,6 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 /// Exposes [`PostingsEnum`], merged from [`PostingsEnum`] API of sub-segments.
 pub struct MultiPostingsEnum<PE> {
   parent: Identity,
@@ -66,7 +65,7 @@ impl<PE> MultiPostingsEnum<PE> {
 
     for (i, sub) in subs.iter().enumerate().take(self.num_subs) {
       self.subs[i].postings_enum_idx = sub.postings_enum_idx;
-      self.subs[i].slice = sub.slice.clone();
+      self.subs[i].slice = sub.slice;
     }
 
     self.upto = None;
@@ -259,17 +258,17 @@ pub struct EnumWithSlice {
   /// [`PostingsEnum`]'s idx for this sub-reader
   pub(crate) postings_enum_idx: usize,
   /// [`ReaderSlice`] describing how this sub-reader fits into the composite reader.
-  pub(crate) slice: Rc<ReaderSlice>,
+  pub(crate) slice: ReaderSlice,
 }
 impl EnumWithSlice {
   /// Creates a new [`EnumWithSlice`].
   pub fn new() -> Self {
     Self {
       postings_enum_idx: 0,
-      slice: Rc::new(ReaderSlice::default()),
+      slice: ReaderSlice::default(),
     }
   }
-  pub fn with_slice(slice: Rc<ReaderSlice>) -> Self {
+  pub fn with_slice(slice: ReaderSlice) -> Self {
     Self {
       postings_enum_idx: 0,
       slice,

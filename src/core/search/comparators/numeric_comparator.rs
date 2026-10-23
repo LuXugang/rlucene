@@ -23,13 +23,12 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::{
   IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
 };
-use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator, DocIdSetIteratorEnum3};
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorWrap;
 use crate::core::util::ToInt;
-use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
+use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, OwnedDocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 const MIN_SKIP_INTERVAL: i32 = 32;
@@ -292,7 +291,7 @@ where
       return Err(LuceneError::illegal_state("point_values is None"));
     }
 
-    let it = visitor.result.build()?.iterator()?;
+    let it = visitor.result.build_iterator()?;
     self.iterator_cost = it.cost()?;
     self.competitive_iterator = Some(CompetitiveIterator::new(CompetitiveIteratorType::C(it)));
     self.update_skip_interval(true);
@@ -592,7 +591,8 @@ where
     Ok(())
   }
 }
-pub type CompetitiveIteratorType<T> = DocIdSetIteratorEnum3<AllDISI, T, DocIdSetBuilderIterator>;
+pub type CompetitiveIteratorType<T> =
+  DocIdSetIteratorEnum3<AllDISI, T, OwnedDocIdSetBuilderIterator>;
 pub trait ToLong {
   type V: PartialOrd + Copy;
   fn value_to_long(&self, v: Self::V) -> i64;

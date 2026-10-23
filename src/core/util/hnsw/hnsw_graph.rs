@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Borrow;
 use std::sync::Arc;
 
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -296,16 +297,20 @@ where
   sorted
 }
 /// NodesIterator that accepts nodes as an integer array.
-pub struct ArrayNodesIterator {
-  nodes: Option<Arc<Vec<usize>>>,
+pub struct ArrayNodesIterator<N = Arc<Vec<usize>>> {
+  nodes: Option<N>,
   cur: usize,
   size: usize,
 }
 
-impl ArrayNodesIterator {
+impl<N: Borrow<Vec<usize>>> ArrayNodesIterator<N> {
   /// Creates explicit node list (with partial length).
-  pub fn from_nodes(nodes: Option<Arc<Vec<usize>>>, size: usize) -> Self {
-    debug_assert!(nodes.as_ref().is_some_and(|nodes| size <= nodes.len()));
+  pub fn from_nodes(nodes: Option<N>, size: usize) -> Self {
+    debug_assert!(
+      nodes
+        .as_ref()
+        .is_some_and(|nodes| size <= <N as Borrow<Vec<usize>>>::borrow(nodes).len())
+    );
     Self {
       nodes,
       cur: 0,
@@ -328,7 +333,7 @@ impl ArrayNodesIterator {
   }
 }
 
-impl Iterator for ArrayNodesIterator {
+impl<N: Borrow<Vec<usize>>> Iterator for ArrayNodesIterator<N> {
   type Item = usize;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -336,7 +341,7 @@ impl Iterator for ArrayNodesIterator {
       None
     } else {
       let value = match &self.nodes {
-        Some(vec) => vec[self.cur],
+        Some(vec) => <N as Borrow<Vec<usize>>>::borrow(vec)[self.cur],
         None => self.cur,
       };
       self.cur += 1;
@@ -345,7 +350,7 @@ impl Iterator for ArrayNodesIterator {
   }
 }
 
-impl NodesIterator for ArrayNodesIterator {
+impl<N: Borrow<Vec<usize>>> NodesIterator for ArrayNodesIterator<N> {
   fn size(&self) -> usize {
     self.size
   }
@@ -357,6 +362,7 @@ impl NodesIterator for ArrayNodesIterator {
     let num_to_copy = std::cmp::min(dest.len(), self.size - self.cur);
     match &self.nodes {
       Some(vec) => {
+        let vec: &Vec<usize> = vec.borrow();
         dest.copy_from(&vec[self.cur..self.cur + num_to_copy], 0);
         self.cur += num_to_copy;
         Ok(num_to_copy)

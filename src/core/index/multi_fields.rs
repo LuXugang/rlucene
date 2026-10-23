@@ -37,7 +37,7 @@ where
   F: Fields,
 {
   pub(crate) subs: Vec<F>,
-  sub_slices: Vec<Rc<ReaderSlice>>,
+  sub_slices: Vec<ReaderSlice>,
   terms: RefCell<HashMap<String, Rc<TermsType<F>>>>,
 }
 pub type TermsType<F> = MultiTerms<<F as Fields>::Terms>;
@@ -46,7 +46,7 @@ where
   F: Fields,
 {
   /// Creates a new instance.
-  pub fn new(subs: Vec<F>, sub_slices: Vec<Rc<ReaderSlice>>) -> Self {
+  pub fn new(subs: Vec<F>, sub_slices: Vec<ReaderSlice>) -> Self {
     Self {
       subs,
       sub_slices,
@@ -86,7 +86,7 @@ where
     for i in 0..self.subs.len() {
       if let Some(terms) = self.subs[i].terms(field)? {
         subs2.push(terms);
-        slices2.push(self.sub_slices[i].clone());
+        slices2.push(self.sub_slices[i]);
       }
     }
 
