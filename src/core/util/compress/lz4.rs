@@ -146,7 +146,7 @@ impl LZ4 {
 
       // copying a multiple of 8 bytes can make decompression from 5% to
       // 10% faster
-      let fast_len = (match_len + 7) & 0xFFF8;
+      let fast_len = (match_len + 7) & !7;
 
       if match_dec < match_len || d_off + fast_len > dest_end {
         let mut start: usize = (d_off - match_dec).try_convert()?;
