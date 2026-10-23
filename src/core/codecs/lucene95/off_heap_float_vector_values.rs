@@ -100,7 +100,6 @@ where
     let len = value.len();
     inner.slice.read_floats(value, 0, len)?;
 
-    inner.last_ord = Some(target_ord);
     Ok(())
   }
 }
