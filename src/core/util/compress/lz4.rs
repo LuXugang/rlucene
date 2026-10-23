@@ -19,6 +19,83 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, TryIntoInt};
 
+// Share Java hash-table calculations between the public HashTable methods
+// and the concrete table borrows used during compression.
+// Keep the same mutations and lookup order for each table implementation.
+macro_rules! compression_hash_table {
+  (init_dictionary, $base:expr, $hash_log:expr, $last_off:expr, $dict_len:expr, $bytes:expr, $set:expr) => {{
+    let base = $base;
+    let hash_log = $hash_log;
+    for i in 0..$dict_len {
+      let v = LZ4::read_int($bytes, base + i);
+      let h = LZ4::hash(v, hash_log);
+      ($set)(h, i);
+    }
+    $last_off += $dict_len;
+  }};
+  (get, $base:expr, $hash_log:expr, $last_off:expr, $end:expr, $off:expr, $bytes:expr, $get_and_set:expr) => {{
+    let off = $off;
+    debug_assert!(off > $last_off);
+    debug_assert!(off < $end);
+    let v = LZ4::read_int($bytes, off);
+    let h = LZ4::hash(v, $hash_log);
+    let ref_ = $base + ($get_and_set)(h, off - $base)?;
+    $last_off = off;
+    Ok::<Option<i32>, LuceneError>(
+      if ref_ < off && off - ref_ < LZ4::MAX_DISTANCE && LZ4::read_int($bytes, ref_) == v {
+        Some(ref_)
+      } else {
+        None
+      },
+    )
+  }};
+  (high_add_hash, $table:expr, $off:expr, $bytes:expr) => {{
+    let off = $off;
+    let bytes = $bytes;
+    let table = &mut *($table);
+    let v = LZ4::read_int(bytes, off);
+    let h = LZ4::hash_hc(v);
+    let mut delta = off - table.hash_table[h];
+    if delta <= 0 || delta >= LZ4::MAX_DISTANCE {
+      delta = LZ4::MAX_DISTANCE - 1;
+    }
+    table.chain_table[(off & HighCompressionHashTable::MASK) as usize] = delta as u16;
+    table.hash_table[h] = off;
+  }};
+  (high_get, $table:expr, $off:expr, $bytes:expr) => {{
+    let off = $off;
+    let bytes = $bytes;
+    let table = &mut *($table);
+    'high_get: {
+      debug_assert!(off >= table.next);
+      debug_assert!(off < table.end);
+
+      while table.next < off {
+        compression_hash_table!(high_add_hash, table, table.next, bytes);
+        table.next += 1;
+      }
+      let v = LZ4::read_int(bytes, off);
+      let h = LZ4::hash_hc(v);
+
+      table.attempts = 0;
+      let mut ref_idx = table.hash_table[h];
+      if ref_idx >= off {
+        // remainder from a previous call to compress()
+        break 'high_get Ok::<Option<i32>, LuceneError>(None);
+      }
+      let min = std::cmp::max(table.base, off - LZ4::MAX_DISTANCE + 1);
+      while ref_idx >= min && table.attempts < HighCompressionHashTable::MAX_ATTEMPTS {
+        if LZ4::read_int(bytes, ref_idx) == v {
+          break 'high_get Ok::<Option<i32>, LuceneError>(Some(ref_idx));
+        }
+        ref_idx -= table.chain_table[(ref_idx & HighCompressionHashTable::MASK) as usize] as i32;
+        table.attempts += 1;
+      }
+      Ok(None)
+    }
+  }};
+}
+
 /// LZ4 compression and decompression routines.
 ///
 /// <https://github.com/lz4/lz4/tree/dev/lib> <http://fastcompression.blogspot.fr/p/lz4.html>
@@ -58,6 +135,7 @@ impl LZ4 {
     BitUtil::get_i32_le(buf, i as usize)
   }
 
+  #[inline]
   fn common_bytes(b: &[u8], o1: i32, o2: i32, limit: i32) -> i32 {
     debug_assert!(o1 < o2);
     CoreHelper::miss_match_u8(
@@ -291,50 +369,119 @@ impl LZ4 {
       let match_limit = limit - LZ4::MIN_MATCH;
       CoreHelper::check_from_index_size(dict_off as usize, (dict_len + len) as usize, bytes.len())?;
       ht.reset(dict_off, dict_len + len);
-      ht.init_dictionary(dict_len, bytes);
+      macro_rules! compress_loop {
+        ($get:ident, $previous:ident) => {{
+          'main: while off <= limit {
+            // find a match
+            let mut ref_;
 
-      'main: while off <= limit {
-        // find a match
-        let mut ref_;
+            loop {
+              if off >= match_limit {
+                break 'main;
+              }
 
-        loop {
-          if off >= match_limit {
-            break 'main;
+              if let Some(index) = $get!(off)? {
+                ref_ = index;
+                debug_assert!(ref_ >= dict_off && ref_ < off);
+                debug_assert_eq!(LZ4::read_int(bytes, ref_), LZ4::read_int(bytes, off));
+                break;
+              }
+
+              off += 1;
+            }
+
+            // Compute match length
+            let mut match_len = LZ4::MIN_MATCH
+              + LZ4::common_bytes(bytes, ref_ + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
+
+            // Try to find a better match
+            let min = (off - LZ4::MAX_DISTANCE + 1).max(dict_off);
+            let mut r = $previous!(ref_);
+            while let Some(r_index) = r.filter(|&r| r >= min) {
+              debug_assert_eq!(LZ4::read_int(bytes, r_index), LZ4::read_int(bytes, off));
+              let r_match_len = LZ4::MIN_MATCH
+                + LZ4::common_bytes(bytes, r_index + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
+              if r_match_len > match_len {
+                ref_ = r_index;
+                match_len = r_match_len;
+              }
+
+              r = $previous!(r_index);
+            }
+
+            // Encode match
+            LZ4::encode_sequence(bytes, anchor, ref_, off, match_len, out)?;
+            off += match_len;
+            anchor = off;
           }
-
-          if let Some(index) = ht.get(off, bytes)? {
-            ref_ = index;
-            debug_assert!(ref_ >= dict_off && ref_ < off);
-            debug_assert_eq!(LZ4::read_int(bytes, ref_), LZ4::read_int(bytes, off));
-            break;
+        }};
+      }
+      match ht {
+        HashTableEnum::Fast(table) => {
+          table.init_dictionary(dict_len, bytes);
+          let FastCompressionHashTable {
+            base,
+            last_off,
+            end,
+            hash_log,
+            hash_table,
+          } = table;
+          let base = *base;
+          let end = *end;
+          let hash_log = *hash_log;
+          // Dictionary initialization selects its table before scanning.
+          // Keep the concrete table borrow throughout the compression scan.
+          macro_rules! compress_fast {
+            ($table:ident) => {{
+              let bits_per_value = $table.get_bits_per_value();
+              let table = $table.table.as_mut_slice();
+              macro_rules! get {
+                ($offset:expr) => {{
+                  compression_hash_table!(
+                    get,
+                    base,
+                    hash_log,
+                    *last_off,
+                    end,
+                    $offset,
+                    bytes,
+                    |h: usize, value: i32| {
+                      let previous = i32::from(table[h]);
+                      debug_assert!(bits_per_value != 16 || (0..(1 << 16)).contains(&value));
+                      table[h] = value as _;
+                      Ok::<i32, LuceneError>(previous)
+                    }
+                  )
+                }};
+              }
+              macro_rules! previous {
+                ($offset:expr) => {
+                  None::<i32>
+                };
+              }
+              compress_loop!(get, previous);
+            }};
           }
-
-          off += 1;
-        }
-
-        // Compute match length
-        let mut match_len = LZ4::MIN_MATCH
-          + LZ4::common_bytes(bytes, ref_ + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
-
-        // Try to find a better match
-        let min = (off - LZ4::MAX_DISTANCE + 1).max(dict_off);
-        let mut r = ht.previous(ref_, bytes);
-        while let Some(r_index) = r.filter(|&r| r >= min) {
-          debug_assert_eq!(LZ4::read_int(bytes, r_index), LZ4::read_int(bytes, off));
-          let r_match_len = LZ4::MIN_MATCH
-            + LZ4::common_bytes(bytes, r_index + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
-          if r_match_len > match_len {
-            ref_ = r_index;
-            match_len = r_match_len;
+          match hash_table.as_mut() {
+            Some(TableEnum::Table16(table)) => compress_fast!(table),
+            Some(TableEnum::Table32(table)) => compress_fast!(table),
+            None => return Err(LuceneError::illegal_state("hash_table not initialized")),
           }
-
-          r = ht.previous(r_index, bytes);
-        }
-
-        // Encode match
-        LZ4::encode_sequence(bytes, anchor, ref_, off, match_len, out)?;
-        off += match_len;
-        anchor = off;
+        },
+        HashTableEnum::High(table) => {
+          table.init_dictionary(dict_len, bytes);
+          macro_rules! get {
+            ($offset:expr) => {
+              compression_hash_table!(high_get, table, $offset, bytes)
+            };
+          }
+          macro_rules! previous {
+            ($offset:expr) => {
+              table.previous($offset, bytes)
+            };
+          }
+          compress_loop!(get, previous);
+        },
       }
     }
 
@@ -543,36 +690,41 @@ impl HashTable for FastCompressionHashTable {
   }
 
   fn init_dictionary(&mut self, dict_len: i32, bytes: &[u8]) {
-    for i in 0..dict_len {
-      let v = LZ4::read_int(bytes, self.base + i);
-      let h = LZ4::hash(v, self.hash_log);
-      debug_assert!(self.hash_table.is_some());
-      if let Some(table) = &mut self.hash_table {
-        table.set(h, i);
+    compression_hash_table!(
+      init_dictionary,
+      self.base,
+      self.hash_log,
+      self.last_off,
+      dict_len,
+      bytes,
+      |h: usize, i: i32| {
+        debug_assert!(self.hash_table.is_some());
+        if let Some(table) = &mut self.hash_table {
+          table.set(h, i);
+        }
       }
-    }
-    self.last_off += dict_len;
+    );
   }
 
   fn get(&mut self, off: i32, bytes: &[u8]) -> Result<Option<i32>> {
-    debug_assert!(off > self.last_off);
-    debug_assert!(off < self.end);
-    let v = LZ4::read_int(bytes, off);
-    let h = LZ4::hash(v, self.hash_log);
-
-    let ref_ = self.base
-      + self
-        .hash_table
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("hash_table not initialized"))?
-        .get_and_set(h, off - self.base);
-    self.last_off = off;
-
-    if ref_ < off && off - ref_ < LZ4::MAX_DISTANCE && LZ4::read_int(bytes, ref_) == v {
-      Ok(Some(ref_))
-    } else {
-      Ok(None)
-    }
+    compression_hash_table!(
+      get,
+      self.base,
+      self.hash_log,
+      self.last_off,
+      self.end,
+      off,
+      bytes,
+      |h: usize, value: i32| {
+        Ok::<i32, LuceneError>(
+          self
+            .hash_table
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("hash_table not initialized"))?
+            .get_and_set(h, value),
+        )
+      }
+    )
   }
 
   fn previous(&mut self, _off: i32, _bytes: &[u8]) -> Option<i32> {
@@ -616,14 +768,7 @@ impl HighCompressionHashTable {
     }
   }
   fn add_hash(&mut self, off: i32, bytes: &[u8]) {
-    let v = LZ4::read_int(bytes, off);
-    let h = LZ4::hash_hc(v);
-    let mut delta = off - self.hash_table[h];
-    if delta <= 0 || delta >= LZ4::MAX_DISTANCE {
-      delta = LZ4::MAX_DISTANCE - 1;
-    }
-    self.chain_table[(off & Self::MASK) as usize] = delta as u16;
-    self.hash_table[h] = off;
+    compression_hash_table!(high_add_hash, self, off, bytes);
   }
 }
 impl HashTable for HighCompressionHashTable {
@@ -672,31 +817,7 @@ impl HashTable for HighCompressionHashTable {
   }
 
   fn get(&mut self, off: i32, bytes: &[u8]) -> Result<Option<i32>> {
-    debug_assert!(off >= self.next);
-    debug_assert!(off < self.end);
-
-    while self.next < off {
-      self.add_hash(self.next, bytes);
-      self.next += 1;
-    }
-    let v = LZ4::read_int(bytes, off);
-    let h = LZ4::hash_hc(v);
-
-    self.attempts = 0;
-    let mut ref_idx = self.hash_table[h];
-    if ref_idx >= off {
-      // remainder from a previous call to compress()
-      return Ok(None);
-    }
-    let min = std::cmp::max(self.base, off - LZ4::MAX_DISTANCE + 1);
-    while ref_idx >= min && self.attempts < Self::MAX_ATTEMPTS {
-      if LZ4::read_int(bytes, ref_idx) == v {
-        return Ok(Some(ref_idx));
-      }
-      ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32;
-      self.attempts += 1;
-    }
-    Ok(None)
+    compression_hash_table!(high_get, self, off, bytes)
   }
 
   fn previous(&mut self, off: i32, bytes: &[u8]) -> Option<i32> {
