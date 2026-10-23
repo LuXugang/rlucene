@@ -150,7 +150,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns an [`IllegalState`](LuceneError::IllegalState) error if this index does not have any
+  /// Returns an [`IllegalState`](LuceneErrorKind::IllegalState) error if this index does not have any
   /// commits yet.
   pub fn snapshot(&self) -> Result<Arc<CommitPoint<D>>> {
     let guard = self.lock();

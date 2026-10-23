@@ -46,7 +46,7 @@ use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::ram_usage_estimator::size_of_vec;
@@ -475,7 +475,9 @@ where
 
     let reader = match candidate.raw_stored_fields() {
       Ok(reader) => reader,
-      Err(LuceneError::UnsupportedOperation(_)) => return Ok(MergeStrategy::Visitor),
+      Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
+        return Ok(MergeStrategy::Visitor);
+      },
       Err(err) => return Err(err),
     };
     // Currently we only allow to handle the same version.

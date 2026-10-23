@@ -22,7 +22,7 @@ use std::sync::Arc;
 use crate::core::index::byte_slice_pool::ByteSlicePool;
 use crate::core::util::allocator_byte::{DirectAllocatorByte, DirectTrackingAllocatorByte};
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
 use crate::test_framework::core::util::test_util::TestUtil;
 
@@ -95,7 +95,10 @@ fn test_alloc_large_slice() -> Result<()> {
     block_pool.next_buffer()?;
   }
   let result = slice_pool.new_slice(BYTE_BLOCK_SIZE + 1, &mut block_pool);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 /// Creates a random byte array and writes it to a [`ByteSlicePool`] one

@@ -22,7 +22,9 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{DataInput, IndexOutput};
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 use crate::core::util::{IOUtils, StringHelper, TryIntoInt};
 
 /// Utility struct for reading and writing versioned headers.
@@ -66,7 +68,7 @@ impl CodecUtil {
   /// - `version`: The version number.
   ///
   /// # Errors
-  /// - [`LuceneError::Io`]: If there is an I/O error writing to the underlying medium.
+  /// - [`LuceneErrorKind::Io`]: If there is an I/O error writing to the underlying medium.
   /// - [`IllegalArgumentError`](crate::core::util::error::IllegalArgumentError): If the codec name is not simple ASCII or is
   ///   more than 127 characters in length.
   ///
@@ -200,7 +202,7 @@ impl CodecUtil {
   /// - [`IndexFormatTooNewError`](crate::core::util::error::IndexFormatTooNewError): If the actual
   ///   version is greater than
   ///   `max_version`.
-  /// - [`LuceneError::Io`]: If there is an I/O error reading from the underlying
+  /// - [`LuceneErrorKind::Io`]: If there is an I/O error reading from the underlying
   ///   medium.
   ///
   /// # See Also
@@ -296,7 +298,7 @@ impl CodecUtil {
   /// - [`IndexFormatTooNewError`](crate::core::util::error::IndexFormatTooNewError): If the actual
   ///   version is greater than
   ///   `max_version`.
-  /// - [`LuceneError::Io`]: If there is an I/O error reading from the underlying
+  /// - [`LuceneErrorKind::Io`]: If there is an I/O error reading from the underlying
   ///   medium.
   ///
   /// # See Also
@@ -333,7 +335,7 @@ impl CodecUtil {
   /// # Errors
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the first four bytes are not
   ///   [`CodecUtil::CODEC_MAGIC`] or if the `expected_id` does not match.
-  /// - [`LuceneError::Io`]: If there is an I/O error reading from the underlying
+  /// - [`LuceneErrorKind::Io`]: If there is an I/O error reading from the underlying
   ///   medium.
   ///
   /// # Internal
@@ -509,7 +511,7 @@ impl CodecUtil {
   /// - `out`: The output stream to write to.
   ///
   /// # Errors
-  /// - [`LuceneError::Io`]: If there is an I/O error writing to the underlying medium.
+  /// - [`LuceneErrorKind::Io`]: If there is an I/O error writing to the underlying medium.
   pub fn write_footer<IO>(out: &mut IO) -> Result<()>
   where
     IO: IndexOutput,
@@ -538,7 +540,7 @@ impl CodecUtil {
   /// The actual checksum value.
   ///
   /// # Errors
-  /// - [`LuceneError::Io`]: If the footer is invalid, the checksum does not match, or
+  /// - [`LuceneErrorKind::Io`]: If the footer is invalid, the checksum does not match, or
   ///   the input is not properly positioned before the footer at the end of
   ///   the stream.
   pub fn check_footer<II>(checksum_in: &mut II) -> Result<i64>
@@ -572,7 +574,7 @@ impl CodecUtil {
   ///   occurred error or panic.
   ///
   /// # Errors
-  /// - [`LuceneError::Io`]: If the footer is invalid, the checksum does not match, or
+  /// - [`LuceneErrorKind::Io`]: If the footer is invalid, the checksum does not match, or
   ///   the input is not properly positioned before the footer at the end of
   ///   the stream.
   /// - `prior_result`: If a prior failure is provided, it is propagated after
@@ -618,7 +620,12 @@ impl CodecUtil {
         )?;
         // now check the footer
         let checksum = Self::check_footer(checksum_in)?;
-        if !matches!(&prior_result, Ok(Err(LuceneError::IndexFormatTooOld(_)))) {
+        if !matches!(
+          prior_result
+            .as_ref()
+            .map(|result| result.as_ref().map_err(LuceneError::kind)),
+          Ok(Err(LuceneErrorKind::IndexFormatTooOld(_)))
+        ) {
           // If the index format is too old and no corruption, do not add a
           // checksums-matching message since this may tend to unnecessarily
           // alarm people who see "Lucene bug" in their logs.
@@ -634,7 +641,7 @@ impl CodecUtil {
     }));
     match footer_result {
       Ok(Ok(())) => IOUtils::rethrow_always(prior_result),
-      Ok(Err(mut error)) if matches!(&error, LuceneError::CorruptIndex(_)) => {
+      Ok(Err(mut error)) if matches!(error.kind(), LuceneErrorKind::CorruptIndex(_)) => {
         if let Some(prior_error) =
           prior_result.caught_failure("panic before checking the codec footer")
         {
@@ -667,7 +674,7 @@ impl CodecUtil {
   /// The actual checksum value.
   ///
   /// # Errors
-  /// - [`LuceneError::Io`]: If the footer is invalid.
+  /// - [`LuceneErrorKind::Io`]: If the footer is invalid.
   pub fn retrieve_checksum<II>(input: &mut II) -> Result<i64>
   where
     II: IndexInput,
@@ -693,7 +700,7 @@ impl CodecUtil {
   /// The actual checksum value.
   ///
   /// # Errors
-  /// - [`LuceneError::Io`]: If the footer is invalid.
+  /// - [`LuceneErrorKind::Io`]: If the footer is invalid.
   pub(crate) fn retrieve_checksum_with_expected<II>(
     input: &mut II,
     expected_length: usize,
@@ -819,7 +826,7 @@ impl CodecUtil {
   /// # Errors
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the CRC is formatted incorrectly (wrong bits
   ///   set).
-  /// - [`LuceneError::Io`]: If an I/O error occurs.
+  /// - [`LuceneErrorKind::Io`]: If an I/O error occurs.
   pub fn read_crc<II>(input: &mut II) -> Result<i64>
   where
     II: IndexInput,
@@ -838,7 +845,7 @@ impl CodecUtil {
   /// # Errors
   /// - [`IllegalStateError`](crate::core::util::error::IllegalStateError): If the CRC is formatted incorrectly (wrong bits
   ///   set).
-  /// - [`LuceneError::Io`]: If an I/O error occurs.
+  /// - [`LuceneErrorKind::Io`]: If an I/O error occurs.
   pub fn write_crc<IO>(out: &mut IO) -> Result<()>
   where
     IO: IndexOutput,

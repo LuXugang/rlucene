@@ -31,7 +31,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 
 use crate::core::util::bit_set::{BitSet, of};
 use crate::core::util::bit_set_iterator::BitSetIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -477,13 +477,17 @@ fn test_illegal_dense_rank_power() -> Result<()> {
 
   for &power in &[-2, 0, 1, 6, 16] {
     assert!(matches!(
-      create_and_open_disi(power, 8),
-      Err(LuceneError::IllegalArgument(_))
+      (create_and_open_disi(power, 8))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
 
     assert!(matches!(
-      create_and_open_disi(8, power),
-      Err(LuceneError::IllegalArgument(_))
+      (create_and_open_disi(8, power))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
   }
 

@@ -25,7 +25,7 @@ use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::{new_searcher_with_reader, random};
 use rand::RngExt;
 
@@ -35,27 +35,27 @@ struct TestBoostQuery;
 #[test]
 fn test_validation() -> Result<()> {
   let err = BoostQuery::new(MatchAllDocsQuery::new(), -3.0).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!("boost must be a positive float, got -3.0", msg.message)
     },
-    _ => unreachable!("expected LuceneError::IllegalArgument"),
+    _ => unreachable!("expected LuceneErrorKind::IllegalArgument"),
   }
 
   let err = BoostQuery::new(MatchAllDocsQuery::new(), -0.0).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!("boost must be a positive float, got -0.0", msg.message)
     },
-    _ => unreachable!("expected LuceneError::IllegalArgument"),
+    _ => unreachable!("expected LuceneErrorKind::IllegalArgument"),
   }
 
   let err = BoostQuery::new(MatchAllDocsQuery::new(), f32::NAN).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!("boost must be a positive float, got NaN", msg.message)
     },
-    _ => unreachable!("expected LuceneError::IllegalArgument"),
+    _ => unreachable!("expected LuceneErrorKind::IllegalArgument"),
   }
 
   Ok(())

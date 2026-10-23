@@ -45,7 +45,7 @@ use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IndexInput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -569,7 +569,7 @@ fn test_exc_in_dec_ref() -> Result<()> {
         || error
           .get_suppressed()?
           .is_some_and(|cause| cause.to_string().contains("fake fail"))
-        || matches!(error, LuceneError::AlreadyClosed(_))
+        || matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_))
           && w
             .w
             .get_tragic_exception()
@@ -738,8 +738,8 @@ fn test_throw_exception_while_delete_commits() -> Result<()> {
   snapshot_deletion_policy.release(&snapshot_commit)?;
   fail_on_delete_commits.store(true, Ordering::SeqCst);
   if let Err(error) = writer.delete_unused_files() {
-    match error {
-      LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+    match error.kind() {
+      LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
         assert!(
           source
             .get_ref()
@@ -747,7 +747,7 @@ fn test_throw_exception_while_delete_commits() -> Result<()> {
           "expected FakeIOException, got {source}"
         );
       },
-      other => return Err(other),
+      _ => return Err(error),
     }
   }
   fail_on_delete_commits.store(false, Ordering::SeqCst);

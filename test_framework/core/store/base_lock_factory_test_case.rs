@@ -27,7 +27,7 @@ use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::lock::Lock;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, new_index_writer_config_with_analyzer, new_searcher_with_reader,
@@ -66,8 +66,10 @@ where
     let mut l = dir.obtain_lock("commit")?;
     // shouldn't be able to get the lock twice
     assert!(matches!(
-      dir.obtain_lock("commit"),
-      Err(LuceneError::LockObtainFailed(_))
+      (dir.obtain_lock("commit"))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::LockObtainFailed(_))
     ));
     l.close()?;
 
@@ -117,8 +119,8 @@ where
     l.close()?;
 
     assert!(matches!(
-      l.ensure_valid(),
-      Err(LuceneError::AlreadyClosed(_))
+      (l.ensure_valid()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
     ));
     Ok(())
   }

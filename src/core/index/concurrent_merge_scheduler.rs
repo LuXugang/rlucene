@@ -36,7 +36,9 @@ use crate::core::store::directory::Directory;
 use crate::core::store::rate_limited_directory::RateLimitedDirectory;
 use crate::core::store::rate_limiter::RateLimiter;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_stream};
 #[cfg(test)]
 use crate::test_framework::core::index::suppressing_concurrent_merge_scheduler::SuppressingConcurrentMergeScheduler;
@@ -1434,7 +1436,8 @@ impl ConcurrentMergeScheduler {
     // Let CMS run new merges if necessary:
     let merge_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       match self.merge_locked(&mut inner, merge_source, MergeTrigger::MergeFinished) {
-        Ok(()) | Err(LuceneError::AlreadyClosed(_)) => Ok(()),
+        Ok(()) => Ok(()),
+        Err(err) if matches!(err.kind(), LuceneErrorKind::AlreadyClosed(_)) => Ok(()),
         Err(err) if err.is_io_error() => {
           let mut unchecked = LuceneError::unchecked_io_error(err.to_string());
           unchecked.add_suppressed(err);
@@ -1589,7 +1592,12 @@ where
         merge_scheduler.changed.notify_all();
       }
       drop(inner);
-      if matches!(&merge_result, Ok(Err(LuceneError::MergeAborted(_)))) {
+      if matches!(
+        merge_result
+          .as_ref()
+          .map(|result| result.as_ref().map_err(LuceneError::kind)),
+        Ok(Err(LuceneErrorKind::MergeAborted(_)))
+      ) {
         // OK to ignore.
         Ok(())
       } else if !merge_scheduler.inner.lock().suppress_exceptions {
@@ -1669,7 +1677,7 @@ impl ConcurrentMergeSchedulerDefaults {
     let mut merge_error =
       crate::core::util::error::MergeError::new(format!("merge failed: {failure}"));
     merge_error.add_suppressed(failure);
-    Err(LuceneError::Merge(merge_error))
+    Err(LuceneErrorKind::Merge(merge_error).into())
   }
 }
 

@@ -24,7 +24,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::Eof;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{CoreHelper, TryIntoInt};
 #[cfg(unix)]
@@ -441,9 +441,9 @@ impl MemorySegmentIndexInput {
         Ok(())
       })()
     };
-    result.map_err(|error| match error {
-      LuceneError::Eof(_) => LuceneError::eof(format!("seek past EOF (pos={pos}): {self}")),
-      error => error,
+    result.map_err(|error| match error.kind() {
+      LuceneErrorKind::Eof(_) => LuceneError::eof(format!("seek past EOF (pos={pos}): {self}")),
+      _ => error,
     })
   }
 
@@ -920,7 +920,7 @@ impl DataInput for MemorySegmentIndexInput {
         *position += 1;
         return Ok(value);
       }
-      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+      return Err(LuceneErrorKind::Eof(self.read_single_scalar_eof()).into());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
@@ -980,7 +980,7 @@ impl DataInput for MemorySegmentIndexInput {
         *position += 2;
         return Ok(value);
       }
-      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+      return Err(LuceneErrorKind::Eof(self.read_single_scalar_eof()).into());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
@@ -1003,7 +1003,7 @@ impl DataInput for MemorySegmentIndexInput {
         *position += 4;
         return Ok(value);
       }
-      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+      return Err(LuceneErrorKind::Eof(self.read_single_scalar_eof()).into());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
@@ -1026,7 +1026,7 @@ impl DataInput for MemorySegmentIndexInput {
         *position += 8;
         return Ok(value);
       }
-      return Err(LuceneError::Eof(self.read_single_scalar_eof()));
+      return Err(LuceneErrorKind::Eof(self.read_single_scalar_eof()).into());
     }
     let position = self.position.get_mut();
     let state = self.state.get_mut();
@@ -1053,7 +1053,7 @@ impl DataInput for MemorySegmentIndexInput {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let Some(byte_len) = len.checked_mul(4) else {
-      return Err(LuceneError::Eof(Self::scalar_eof()));
+      return Err(LuceneErrorKind::Eof(Self::scalar_eof()).into());
     };
     if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
@@ -1086,7 +1086,7 @@ impl DataInput for MemorySegmentIndexInput {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let Some(byte_len) = len.checked_mul(8) else {
-      return Err(LuceneError::Eof(Self::scalar_eof()));
+      return Err(LuceneErrorKind::Eof(Self::scalar_eof()).into());
     };
     if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
@@ -1119,7 +1119,7 @@ impl DataInput for MemorySegmentIndexInput {
     let state = self.state.get_mut();
     let position = self.position.get_mut();
     let Some(byte_len) = len.checked_mul(4) else {
-      return Err(LuceneError::Eof(Self::scalar_eof()));
+      return Err(LuceneErrorKind::Eof(Self::scalar_eof()).into());
     };
     if let Some(bytes) = state.current_range(*position, byte_len)
       && let Some(target) = dst.get_mut(offset..).and_then(|s| s.get_mut(..len))
@@ -1367,7 +1367,7 @@ impl RandomAccessInput for MemorySegmentIndexInput {
           data[pos..pos + 2].try_into().map_err(|_| Self::eof())?,
         ));
       }
-      return Err(LuceneError::Eof(Self::scalar_eof()));
+      return Err(LuceneErrorKind::Eof(Self::scalar_eof()).into());
     }
     Ok(i16::from_le_bytes(self.read_small_multi::<2>(pos)?))
   }
@@ -1382,7 +1382,7 @@ impl RandomAccessInput for MemorySegmentIndexInput {
           data[pos..pos + 4].try_into().map_err(|_| Self::eof())?,
         ));
       }
-      return Err(LuceneError::Eof(Self::scalar_eof()));
+      return Err(LuceneErrorKind::Eof(Self::scalar_eof()).into());
     }
     Ok(i32::from_le_bytes(self.read_small_multi::<4>(pos)?))
   }
@@ -1397,7 +1397,7 @@ impl RandomAccessInput for MemorySegmentIndexInput {
           data[pos..pos + 8].try_into().map_err(|_| Self::eof())?,
         ));
       }
-      return Err(LuceneError::Eof(Self::scalar_eof()));
+      return Err(LuceneErrorKind::Eof(Self::scalar_eof()).into());
     }
     Ok(i64::from_le_bytes(self.read_small_multi::<8>(pos)?))
   }

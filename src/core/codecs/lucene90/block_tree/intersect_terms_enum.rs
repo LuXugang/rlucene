@@ -28,7 +28,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::compiled_automaton::AutomatonEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fst_impl::fst::Arc;
 use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
 use crate::core::util::{StringHelper, ToInt};
@@ -609,8 +609,8 @@ where
     match self.next_() {
       Ok(Some(v)) => Ok(Some(v)),
       Ok(None) => Ok(None),
-      Err(e) => match e {
-        LuceneError::NoMoreTerms(_) => Ok(None),
+      Err(e) => match e.kind() {
+        LuceneErrorKind::NoMoreTerms(_) => Ok(None),
         _ => Err(e),
       },
     }

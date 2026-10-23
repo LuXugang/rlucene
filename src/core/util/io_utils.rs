@@ -25,7 +25,7 @@ use linked_hash_map::LinkedHashMap;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef, CloseableWrite};
 use crate::core::util::error::lucene_error::{
-  CaughtResult, LuceneError, PanicWithSuppressed, Result, SuppressedFailure,
+  CaughtResult, LuceneError, LuceneErrorKind, PanicWithSuppressed, Result, SuppressedFailure,
 };
 #[cfg(test)]
 use crate::test_framework::core::util::failure_context::{
@@ -534,10 +534,13 @@ impl IOUtils {
       let absolute = std::path::absolute(&path).unwrap_or(path);
       writeln!(message, "   {}: {error}", absolute.display())?;
     }
-    Err(LuceneError::Io {
-      source: io::Error::other(message),
-      suppressed: None,
-    })
+    Err(
+      LuceneErrorKind::Io {
+        source: io::Error::other(message),
+        suppressed: None,
+      }
+      .into(),
+    )
   }
 
   fn rm_path(unremoved: &mut LinkedHashMap<PathBuf, io::Error>, location: &Path) {

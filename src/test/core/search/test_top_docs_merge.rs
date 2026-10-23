@@ -44,7 +44,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, is_night_mode, new_directory_shared, new_searcher_with_reader,
@@ -150,7 +150,10 @@ fn test_inconsistent_top_docs_fail() {
   }
 
   let err = top_docs::merge_top_docs_with_start(0, 2, top_docs);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]

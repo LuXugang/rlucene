@@ -49,7 +49,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
@@ -343,12 +343,18 @@ fn test_close_inner_reader() -> Result<()> {
   let result = psub
     .stored_fields()
     .and_then(|mut stored_fields| stored_fields.document(0).map(|_| ()));
-  assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
+  ));
 
   let result = pr
     .stored_fields()
     .and_then(|mut stored_fields| stored_fields.document(0).map(|_| ()));
-  assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
+  ));
 
   // No-op.
   pr.close()?;
@@ -385,15 +391,19 @@ fn test_incompatible_indexes1() -> Result<()> {
   let ir2 = Arc::new(directory_reader::open(dir2.clone())?);
 
   assert!(matches!(
-    ParallelCompositeReader::new(vec![ir1.clone(), ir2.clone()]),
-    Err(LuceneError::IllegalArgument(_))
+    (ParallelCompositeReader::new(vec![ir1.clone(), ir2.clone()]))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    ParallelCompositeReader::new_with_close_sub_readers(
+    (ParallelCompositeReader::new_with_close_sub_readers(
       random.random_bool(0.5),
       vec![ir1.clone(), ir2.clone()]
-    ),
-    Err(LuceneError::IllegalArgument(_))
+    ))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   assert_eq!(1, ir1.get_ref_count());
@@ -416,16 +426,20 @@ fn test_incompatible_indexes2() -> Result<()> {
   let ir2 = Arc::new(directory_reader::open(dir2.clone())?);
   let readers = vec![ir1.clone(), ir2.clone()];
   assert!(matches!(
-    ParallelCompositeReader::new(readers.clone()),
-    Err(LuceneError::IllegalArgument(_))
+    (ParallelCompositeReader::new(readers.clone()))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    ParallelCompositeReader::new_with_stored_fields(
+    (ParallelCompositeReader::new_with_stored_fields(
       random.random_bool(0.5),
       readers.clone(),
       readers
-    ),
-    Err(LuceneError::IllegalArgument(_))
+    ))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   assert_eq!(1, ir1.get_ref_count());
@@ -532,8 +546,10 @@ fn test_ignore_stored_fields() -> Result<()> {
 
   // No main readers.
   assert!(matches!(
-    ParallelCompositeReader::new_with_stored_fields(true, Vec::new(), vec![ir1]),
-    Err(LuceneError::IllegalArgument(_))
+    (ParallelCompositeReader::new_with_stored_fields(true, Vec::new(), vec![ir1]))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   dir1.close()?;

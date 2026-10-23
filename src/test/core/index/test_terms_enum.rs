@@ -56,7 +56,7 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::per_thread_pk_lookup::PerThreadPKLookup;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -1184,8 +1184,11 @@ fn test_intersect_regexp() -> Result<()> {
   let ca = CompiledAutomaton::from_automaton(automaton)?;
 
   let err = terms.intersect(&ca, None);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  if let Err(LuceneError::IllegalArgument(msg)) = err {
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
+  if let Err(LuceneErrorKind::IllegalArgument(msg)) = err.as_ref().map_err(LuceneError::kind) {
     assert_eq!(
       "please use CompiledAutomaton.getTermsEnum instead",
       msg.to_string()
@@ -1202,6 +1205,9 @@ fn test_invalid_automaton_terms_enum() -> Result<()> {
   let ca = CompiledAutomaton::from_automaton(automaton)?;
 
   let err = AutomatonTermsEnum::new(EmptyTermsEnum, &ca);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }

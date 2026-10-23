@@ -23,7 +23,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
 };
@@ -72,8 +72,8 @@ fn do_test_change_index_options_via_add_document(
       from, to
     );
 
-    match res {
-      Err(LuceneError::IllegalArgument(msg)) => {
+    match (res).map_err(LuceneError::into_kind) {
+      Err(LuceneErrorKind::IllegalArgument(msg)) => {
         assert_eq!(expected, msg.message);
       },
       other => {
@@ -140,7 +140,10 @@ where
     reader.close()?;
   } else {
     let err = w1.add_indexes_from_codec_readers(vec![leaf]);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     assert_eq!(
       format!(
         "cannot change field \"foo\" from index options={} to inconsistent index options={}",
@@ -211,7 +214,10 @@ where
     reader.close()?;
   } else {
     let err = w1.add_indexes_from_directory(std::slice::from_ref(&dir2));
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     assert_eq!(
       format!(
         "cannot change field \"foo\" from index options={} to inconsistent index options={}",

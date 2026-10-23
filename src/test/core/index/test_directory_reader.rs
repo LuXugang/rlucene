@@ -59,7 +59,7 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::fs_lock_factory;
 use crate::core::util::LATEST;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper;
@@ -660,24 +660,24 @@ fn test_open_reader_after_delete() -> Result<()> {
   let dir = new_fs_directory(&mut random, dir_file)?;
   dir.set_check_index_on_close(false);
 
-  match directory_reader::open(dir.clone()) {
-    Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
-    Err(LuceneError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {},
-    Err(LuceneError::IoWithPath { source, .. })
+  match (directory_reader::open(dir.clone())).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::IndexNotFound(_)) | Err(LuceneErrorKind::NoSuchFile(_)) => {},
+    Err(LuceneErrorKind::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {},
+    Err(LuceneErrorKind::IoWithPath { source, .. })
       if source.kind() == std::io::ErrorKind::NotFound => {},
-    Err(err) => return Err(err),
+    Err(err) => return Err(err.into()),
     Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
   }
 
   IOUtils::rm([Some(&path)])?;
 
   // Make sure we still get an index-not-found error (not a panic):
-  match directory_reader::open(dir.clone()) {
-    Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
-    Err(LuceneError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {},
-    Err(LuceneError::IoWithPath { source, .. })
+  match (directory_reader::open(dir.clone())).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::IndexNotFound(_)) | Err(LuceneErrorKind::NoSuchFile(_)) => {},
+    Err(LuceneErrorKind::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {},
+    Err(LuceneErrorKind::IoWithPath { source, .. })
       if source.kind() == std::io::ErrorKind::NotFound => {},
-    Err(err) => return Err(err),
+    Err(err) => return Err(err.into()),
     Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
   }
 
@@ -950,7 +950,7 @@ fn test_no_dir() -> Result<()> {
   let dir = new_fs_directory(&mut random, temp_dir)?;
   match directory_reader::open(dir) {
     Ok(_) => panic!("expected IndexNotFound"),
-    Err(err) => assert!(matches!(err, LuceneError::IndexNotFound(_))),
+    Err(err) => assert!(matches!(err.kind(), LuceneErrorKind::IndexNotFound(_))),
   }
   Ok(())
 }
@@ -1422,7 +1422,7 @@ fn test_open_with_invalid_min_compat_version() -> Result<()> {
       reader.close()?;
       unreachable!("expected IllegalArgument");
     },
-    Err(err) => assert!(matches!(err, LuceneError::IllegalArgument(_))),
+    Err(err) => assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_))),
   }
 
   directory_reader::open_with_version::<_, _>(commit, LATEST.major, None)?.close()?;

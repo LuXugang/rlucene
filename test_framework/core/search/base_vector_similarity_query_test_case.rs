@@ -42,7 +42,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
 use crate::core::util::{CoreHelper, HasIdentity};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -632,7 +632,10 @@ pub trait BaseVectorSimilarityQueryTestCase {
     )?;
 
     let result = searcher.search(query, num_docs);
-    assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
 
     Ok(())
   }

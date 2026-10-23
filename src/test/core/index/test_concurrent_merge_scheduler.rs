@@ -37,7 +37,7 @@ use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -191,8 +191,8 @@ fn test_flush_exceptions() -> Result<()> {
           // the actual closing for us. this is rare but might happen since the
           // The tragic event is checked by the index file deleter and that might return an error during a merge.
           assert!(matches!(
-            writer.ensure_open(),
-            Err(LuceneError::AlreadyClosed(_))
+            (writer.ensure_open()).as_ref().map_err(LuceneError::kind),
+            Err(LuceneErrorKind::AlreadyClosed(_))
           ));
           // Abort should have closed the deleter:
           assert!(writer.is_deleter_closed()?);
@@ -513,16 +513,18 @@ fn test_total_bytes_size() -> Result<()> {
 fn test_invalid_max_merge_count_and_threads() -> Result<()> {
   let cms = ConcurrentMergeScheduler::new();
   assert!(matches!(
-    cms
+    (cms
       .set_max_merges_and_threads(AUTO_DETECT_MERGES_AND_THREADS, 3)
-      .unwrap_err(),
-    LuceneError::IllegalArgument(_)
+      .unwrap_err())
+    .kind(),
+    LuceneErrorKind::IllegalArgument(_)
   ));
   assert!(matches!(
-    cms
+    (cms
       .set_max_merges_and_threads(3, AUTO_DETECT_MERGES_AND_THREADS)
-      .unwrap_err(),
-    LuceneError::IllegalArgument(_)
+      .unwrap_err())
+    .kind(),
+    LuceneErrorKind::IllegalArgument(_)
   ));
   Ok(())
 }
@@ -821,17 +823,19 @@ fn test_reset_to_auto_default() -> Result<()> {
   assert_eq!(3, cms.get_max_thread_count());
 
   assert!(matches!(
-    cms
+    (cms
       .set_max_merges_and_threads(AUTO_DETECT_MERGES_AND_THREADS, 4)
-      .unwrap_err(),
-    LuceneError::IllegalArgument(_)
+      .unwrap_err())
+    .kind(),
+    LuceneErrorKind::IllegalArgument(_)
   ));
 
   assert!(matches!(
-    cms
+    (cms
       .set_max_merges_and_threads(4, AUTO_DETECT_MERGES_AND_THREADS)
-      .unwrap_err(),
-    LuceneError::IllegalArgument(_)
+      .unwrap_err())
+    .kind(),
+    LuceneErrorKind::IllegalArgument(_)
   ));
 
   cms.set_max_merges_and_threads(

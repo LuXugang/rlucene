@@ -18,7 +18,7 @@
 
 use crate::core::index::BytesRef;
 use crate::core::util::StringHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::{new_bytes_ref_from_string, random};
 
 #[allow(dead_code)] // for quick search
@@ -71,7 +71,10 @@ fn test_bytes_difference() -> Result<()> {
     &new_bytes_ref_from_string(&mut random, "ab")?,
     &new_bytes_ref_from_string(&mut random, "ab")?,
   );
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 #[test]

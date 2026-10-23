@@ -28,7 +28,7 @@ use crate::core::util::automation::finite_strings_iterator::{
 };
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
@@ -183,7 +183,10 @@ fn test_with_cycle() {
     get_finite_strings(&mut iterator)?;
     Ok::<(), LuceneError>(())
   })();
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]

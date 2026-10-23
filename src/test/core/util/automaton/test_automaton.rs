@@ -35,7 +35,7 @@ use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::automation::utf32_to_utf8::UTF32ToUTF8;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
@@ -215,7 +215,10 @@ fn test_common_prefix_dead_states() -> Result<()> {
   let with_dead_states = Operations::reverse(&Operations::reverse(&a)?)?;
 
   let result = Operations::get_common_prefix(&with_dead_states);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(
     result
       .unwrap_err()
@@ -2129,8 +2132,8 @@ fn test_determinize_too_much_effort() {
     Ok::<(), LuceneError>(())
   })();
   assert!(matches!(
-    result,
-    Err(LuceneError::TooComplexToDeterminize(_))
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooComplexToDeterminize(_))
   ));
 
   let result = (|| {
@@ -2140,7 +2143,7 @@ fn test_determinize_too_much_effort() {
     Ok::<(), LuceneError>(())
   })();
   assert!(matches!(
-    result,
-    Err(LuceneError::TooComplexToDeterminize(_))
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooComplexToDeterminize(_))
   ));
 }

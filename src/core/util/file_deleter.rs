@@ -18,7 +18,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::index_writer::IndexWriterDir;
 use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -265,11 +265,9 @@ where
       Ok(_) => Ok(()),
       Err(e) => {
         if cfg!(target_os = "windows") {
-          if matches!(
-              e,
-              LuceneError::Io { ref source, .. }
-                  if source.kind() == std::io::ErrorKind::NotFound
-          ) {
+          if matches!(e.kind(), LuceneErrorKind::Io { source, .. }
+                  if source.kind() == std::io::ErrorKind::NotFound)
+          {
             Ok(())
           } else {
             Err(e)

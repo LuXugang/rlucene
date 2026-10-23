@@ -27,7 +27,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::print_stream_info_stream::PrintStreamInfoStream;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
@@ -65,7 +65,10 @@ fn test_info_stream_gets_field_name() -> Result<()> {
     STORED_TEXT_TYPE.clone(),
   ));
   let result = writer.add_document(doc);
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalState(_))
+  ));
   let info_stream = info_bytes_to_string(&print_stream_info_stream);
   assert!(info_stream.contains("distinctiveFieldName"));
 

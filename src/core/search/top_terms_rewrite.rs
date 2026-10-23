@@ -31,7 +31,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::term_collecting_rewrite::{TermCollectingRewrite, TermCollector};
 use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -191,7 +191,9 @@ impl TermCollector for TermCollectorImpl {
       attr.get_boost()
     })() {
       Ok(boost) => boost,
-      Err(LuceneError::UnsupportedOperation(_)) => DEFAULT_BOOST,
+      Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
+        DEFAULT_BOOST
+      },
       Err(e) => return Err(e),
     };
 
@@ -272,7 +274,8 @@ impl TermCollector for TermCollectorImpl {
           Ok(())
         })();
         match result {
-          Err(LuceneError::UnsupportedOperation(_)) | Ok(_) => {},
+          Ok(_) => {},
+          Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {},
           Err(e) => return Err(e),
         }
       }

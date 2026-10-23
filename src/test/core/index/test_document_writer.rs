@@ -60,7 +60,7 @@ use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::util::LATEST;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::number::Number;
 use crate::test_framework::core::analysis::mock_analyzer::{MockAnalyzer, WHITESPACE};
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
@@ -582,7 +582,10 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
     doc.add(field);
     let res = writer.add_document(doc);
     assert!(
-      matches!(res, Err(LuceneError::IllegalArgument(_))),
+      matches!(
+        res.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ),
       "expected IllegalArgument but got: {:?}",
       res
     );
@@ -602,7 +605,10 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
     doc.add(field);
     let res = writer.add_document(doc);
     assert!(
-      matches!(res, Err(LuceneError::IllegalArgument(_))),
+      matches!(
+        res.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ),
       "expected IllegalArgument but got: {:?}",
       res
     );

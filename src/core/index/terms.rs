@@ -25,7 +25,7 @@ use crate::core::index::terms_enum::{
 use crate::core::index::{BytesRef, BytesRefBuilder, BytesRefValue};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneErrorKind, Result};
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -138,7 +138,7 @@ pub trait Terms {
         })();
         match seek_result {
           Ok(term) => return Ok(Some(term)),
-          Err(LuceneError::UnsupportedOperation(_)) => {},
+          Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {},
           Err(error) => return Err(error),
         }
       },

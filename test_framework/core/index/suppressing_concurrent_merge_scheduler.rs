@@ -21,7 +21,9 @@ use crate::core::index::concurrent_merge_scheduler::{
 use crate::core::index::merge_policy::OneMerge;
 use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 use std::sync::Arc;
 
 /** A `ConcurrentMergeScheduler` hook that ignores expected merge errors. */
@@ -63,7 +65,7 @@ impl SuppressingConcurrentMergeScheduler {
     match self.expected {
       ExpectedMergeException::All => true,
       ExpectedMergeException::WriterClosedOrTragic => {
-        matches!(error, LuceneError::AlreadyClosed(_))
+        matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_))
           || error.is_illegal_state_error()
             && error
               .to_string()

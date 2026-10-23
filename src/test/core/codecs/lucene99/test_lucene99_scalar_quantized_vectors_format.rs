@@ -37,7 +37,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::vector_util::VectorUtil;
@@ -241,24 +241,32 @@ fn test_to_string() -> Result<()> {
 #[test]
 fn test_limits() -> Result<()> {
   assert!(matches!(
-    Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(
+    (Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(
       Some(1.1),
       7,
       false
-    ),
-    Err(LuceneError::IllegalArgument(_))
+    ))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(None, -1, false),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(None, -1, false))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(None, 5, false),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(None, 5, false))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(None, 9, false),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99ScalarQuantizedVectorsFormat::with_confidence_interval_bits_compress(None, 9, false))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   Ok(())
 }

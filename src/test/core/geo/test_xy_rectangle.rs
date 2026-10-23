@@ -18,7 +18,7 @@ use crate::core::geo::component2d::Component2D;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::util::core_helper::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -29,55 +29,85 @@ struct TestXYRectangle;
 #[test]
 fn test_invalid_min_max_x() {
   let err = XYRectangle::new(5.0, 4.0, 3.0, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("5 > 4"));
 }
 
 #[test]
 fn test_invalid_min_max_y() {
   let err = XYRectangle::new(4.0, 5.0, 5.0, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("5 > 4"));
 }
 
 #[test]
 fn test_nan() {
   let err = XYRectangle::new(f32::NAN, 4.0, 3.0, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value NaN"));
 
   let err = XYRectangle::new(3.0, f32::NAN, 3.0, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value NaN"));
 
   let err = XYRectangle::new(3.0, 4.0, f32::NAN, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value NaN"));
 
   let err = XYRectangle::new(3.0, 4.0, 3.0, f32::NAN);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value NaN"));
 }
 
 #[test]
 fn test_positive_inf() {
   let err = XYRectangle::new(3.0, f32::INFINITY, 3.0, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value inf"));
 
   let err = XYRectangle::new(3.0, 4.0, 3.0, f32::INFINITY);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value inf"));
 }
 
 #[test]
 fn test_negative_inf() {
   let err = XYRectangle::new(f32::NEG_INFINITY, 4.0, 3.0, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value -inf"));
 
   let err = XYRectangle::new(3.0, 4.0, f32::NEG_INFINITY, 4.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("invalid value -inf"));
 }
 

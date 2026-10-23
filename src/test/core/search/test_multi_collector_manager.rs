@@ -29,7 +29,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -254,8 +254,10 @@ fn test_early_termination() -> Result<()> {
   let cm3 = CollectorManagerEnum::Terminating(TerminatingCollectorManager);
   let mcm = MultiCollectorManager::new(vec![&cm2, &cm3])?;
   assert!(matches!(
-    collect_all(&leaves[0], &expected, &mcm),
-    Err(LuceneError::CollectionTerminated(_))
+    (collect_all(&leaves[0], &expected, &mcm))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::CollectionTerminated(_))
   ));
   reader.close()?;
   Ok(())

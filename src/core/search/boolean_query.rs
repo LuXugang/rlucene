@@ -965,7 +965,7 @@ impl Builder {
   ///
   /// # Errors
   ///
-  /// Returns [`LuceneError::TooManyClauses`] if the new number of clauses exceeds the maximum
+  /// Returns [`LuceneErrorKind::TooManyClauses`] if the new number of clauses exceeds the maximum
   /// clause count.
   pub fn add_clause(&mut self, clause: BooleanClause) -> Result<&mut Self> {
     // We do the final deep check for max clauses count limit during
@@ -989,7 +989,7 @@ impl Builder {
   ///
   /// # Errors
   ///
-  /// Returns [`LuceneError::TooManyClauses`] if the new number of clauses exceeds
+  /// Returns [`LuceneErrorKind::TooManyClauses`] if the new number of clauses exceeds
   /// the maximum clause count.
   pub fn add_all<I>(&mut self, collection: I) -> Result<&mut Self>
   where
@@ -1009,7 +1009,7 @@ impl Builder {
   ///
   /// # Errors
   ///
-  /// Returns [`LuceneError::TooManyClauses`] if the new number of clauses exceeds
+  /// Returns [`LuceneErrorKind::TooManyClauses`] if the new number of clauses exceeds
   /// the maximum clause count.
   pub fn add<Q>(&mut self, query: Q, occur: Occur) -> Result<&mut Self>
   where

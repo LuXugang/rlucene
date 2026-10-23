@@ -21,7 +21,7 @@ use rand::Rng;
 use rand::RngExt;
 
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::long_heap::LongHeap;
 #[allow(dead_code)] // for quick search
 struct TestLongHeap;
@@ -149,12 +149,14 @@ fn test_insertions() -> Result<()> {
 #[test]
 fn test_invalid() -> Result<()> {
   assert!(matches!(
-    LongHeap::new(0),
-    Err(LuceneError::IllegalArgument(_))
+    (LongHeap::new(0)).as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    LongHeap::new(ArrayUtil::MAX_ARRAY_LENGTH),
-    Err(LuceneError::IllegalArgument(_))
+    (LongHeap::new(ArrayUtil::MAX_ARRAY_LENGTH))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   Ok(())
 }

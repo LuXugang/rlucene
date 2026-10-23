@@ -18,7 +18,7 @@
 use chrono::{DateTime, Datelike, NaiveDate, Timelike, Utc};
 
 use crate::core::document::date_tools::{DateTools, Resolution};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 #[allow(dead_code)] // for quick search
 struct TestDateTools;
@@ -35,16 +35,22 @@ fn test_string_to_date() -> Result<()> {
   assert_eq!("2004-07-05 09:10:55:990", iso_format(d));
 
   assert!(matches!(
-    DateTools::string_to_date("97"),
-    Err(LuceneError::IllegalArgument(_))
+    (DateTools::string_to_date("97"))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    DateTools::string_to_date("200401011235009999"),
-    Err(LuceneError::IllegalArgument(_))
+    (DateTools::string_to_date("200401011235009999"))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    DateTools::string_to_date("aaaa"),
-    Err(LuceneError::IllegalArgument(_))
+    (DateTools::string_to_date("aaaa"))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   Ok(())
 }

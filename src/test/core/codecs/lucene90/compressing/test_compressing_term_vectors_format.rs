@@ -31,7 +31,7 @@ use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
@@ -197,10 +197,16 @@ fn test_no_ords() -> Result<()> {
     );
 
     let err = terms_enum.ord();
-    assert!(matches!(err, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
 
     let err = terms_enum.seek_exact_with_ord(0);
-    assert!(matches!(err, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
 
     ir.close()?;
     iw.close(&mut *random)?;

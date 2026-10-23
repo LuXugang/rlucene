@@ -42,7 +42,7 @@ use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::analysis::token::Token;
@@ -196,7 +196,10 @@ fn test_phrase_prefix() -> Result<()> {
     .add_term(Term::from_text("field1", "foo"))?
     .add_term(Term::from_text("field2", "foobar"));
 
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 
@@ -789,7 +792,10 @@ fn test_negative_slop() -> Result<()> {
 
   let err = query_builder.set_slop(-2);
 
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   Ok(())
 }

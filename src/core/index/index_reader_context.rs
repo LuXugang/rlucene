@@ -33,7 +33,7 @@ pub trait IndexReaderContext {
   ///
   /// # Error
   ///
-  /// Returns [`LuceneError::UnsupportedOperation`](crate::core::util::error::lucene_error::LuceneError::UnsupportedOperation) if this is not a top-level context.
+  /// Returns [`LuceneErrorKind::UnsupportedOperation`](crate::core::util::error::lucene_error::LuceneErrorKind::UnsupportedOperation) if this is not a top-level context.
   fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]>;
 
   fn base(&self) -> &IndexReaderContextBase;

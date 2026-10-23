@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::polygon::{Polygon, from_geo_json};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 #[allow(dead_code)] // for quick search
 struct TestPolygon;
 
@@ -34,7 +34,10 @@ fn test_polygon_null_poly_lons() -> Result<()> {
 #[test]
 fn test_polygon_line() {
   let err = Polygon::new(vec![18.0, 18.0, 18.0], vec![-66.0, -65.0, -66.0], vec![]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("at least 4 polygon points required"));
   }
@@ -47,7 +50,10 @@ fn test_polygon_bogus() {
     vec![-66.0, -65.0, -65.0, -66.0, -66.0],
     vec![],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("must be equal length"));
   }
@@ -60,7 +66,10 @@ fn test_polygon_not_closed() {
     vec![-66.0, -65.0, -65.0, -66.0, -67.0],
     vec![],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("it must close itself"));
   }
@@ -300,7 +309,10 @@ fn test_illegal_geojson_extra_crap_at_end() {
   b.push_str("foo\n");
 
   let err = from_geo_json(&b);
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalState(_))
+  ));
   if let Err(e) = err {
     assert!(
       e.to_string()
@@ -328,7 +340,10 @@ fn test_illegal_geojson_linked_crs() {
   b.push_str("}\n");
 
   let err = from_geo_json(&b);
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalState(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("cannot handle linked crs"));
   }
@@ -372,7 +387,10 @@ fn test_illegal_geojson_multiple_features() {
   b.push_str("}    \n");
 
   let err = from_geo_json(&b);
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalState(_))
+  ));
   if let Err(e) = err {
     assert!(e
         .to_string()

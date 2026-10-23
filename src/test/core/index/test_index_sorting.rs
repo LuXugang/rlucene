@@ -80,7 +80,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -2550,8 +2550,8 @@ fn test_bad_dv_update() -> Result<()> {
       vec![NumericDocValuesField::new("foo", -1).into()],
     )
     .unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         "cannot update docvalues field involved in the index sort, field=foo, sort=<long: \"foo\">",
         msg.message.as_str()
@@ -2563,8 +2563,8 @@ fn test_bad_dv_update() -> Result<()> {
   let err = writer
     .update_numeric_doc_value(Term::from_text("id", "0"), "foo", -1)
     .unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         "cannot update docvalues field involved in the index sort, field=foo, sort=<long: \"foo\">",
         msg.message.as_str()
@@ -2705,7 +2705,10 @@ fn test_bad_add_indexes() -> Result<()> {
     drop(w2);
 
     let err = w.add_indexes_from_directory(std::slice::from_ref(&dir2));
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     assert!(
       err
         .unwrap_err()
@@ -2720,7 +2723,10 @@ fn test_bad_add_indexes() -> Result<()> {
     }
 
     let err = w.add_indexes_from_codec_readers(codec_readers);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     assert!(
       err
         .unwrap_err()
@@ -2875,8 +2881,8 @@ fn test_bad_sort() -> Result<()> {
   let mut iwc = IndexWriterConfig::<DirEnum>::with_analyzer(analyzer)?;
 
   let err = iwc.set_index_sort(Sort::get_relevance()?).err().unwrap();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         "Cannot sort index with sort field <score>",
         msg.message.as_str()
@@ -2911,8 +2917,8 @@ fn test_illegal_change_sort() -> Result<()> {
   iwc2.set_index_sort(index_sort)?;
 
   let err = IndexWriter::new(dir.clone(), iwc2).err().unwrap();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       let message = msg.message.as_str();
       assert!(message.contains("cannot change previous indexSort=<long: \"foo\">"));
       assert!(message.contains("to new indexSort=<long: \"bar\">"));
@@ -3699,8 +3705,8 @@ fn test_wrong_sort_field_type() -> Result<()> {
       let mismatched_dv_type = *dvs[j]().field_type().doc_values_type();
       doc.add(dvs[j]());
       let err = writer.add_document(&mut doc).unwrap_err();
-      match err {
-        LuceneError::IllegalArgument(msg) => {
+      match err.kind() {
+        LuceneErrorKind::IllegalArgument(msg) => {
           assert!(
             msg
               .message
@@ -3717,8 +3723,8 @@ fn test_wrong_sort_field_type() -> Result<()> {
       writer.add_document(&mut doc)?;
       doc.add(dvs[j]());
       let err = writer.add_document(&mut doc).unwrap_err();
-      match err {
-        LuceneError::IllegalArgument(msg) => {
+      match err.kind() {
+        LuceneErrorKind::IllegalArgument(msg) => {
           assert_eq!(
             format!(
               "Inconsistency of field data structures across documents for field [field] of doc [2]. doc values type: expected '{}', but it has '{}'.",
@@ -4192,8 +4198,8 @@ fn test_parent_field_not_configured() -> Result<()> {
     .add_documents(vec![Document::new(), Document::new()])
     .unwrap_err();
 
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
         msg.message.as_str()
@@ -4237,8 +4243,8 @@ fn test_block_contains_parent_field() -> Result<()> {
         .unwrap_err()
     };
 
-    match err {
-      LuceneError::IllegalArgument(msg) => {
+    match err.kind() {
+      LuceneErrorKind::IllegalArgument(msg) => {
         assert_eq!(
           "\"parent\" is a reserved field and should not be added to any document",
           msg.message.as_str()

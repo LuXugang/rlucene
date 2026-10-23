@@ -33,7 +33,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::util::attribute::Attribute;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
@@ -229,8 +229,10 @@ fn test_payloads_without_positions() -> Result<()> {
   doc.add(Field::new("field", "foo", custom_type));
 
   assert!(matches!(
-    writer.add_document(&mut random, doc),
-    Err(LuceneError::IllegalArgument(_))
+    (writer.add_document(&mut random, doc))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   writer.close(&mut random)?;
 

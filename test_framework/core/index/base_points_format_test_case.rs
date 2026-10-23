@@ -46,7 +46,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -280,15 +280,15 @@ pub trait BasePointsFormatTestCase:
         Err(e) if e.is_illegal_state_error() => {
           done = self.handle_possibly_fake_exception(e)?;
         },
-        Err(LuceneError::IllegalArgument(msg)) => {
+        Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {
           // This just means we got a too-small maxMB for the maxPointsInLeafNode; just retry w/
           // more heap
           assert!(
-            msg
-              .message
+            error
+              .to_string()
               .contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"),
             "{}",
-            msg.message
+            error
           );
         },
         Err(e) if e.is_io_error() => {
@@ -635,7 +635,7 @@ pub trait BasePointsFormatTestCase:
   {
     let dir = get_directory(random, doc_values.len())?;
     loop {
-      match self.verify_with_expect_exceptions(
+      match (self.verify_with_expect_exceptions(
         random,
         dir.clone(),
         doc_values,
@@ -644,14 +644,16 @@ pub trait BasePointsFormatTestCase:
         num_index_dims,
         num_bytes_per_dim,
         false,
-      ) {
+      ))
+      .map_err(LuceneError::into_kind)
+      {
         Ok(()) => return Ok(()),
-        Err(LuceneError::IllegalArgument(msg)) => {
+        Err(LuceneErrorKind::IllegalArgument(msg)) => {
           let msg = msg.to_string();
           eprintln!("{msg}");
           assert!(msg.contains("either increase maxMBSortInHeap or decrease maxPointsInLeafNode"));
         },
-        Err(err) => return Err(err),
+        Err(err) => return Err(err.into()),
       }
     }
   }

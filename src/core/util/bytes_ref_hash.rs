@@ -247,7 +247,7 @@ where
   ///
   /// # Errors
   /// Returns
-  /// [`LuceneError::MaxBytesLengthExceeded`]
+  /// [`LuceneErrorKind::MaxBytesLengthExceeded`]
   /// if the given bytes are greater than 2 +
   /// [`BYTE_BLOCK_SIZE`](crate::core::util::byte_block_pool::BYTE_BLOCK_SIZE).
   pub fn add<BS>(

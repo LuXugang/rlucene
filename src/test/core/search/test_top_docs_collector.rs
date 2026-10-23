@@ -61,7 +61,7 @@ use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
 use crate::core::store::directory::Directory;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::priority_queue::PriorityQueue;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
@@ -291,7 +291,7 @@ fn test_invalid_arguments() -> Result<()> {
   // start < 0
   let result = tdc.top_docs_with_start(-1);
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if msg.message.eq(
             "Expected value of starting position is between 0 and 5, got -1",
     ))
   );
@@ -303,7 +303,7 @@ fn test_invalid_arguments() -> Result<()> {
   // howMany < 0
   let result = tdc.top_docs_with_start_limit(0, -1);
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if msg.message.eq(
             "Number of hits requested must be greater than 0 but value was -1",
     ))
   );
@@ -379,7 +379,7 @@ fn test_illegal_arguments() -> Result<()> {
   // start < 0
   let result = tdc.top_docs_with_start(-1);
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if msg.message.eq(
         "Expected value of starting position is between 0 and 15, got -1",
     ))
   );
@@ -387,7 +387,7 @@ fn test_illegal_arguments() -> Result<()> {
   // how_many < 0
   let result = tdc.top_docs_with_start_limit(9, -1);
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.eq(
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if msg.message.eq(
         "Number of hits requested must be greater than 0 but value was -1",
     ))
   );

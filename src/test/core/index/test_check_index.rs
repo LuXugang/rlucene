@@ -39,7 +39,7 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::vector_util::VectorUtil;
@@ -363,8 +363,10 @@ fn test_check_index_all_valid() -> Result<()> {
 fn test_invalid_thread_count_argument() {
   let args = vec!["-threadCount".to_string(), "0".to_string()];
   assert!(matches!(
-    CheckIndex::parse_options(&args),
-    Err(LuceneError::IllegalArgument(_))
+    (CheckIndex::parse_options(&args))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 }
 

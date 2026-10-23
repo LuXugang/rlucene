@@ -93,7 +93,9 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::iterator::IteratorExt;
 use crate::core::util::long_bit_set::LongBitSet;
@@ -2052,7 +2054,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         if has_ord {
           let ord = match terms_enum.ord() {
             Ok(ord) => Some(ord),
-            Err(LuceneError::UnsupportedOperation(_)) => {
+            Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
               has_ord = false;
               None
             },

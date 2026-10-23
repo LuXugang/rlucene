@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::longs_ref::LongsRef;
 
 #[allow(dead_code)] // for quick search
@@ -50,6 +50,9 @@ fn test_invalid_deep_copy() -> Result<()> {
   let mut from = LongsRef::from_slice(vec![1, 2], 0, 2);
   from.offset += 1;
   let result = LongsRef::deep_copy_of(&from);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
   Ok(())
 }

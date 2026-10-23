@@ -25,7 +25,7 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -192,7 +192,10 @@ pub trait BaseTestCheckIndex {
 
     // Keep IndexWriter open... should not be able to obtain the write lock.
     let result = CheckIndex::<_, _, Sink>::new(Arc::clone(dir));
-    assert!(matches!(result, Err(LuceneError::LockObtainFailed(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::LockObtainFailed(_))
+    ));
 
     writer.close()
   }

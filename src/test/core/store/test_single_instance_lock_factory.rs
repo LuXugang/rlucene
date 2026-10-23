@@ -47,7 +47,7 @@ mod single_instance_lock_factory_tests {
   use crate::core::store::ByteBuffersDirectory;
   use crate::core::store::base_directory::BaseDirectory;
   use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
-  use crate::core::util::error::lucene_error::{LuceneError, Result};
+  use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
   use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test_framework::core::util::lucene_test_case::{
     new_index_writer_config_with_analyzer, random,
@@ -74,8 +74,10 @@ mod single_instance_lock_factory_tests {
     let mut config = IndexWriterConfig::with_analyzer(analyzer)?;
     config.set_open_mode(OpenMode::Append);
     assert!(matches!(
-      IndexWriter::new(dir, config),
-      Err(LuceneError::LockObtainFailed(_))
+      (IndexWriter::new(dir, config))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::LockObtainFailed(_))
     ));
 
     writer.close()?;

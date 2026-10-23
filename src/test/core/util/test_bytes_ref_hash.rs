@@ -27,7 +27,7 @@ use rand::RngExt;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesRefHash, DirectBytesStartArray};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool};
 use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -466,7 +466,10 @@ fn test_large_value() -> Result<()> {
         if i < sizes.len() - 1 {
           unreachable!("Unexpected error at size: {}: {:?}", size, e);
         }
-        assert!(matches!(e, LuceneError::MaxBytesLengthExceeded(_)));
+        assert!(matches!(
+          e.kind(),
+          LuceneErrorKind::MaxBytesLengthExceeded(_)
+        ));
       },
     }
   }

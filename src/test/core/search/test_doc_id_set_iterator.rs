@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, RangeDISI};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 #[allow(dead_code)] // for quick search
 struct TestDocIdSetIterator;
@@ -36,19 +36,28 @@ fn test_range_basic() -> Result<()> {
 #[test]
 fn test_invalid_range() {
   let err = RangeDISI::new(5, 4);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_invalid_min() {
   let err = RangeDISI::new(-1, 4);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_empty() {
   let err = RangeDISI::new(7, 7);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]

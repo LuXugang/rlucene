@@ -28,7 +28,7 @@ use crate::core::store::{
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::Format::{Packed, PackedSingleBlock};
 use crate::core::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
@@ -1408,7 +1408,10 @@ fn test_block_packed_reader_writer() -> Result<()> {
         assert_eq!(i, it.ord());
       }
       let result = it.next_value(&mut in_ref);
-      assert!(matches!(result, Err(LuceneError::Eof(_))));
+      assert!(matches!(
+        result.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::Eof(_))
+      ));
       assert_eq!(fp, in_ref.get_file_pointer()?);
       in_ref.seek(0)?;
       let mut it2 =
@@ -1452,7 +1455,10 @@ fn test_block_packed_reader_writer() -> Result<()> {
         assert_eq!(i, it.ord());
       }
       let result = it.next_value(&mut in_ref);
-      assert!(matches!(result, Err(LuceneError::Eof(_))));
+      assert!(matches!(
+        result.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::Eof(_))
+      ));
       assert_eq!(fp, in_ref.get_position());
 
       in_ref.set_position(0);

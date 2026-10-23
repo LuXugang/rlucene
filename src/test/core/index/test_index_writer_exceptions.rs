@@ -74,7 +74,7 @@ use crate::core::store::io_context::IOContext;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::{
@@ -324,7 +324,7 @@ where
           .update_document_with_term(Some(id_term.clone()), &mut doc)
       };
       if let Err(error) = result {
-        if !matches!(error, LuceneError::IllegalState(_)) {
+        if !matches!(error.kind(), LuceneErrorKind::IllegalState(_)) {
           DO_FAIL.with(|do_fail| do_fail.set(false));
           return Err(error);
         }
@@ -1309,8 +1309,10 @@ fn test_exception_documents_writer_init() -> Result<()> {
 
   test_point.do_fail.store(true, Ordering::SeqCst);
   assert!(matches!(
-    writer.add_document(doc),
-    Err(LuceneError::IllegalState(_))
+    (writer.add_document(doc))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalState(_))
   ));
 
   writer.close()?;
@@ -1986,13 +1988,13 @@ fn test_out_of_memory_error_rollback() -> Result<()> {
   );
 
   if let Err(error) = writer.close() {
-    assert!(matches!(error, LuceneError::IllegalArgument(_)));
+    assert!(matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)));
   }
 
   let error = writer
     .add_document(Document::new())
     .expect_err("a writer that rolled back after a tragic error must be closed");
-  assert!(matches!(error, LuceneError::AlreadyClosed(_)));
+  assert!(matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)));
   assert!(!directory_reader::index_exists(dir.as_ref())?);
 
   dir.as_ref().close()?;
@@ -2016,8 +2018,8 @@ fn test_rollback_exception_hang() -> Result<()> {
   add_doc(&writer)?;
   test_point.do_fail.store(true, Ordering::SeqCst);
   assert!(matches!(
-    writer.rollback(),
-    Err(LuceneError::IllegalState(_))
+    (writer.rollback()).as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalState(_))
   ));
 
   test_point.do_fail.store(false, Ordering::SeqCst);
@@ -2507,8 +2509,10 @@ fn test_crazy_position_increment_gap() -> Result<()> {
   doc.add(TextField::from_string("foo", "bar", Store::No)?);
   doc.add(TextField::from_string("foo", "bar", Store::No)?);
   assert!(matches!(
-    writer.add_document(doc),
-    Err(LuceneError::IllegalArgument(_))
+    (writer.add_document(doc))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   assert!(writer.get_tragic_exception().get().is_none());

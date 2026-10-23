@@ -244,7 +244,7 @@ impl VectorUtil {
   ///
   /// # Errors
   ///
-  /// returns [`LuceneError::IllegalArgument`] if any component of vector is not finite
+  /// returns [`LuceneErrorKind::IllegalArgument`] if any component of vector is not finite
   pub fn check_finite(v: &[f32]) -> Result<()> {
     let (groups, tail) = v.as_chunks::<8>();
     for (g, group) in groups.iter().enumerate() {

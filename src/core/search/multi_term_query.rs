@@ -53,7 +53,7 @@ use std::sync::Arc;
 ///
 /// **NOTE**: if [`RewriteMethod`] is either [`CONSTANT_SCORE_BOOLEAN_REWRITE`] or
 /// [`SCORING_BOOLEAN_REWRITE`], you may encounter a
-/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses)
+/// [`LuceneErrorKind::TooManyClauses`](crate::core::util::error::lucene_error::LuceneErrorKind::TooManyClauses)
 /// error during searching, which happens when the number of terms to be searched exceeds
 /// [`index_searcher::get_max_clause_count`]. Setting [`RewriteMethod`]
 /// to [`ConstantScoreBlendedRewrite`] or [`ConstantScoreRewrite`] prevents this.
@@ -120,7 +120,7 @@ pub trait RewriteMethod {
 /// This method aims to balance the benefits of both [`ConstantScoreRewrite`] and
 /// [`ConstantScoreRewrite`] by enabling skipping and early termination over costly terms
 /// while limiting the overhead of a BooleanQuery with many terms. It also ensures you cannot hit
-/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses).
+/// [`LuceneErrorKind::TooManyClauses`](crate::core::util::error::lucene_error::LuceneErrorKind::TooManyClauses).
 /// For some use-cases with all low
 /// cost terms, [`ConstantScoreRewrite`] may be more performant. While for some use-cases
 /// with all high cost terms, `ConstantScoreBooleanRewrite` may be better.
@@ -147,7 +147,7 @@ impl RewriteMethod for ConstantScoreBlendedRewrite {
 ///
 /// This method is faster than the BooleanQuery rewrite methods when the number of matched terms
 /// or matched documents is non-trivial. Also, it will never return
-/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses).
+/// [`LuceneErrorKind::TooManyClauses`](crate::core::util::error::lucene_error::LuceneErrorKind::TooManyClauses).
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreRewrite;
 impl RewriteMethod for ConstantScoreRewrite {
@@ -209,14 +209,14 @@ impl RewriteMethod for RewriteMethodEnum {
 /// always better to use [`ConstantScoreRewrite`] instead.
 ///
 /// **NOTE**: This rewrite method will return
-/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses)
+/// [`LuceneErrorKind::TooManyClauses`](crate::core::util::error::lucene_error::LuceneErrorKind::TooManyClauses)
 /// if the number of terms exceeds [`index_searcher::get_max_clause_count`].
 pub const SCORING_BOOLEAN_REWRITE: ScoringBooleanRewrite = ScoringBooleanRewrite;
 /// Like [`SCORING_BOOLEAN_REWRITE`] except scores are not computed. Instead, each matching
 /// document receives a constant score equal to the query's boost.
 ///
 /// **NOTE**: This rewrite method will return
-/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses)
+/// [`LuceneErrorKind::TooManyClauses`](crate::core::util::error::lucene_error::LuceneErrorKind::TooManyClauses)
 /// if the number of terms exceeds [`index_searcher::get_max_clause_count`].
 pub const CONSTANT_SCORE_BOOLEAN_REWRITE: ConstantScoreBooleanRewrite = ConstantScoreBooleanRewrite;
 impl_from_for_enum!(

@@ -41,7 +41,7 @@ use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 
@@ -165,7 +165,10 @@ fn test_constructor_exceptions() -> Result<()> {
 
   let ft_invalid = FieldType::new();
   let result = Field::from_string("name", "value", ft_invalid);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -180,7 +183,10 @@ fn test_constructor_exceptions() -> Result<()> {
   doc.add(Field::from_string("name", "value", ft2)?);
 
   let result = writer.add_document(&mut random, doc);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer.close(&mut random)?;
   Ok(())
@@ -442,12 +448,14 @@ fn test_invalid_fields() -> Result<()> {
   let mut tokenizer = MockTokenizer::new(random);
   tokenizer.set_reader(StringReader::new("").into())?;
   assert!(matches!(
-    Field::from_token_stream(
+    (Field::from_token_stream(
       "foo",
       FieldTokenStreamEnum::custom(tokenizer),
       STRING_TYPE_STORED.clone(),
-    ),
-    Err(LuceneError::IllegalArgument(_))
+    ))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   Ok(())
 }

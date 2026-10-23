@@ -40,7 +40,7 @@ use crate::core::store::lock::LockEnum2;
 use crate::core::store::{IOContext, NoLockFactory};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, get_only_leaf_reader, new_directory_shared,
   new_directory_with_lock_factory, new_fs_directory, new_index_writer_config, new_mock_directory,
@@ -404,7 +404,10 @@ fn test_add_document() -> Result<()> {
     }
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -426,7 +429,10 @@ fn test_add_documents() -> Result<()> {
     }
 
     let err = w.add_documents([Document::new()]);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -448,7 +454,10 @@ fn test_update_document() -> Result<()> {
     }
 
     let err = w.update_document_with_term(Term::from_text("field", "foo"), Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -470,7 +479,10 @@ fn test_update_documents() -> Result<()> {
     }
 
     let err = w.update_documents_with_term(Term::from_text("field", "foo"), [Document::new()]);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -514,7 +526,10 @@ fn test_reclaimed_deletes() -> Result<()> {
     }
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -562,7 +577,10 @@ fn test_reclaimed_deletes_whole_segments() -> Result<()> {
     }
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -591,13 +609,19 @@ fn test_add_indexes() -> Result<()> {
     w2.add_document(Document::new())?;
 
     let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     assert_eq!(1, w2.get_doc_stats()?.max_doc);
 
     let ir = directory_reader::open(dir.clone())?;
     let err = TestUtil::add_indexes_slowly(&w2, &[&ir]);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w2.close()?;
     ir.close()?;
@@ -673,7 +697,10 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
   sub_readers[copies] = ir2;
 
   let err = MultiReader::new(sub_readers);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   Ok(())
 }
@@ -713,7 +740,7 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
 
   match w.add_indexes_from_directory(&dirs) {
     Ok(_) => return Err(LuceneError::illegal_state("didn't get expected error")),
-    Err(LuceneError::IllegalArgument(_)) => {
+    Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {
       // pass
     },
     Err(fake_disk_full) if fake_disk_full.to_string().contains("fake disk full") => {
@@ -759,7 +786,7 @@ fn test_add_too_many_indexes_codec_reader() -> Result<()> {
 
   match w.add_indexes_from_codec_readers(readers) {
     Ok(_) => return Err(LuceneError::illegal_state("didn't get expected error")),
-    Err(LuceneError::IllegalArgument(_)) => {
+    Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {
       // pass
     },
     Err(fake_disk_full) if fake_disk_full.to_string().contains("fake disk full") => {
@@ -781,7 +808,10 @@ fn test_add_too_many_indexes_codec_reader() -> Result<()> {
 #[test]
 fn test_too_large_max_docs() {
   let err = set_max_docs(i32::MAX);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -795,14 +825,20 @@ fn test_delete_all() -> Result<()> {
     w.add_document(Document::new())?;
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.delete_all()?;
 
     w.add_document(Document::new())?;
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -825,7 +861,10 @@ fn test_delete_all_after_flush() -> Result<()> {
     w.add_document(Document::new())?;
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.delete_all()?;
 
@@ -833,7 +872,10 @@ fn test_delete_all_after_flush() -> Result<()> {
     w.add_document(Document::new())?;
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -857,7 +899,10 @@ fn test_delete_all_after_commit() -> Result<()> {
     w.add_document(Document::new())?;
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.delete_all()?;
 
@@ -865,7 +910,10 @@ fn test_delete_all_after_commit() -> Result<()> {
     w.add_document(Document::new())?;
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -908,14 +956,20 @@ fn test_delete_all_multiple_threads() -> Result<()> {
     })?;
 
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.delete_all()?;
     for _ in 0..limit {
       w.add_document(Document::new())?;
     }
     let err = w.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w.close()?;
     Ok(())
@@ -939,13 +993,19 @@ fn test_delete_all_after_close() -> Result<()> {
     let w2 = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
     w2.add_document(Document::new())?;
     let err = w2.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w2.delete_all()?;
     w2.add_document(Document::new())?;
     w2.add_document(Document::new())?;
     let err = w2.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w2.close()?;
     Ok(())
@@ -968,7 +1028,10 @@ fn test_across_two_index_writers() -> Result<()> {
 
     let w2 = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
     let err = w2.add_document(Document::new());
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
 
     w2.close()?;
     Ok(())
@@ -990,7 +1053,10 @@ fn test_corrupt_index_exception_too_large() -> Result<()> {
   set_max_docs(1)?;
   let result = {
     let err = directory_reader::open(dir.clone());
-    assert!(matches!(err, Err(LuceneError::CorruptIndex(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::CorruptIndex(_))
+    ));
     Ok(())
   };
 
@@ -1011,7 +1077,10 @@ fn test_corrupt_index_exception_too_large_writer() -> Result<()> {
   set_max_docs(1)?;
   let result = {
     let err = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?);
-    assert!(matches!(err, Err(LuceneError::CorruptIndex(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::CorruptIndex(_))
+    ));
     Ok(())
   };
 

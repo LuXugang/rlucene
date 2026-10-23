@@ -35,7 +35,7 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::output_enum::OutputEnum;
 use crate::core::util::{
   HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, TryIntoInt, Version,
@@ -258,7 +258,7 @@ impl<D> SegmentInfos<D> {
   ///
   /// # Errors
   ///
-  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  /// - Returns [`LuceneErrorKind::CorruptIndex`] if the index is corrupt.
   /// - Returns [`LuceneError`] for any low-level IO error.
   pub fn read_commit(directory: Arc<D>, segment_file_name: &str) -> Result<SegmentInfos<D>>
   where
@@ -272,7 +272,7 @@ impl<D> SegmentInfos<D> {
   /// is strictly greater than the provided minimum supported major version.
   ///
   /// If the commits version is older,
-  /// [`LuceneError::IndexFormatTooOld`]
+  /// [`LuceneErrorKind::IndexFormatTooOld`]
   /// will be returned.
   /// Note that this may return an `Err` if a commit is in process.
   pub fn read_commit_with_file_min_version(
@@ -295,9 +295,9 @@ impl<D> SegmentInfos<D> {
           min_supported_major_version,
         ) {
           Err(error) => {
-            let is_unexpected_file_read_error = match &error {
-              LuceneError::Eof(_) | LuceneError::NoSuchFile(_) => true,
-              LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+            let is_unexpected_file_read_error = match error.kind() {
+              LuceneErrorKind::Eof(_) | LuceneErrorKind::NoSuchFile(_) => true,
+              LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
                 matches!(
                   source.kind(),
                   ErrorKind::NotFound | ErrorKind::UnexpectedEof
@@ -591,7 +591,10 @@ impl<D> SegmentInfos<D> {
   {
     let name = input.read_string()?;
     match codec::for_name(&name) {
-      Err(LuceneError::IllegalArgument(_)) if name.starts_with("Lucene") => {
+      Err(error)
+        if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_))
+          && name.starts_with("Lucene") =>
+      {
         Err(LuceneError::illegal_argument(format!(
           "Could not load codec '{name}'. Did you forget to add lucene-backward-codecs.jar?"
         )))

@@ -25,7 +25,7 @@ use crate::core::index::standard_directory_reader::StandardDirectoryReader;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
 use crate::test_framework::core::index::own_cache_key_multi_reader::OwnCacheKeyMultiReader;
@@ -106,7 +106,7 @@ fn test() -> Result<()> {
   reader.close()?;
   match searcher.search(query, 5) {
     Ok(_) => {},
-    Err(LuceneError::AlreadyClosed(_)) => {},
+    Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {},
     Err(e) => return Err(e),
   }
   if is_light_mode() { Ok(()) } else { dir.close() }
@@ -127,15 +127,15 @@ fn test_reader_chaining() -> Result<()> {
   let query = TermRangeQuery::new_string_range("field", Some("a"), Some("z"), true, true)?;
   searcher.search(query.clone(), 5)?;
   reader.close()?;
-  match searcher.search(query, 5) {
+  match (searcher.search(query, 5)).map_err(LuceneError::into_kind) {
     Ok(_) => {},
-    Err(LuceneError::AlreadyClosed(e)) => {
+    Err(LuceneErrorKind::AlreadyClosed(e)) => {
       assert_eq!(
         "this IndexReader cannot be used anymore as one of its child readers was closed",
         e.to_string()
       );
     },
-    Err(e) => return Err(e),
+    Err(e) => return Err(e.into()),
   }
   searcher.get_index_reader().close()?;
   if is_light_mode() { Ok(()) } else { dir.close() }

@@ -19,8 +19,8 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefValue, BytesRefValueEnum};
 use crate::core::util::access::ByteSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use std::borrow::Cow;
 use std::fmt::Debug;
 
@@ -61,13 +61,15 @@ where
       )),
       Self::Filtered(sub) => match sub.next_seek_term(current) {
         Ok(value) => Ok(value),
-        Err(LuceneError::NotImplemented(_)) => match initial_seek_term.take() {
-          Some(mut value) => Ok(Some(Cow::Owned(BytesRef::from_slice(
-            std::mem::take(&mut value.bytes),
-            value.offset,
-            value.length,
-          )))),
-          None => Ok(None),
+        Err(error) if matches!(error.kind(), LuceneErrorKind::NotImplemented(_)) => {
+          match initial_seek_term.take() {
+            Some(mut value) => Ok(Some(Cow::Owned(BytesRef::from_slice(
+              std::mem::take(&mut value.bytes),
+              value.offset,
+              value.length,
+            )))),
+            None => Ok(None),
+          }
         },
         Err(error) => Err(error),
       },

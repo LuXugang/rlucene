@@ -26,7 +26,7 @@ use crate::core::search::index_searcher::{
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::PhraseQuery;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 #[allow(dead_code)] // for quick search
 pub struct TestMaxClauseLimit;
@@ -64,8 +64,14 @@ fn test_flatten_inner_disjunctions_with_more_than_1024_terms() -> Result<()> {
   let query = builder.build();
 
   let err = searcher.rewrite(query);
-  assert!(matches!(err, Err(LuceneError::TooManyClauses(_))));
-  assert!(!matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooManyClauses(_))
+  ));
+  assert!(!matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooManyNestedClauses(_))
+  ));
 
   Ok(())
 }
@@ -96,7 +102,10 @@ fn test_large_terms_nested_first() -> Result<()> {
   let query = builder.build();
 
   let err = searcher.rewrite(query);
-  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooManyNestedClauses(_))
+  ));
 
   Ok(())
 }
@@ -128,7 +137,10 @@ fn test_large_terms_nested_last() -> Result<()> {
   let query = builder.build();
 
   let err = searcher.rewrite(query);
-  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooManyNestedClauses(_))
+  ));
 
   Ok(())
 }
@@ -149,7 +161,10 @@ fn test_large_disjunction_max_query() -> Result<()> {
   let dmq = DisjunctionMaxQuery::new(clauses, 0.5f32)?;
 
   let err = searcher.rewrite(dmq);
-  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooManyNestedClauses(_))
+  ));
 
   Ok(())
 }
@@ -172,6 +187,9 @@ fn test_multi_exact_with_repeats() -> Result<()> {
 
   let query = qb.build();
   let err = searcher.rewrite(query);
-  assert!(matches!(err, Err(LuceneError::TooManyNestedClauses(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooManyNestedClauses(_))
+  ));
   Ok(())
 }

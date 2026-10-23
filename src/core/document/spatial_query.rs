@@ -44,7 +44,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -1433,7 +1433,7 @@ where
 {
   let mut visitor = HasAnyHitsVisitor::new(spatial_visitor, query_relation);
   match values.intersect(&mut visitor) {
-    Err(LuceneError::CollectionTerminated(_)) => Ok(true),
+    Err(error) if matches!(error.kind(), LuceneErrorKind::CollectionTerminated(_)) => Ok(true),
     Err(e) => Err(e),
     Ok(()) => Ok(false),
   }

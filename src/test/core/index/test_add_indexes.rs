@@ -56,7 +56,7 @@ use crate::core::store::byte_buffers_directory::ByteBuffersDirectory;
 use crate::core::store::directory::{DirEnum, Directory, DirectoryEnum2};
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::codecs::asserting_codec::{AssertingCodec, AssertingCodecHook};
@@ -449,7 +449,10 @@ fn test_add_self() -> Result<()> {
   let writer2 = new_writer(dir.clone(), conf)?;
 
   let err = writer2.add_indexes_from_directory(&[aux.clone(), dir.clone()]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   assert_eq!(100, writer2.get_doc_stats()?.max_doc);
   writer2.close()?;
@@ -1096,7 +1099,7 @@ fn test_add_indexes_with_partial_merge_failures() -> Result<()> {
   let error = TestUtil::add_indexes_slowly(&c.dest_writer, &c.readers)
     .expect_err("partially failed addIndexes merges must fail");
   assert!(
-    matches!(error, LuceneError::IllegalState(_)),
+    matches!(error.kind(), LuceneErrorKind::IllegalState(_)),
     "unexpected error: {error}"
   );
   c.dest_writer.commit()?;
@@ -1245,7 +1248,7 @@ fn test_add_indexes_hitting_max_docs_limit() -> Result<()> {
     let error = TestUtil::add_indexes_slowly(&dest_writer, &readers)
       .expect_err("addIndexes must reject documents beyond the configured maximum");
     assert!(
-      matches!(&error, LuceneError::IllegalArgument(message) if message.message.contains(&format!(
+      matches!(error.kind(), LuceneErrorKind::IllegalArgument(message) if message.message.contains(&format!(
         "number of documents in the index cannot exceed {WRITER_MAX_DOCS}"
       ))),
       "unexpected error: {error}"
@@ -1441,7 +1444,7 @@ impl RunAddIndexesThreadBody for CommitAndAddIndexes {
       0 => {
         writer2.add_indexes_from_directory(dirs)?;
         if let Err(error) = writer2.force_merge(1)
-          && !matches!(error, LuceneError::MergeAborted(_))
+          && !matches!(error.kind(), LuceneErrorKind::MergeAborted(_))
         {
           return Err(error);
         }
@@ -1548,7 +1551,7 @@ impl RunAddIndexesThreadBody for CommitAndAddIndexes2 {
   }
 
   fn handle(error: LuceneError, _did_close: &AtomicBool, failures: &Mutex<Vec<String>>) {
-    if !matches!(error, LuceneError::AlreadyClosed(_)) {
+    if !matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) {
       if cfg!(feature = "test_log_verbose") {
         println!("{error:?}");
       }
@@ -1630,20 +1633,22 @@ impl RunAddIndexesThreadBody for CommitAndAddIndexes3 {
 
   fn handle(error: LuceneError, did_close: &AtomicBool, failures: &Mutex<Vec<String>>) {
     let did_close = did_close.load(Ordering::SeqCst);
-    let report = match &error {
-      LuceneError::AlreadyClosed(_) | LuceneError::MergeAborted(_) => !did_close,
-      LuceneError::NoSuchFile(_) => !did_close,
-      LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. }
+    let report = match error.kind() {
+      LuceneErrorKind::AlreadyClosed(_) | LuceneErrorKind::MergeAborted(_) => !did_close,
+      LuceneErrorKind::NoSuchFile(_) => !did_close,
+      LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. }
         if source.kind() == std::io::ErrorKind::NotFound
           || error.to_string().contains("aborted")
           || matches!(
-            error.get_suppressed(),
-            Ok(Some(LuceneError::MergeAborted(_)))
+            error
+              .get_suppressed()
+              .map(|error| error.map(LuceneError::kind)),
+            Ok(Some(LuceneErrorKind::MergeAborted(_)))
           ) =>
       {
         !did_close
       },
-      LuceneError::Merge(_) if error.to_string().contains("aborted") => !did_close,
+      LuceneErrorKind::Merge(_) if error.to_string().contains("aborted") => !did_close,
       _ => true,
     };
     if report {
@@ -1926,8 +1931,10 @@ fn test_add_index_missing_codec() -> Result<()> {
     conf.set_codec(TestUtil::always_postings_format(DirectPostingsFormat::new()));
     let writer = IndexWriter::new(dir.clone(), conf)?;
     assert!(matches!(
-      writer.add_indexes_from_directory(std::slice::from_ref(&to_add)),
-      Err(LuceneError::IllegalArgument(_))
+      (writer.add_indexes_from_directory(std::slice::from_ref(&to_add)))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     writer.close()?;
     let open = directory_reader::open(dir.clone())?;
@@ -1937,8 +1944,10 @@ fn test_add_index_missing_codec() -> Result<()> {
   }
 
   assert!(matches!(
-    directory_reader::open(to_add.clone()),
-    Err(LuceneError::IllegalArgument(_))
+    (directory_reader::open(to_add.clone()))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   to_add.close()
 }
@@ -2089,7 +2098,10 @@ fn test_locks_block() -> Result<()> {
   let w2 = RandomIndexWriter::with_config(&mut random, dest.clone(), iwc);
 
   let err = w2.add_indexes_from_dir(&mut random, std::slice::from_ref(&src));
-  assert!(matches!(err, Err(LuceneError::LockObtainFailed(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::LockObtainFailed(_))
+  ));
 
   w1.close(&mut random)?;
   w2.close(&mut random)?;
@@ -2126,7 +2138,10 @@ fn test_illegal_index_sort_change1() -> Result<()> {
   let w2 = RandomIndexWriter::with_config(&mut random, dir2.clone(), iwc2);
 
   let err = w2.add_indexes_from_dir(&mut random, std::slice::from_ref(&dir1));
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change index sort from <int: \"foo\"> to <string: \"foo\">",
     err.unwrap_err().to_string()
@@ -2168,7 +2183,10 @@ fn test_illegal_index_sort_change2() -> Result<()> {
   let r1 = directory_reader::open(dir1)?;
   let reader = get_only_leaf_reader(&r1)?;
   let err = w2.add_indexes_from_codec_readers(&mut random, vec![reader]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change index sort from <int: \"foo\"> to <string: \"foo\">",
     err.unwrap_err().to_string()

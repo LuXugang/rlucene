@@ -38,7 +38,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::{Directory, MaybeNrtDirEnum};
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -170,7 +170,7 @@ fn test_immediate_disk_full_with_threads() -> Result<()> {
     dir.set_max_size_in_bytes(0);
     match writer.commit() {
       Ok(_) => {},
-      Err(LuceneError::AlreadyClosed(_)) => {
+      Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
         // OK: abort closes the writer
         assert!(writer.is_deleter_closed()?);
       },
@@ -323,7 +323,7 @@ where
         writer.close()
       })() {
         Ok(()) => Ok(true),
-        Err(LuceneError::AlreadyClosed(_)) => {
+        Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
           // OK: abort closes the writer
           assert!(writer.is_deleter_closed()?);
           Ok(false)
@@ -421,7 +421,10 @@ where
     writer.close()
   })();
   assert!(
-    matches!(result, Err(LuceneError::AlreadyClosed(_))),
+    matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
+    ),
     "expected AlreadyClosed, got {result:?}"
   );
 
@@ -617,10 +620,12 @@ fn test_open_two_index_writers_on_different_threads() -> Result<()> {
       .collect::<Vec<_>>()
   });
 
-  if results
-    .iter()
-    .any(|result| matches!(result, Err(LuceneError::LockObtainFailed(_))))
-  {
+  if results.iter().any(|result| {
+    matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::LockObtainFailed(_))
+    )
+  }) {
     return Ok(());
   }
 
@@ -698,7 +703,8 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
                 Ok(())
               })();
               match result {
-                Ok(()) | Err(LuceneError::AlreadyClosed(_)) => Ok(()),
+                Ok(()) => Ok(()),
+                Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => Ok(()),
                 Err(error) => Err(error),
               }
             },
@@ -707,7 +713,8 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
               let mut docs = docs.lock();
               let doc = docs.next_doc()?;
               match writer.add_document(doc) {
-                Ok(_) | Err(LuceneError::AlreadyClosed(_)) => Ok(()),
+                Ok(_) => Ok(()),
+                Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => Ok(()),
                 Err(error) => Err(error),
               }
             },

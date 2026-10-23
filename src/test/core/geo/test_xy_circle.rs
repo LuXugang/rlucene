@@ -16,7 +16,7 @@
  */
 use crate::core::geo::xy_circle::XYCircle;
 use crate::core::util::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
 use std::collections::hash_map::DefaultHasher;
@@ -27,13 +27,19 @@ struct TestXYCircle;
 #[test]
 fn test_nan() {
   let err = XYCircle::new(f32::NAN, 45.23, 35.5);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value NaN"));
   }
 
   let err = XYCircle::new(43.5, f32::NAN, 35.5);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value NaN"));
   }
@@ -42,13 +48,19 @@ fn test_nan() {
 #[test]
 fn test_positive_inf() {
   let err = XYCircle::new(f32::INFINITY, 45.23, 35.5);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value inf"));
   }
 
   let err = XYCircle::new(43.5, f32::INFINITY, 35.5);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value inf"));
   }
@@ -57,13 +69,19 @@ fn test_positive_inf() {
 #[test]
 fn test_negative_inf() {
   let err = XYCircle::new(f32::NEG_INFINITY, 45.23, 35.5);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value -inf"));
   }
 
   let err = XYCircle::new(43.5, f32::NEG_INFINITY, 35.5);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value -inf"));
   }
@@ -72,7 +90,10 @@ fn test_negative_inf() {
 #[test]
 fn test_negative_radius() {
   let err = XYCircle::new(43.5, 45.23, -1000.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(
       e.to_string()
@@ -84,7 +105,10 @@ fn test_negative_radius() {
 #[test]
 fn test_infinite_radius() {
   let err = XYCircle::new(43.5, 45.23, f32::INFINITY);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(
       e.to_string().contains("radius must be finite, got inf")

@@ -34,7 +34,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
@@ -111,7 +111,8 @@ fn test_add_document_on_disk_full() -> Result<()> {
             Err(error) if error.is_io_error() || error.is_illegal_state_error() => {
               dir.set_max_size_in_bytes(0);
               match writer.close() {
-                Ok(()) | Err(LuceneError::AlreadyClosed(_)) => {},
+                Ok(()) => {},
+                Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {},
                 Err(error) => return Err(error),
               }
             },
@@ -336,11 +337,11 @@ fn test_add_index_on_disk_full() -> Result<()> {
           },
           Err(error)
             if error.is_illegal_state_error()
-              || matches!(&error, LuceneError::Merge(_))
+              || matches!(error.kind(), LuceneErrorKind::Merge(_))
               || error.is_io_error() =>
           {
             success = false;
-            let is_merge_exception = matches!(error, LuceneError::Merge(_));
+            let is_merge_exception = matches!(error.kind(), LuceneErrorKind::Merge(_));
             if x == 1 && !is_merge_exception {
               return Err(LuceneError::illegal_state(format!(
                 "{method_name} hit an I/O error after disk space was freed up"
@@ -560,7 +561,7 @@ fn test_corruption_after_disk_full_during_merge() -> Result<()> {
   TestUtil::check_index(&mut random, dir.as_ref())?;
   ftdm.clear_do_fail();
   match w.add_document(doc) {
-    Err(LuceneError::AlreadyClosed(_)) => {},
+    Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {},
     Err(error) => {
       return Err(LuceneError::illegal_state(format!(
         "expected AlreadyClosed, got {error}"

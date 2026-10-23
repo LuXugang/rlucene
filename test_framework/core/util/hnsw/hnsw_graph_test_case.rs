@@ -63,7 +63,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_concurrent_merge_builder::HnswConcurrentMergeBuilder;
@@ -769,13 +769,17 @@ where
     let scorer_supplier2 = self.build_scorer_supplier(vectors, random)?;
 
     assert!(matches!(
-      hnsw_graph_builder::create(scorer_supplier, 0, 10, 0),
-      Err(LuceneError::IllegalArgument(_))
+      (hnsw_graph_builder::create(scorer_supplier, 0, 10, 0))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     // beam_width must be > 0.
     assert!(matches!(
-      hnsw_graph_builder::create(scorer_supplier2, 10, 0, 0),
-      Err(LuceneError::IllegalArgument(_))
+      (hnsw_graph_builder::create(scorer_supplier2, 10, 0, 0))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
 
     Ok(())

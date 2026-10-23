@@ -26,7 +26,7 @@ use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_string_field, random,
 };
@@ -117,7 +117,7 @@ fn test_with_no_first_commit() -> Result<()> {
   );
   match result {
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert!(
         err
           .to_string()
@@ -410,7 +410,7 @@ fn test_on_closed_reader() -> Result<()> {
     IndexCommitWrapper::new(Some(commit), Some(&r))?,
   );
   match result {
-    Err(LuceneError::AlreadyClosed(_)) => {},
+    Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {},
     Err(err) => panic!("expected AlreadyClosed error, got {err}"),
     Ok(_) => panic!("expected AlreadyClosed error"),
   }

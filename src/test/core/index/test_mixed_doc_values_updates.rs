@@ -42,7 +42,7 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_binary_doc_values_updates::{get_value, to_bytes};
 use crate::test_framework::core::util::DefaultCRReader;
@@ -857,8 +857,8 @@ fn test_update_not_existing_field_dv() -> Result<()> {
   doc1.add(StringField::from_string("id", "2", Store::Yes)?);
   doc1.add(BinaryDocValuesField::new("not_existing", BytesRef::new()));
   let result = writer.add_document(doc1);
-  match result {
-    Err(LuceneError::IllegalArgument(msg)) => {
+  match (result).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::IllegalArgument(msg)) => {
       assert!(msg.message.contains("cannot change field \"not_existing\""));
       assert!(msg.message.contains("inconsistent doc values type=Binary"));
     },
@@ -869,8 +869,8 @@ fn test_update_not_existing_field_dv() -> Result<()> {
     Term::from_text("id", "1"),
     vec![BinaryDocValuesField::new("not_existing", BytesRef::new()).into()],
   );
-  match result {
-    Err(LuceneError::IllegalArgument(msg)) => {
+  match (result).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::IllegalArgument(msg)) => {
       assert!(msg.message.contains("Can't update [Binary] doc values"));
       assert!(msg.message.contains("not_existing"));
       assert!(msg.message.contains("Numeric"));
@@ -904,8 +904,8 @@ fn test_update_field_with_no_previous_doc_values_throws_error() -> Result<()> {
     Term::from_text("id", "1"),
     vec![NumericDocValuesField::new("id", 1).into()],
   );
-  match error {
-    Err(LuceneError::IllegalArgument(msg)) => {
+  match (error).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::IllegalArgument(msg)) => {
       assert!(msg.message.contains("Can't update [Numeric] doc values"));
       assert!(msg.message.contains("field [id]"));
       assert!(msg.message.contains("None"));

@@ -70,8 +70,8 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -358,8 +358,8 @@ pub trait BaseKnnVectorQueryTestCase {
     let searcher = new_searcher_with_reader(reader)?;
 
     let kvq = self.get_knn_vector_query_no_filter("field", vec![0.0], 1)?;
-    match searcher.search(kvq, 10) {
-      Err(LuceneError::IllegalArgument(msg)) => {
+    match (searcher.search(kvq, 10)).map_err(LuceneError::into_kind) {
+      Err(LuceneErrorKind::IllegalArgument(msg)) => {
         assert_eq!(
           "vector query dimension: 1 differs from field dimension: 2",
           msg.to_string()
@@ -399,7 +399,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let err = self
       .get_knn_vector_query_no_filter("xx", vec![1.0], 0)
       .unwrap_err();
-    assert!(matches!(err, LuceneError::IllegalArgument(_)));
+    assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
     Ok(())
   }
 
@@ -457,8 +457,8 @@ pub trait BaseKnnVectorQueryTestCase {
 
     assert_eq!(-1, (scorer).scoring_doc_id()?);
     assert!(matches!(
-      scorer.score(),
-      Err(LuceneError::ArrayIndexOutOfBounds(_))
+      (scorer.score()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
     ));
 
     assert_eq!(1.0 / 2.0, scorer.get_max_score(2)?);
@@ -483,8 +483,8 @@ pub trait BaseKnnVectorQueryTestCase {
     }
 
     assert!(matches!(
-      scorer.score(),
-      Err(LuceneError::ArrayIndexOutOfBounds(_))
+      (scorer.score()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
     ));
     Ok(())
   }
@@ -517,8 +517,8 @@ pub trait BaseKnnVectorQueryTestCase {
 
     assert_eq!(-1, (scorer).scoring_doc_id()?);
     assert!(matches!(
-      scorer.score(),
-      Err(LuceneError::ArrayIndexOutOfBounds(_))
+      (scorer.score()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
     ));
 
     let score0 = (1.0 + (2.0 * 1.0 + 3.0 * 1.0) / ((13.0_f32 * 2.0_f32).sqrt())) / 2.0;
@@ -537,8 +537,8 @@ pub trait BaseKnnVectorQueryTestCase {
     assert!((score1 - scorer.score()?).abs() <= 0.0001);
     assert_eq!(NO_MORE_DOCS, scorer.advance(4)?);
     assert!(matches!(
-      scorer.score(),
-      Err(LuceneError::ArrayIndexOutOfBounds(_))
+      (scorer.score()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
     ));
     Ok(())
   }
@@ -773,7 +773,7 @@ pub trait BaseKnnVectorQueryTestCase {
         )?,
         num_docs,
       ) {
-        Err(LuceneError::UnsupportedOperation(_)) => {},
+        Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {},
         Err(error) => return Err(error),
         Ok(_) => panic!("exact search should not be supported"),
       }
@@ -800,7 +800,7 @@ pub trait BaseKnnVectorQueryTestCase {
         )?,
         num_docs,
       ) {
-        Err(LuceneError::UnsupportedOperation(_)) => {},
+        Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {},
         Err(error) => return Err(error),
         Ok(_) => panic!("exact search should not be supported"),
       }
@@ -845,7 +845,7 @@ pub trait BaseKnnVectorQueryTestCase {
         )?,
         num_docs,
       ) {
-        Err(LuceneError::UnsupportedOperation(_)) => {},
+        Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {},
         Err(error) => return Err(error),
         Ok(_) => panic!("exact search should not be supported"),
       }

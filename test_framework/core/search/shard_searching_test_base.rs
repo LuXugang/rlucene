@@ -38,7 +38,7 @@ use crate::core::search::top_docs::{TopDocs, merge_top_docs, merge_top_field_doc
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::DefaultCRReader;
@@ -80,7 +80,7 @@ impl SearcherExpiredException {
   }
 
   pub fn is_instance(error: &LuceneError) -> bool {
-    matches!(error, LuceneError::IllegalState(error) if error.message.starts_with(SEARCHER_EXPIRED_PREFIX))
+    matches!(error.kind(), LuceneErrorKind::IllegalState(error) if error.message.starts_with(SEARCHER_EXPIRED_PREFIX))
   }
 }
 

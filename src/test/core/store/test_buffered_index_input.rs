@@ -29,7 +29,7 @@ use crate::core::store::{BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase
 use crate::core::util::ReadableCursorExt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone as OtherClone;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 #[allow(dead_code)] // for quick search
 struct TestBufferedIndexInput;
@@ -181,19 +181,28 @@ fn test_eof() -> Result<()> {
 
   // Test block read past end of file
   let mut result = check_read_bytes(&mut input, 11, pos, &mut buffer);
-  assert!(matches!(result, Err(LuceneError::Eof(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::Eof(_))
+  ));
 
   input.seek(pos)?;
 
   result = check_read_bytes(&mut input, 50, pos, &mut buffer);
   // Test large block read past end of file
-  assert!(matches!(result, Err(LuceneError::Eof(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::Eof(_))
+  ));
 
   input.seek(pos)?;
 
   result = check_read_bytes(&mut input, 100000, pos, &mut buffer);
   // Test massive block read past end of file
-  assert!(matches!(result, Err(LuceneError::Eof(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::Eof(_))
+  ));
 
   Ok(())
 }

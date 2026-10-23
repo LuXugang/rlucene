@@ -35,7 +35,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::index::base_index_file_format_test_case::{
   BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
@@ -118,7 +118,7 @@ fn test_float_vector_fails() -> Result<()> {
     VectorSimilarityFunction::DotProduct,
   )?);
   let error = writer.add_document(doc).unwrap_err();
-  assert!(matches!(error, LuceneError::IllegalArgument(_)));
+  assert!(matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)));
   assert!(
     error
       .to_string()
@@ -213,20 +213,28 @@ fn test_to_string() -> Result<()> {
 fn test_limits() -> Result<()> {
   // Negative max_conn and beam_width cases cannot be expressed by usize parameters.
   assert!(matches!(
-    HnswBitVectorsFormat::with_graph_para(0, 20),
-    Err(LuceneError::IllegalArgument(_))
+    (HnswBitVectorsFormat::with_graph_para(0, 20))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    HnswBitVectorsFormat::with_graph_para(20, 0),
-    Err(LuceneError::IllegalArgument(_))
+    (HnswBitVectorsFormat::with_graph_para(20, 0))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    HnswBitVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20),
-    Err(LuceneError::IllegalArgument(_))
+    (HnswBitVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    HnswBitVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1),
-    Err(LuceneError::IllegalArgument(_))
+    (HnswBitVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   Ok(())
 }

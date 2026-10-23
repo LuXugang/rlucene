@@ -27,7 +27,7 @@ use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::automaton_provider::{AutomatonProvider, DefaultProvider};
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -183,8 +183,8 @@ fn test_character_classes() -> Result<()> {
   assert_eq!(1, regex_query_nr_hits(&searcher, "\\\\.*")?);
 
   let err = regex_query_nr_hits(&searcher, "\\p").unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert!(msg.message.contains("invalid character class"));
     },
     _ => unreachable!(),
@@ -262,8 +262,8 @@ fn test_slow_common_suffix() -> Result<()> {
   let _searcher = set_up(&mut random)?;
 
   let err = RegexpQuery::new(Term::from_text("stringvalue", "(.*a){2000}")).unwrap_err();
-  match err {
-    LuceneError::TooComplexToDeterminize(_) => {},
+  match err.kind() {
+    LuceneErrorKind::TooComplexToDeterminize(_) => {},
     _ => {
       return Err(LuceneError::illegal_state(
         "expected a too-complex-to-determinize error",

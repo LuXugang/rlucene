@@ -27,7 +27,7 @@ use crate::core::store::index_output::IndexOutput;
 use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
 use crate::core::util::packed::direct_monotonic_writer::{
@@ -44,17 +44,17 @@ fn test_validation() {
   let mut data_out = DummyIndexOutput;
   let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, -1, 10);
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "numValues can't be negative, got -1".eq(&msg.message))
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if "numValues can't be negative, got -1".eq(&msg.message))
   );
 
   let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 10, 1);
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if "blockShift must be in [2-22], got 1".eq(&msg.message))
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if "blockShift must be in [2-22], got 1".eq(&msg.message))
   );
 
   let result = DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 1 << 40, 5);
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if format!("blockShift is too low for the provided number of values: blockShift=5, numValues=1099511627776, MAX_ARRAY_LENGTH={}",ArrayUtil::MAX_ARRAY_LENGTH).eq(&msg.message))
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if format!("blockShift is too low for the provided number of values: blockShift=5, numValues=1099511627776, MAX_ARRAY_LENGTH={}",ArrayUtil::MAX_ARRAY_LENGTH).eq(&msg.message))
   );
 }
 #[test]

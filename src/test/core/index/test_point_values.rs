@@ -44,7 +44,7 @@ use crate::core::index::point_values::{
 use crate::core::index::term::Term;
 use crate::core::store::{ByteBuffersDirectory, FSDirectories};
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -113,8 +113,8 @@ fn test_illegal_dim_change_one_doc() -> Result<()> {
   doc.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
   let err = w.add_document(doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "Inconsistency of field data structures across documents for field [dim] of doc [0]. \
@@ -144,8 +144,8 @@ fn test_illegal_dim_change_two_docs() -> Result<()> {
   doc2.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
   let err = w.add_document(doc2).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "Inconsistency of field data structures across documents for field [dim] of doc [1]. \
@@ -179,8 +179,8 @@ fn test_illegal_dim_change_two_segments() -> Result<()> {
   doc2.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
   let err = w.add_document(doc2).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
@@ -220,8 +220,8 @@ fn test_illegal_dim_change_two_writers() -> Result<()> {
     doc2.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
     let err = w2.add_document(doc2).unwrap_err();
-    match err {
-      LuceneError::IllegalArgument(msg) => {
+    match err.kind() {
+      LuceneErrorKind::IllegalArgument(msg) => {
         assert_eq!(
           msg.to_string(),
           "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
@@ -259,7 +259,10 @@ fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
   w2.add_document(doc)?;
 
   let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=2, indexDimensionCount=2, numBytes=4 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
     err.unwrap_err().to_string()
@@ -293,7 +296,10 @@ fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
   let reader = directory_reader::open(dir.clone())?;
   let leaf = get_only_leaf_reader(&reader)?;
   let err = w2.add_indexes_from_codec_readers(vec![leaf]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=2, indexDimensionCount=2, numBytes=4 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
     err.unwrap_err().to_string()
@@ -329,7 +335,10 @@ fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
   w2.add_document(doc)?;
   let reader = directory_reader::open(dir.clone())?;
   let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=2, indexDimensionCount=2, numBytes=4 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
     err.unwrap_err().to_string()
@@ -356,8 +365,8 @@ fn test_illegal_num_bytes_change_one_doc() -> Result<()> {
   doc.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
   let err = w.add_document(doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "Inconsistency of field data structures across documents for field [dim] of doc [0]. \
@@ -389,8 +398,8 @@ fn test_illegal_num_bytes_change_two_docs() -> Result<()> {
   doc2.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
   let err = w.add_document(doc2).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "Inconsistency of field data structures across documents for field [dim] of doc [1]. \
@@ -424,8 +433,8 @@ fn test_illegal_num_bytes_change_two_segments() -> Result<()> {
   doc2.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
   let err = w.add_document(doc2).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
@@ -466,8 +475,8 @@ fn test_illegal_num_bytes_change_two_writers() -> Result<()> {
     doc2.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
     let err = w2.add_document(doc2).unwrap_err();
-    match err {
-      LuceneError::IllegalArgument(msg) => {
+    match err.kind() {
+      LuceneErrorKind::IllegalArgument(msg) => {
         assert_eq!(
           msg.to_string(),
           "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=4 \
@@ -506,7 +515,10 @@ fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
   w2.add_document(doc)?;
 
   let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=6 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
     err.unwrap_err().to_string()
@@ -540,7 +552,10 @@ fn test_illegal_num_bytes_change_via_add_indexes_codec_reader() -> Result<()> {
   let reader = directory_reader::open(dir.clone())?;
   let leaf = get_only_leaf_reader(&reader)?;
   let err = w2.add_indexes_from_codec_readers(vec![leaf]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=6 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
     err.unwrap_err().to_string()
@@ -576,7 +591,10 @@ fn test_illegal_num_bytes_change_via_add_indexes_slow_codec_reader() -> Result<(
   w2.add_document(doc)?;
   let reader = directory_reader::open(dir.clone())?;
   let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "cannot change field \"dim\" from points dimensionCount=1, indexDimensionCount=1, numBytes=6 to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=4",
     err.unwrap_err().to_string()
@@ -600,7 +618,7 @@ fn test_illegal_too_many_bytes() -> Result<()> {
 
   let err = BinaryPoint::new("dim", [[0u8; MAX_NUM_BYTES + 1]]);
   match err {
-    Err(LuceneError::IllegalArgument(_)) => {},
+    Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {},
     _ => unreachable!(""),
   }
 
@@ -629,7 +647,7 @@ fn test_illegal_too_many_dimensions() -> Result<()> {
 
   let bp = BinaryPoint::new("dim", values);
   match bp {
-    Err(LuceneError::IllegalArgument(_)) => {},
+    Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {},
     _ => unreachable!(""),
   }
 
@@ -657,8 +675,8 @@ fn test_invalid_int_point_usage() -> Result<()> {
   let mut field = IntPoint::new("field", vec![17, 42])?;
 
   let err = field.set_int_value(14).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(_) => {},
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(_) => {},
     _ => unreachable!("{:?}", err),
   }
 
@@ -672,8 +690,8 @@ fn test_invalid_long_point_usage() -> Result<()> {
   let mut field = LongPoint::new("field", vec![17, 42])?;
 
   let err = field.set_long_value(14).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(_) => {},
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(_) => {},
     _ => unreachable!("{:?}", err),
   }
 
@@ -688,8 +706,8 @@ fn test_invalid_float_point_usage() -> Result<()> {
   let mut field = FloatPoint::new("field", vec![17.0_f32, 42.0_f32])?;
 
   let err = field.set_float_value(14.0).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(_) => {},
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(_) => {},
     _ => unreachable!("{:?}", err),
   }
 
@@ -704,8 +722,8 @@ fn test_invalid_double_point_usage() -> Result<()> {
   let mut field = DoublePoint::new("field", vec![17.0_f64, 42.0_f64])?;
 
   let err = field.set_double_value(14.0).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(_) => {},
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(_) => {},
     _ => unreachable!("{:?}", err),
   }
 

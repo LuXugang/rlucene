@@ -16,7 +16,7 @@
  */
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::search::base_similarity_test_case::BaseSimilarityTestCase;
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
@@ -61,21 +61,21 @@ fn test_illegal_k1() -> Result<()> {
   {
     let err = BM25Similarity::with_k1_b(f32::INFINITY, 0.75);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
+      matches!(err.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
     );
   }
 
   {
     let err = BM25Similarity::with_k1_b(-1.0, 0.75);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
+      matches!(err.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
     );
   }
 
   {
     let err = BM25Similarity::with_k1_b(f32::NAN, 0.75);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
+      matches!(err.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
     );
   }
 
@@ -86,28 +86,28 @@ fn test_illegal_b() -> Result<()> {
   {
     let err = BM25Similarity::with_k1_b(1.2, 2.0);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+      matches!(err.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(error)) if error.message.contains("illegal b value"))
     );
   }
 
   {
     let err = BM25Similarity::with_k1_b(1.2, -1.0);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+      matches!(err.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(error)) if error.message.contains("illegal b value"))
     );
   }
 
   {
     let err = BM25Similarity::with_k1_b(1.2, f32::INFINITY);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+      matches!(err.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(error)) if error.message.contains("illegal b value"))
     );
   }
 
   {
     let err = BM25Similarity::with_k1_b(1.2, f32::NAN);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+      matches!(err.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(error)) if error.message.contains("illegal b value"))
     );
   }
 

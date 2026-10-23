@@ -52,7 +52,7 @@ use crate::core::store::nrt_caching_directory::NRTCachingDirectory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
@@ -627,14 +627,20 @@ fn test_update_non_binary_doc_values_field() -> Result<()> {
     "bdv",
     to_bytes(&mut random, 17_i64)?,
   );
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   let result = writer.update_binary_doc_value(
     Term::from_text("key", "doc"),
     "foo",
     to_bytes(&mut random, 17_i64)?,
   );
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer.close()?;
   Ok(())
@@ -1234,7 +1240,10 @@ fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
   doc2.add(StringField::from_string("id", "doc1", Store::No)?);
   doc2.add(StringField::from_string("bdv", "mock-value", Store::No)?);
   let result = writer.add_document(doc2);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let expected_err_msg =
     "cannot change field \"bdv\" from doc values type=Binary to inconsistent doc values type=None";
   let actual_err_msg = result.unwrap_err().to_string();
@@ -1302,7 +1311,10 @@ fn test_update_binary_dv_field_with_same_name_as_posting_field() -> Result<()> {
     "f",
     to_bytes(&mut random, 17_i64)?,
   );
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let actual_err_msg = "Can't update [Binary] doc values; the field [f] must be doc values only field, but is also indexed with postings.";
   assert_eq!(actual_err_msg, result.unwrap_err().to_string());
 

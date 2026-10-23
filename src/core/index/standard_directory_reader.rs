@@ -39,7 +39,7 @@ use crate::core::index::term::Term;
 use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_function::IOFunction;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{LATEST, MIN_SUPPORTED_MAJOR};
@@ -522,7 +522,7 @@ where
           // This is OK, it just means our original writer was closed before we were,
           // and this may leave some un-referenced files in the index, which is harmless.
           // The next time IndexWriter is opened on the index, it will delete them.
-          Err(LuceneError::AlreadyClosed(_)) => Ok(()),
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => Ok(()),
           result => result,
         },
         None => Ok(()),
@@ -768,7 +768,7 @@ where
             .ok_or_else(|| LuceneError::illegal_state("segment reader is missing"))
         })
         .collect::<Result<Vec<_>>>()?;
-      // This may return `LuceneError::CorruptIndex` if there are too many documents, so
+      // This may return `LuceneErrorKind::CorruptIndex` if there are too many documents, so
       // it must remain inside this guarded result so readers are closed in that case:
       let reader = StandardDirectoryReader::new(
         self.directory.clone(),

@@ -45,7 +45,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::DirEnum;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -353,8 +353,8 @@ fn test_illegal_payloads_without_positions() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot index term vector payloads without term vector positions (field=\"field\")"
@@ -384,8 +384,8 @@ fn test_illegal_offsets_without_vectors() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot index term vector offsets when term vectors are not indexed (field=\"field\")"
@@ -414,8 +414,8 @@ fn test_illegal_positions_without_vectors() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot index term vector positions when term vectors are not indexed (field=\"field\")"
@@ -443,8 +443,8 @@ fn test_illegal_vector_payloads_without_vectors() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot index term vector payloads when term vectors are not indexed (field=\"field\")"
@@ -472,8 +472,8 @@ fn test_illegal_vectors_without_indexed() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot store term vectors for a field that is not indexed (field=\"field\")"
@@ -501,8 +501,8 @@ fn test_illegal_vector_positions_without_indexed() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot store term vector positions for a field that is not indexed (field=\"field\")"
@@ -530,8 +530,8 @@ fn test_illegal_vector_offsets_without_indexed() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot store term vector offsets for a field that is not indexed (field=\"field\")"
@@ -559,8 +559,8 @@ fn test_illegal_vector_payloads_without_indexed() -> Result<()> {
   doc.add(Field::new("field", "value", ft));
 
   let err = w.add_document(&mut random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert_eq!(
         msg.to_string(),
         "cannot store term vector payloads for a field that is not indexed (field=\"field\")"

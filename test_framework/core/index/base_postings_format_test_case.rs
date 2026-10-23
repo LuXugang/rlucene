@@ -68,7 +68,7 @@ use crate::core::store::{Context, IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
@@ -1060,7 +1060,7 @@ pub trait BasePostingsFormatTestCase:
       if supports_ords {
         let ord = match terms_enum.ord() {
           Ok(ord) => ord,
-          Err(LuceneError::UnsupportedOperation(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
             supports_ords = false;
             -1
           },

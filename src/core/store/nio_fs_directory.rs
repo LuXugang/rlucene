@@ -225,9 +225,9 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
   ///
   /// This method returns a [`LuceneError`] in the following cases:
   ///
-  /// * [`LuceneError::Eof`] - If the requested read range exceeds the file's
+  /// * [`LuceneErrorKind::Eof`] - If the requested read range exceeds the file's
   ///   bounds or if the file unexpectedly reaches EOF during a read.
-  /// * [`LuceneError::Io`] - For general I/O errors encountered while reading
+  /// * [`LuceneErrorKind::Io`] - For general I/O errors encountered while reading
   ///   or seeking the file.
   ///
   /// # Details

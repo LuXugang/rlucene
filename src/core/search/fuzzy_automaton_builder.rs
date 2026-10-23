@@ -16,7 +16,7 @@
  */
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 /// Builds a set of [`CompiledAutomaton`] for fuzzy matching on a given term,
 /// with specified maximum edit distance, fixed prefix and whether or not to
@@ -97,7 +97,7 @@ impl FuzzyAutomatonBuilder {
 
     match CompiledAutomaton::new(automaton, true, false) {
       Ok(compiled) => Ok(compiled),
-      Err(err @ LuceneError::TooComplexToDeterminize(_)) => {
+      Err(err) if matches!(err.kind(), LuceneErrorKind::TooComplexToDeterminize(_)) => {
         let mut fuzzy_error = LuceneError::fuzzy_terms(self.term.clone());
         fuzzy_error.add_suppressed(err);
         Err(fuzzy_error)

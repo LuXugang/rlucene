@@ -28,7 +28,7 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::base_doc_values_format_test_case::BaseDocValuesFormatTestCase;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCase;
@@ -74,7 +74,7 @@ impl TestLucene90DocValuesFormatVariableSkipInterval {
       Ok(_) => panic!("expected an invalid skip-index interval size"),
       Err(error) => error,
     };
-    assert!(matches!(error, LuceneError::IllegalArgument(_)));
+    assert!(matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)));
     assert!(
       error
         .to_string()

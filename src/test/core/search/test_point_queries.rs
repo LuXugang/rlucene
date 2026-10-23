@@ -51,7 +51,7 @@ use crate::core::util::bits::Bits;
 #[cfg(feature = "nightly")]
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -1509,8 +1509,11 @@ fn test_wrong_num_dims() -> Result<()> {
     point.as_ref(),
   )?);
 
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  if let Err(LuceneError::IllegalArgument(msg)) = err {
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
+  if let Err(LuceneErrorKind::IllegalArgument(msg)) = err.as_ref().map_err(LuceneError::kind) {
     assert_eq!(
       "field=\"value\" was indexed with numIndexDimensions=1 but this query has numDims=2",
       msg.message
@@ -1548,8 +1551,11 @@ fn test_wrong_num_bytes() -> Result<()> {
     point.as_ref(),
   )?);
 
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-  if let Err(LuceneError::IllegalArgument(msg)) = err {
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
+  if let Err(LuceneErrorKind::IllegalArgument(msg)) = err.as_ref().map_err(LuceneError::kind) {
     assert_eq!(
       "field=\"value\" was indexed with bytesPerDim=8 but this query has bytesPerDim=10",
       msg.message
@@ -2837,8 +2843,8 @@ fn test_invalid_point_in_set_query() -> Result<()> {
     DefaultPointInSetQuery,
   )
   .unwrap_err();
-  assert!(matches!(err, LuceneError::IllegalArgument(_)));
-  if let LuceneError::IllegalArgument(msg) = err {
+  assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
+  if let LuceneErrorKind::IllegalArgument(msg) = err.kind() {
     assert_eq!(
       "packed point length should be 12 but got 3; field=\"foo\" numDims=3 bytesPerDim=4",
       msg.message
@@ -2851,8 +2857,8 @@ fn test_invalid_point_in_set_query() -> Result<()> {
 fn test_invalid_point_in_set_binary_query() -> Result<()> {
   // different-length byte arrays: len 1 and len 0
   let err = BinaryPoint::new_set_query("bytes", [vec![2u8], vec![]]).unwrap_err();
-  assert!(matches!(err, LuceneError::IllegalArgument(_)));
-  if let LuceneError::IllegalArgument(msg) = err {
+  assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
+  if let LuceneErrorKind::IllegalArgument(msg) = err.kind() {
     assert_eq!(
       "all byte slices must be the same length, but saw 1 and 0",
       msg.message
@@ -3233,8 +3239,8 @@ fn test_invalid_point_length() -> Result<()> {
   )
   .unwrap_err();
 
-  assert!(matches!(err, LuceneError::IllegalArgument(_)));
-  if let LuceneError::IllegalArgument(msg) = err {
+  assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
+  if let LuceneErrorKind::IllegalArgument(msg) = err.kind() {
     assert_eq!(
       "lower_point has length=4 but upper_point has different length=8",
       msg.message

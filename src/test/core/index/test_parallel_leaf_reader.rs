@@ -44,7 +44,7 @@ use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -202,7 +202,10 @@ fn test_close_inner_reader() -> Result<()> {
   let result = pr
     .stored_fields()
     .and_then(|mut stored_fields| stored_fields.document(0).map(|_| ()));
-  assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
+  ));
 
   // No-op.
   pr.close()?;
@@ -239,17 +242,21 @@ fn test_incompatible_indexes() -> Result<()> {
 
   // Indexes don't have the same number of documents.
   assert!(matches!(
-    ParallelLeafReader::new(vec![ir1.clone(), ir2.clone()]),
-    Err(LuceneError::IllegalArgument(_))
+    (ParallelLeafReader::new(vec![ir1.clone(), ir2.clone()]))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   assert!(matches!(
-    ParallelLeafReader::new_with_stored_fields(
+    (ParallelLeafReader::new_with_stored_fields(
       random.random_bool(0.5),
       vec![ir1.clone(), ir2.clone()],
       vec![ir1.clone(), ir2.clone()],
-    ),
-    Err(LuceneError::IllegalArgument(_))
+    ))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   // Check refCounts.
@@ -354,8 +361,10 @@ fn test_ignore_stored_fields() -> Result<()> {
 
   // No main readers.
   assert!(matches!(
-    ParallelLeafReader::new_with_stored_fields(true, Vec::new(), vec![ir1]),
-    Err(LuceneError::IllegalArgument(_))
+    (ParallelLeafReader::new_with_stored_fields(true, Vec::new(), vec![ir1]))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   dir1.close()?;

@@ -32,7 +32,7 @@ use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 #[allow(dead_code)] // for quick search
 struct TestRegExp {
@@ -279,7 +279,10 @@ fn test_illegal_backslash_chars() {
     let expr = format!("\\{}", ch);
     let err = RegExp::from_string(&expr);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(_))),
+      matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ),
       "Expected IllegalArgument for `\\{}` but got: {:?}",
       ch,
       err
@@ -308,7 +311,10 @@ fn test_legal_backslash_chars() -> Result<()> {
 #[test]
 fn test_parse_illegal_repeat_exp() -> Result<()> {
   let err = RegExp::parse("a{99,11}", RegExp::ALL, 0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("out of order"));
 
   Ok(())
@@ -523,7 +529,10 @@ fn test_negated_char_range() -> Result<()> {
 fn test_illegal_char_range() {
   let err = RegExp::from_string("[z-a]");
   assert!(
-    matches!(err, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "Expected IllegalArgument but got: {:?}",
     err
   );
@@ -655,13 +664,19 @@ fn test_char_class_non_word() -> Result<()> {
 #[test]
 fn test_truncated_char_class() {
   let err = RegExp::from_string("[b-d");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_bogus_char_class() {
   let err = RegExp::from_string("[\\q]");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -741,19 +756,28 @@ fn test_backwards_interval() -> Result<()> {
 #[test]
 fn test_truncated_interval() {
   let err = RegExp::from_string("<1-");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_truncated_interval2() {
   let err = RegExp::from_string("<1");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_empty_interval() {
   let err = RegExp::from_string("<->");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -861,13 +885,19 @@ fn test_repeat_mn() -> Result<()> {
 #[test]
 fn test_truncated_repeat() {
   let err = RegExp::from_string("a{5,8");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_bogus_repeat() {
   let err = RegExp::from_string("a{Z}");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -928,7 +958,10 @@ fn test_explicit_string() -> Result<()> {
 #[test]
 fn test_not_terminated_string() {
   let err = RegExp::from_string("\"boo");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -975,13 +1008,19 @@ fn test_intersection() -> Result<()> {
 #[test]
 fn test_truncated_intersection() {
   let err = RegExp::from_string("a&");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_truncated_intersection_parens() {
   let err = RegExp::from_string("(a)&(");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -1008,13 +1047,19 @@ fn test_union() -> Result<()> {
 #[test]
 fn test_truncated_union() {
   let err = RegExp::from_string("a|");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_truncated_union_parens() {
   let err = RegExp::from_string("(a)|(");
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -1082,7 +1127,10 @@ fn test_automaton_io_exception() -> Result<()> {
   );
 
   let err = re.to_automaton_from_provider(&MyProvider);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 
@@ -1096,20 +1144,29 @@ fn test_automaton_not_found() -> Result<()> {
     "myletter".to_string(),
     Automata::make_char('z' as i32).unwrap(),
   )]));
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 
 #[test]
 fn test_illegal_syntax_flags() {
   let err = RegExp::parse("bogus", i32::MAX, 0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
 fn test_illegal_match_flags() {
   let err = RegExp::parse("bogus", RegExp::ALL, 1);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 fn assert_same_language(expected: &Automaton, actual: &Automaton) -> Result<()> {

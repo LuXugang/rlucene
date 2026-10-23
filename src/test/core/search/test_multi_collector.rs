@@ -30,7 +30,7 @@ use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::dummy_total_hit_count_collector::DummyTotalHitCountCollector;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -655,8 +655,10 @@ impl LeafCollector for TerminatingDummyCollector {
 fn test_null_collectors() -> Result<()> {
   // Tests that the collector rejects all None collectors.
   assert!(matches!(
-    wrap::<DummyCollector, _>([None, None]),
-    Err(LuceneError::IllegalArgument(_))
+    (wrap::<DummyCollector, _>([None, None]))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   let mut random = random();
@@ -897,8 +899,10 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
   assert!(set_scorer_called2.load(Ordering::SeqCst));
 
   assert!(matches!(
-    leaf_collector.collect(1, &mut scorer),
-    Err(LuceneError::CollectionTerminated(_))
+    (leaf_collector.collect(1, &mut scorer))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::CollectionTerminated(_))
   ));
 
   set_scorer_called1.store(false, Ordering::SeqCst);
@@ -1087,8 +1091,10 @@ fn test_collection_termination() -> Result<()> {
   c2_collect_called.set(false);
 
   assert!(matches!(
-    lc.collect(2, &mut scorer),
-    Err(LuceneError::CollectionTerminated(_))
+    (lc.collect(2, &mut scorer))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::CollectionTerminated(_))
   ));
   assert!(!c1_collect_called.get(), "c1 should be removed already");
   assert!(!c2_collect_called.get(), "c2 should be removed already");
@@ -1153,8 +1159,10 @@ fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool
   c2_set_scorer_called.set(false);
 
   assert!(matches!(
-    lc.collect(2, &mut scorer),
-    Err(LuceneError::CollectionTerminated(_))
+    (lc.collect(2, &mut scorer))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::CollectionTerminated(_))
   ));
   lc.set_scorer(&mut scorer)?;
   assert!(!c1_set_scorer_called.get());

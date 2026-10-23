@@ -16,7 +16,7 @@
  */
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::util::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
 use std::collections::hash_map::DefaultHasher;
@@ -39,7 +39,10 @@ fn test_polygon_null_poly_lons() -> Result<()> {
 #[test]
 fn test_polygon_line() {
   let err = XYPolygon::new(vec![18.0, 18.0, 18.0], vec![-66.0, -65.0, -66.0], vec![]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("at least 4 polygon points required"));
   }
@@ -52,7 +55,10 @@ fn test_polygon_bogus() {
     vec![-66.0, -65.0, -65.0, -66.0, -66.0],
     vec![],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("must be equal length"));
   }
@@ -65,7 +71,10 @@ fn test_polygon_not_closed() {
     vec![-66.0, -65.0, -65.0, -66.0, -67.0],
     vec![],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("it must close itself"));
   }
@@ -78,7 +87,10 @@ fn test_polygon_nan() {
     vec![-66.0, -65.0, -65.0, -66.0, -66.0],
     vec![],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value NaN"));
   }
@@ -91,7 +103,10 @@ fn test_polygon_positive_infinite() {
     vec![-66.0, f32::INFINITY, -65.0, -66.0, -66.0],
     vec![],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value inf"));
   }
@@ -104,7 +119,10 @@ fn test_polygon_negative_infinite() {
     vec![-66.0, -65.0, -65.0, f32::NEG_INFINITY, -66.0],
     vec![],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value -inf"));
   }

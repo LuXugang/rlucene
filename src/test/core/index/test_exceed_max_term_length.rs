@@ -20,7 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::store::directory::DirEnum;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory, new_index_writer_config, new_index_writer_config_with_analyzer, random,
@@ -84,35 +84,35 @@ fn test_token_stream() -> Result<()> {
 
   let res = writer.add_document(doc);
 
-  match res {
-    Err(LuceneError::IllegalArgument(msg)) => {
+  match (res).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::IllegalArgument(msg)) => {
       let error_msg = &msg.message;
 
       let max_len = MAX_TERM_LENGTH.to_string();
 
       assert!(
         error_msg.contains("immense term"),
-        "LuceneError::IllegalArgument didn't mention 'immense term': {}",
+        "LuceneErrorKind::IllegalArgument didn't mention 'immense term': {}",
         error_msg
       );
 
       assert!(
         error_msg.contains(&max_len),
-        "LuceneError::IllegalArgument didn't mention max length ({}): {}",
+        "LuceneErrorKind::IllegalArgument didn't mention max length ({}): {}",
         max_len,
         error_msg
       );
 
       assert!(
         error_msg.contains(&name),
-        "LuceneError::IllegalArgument didn't mention field name ({}): {}",
+        "LuceneErrorKind::IllegalArgument didn't mention field name ({}): {}",
         name,
         error_msg
       );
 
       assert!(
         error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
-        "LuceneError::IllegalArgument didn't mention original message: {}",
+        "LuceneErrorKind::IllegalArgument didn't mention original message: {}",
         error_msg
       );
     },
@@ -172,34 +172,34 @@ fn test_binary_value() -> Result<()> {
   // expect error
   let res = writer.add_document(doc);
 
-  match res {
-    Err(LuceneError::IllegalArgument(msg)) => {
+  match (res).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::IllegalArgument(msg)) => {
       let error_msg = &msg.message;
       let max_len = MAX_TERM_LENGTH.to_string();
 
       assert!(
         error_msg.contains("immense term"),
-        "LuceneError::IllegalArgument didn't mention 'immense term': {}",
+        "LuceneErrorKind::IllegalArgument didn't mention 'immense term': {}",
         error_msg
       );
 
       assert!(
         error_msg.contains(&max_len),
-        "LuceneError::IllegalArgument didn't mention max length ({}): {}",
+        "LuceneErrorKind::IllegalArgument didn't mention max length ({}): {}",
         max_len,
         error_msg
       );
 
       assert!(
         error_msg.contains(&name),
-        "LuceneError::IllegalArgument didn't mention field name ({}): {}",
+        "LuceneErrorKind::IllegalArgument didn't mention field name ({}): {}",
         name,
         error_msg
       );
 
       assert!(
         error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
-        "LuceneError::IllegalArgument didn't mention original message: {}",
+        "LuceneErrorKind::IllegalArgument didn't mention original message: {}",
         error_msg
       );
     },

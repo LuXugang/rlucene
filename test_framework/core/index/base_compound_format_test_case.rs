@@ -47,7 +47,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{HasIdentity, LATEST, StringHelper};
 use crate::test_framework::core::index::base_index_file_format_test_case::{
@@ -334,7 +334,10 @@ pub trait BaseCompoundFormatTestCase:
       .get_compound_reader(dir.as_ref(), &si)?;
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let result = cfs.create_output("bogus", io_context);
-    assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
     Ok(())
   }
   /// Test that the CFS reader is read-only, and that `deleteFile` is
@@ -360,7 +363,10 @@ pub trait BaseCompoundFormatTestCase:
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let result = cfs.delete_file(testfile);
-    assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
     Ok(())
   }
   /// Test that the CFS reader is read-only, and that `rename` is disabled.
@@ -385,7 +391,10 @@ pub trait BaseCompoundFormatTestCase:
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let result = cfs.rename(testfile, "bogus");
-    assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
     Ok(())
   }
   /// Test that the CFS reader is read-only, and that `sync` is disabled.
@@ -411,7 +420,10 @@ pub trait BaseCompoundFormatTestCase:
       .get_compound_reader(dir.as_ref(), &si)?;
     let sync_files = [testfile.to_string()];
     let result = cfs.sync(&sync_files);
-    assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
     Ok(())
   }
 
@@ -438,7 +450,10 @@ pub trait BaseCompoundFormatTestCase:
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let result = cfs.obtain_lock("foobar");
-    assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::UnsupportedOperation(_))
+    ));
     Ok(())
   }
   /// This test creates a compound file based on a large number of files of
@@ -793,7 +808,10 @@ pub trait BaseCompoundFormatTestCase:
     let cr = create_large_cfs(random, dir.clone())?;
 
     let result = cr.open_input("bogus", &new_io_context(random)?);
-    assert!(matches!(result, Err(LuceneError::NoSuchFile(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NoSuchFile(_))
+    ));
     Ok(())
   }
   fn test_read_past_eof<R>(&self, random: &mut R) -> Result<()>
@@ -807,10 +825,16 @@ pub trait BaseCompoundFormatTestCase:
     let mut b = [0u8; 100];
     DataInput::read_bytes(&mut is, b.as_mut_slice(), 0, 10)?;
     let result = DataInput::read_byte(&mut is);
-    assert!(matches!(result, Err(LuceneError::Eof(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::Eof(_))
+    ));
     is.seek(IndexInput::length(&is)? - 10)?;
     let result = DataInput::read_bytes(&mut is, &mut b, 0, 50);
-    assert!(matches!(result, Err(LuceneError::Eof(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::Eof(_))
+    ));
     Ok(())
   }
 
@@ -873,7 +897,10 @@ pub trait BaseCompoundFormatTestCase:
       &si,
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     );
-    assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::CorruptIndex(_))
+    ));
     match result {
       Ok(_) => unreachable!(),
       Err(e) => {
@@ -916,7 +943,10 @@ pub trait BaseCompoundFormatTestCase:
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     );
 
-    assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::CorruptIndex(_))
+    ));
 
     match result {
       Ok(_) => unreachable!(),

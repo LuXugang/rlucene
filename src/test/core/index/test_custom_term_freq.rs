@@ -35,7 +35,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::similarities_impl::similarities::{BoxSimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config_with_analyzer, random,
@@ -491,7 +491,10 @@ fn test_overflow_int() -> Result<()> {
   doc2.add(field);
 
   let err = w.add_document(doc2);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   let r = directory_reader::open_from_writer(&w)?;
   assert_eq!(1, r.num_docs()?);
@@ -527,7 +530,10 @@ fn test_invalid_term_vector_positions() -> Result<()> {
   doc.add(field);
 
   let err = w.add_document(doc);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "field \"field\": cannot index term vector positions while using custom TermFrequencyAttribute",
     err.unwrap_err().to_string()
@@ -564,7 +570,10 @@ fn test_invalid_term_vector_offsets() -> Result<()> {
   doc.add(field);
 
   let err = w.add_document(doc);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     "field \"field\": cannot index term vector offsets while using custom TermFrequencyAttribute",
     err.unwrap_err().to_string()

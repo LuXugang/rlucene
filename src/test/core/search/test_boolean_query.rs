@@ -70,7 +70,7 @@ use crate::core::search::weight::Weight;
 use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::CoreHelper;
 use crate::core::util::automation::operations::Operations;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -310,7 +310,10 @@ fn test_too_many_clauses() -> Result<()> {
     Occur::Should,
   );
 
-  assert!(matches!(res, Err(LuceneError::TooManyClauses(_))));
+  assert!(matches!(
+    res.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::TooManyClauses(_))
+  ));
   Ok(())
 }
 

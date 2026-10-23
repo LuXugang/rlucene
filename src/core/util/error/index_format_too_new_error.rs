@@ -26,7 +26,7 @@ pub struct IndexFormatTooNewError {
   version: i32,
   min_version: i32,
   max_version: i32,
-  source: Option<Box<LuceneError>>,
+  source: Option<LuceneError>,
 }
 
 impl IndexFormatTooNewError {
@@ -83,12 +83,12 @@ impl IndexFormatTooNewError {
   pub fn add_suppressed(&mut self, source: LuceneError) {
     match self.source.as_mut() {
       Some(suppressed) => suppressed.add_suppressed(source),
-      None => self.source = Some(Box::new(source)),
+      None => self.source = Some(source),
     }
   }
 
   pub fn get_suppressed(&self) -> Option<&LuceneError> {
-    self.source.as_deref()
+    self.source.as_ref()
   }
 }
 
@@ -106,7 +106,7 @@ impl std::error::Error for IndexFormatTooNewError {
   fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
     self
       .source
-      .as_deref()
+      .as_ref()
       .map(|error| error as &dyn std::error::Error)
   }
 }

@@ -48,7 +48,7 @@ use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::number::Number;
 pub use crate::test_framework::core::document::{CustomField, MyField};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -216,7 +216,10 @@ fn test_not_indexed_term_vectors() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir)?;
   let result = w.add_document(&mut random, vec![CustomField::new()?.into()]);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   w.close(&mut random)?;
   Ok(())
 }

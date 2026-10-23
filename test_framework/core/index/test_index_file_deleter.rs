@@ -17,7 +17,9 @@
 use crate::core::index::concurrent_merge_scheduler::{
   ConcurrentMergeScheduler, ConcurrentMergeSchedulerBase, ConcurrentMergeSchedulerDefaults,
 };
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 
 #[allow(dead_code)] // for quick search
 struct TestIndexFileDeleter;
@@ -35,7 +37,8 @@ impl ConcurrentMergeSchedulerBase for FakeFailConcurrentMergeScheduler {
       .caught_failure("panic in merge thread")
       .ok_or_else(|| LuceneError::illegal_argument("merge result must contain a failure"))?;
     // Suppress only errors whose source is FakeIOException:
-    if matches!(&error, LuceneError::IllegalState(_)) && error.to_string() == "fake fail" {
+    if matches!(error.kind(), LuceneErrorKind::IllegalState(_)) && error.to_string() == "fake fail"
+    {
       // ok to ignore
       Ok(())
     } else if error.is_illegal_state_error()

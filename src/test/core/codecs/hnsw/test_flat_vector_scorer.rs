@@ -25,7 +25,7 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::io_context::IO_CONTEXT_DEFAULT;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -199,7 +199,10 @@ fn test_check_byte_dimensions() -> Result<()> {
     for similarity in similarities {
       let vector_values = byte_vector_values(4, 1, &input, scorer.clone(), similarity)?;
       let result = scorer.get_random_vector_scorer_u8(similarity, vector_values, vec![0_u8; 5]);
-      assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        result.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
     }
   }
 
@@ -236,7 +239,10 @@ fn test_check_float_dimensions() -> Result<()> {
     for similarity in similarities {
       let vector_values = float_vector_values(4, 1, &input, scorer.clone(), similarity)?;
       let result = scorer.get_random_vector_scorer_f32(similarity, vector_values, vec![0.0_f32; 5]);
-      assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        result.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
     }
   }
 

@@ -44,7 +44,7 @@ use crate::core::store::{DataOutput, ReadAdvice, write_group_vints_i64};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::PackedInts;
@@ -164,14 +164,13 @@ pub trait BaseDirectoryTestCase {
 
     let result = dir.delete_file(file);
     assert!(result.is_err());
-    assert!(matches!(
-        result,
-        Err(LuceneError::IoWithPath {
+    assert!(
+      matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IoWithPath {
             source,
             path,
             ..
-        }) if source.kind() == ErrorKind::NotFound && path.contains(file)
-    ));
+        }) if source.kind() == ErrorKind::NotFound && path.contains(file))
+    );
     dir.close()
   }
   fn test_byte<R>(&self, random: &mut R) -> Result<()>
@@ -359,7 +358,10 @@ pub trait BaseDirectoryTestCase {
       input.seek(offset)?;
 
       let result = input.read_longs(&mut [0i64; 16][..length], 0, length);
-      assert!(matches!(result, Err(LuceneError::Eof(_))));
+      assert!(matches!(
+        result.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::Eof(_))
+      ));
       CloseableRef::close(&input)?;
     }
 
@@ -458,7 +460,10 @@ pub trait BaseDirectoryTestCase {
     let mut ints = [0; 16];
     let ints = &mut ints[..length];
     let result = input.read_ints(ints, 0, length);
-    assert!(matches!(result, Err(LuceneError::Eof(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::Eof(_))
+    ));
     CloseableRef::close(&input)?;
 
     dir.close()
@@ -550,7 +555,10 @@ pub trait BaseDirectoryTestCase {
     let mut input = dir.open_input("Floats", &io_context)?;
     input.seek(offset)?;
     let result = input.read_floats(&mut [0.0; 16][..length], 0, length);
-    assert!(matches!(result, Err(LuceneError::Eof(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::Eof(_))
+    ));
     CloseableRef::close(&input)?;
 
     dir.close()
@@ -867,7 +875,10 @@ pub trait BaseDirectoryTestCase {
     CloseableRef::close(&dir)?;
 
     let result = dir.create_output("test", &new_io_context(random)?);
-    assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
+    ));
     Ok(())
   }
   fn test_thread_safety_in_list_all<R>(&self, random: &mut R) -> Result<()>
@@ -926,26 +937,30 @@ pub trait BaseDirectoryTestCase {
         if !files.is_empty() {
           loop {
             let file = files[rng.random_range(0..files.len())].as_str();
-            match dir_reader
+            match (dir_reader
               .lock()
-              .open_input(file, &new_io_context(&mut rng)?)
+              .open_input(file, &new_io_context(&mut rng)?))
+            .map_err(LuceneError::into_kind)
             {
               Ok(input) => {
                 thread::sleep(Duration::from_millis(1));
                 CloseableRef::close(&input)?;
               },
-              Err(LuceneError::IoWithPath { source, .. })
+              Err(LuceneErrorKind::IoWithPath { source, .. })
                 if source.kind() == ErrorKind::PermissionDenied =>
               {
                 // ignore
               },
               Err(e) => {
-                return Err(LuceneError::IoWithPath {
-                  path: file.to_string(),
-                  source: Error::other(format!("{:?}", e)),
-                  err_kind: e.to_string(),
-                  suppressed: None,
-                });
+                return Err(
+                  LuceneErrorKind::IoWithPath {
+                    path: file.to_string(),
+                    source: Error::other(format!("{:?}", e)),
+                    err_kind: e.to_string(),
+                    suppressed: None,
+                  }
+                  .into(),
+                );
               },
             }
             if rng.random_range(0..3) == 0 {
@@ -1093,19 +1108,25 @@ pub trait BaseDirectoryTestCase {
 
     // Seeking past EOF should always return an error
     assert!(matches!(
-      input.seek(len + random.random_range(1..2048)),
-      Err(LuceneError::Eof(_))
+      (input.seek(len + random.random_range(1..2048)))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::Eof(_))
     ));
 
     input.seek(len)?;
 
     assert!(matches!(
-      DataInput::read_byte(&mut input),
-      Err(LuceneError::Eof(_))
+      (DataInput::read_byte(&mut input))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::Eof(_))
     ));
     assert!(matches!(
-      DataInput::read_bytes(&mut input, &mut [0u8; 1], 0, 1),
-      Err(LuceneError::Eof(_))
+      (DataInput::read_bytes(&mut input, &mut [0u8; 1], 0, 1))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::Eof(_))
     ));
     CloseableRef::close(&input)?;
 
@@ -1130,16 +1151,20 @@ pub trait BaseDirectoryTestCase {
     let input = dir.open_input("out", &io_context)?;
 
     assert!(matches!(
-      input.slice("slice1", 0, len + 1),
-      Err(LuceneError::IllegalArgument(_))
+      (input.slice("slice1", 0, len + 1))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
 
     let slice = input.slice("slice3", 4, len / 2)?;
 
     // Attempting to create a nested slice that goes out of bounds
     assert!(matches!(
-      slice.slice("slice3sub", 1, len / 2),
-      Err(LuceneError::IllegalArgument(_))
+      (slice.slice("slice3sub", 1, len / 2))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     CloseableRef::close(&slice)?;
     CloseableRef::close(&input)?;
@@ -1155,12 +1180,12 @@ pub trait BaseDirectoryTestCase {
     let path = temp_dir.path().to_path_buf();
     temp_dir.close()?;
     let dir = Arc::new(self.get_directory(path, random)?);
-    match directory_reader::open(dir.clone()) {
+    match (directory_reader::open(dir.clone())).map_err(LuceneError::into_kind) {
       Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
-      Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
-      Err(LuceneError::IoWithPath { source, .. }) | Err(LuceneError::Io { source, .. })
+      Err(LuceneErrorKind::IndexNotFound(_)) | Err(LuceneErrorKind::NoSuchFile(_)) => {},
+      Err(LuceneErrorKind::IoWithPath { source, .. }) | Err(LuceneErrorKind::Io { source, .. })
         if source.kind() == ErrorKind::NotFound => {},
-      Err(err) => return Err(err),
+      Err(err) => return Err(err.into()),
     }
     dir.close()
   }
@@ -1353,11 +1378,10 @@ pub trait BaseDirectoryTestCase {
 
     let sync_files = vec!["afile".to_string()];
     let result = fsdir.sync(&sync_files);
-    assert!(matches!(
-        result,
-        Err(LuceneError::IoWithPath { source, .. })
-            if source.kind() == ErrorKind::NotFound
-    ));
+    assert!(
+      matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IoWithPath { source, .. })
+            if source.kind() == ErrorKind::NotFound)
+    );
 
     // Ensure no new files were created
     let file_count_after = fsdir.list_all()?.len();
@@ -1894,7 +1918,7 @@ pub trait BaseDirectoryTestCase {
       // Attempt to create the same file again, which should fail
       let result = dir.create_output(name, io_context);
       assert!(
-        matches!(result, Err(LuceneError::IoWithPath { source, .. }) if source.kind() == ErrorKind::AlreadyExists)
+        matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IoWithPath { source, .. }) if source.kind() == ErrorKind::AlreadyExists)
       );
     }
 
@@ -1957,7 +1981,10 @@ pub trait BaseDirectoryTestCase {
 
       // Attempting to seek beyond the end of the file should return an
       // EOF error
-      assert!(matches!(input.seek(1025), Err(LuceneError::Eof(_))));
+      assert!(matches!(
+        (input.seek(1025)).as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::Eof(_))
+      ));
       CloseableRef::close(&input)?;
     }
 
@@ -2092,7 +2119,10 @@ pub trait BaseDirectoryTestCase {
 
     values[0] = (0xFFFFFFFF_u64 + 1) as i64;
     let result = write_group_vints_i64(&mut out, &mut values[..values_len], 4);
-    assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NumberOverflow(_))
+    ));
 
     dir.close()
   }

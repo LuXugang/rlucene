@@ -72,7 +72,7 @@ use crate::core::util::ToInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VectorUtil;
@@ -173,7 +173,10 @@ pub trait BaseKnnVectorsFormatTestCase:
     R: Rng + ?Sized,
   {
     let res = KnnFloatVectorField::new("f", vec![]);
-    assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     Ok(())
   }
 
@@ -769,7 +772,10 @@ pub trait BaseKnnVectorsFormatTestCase:
       w2.add_document(doc)?;
 
       let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
-      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32, vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
@@ -814,7 +820,10 @@ pub trait BaseKnnVectorsFormatTestCase:
       w2.add_document(doc)?;
 
       let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
-      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32, vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
@@ -857,7 +866,10 @@ pub trait BaseKnnVectorsFormatTestCase:
       let reader = directory_reader::open(dir.clone())?;
       let leaf = get_only_leaf_reader(&reader)?;
       let err = w2.add_indexes_from_codec_readers(vec![leaf]);
-      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32, vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
@@ -905,7 +917,10 @@ pub trait BaseKnnVectorsFormatTestCase:
       let reader = directory_reader::open(dir.clone())?;
       let leaf = get_only_leaf_reader(&reader)?;
       let err = w2.add_indexes_from_codec_readers(vec![leaf]);
-      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32, vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
@@ -952,7 +967,10 @@ pub trait BaseKnnVectorsFormatTestCase:
       w2.add_document(doc)?;
       let reader = directory_reader::open(dir.clone())?;
       let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
-      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32, vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
@@ -999,7 +1017,10 @@ pub trait BaseKnnVectorsFormatTestCase:
       w2.add_document(doc)?;
       let reader = directory_reader::open(dir.clone())?;
       let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
-      assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+      assert!(matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ));
       assert_eq!(
         "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32, vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
@@ -1209,7 +1230,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     assert!(field.set_int_value(14).is_err());
 
     let err = field.set_vector_value(vec![0.0; 1]).unwrap_err();
-    assert!(matches!(err, LuceneError::IllegalArgument(_)));
+    assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
 
     assert_eq!(None, field.numeric_value()?);
     Ok(())
@@ -2935,7 +2956,8 @@ impl MergeScheduler for TestMergeScheduler {
       match merge_source.merge(merge) {
         Ok(()) => {},
         Err(error)
-          if error.is_illegal_state_error() || matches!(error, LuceneError::IllegalArgument(_)) =>
+          if error.is_illegal_state_error()
+            || matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) =>
         {
           self.ex.store(true, Ordering::SeqCst);
           break;

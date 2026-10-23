@@ -26,7 +26,7 @@ use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeaf
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use std::fmt::{Display, Formatter};
 
 /// A [`Collector`] which allows running a search with several [`Collector`]s.
@@ -153,7 +153,7 @@ where
           }
           leaf_collectors.push(leaf_collector);
         },
-        Err(LuceneError::CollectionTerminated(_)) => continue,
+        Err(error) if matches!(error.kind(), LuceneErrorKind::CollectionTerminated(_)) => continue,
         Err(e) => return Err(e),
       }
     }
@@ -437,7 +437,7 @@ where
           let mut scorer = MinCompetitiveScoreAwareScorable::new(scorer, idx, min_scores);
           match collector.collect(doc, &mut scorer) {
             Ok(()) => {},
-            Err(LuceneError::CollectionTerminated(_)) => {
+            Err(error) if matches!(error.kind(), LuceneErrorKind::CollectionTerminated(_)) => {
               collector.finish()?;
               collectors[idx] = None;
               if collectors.iter().all(Option::is_none) {
@@ -454,7 +454,7 @@ where
         if let Some(collector) = self.collectors[idx].as_mut() {
           match collector.collect(doc, &mut scorer) {
             Ok(()) => {},
-            Err(LuceneError::CollectionTerminated(_)) => {
+            Err(error) if matches!(error.kind(), LuceneErrorKind::CollectionTerminated(_)) => {
               collector.finish()?;
               self.collectors[idx] = None;
               if self.all_collectors_terminated() {

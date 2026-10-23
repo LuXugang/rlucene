@@ -31,7 +31,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::codecs::asserting_codec::{AssertingCodec, AssertingCodecHook};
 use crate::test_framework::core::codecs::perfield::test_per_field_knn_vectors_format::{
   KnnVectorsFormatMaxDims32, MaxDimensionsPerFieldFormatAssertingCodec,
@@ -290,7 +290,7 @@ fn test_max_dimensions_per_field_format() -> Result<()> {
   let mut doc1 = Document::new();
   doc1.add(KnnFloatVectorField::new("field1", vec![0.0; 33])?);
   let error = writer.add_document(doc1).unwrap_err();
-  assert!(matches!(error, LuceneError::IllegalArgument(_)));
+  assert!(matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)));
   assert!(
     error
       .to_string()

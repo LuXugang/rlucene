@@ -33,7 +33,7 @@ use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_fixed_length_payload_filter::MockFixedLengthPayloadFilter;
 use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
@@ -556,7 +556,7 @@ fn test_zero_commits() -> Result<()> {
   )?;
   match directory_reader::list_commits(dir.clone()) {
     Ok(_) => panic!("expected IndexNotFound"),
-    Err(err) => assert!(matches!(err, LuceneError::IndexNotFound(_))),
+    Err(err) => assert!(matches!(err.kind(), LuceneErrorKind::IndexNotFound(_))),
   }
 
   // No changes still should generate a commit, because it's a new index.

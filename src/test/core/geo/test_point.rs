@@ -16,7 +16,7 @@
  */
 use crate::core::geo::point::Point;
 use crate::core::util::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
 use std::collections::hash_map::DefaultHasher;
@@ -27,7 +27,10 @@ struct TestPoint;
 #[test]
 fn test_invalid_lat() {
   let err = Point::new(134.14, 45.23);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(
       e.to_string()
@@ -39,7 +42,10 @@ fn test_invalid_lat() {
 #[test]
 fn test_invalid_lon() {
   let err = Point::new(43.5, 180.5);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(
       e.to_string()

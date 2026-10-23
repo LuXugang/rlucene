@@ -19,7 +19,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::{Directory, get_temp_file_name};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use parking_lot::Mutex;
 use regex::Regex;
@@ -133,9 +133,9 @@ where
   }
 
   fn is_no_such_file(error: &LuceneError) -> bool {
-    match error {
-      LuceneError::NoSuchFile(_) => true,
-      LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+    match error.kind() {
+      LuceneErrorKind::NoSuchFile(_) => true,
+      LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
         source.kind() == ErrorKind::NotFound
       },
       _ => false,

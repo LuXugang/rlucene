@@ -36,7 +36,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, DataOutput, IndexInput, write_group_vints_i64};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::array_equals_f32;
@@ -88,13 +88,15 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
 
     assert_eq!(5, one.read_vint()?);
     assert!(matches!(
-      two.read_vint(),
-      Err(LuceneError::AlreadyClosed(_))
+      (two.read_vint()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
     ));
     let values_len = values.len();
     assert!(matches!(
-      GroupVIntUtil::read_group_vints_i64(&mut two, &mut values, values_len),
-      Err(LuceneError::AlreadyClosed(_))
+      (GroupVIntUtil::read_group_vints_i64(&mut two, &mut values, values_len))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
     ));
     assert_eq!(5, three.read_vint()?);
     CloseableRef::close(&one)?;
@@ -126,13 +128,17 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     CloseableRef::close(&one)?;
 
     assert!(matches!(
-      DataInput::read_int(&mut one),
-      Err(LuceneError::AlreadyClosed(_))
+      (DataInput::read_int(&mut one))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
     ));
     let values_len = values.len();
     assert!(matches!(
-      GroupVIntUtil::read_group_vints_i64(&mut one, &mut values, values_len),
-      Err(LuceneError::AlreadyClosed(_))
+      (GroupVIntUtil::read_group_vints_i64(&mut one, &mut values, values_len))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
     ));
     assert_eq!(2, DataInput::read_int(&mut two)?);
 

@@ -28,7 +28,7 @@ use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::character_run_automaton::CharacterRunAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 #[allow(dead_code)] // for quick search
 struct TestRegExp {
@@ -275,7 +275,10 @@ fn test_illegal_backslash_chars() {
     let expr = format!("\\{}", ch);
     let err = RegExp::from_string(&expr);
     assert!(
-      matches!(err, Err(LuceneError::IllegalArgument(_))),
+      matches!(
+        err.as_ref().map_err(LuceneError::kind),
+        Err(LuceneErrorKind::IllegalArgument(_))
+      ),
       "Expected IllegalArgument for `\\{}` but got: {:?}",
       ch,
       err
@@ -304,7 +307,10 @@ fn test_legal_backslash_chars() -> Result<()> {
 #[test]
 fn test_parse_illegal_repeat_exp() -> Result<()> {
   let err = RegExp::parse("a{99,11}", RegExp::ALL, 0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("out of order"));
 
   Ok(())

@@ -29,8 +29,8 @@ use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::automation::state_pair::StatePair;
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::unicode_util::UnicodeUtil;
@@ -162,7 +162,9 @@ impl AutomatonTestUtil {
           }
         }) {
         Ok(a) => return Ok(a),
-        Err(LuceneError::TooComplexToDeterminize(_)) => continue,
+        Err(error) if matches!(error.kind(), LuceneErrorKind::TooComplexToDeterminize(_)) => {
+          continue;
+        },
         Err(e) => return Err(e),
       }
     }

@@ -18,7 +18,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_fs_directory, new_index_writer_config_with_analyzer, random,
@@ -39,9 +39,9 @@ fn test_index_writer_lock_release() -> Result<()> {
     iwc.set_open_mode(OpenMode::Append);
 
     if let Err(error) = IndexWriter::new(dir.clone(), iwc) {
-      match &error {
-        LuceneError::IndexNotFound(_) | LuceneError::NoSuchFile(_) => {},
-        LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. }
+      match error.kind() {
+        LuceneErrorKind::IndexNotFound(_) | LuceneErrorKind::NoSuchFile(_) => {},
+        LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. }
           if source.kind() == std::io::ErrorKind::NotFound => {},
         _ => return Err(error),
       }
@@ -51,10 +51,10 @@ fn test_index_writer_lock_release() -> Result<()> {
       iwc.set_open_mode(OpenMode::Append);
       let result = IndexWriter::new(dir.clone(), iwc);
       let error = result.as_ref().err();
-      let expected = match error {
+      let expected = match error.map(LuceneError::kind) {
         None => true,
-        Some(LuceneError::IndexNotFound(_) | LuceneError::NoSuchFile(_)) => true,
-        Some(LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. })
+        Some(LuceneErrorKind::IndexNotFound(_) | LuceneErrorKind::NoSuchFile(_)) => true,
+        Some(LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. })
           if source.kind() == std::io::ErrorKind::NotFound =>
         {
           true

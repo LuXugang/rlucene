@@ -26,7 +26,7 @@ use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::index_writer::IndexWriter;
 
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::{InfoStreamEnum, NoOutput};
 
 use std::sync::Arc;
@@ -108,7 +108,10 @@ fn test_close_while_new_writers_locked() -> Result<()> {
   let handle = thread::spawn(move || {
     ready_clone.store(true, Ordering::SeqCst);
     let result = pool_clone.get_and_lock(&thread_iw, || queue.clone());
-    assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
+    ));
   });
 
   let deadline = Instant::now() + Duration::from_secs(10);

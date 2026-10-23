@@ -33,7 +33,7 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::test_framework::core::util::automaton::automaton_test_util::{
@@ -100,7 +100,10 @@ fn test_cycled_automaton() -> Result<()> {
   let mut random = random();
   let a = generate_random_automaton(true, &mut random)?;
   let result = Operations::topo_sort_states(&a);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(
     result
       .unwrap_err()
@@ -201,7 +204,10 @@ fn test_is_finite_eats_stack() -> Result<()> {
   )?;
 
   let result = AutomatonTestUtil::is_finite(&a);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(
     result
       .unwrap_err()

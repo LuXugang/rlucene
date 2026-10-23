@@ -109,7 +109,9 @@ use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::core::util::int_block_pool::{
   AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE, IntBlockPool,
@@ -1781,7 +1783,7 @@ impl PerField {
             }));
             match add_result {
               Ok(Ok(())) => {},
-              Ok(Err(LuceneError::MaxBytesLengthExceeded(e))) => {
+              Ok(Err(e)) if matches!(e.kind(), LuceneErrorKind::MaxBytesLengthExceeded(_)) => {
                 let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
                   LuceneError::illegal_state("BytesRef is None in attribute_source")
                 })?;
@@ -1793,7 +1795,7 @@ impl PerField {
                   "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
                   field_name, MAX_TERM_LENGTH, prefix, e
                 ));
-                ia.add_suppressed(e.into());
+                ia.add_suppressed(e);
                 return Err(ia);
               },
               add_result => {
@@ -1908,7 +1910,7 @@ impl PerField {
       context,
     ) {
       Ok(()) => {},
-      Err(LuceneError::MaxBytesLengthExceeded(e)) => {
+      Err(e) if matches!(e.kind(), LuceneErrorKind::MaxBytesLengthExceeded(_)) => {
         let mut prefix = [0u8; 30];
         prefix.copy_from_slice(&binary_value.as_bytes()[..30]);
         let msg = format!(
@@ -1916,7 +1918,7 @@ impl PerField {
           self.schema.name, MAX_TERM_LENGTH, prefix
         );
         let mut ia = LuceneError::illegal_argument(msg);
-        ia.add_suppressed(e.into());
+        ia.add_suppressed(e);
         return Err(ia);
       },
       Err(error) => return Err(error),

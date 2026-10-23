@@ -27,7 +27,7 @@ use crate::core::util::array_util::{
   ArrayUtil, ByteArrayComparator, U32byteArrayComparator, U64byteArrayComparator,
 };
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::{NaturalOrder, ReverseOrder, ToInt};
 use crate::test_framework::core::util::test_util::TestUtil;
 use crate::test_framework::{array_equals_f32, array_equals_f64};
@@ -76,7 +76,10 @@ fn test_max_size() -> Result<()> {
 #[test]
 fn test_too_big() {
   let result = ArrayUtil::oversize(ArrayUtil::MAX_ARRAY_LENGTH + 1, 1);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 
 #[test]
@@ -116,16 +119,28 @@ where
 fn test_parse_int() -> Result<()> {
   let mut random = random();
   let result = parse_int(&mut random, "");
-  assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NumberFormat(_))
+  ));
 
   let result = parse_int(&mut random, "foo");
-  assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NumberFormat(_))
+  ));
 
   let result = parse_int(&mut random, &i64::MAX.to_string());
-  assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NumberFormat(_))
+  ));
 
   let result = parse_int(&mut random, "0.34");
-  assert!(matches!(result, Err(LuceneError::NumberFormat(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NumberFormat(_))
+  ));
 
   let result = parse_int(&mut random, "1");
   assert!(result.is_ok());
@@ -428,7 +443,10 @@ fn test_grow_exact() -> Result<()> {
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i16> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   let mut arr: Vec<i32> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 4, || 0)?;
@@ -438,7 +456,10 @@ fn test_grow_exact() -> Result<()> {
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i32> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   let mut arr: Vec<i64> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 4, || 0)?;
@@ -448,7 +469,10 @@ fn test_grow_exact() -> Result<()> {
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i64> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   let mut arr: Vec<f32> = vec![0.1, 0.2, 0.3];
   ArrayUtil::grow_exact(&mut arr, 4, || 0.0)?;
@@ -458,7 +482,10 @@ fn test_grow_exact() -> Result<()> {
   assert!(array_equals_f32(&[0.1, 0.2, 0.3, 0.0, 0.0], &arr, 0.001));
   let mut arr: Vec<f32> = vec![1.0, 2.0, 3.0];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0.0);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
   ArrayUtil::grow_exact(&mut arr, 4, || 0.0)?;
@@ -468,7 +495,10 @@ fn test_grow_exact() -> Result<()> {
   assert!(array_equals_f64(&[0.1, 0.2, 0.3, 0.0, 0.0], &arr, 0.001));
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0.0);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   let mut arr: Vec<i8> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 4, || 0)?;
@@ -478,7 +508,10 @@ fn test_grow_exact() -> Result<()> {
   assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i8> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || 0);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
   ArrayUtil::grow_exact(&mut arr, 4, || '\0')?;
@@ -488,7 +521,10 @@ fn test_grow_exact() -> Result<()> {
   assert_eq!(arr, ['a', 'b', 'c', '\0', '\0']);
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || '\0');
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   let mut arr: Vec<Option<String>> = vec![
     Some("a1".to_string()),
@@ -522,7 +558,10 @@ fn test_grow_exact() -> Result<()> {
     Some("c".to_string()),
   ];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3), || None);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
 
   Ok(())
 }

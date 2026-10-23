@@ -16,7 +16,7 @@
  */
 use crate::core::geo::xy_line::XYLine;
 use crate::core::util::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
 use std::collections::hash_map::DefaultHasher;
@@ -39,7 +39,10 @@ fn test_polygon_null_ys() -> Result<()> {
 #[test]
 fn test_line_enough_points() {
   let err = XYLine::new(vec![18.0], vec![-66.0]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("at least 2 line points required"));
   }
@@ -51,7 +54,10 @@ fn test_lines_bogus() {
     vec![18.0, 18.0, 19.0, 19.0],
     vec![-66.0, -65.0, -65.0, -66.0, -66.0],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("must be equal length"));
   }
@@ -63,7 +69,10 @@ fn test_line_nan() {
     vec![18.0, 18.0, 19.0, f32::NAN, 18.0],
     vec![-66.0, -65.0, -65.0, -66.0, -66.0],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(e.to_string().contains("invalid value NaN"));
   }
@@ -75,7 +84,10 @@ fn test_line_positive_infinite() {
     vec![18.0, 18.0, 19.0, 19.0, 18.0],
     vec![-66.0, f32::INFINITY, -65.0, -66.0, -66.0],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(
       e.to_string().contains("invalid value inf") || e.to_string().contains("invalid value Inf")
@@ -89,7 +101,10 @@ fn test_line_negative_infinite() {
     vec![18.0, 18.0, 19.0, 19.0, 18.0],
     vec![-66.0, -65.0, -65.0, f32::NEG_INFINITY, -66.0],
   );
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   if let Err(e) = err {
     assert!(
       e.to_string().contains("invalid value -inf") || e.to_string().contains("invalid value -Inf")

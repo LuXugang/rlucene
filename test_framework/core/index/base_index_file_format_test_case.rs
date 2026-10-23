@@ -77,7 +77,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::io_utils::IOUtils;
@@ -1102,7 +1102,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
         });
         match operation {
           Ok(()) => {},
-          Err(LuceneError::AlreadyClosed(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
             // The writer was closed by abort; reopen it now.
             dir.set_random_io_exception_rate_on_open(0.0);
             assert!(writer.is_deleter_closed()?);
@@ -1148,7 +1148,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
 
           match flush_result {
             Ok(()) => {},
-            Err(LuceneError::AlreadyClosed(_)) => {
+            Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
               // The writer was closed by abort; reopen it now.
               dir.set_random_io_exception_rate_on_open(0.0);
               assert!(writer.is_deleter_closed()?);

@@ -18,7 +18,7 @@
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::int_block_pool::{
   AllocatorIntEnum, DirectAllocatorI32, INT_BLOCK_SIZE, IntBlockPool,
 };
@@ -82,7 +82,10 @@ fn test_too_many_allocs() -> Result<()> {
     Ok(())
   })();
 
-  assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NumberOverflow(_))
+  ));
   assert!(pool.int_offset.wrapping_add(INT_BLOCK_SIZE) < pool.int_offset);
 
   Ok(())

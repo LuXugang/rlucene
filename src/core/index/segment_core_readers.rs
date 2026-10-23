@@ -33,7 +33,7 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
@@ -164,12 +164,14 @@ where
     }));
     let result = match result {
       Ok(Err(error)) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let is_unexpected_file_read_error = match &error {
-          LuceneError::Eof(_) | LuceneError::NoSuchFile(_) => true,
-          LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => matches!(
-            source.kind(),
-            std::io::ErrorKind::NotFound | std::io::ErrorKind::UnexpectedEof
-          ),
+        let is_unexpected_file_read_error = match error.kind() {
+          LuceneErrorKind::Eof(_) | LuceneErrorKind::NoSuchFile(_) => true,
+          LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
+            matches!(
+              source.kind(),
+              std::io::ErrorKind::NotFound | std::io::ErrorKind::UnexpectedEof
+            )
+          },
           _ => false,
         };
         if is_unexpected_file_read_error {

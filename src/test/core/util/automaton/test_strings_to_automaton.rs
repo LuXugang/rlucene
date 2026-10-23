@@ -35,7 +35,7 @@ use crate::core::util::automation::finite_strings_iterator::{
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::strings_to_automaton::StringsToAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fst_impl::util::Util;
 use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test_framework::core::util::automaton::minimization_operation::MinimizationOperations;
@@ -128,7 +128,7 @@ fn test_large_terms() -> Result<()> {
     false,
   );
   assert!(
-    matches!(result, Err(LuceneError::IllegalArgument(msg)) if msg.message.starts_with(
+    matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(msg)) if msg.message.starts_with(
         &format!(
             "This builder doesn't allow terms that are larger than {} UTF-8 bytes",
             Automata::MAX_STRING_UNION_TERM_LENGTH

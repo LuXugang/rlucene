@@ -37,7 +37,7 @@ use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, DirectBytesStartArray};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneErrorKind, Result};
 use crate::core::util::{ByteBlockPool, SharedCounter};
 use std::sync::Arc;
 /// Base rewrite method that translates each term into a query, and keeps the scores as computed by
@@ -104,7 +104,7 @@ pub trait ScoringRewrite: TermCollectingRewrite {
 /// [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] instead.
 ///
 /// **NOTE**: This rewrite method will return
-/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses)
+/// [`LuceneErrorKind::TooManyClauses`](crate::core::util::error::lucene_error::LuceneErrorKind::TooManyClauses)
 /// if the number of terms exceeds [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ScoringBooleanRewrite;
@@ -161,7 +161,7 @@ impl ScoringRewrite for ScoringBooleanRewrite {
 /// document receives a constant score equal to the query's boost.
 ///
 /// **NOTE**: This rewrite method will return
-/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses)
+/// [`LuceneErrorKind::TooManyClauses`](crate::core::util::error::lucene_error::LuceneErrorKind::TooManyClauses)
 /// if the number of terms exceeds [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBooleanRewrite;
@@ -245,7 +245,8 @@ where
           attr.get_boost()
         })() {
           Ok(boost) => boost,
-          Err(LuceneError::UnsupportedOperation(_)) => DEFAULT_BOOST,
+          Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) =>
+            DEFAULT_BOOST,
           Err(e) => return Err(e),
         },
         "boost should be equal in all segment TermsEnums"
@@ -258,7 +259,9 @@ where
         attr.get_boost()
       })() {
         Ok(boost) => boost,
-        Err(LuceneError::UnsupportedOperation(_)) => DEFAULT_BOOST,
+        Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
+          DEFAULT_BOOST
+        },
         Err(e) => return Err(e),
       };
       debug_assert_eq!(pos, array.boost.len());

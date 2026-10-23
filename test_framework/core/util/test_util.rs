@@ -62,7 +62,7 @@ use crate::core::store::no_lock_factory::NoLock;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::codecs::asserting_codec::{
   AssertingCodec, AssertingCodecDocValuesFormat, AssertingCodecKnnVectorsFormat,
@@ -514,7 +514,7 @@ impl TestUtil {
     // A generic LeafReader may not expose codec-level integrity checks. If it reports
     // UnsupportedOperation, the slow wrapper below supplies the codec view used by CheckIndex.
     if let Err(error) = reader.check_integrity()
-      && !matches!(error, LuceneError::UnsupportedOperation(_))
+      && !matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_))
     {
       return Err(error);
     }

@@ -29,7 +29,7 @@ use crate::core::store::{
 };
 use crate::core::util::StringHelper;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::util::lucene_test_case::{new_directory, random};
 
@@ -57,7 +57,10 @@ fn test_write_too_long_header() -> Result<()> {
   let mut output = ByteBuffersIndexOutput::new(ByteBuffersDataOutput::new(), "temp", "temp");
 
   let result = CodecUtil::write_header(&mut output, &too_long, 5);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 
@@ -68,7 +71,10 @@ fn test_write_non_ascii_header() -> Result<()> {
   let mut output = ByteBuffersIndexOutput::new(ByteBuffersDataOutput::new(), "temp", "temp");
 
   let result = CodecUtil::write_header(&mut output, &non_ascii_header, 5);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 
@@ -82,7 +88,10 @@ fn test_read_header_wrong_magic() -> Result<()> {
   let mut input = ByteBuffersIndexInput::new(input_data, "temp");
 
   let result = CodecUtil::check_header(&mut input, "bogus", 1, 1);
-  assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::CorruptIndex(_))
+  ));
   Ok(())
 }
 
@@ -112,7 +121,7 @@ fn test_check_footer_valid() -> Result<()> {
   let mine = LuceneError::illegal_argument("fake error");
   let result =
     CodecUtil::check_footer_with_error::<(), _>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
-  assert!(matches!(result, LuceneError::IllegalArgument(_)));
+  assert!(matches!(result.kind(), LuceneErrorKind::IllegalArgument(_)));
   assert!(result.to_string().contains("fake error"));
   match result.get_suppressed()? {
     Some(suppressed) => {
@@ -244,7 +253,10 @@ fn test_write_too_long_suffix() {
     &StringHelper::random_id(),
     &too_long,
   );
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 #[test]
 fn test_write_very_long_suffix() -> Result<()> {
@@ -280,7 +292,10 @@ fn test_write_non_ascii_suffix() {
     &StringHelper::random_id(),
     non_ascii_suffix,
   );
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 }
 #[test]
 fn test_read_bogus_crc() -> Result<()> {
@@ -297,7 +312,10 @@ fn test_read_bogus_crc() -> Result<()> {
 
   for _ in 0..3 {
     let result = CodecUtil::read_crc(&mut input);
-    assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::CorruptIndex(_))
+    ));
   }
 
   let result = CodecUtil::read_crc(&mut input);
@@ -351,7 +369,10 @@ fn test_truncated_file_throws_corrupt_index_exception() -> Result<()> {
   let mut input = ByteBuffersIndexInput::new(input_data, "temp");
 
   let result = CodecUtil::checksum_entire_file(&input);
-  assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::CorruptIndex(_))
+  ));
   assert!(
     result.unwrap_err().to_string().contains(
       "misplaced codec footer (file truncated?): length=0 but footerLength==16 (resource"
@@ -359,7 +380,10 @@ fn test_truncated_file_throws_corrupt_index_exception() -> Result<()> {
   );
 
   let result = CodecUtil::retrieve_checksum(&mut input);
-  assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::CorruptIndex(_))
+  ));
   assert!(
     result.unwrap_err().to_string().contains(
       "misplaced codec footer (file truncated?): length=0 but footerLength==16 (resource"

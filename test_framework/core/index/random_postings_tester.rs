@@ -60,8 +60,8 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::iterator::{IteratorExt, VecIter, VecIteratorExt};
 use crate::core::util::string_helper::StringHelper;
@@ -1801,7 +1801,7 @@ impl RandomPostingsTester {
       } else if use_term_ord {
         match terms_enum.seek_exact_with_ord(field_and_term.ord) {
           Ok(()) => {},
-          Err(LuceneError::UnsupportedOperation(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
             supports_ords = false;
             assert!(terms_enum.seek_exact(&field_and_term.term)?);
           },
@@ -1819,7 +1819,7 @@ impl RandomPostingsTester {
       let term_ord = if supports_ords {
         match terms_enum.ord() {
           Ok(ord) => ord,
-          Err(LuceneError::UnsupportedOperation(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
             supports_ords = false;
             -1
           },

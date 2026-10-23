@@ -40,7 +40,7 @@ use crate::core::store::{
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::Format::Packed;
 use crate::core::util::packed::abstract_block_packed_writer::AbstractBlockPackedWriter;
@@ -915,7 +915,9 @@ where
       Some(ref reader) => {
         let reader = match reader.raw_term_vectors() {
           Ok(reader) => reader,
-          Err(LuceneError::UnsupportedOperation(_)) => return Ok(false),
+          Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {
+            return Ok(false);
+          },
           Err(err) => return Err(err),
         };
         let v = *BULK_MERGE_ENABLED

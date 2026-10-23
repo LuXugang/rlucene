@@ -47,7 +47,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::weight::Weight;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
@@ -256,7 +256,10 @@ fn test_does_not_load_norms() -> Result<()> {
   let ctx = index_searcher.get_leaf_contexts()?;
   assert!(ctx.len() == 1);
   let err = weight.scorer(&ctx[0], &index_searcher);
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalState(_))
+  ));
 
   let weight2 = index_searcher.create_weight(term_query, ScoreMode::CompleteNoScores, 1.0)?;
   let mut scorer = weight2.scorer(&ctx[0], &index_searcher)?.unwrap();

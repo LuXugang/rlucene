@@ -36,7 +36,7 @@ use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{DataOutput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -180,7 +180,7 @@ where
             // file has been truncated. We just skip the test is this rare case.
             return Ok(());
           },
-          Err(LuceneError::CorruptIndex(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::CorruptIndex(_)) => {
             // expected
           },
           Err(err) => return Err(err),

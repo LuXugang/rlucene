@@ -36,7 +36,7 @@ use crate::core::store::DataInput;
 use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::StringHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::version::LATEST;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -299,7 +299,7 @@ fn test_many_threads_close() -> Result<()> {
         for _ in 0..1000 {
           match w.add_document(&mut thread_random, &mut doc) {
             Ok(_) => {},
-            Err(LuceneError::AlreadyClosed(_)) => break,
+            Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => break,
             Err(e) => return Err(e),
           }
         }

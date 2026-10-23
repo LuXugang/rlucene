@@ -29,7 +29,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -88,7 +88,7 @@ fn test_collection() -> Result<()> {
 fn test_empty_collectors() {
   match CompositeCollectorManager::new(Vec::new()).new_collector() {
     Ok(_) => panic!("expected empty collector manager to fail"),
-    Err(err) => assert!(matches!(err, LuceneError::IllegalArgument(_))),
+    Err(err) => assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_))),
   }
 }
 

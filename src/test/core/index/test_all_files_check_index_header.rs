@@ -24,7 +24,7 @@ use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -170,11 +170,13 @@ where
     // NOTE: we .close so that if the test fails (truncation not detected) we don't also get all
     // these confusing errors about open files:
     let open_result = directory_reader::open(dir_copy.clone()).and_then(|reader| reader.close());
-    match open_result {
+    match open_result.map_err(LuceneError::into_kind) {
       Err(
-        LuceneError::CorruptIndex(_) | LuceneError::Eof(_) | LuceneError::IndexFormatTooOld(_),
+        LuceneErrorKind::CorruptIndex(_)
+        | LuceneErrorKind::Eof(_)
+        | LuceneErrorKind::IndexFormatTooOld(_),
       ) => {},
-      Err(err) => return Err(err),
+      Err(err) => return Err(err.into()),
       Ok(()) => {
         return Err(LuceneError::illegal_state(format!(
           "broken index header in {victim} was not detected"
@@ -184,11 +186,13 @@ where
 
     // CheckIndex should also fail:
     let open_result = directory_reader::open(dir_copy.clone()).and_then(|reader| reader.close());
-    match open_result {
+    match open_result.map_err(LuceneError::into_kind) {
       Err(
-        LuceneError::CorruptIndex(_) | LuceneError::Eof(_) | LuceneError::IndexFormatTooOld(_),
+        LuceneErrorKind::CorruptIndex(_)
+        | LuceneErrorKind::Eof(_)
+        | LuceneErrorKind::IndexFormatTooOld(_),
       ) => Ok(()),
-      Err(err) => Err(err),
+      Err(err) => Err(err.into()),
       Ok(()) => Err(LuceneError::illegal_state(format!(
         "broken index header in {victim} was not detected"
       ))),

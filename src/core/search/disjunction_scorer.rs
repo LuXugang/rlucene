@@ -30,7 +30,7 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
   TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, as_doc_id_set_iterator,
 };
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
 /// A disjunction whose iterator implementation is selected during construction.
@@ -317,8 +317,8 @@ impl<D: DisjunctionState, T: DisjunctionScorerBase> Scorer for DisjunctionScorer
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     match self.sub.advance_shallow(target, self.disi.all_scores_mut()) {
       Ok(doc) => Ok(doc),
-      Err(e) => match e {
-        LuceneError::NotImplemented(_) => self.default_advance_shallow(target),
+      Err(e) => match e.kind() {
+        LuceneErrorKind::NotImplemented(_) => self.default_advance_shallow(target),
         _ => Err(e),
       },
     }

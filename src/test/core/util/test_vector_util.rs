@@ -18,8 +18,8 @@
 
 use crate::core::index::BytesRef;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
 use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -69,8 +69,10 @@ fn test_dot_product_throws_for_dimension_mismatch() {
   let v = [1.0, 0.0, 0.0];
   let u = [0.0, 1.0];
   assert!(matches!(
-    VECTOR_UTIL.dot_product_f32(&u, &v),
-    Err(LuceneError::IllegalArgument(_))
+    (VECTOR_UTIL.dot_product_f32(&u, &v))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 }
 
@@ -96,8 +98,10 @@ fn test_square_distance_throws_for_dimension_mismatch() {
   let v = [1.0, 0.0, 0.0];
   let u = [0.0, 1.0];
   assert!(matches!(
-    VECTOR_UTIL.square_distance_f32(&u, &v),
-    Err(LuceneError::IllegalArgument(_))
+    (VECTOR_UTIL.square_distance_f32(&u, &v))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 }
 
@@ -148,8 +152,10 @@ fn test_cosine_throws_for_dimension_mismatch() {
   let v = [1.0, 0.0, 0.0];
   let u = [0.0, 1.0];
   assert!(matches!(
-    VECTOR_UTIL.cosine_f32(&u, &v),
-    Err(LuceneError::IllegalArgument(_))
+    (VECTOR_UTIL.cosine_f32(&u, &v))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 }
 
@@ -167,8 +173,10 @@ fn test_normalize() {
 fn test_normalize_zero_throws() {
   let mut v = [0.0, 0.0, 0.0];
   assert!(matches!(
-    VectorUtil::l2normalize(&mut v),
-    Err(LuceneError::IllegalArgument(_))
+    (VectorUtil::l2normalize(&mut v))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 }
 

@@ -34,7 +34,7 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_index_writer_merging::MyMergeScheduler;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -475,9 +475,9 @@ fn test_no_wait_close() -> Result<()> {
           let mut done = false;
           while !done {
             for _ in 0..100 {
-              match writer_ref.add_document(&mut *doc_ref) {
+              match (writer_ref.add_document(&mut *doc_ref)).map_err(LuceneError::into_kind) {
                 Ok(_) => {},
-                Err(LuceneError::AlreadyClosed(_)) | Err(LuceneError::IllegalState(_)) => {
+                Err(LuceneErrorKind::AlreadyClosed(_)) | Err(LuceneErrorKind::IllegalState(_)) => {
                   done = true;
                   break;
                 },
@@ -498,7 +498,7 @@ fn test_no_wait_close() -> Result<()> {
       })?;
 
       if let Some(e) = failure.lock().unwrap().take() {
-        return Err(e);
+        return Err(e.into());
       }
 
       let reader = directory_reader::open(directory.clone())?;

@@ -26,7 +26,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_knn_vectors_format_test_case::{
   BaseKnnVectorsFormatTestCase, BaseKnnVectorsFormatTestCaseState,
@@ -57,30 +57,40 @@ fn test_to_string() -> Result<()> {
 fn test_limits() -> Result<()> {
   // TODO: A negative max_conn constructor argument cannot be expressed by usize.
   assert!(matches!(
-    Lucene99HnswVectorsFormat::with_graph_para(0, 20),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswVectorsFormat::with_graph_para(0, 20))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99HnswVectorsFormat::with_graph_para(20, 0),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswVectorsFormat::with_graph_para(20, 0))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   // TODO: A negative beam_width constructor argument cannot be expressed by usize.
   assert!(matches!(
-    Lucene99HnswVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99HnswVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99HnswVectorsFormat::with_graph_para_with_threads(
+    (Lucene99HnswVectorsFormat::with_graph_para_with_threads(
       20,
       100,
       1,
       Some(new_search_executor(1)?),
-    ),
-    Err(LuceneError::IllegalArgument(_))
+    ))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   Ok(())
 }

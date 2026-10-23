@@ -63,7 +63,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::TryIntoInt;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
@@ -77,45 +77,65 @@ struct TestField;
 fn test_double_point() -> Result<()> {
   let mut field = DoublePoint::new("foo", [5.0])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_double_value(6.0)?;
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   match field.numeric_value() {
     Ok(Some(Number::F64(value))) => assert_eq!(value, 6.0),
@@ -131,49 +151,71 @@ fn test_double_point() -> Result<()> {
 fn test_double_point_2d() -> Result<()> {
   let mut field = DoublePoint::new("foo", [5.0, 4.0])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_double_values([6.0, 7.0])?;
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -199,45 +241,65 @@ fn test_double_point_2d() -> Result<()> {
 fn test_double_doc_values_field() -> Result<()> {
   let mut field = DoubleDocValuesField::new("foo", 5.0);
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_double_value(6.0)?;
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -255,45 +317,65 @@ fn test_double_doc_values_field() -> Result<()> {
 fn test_float_doc_values_field() -> Result<()> {
   let mut field = FloatDocValuesField::new("foo", 5.0);
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_float_value(6.0)?;
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -311,45 +393,65 @@ fn test_float_doc_values_field() -> Result<()> {
 fn test_float_point() -> Result<()> {
   let mut field = FloatPoint::new("foo", [5.0])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_float_value(6.0)?;
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -368,49 +470,71 @@ fn test_float_point() -> Result<()> {
 fn test_float_point_2d() -> Result<()> {
   let mut field = FloatPoint::new("foo", [5.0, 4.0])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_float_values([6.0, 7.0])?;
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -436,45 +560,65 @@ fn test_float_point_2d() -> Result<()> {
 fn test_int_point() -> Result<()> {
   let mut field = IntPoint::new("foo", [5])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_int_value(6)?;
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -493,49 +637,71 @@ fn test_int_point() -> Result<()> {
 fn test_int_point_2d() -> Result<()> {
   let mut field = IntPoint::new("foo", [5, 4])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_int_values([6, 7])?;
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -566,49 +732,71 @@ fn test_int_field() -> Result<()> {
 
   for mut field in fields {
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_ref_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_ref_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_double_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_double_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     field.set_int_value(6)?;
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_float_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_float_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_string_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_string_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
 
     match field.numeric_value() {
@@ -649,45 +837,65 @@ fn test_long_field() -> Result<()> {
 
   for mut field in fields {
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_ref_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_ref_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_double_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_double_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_int_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_int_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     field.set_long_value(6)?;
     assert!(matches!(
-      try_set_float_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_float_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_string_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_string_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
 
     match field.numeric_value() {
@@ -743,45 +951,65 @@ fn test_float_field() -> Result<()> {
     );
 
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_ref_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_ref_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_double_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_double_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_int_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_int_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     field.set_float_value(-28.8)?;
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_string_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_string_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
 
     match field.numeric_value() {
@@ -846,45 +1074,65 @@ fn test_double_field() -> Result<()> {
     );
 
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_ref_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_ref_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_int_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_int_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_float_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_float_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     field.set_double_value(-28.8)?;
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_string_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_string_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
 
     match field.numeric_value() {
@@ -925,45 +1173,65 @@ fn test_double_field() -> Result<()> {
 fn test_numeric_doc_values_field() -> Result<()> {
   let mut field = NumericDocValuesField::new("foo", 5);
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_long_value(6)?;
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -978,45 +1246,65 @@ fn test_numeric_doc_values_field() -> Result<()> {
 fn test_long_point() -> Result<()> {
   let mut field = LongPoint::new("foo", [5])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_long_value(6)?;
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -1036,49 +1324,71 @@ fn test_long_point() -> Result<()> {
 fn test_long_point_2d() -> Result<()> {
   let mut field = LongPoint::new("foo", [5, 4])?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_long_values([6, 7])?;
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value() {
@@ -1105,42 +1415,60 @@ fn test_sorted_bytes_doc_values_field() -> Result<()> {
   let mut random = random();
   let mut field = SortedDocValuesField::new("foo", new_bytes_ref_from_string(&mut random, "bar")?);
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_bytes_value("fubar")?;
   field.set_bytes_value(new_bytes_ref_from_string(&mut random, "baz")?)?;
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   let binary_value = field.binary_value()?;
   let v = binary_value.as_ref().unwrap();
@@ -1155,42 +1483,60 @@ fn test_binary_doc_values_field() -> Result<()> {
   let mut random = random();
   let mut field = BinaryDocValuesField::new("foo", new_bytes_ref_from_string(&mut random, "bar")?);
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_bytes_value("fubar")?;
   field.set_bytes_value(new_bytes_ref_from_string(&mut random, "baz")?)?;
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   let binary_value = field.binary_value()?;
@@ -1210,45 +1556,65 @@ fn test_string_field() -> Result<()> {
 
   for mut field in fields {
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_bytes_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_bytes_ref_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_bytes_ref_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_double_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_double_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_int_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_int_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_float_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_float_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     field.set_string_value("baz")?;
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     let string_value = field.string_value()?;
     assert_eq!(string_value.as_ref().unwrap().as_ref(), "baz");
@@ -1275,8 +1641,10 @@ fn test_binary_string_field() -> Result<()> {
 
   for mut field in fields {
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     field.set_bytes_value("baz")?;
     assert_eq!(
@@ -1285,36 +1653,52 @@ fn test_binary_string_field() -> Result<()> {
     );
     field.set_bytes_value("baz")?;
     assert!(matches!(
-      try_set_double_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_double_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_int_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_int_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_float_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_float_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_string_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_string_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
 
     assert_eq!(
@@ -1344,45 +1728,65 @@ fn test_text_field_string() -> Result<()> {
 
   for mut field in fields {
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_bytes_ref_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_bytes_ref_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_double_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_double_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_int_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_int_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_float_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_float_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     field.set_string_value("baz")?;
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
 
     let string_value = field.string_value()?;
@@ -1406,47 +1810,67 @@ fn test_text_field_reader() -> Result<()> {
   let mut field = TextField::from_reader("foo", "bar")?;
 
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   let mut reader = ReusableStringReader::new();
   reader.set_value("foobar");
   field.set_reader_value(ReaderEnum::ReusedString(reader))?;
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   assert!(field.take_reader_value()?.is_some());
@@ -1466,42 +1890,60 @@ fn test_stored_field_bytes() -> Result<()> {
 
   for mut field in fields {
     assert!(matches!(
-      try_set_byte_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_byte_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     field.set_bytes_value("baz")?;
     field.set_bytes_value(new_bytes_ref_from_string(&mut random, "baz")?)?;
     assert!(matches!(
-      try_set_double_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_double_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_int_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_int_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_float_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_float_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_long_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_long_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_reader_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_short_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_short_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
     assert!(matches!(
-      try_set_string_value(&mut field),
-      Err(LuceneError::IllegalArgument(_))
+      (try_set_string_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
     assert!(matches!(
-      try_set_token_stream_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      (try_set_token_stream_value(&mut field))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::NotImplemented(_))
     ));
 
     assert_eq!(
@@ -1517,45 +1959,65 @@ fn test_stored_field_bytes() -> Result<()> {
 fn test_stored_field_string() -> Result<()> {
   let mut field = StoredField::from_string("foo", "bar")?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   field.set_string_value("baz")?;
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   let string_value = field.string_value()?;
@@ -1568,45 +2030,65 @@ fn test_stored_field_string() -> Result<()> {
 fn test_stored_field_int() -> Result<()> {
   let mut field = StoredField::from_i32("foo", 1)?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_int_value(5)?;
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value()? {
@@ -1621,45 +2103,65 @@ fn test_stored_field_int() -> Result<()> {
 fn test_stored_field_double() -> Result<()> {
   let mut field = StoredField::from_f64("foo", 1f64)?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_double_value(5.0)?;
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value()? {
@@ -1674,45 +2176,65 @@ fn test_stored_field_double() -> Result<()> {
 fn test_stored_field_float() -> Result<()> {
   let mut field = StoredField::from_f32("foo", 1.0)?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_float_value(5.0)?;
   assert!(matches!(
-    try_set_long_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_long_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value()? {
@@ -1726,45 +2248,65 @@ fn test_stored_field_float() -> Result<()> {
 fn test_stored_field_long() -> Result<()> {
   let mut field = StoredField::from_i64("foo", 1)?;
   assert!(matches!(
-    try_set_byte_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_byte_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_bytes_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_bytes_ref_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_bytes_ref_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_double_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_double_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_int_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_int_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_float_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_float_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   field.set_long_value(5)?;
   assert!(matches!(
-    try_set_reader_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_reader_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_short_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_short_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
   assert!(matches!(
-    try_set_string_value(&mut field),
-    Err(LuceneError::IllegalArgument(_))
+    (try_set_string_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    try_set_token_stream_value(&mut field),
-    Err(LuceneError::NotImplemented(_))
+    (try_set_token_stream_value(&mut field))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NotImplemented(_))
   ));
 
   match field.numeric_value()? {
@@ -1832,8 +2374,8 @@ fn test_knn_vector_field() -> Result<()> {
   let mismatched_float_field =
     KnnFloatVectorField::with_type("bogus", vec![1.0], byte_field.field_type().clone());
   assert!(matches!(
-    mismatched_float_field,
-    Err(LuceneError::IllegalArgument(_))
+    mismatched_float_field.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   let float_vector = [1.0f32, 2.0f32];
@@ -1956,7 +2498,10 @@ where
 fn test_disabled_field() -> Result<()> {
   let ft = FieldType::new();
   let result = Field::from_string("foo", "", ft);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 #[test]
@@ -1965,7 +2510,10 @@ fn test_tokenized_binary_field() -> Result<()> {
   ft.set_tokenized(true)?;
   ft.set_index_options(IndexOptions::Docs)?;
   let result = Field::from_bytes_ref("foo", BytesRef::new(), ft);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 #[test]
@@ -1974,7 +2522,10 @@ fn test_offsets_binary_field() -> Result<()> {
   ft.set_tokenized(false)?;
   ft.set_index_options(IndexOptions::DocsAndFreqsAndPositionsAndOffsets)?;
   let result = Field::from_bytes_ref("foo", BytesRef::new(), ft);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 #[test]
@@ -1985,6 +2536,9 @@ fn test_term_vectors_offsets_binary_field() -> Result<()> {
   ft.set_store_term_vector_offsets(true)?;
   ft.set_store_term_vector_offsets(true)?;
   let result = Field::from_bytes_ref("foo", BytesRef::new(), ft);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }

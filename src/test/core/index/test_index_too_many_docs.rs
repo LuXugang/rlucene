@@ -24,7 +24,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, random, random_from_seed,
 };
@@ -78,9 +78,9 @@ fn test_index_too_many_docs() -> Result<()> {
                 if random.random_range(0..5) == 0 {
                   writer.delete_documents_with_queries(vec![TermQuery::new(t.clone()).into()])?;
                 }
-                match writer.update_document_with_term(t, doc) {
+                match (writer.update_document_with_term(t, doc)).map_err(LuceneError::into_kind) {
                   Ok(_) => {},
-                  Err(LuceneError::IllegalArgument(message)) => {
+                  Err(LuceneErrorKind::IllegalArgument(message)) => {
                     assert!(
                       message
                         .message
@@ -88,7 +88,7 @@ fn test_index_too_many_docs() -> Result<()> {
                     );
                     assert!(message.message.contains(&num_max_doc.to_string()));
                   },
-                  Err(e) => return Err(e),
+                  Err(e) => return Err(e.into()),
                 }
               }
               Ok(())

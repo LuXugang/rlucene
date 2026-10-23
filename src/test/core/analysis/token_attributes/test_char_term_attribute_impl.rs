@@ -19,7 +19,7 @@ use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttrib
 use crate::core::analysis::token_attributes::char_term_attribute_impl::{
   CharTermAttributeImpl, EmptyAttributeImpl,
 };
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use regex::Regex;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -220,13 +220,17 @@ fn test_appendable_interface() -> Result<()> {
   assert_eq!("4teste", t.to_string());
 
   assert!(matches!(
-    t.append_range(Some(&t2_sequence), 1, 5),
-    Err(LuceneError::ArrayIndexOutOfBounds(_))
+    (t.append_range(Some(&t2_sequence), 1, 5))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
   ));
 
   assert!(matches!(
-    t.append_range(Some(&t2_sequence), 1, 0),
-    Err(LuceneError::ArrayIndexOutOfBounds(_))
+    (t.append_range(Some(&t2_sequence), 1, 0))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
   ));
 
   t.append_str(None)?;
@@ -294,13 +298,22 @@ fn test_exceptions() -> Result<()> {
   assert_eq!(t.to_string(), "test");
 
   let v = t.char_at(4);
-  matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+  matches!(
+    v.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  );
 
   let v = t.sub_sequence(0, 5);
-  matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+  matches!(
+    v.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  );
 
   let v = t.sub_sequence(5, 0);
-  matches!(v, Err(LuceneError::ArrayIndexOutOfBounds(_)));
+  matches!(
+    v.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  );
   Ok(())
 }
 pub fn assert_clone_is_equal<T>(att: &T) -> T

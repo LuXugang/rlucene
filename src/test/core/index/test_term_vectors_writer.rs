@@ -38,7 +38,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -981,8 +981,8 @@ where
 
   // ensure broken doc hits error
   let err = iw.add_document(random, doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(msg) => {
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(msg) => {
       assert!(
         msg.message.as_str().starts_with(
           "all instances of a given field name must have the same term vectors settings"
@@ -1020,8 +1020,8 @@ fn test_no_abort_on_bad_tv_settings() -> Result<()> {
   doc.add(Field::from_string("field", "value", ft)?);
 
   let err = iw.add_document(doc).unwrap_err();
-  match err {
-    LuceneError::IllegalArgument(_) => {},
+  match err.kind() {
+    LuceneErrorKind::IllegalArgument(_) => {},
     _ => unreachable!("unexpected error: {:?}", err),
   }
 

@@ -46,7 +46,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::{LATEST, StringHelper, TryIntoInt};
 use crate::test_framework::core::index::base_index_file_format_test_case::{
   BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
@@ -179,14 +179,16 @@ pub trait BaseFieldInfoFormatTestCase:
       .finish()?;
 
     enabled.store(true, Ordering::SeqCst);
-    match codec.field_infos_format().write(
+    match (codec.field_infos_format().write(
       dir.as_ref(),
       &segment_info,
       "",
       &infos,
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
-    ) {
-      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+    ))
+    .map_err(LuceneError::into_kind)
+    {
+      Err(LuceneErrorKind::Io { source, .. }) | Err(LuceneErrorKind::IoWithPath { source, .. }) => {
         assert!(
           source
             .get_ref()
@@ -194,7 +196,7 @@ pub trait BaseFieldInfoFormatTestCase:
           "expected FakeIOException, got {source}"
         );
       },
-      Err(error) => return Err(error),
+      Err(error) => return Err(error.into()),
       Ok(()) => panic!("expected FakeIOException"),
     }
     enabled.store(false, Ordering::SeqCst);
@@ -224,14 +226,16 @@ pub trait BaseFieldInfoFormatTestCase:
       .finish()?;
 
     enabled.store(true, Ordering::SeqCst);
-    match codec.field_infos_format().write(
+    match (codec.field_infos_format().write(
       dir.as_ref(),
       &segment_info,
       "",
       &infos,
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
-    ) {
-      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+    ))
+    .map_err(LuceneError::into_kind)
+    {
+      Err(LuceneErrorKind::Io { source, .. }) | Err(LuceneErrorKind::IoWithPath { source, .. }) => {
         assert!(
           source
             .get_ref()
@@ -239,7 +243,7 @@ pub trait BaseFieldInfoFormatTestCase:
           "expected FakeIOException, got {source}"
         );
       },
-      Err(error) => return Err(error),
+      Err(error) => return Err(error.into()),
       Ok(()) => panic!("expected FakeIOException"),
     }
     enabled.store(false, Ordering::SeqCst);
@@ -277,13 +281,15 @@ pub trait BaseFieldInfoFormatTestCase:
     )?;
 
     enabled.store(true, Ordering::SeqCst);
-    match codec.field_infos_format().read(
+    match (codec.field_infos_format().read(
       dir.as_ref(),
       &segment_info,
       "",
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
-    ) {
-      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+    ))
+    .map_err(LuceneError::into_kind)
+    {
+      Err(LuceneErrorKind::Io { source, .. }) | Err(LuceneErrorKind::IoWithPath { source, .. }) => {
         assert!(
           source
             .get_ref()
@@ -291,7 +297,7 @@ pub trait BaseFieldInfoFormatTestCase:
           "expected FakeIOException, got {source}"
         );
       },
-      Err(error) => return Err(error),
+      Err(error) => return Err(error.into()),
       Ok(_) => panic!("expected FakeIOException"),
     }
     enabled.store(false, Ordering::SeqCst);
@@ -329,13 +335,15 @@ pub trait BaseFieldInfoFormatTestCase:
     )?;
 
     enabled.store(true, Ordering::SeqCst);
-    match codec.field_infos_format().read(
+    match (codec.field_infos_format().read(
       dir.as_ref(),
       &segment_info,
       "",
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
-    ) {
-      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+    ))
+    .map_err(LuceneError::into_kind)
+    {
+      Err(LuceneErrorKind::Io { source, .. }) | Err(LuceneErrorKind::IoWithPath { source, .. }) => {
         assert!(
           source
             .get_ref()
@@ -343,7 +351,7 @@ pub trait BaseFieldInfoFormatTestCase:
           "expected FakeIOException, got {source}"
         );
       },
-      Err(error) => return Err(error),
+      Err(error) => return Err(error.into()),
       Ok(_) => panic!("expected FakeIOException"),
     }
     enabled.store(false, Ordering::SeqCst);

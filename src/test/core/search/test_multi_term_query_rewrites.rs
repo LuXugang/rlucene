@@ -43,7 +43,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::HasIdentity;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::search::multi_term::BoostCheckingQuery;
@@ -304,7 +304,10 @@ where
       method,
     )?;
     let err = context.multi_searcher_dupls.rewrite(mtq);
-    assert!(matches!(err, Err(LuceneError::TooManyClauses(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::TooManyClauses(_))
+    ));
     Ok(())
   }));
 

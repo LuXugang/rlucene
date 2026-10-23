@@ -38,7 +38,7 @@ pub trait LeafCollector: Display {
   /// # Notes
   ///
   /// - The collection of the current segment can be terminated by returning an
-  ///   error such as [`LuceneError::CollectionTerminated`](crate::core::util::error::lucene_error::LuceneError::CollectionTerminated). In this case, the last
+  ///   error such as [`LuceneErrorKind::CollectionTerminated`](crate::core::util::error::lucene_error::LuceneErrorKind::CollectionTerminated). In this case, the last
   ///   docs of the current [`LeafReaderContext`](crate::core::index::leaf_reader_context::LeafReaderContext) will be skipped and
   ///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) will swallow the error and continue collection with
   ///   the next leaf.

@@ -20,7 +20,7 @@ use crate::core::geo::line::Line;
 use crate::core::geo::point::Point;
 use crate::core::geo::polygon::Polygon;
 use crate::core::geo::rectangle::Rectangle;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneErrorKind, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, SloppyMath};
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -501,7 +501,7 @@ impl GeoTestUtil {
           gons,
         ) {
           Ok(polygon) => return Ok(polygon),
-          Err(LuceneError::IllegalArgument(_)) => {},
+          Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {},
           Err(err) => return Err(err),
         }
       }

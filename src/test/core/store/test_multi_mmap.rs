@@ -29,7 +29,7 @@ use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::store::{DataInput, DataOutput, FSDirectory, IndexInput, NativeFSLockFactory};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::store::base_chunked_directory_test_case::BaseChunkedDirectoryTestCase;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -515,7 +515,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
 
     let pos_after_eof = size + 123;
     let eof = input.seek(pos_after_eof).unwrap_err();
-    assert!(matches!(&eof, LuceneError::Eof(_)));
+    assert!(matches!(eof.kind(), LuceneErrorKind::Eof(_)));
     assert!(
       eof.to_string().contains(&format!("pos={pos_after_eof}")),
       "wrong position in error message: {eof}"
@@ -526,7 +526,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
     let mut slice = input.slice("slice", 33, slice_size + 15)?;
     Self::assert_correct_impl(false, &slice)?;
     let eof = slice.seek(pos_after_eof).unwrap_err();
-    assert!(matches!(&eof, LuceneError::Eof(_)));
+    assert!(matches!(eof.kind(), LuceneErrorKind::Eof(_)));
     assert!(
       eof.to_string().contains(&format!("pos={pos_after_eof}")),
       "wrong position in error message: {eof}"

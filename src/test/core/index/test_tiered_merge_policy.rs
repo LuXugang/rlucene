@@ -43,7 +43,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::core_helper::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory, IOStats, MockMergeContext, apply_deletes, apply_merge,
@@ -1069,7 +1069,10 @@ fn test_setters() -> Result<()> {
   );
 
   let err = tmp.set_max_merged_segment_mb(-2.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   tmp.set_floor_segment_mb(2.0)?;
   assert!((tmp.get_floor_segment_mb() - 2.0).abs() < EPSILON);
@@ -1087,7 +1090,10 @@ fn test_setters() -> Result<()> {
   );
 
   let err = tmp.set_floor_segment_mb(-2.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   MergePolicy::<FakeDirectory>::get_base_mut(&mut tmp).set_max_cfs_segment_size_mb(2.0)?;
   assert!(
@@ -1114,7 +1120,10 @@ fn test_setters() -> Result<()> {
   );
 
   let err = MergePolicy::<FakeDirectory>::get_base_mut(&mut tmp).set_max_cfs_segment_size_mb(-2.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   Ok(())
 }

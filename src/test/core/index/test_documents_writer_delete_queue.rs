@@ -40,7 +40,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::term_query::TermQuery;
 
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::get_default_info_stream;
 
 #[allow(dead_code)] // for quick search
@@ -282,11 +282,20 @@ fn test_close() -> Result<()> {
       queue.close()?; // double close
     }
     let result = queue.add_delete_term(vec![Term::from_text("foo", "bar")]);
-    assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
+    ));
     let result = queue.freeze_global_buffer(None);
-    assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
+    ));
     let result = queue.add_delete_query(vec![TermQuery::new(Term::from_text("foo", "bar")).into()]);
-    assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
+    ));
 
     let sub_update = DocValuesUpdateEnum::Binary(BinaryDocValuesUpdate::new(Option::from(
       BytesRef::from_string(""),
@@ -299,7 +308,10 @@ fn test_close() -> Result<()> {
       sub_update,
     );
     let result = queue.add_doc_values_updates(vec![update]);
-    assert!(matches!(result, Err(LuceneError::AlreadyClosed(_))));
+    assert!(matches!(
+      result.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
+    ));
     let result = queue.maybe_freeze_global_buffer()?;
     assert!(result.is_none());
     assert!(!queue.is_open());

@@ -22,7 +22,7 @@ use crate::core::geo::xy_point::XYPoint;
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::util::core_helper::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::is_night_mode;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -47,7 +47,7 @@ impl ShapeTestUtil {
           gons,
         ) {
           Ok(polygon) => return Ok(polygon),
-          Err(LuceneError::IllegalArgument(_)) => {},
+          Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {},
           Err(err) => return Err(err),
         }
       }

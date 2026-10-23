@@ -61,7 +61,7 @@ use crate::core::store::nrt_caching_directory::NRTCachingDirectory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -683,11 +683,17 @@ fn test_update_non_numeric_doc_values_field() -> Result<()> {
   writer.add_document(doc)?;
 
   let res = writer.update_numeric_doc_value(Term::from_text("key", "doc"), "ndv", 17);
-  assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    res.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   // attempt to update a non-numeric field "foo"
   let res = writer.update_numeric_doc_value(Term::from_text("key", "doc"), "foo", 17);
-  assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    res.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer.close()?;
   Ok(())
@@ -1416,7 +1422,10 @@ fn test_update_segment_with_posting_but_no_doc_values() -> Result<()> {
 
   // update docValues of "ndv2" field in the second segment (NOT allowed)
   let result = writer.update_numeric_doc_value(Term::from_text("id", "doc1"), "ndv2", 10);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let actual_err_msg = "Can't update [Numeric] doc values; the field [ndv2] must be doc values only field, but is also indexed with postings.";
   assert_eq!(actual_err_msg, result.unwrap_err().to_string());
 
@@ -1453,7 +1462,10 @@ fn test_update_numeric_dv_field_with_same_name_as_posting_field() -> Result<()> 
   writer.commit()?;
 
   let result = writer.update_numeric_doc_value(Term::from_text("f", "mock-value"), "f", 17);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let actual_err_msg = "Can't update [Numeric] doc values; the field [f] must be doc values only field, but is also indexed with postings.";
   assert_eq!(actual_err_msg, result.unwrap_err().to_string());
 

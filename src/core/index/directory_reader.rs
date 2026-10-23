@@ -22,7 +22,7 @@ use crate::core::index::index_commit::IndexCommit;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::segment_infos::{SegmentInfos, generation_from_segments_file_name};
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneErrorKind, Result};
 use std::sync::Arc;
 
 use crate::core::index::live_index_writer_config::LeafSorter;
@@ -420,15 +420,14 @@ where
     {
       let sis = match SegmentInfos::read_commit(dir.clone(), &file_name) {
         Ok(sis) => Some(sis),
-        Err(LuceneError::Io { source, .. }) if source.kind() == std::io::ErrorKind::NotFound => {
-          None
+        Err(error) => match error.kind() {
+          LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. }
+            if source.kind() == std::io::ErrorKind::NotFound =>
+          {
+            None
+          },
+          _ => return Err(error),
         },
-        Err(LuceneError::IoWithPath { source, .. })
-          if source.kind() == std::io::ErrorKind::NotFound =>
-        {
-          None
-        },
-        Err(err) => return Err(err),
       };
 
       if let Some(sis) = sis {

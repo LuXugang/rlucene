@@ -37,7 +37,7 @@ use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -187,7 +187,7 @@ where
     };
 
     match corruption_result {
-      Err(LuceneError::CorruptIndex(_)) => Ok(()),
+      Err(error) if matches!(error.kind(), LuceneErrorKind::CorruptIndex(_)) => Ok(()),
       Err(err) => Err(err),
       Ok(()) => Err(LuceneError::illegal_state(format!(
         "mismatched checksum in {victim} was not detected"

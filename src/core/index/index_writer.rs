@@ -37,7 +37,9 @@ use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::counter::{Counter, new_counter};
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 use crate::core::util::long_supplier::LongSupplier;
 #[cfg(test)]
 use crate::test_framework::core::util::failure_context::{
@@ -132,7 +134,7 @@ impl IndexingDocument for &mut Document {}
 /// <a href="#mergePolicy">below</a> for changing the [`MergeScheduler`]).
 ///
 /// Opening an [`IndexWriter`] creates a lock file for the directory in use. Trying to open another
-/// [`IndexWriter`] on the same directory returns a [`LuceneError::LockObtainFailed`] error.
+/// [`IndexWriter`] on the same directory returns a [`LuceneErrorKind::LockObtainFailed`] error.
 ///
 /// Expert: [`IndexWriter`] allows an optional
 /// [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy)
@@ -163,7 +165,7 @@ impl IndexingDocument for &mut Document {}
 /// **NOTE**: if you hit an Error, or disaster strikes during a checkpoint then [`IndexWriter`]
 /// will close itself. This is a defensive measure in case any internal state (buffered documents,
 /// deletions, reference counts) were corrupted. Any subsequent calls will return an
-/// [`LuceneError::AlreadyClosed`]. <a id="thread-safety"></a>
+/// [`LuceneErrorKind::AlreadyClosed`]. <a id="thread-safety"></a>
 ///
 /// **NOTE**: [`IndexWriter`] instances are completely thread safe, meaning multiple threads can
 /// call any of its methods, concurrently. If your application requires external synchronization,
@@ -385,7 +387,7 @@ where
       };
 
       // If index is too old, reading the segments will return
-      // `LuceneError::IndexFormatTooOld`.
+      // `LuceneErrorKind::IndexFormatTooOld`.
 
       let files = directory.list_all()?;
 
@@ -790,7 +792,7 @@ where
   /// In this case, note that:
   ///
   /// - If you called `prepare_commit` but failed to call `commit`, this method returns
-  ///   [`LuceneError::IllegalState`] and the [`IndexWriter`] is not closed.
+  ///   [`LuceneErrorKind::IllegalState`] and the [`IndexWriter`] is not closed.
   /// - If this method returns any other error, the [`IndexWriter`] is closed, but
   ///   changes may have been lost.
   ///
@@ -928,7 +930,7 @@ where
   /// governed by the merge policy.
   ///
   /// Each term in the document can be no longer than [`MAX_TERM_LENGTH`] bytes; otherwise this
-  /// method returns [`LuceneError::IllegalArgument`].
+  /// method returns [`LuceneErrorKind::IllegalArgument`].
   ///
   /// Accepts owned fields or mutable field references. Pass `doc` to consume a
   /// document, or `&mut doc` to retain it for subsequent indexing calls.
@@ -941,7 +943,7 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  /// - Returns [`LuceneErrorKind::CorruptIndex`] if the index is corrupt.
   /// - Returns an I/O error if a low-level I/O operation fails.
   pub fn add_document<DF>(&self, doc: DF) -> Result<i64>
   where
@@ -989,7 +991,7 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  /// - Returns [`LuceneErrorKind::CorruptIndex`] if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
   pub fn add_documents<DI>(&self, docs: DI) -> Result<i64>
   where
@@ -1025,7 +1027,7 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  /// - Returns [`LuceneErrorKind::CorruptIndex`] if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
   pub fn update_document_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
   where
@@ -1068,7 +1070,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  /// Returns [`LuceneErrorKind::CorruptIndex`] if the index is corrupt.
   ///
   /// Returns an error if there is a low-level IO error.
   ///
@@ -1220,8 +1222,8 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
-  /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+  /// * [`LuceneErrorKind::CorruptIndex`] - If the index is corrupt.
+  /// * [`LuceneErrorKind::Io`] - If there is a low-level I/O error.
   pub fn soft_update_documents<T, DF, Updates>(
     &self,
     term: T,
@@ -1422,8 +1424,8 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
-  /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+  /// * [`LuceneErrorKind::CorruptIndex`] - If the index is corrupt.
+  /// * [`LuceneErrorKind::Io`] - If there is a low-level I/O error.
   pub fn soft_update_document<T, DF, Updates>(
     &self,
     term: T,
@@ -1491,8 +1493,8 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
-  /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+  /// * [`LuceneErrorKind::CorruptIndex`] - If the index is corrupt.
+  /// * [`LuceneErrorKind::Io`] - If there is a low-level I/O error.
   pub fn update_numeric_doc_value<T, F>(&self, term: T, field: F, value: i64) -> Result<i64>
   where
     T: Into<Arc<Term>>,
@@ -1562,8 +1564,8 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
-  /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+  /// * [`LuceneErrorKind::CorruptIndex`] - If the index is corrupt.
+  /// * [`LuceneErrorKind::Io`] - If there is a low-level I/O error.
   pub fn update_binary_doc_value<T, F, B>(&self, term: T, field: F, value: B) -> Result<i64>
   where
     T: Into<Arc<Term>>,
@@ -1618,8 +1620,8 @@ where
   /// The `sequence number` for this operation.
   ///
   /// # Errors
-  /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
-  /// * [`LuceneError::Io`] - If there is a low-level I/O error.
+  /// * [`LuceneErrorKind::CorruptIndex`] - If the index is corrupt.
+  /// * [`LuceneErrorKind::Io`] - If there is a low-level I/O error.
   pub fn update_doc_values<T, Updates>(&self, term: T, updates: Updates) -> Result<i64>
   where
     T: Into<Arc<Term>>,
@@ -3736,9 +3738,9 @@ where
   /// # Errors
   ///
   /// Returns:
-  /// - [`LuceneError::CorruptIndex`] if the index is corrupt
+  /// - [`LuceneErrorKind::CorruptIndex`] if the index is corrupt
   /// - an error if there is a low-level IO error
-  /// - [`LuceneError::IllegalArgument`] if `add_indexes` would cause the index to exceed [`MAX_DOCS`]
+  /// - [`LuceneErrorKind::IllegalArgument`] if `add_indexes` would cause the index to exceed [`MAX_DOCS`]
   pub fn add_indexes_from_codec_readers<CR, Readers>(&self, readers: Readers) -> Result<i64>
   where
     D: 'static,
@@ -5587,7 +5589,12 @@ where
       .get_exception()
       .ok_or_else(|| LuceneError::illegal_state("merge error must be present"))?;
 
-    if matches!(&result, Ok(Err(LuceneError::MergeAborted(_)))) {
+    if matches!(
+      result
+        .as_ref()
+        .map(|result| result.as_ref().map_err(LuceneError::kind)),
+      Ok(Err(LuceneErrorKind::MergeAborted(_)))
+    ) {
       // We can ignore this error (it happens when
       // deleteAll or rollback is called), unless the
       // merge involves segments from external directories,
@@ -6302,7 +6309,7 @@ where
       .ok_or_else(|| LuceneError::illegal_argument("tragic result must contain a failure"))?;
     // This is not supposed to be tragic: IW is supposed to catch this and
     // ignore, because it means we asked the merge to abort:
-    debug_assert!(!matches!(&tragedy, LuceneError::MergeAborted(_)));
+    debug_assert!(!matches!(tragedy.kind(), LuceneErrorKind::MergeAborted(_)));
 
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
@@ -6560,7 +6567,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns [`LuceneError::IllegalArgument`] if it's not allowed.
+  /// Returns [`LuceneErrorKind::IllegalArgument`] if it's not allowed.
   fn reserve_docs(&self, added_num_docs: i64) -> Result<()> {
     debug_assert!(added_num_docs >= 0);
 
@@ -6575,7 +6582,7 @@ where
   /// does not actually reserve them.
   /// # Errors
   ///
-  /// Returns [`LuceneError::IllegalArgument`] if there would be too many docs.
+  /// Returns [`LuceneErrorKind::IllegalArgument`] if there would be too many docs.
   fn test_reserve_docs(&self, added_num_docs: i64) -> Result<()> {
     debug_assert!(added_num_docs >= 0);
 

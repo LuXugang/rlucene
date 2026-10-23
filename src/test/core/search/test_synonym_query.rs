@@ -41,7 +41,7 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hits::Relation;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::core_helper::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::search::query_utils::QueryUtils;
@@ -119,8 +119,10 @@ fn test_bogus_params() -> Result<()> {
   let mut builder = Builder::new("field1");
   builder.add_term(Term::from_text("field1", "a"))?;
   assert!(matches!(
-    builder.add_term(Term::from_text("field2", "b")),
-    Err(LuceneError::IllegalArgument(_))
+    (builder.add_term(Term::from_text("field2", "b")))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
 
   for boost in [
@@ -134,8 +136,10 @@ fn test_bogus_params() -> Result<()> {
   ] {
     let mut builder = Builder::new("field1");
     assert!(matches!(
-      builder.add_term_with_boost(Term::from_text("field1", "a"), boost),
-      Err(LuceneError::IllegalArgument(_))
+      (builder.add_term_with_boost(Term::from_text("field1", "a"), boost))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
     ));
   }
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::codec::{self, Codec};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 #[allow(dead_code)] // for quick search
 struct TestNamedSPILoader;
@@ -32,8 +32,10 @@ fn test_lookup() -> Result<()> {
 #[test]
 fn test_bogus_lookup() -> Result<()> {
   assert!(matches!(
-    codec::for_name("dskfdskfsdfksdfdsf"),
-    Err(LuceneError::IllegalArgument(_))
+    (codec::for_name("dskfdskfsdfksdfdsf"))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   Ok(())
 }

@@ -17,7 +17,7 @@
 
 use crate::core::analysis::character_utils::CharacterUtils;
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::lucene_test_case::random;
 use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
@@ -69,7 +69,10 @@ fn test_new_character_buffer() -> Result<()> {
   assert_eq!(cb2.length, 0);
 
   let result = CharacterUtils::new_character_buffer(0);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   Ok(())
 }
 #[test]

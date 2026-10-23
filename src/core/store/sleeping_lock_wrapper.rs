@@ -19,7 +19,7 @@ use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::HasIdentity;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::thread;
@@ -164,7 +164,7 @@ where
     loop {
       match self.in_.obtain_lock(name) {
         Ok(lock) => return Ok(lock),
-        Err(err @ LuceneError::LockObtainFailed(_)) => {
+        Err(err) if matches!(err.kind(), LuceneErrorKind::LockObtainFailed(_)) => {
           if failure_reason.is_none() {
             failure_reason = Some(err);
           }

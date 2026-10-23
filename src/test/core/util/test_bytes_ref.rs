@@ -19,7 +19,7 @@
 use crate::test_framework::core::util::lucene_test_case::random;
 
 use crate::core::index::BytesRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
@@ -69,6 +69,9 @@ fn test_invalid_deep_copy() -> Result<()> {
   let mut from = BytesRef::from_bytes(vec![1, 2]);
   from.offset += 1;
   let result = BytesRef::deep_copy_of(&from);
-  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
+  ));
   Ok(())
 }

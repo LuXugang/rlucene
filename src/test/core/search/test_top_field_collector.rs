@@ -70,7 +70,7 @@ use crate::core::search::top_field_collector::{
 };
 use crate::core::search::top_field_docs::TopFieldDocs;
 use crate::core::search::weight::Weight;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
@@ -340,7 +340,10 @@ fn test_total_hits() -> Result<()> {
           scorer.score = 3.0;
           if total_hits_threshold < 3 {
             let result = leaf_collector2.collect(1, &mut scorer);
-            assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
+            assert!(matches!(
+              result.as_ref().map_err(LuceneError::kind),
+              Err(LuceneErrorKind::CollectionTerminated(_))
+            ));
 
             let top_docs = collector.top_docs()?;
             assert_eq!(
@@ -355,7 +358,10 @@ fn test_total_hits() -> Result<()> {
           scorer.score = 4.0;
           if total_hits_threshold == 3 {
             let result = leaf_collector2.collect(1, &mut scorer);
-            assert!(matches!(result, Err(LuceneError::CollectionTerminated(_))));
+            assert!(matches!(
+              result.as_ref().map_err(LuceneError::kind),
+              Err(LuceneErrorKind::CollectionTerminated(_))
+            ));
 
             let top_docs = collector.top_docs()?;
             assert_eq!(

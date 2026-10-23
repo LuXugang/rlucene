@@ -43,7 +43,7 @@ use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::{QueryCache, QueryCacheEnum};
 use crate::core::store::directory::DirEnum;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::test_index_searcher::{
   GetSlicesIndexSearcher, SegmentPartitionsSameSliceIndexSearcher,
@@ -218,7 +218,7 @@ fn test_search_after_passed_max_doc() -> Result<()> {
     Ok(_) => panic!("searchAfter after maxDoc should fail"),
     Err(err) => err,
   };
-  assert!(matches!(err, LuceneError::IllegalArgument(_)));
+  assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
 
   Ok(())
 }

@@ -114,7 +114,7 @@ pub trait DataOutput {
   ///   numbers are supported but should be avoided.
   ///
   /// # Errors
-  /// Returns [`LuceneError::Io`] if
+  /// Returns [`LuceneErrorKind::Io`] if
   /// there is an error writing to the underlying medium.
   ///
   /// # See Also

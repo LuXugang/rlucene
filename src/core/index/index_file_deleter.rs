@@ -24,7 +24,9 @@ use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  CaughtResult, CaughtResultExt, LuceneError, LuceneErrorKind, Result,
+};
 use crate::core::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 #[cfg(test)]
@@ -306,7 +308,7 @@ where
     match self.ensure_open(index_writer) {
       Ok(_) => Ok(false),
       Err(e) => {
-        if matches!(e, LuceneError::AlreadyClosed(_)) {
+        if matches!(e.kind(), LuceneErrorKind::AlreadyClosed(_)) {
           Ok(true)
         } else {
           Err(e)
@@ -745,7 +747,7 @@ where
         Err(e) => {
           // trash file: we have to handle this since we allow anything starting with 'segments'
           // here
-          if !matches!(e, LuceneError::NumberFormat(_)) {
+          if !matches!(e.kind(), LuceneErrorKind::NumberFormat(_)) {
             return Err(e);
           }
         },
@@ -759,7 +761,7 @@ where
         Err(e) => {
           // trash file: we have to handle this since we allow anything starting with
           // 'pending_segments' here
-          if !matches!(e, LuceneError::NumberFormat(_)) {
+          if !matches!(e.kind(), LuceneErrorKind::NumberFormat(_)) {
             return Err(e);
           }
         },
@@ -782,7 +784,7 @@ where
         },
         Err(e) => {
           // trash file: we have to handle this since codec regex is only so good
-          if !matches!(e, LuceneError::NumberFormat(_)) {
+          if !matches!(e.kind(), LuceneErrorKind::NumberFormat(_)) {
             return Err(e);
           }
         },

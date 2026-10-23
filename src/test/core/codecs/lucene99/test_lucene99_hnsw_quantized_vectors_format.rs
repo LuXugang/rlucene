@@ -42,7 +42,7 @@ use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::vector_util::VectorUtil;
@@ -390,23 +390,31 @@ fn test_limits() -> Result<()> {
   // TODO: Negative maxConn and beamWidth cases cannot be represented by usize
   // constructor parameters.
   assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(0, 20),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(0, 20))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(20, 0),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(20, 0))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(MAXIMUM_MAX_CONN + 1, 20))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
   assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1),
-    Err(LuceneError::IllegalArgument(_))
+    (Lucene99HnswScalarQuantizedVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
   ));
-  assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::
+  assert!(
+    matches!((Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
         20,
         100,
@@ -415,33 +423,29 @@ fn test_limits() -> Result<()> {
         false,
         Some(1.1),
         None,
-      ),
-    Err(LuceneError::IllegalArgument(_))
-  ));
-  assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::
+      )).as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(_)))
+  );
+  assert!(
+    matches!((Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
         20, 100, 0, -1, false, None, None,
-      ),
-    Err(LuceneError::IllegalArgument(_))
-  ));
-  assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::
+      )).as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(_)))
+  );
+  assert!(
+    matches!((Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
         20, 100, 0, 5, false, None, None,
-      ),
-    Err(LuceneError::IllegalArgument(_))
-  ));
+      )).as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(_)))
+  );
 
-  assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::
+  assert!(
+    matches!((Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
         20, 100, 0, 9, false, None, None,
-      ),
-    Err(LuceneError::IllegalArgument(_))
-  ));
-  assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::
+      )).as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(_)))
+  );
+  assert!(
+    matches!((Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
         20,
         100,
@@ -450,11 +454,10 @@ fn test_limits() -> Result<()> {
         false,
         Some(0.8),
         None,
-      ),
-    Err(LuceneError::IllegalArgument(_))
-  ));
-  assert!(matches!(
-    Lucene99HnswScalarQuantizedVectorsFormat::
+      )).as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(_)))
+  );
+  assert!(
+    matches!((Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
         20,
         100,
@@ -463,9 +466,8 @@ fn test_limits() -> Result<()> {
         false,
         None,
         Some(new_search_executor(1)?),
-      ),
-    Err(LuceneError::IllegalArgument(_))
-  ));
+      )).as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IllegalArgument(_)))
+  );
   Ok(())
 }
 

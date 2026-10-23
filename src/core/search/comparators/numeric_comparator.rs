@@ -30,7 +30,7 @@ use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_numeric_selector::SortedNumericSelectorWrap;
 use crate::core::util::ToInt;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 
 const MIN_SKIP_INTERVAL: i32 = 32;
 const MAX_SKIP_INTERVAL: i32 = 8192;
@@ -443,8 +443,8 @@ where
     if self.iterator_cost == -1 {
       match scorer.cost() {
         Ok(c) => self.iterator_cost = c,
-        Err(e) => match e {
-          LuceneError::UnsupportedOperation(_) => {
+        Err(e) => match e.kind() {
+          LuceneErrorKind::UnsupportedOperation(_) => {
             self.iterator_cost = self.max_doc as i64;
           },
           _ => return Err(e),

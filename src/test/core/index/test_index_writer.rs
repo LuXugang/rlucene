@@ -100,7 +100,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{HasIdentity, LATEST, StringHelper};
@@ -270,7 +270,10 @@ fn test_changes_after_close() -> Result<()> {
 
   writer.close()?;
   let err = add_doc(&mut random, &writer, &mut field_types);
-  assert!(matches!(err, Err(LuceneError::AlreadyClosed(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
+  ));
 
   Ok(())
 }
@@ -935,7 +938,10 @@ fn test_negative_positions() -> Result<()> {
   )?);
 
   let result = writer.add_document(doc);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer.close()?;
   Ok(())
@@ -1675,7 +1681,10 @@ fn test_wicked_long_term() -> Result<()> {
   let contents = format!("abc xyz x{big_term} another term");
   huge_doc.add(TextField::from_string("content", contents, Store::No)?);
   let err = w.add_document(&mut random, huge_doc);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   // Make sure we can add another normal document
   let mut doc = Document::new();
@@ -1836,8 +1845,10 @@ fn test_whether_delete_all_deletes_write_lock() -> Result<()> {
   w1.delete_all()?;
 
   assert!(matches!(
-    IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?),
-    Err(LuceneError::LockObtainFailed(_))
+    (IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::LockObtainFailed(_))
   ));
 
   w1.close(&mut random)?;
@@ -2495,7 +2506,7 @@ fn test_iterable_field_throws_exception() -> Result<()> {
           doc_count += 1;
           live_ids.insert(id);
         },
-        Err(error @ LuceneError::IllegalState(_)) => {
+        Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalState(_)) => {
           assert_eq!("boom", error.to_string());
         },
         Err(error) => return Err(error),
@@ -2564,7 +2575,7 @@ fn test_iterable_throws_exception() -> Result<()> {
           doc_count += 1;
           live_ids.insert(id);
         },
-        Err(error @ LuceneError::IllegalState(_)) => {
+        Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalState(_)) => {
           assert_eq!("boom", error.to_string());
         },
         Err(error) => return Err(error),
@@ -2881,7 +2892,10 @@ fn test_has_uncommitted_changes_after_exception() -> Result<()> {
     BytesRef::from_string("bar!"),
   ));
   let result = iwriter.add_document(doc);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   iwriter.commit()?;
   assert!(!iwriter.has_uncommitted_changes()?);
@@ -3532,7 +3546,10 @@ fn test_massive_field() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StoredField::from_string("big", b.clone())?);
   let err = writer.add_document(doc);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert_eq!(
     format!(
       "stored field \"big\" is too large ({} characters) to store",
@@ -4064,7 +4081,7 @@ fn test_soft_update_documents() -> Result<()> {
   match err {
     Ok(_) => panic!("expected IllegalArgument error"),
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert_eq!("at least one soft delete must be present", err.to_string());
     },
   }
@@ -4079,7 +4096,7 @@ fn test_soft_update_documents() -> Result<()> {
   match err {
     Ok(_) => panic!("expected IllegalArgument error"),
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert_eq!("at least one soft delete must be present", err.to_string());
     },
   }
@@ -4638,7 +4655,10 @@ fn test_prevent_changing_soft_deletes_field() -> Result<()> {
   let illegal_error = IndexWriter::new(dir.clone(), config)
     .err()
     .expect("changing the soft-deletes field should fail");
-  assert!(matches!(illegal_error, LuceneError::IllegalArgument(_)));
+  assert!(matches!(
+    illegal_error.kind(),
+    LuceneErrorKind::IllegalArgument(_)
+  ));
   assert_eq!(
     "cannot configure [your_deletes] as soft-deletes; this index uses [my_deletes] as soft-deletes already",
     illegal_error.to_string()
@@ -4678,7 +4698,10 @@ fn test_prevent_changing_soft_deletes_field() -> Result<()> {
   let reopen_error = IndexWriter::new(dir.clone(), config)
     .err()
     .expect("omitting the configured soft-deletes field should fail");
-  assert!(matches!(reopen_error, LuceneError::IllegalArgument(_)));
+  assert!(matches!(
+    reopen_error.kind(),
+    LuceneErrorKind::IllegalArgument(_)
+  ));
   assert_eq!(
     "this index has [my_deletes] as soft-deletes already but soft-deletes field is not configured in IWC",
     reopen_error.to_string()
@@ -4723,7 +4746,7 @@ fn test_prevent_adding_indexes_with_different_soft_deletes_field() -> Result<()>
   match err {
     Ok(_) => panic!("expected IllegalArgument error"),
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert_eq!(
         "cannot configure [soft_deletes_2] as soft-deletes; this index uses [soft_deletes_1] as soft-deletes already",
         err.to_string()
@@ -4790,7 +4813,7 @@ fn test_not_allow_using_existing_field_as_soft_deletes() -> Result<()> {
   match err {
     Ok(_) => panic!("expected IllegalArgument error"),
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert_eq!(
         format!(
           "cannot configure [{}] as soft-deletes; this index uses [{}] as non-soft-deletes already",
@@ -4832,7 +4855,10 @@ fn test_broken_payload() -> Result<()> {
   )?);
 
   let err = w.add_document(doc).unwrap_err();
-  assert!(matches!(err, LuceneError::ArrayIndexOutOfBounds(_)));
+  assert!(matches!(
+    err.kind(),
+    LuceneErrorKind::ArrayIndexOutOfBounds(_)
+  ));
   w.close()?;
   d.close()?;
   Ok(())
@@ -4925,7 +4951,7 @@ fn test_set_index_created_version() -> Result<()> {
   match err {
     Ok(_) => unreachable!("expected IllegalArgument error"),
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert_eq!(
         format!(
           "indexCreatedVersionMajor may not be in the future: current major version is {}, but got: {}",
@@ -4942,7 +4968,7 @@ fn test_set_index_created_version() -> Result<()> {
   match err {
     Ok(_) => unreachable!("expected IllegalArgument error"),
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert_eq!(
         format!(
           "indexCreatedVersionMajor may not be less than the minimum supported version: {}, but got: {}",
@@ -5065,7 +5091,7 @@ fn test_refresh_and_rollback_concurrently() -> Result<()> {
         doc.add(StringField::from_string("id", id.clone(), Store::Yes)?);
         match w.update_document_with_term(Term::from_text("id", id), doc) {
           Ok(_) => indexed_docs.release(1),
-          Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => return Ok(()),
           Err(error) => return Err(error),
         }
       }
@@ -5076,7 +5102,7 @@ fn test_refresh_and_rollback_concurrently() -> Result<()> {
       while !stopped.load(SeqCst) {
         match sm.maybe_refresh_blocking() {
           Ok(()) => {},
-          Err(LuceneError::AlreadyClosed(_)) => return Ok(()),
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => return Ok(()),
           Err(error) => return Err(error),
         }
       }
@@ -5132,7 +5158,7 @@ fn test_closeable_queue() -> Result<()> {
     let t = scope.spawn(move || -> Result<()> {
       match thread_queue.process_events(writer) {
         Ok(_) => Ok(()),
-        Err(LuceneError::AlreadyClosed(_)) => Ok(()),
+        Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => Ok(()),
         Err(e) => Err(e),
       }
     });
@@ -5143,9 +5169,15 @@ fn test_closeable_queue() -> Result<()> {
 
   assert_eq!(4, executed.load(SeqCst));
   let err = queue.process_events(&writer);
-  assert!(matches!(err, Err(LuceneError::AlreadyClosed(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
+  ));
   let err = queue.add(Event::IncrementCounter(executed.clone()));
-  assert!(matches!(err, Err(LuceneError::AlreadyClosed(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
+  ));
 
   writer.close()?;
   Ok(())
@@ -5962,7 +5994,7 @@ fn test_parent_and_soft_deletes_are_the_same() -> Result<()> {
   match err {
     Ok(_) => unreachable!("expected IllegalArgument error"),
     Err(err) => {
-      assert!(matches!(err, LuceneError::IllegalArgument(_)));
+      assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
       assert_eq!(
         "parent document and soft-deletes field can't be the same field \"foo\"",
         err.to_string()
@@ -6007,7 +6039,7 @@ fn test_parent_field_existing_index() -> Result<()> {
     match err {
       Ok(_) => unreachable!("expected IllegalArgument error"),
       Err(err) => {
-        assert!(matches!(err, LuceneError::IllegalArgument(_)));
+        assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
         assert_eq!(
           "can't add a parent field to an already existing index without a parent field",
           err.to_string()
@@ -6026,7 +6058,7 @@ fn test_parent_field_existing_index() -> Result<()> {
     match err {
       Ok(_) => unreachable!("expected IllegalArgument error"),
       Err(err) => {
-        assert!(matches!(err, LuceneError::IllegalArgument(_)));
+        assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
         assert_eq!(
           "can't add a parent field to an already existing index without a parent field",
           err.to_string()
@@ -6098,7 +6130,7 @@ fn test_index_with_parent_field_is_congruent() -> Result<()> {
         panic!("expected IllegalArgument error");
       },
       Err(err) => {
-        assert!(matches!(err, LuceneError::IllegalArgument(_)));
+        assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
         assert_eq!(
           "can't add field [parent] as parent document field; this IndexWriter is configured with [someOtherField] as parent document field",
           err.to_string()
@@ -6118,7 +6150,7 @@ fn test_index_with_parent_field_is_congruent() -> Result<()> {
         panic!("expected IllegalArgument error");
       },
       Err(err) => {
-        assert!(matches!(err, LuceneError::IllegalArgument(_)));
+        assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
         assert_eq!(
           "can't add field [parent] as parent document field; this IndexWriter has no parent document field configured",
           err.to_string()
@@ -6165,7 +6197,7 @@ fn test_parent_field_is_already_used() -> Result<()> {
     Err(err) => err,
   };
 
-  assert!(matches!(err, LuceneError::IllegalArgument(_)));
+  assert!(matches!(err.kind(), LuceneErrorKind::IllegalArgument(_)));
   assert_eq!(
     "can't add [parent] as non parent document field; this IndexWriter is configured with [parent] as parent document field",
     err.to_string()
@@ -6221,7 +6253,10 @@ fn test_doc_values_mixed_skipping_index() -> Result<()> {
     doc2.add(SortedNumericDocValuesField::new("test", random.random()));
 
     let err = writer.add_document(doc2);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     let err = err.unwrap_err();
     assert_eq!(
       "Inconsistency of field data structures across documents for field [test] of doc [1]. doc values skip index type: expected 'Range', but it has 'None'.",
@@ -6251,7 +6286,10 @@ fn test_doc_values_mixed_skipping_index() -> Result<()> {
     ));
 
     let err = writer.add_document(doc2);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     let err = err.unwrap_err();
     assert_eq!(
       "Inconsistency of field data structures across documents for field [test] of doc [1]. doc values skip index type: expected 'None', but it has 'Range'.",
@@ -6283,7 +6321,10 @@ fn test_doc_values_skipping_index_without_doc_values() -> Result<()> {
     doc1.add(Field::from_binary("test", vec![0u8; 10], field_type)?);
 
     let err = writer.add_document(doc1);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+    assert!(matches!(
+      err.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ));
     assert!(
       err
         .unwrap_err()

@@ -35,7 +35,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{LATEST, LUCENE_9_0_0, LUCENE_10_1_1, StringHelper};
 use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
@@ -482,7 +482,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
             }
             return Ok(());
           },
-          Err(LuceneError::CorruptIndex(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::CorruptIndex(_)) => {
             // Corruption detected
           },
           Err(err) => return Err(err),
@@ -498,10 +498,10 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
 
   let result = SegmentInfos::read_latest_commit(corrupt_dir.clone());
   assert!(result.is_err());
-  match result {
-    Err(LuceneError::CorruptIndex(_))
-    | Err(LuceneError::IndexFormatTooOld(_))
-    | Err(LuceneError::IndexFormatTooNew(_)) => {},
+  match (result).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::CorruptIndex(_))
+    | Err(LuceneErrorKind::IndexFormatTooOld(_))
+    | Err(LuceneErrorKind::IndexFormatTooNew(_)) => {},
     Err(error) => panic!("unexpected error: {error:?}"),
     Ok(_) => panic!("expected an error"),
   }

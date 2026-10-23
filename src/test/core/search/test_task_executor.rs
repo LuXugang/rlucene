@@ -30,7 +30,7 @@ use crate::core::search::task_executor::TaskExecutor;
 use crate::core::search::weight::Weight;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::test_index_searcher::GetSlicesIndexSearcher;
@@ -60,8 +60,8 @@ fn test_unwrap_io_exception_from_execution_exception() -> Result<()> {
       Err(LuceneError::io(std::io::Error::other("io error")))
     }])
     .expect_err("the callable must fail");
-  match error {
-    LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+  match error.kind() {
+    LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
       assert_eq!("io error", source.to_string());
     },
     error => panic!("expected an I/O error, got {error}"),
@@ -77,10 +77,9 @@ fn test_unwrap_runtime_exception_from_execution_exception() -> Result<()> {
       Err(LuceneError::illegal_state("runtime"))
     }])
     .expect_err("the callable must fail");
-  assert!(matches!(
-    error,
-    LuceneError::IllegalState(ref error) if error.message == "runtime"
-  ));
+  assert!(
+    matches!(error.kind(), LuceneErrorKind::IllegalState(error) if error.message == "runtime")
+  );
   Ok(())
 }
 
@@ -218,7 +217,7 @@ fn test_invoke_all_does_not_leave_tasks_behind() -> Result<()> {
   let error = task_executor
     .invoke_all(tasks)
     .expect_err("the first callable must fail");
-  assert!(matches!(error, LuceneError::IllegalState(_)));
+  assert!(matches!(error.kind(), LuceneErrorKind::IllegalState(_)));
   assert_eq!(1, tasks_executed.load(Ordering::SeqCst));
   Ok(())
 }

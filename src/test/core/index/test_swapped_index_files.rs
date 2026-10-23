@@ -25,7 +25,7 @@ use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -161,15 +161,15 @@ where
 
 fn is_expected_swapped_file_error(err: &LuceneError) -> bool {
   matches!(
-    err,
-    LuceneError::CorruptIndex(_)
-      | LuceneError::Eof(_)
-      | LuceneError::IndexFormatTooOld(_)
-      | LuceneError::Io { .. }
-      | LuceneError::IoWithPath { .. }
+    err.kind(),
+    LuceneErrorKind::CorruptIndex(_)
+      | LuceneErrorKind::Eof(_)
+      | LuceneErrorKind::IndexFormatTooOld(_)
+      | LuceneErrorKind::Io { .. }
+      | LuceneErrorKind::IoWithPath { .. }
   )
 }
 
 fn is_expected_check_index_error(err: &LuceneError) -> bool {
-  is_expected_swapped_file_error(err) || matches!(err, LuceneError::IllegalState(_))
+  is_expected_swapped_file_error(err) || matches!(err.kind(), LuceneErrorKind::IllegalState(_))
 }

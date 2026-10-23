@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::close::CloseableWrite;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::util::lucene_test_case::create_temp_dir;
 use std::fs::{self, File, create_dir_all};
@@ -125,11 +125,10 @@ fn test_fsync_access_denied_opening_directory() -> Result<()> {
     // A privileged process can bypass the permission bits; std::fs has no mock
     // filesystem provider to enforce them.
     if unsafe { libc::geteuid() } != 0 {
-      assert!(matches!(
-        result,
-        Err(LuceneError::IoWithPath { source, .. })
-          if source.kind() == std::io::ErrorKind::PermissionDenied
-      ));
+      assert!(
+        matches!(result.as_ref().map_err(LuceneError::kind), Err(LuceneErrorKind::IoWithPath { source, .. })
+          if source.kind() == std::io::ErrorKind::PermissionDenied)
+      );
     }
   }
 
@@ -142,8 +141,10 @@ fn test_fsync_non_existent_directory() -> Result<()> {
   let dir_path = fs::canonicalize(dir.path())?;
   let non_existent_dir = dir_path.join("non-existent");
   assert!(matches!(
-    IOUtils::fsync(&non_existent_dir, true),
-    Err(LuceneError::NoSuchFile(_))
+    (IOUtils::fsync(&non_existent_dir, true))
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NoSuchFile(_))
   ));
   Ok(())
 }

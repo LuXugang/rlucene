@@ -49,7 +49,7 @@ use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::number::Number;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 pub use crate::test_framework::core::document::FieldImpl;
@@ -149,7 +149,10 @@ fn test_multi_valued_doc_values_field() -> Result<()> {
   // be able to add same field more than once:
   let res = w.add_document(&mut random, doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -189,7 +192,10 @@ fn test_different_typed_doc_values_field() -> Result<()> {
 
   let res = w.add_document(&mut random, doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument for mixed doc-values types, got: {:?}",
     res
   );
@@ -227,7 +233,10 @@ fn test_different_typed_doc_values_field2() -> Result<()> {
 
   let res = w.add_document(&mut random, doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -352,7 +361,10 @@ fn test_mixed_types_same_document() -> Result<()> {
 
   let res = w.add_document(doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -385,7 +397,10 @@ fn test_mixed_types_different_documents() -> Result<()> {
 
   let res = w.add_document(doc2);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -421,7 +436,10 @@ fn test_add_sorted_twice() -> Result<()> {
 
   let res = iwriter.add_document(doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -458,7 +476,10 @@ fn test_add_binary_twice() -> Result<()> {
 
   let res = iwriter.add_document(doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -490,7 +511,10 @@ fn test_add_numeric_twice() -> Result<()> {
 
   let res = iwriter.add_document(doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -530,7 +554,10 @@ fn test_too_large_sorted_bytes() -> Result<()> {
   huge_doc.add(SortedDocValuesField::new("dv", b));
 
   let res = iwriter.add_document(huge_doc);
-  assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    res.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
@@ -569,7 +596,10 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
 
   let res = iwriter.add_document(huge_doc);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -604,7 +634,10 @@ fn test_mixed_types_different_segments() -> Result<()> {
 
   let res = w.add_document(doc2);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -691,7 +724,10 @@ fn test_mixed_types_after_reopen_append1() -> Result<()> {
 
   let res = w2.add_document(doc2);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -735,7 +771,10 @@ fn test_mixed_types_after_reopen_append2() -> Result<()> {
   // DefaultIndexingChain/FieldInfos, because the field (foo)
   // is first added without DocValues:
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -776,7 +815,10 @@ fn test_mixed_types_after_reopen_append3() -> Result<()> {
 
   let res = w2.add_document(doc2);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -829,7 +871,7 @@ fn test_mixed_types_different_threads() -> Result<()> {
         let res = writer.add_document(doc);
         match res {
           Ok(_) => Ok(()),
-          Err(LuceneError::IllegalArgument(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::IllegalArgument(_)) => {
             hit_exc.store(true, Ordering::SeqCst);
             Ok(())
           },
@@ -880,11 +922,17 @@ fn test_mixed_types_via_add_indexes() -> Result<()> {
   w2.close()?;
 
   let err = w.add_indexes_from_directory(std::slice::from_ref(&dir2));
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   let r = directory_reader::open(dir2.clone())?;
   let err = TestUtil::add_indexes_slowly(&w, &[&r]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   r.close()?;
   w.close()?;
@@ -910,7 +958,10 @@ fn test_illegal_type_change() -> Result<()> {
 
   let res = writer.add_document(doc2);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got: {:?}",
     res
   );
@@ -949,7 +1000,10 @@ fn test_illegal_type_change_across_segments() -> Result<()> {
 
   let res = writer2.add_document(doc2);
   assert!(
-    matches!(res, Err(LuceneError::IllegalArgument(_))),
+    matches!(
+      res.as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalArgument(_))
+    ),
     "expected IllegalArgument but got {:?}",
     res
   );
@@ -1100,7 +1154,10 @@ fn test_type_change_via_add_indexes() -> Result<()> {
   writer2.add_document(doc)?;
 
   let err = writer2.add_indexes_from_directory(std::slice::from_ref(&dir));
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer2.close()?;
   Ok(())
@@ -1130,7 +1187,10 @@ fn test_type_change_via_add_indexes_ir() -> Result<()> {
   writer2.add_document(doc)?;
   let reader = directory_reader::open(dir.clone())?;
   let err = TestUtil::add_indexes_slowly(&writer2, &[&reader]);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   reader.close()?;
   writer2.close()?;
@@ -1162,7 +1222,10 @@ fn test_type_change_via_add_indexes2() -> Result<()> {
     BytesRef::from_string("foo"),
   ));
   let err = writer2.add_document(doc2);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer2.close()?;
   Ok(())
@@ -1194,7 +1257,10 @@ fn test_type_change_via_add_indexes_ir_2() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "foo")?,
   ));
   let err = writer2.add_document(doc2);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer2.close()?;
   Ok(())
@@ -1220,7 +1286,10 @@ fn test_same_field_name_for_posting_and_doc_value() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "mock")?,
   ));
   let res = writer.add_document(doc2);
-  assert!(matches!(res, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    res.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
 
   writer.rollback()?;
   Ok(())
@@ -1246,7 +1315,10 @@ fn test_exc_indexing_doc_before_doc_values() -> Result<()> {
   doc.add(field);
 
   let res = w.add_document(doc);
-  assert!(matches!(res, Err(LuceneError::UnsupportedOperation(_))));
+  assert!(matches!(
+    res.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::UnsupportedOperation(_))
+  ));
 
   w.add_document(Document::new())?;
   w.close()?;

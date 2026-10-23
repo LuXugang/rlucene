@@ -75,7 +75,7 @@ use crate::core::util::CoreHelper;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::{ByteSource, SharedAccessVec};
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::print_stream_info_stream::PrintStreamInfoStream;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -1408,17 +1408,18 @@ where
     ExecutionOwner::LuceneTestCase,
     ExecutionMethod::SlowFileExists,
   );
-  match dir.open_input(name, &IOContext::read_once_io_context()?) {
+  match (dir.open_input(name, &IOContext::read_once_io_context()?)).map_err(LuceneError::into_kind)
+  {
     Ok(input) => {
       input.close()?;
       Ok(true)
     },
-    Err(LuceneError::IoWithPath { source, .. }) if source.kind() == ErrorKind::NotFound => {
+    Err(LuceneErrorKind::IoWithPath { source, .. }) if source.kind() == ErrorKind::NotFound => {
       Ok(false)
     },
-    Err(LuceneError::Io { source, .. }) if source.kind() == ErrorKind::NotFound => Ok(false),
-    Err(LuceneError::NoSuchFile(_)) => Ok(false),
-    Err(error) => Err(error),
+    Err(LuceneErrorKind::Io { source, .. }) if source.kind() == ErrorKind::NotFound => Ok(false),
+    Err(LuceneErrorKind::NoSuchFile(_)) => Ok(false),
+    Err(error) => Err(error.into()),
   }
 }
 

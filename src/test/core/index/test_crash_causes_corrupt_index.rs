@@ -28,7 +28,7 @@ use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{FSDirectories, IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_fs_directory_from_path, new_index_writer_config_with_analyzer,
@@ -90,8 +90,8 @@ impl TestCrashCausesCorruptIndex {
     index_writer.add_document(self.get_document(random)?)?;
     // tries to write segments_2 but hits fake exc:
     assert!(matches!(
-      index_writer.commit(),
-      Err(LuceneError::IllegalState(_))
+      (index_writer.commit()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::IllegalState(_))
     ));
 
     // writes segments_3

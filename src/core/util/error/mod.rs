@@ -28,7 +28,7 @@ macro_rules! message_error {
     #[derive(Debug, Clone)]
     pub struct $name {
       pub message: String,
-      pub source: Option<Box<$crate::core::util::error::lucene_error::LuceneError>>,
+      pub source: Option<$crate::core::util::error::lucene_error::LuceneError>,
     }
 
     impl $name {
@@ -47,14 +47,14 @@ macro_rules! message_error {
       ) {
         match self.source.as_mut() {
           Some(suppressed) => suppressed.add_suppressed(source),
-          None => self.source = Some(Box::new(source)),
+          None => self.source = Some(source),
         }
       }
 
       pub fn get_suppressed(
         &self,
       ) -> Option<&$crate::core::util::error::lucene_error::LuceneError> {
-        self.source.as_deref()
+        self.source.as_ref()
       }
     }
 
@@ -77,7 +77,7 @@ macro_rules! message_error {
 
     impl std::error::Error for $name {
       fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        self.source.as_deref().map(|e| e as &dyn std::error::Error)
+        self.source.as_ref().map(|e| e as &dyn std::error::Error)
       }
     }
   };

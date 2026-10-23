@@ -57,7 +57,7 @@ use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQuery
 use crate::core::search::weight::Weight;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 #[cfg(test)]
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 #[cfg(test)]
@@ -417,7 +417,7 @@ where
   /// If `do_max_score` is `true`, the maximum score over all collected hits will be computed.
   ///
   /// # Errors
-  /// Returns a [`LuceneError::TooManyClauses`] if a query would exceed
+  /// Returns a [`LuceneErrorKind::TooManyClauses`] if a query would exceed
   /// [`get_max_clause_count()`] clauses.
   pub fn search_with_sort_score<T, Q>(
     &self,
@@ -2101,7 +2101,7 @@ impl IndexSearcherDefaults {
     let ctx = &searcher.reader_context.leaves()?[ctx_ord];
     let mut leaf_collector = match collector.get_leaf_collector(ctx, Some(weight), searcher) {
       Ok(leaf_collector) => leaf_collector,
-      Err(LuceneError::CollectionTerminated(_)) => {
+      Err(error) if matches!(error.kind(), LuceneErrorKind::CollectionTerminated(_)) => {
         // there is no doc of interest in this reader context
         // continue with the following leaf
         return Ok(());
@@ -2130,11 +2130,11 @@ impl IndexSearcherDefaults {
 
       match result {
         Ok(_) => {},
-        Err(LuceneError::CollectionTerminated(_)) => {
+        Err(error) if matches!(error.kind(), LuceneErrorKind::CollectionTerminated(_)) => {
           // collection was terminated prematurely
           // continue with the following leaf
         },
-        Err(LuceneError::TimeExceeded(_)) => {
+        Err(error) if matches!(error.kind(), LuceneErrorKind::TimeExceeded(_)) => {
           searcher.partial_result.store(true, Ordering::SeqCst);
         },
         Err(e) => return Err(e),

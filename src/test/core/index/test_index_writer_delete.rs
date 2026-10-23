@@ -46,8 +46,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
 #[cfg(feature = "nightly")]
@@ -810,13 +810,13 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
             Ok(()) => {},
             Err(mut error) if error.is_illegal_state_error() => {
               // ok
-              let cause = match &mut error {
-                LuceneError::IllegalState(error) => error.source.take(),
-                LuceneError::AlreadyClosed(error) => error.source.take(),
+              let cause = match error.kind_mut() {
+                LuceneErrorKind::IllegalState(error) => error.source.take(),
+                LuceneErrorKind::AlreadyClosed(error) => error.source.take(),
                 _ => unreachable!("guard accepts only IllegalStateException equivalents"),
               };
               if let Some(cause) = cause {
-                return Err(*cause);
+                return Err(cause);
               }
               return Err(error);
             },

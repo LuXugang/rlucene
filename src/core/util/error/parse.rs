@@ -20,7 +20,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 pub struct Parse {
   pub message: String,
   pub position: i32,
-  pub error: Option<Box<LuceneError>>,
+  pub error: Option<LuceneError>,
 }
 
 impl Parse {
@@ -41,7 +41,7 @@ impl Parse {
     Self {
       message: msg.into(),
       position: 0,
-      error: error.map(Box::new),
+      error,
     }
   }
 }
@@ -62,6 +62,6 @@ impl std::fmt::Display for Parse {
 
 impl std::error::Error for Parse {
   fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-    self.error.as_deref().map(|e| e as &dyn std::error::Error)
+    self.error.as_ref().map(|e| e as &dyn std::error::Error)
   }
 }

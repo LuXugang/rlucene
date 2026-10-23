@@ -25,7 +25,7 @@ use bit_set::BitSet;
 use rand::Rng;
 use rand::RngExt;
 
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::long_bit_set::LongBitSet;
 use crate::test::core::util::id_set_common::{clear_range, flip_bit, flip_bit_range, set_range};
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -270,7 +270,10 @@ fn calculate_hash(a: &LongBitSet) -> u64 {
 #[test]
 fn test_too_large() {
   let result = LongBitSet::new(LongBitSet::MAX_NUM_BITS + 1);
-  assert!(matches!(result, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(
     result
       .unwrap_err()

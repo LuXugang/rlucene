@@ -37,7 +37,7 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::{Directory, MockDirWrapper};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::cranky_token_filter::CrankyTokenFilter;
 use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, SIMPLE};
 use crate::test_framework::core::analysis::mock_variable_length_payload_filter::MockVariableLengthPayloadFilter;
@@ -242,7 +242,7 @@ fn test_basics() -> Result<()> {
         });
         match operation {
           Ok(()) => {},
-          Err(LuceneError::AlreadyClosed(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
             // OK: writer was closed by abort; we just reopen now:
             assert!(writer.is_deleter_closed()?);
             assert!(allow_already_closed);
@@ -255,8 +255,8 @@ fn test_basics() -> Result<()> {
             writer = IndexWriter::new(Arc::clone(&dir), conf)?;
           },
           Err(error) => {
-            let message = match &error {
-              LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+            let message = match error.kind() {
+              LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
                 source.to_string()
               },
               _ => error.to_string(),
@@ -316,7 +316,7 @@ fn test_basics() -> Result<()> {
         });
         match operation {
           Ok(()) => {},
-          Err(LuceneError::AlreadyClosed(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
             // OK: writer was closed by abort; we just reopen now:
             assert!(writer.is_deleter_closed()?);
             assert!(allow_already_closed);
@@ -329,8 +329,8 @@ fn test_basics() -> Result<()> {
             writer = IndexWriter::new(Arc::clone(&dir), conf)?;
           },
           Err(error) => {
-            let message = match &error {
-              LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+            let message = match error.kind() {
+              LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
                 source.to_string()
               },
               _ => error.to_string(),
@@ -368,7 +368,7 @@ fn test_basics() -> Result<()> {
         })();
         match flush_result {
           Ok(()) => {},
-          Err(LuceneError::AlreadyClosed(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
             // OK: writer was closed by abort; we just reopen now:
             assert!(writer.is_deleter_closed()?);
             assert!(allow_already_closed);
@@ -381,8 +381,8 @@ fn test_basics() -> Result<()> {
             writer = IndexWriter::new(Arc::clone(&dir), conf)?;
           },
           Err(error) => {
-            let message = match &error {
-              LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+            let message = match error.kind() {
+              LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
                 source.to_string()
               },
               _ => error.to_string(),
@@ -404,8 +404,8 @@ fn test_basics() -> Result<()> {
     match writer.close() {
       Ok(()) => {},
       Err(error) => {
-        let message = match &error {
-          LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+        let message = match error.kind() {
+          LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
             source.to_string()
           },
           _ => error.to_string(),

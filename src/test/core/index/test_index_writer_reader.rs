@@ -47,7 +47,7 @@ use crate::core::store::directory::{DirEnum, Directory, DirectoryEnum2};
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::Comparator;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::asserting_directory_reader::AssertingDirectoryReader;
@@ -1261,8 +1261,8 @@ fn test_nrt_open_exceptions() -> Result<()> {
   // other NRT reader, since it is already marked closed!
   for _ in 0..2 {
     should_fail.store(true, AtomicOrdering::SeqCst);
-    match directory_reader::open_from_writer(&writer) {
-      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+    match (directory_reader::open_from_writer(&writer)).map_err(LuceneError::into_kind) {
+      Err(LuceneErrorKind::Io { source, .. }) | Err(LuceneErrorKind::IoWithPath { source, .. }) => {
         assert!(
           source
             .get_ref()
@@ -1270,7 +1270,7 @@ fn test_nrt_open_exceptions() -> Result<()> {
           "expected FakeIOException, got {source}"
         );
       },
-      Err(error) => return Err(error),
+      Err(error) => return Err(error.into()),
       Ok(reader) => {
         reader.close()?;
         panic!("expected FakeIOException");

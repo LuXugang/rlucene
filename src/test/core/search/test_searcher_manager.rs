@@ -46,7 +46,7 @@ use crate::core::store::directory::{DirEnum, Directory, MockDirWrapper};
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
@@ -394,7 +394,7 @@ fn test_intermediate_close() -> Result<()> {
     match refresh_manager.maybe_refresh() {
       Ok(_) => Ok(true),
       // expected
-      Err(LuceneError::AlreadyClosed(_)) => Ok(false),
+      Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => Ok(false),
       Err(error) => Err(error),
     }
   });
@@ -406,8 +406,10 @@ fn test_intermediate_close() -> Result<()> {
     Err(payload) => std::panic::resume_unwind(payload),
   };
   assert!(matches!(
-    searcher_manager.acquire(),
-    Err(LuceneError::AlreadyClosed(_))
+    (searcher_manager.acquire())
+      .as_ref()
+      .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
   ));
   assert!(!success);
   assert!(tried_reopen.load(Ordering::SeqCst));
@@ -481,12 +483,15 @@ fn test_ensure_open() -> Result<()> {
   sm.release(searcher)?;
 
   // this should fail
-  assert!(matches!(sm.acquire(), Err(LuceneError::AlreadyClosed(_))));
+  assert!(matches!(
+    (sm.acquire()).as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
+  ));
 
   // this should fail
   assert!(matches!(
-    sm.maybe_refresh(),
-    Err(LuceneError::AlreadyClosed(_))
+    (sm.maybe_refresh()).as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
   ));
 
   directory.close()?;
@@ -1245,7 +1250,7 @@ fn test_concurrent_index_close_search_and_refresh() -> Result<()> {
       let searcher = match manager.acquire() {
         Ok(searcher) => searcher,
         // ok
-        Err(LuceneError::AlreadyClosed(_)) => continue,
+        Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => continue,
         Err(error) => return Err(error),
       };
       total_count += searcher.get_index_reader().max_doc()? as i64;
@@ -1265,7 +1270,7 @@ fn test_concurrent_index_close_search_and_refresh() -> Result<()> {
       refresh_count += 1;
       match manager.maybe_refresh_blocking() {
         Ok(()) => {},
-        Err(LuceneError::AlreadyClosed(_)) => {
+        Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
           // ok
           already_closed_count += 1;
           continue;
@@ -1294,7 +1299,7 @@ fn test_concurrent_index_close_search_and_refresh() -> Result<()> {
             *close_manager_ref.write() = Arc::new(manager);
             break;
           },
-          Err(LuceneError::AlreadyClosed(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::AlreadyClosed(_)) => {
             // ok
             already_closed_count += 1;
           },

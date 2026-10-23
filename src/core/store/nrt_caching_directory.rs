@@ -25,7 +25,7 @@ use crate::core::store::{
 };
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
@@ -156,13 +156,15 @@ impl<D> NRTCachingDirectory<D> {
   {
     match directory.file_length(file_name) {
       Ok(_) => Ok(true),
-      Err(LuceneError::NoSuchFile(_)) => Ok(false),
-      Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. })
-        if source.kind() == ErrorKind::NotFound =>
-      {
-        Ok(false)
+      Err(error) if matches!(error.kind(), LuceneErrorKind::NoSuchFile(_)) => Ok(false),
+      Err(error) => match error.kind() {
+        LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. }
+          if source.kind() == ErrorKind::NotFound =>
+        {
+          Ok(false)
+        },
+        _ => Err(error),
       },
-      Err(error) => Err(error),
     }
   }
 

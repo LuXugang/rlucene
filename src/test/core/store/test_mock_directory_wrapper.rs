@@ -30,7 +30,7 @@ use crate::core::store::{
 use crate::core::util::HasIdentity;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
@@ -339,19 +339,21 @@ where
   }
 
   let mut changed = false;
-  let mut input = match dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?) {
+  let mut input = match (dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?))
+    .map_err(LuceneError::into_kind)
+  {
     Ok(input) => Some(input),
-    Err(LuceneError::NoSuchFile(_)) => {
+    Err(LuceneErrorKind::NoSuchFile(_)) => {
       // ok
       changed = true;
       None
     },
-    Err(LuceneError::IoWithPath { ref source, .. }) if source.kind() == ErrorKind::NotFound => {
+    Err(LuceneErrorKind::IoWithPath { ref source, .. }) if source.kind() == ErrorKind::NotFound => {
       // ok
       changed = true;
       None
     },
-    Err(error) => return Err(error),
+    Err(error) => return Err(error.into()),
   };
   if let Some(input) = input.as_mut() {
     let read_result = (|| -> Result<()> {
@@ -362,7 +364,7 @@ where
             break;
           },
           Ok(_) => {},
-          Err(LuceneError::Eof(_)) => {
+          Err(error) if matches!(error.kind(), LuceneErrorKind::Eof(_)) => {
             changed = true;
             break;
           },

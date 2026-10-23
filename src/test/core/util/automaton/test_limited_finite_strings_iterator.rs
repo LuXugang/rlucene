@@ -18,7 +18,7 @@
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::limited_finite_strings_iterator::LimitedFiniteStringsIterator;
 use crate::core::util::automation::operations::Operations;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::test::core::util::automaton::test_finite_strings_iterator::get_finite_strings;
@@ -56,7 +56,10 @@ fn test_invalid_limit_negative() -> Result<()> {
   let a = AutomatonTestUtil::random_automaton(&mut random)?;
 
   let err = LimitedFiniteStringsIterator::new(&a, -7);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("limit must be -1"));
   Ok(())
 }
@@ -67,7 +70,10 @@ fn test_invalid_limit_null() -> Result<()> {
   let a = AutomatonTestUtil::random_automaton(&mut random)?;
 
   let err = LimitedFiniteStringsIterator::new(&a, 0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   assert!(err.unwrap_err().to_string().contains("limit must be -1"));
   Ok(())
 }

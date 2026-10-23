@@ -36,7 +36,7 @@ use crate::core::util::bkd::bkd_writer::{
 };
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
@@ -452,7 +452,7 @@ fn test_with_exceptions() -> Result<()> {
     dir.set_random_io_exception_rate(0.05);
     dir.set_random_io_exception_rate_on_open(0.05);
 
-    match verify_with_max_mb(
+    match (verify_with_max_mb(
       &mut random,
       &dir,
       &doc_values,
@@ -462,9 +462,11 @@ fn test_with_exceptions() -> Result<()> {
       num_bytes_per_dim,
       50,
       max_mb_heap,
-    ) {
+    ))
+    .map_err(LuceneError::into_kind)
+    {
       Ok(()) => {},
-      Err(LuceneError::IllegalArgument(iae)) => {
+      Err(LuceneErrorKind::IllegalArgument(iae)) => {
         // This just means we got a too-small maxMB for the
         // maxPointsInLeafNode; just retry w/ more heap
         assert!(
@@ -479,7 +481,7 @@ fn test_with_exceptions() -> Result<()> {
           // BKDWriter should fully clean up after itself:
           done = true;
         } else {
-          return Err(ioe);
+          return Err(ioe.into());
         }
       },
     }
@@ -1495,13 +1497,13 @@ fn test_bit_flipped_on_partition1() -> Result<()> {
     )
   };
   dir0.close()?;
-  match result {
-    Err(LuceneError::CorruptIndex(e)) => {
+  match (result).map_err(LuceneError::into_kind) {
+    Err(LuceneErrorKind::CorruptIndex(e)) => {
       assert!(e.message.contains("checksum failed (hardware problem?)"));
       Ok(())
     },
     Ok(()) => panic!("expected a corrupt-index error"),
-    Err(e) => Err(e),
+    Err(e) => Err(e.into()),
   }
 }
 
@@ -1553,13 +1555,13 @@ fn test_bit_flippedon_partition2() -> Result<()> {
 }
 
 fn assert_corruption_detected(t: &LuceneError) -> Result<()> {
-  if let LuceneError::CorruptIndex(e) = t
+  if let LuceneErrorKind::CorruptIndex(e) = t.kind()
     && e.message.contains("checksum failed (hardware problem?)")
   {
     return Ok(());
   }
 
-  if let Some(LuceneError::CorruptIndex(e)) = t.get_suppressed()?
+  if let Some(LuceneErrorKind::CorruptIndex(e)) = t.get_suppressed()?.map(LuceneError::kind)
     && e.message.contains("checksum failed (hardware problem?)")
   {
     return Ok(());
@@ -2272,7 +2274,7 @@ fn test_too_many_points() -> Result<()> {
   random.fill_bytes(&mut point_value);
   let err = w
     .add(&point_value, num_values as i32)
-    .expect_err("expected LuceneError::IllegalState");
+    .expect_err("expected LuceneErrorKind::IllegalState");
   assert!(err.is_illegal_state_error());
   assert_eq!(
     err.to_string(),

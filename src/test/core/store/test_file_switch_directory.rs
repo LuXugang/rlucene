@@ -43,7 +43,7 @@ use crate::core::store::{
   NativeFSLockFactory,
 };
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::test_index_writer_reader::create_index_no_close;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
@@ -147,7 +147,7 @@ impl TestFileSwitchDirectory {
     )?);
     match directory_reader::open(dir.clone()) {
       Ok(_) => panic!("expected IndexNotFound"),
-      Err(LuceneError::IndexNotFound(_)) => {},
+      Err(error) if matches!(error.kind(), LuceneErrorKind::IndexNotFound(_)) => {},
       Err(err) => return Err(err),
     }
 
@@ -233,8 +233,8 @@ impl TestFileSwitchDirectory {
       let error = directory
         .rename(&broken_name, "foo.bar")
         .expect_err("source and dest should be in different directories");
-      match error {
-        LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
+      match error.kind() {
+        LuceneErrorKind::Io { source, .. } | LuceneErrorKind::IoWithPath { source, .. } => {
           assert_eq!(
             "foo_bar_0.tmp -> foo.bar: source and dest are in different directories",
             source.to_string()

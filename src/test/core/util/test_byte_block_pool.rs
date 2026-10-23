@@ -24,7 +24,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use std::borrow::Cow;
 
 use crate::core::util::allocator_byte::{DirectAllocatorByte, DirectTrackingAllocatorByte};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool};
 use crate::test_framework::core::util::test_util::TestUtil;
 
@@ -188,7 +188,10 @@ fn test_too_many_allocs() -> Result<()> {
     Ok(())
   })();
 
-  assert!(matches!(result, Err(LuceneError::NumberOverflow(_))));
+  assert!(matches!(
+    result.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::NumberOverflow(_))
+  ));
   assert!(pool.byte_offset.wrapping_add(BYTE_BLOCK_SIZE) < pool.byte_offset);
 
   Ok(())

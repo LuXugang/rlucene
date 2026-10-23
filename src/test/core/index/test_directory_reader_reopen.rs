@@ -54,7 +54,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::{CaughtResult, LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper,
@@ -1086,9 +1086,9 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
   }));
 
   // Now reopen:
-  match directory_reader::open_if_changed(&r) {
+  match (directory_reader::open_if_changed(&r)).map_err(LuceneError::into_kind) {
     Ok(_) => panic!("expected FakeIOException"),
-    Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
+    Err(LuceneErrorKind::Io { source, .. }) | Err(LuceneErrorKind::IoWithPath { source, .. }) => {
       assert!(
         source
           .get_ref()
@@ -1096,7 +1096,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
         "expected FakeIOException, got {source}"
       );
     },
-    Err(err) => return Err(err),
+    Err(err) => return Err(err.into()),
   }
 
   let s = index_searcher::from_reader(r)?;

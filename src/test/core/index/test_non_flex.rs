@@ -26,8 +26,8 @@ use crate::core::index::multi_terms::get_terms;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
@@ -139,7 +139,7 @@ fn test_term_ord() -> Result<()> {
 
   match terms_enum.ord() {
     Ok(ord) => assert_eq!(0, ord),
-    Err(LuceneError::UnsupportedOperation(_)) => {},
+    Err(error) if matches!(error.kind(), LuceneErrorKind::UnsupportedOperation(_)) => {},
     Err(err) => return Err(err),
   }
 

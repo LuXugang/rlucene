@@ -29,7 +29,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::index::asserting_leaf_reader::AssertingLeafReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -95,8 +95,10 @@ fn test_close_under_exception() -> Result<()> {
     }
 
     assert!(matches!(
-      reader.terms("someField"),
-      Err(LuceneError::AlreadyClosed(_))
+      (reader.terms("someField"))
+        .as_ref()
+        .map_err(LuceneError::kind),
+      Err(LuceneErrorKind::AlreadyClosed(_))
     ));
 
     if random.random_bool(0.5) {
@@ -215,24 +217,30 @@ fn test_register_listener_on_closed_reader() -> Result<()> {
   // But now we close
   r.close()?;
   assert!(matches!(
-    r.get_reader_cache_helper()?
+    (r.get_reader_cache_helper()?
       .unwrap()
-      .add_closed_listener(Arc::new(|_: &CacheKey| Ok(()))),
-    Err(LuceneError::AlreadyClosed(_))
+      .add_closed_listener(Arc::new(|_: &CacheKey| Ok(()))))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
   ));
   assert!(matches!(
-    leaf
+    (leaf
       .get_reader_cache_helper()?
       .unwrap()
-      .add_closed_listener(Arc::new(|_: &CacheKey| Ok(()))),
-    Err(LuceneError::AlreadyClosed(_))
+      .add_closed_listener(Arc::new(|_: &CacheKey| Ok(()))))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
   ));
   assert!(matches!(
-    leaf
+    (leaf
       .get_core_cache_helper()?
       .unwrap()
-      .add_closed_listener(Arc::new(|_: &CacheKey| Ok(()))),
-    Err(LuceneError::AlreadyClosed(_))
+      .add_closed_listener(Arc::new(|_: &CacheKey| Ok(()))))
+    .as_ref()
+    .map_err(LuceneError::kind),
+    Err(LuceneErrorKind::AlreadyClosed(_))
   ));
 
   dir.close()?;

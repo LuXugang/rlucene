@@ -284,7 +284,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns [`LuceneError::AlreadyClosed`] if this
+  /// Returns [`LuceneErrorKind::AlreadyClosed`] if this
   /// [`Lucene90CompressingStoredFieldsReader`] is closed.
   pub fn ensure_open(&self) -> Result<()> {
     if self.closed.load(Ordering::Relaxed) {

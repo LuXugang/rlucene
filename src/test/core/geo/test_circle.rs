@@ -16,7 +16,7 @@
  */
 use crate::core::geo::circle::Circle;
 use crate::core::util::CoreHelper;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
 use std::collections::hash_map::DefaultHasher;
@@ -26,7 +26,10 @@ struct TestCircle;
 #[test]
 fn test_invalid_lat() {
   let err = Circle::new(134.14, 45.23, 1000.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let err = err.unwrap_err();
   assert!(
     err
@@ -38,7 +41,10 @@ fn test_invalid_lat() {
 #[test]
 fn test_invalid_lon() {
   let err = Circle::new(43.5, 180.5, 1000.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let err = err.unwrap_err();
   assert!(
     err
@@ -50,7 +56,10 @@ fn test_invalid_lon() {
 #[test]
 fn test_negative_radius() {
   let err = Circle::new(43.5, 45.23, -1000.0);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let err = err.unwrap_err();
   assert!(err.to_string().contains("radiusMeters: '-1000' is invalid"));
 }
@@ -58,7 +67,10 @@ fn test_negative_radius() {
 #[test]
 fn test_infinite_radius() {
   let err = Circle::new(43.5, 45.23, f64::INFINITY);
-  assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
+  assert!(matches!(
+    err.as_ref().map_err(LuceneError::kind),
+    Err(LuceneErrorKind::IllegalArgument(_))
+  ));
   let err = err.unwrap_err();
   assert!(err.to_string().contains("radiusMeters: 'inf' is invalid"));
 }

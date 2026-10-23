@@ -42,7 +42,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::store::{DataInput, DataOutput};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::impl_from_for_enum;
 use std::fmt;
@@ -551,10 +551,13 @@ impl SortFiledBase for SortField {
       },
 
       SortFieldType::Rewritable => {
-        return Err(LuceneError::IllegalState(
-          "SortField needs to be rewritten through Sort.rewrite(..) and SortField.rewrite(..)"
-            .into(),
-        ));
+        return Err(
+          LuceneErrorKind::IllegalState(
+            "SortField needs to be rewritten through Sort.rewrite(..) and SortField.rewrite(..)"
+              .into(),
+          )
+          .into(),
+        );
       },
     };
 

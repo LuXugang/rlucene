@@ -43,8 +43,8 @@ use crate::core::search::weight::Weight;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::CoreHelper;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind};
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::array_equals_f32;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -421,8 +421,8 @@ fn test_score_dot_product() -> Result<()> {
 
     assert_eq!(-1, (scorer).scoring_doc_id()?);
     assert!(matches!(
-      scorer.score(),
-      Err(LuceneError::ArrayIndexOutOfBounds(_))
+      (scorer.score()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
     ));
 
     let score0 = (1.0 + (2.0 * 1.0 + 3.0 * 1.0) / ((13.0_f32 * 2.0_f32).sqrt())) / 2.0;
@@ -441,8 +441,8 @@ fn test_score_dot_product() -> Result<()> {
     assert!((score1 - scorer.score()?).abs() <= 0.0001);
     assert_eq!(NO_MORE_DOCS, scorer.advance(4)?);
     assert!(matches!(
-      scorer.score(),
-      Err(LuceneError::ArrayIndexOutOfBounds(_))
+      (scorer.score()).as_ref().map_err(LuceneError::kind),
+      Err(LuceneErrorKind::ArrayIndexOutOfBounds(_))
     ));
     Ok(())
   })
