@@ -254,7 +254,7 @@ where
     field_data: &ScalarQuantizedFieldWriter,
     flat_field_vectors_writers: &mut [FW],
     max_doc: i32,
-    vectors: &[Vec<f32>],
+    vectors: &[Box<[f32]>],
     scalar_quantizer: &ScalarQuantizer,
     version: i32,
   ) -> Result<()>
@@ -290,7 +290,7 @@ where
     flat_field_vectors_writers: &mut [FW],
     max_doc: i32,
     sort_map: &DM,
-    vectors: &[Vec<f32>],
+    vectors: &[Box<[f32]>],
     scalar_quantizer: &ScalarQuantizer,
     version: i32,
   ) -> Result<()>
@@ -894,7 +894,7 @@ where
 fn write_quantized_vectors<O>(
   quantized_vector_data: &mut O,
   field_data: &ScalarQuantizedFieldWriter,
-  vectors: &[Vec<f32>],
+  vectors: &[Box<[f32]>],
   scalar_quantizer: &ScalarQuantizer,
 ) -> Result<()>
 where
@@ -919,12 +919,12 @@ where
       let copy = copy
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("missing normalized vector buffer"))?;
-      copy.copy_from_slice(v.as_slice());
+      copy.copy_from_slice(v.as_ref());
       VectorUtil::l2normalize(copy)?;
       borrowed = copy.as_slice();
       borrowed
     } else {
-      v.as_slice()
+      v.as_ref()
     };
 
     let offset_correction = scalar_quantizer.quantize(
@@ -948,7 +948,7 @@ fn write_sorted_quantized_vectors<O>(
   quantized_vector_data: &mut O,
   field_data: &ScalarQuantizedFieldWriter,
   ord_map: &[usize],
-  vectors: &[Vec<f32>],
+  vectors: &[Box<[f32]>],
   scalar_quantizer: &ScalarQuantizer,
 ) -> Result<()>
 where
@@ -975,12 +975,12 @@ where
       let copy = copy
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("missing normalized vector buffer"))?;
-      copy.copy_from_slice(v.as_slice());
+      copy.copy_from_slice(v.as_ref());
       VectorUtil::l2normalize(copy)?;
       borrowed = copy.as_slice();
       borrowed
     } else {
-      v.as_slice()
+      v.as_ref()
     };
     let offset_correction = scalar_quantizer.quantize(
       vector_value,
@@ -1283,7 +1283,7 @@ impl ScalarQuantizedFieldWriter {
   fn create_quantizer<FW>(
     &self,
     flat_field_vectors_writers: &mut [FW],
-    vectors: &[Vec<f32>],
+    vectors: &[Box<[f32]>],
   ) -> Result<ScalarQuantizer>
   where
     FW: FlatFieldVectorsWriter,
@@ -1392,11 +1392,11 @@ where
 
 #[derive(Clone, Copy)]
 pub(crate) struct FloatVectorWrapper<'a> {
-  vector_list: &'a [Vec<f32>],
+  vector_list: &'a [Box<[f32]>],
 }
 
 impl<'a> FloatVectorWrapper<'a> {
-  pub(crate) fn new(vector_list: &'a [Vec<f32>]) -> Self {
+  pub(crate) fn new(vector_list: &'a [Box<[f32]>]) -> Self {
     Self { vector_list }
   }
 }
@@ -1453,7 +1453,7 @@ impl FloatVectorValues for FloatVectorWrapper<'_> {
         ord
       ))));
     }
-    Ok(self.vector_list[ord].as_slice())
+    Ok(self.vector_list[ord].as_ref())
   }
 
   type FloatVectorValues = Self;
@@ -2425,14 +2425,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     match self {
       Self::Original(values) => values.get_vectors_mut(),
       Self::Normalized(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     match self {
       Self::Original(values) => values.get_vectors(),
       Self::Normalized(values) => values.get_vectors(),

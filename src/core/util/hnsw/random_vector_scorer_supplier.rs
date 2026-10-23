@@ -17,7 +17,6 @@
 use crate::core::index::vector_buffer::VectorElement;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::{RandomVectorScorer, RandomVectorScorerEnum2};
-use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
 pub trait RandomVectorScorerSupplier {
@@ -52,15 +51,18 @@ pub trait RandomVectorScorerSupplier {
 /// Encoding-independent and off-heap suppliers only require RandomVectorScorerSupplier.
 pub trait BufferedVectorScorerSupplier: RandomVectorScorerSupplier {
   type Element: VectorElement;
-  fn get_vector(&self) -> Result<&[Vec<Self::Element>]>;
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<Self::Element>>>;
+  fn get_vector(&self) -> Result<&[Box<[Self::Element]>]>;
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Box<[Self::Element]>>>;
 }
 
-pub(crate) fn vector_values_ram_bytes_used<T>(vectors: &[Vec<T>], capacity: usize) -> Result<i64> {
+pub(crate) fn vector_values_ram_bytes_used<T>(
+  vectors: &[Box<[T]>],
+  capacity: usize,
+) -> Result<i64> {
   let capacity = i64::try_from(capacity).unwrap_or(i64::MAX);
-  let mut size = (std::mem::size_of::<Vec<T>>() as i64).saturating_mul(capacity);
+  let mut size = (std::mem::size_of::<Box<[T]>>() as i64).saturating_mul(capacity);
   for vector in vectors {
-    size = size.saturating_add(size_of_vec(vector));
+    size = size.saturating_add(std::mem::size_of_val(vector.as_ref()) as i64);
   }
   Ok(size)
 }

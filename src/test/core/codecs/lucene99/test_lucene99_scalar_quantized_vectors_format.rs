@@ -135,7 +135,9 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
       dim += 1;
     }
     let vectors = (0..num_vectors)
-      .map(|_| TestLucene99ScalarQuantizedVectorsFormat::random_vector(random, dim))
+      .map(|_| {
+        TestLucene99ScalarQuantizedVectorsFormat::random_vector(random, dim).into_boxed_slice()
+      })
       .collect::<Vec<_>>();
     let scalar_quantizer = build_scalar_quantizer(
       FloatVectorWrapper::new(&vectors),
@@ -147,7 +149,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
     let mut expected_corrections = vec![0.0; num_vectors];
     let mut expected_vectors = vec![vec![0; dim]; num_vectors];
     for (i, vector) in vectors.iter().enumerate() {
-      let mut vector = std::borrow::Cow::Borrowed(vector.as_slice());
+      let mut vector = std::borrow::Cow::Borrowed(vector.as_ref());
       if normalize {
         VectorUtil::l2normalize(vector.to_mut())?;
       }
@@ -164,7 +166,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
     config.set_merge_policy(NoMergePolicy::default());
     let writer = IndexWriter::new(dir.clone(), config)?;
     for vector in &vectors {
-      let vector = vector.as_slice();
+      let vector = vector.as_ref();
       let value = if random.random_bool(0.5) {
         randomly_reused_vector.copy_from_slice(vector);
         randomly_reused_vector.clone()

@@ -876,14 +876,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     match self {
       Self::Dense(values) => values.get_vectors_mut(),
       Self::Sparse(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     match self {
       Self::Dense(values) => values.get_vectors(),
       Self::Sparse(values) => values.get_vectors(),
@@ -1030,7 +1030,7 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     match self {
       Self::Empty(e) => e.get_vectors_mut(),
       Self::Dense(e) => e.get_vectors_mut(),
@@ -1038,7 +1038,7 @@ where
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     match self {
       Self::Empty(e) => e.get_vectors(),
       Self::Dense(e) => e.get_vectors(),

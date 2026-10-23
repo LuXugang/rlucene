@@ -67,10 +67,10 @@ impl crate::core::util::hnsw::random_vector_scorer_supplier::BufferedVectorScore
   for DummyRandomVectorScorerSupplier
 {
   type Element = f32;
-  fn get_vector(&self) -> Result<&[Vec<f32>]> {
+  fn get_vector(&self) -> Result<&[Box<[f32]>]> {
     dummy_unreachable!()
   }
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     dummy_unreachable!()
   }
 }

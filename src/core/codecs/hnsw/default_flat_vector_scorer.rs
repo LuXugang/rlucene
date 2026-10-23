@@ -553,10 +553,10 @@ where
   BV::ByteVectorValues: Send,
 {
   type Element = u8;
-  fn get_vector(&self) -> Result<&[Vec<u8>]> {
+  fn get_vector(&self) -> Result<&[Box<[u8]>]> {
     self.vectors.get_vectors()
   }
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     self.vectors.get_vectors_mut()
   }
 }
@@ -567,10 +567,10 @@ where
   FV::FloatVectorValues: Send,
 {
   type Element = f32;
-  fn get_vector(&self) -> Result<&[Vec<f32>]> {
+  fn get_vector(&self) -> Result<&[Box<[f32]>]> {
     self.vectors.get_vectors()
   }
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     self.vectors.get_vectors_mut()
   }
 }

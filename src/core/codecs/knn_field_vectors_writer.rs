@@ -53,7 +53,7 @@ pub trait KnnFieldVectorsWriter: Accountable {
   fn copy_value<T: VectorElement, V: VectorInput + ?Sized>(
     &self,
     _vector_value: &V,
-  ) -> Result<Vec<T>> {
+  ) -> Result<Box<[T]>> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -86,6 +86,17 @@ where
   }
   fn as_bytes(&self) -> Result<&[u8]> {
     self.as_slice().as_bytes()
+  }
+}
+impl<T> VectorInput for Box<[T]>
+where
+  [T]: VectorInput,
+{
+  fn as_floats(&self) -> Result<&[f32]> {
+    self.as_ref().as_floats()
+  }
+  fn as_bytes(&self) -> Result<&[u8]> {
+    self.as_ref().as_bytes()
   }
 }
 impl VectorInput for VectorValueEnum {

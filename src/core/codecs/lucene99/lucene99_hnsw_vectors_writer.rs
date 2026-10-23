@@ -1103,7 +1103,11 @@ where
     self.vectors_ram_bytes = self
       .vectors_ram_bytes
       .saturating_add(size_of_vec(vectors).saturating_sub(previous_capacity_bytes))
-      .saturating_add(vectors.last().map_or(0, size_of_vec));
+      .saturating_add(
+        vectors
+          .last()
+          .map_or(0, |vector| std::mem::size_of_val(vector.as_ref()) as i64),
+      );
     self.hnsw_graph_builder.add_graph_node(self.node)?;
     self.node += 1;
     self.last_doc_id = doc_id;

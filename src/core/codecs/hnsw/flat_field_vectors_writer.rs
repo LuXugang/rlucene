@@ -40,6 +40,6 @@ pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
     &mut self,
     doc_id: i32,
     vector_value: &V,
-    vector: &mut Vec<Vec<T>>,
+    vector: &mut Vec<Box<[T]>>,
   ) -> Result<()>;
 }

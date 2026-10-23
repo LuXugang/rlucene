@@ -278,10 +278,10 @@ where
   BV::ByteVectorValues: Send,
 {
   type Element = u8;
-  fn get_vector(&self) -> Result<&[Vec<u8>]> {
+  fn get_vector(&self) -> Result<&[Box<[u8]>]> {
     self.vector_values.get_vectors()
   }
-  fn get_vector_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vector_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     self.vector_values.get_vectors_mut()
   }
 }

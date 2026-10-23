@@ -330,14 +330,14 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValuesCopy
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors(),
@@ -476,14 +476,14 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors(),
@@ -695,14 +695,14 @@ impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::HnswBit(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::HnswBit(values) => values.get_vectors(),
@@ -842,14 +842,14 @@ impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValues<I> {
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::HnswBit(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::HnswBit(values) => values.get_vectors(),

@@ -3318,11 +3318,11 @@ where
     FloatVectorValues::get_encoding(&self.0)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     self.0.get_vectors_mut()
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     self.0.get_vectors()
   }
 
@@ -3523,11 +3523,11 @@ where
     ByteVectorValues::get_encoding(&self.0)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     self.0.get_vectors_mut()
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     self.0.get_vectors()
   }
 

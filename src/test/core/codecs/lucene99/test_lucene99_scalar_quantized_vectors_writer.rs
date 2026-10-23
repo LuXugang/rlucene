@@ -148,7 +148,7 @@ fn assert_scalar_quantizer(
     if vector_similarity_function == VectorSimilarityFunction::DotProduct {
       VectorUtil::l2normalize(&mut vector)?;
     }
-    vectors.push(vector);
+    vectors.push(vector.into_boxed_slice());
   }
 
   let vector_values = FloatVectorWrapper::new(&vectors);

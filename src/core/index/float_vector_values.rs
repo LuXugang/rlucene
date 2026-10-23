@@ -162,10 +162,10 @@ pub trait FloatVectorValues: KnnVectorValues {
     VectorEncoding::FLOAT32(4)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     Err(LuceneError::unsupported_operation(""))
   }
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -206,7 +206,7 @@ pub fn from_floats(dim: usize) -> FloatVectorValuesImpl {
 }
 
 pub struct FloatVectorValuesImpl {
-  vectors: Vec<Vec<f32>>,
+  vectors: Vec<Box<[f32]>>,
   dim: usize,
 }
 // TODO IMPORTANT avoid CLone ?
@@ -269,7 +269,7 @@ impl FloatVectorValues for FloatVectorValuesImpl {
 
   #[inline]
   fn vector_value(&self, target_ord: usize) -> Result<Self::VectorValue<'_>> {
-    Ok(self.vectors[target_ord].as_slice())
+    Ok(self.vectors[target_ord].as_ref())
   }
 
   type FloatVectorValues = Self;
@@ -280,11 +280,11 @@ impl FloatVectorValues for FloatVectorValuesImpl {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     Ok(&mut self.vectors)
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     Ok(&self.vectors)
   }
 

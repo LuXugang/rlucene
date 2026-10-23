@@ -173,10 +173,10 @@ pub trait ByteVectorValues: KnnVectorValues {
     VectorEncoding::BYTE(1)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     Err(LuceneError::unsupported_operation(""))
   }
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -218,11 +218,11 @@ where
     <T as ByteVectorValues>::get_encoding(*self)
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     (**self).get_vectors()
   }
 
@@ -262,7 +262,7 @@ pub fn from_bytes(dim: usize) -> ByteVectorValuesImpl {
 }
 
 pub struct ByteVectorValuesImpl {
-  vectors: Vec<Vec<u8>>,
+  vectors: Vec<Box<[u8]>>,
   dim: usize,
 }
 // TODO IMPORTANT avoid CLone ?
@@ -325,7 +325,7 @@ impl ByteVectorValues for ByteVectorValuesImpl {
 
   #[inline]
   fn vector_value(&self, target_ord: usize) -> Result<Self::VectorValue<'_>> {
-    Ok(self.vectors[target_ord].as_slice())
+    Ok(self.vectors[target_ord].as_ref())
   }
 
   type ByteVectorValues = Self;
@@ -336,11 +336,11 @@ impl ByteVectorValues for ByteVectorValuesImpl {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     Ok(&mut self.vectors)
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     Ok(&self.vectors)
   }
 

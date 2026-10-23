@@ -2376,14 +2376,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     match self {
       Self::Filter(values) => values.get_vectors_mut(),
       Self::Sorting(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     match self {
       Self::Filter(values) => values.get_vectors(),
       Self::Sorting(values) => values.get_vectors(),
@@ -2524,14 +2524,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     match self {
       Self::Filter(values) => values.get_vectors_mut(),
       Self::Sorting(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     match self {
       Self::Filter(values) => values.get_vectors(),
       Self::Sorting(values) => values.get_vectors(),
@@ -4774,14 +4774,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<f32>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[f32]>>> {
     match self {
       Self::A(values) => values.get_vectors_mut(),
       Self::B(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<f32>]> {
+  fn get_vectors(&self) -> Result<&[Box<[f32]>]> {
     match self {
       Self::A(values) => values.get_vectors(),
       Self::B(values) => values.get_vectors(),
@@ -4927,14 +4927,14 @@ where
     }
   }
 
-  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Vec<u8>>> {
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<Box<[u8]>>> {
     match self {
       Self::A(values) => values.get_vectors_mut(),
       Self::B(values) => values.get_vectors_mut(),
     }
   }
 
-  fn get_vectors(&self) -> Result<&[Vec<u8>]> {
+  fn get_vectors(&self) -> Result<&[Box<[u8]>]> {
     match self {
       Self::A(values) => values.get_vectors(),
       Self::B(values) => values.get_vectors(),

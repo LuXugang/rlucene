@@ -153,7 +153,7 @@ where
     })
   }
 
-  fn write_float32_vectors(vector_data: &mut O, dim: usize, vectors: &[Vec<f32>]) -> Result<()> {
+  fn write_float32_vectors(vector_data: &mut O, dim: usize, vectors: &[Box<[f32]>]) -> Result<()> {
     let byte_size = BitUtil::FLOAT_BYTES;
     stack_or_heap_buffer!(buffer, u8, dim * byte_size, 128, 0);
 
@@ -166,7 +166,7 @@ where
     Ok(())
   }
 
-  fn write_byte_vectors(vector_data: &mut O, vectors: &[Vec<u8>]) -> Result<()> {
+  fn write_byte_vectors(vector_data: &mut O, vectors: &[Box<[u8]>]) -> Result<()> {
     for vector in vectors.iter() {
       vector_data.write_bytes_range(vector, 0, vector.len())?;
     }
@@ -177,7 +177,7 @@ where
     vector_data: &mut O,
     field_data: &FlatFieldWriter,
     ord_map: &[usize],
-    vectors: &[Vec<f32>],
+    vectors: &[Box<[f32]>],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -200,7 +200,7 @@ where
   fn write_sorted_byte_vectors(
     vector_data: &mut O,
     ord_map: &[usize],
-    vectors: &[Vec<u8>],
+    vectors: &[Box<[u8]>],
   ) -> Result<usize>
   where
     O: IndexOutput,
@@ -834,7 +834,7 @@ impl KnnFieldVectorsWriter for FlatFieldWriter {
   fn copy_value<T: VectorElement, V: VectorInput + ?Sized>(
     &self,
     vector_value: &V,
-  ) -> Result<Vec<T>> {
+  ) -> Result<Box<[T]>> {
     T::copy_value(vector_value, self.dim)
   }
 }
@@ -863,7 +863,7 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
     &mut self,
     doc_id: i32,
     vector_value: &V,
-    vector: &mut Vec<Vec<T>>,
+    vector: &mut Vec<Box<[T]>>,
   ) -> Result<()> {
     if self.finished {
       return Err(LuceneError::illegal_state(
@@ -994,7 +994,7 @@ use crate::core::codecs::knn_field_vectors_writer::write_float_vector;
 use crate::core::index::vector_buffer::{VectorBuffers, VectorElement, VectorSlices};
 
 fn append_vector<T: VectorElement, V: VectorInput + ?Sized>(
-  vectors: &mut Arc<Vec<Vec<T>>>,
+  vectors: &mut Arc<Vec<Box<[T]>>>,
   value: &V,
   dimension: usize,
   docs: &mut DocsWithFieldSet,
@@ -1002,7 +1002,7 @@ fn append_vector<T: VectorElement, V: VectorInput + ?Sized>(
   doc_id: i32,
 ) -> Result<()> {
   let copy = T::copy_value(value, dimension)?;
-  let vector_bytes = size_of_vec(&copy);
+  let vector_bytes = std::mem::size_of_val(copy.as_ref()) as i64;
   docs.add(doc_id)?;
   Arc::make_mut(vectors).push(copy);
   *vector_buffer_bytes = vector_buffer_bytes.saturating_add(vector_bytes);

@@ -44,7 +44,7 @@ impl KnnFieldVectorsWriter for DummyKnnFieldVectorsWriter {
   fn copy_value<T: VectorElement, V: VectorInput + ?Sized>(
     &self,
     _vector_value: &V,
-  ) -> crate::core::util::error::lucene_error::Result<Vec<T>> {
+  ) -> crate::core::util::error::lucene_error::Result<Box<[T]>> {
     dummy_unreachable!()
   }
 }
