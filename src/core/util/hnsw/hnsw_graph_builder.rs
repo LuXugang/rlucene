@@ -742,7 +742,13 @@ impl HnswGraphBuilderDefaults {
             None::<&B>,
           )?;
         }
-        eps = Cow::Owned(candidates.pop_until_nearest_k_nodes()?);
+        eps = if i == 0 {
+          // This pass has no lower search level that consumes another entry-point snapshot.
+          candidates.trim_to_nearest_k_nodes()?;
+          Cow::Borrowed(&[])
+        } else {
+          Cow::Owned(candidates.pop_until_nearest_k_nodes()?)
+        };
         let mut scratch = NeighborArray::<false>::new(std::cmp::max(candidates.k(), builder.m + 1));
         Self::pop_to_scratch(candidates, &mut scratch)?;
         scratch_per_level[i] = scratch;
@@ -842,10 +848,16 @@ impl GraphBuilderKnnCollector {
   }
 
   pub fn pop_until_nearest_k_nodes(&mut self) -> Result<Vec<usize>> {
+    self.trim_to_nearest_k_nodes()?;
+    Ok(self.queue.nodes())
+  }
+
+  #[inline]
+  fn trim_to_nearest_k_nodes(&mut self) -> Result<()> {
     while self.size() > self.k {
       self.queue.pop()?;
     }
-    Ok(self.queue.nodes())
+    Ok(())
   }
 
   pub fn minimum_score(&self) -> f32 {
