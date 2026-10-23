@@ -48,6 +48,7 @@ impl TopKnnCollector {
 }
 
 impl KnnCollector for TopKnnCollector {
+  #[inline]
   fn early_terminated(&self) -> bool {
     AbstractKnnCollector::early_terminated(self)
   }
