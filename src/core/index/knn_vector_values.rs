@@ -548,3 +548,75 @@ either_knn_vector_values_named!(
         A: A, B: B,
     }
 );
+
+/// No separate read-buffer instance is returned by `float_copy` or `byte_copy`.
+/// An optional value of this type can only be `None`; explicit `TryClone`
+/// snapshots of the original provider remain independent operations.
+#[doc(hidden)]
+pub type NoVectorValuesCopy = std::convert::Infallible;
+
+impl crate::core::util::clone::TryClone for NoVectorValuesCopy {
+  fn try_clone(&self) -> Result<Self> {
+    match *self {}
+  }
+}
+
+impl KnnVectorValues for NoVectorValuesCopy {
+  fn dimension(&self) -> usize {
+    match *self {}
+  }
+
+  fn size(&self) -> usize {
+    match *self {}
+  }
+
+  type KnnVectorValues = Self;
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match *self {}
+  }
+
+  type Bits<'a, B>
+    = B
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, _accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    match *self {}
+  }
+
+  type DocIndexIterator =
+    crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
+}
+
+impl crate::core::index::float_vector_values::FloatVectorValues for NoVectorValuesCopy {
+  type VectorValue<'v>
+    = &'v [f32]
+  where
+    Self: 'v;
+
+  fn vector_value(&self, _ord: usize) -> Result<Self::VectorValue<'_>> {
+    match *self {}
+  }
+
+  type FloatVectorValues = Self;
+  type VectorScorer = crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
+}
+
+impl crate::core::index::byte_vector_values::ByteVectorValues for NoVectorValuesCopy {
+  type VectorValue<'v>
+    = &'v [u8]
+  where
+    Self: 'v;
+
+  fn vector_value(&self, _ord: usize) -> Result<Self::VectorValue<'_>> {
+    match *self {}
+  }
+
+  type ByteVectorValues = Self;
+  type VectorScorer = crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
+}

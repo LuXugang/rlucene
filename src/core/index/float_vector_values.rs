@@ -272,7 +272,7 @@ impl FloatVectorValues for FloatVectorValuesImpl {
     Ok(self.vectors[target_ord].as_ref())
   }
 
-  type FloatVectorValues = Self;
+  type FloatVectorValues = crate::core::index::knn_vector_values::NoVectorValuesCopy;
 
   fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     Ok(None)

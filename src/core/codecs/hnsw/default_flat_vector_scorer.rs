@@ -186,8 +186,8 @@ where
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     Ok(RandomVectorScorerByteImpl::new(
       &self.vectors,
-      self.vectors1.as_ref(),
-      self.vectors2.as_ref(),
+      &self.vectors1,
+      &self.vectors2,
       self.similarity_function,
       ord,
     ))
@@ -214,8 +214,8 @@ where
   BV: ByteVectorValues,
 {
   vectors: &'a BV,
-  vectors1: Option<&'a <BV as ByteVectorValues>::ByteVectorValues>,
-  vectors2: Option<&'a <BV as ByteVectorValues>::ByteVectorValues>,
+  vectors1: &'a Option<<BV as ByteVectorValues>::ByteVectorValues>,
+  vectors2: &'a Option<<BV as ByteVectorValues>::ByteVectorValues>,
   similarity_function: Sim,
   ord: usize,
 }
@@ -226,8 +226,8 @@ where
 {
   pub(crate) fn new(
     vectors: &'a BV,
-    vectors1: Option<&'a <BV as ByteVectorValues>::ByteVectorValues>,
-    vectors2: Option<&'a <BV as ByteVectorValues>::ByteVectorValues>,
+    vectors1: &'a Option<<BV as ByteVectorValues>::ByteVectorValues>,
+    vectors2: &'a Option<<BV as ByteVectorValues>::ByteVectorValues>,
     similarity_function: Sim,
     ord: usize,
   ) -> Self {
@@ -250,10 +250,8 @@ where
   fn score(&self, node: usize) -> Result<f32> {
     debug_assert_eq!(self.vectors1.is_some(), self.vectors2.is_some());
 
-    match (&self.vectors1, &self.vectors2) {
-      (Some(v1), Some(v2)) => {
-        score_byte_vectors(*v1, *v2, self.similarity_function, self.ord, node)
-      },
+    match (self.vectors1.as_ref(), self.vectors2.as_ref()) {
+      (Some(v1), Some(v2)) => score_byte_vectors(v1, v2, self.similarity_function, self.ord, node),
       (None, None) => score_byte_vectors(
         self.vectors,
         self.vectors,
@@ -326,8 +324,8 @@ where
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     Ok(RandomVectorScorerF32Impl::new(
       &self.vectors,
-      self.vectors1.as_ref(),
-      self.vectors2.as_ref(),
+      &self.vectors1,
+      &self.vectors2,
       self.similarity_function,
       ord,
     ))
@@ -353,8 +351,8 @@ where
   FV: FloatVectorValues,
 {
   vectors: &'a FV,
-  vectors1: Option<&'a <FV as FloatVectorValues>::FloatVectorValues>,
-  vectors2: Option<&'a <FV as FloatVectorValues>::FloatVectorValues>,
+  vectors1: &'a Option<<FV as FloatVectorValues>::FloatVectorValues>,
+  vectors2: &'a Option<<FV as FloatVectorValues>::FloatVectorValues>,
   similarity_function: Sim,
   ord: usize,
 }
@@ -364,8 +362,8 @@ where
 {
   pub(crate) fn new(
     vectors: &'a FV,
-    vectors1: Option<&'a <FV as FloatVectorValues>::FloatVectorValues>,
-    vectors2: Option<&'a <FV as FloatVectorValues>::FloatVectorValues>,
+    vectors1: &'a Option<<FV as FloatVectorValues>::FloatVectorValues>,
+    vectors2: &'a Option<<FV as FloatVectorValues>::FloatVectorValues>,
     similarity_function: Sim,
     ord: usize,
   ) -> Self {
@@ -386,10 +384,8 @@ where
   fn score(&self, node: usize) -> Result<f32> {
     debug_assert_eq!(self.vectors1.is_some(), self.vectors2.is_some());
 
-    match (&self.vectors1, &self.vectors2) {
-      (Some(v1), Some(v2)) => {
-        score_float_vectors(*v1, *v2, self.similarity_function, self.ord, node)
-      },
+    match (self.vectors1.as_ref(), self.vectors2.as_ref()) {
+      (Some(v1), Some(v2)) => score_float_vectors(v1, v2, self.similarity_function, self.ord, node),
       (None, None) => score_float_vectors(
         self.vectors,
         self.vectors,

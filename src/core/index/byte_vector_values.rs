@@ -328,7 +328,7 @@ impl ByteVectorValues for ByteVectorValuesImpl {
     Ok(self.vectors[target_ord].as_ref())
   }
 
-  type ByteVectorValues = Self;
+  type ByteVectorValues = crate::core::index::knn_vector_values::NoVectorValuesCopy;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Ok(None)
