@@ -16,6 +16,7 @@
  */
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
+use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::error::lucene_error;
 use crate::core::util::error::lucene_error::Result;
 
@@ -85,6 +86,13 @@ pub trait KnnCollector {
   ///
   /// The collected top documents.
   fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>>;
+
+  /// Returns the concrete collector only when using it directly preserves all
+  /// observable behavior of this collector. Wrappers that add timeout checks,
+  /// shared scores, ordinal translation or other behavior must keep returning `None`.
+  fn as_top_knn_collector_mut(&mut self) -> Option<&mut TopKnnCollector> {
+    None
+  }
 }
 
 pub enum KnnCollectorEnum<A, B> {
@@ -151,6 +159,13 @@ where
     match self {
       KnnCollectorEnum::A(a) => a.top_docs(),
       KnnCollectorEnum::B(b) => b.top_docs(),
+    }
+  }
+
+  fn as_top_knn_collector_mut(&mut self) -> Option<&mut TopKnnCollector> {
+    match self {
+      Self::A(collector) => collector.as_top_knn_collector_mut(),
+      Self::B(collector) => collector.as_top_knn_collector_mut(),
     }
   }
 }

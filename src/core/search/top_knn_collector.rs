@@ -104,6 +104,10 @@ impl KnnCollector for TopKnnCollector {
     let total_hits = TotalHits::new(AbstractKnnCollector::visited_count(self), relation);
     Ok(TopDocs::new(total_hits, score_docs))
   }
+
+  fn as_top_knn_collector_mut(&mut self) -> Option<&mut TopKnnCollector> {
+    Some(self)
+  }
 }
 impl AbstractKnnCollector for TopKnnCollector {
   fn num_collected(&self) -> usize {

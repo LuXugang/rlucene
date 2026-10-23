@@ -287,12 +287,17 @@ impl AbstractKnnVectorQuery for KnnFloatVectorQuery {
       return Ok(NO_RESULTS.clone());
     }
 
-    reader.search_nearest_vectors_f32(
-      &self.base.field,
-      self.target.as_ref().clone(),
-      &mut knn_collector,
-      accept_docs,
-    )?;
+    let target = self.target.as_ref().clone();
+    if let Some(collector) = knn_collector.as_top_knn_collector_mut() {
+      reader.search_nearest_vectors_f32(&self.base.field, target, collector, accept_docs)?;
+    } else {
+      reader.search_nearest_vectors_f32(
+        &self.base.field,
+        target,
+        &mut knn_collector,
+        accept_docs,
+      )?;
+    }
     knn_collector.top_docs()
   }
 
