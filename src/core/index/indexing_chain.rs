@@ -103,7 +103,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::attribute_source::{AttributeSource, EmptyAttributeSource};
+use crate::core::util::attribute_source::{AttributeSource, Attributes, EmptyAttributeSource};
 use crate::core::util::bit_set::of;
 use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet};
 use crate::core::util::bit_util::BitUtil;
@@ -1715,6 +1715,11 @@ impl PerField {
             // will be marked as deleted, but still
             // consume a docID
             let attribute_source = stream.get_attribute_source_mut();
+            // A custom stream may replace its attributes between tokens. Select
+            // once for this token, then keep the inversion and postings concrete.
+            macro_rules! invert_token {
+              ($attribute_source:expr) => {{
+                let attribute_source = $attribute_source;
             let invert_state = self
               .invert_state
               .as_mut()
@@ -1809,6 +1814,15 @@ impl PerField {
                 );
                 return unwrap_caught_result!(add_result);
               },
+            }
+              }};
+            }
+            match attribute_source {
+              Attributes::PackedToken(attributes) => invert_token!(attributes),
+              Attributes::BytesTerm(attributes) => invert_token!(attributes),
+              Attributes::BinaryTokenStream(attributes) => invert_token!(attributes),
+              #[cfg(test)]
+              Attributes::RandomTokenStream(attributes) => invert_token!(attributes),
             }
           }
           // trigger streams to perform end-of-stream operations
