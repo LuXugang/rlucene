@@ -28,6 +28,14 @@ use crate::core::util::hnsw::hnsw_graph::{
 };
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::ram_usage_estimator::size_of_vec;
+// Level 0 exists for every initialized node. Store it directly in the node row;
+// only the fixed-size upper levels need a separate allocation. This preserves
+// the Java level/node lookup and per-neighbor lock boundaries.
+struct NodeLevels {
+  level0: RwLock<NeighborArray<true>>,
+  upper: Box<[RwLock<NeighborArray<true>>]>,
+}
+
 /// An [`HnswGraph`] where all nodes and connections are held in memory.
 /// This struct is used to construct the HNSW graph before it's written to the
 /// index.
@@ -36,7 +44,7 @@ pub struct OnHeapHnswGraph {
   // the internal graph representation where the first dimension is node id and second dimension
   // is level
   // e.g. graph[1][2] is all the neighbours of node 1 at level 2
-  graph: Vec<OnceLock<Vec<RwLock<NeighborArray<true>>>>>,
+  graph: Vec<OnceLock<NodeLevels>>,
   // essentially another 2d map which the first dimension is level and second dimension is node
   // id, this is only
   // generated on demand when there's someone calling getNodeOnLevel on a non-zero level
@@ -151,9 +159,12 @@ impl OnHeapHnswGraph {
       .get_mut(node)
       .and_then(OnceLock::get_mut)
       .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} is not initialized")))?;
-    let neighbors = levels.get_mut(level).ok_or_else(|| {
-      LuceneError::illegal_state(format!("HNSW node {node} has no level {level}"))
-    })?;
+    let neighbors = if level == 0 {
+      Some(&mut levels.level0)
+    } else {
+      levels.upper.get_mut(level - 1)
+    }
+    .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} has no level {level}")))?;
     Ok(neighbors.get_mut())
   }
 
@@ -169,9 +180,12 @@ impl OnHeapHnswGraph {
       .get(node)
       .and_then(OnceLock::get)
       .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} is not initialized")))?;
-    let neighbors = levels.get(level).ok_or_else(|| {
-      LuceneError::illegal_state(format!("HNSW node {node} has no level {level}"))
-    })?;
+    let neighbors = if level == 0 {
+      Some(&levels.level0)
+    } else {
+      levels.upper.get(level - 1)
+    }
+    .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} has no level {level}")))?;
     Ok(neighbors.read())
   }
 
@@ -186,9 +200,12 @@ impl OnHeapHnswGraph {
       .get(node)
       .and_then(OnceLock::get)
       .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} is not initialized")))?;
-    let neighbors = levels.get(level).ok_or_else(|| {
-      LuceneError::illegal_state(format!("HNSW node {node} has no level {level}"))
-    })?;
+    let neighbors = if level == 0 {
+      Some(&levels.level0)
+    } else {
+      levels.upper.get(level - 1)
+    }
+    .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} has no level {level}")))?;
     let mut neighbors = neighbors.write();
     action(&mut neighbors)
   }
@@ -203,24 +220,21 @@ impl OnHeapHnswGraph {
     let mut added = false;
     let levels = self.graph[node].get_or_init(|| {
       added = true;
-      (0..=level)
-        .map(|current_level| {
-          let max_size = if current_level == 0 {
-            self.nsize0
-          } else {
-            self.nsize
-          };
-          RwLock::new(NeighborArray::<true>::new(max_size))
-        })
-        .collect()
+      NodeLevels {
+        level0: RwLock::new(NeighborArray::<true>::new(self.nsize0)),
+        upper: (1..=level)
+          .map(|_| RwLock::new(NeighborArray::<true>::new(self.nsize)))
+          .collect(),
+      }
     });
     debug_assert!(
-      levels.len() > level,
+      levels.upper.len() + 1 > level,
       "node must be inserted from the top level"
     );
     if added {
-      let mut node_bytes = size_of_vec(levels);
-      for neighbors in levels {
+      let mut node_bytes = (std::mem::size_of_val(levels.upper.as_ref()) as i64)
+        .saturating_add(levels.level0.read().ram_bytes_used()?);
+      for neighbors in &levels.upper {
         node_bytes = node_bytes.saturating_add(neighbors.read().ram_bytes_used()?);
       }
       let _ = self
@@ -303,7 +317,12 @@ impl OnHeapHnswGraph {
         continue;
       };
       non_null_node += 1;
-      for maybe_vec in self.level_to_nodes.iter_mut().take(levels.len()).skip(1) {
+      for maybe_vec in self
+        .level_to_nodes
+        .iter_mut()
+        .take(levels.upper.len() + 1)
+        .skip(1)
+      {
         if let Some(vec) = Arc::get_mut(maybe_vec).and_then(Option::as_mut) {
           vec.push(node);
         }
@@ -468,7 +487,7 @@ impl HnswGraph for &OnHeapHnswGraph {
   }
 }
 #[cfg(debug_assertions)]
-fn check_graph(graph: &[OnceLock<Vec<RwLock<NeighborArray<true>>>>], level: usize, node: usize) {
+fn check_graph(graph: &[OnceLock<NodeLevels>], level: usize, node: usize) {
   let Some(entry) = graph.get(node) else {
     debug_assert!(false, "HNSW node {node} is out of bounds");
     return;
@@ -478,10 +497,10 @@ fn check_graph(graph: &[OnceLock<Vec<RwLock<NeighborArray<true>>>>], level: usiz
     return;
   };
   debug_assert!(
-    level < levels.len(),
+    level < levels.upper.len() + 1,
     "level={} exceeds available levels ({}) for node={}",
     level,
-    levels.len(),
+    levels.upper.len() + 1,
     node
   );
 }
