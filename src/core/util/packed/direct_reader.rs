@@ -150,8 +150,30 @@ where
       let slow_instance =
         DirectReader::get_instance_with_offset(None, self.bits_per_value, self.base_offset)?;
       let num_values_last_block = self.num_values - index;
-      for (i, value) in buffer[..num_values_last_block].iter_mut().enumerate() {
-        *value = slow_instance.read_from_slice_shared(index + i, Some(slice))?;
+      macro_rules! decode_tail {
+        ($reader:expr) => {
+          for (i, value) in buffer[..num_values_last_block].iter_mut().enumerate() {
+            *value = $reader.read_from_slice_shared(index + i, Some(slice))?;
+          }
+        };
+      }
+      // Keep the concrete reader for the whole tail, preserving scalar read order.
+      match &slow_instance {
+        DirectPackedEnum::Direct1(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct2(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct4(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct8(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct12(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct16(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct20(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct24(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct28(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct32(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct40(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct48(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct56(reader) => decode_tail!(reader),
+        DirectPackedEnum::Direct64(reader) => decode_tail!(reader),
+        reader => decode_tail!(reader),
       }
     } else if (self.bits_per_value & 0x07) == 0 {
       // bitsPerValue is a multiple of 8
