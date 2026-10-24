@@ -419,6 +419,7 @@ where
   }
 }
 
+#[inline]
 fn score_float_vectors<FV: FloatVectorValues, Sim: VectorSimilarity>(
   vectors1: &FV,
   vectors2: &FV,
@@ -431,6 +432,7 @@ fn score_float_vectors<FV: FloatVectorValues, Sim: VectorSimilarity>(
   similarity.compare_f32(ord_vector.as_ref(), node_vector.as_ref())
 }
 
+#[inline]
 fn score_byte_vectors<BV: ByteVectorValues, Sim: VectorSimilarity>(
   vectors1: &BV,
   vectors2: &BV,
