@@ -284,18 +284,15 @@ impl QueryBase for PointInSetQuery {
 pub struct PointInSetWeight {
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
-  query: PointInSetQuery,
   score_mode: ScoreMode,
 }
 
 impl PointInSetWeight {
   pub fn new(score: f32, query: PointInSetQuery, score_mode: ScoreMode) -> Self {
-    let point_in_set_query = query.clone();
     let parent_query = Arc::new(query.into());
     Self {
       base: ConstantScoreWeight::new(score),
       parent_query,
-      query: point_in_set_query,
       score_mode,
     }
   }
@@ -344,40 +341,43 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::PointInSet(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state("expected PointInSetQuery"));
+    };
     let reader = context.reader();
-    let values = match reader.get_point_values(&self.query.field)? {
+    let values = match reader.get_point_values(&query.field)? {
       Some(v) => v,
       None => return Ok(None),
     };
 
-    if values.get_num_index_dimensions()? != self.query.num_dims {
+    if values.get_num_index_dimensions()? != query.num_dims {
       return Err(LuceneError::illegal_argument(format!(
         "field=\"{}\" was indexed with numIndexDims={} but this query has numIndexDims={}",
-        self.query.field,
+        query.field,
         values.get_num_index_dimensions()?,
-        self.query.num_dims
+        query.num_dims
       )));
     }
-    if values.get_bytes_per_dimension()? != self.query.bytes_per_dim {
+    if values.get_bytes_per_dimension()? != query.bytes_per_dim {
       return Err(LuceneError::illegal_argument(format!(
         "field=\"{}\" was indexed with bytesPerDim={} but this query has bytesPerDim={}",
-        self.query.field,
+        query.field,
         values.get_bytes_per_dimension()?,
-        self.query.bytes_per_dim
+        query.bytes_per_dim
       )));
     }
 
     let max_doc = reader.max_doc()?;
-    if self.query.num_dims == 1 {
+    if query.num_dims == 1 {
       Ok(Some(
         Box::new(MergePointScorerSupplier::new(
           self.base.score(),
           self.score_mode,
           values,
           max_doc,
-          self.query.field.clone(),
-          self.query.sorted_packed_points.clone(),
-          self.query.bytes_per_dim,
+          query.field.clone(),
+          query.sorted_packed_points.clone(),
+          query.bytes_per_dim,
         ))
         .into(),
       ))
@@ -388,10 +388,10 @@ where
           self.score_mode,
           values,
           max_doc,
-          self.query.field.clone(),
-          self.query.sorted_packed_points.clone(),
-          self.query.num_dims,
-          self.query.bytes_per_dim,
+          query.field.clone(),
+          query.sorted_packed_points.clone(),
+          query.num_dims,
+          query.bytes_per_dim,
         ))
         .into(),
       ))
