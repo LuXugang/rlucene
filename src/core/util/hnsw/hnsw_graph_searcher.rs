@@ -524,7 +524,7 @@ where
 
   Ok(knn_collector)
 }
-fn search_with_searcher<S, B, V, T, T2, const DEFAULT_HOOK: bool>(
+pub(crate) fn search_with_searcher<S, B, V, T, T2, const DEFAULT_HOOK: bool>(
   scorer: &S,
   knn_collector: &mut V,
   mut graph: T,

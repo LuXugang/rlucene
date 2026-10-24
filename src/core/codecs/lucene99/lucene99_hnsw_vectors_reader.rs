@@ -40,10 +40,14 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, EmptyHnswGraph, HnswGraph, NodesIteratorEnum2,
 };
-use crate::core::util::hnsw::hnsw_graph_searcher::search;
+use crate::core::util::hnsw::hnsw_graph_searcher::{
+  HnswGraphSearcher, get_graph_size, search, search_with_searcher,
+};
+use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::ordinal_translated_knn_collector::OrdinalTranslatedKnnCollector;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
@@ -300,12 +304,26 @@ where
     if k < scorer.max_ord() {
       let mut collector =
         OrdinalTranslatedKnnCollector::new(knn_collector, |ord| scorer.ord_to_doc(ord));
-      search(
-        &scorer,
-        &mut collector,
-        &mut self.get_graph_from_entry(field_entry)?,
-        accepted_ords.as_ref(),
-      )?;
+      let mut graph = self.get_graph_from_entry(field_entry)?;
+      // This disk graph has a fixed ordinal range. Keep dense visited words
+      // within 128 KiB; filtered and larger graphs retain sparse storage.
+      if accepted_ords.is_none() && field_entry.size() <= (1 << 20) {
+        let size = get_graph_size(&graph);
+        // Match the sparse bitset's physical 4096-bit block coverage while
+        // keeping the original logical length and clearing all ghost words.
+        let visited = FixedBitSet::with_capacity(vec![0; size.div_ceil(4096) * 64], size)?;
+        let candidates = NeighborQueue::<true>::new(collector.k())?;
+        let mut graph_searcher = HnswGraphSearcher::new(candidates, visited);
+        search_with_searcher(
+          &scorer,
+          &mut collector,
+          &mut graph,
+          &mut graph_searcher,
+          accepted_ords.as_ref(),
+        )?;
+      } else {
+        search(&scorer, &mut collector, &mut graph, accepted_ords.as_ref())?;
+      }
     } else {
       for i in 0..scorer.max_ord() {
         let accept = match accepted_ords {
