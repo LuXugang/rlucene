@@ -44,7 +44,6 @@ use std::sync::atomic::{AtomicI64, Ordering};
 /// Each packet is assigned a generation, and each flushed or merged segment is also assigned a
 /// generation, so we can track which buffered-deletes packets to apply to any given segment.
 pub(crate) struct BufferedUpdatesStream {
-  info_stream: InfoStreamMT,
   inner: Mutex<BufferedUpdatesStreamInner>,
   bytes_used: AtomicI64,
   finished_segments: FinishedSegments,
@@ -59,7 +58,6 @@ pub(crate) struct BufferedUpdatesStreamInner {
 impl BufferedUpdatesStream {
   pub(crate) fn new(info_stream: InfoStreamMT) -> Self {
     Self {
-      info_stream: info_stream.clone(),
       inner: Mutex::new(BufferedUpdatesStreamInner {
         updates: HashMap::new(),
         next_gen: 1,
@@ -93,11 +91,11 @@ impl BufferedUpdatesStream {
       .bytes_used
       .fetch_add(bytes_used as i64, Ordering::SeqCst);
     {
-      if self.info_stream.is_enabled("BD") {
+      if self.finished_segments.info_stream.is_enabled("BD") {
         let packet_msg = v.to_string();
         let count = inner.updates.len();
         let used_mb = self.bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
-        self.info_stream.message(
+        self.finished_segments.info_stream.message(
           "BD",
           &format!(
             "push new packet ({packet_msg}), packetCount={count}, bytesUsed={used_mb:.3} MB"
@@ -208,8 +206,8 @@ impl BufferedUpdatesStream {
       packets
     };
 
-    if self.info_stream.is_enabled("BD") {
-      self.info_stream.message(
+    if self.finished_segments.info_stream.is_enabled("BD") {
+      self.finished_segments.info_stream.message(
         "BD",
         &format!(
           "waitApplyForMerge: {} packets, {} merging segments",
@@ -234,16 +232,17 @@ impl BufferedUpdatesStream {
     let packet_count = wait_for.len();
 
     if wait_for.is_empty() {
-      if self.info_stream.is_enabled("BD") {
+      if self.finished_segments.info_stream.is_enabled("BD") {
         self
+          .finished_segments
           .info_stream
           .message("BD", "waitApply: no deletes to apply")?;
       }
       return Ok(());
     }
 
-    if self.info_stream.is_enabled("BD") {
-      self.info_stream.message(
+    if self.finished_segments.info_stream.is_enabled("BD") {
+      self.finished_segments.info_stream.message(
         "BD",
         &format!("waitApply: {packet_count:?} packets: {wait_for:?}"),
       )?;
@@ -269,10 +268,10 @@ impl BufferedUpdatesStream {
       writer.force_apply(packet)?;
     }
 
-    if self.info_stream.is_enabled("BD") {
+    if self.finished_segments.info_stream.is_enabled("BD") {
       let elapsed = start_ns.elapsed().as_secs_f64() * 1000.0;
       let bytes = self.bytes_used.load(Ordering::SeqCst);
-      self.info_stream.message(
+      self.finished_segments.info_stream.message(
                     "BD",
                     &format!(
                         "waitApply: done {packet_count} packets; totalDelCount={total_del_count}; totBytesUsed={bytes}; took {elapsed:.2} msec"
