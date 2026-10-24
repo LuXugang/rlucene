@@ -162,7 +162,6 @@ impl QueryBase for XYDocValuesPointInGeometryQuery {
 }
 
 pub struct XYDocValuesPointInGeometryQueryWeight {
-  query: XYDocValuesPointInGeometryQuery,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -171,10 +170,8 @@ pub struct XYDocValuesPointInGeometryQueryWeight {
 
 impl XYDocValuesPointInGeometryQueryWeight {
   fn new(query: XYDocValuesPointInGeometryQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let query_clone = query.clone();
     let parent_query = Arc::new(query.into());
     Self {
-      query: query_clone,
       base: ConstantScoreWeight::new(boost),
       parent_query,
       score_mode,
@@ -188,7 +185,12 @@ where
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = [self.query.field.as_str()];
+    let Query::XYDocValuesPointInGeometry(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected XYDocValuesPointInGeometryQuery",
+      ));
+    };
+    let field = [query.field.as_str()];
     DocValues::is_cacheable(ctx, field)
   }
 }
@@ -234,12 +236,17 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::XYDocValuesPointInGeometry(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected XYDocValuesPointInGeometryQuery",
+      ));
+    };
     match context
       .reader()
-      .get_sorted_numeric_doc_values(&self.query.field)?
+      .get_sorted_numeric_doc_values(&query.field)?
     {
       Some(values) => {
-        let iterator = XYDocValuesPointInGeometryTPI::new(values, self.query.component2d.clone());
+        let iterator = XYDocValuesPointInGeometryTPI::new(values, query.component2d.clone());
         let scorer = ConstantScoreScorer::from_tpi(self.boost, self.score_mode, iterator);
         Ok(Some(DefaultScorerSupplier::new(scorer)))
       },
