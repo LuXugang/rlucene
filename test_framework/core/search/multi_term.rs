@@ -377,11 +377,11 @@ impl QueryBase for DumbRegexpQuery {
 
   fn to_string(&self, field: &str) -> Result<String> {
     if self.field == field {
-      Ok(self.run_automaton.base.automaton.to_string())
+      Ok(self.run_automaton.base.tables.automaton.to_string())
     } else {
       Ok(format!(
         "{}:{}",
-        self.field, self.run_automaton.base.automaton
+        self.field, self.run_automaton.base.tables.automaton
       ))
     }
   }

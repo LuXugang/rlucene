@@ -281,7 +281,7 @@ impl CompiledAutomaton {
         Cow::Owned(o) => o,
       };
       let run_automaton = ByteRunAutomaton::with_bool(dfa, true)?;
-      let sink_state = Self::find_sink_state(&run_automaton.base.automaton)?;
+      let sink_state = Self::find_sink_state(&run_automaton.base.tables.automaton)?;
 
       Ok(Self {
         type_: automaton_type,
@@ -307,7 +307,7 @@ impl CompiledAutomaton {
       .run_automaton
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("normal compiled automaton is missing its DFA"))?;
-    let automaton = &run_automaton.base.automaton;
+    let automaton = &run_automaton.base.tables.automaton;
     let num_transitions = automaton.init_transition(state, &mut self.transition);
     for i in 0..num_transitions {
       automaton.get_next_transition(&mut self.transition)?;
@@ -422,6 +422,7 @@ impl CompiledAutomaton {
         loop {
           let num_transitions = run_automaton
             .base
+            .tables
             .automaton
             .get_num_transitions_with_state(state);
           if num_transitions == 0 {
@@ -431,6 +432,7 @@ impl CompiledAutomaton {
           } else {
             run_automaton
               .base
+              .tables
               .automaton
               .get_transition(state, 0, &mut self.transition);
             if label - 1 < self.transition.min {
@@ -615,21 +617,27 @@ impl AutomatonEnum {
 
   pub fn init_transition(&mut self, state: i32, t: &mut Transition) -> Result<i32> {
     match self {
-      AutomatonEnum::Byte(byte) => Ok(byte.base.automaton.init_transition(state, t)),
+      AutomatonEnum::Byte(byte) => Ok(byte.base.tables.automaton.init_transition(state, t)),
       AutomatonEnum::NFA(nfa) => nfa.init_transition(state, t),
     }
   }
 
   pub fn get_next_transition(&mut self, t: &mut Transition) -> Result<()> {
     match self {
-      AutomatonEnum::Byte(byte) => byte.base.automaton.get_next_transition(t),
+      AutomatonEnum::Byte(byte) => byte.base.tables.automaton.get_next_transition(t),
       AutomatonEnum::NFA(nfa) => nfa.get_next_transition(t),
     }
   }
 
   pub fn get_num_transitions_with_state(&mut self, state: i32) -> Result<i32> {
     match self {
-      AutomatonEnum::Byte(byte) => Ok(byte.base.automaton.get_num_transitions_with_state(state)),
+      AutomatonEnum::Byte(byte) => Ok(
+        byte
+          .base
+          .tables
+          .automaton
+          .get_num_transitions_with_state(state),
+      ),
       AutomatonEnum::NFA(nfa) => nfa.get_num_transitions_with_state(state),
     }
   }
@@ -637,7 +645,7 @@ impl AutomatonEnum {
   pub fn get_transition(&mut self, state: i32, index: i32, t: &mut Transition) -> Result<()> {
     match self {
       AutomatonEnum::Byte(byte) => {
-        byte.base.automaton.get_transition(state, index, t);
+        byte.base.tables.automaton.get_transition(state, index, t);
         Ok(())
       },
       AutomatonEnum::NFA(nfa) => nfa.get_transition(state, index, t),

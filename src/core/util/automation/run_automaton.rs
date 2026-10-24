@@ -30,13 +30,13 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 /// 0.
 #[derive(Clone)]
 pub struct RunAutomaton {
-  pub(crate) automaton: Arc<Automaton>,
   alphabet_size: usize,
   size: usize,
-  tables: Arc<RunAutomatonTables>,
+  pub(crate) tables: Arc<RunAutomatonTables>,
 }
 
-struct RunAutomatonTables {
+pub(crate) struct RunAutomatonTables {
+  pub(crate) automaton: Automaton,
   accept: FixedBitSet,
   transitions: Vec<i32>, // transitions[state * points.len() + get_char_class(c)]
   points: Vec<i32>,
@@ -93,10 +93,10 @@ impl RunAutomaton {
     }
 
     Ok(Self {
-      automaton: Arc::new(automaton),
       alphabet_size,
       size,
       tables: Arc::new(RunAutomatonTables {
+        automaton,
         accept,
         transitions,
         points,
@@ -196,9 +196,8 @@ impl fmt::Display for RunAutomaton {
 impl Accountable for RunAutomaton {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(
-      (std::mem::size_of_val(self.automaton.as_ref()) as i64)
-        .saturating_add(self.automaton.ram_bytes_used()?)
-        .saturating_add(std::mem::size_of_val(self.tables.as_ref()) as i64)
+      (std::mem::size_of_val(self.tables.as_ref()) as i64)
+        .saturating_add(self.tables.automaton.ram_bytes_used()?)
         .saturating_add(self.tables.accept.ram_bytes_used()?)
         .saturating_add(size_of_vec(&self.tables.transitions))
         .saturating_add(size_of_vec(&self.tables.points))
