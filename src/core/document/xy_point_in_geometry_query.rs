@@ -169,7 +169,6 @@ impl QueryBase for XYPointInGeometryQuery {
 }
 
 pub struct XYPointInGeometryWeight {
-  query: XYPointInGeometryQuery,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -177,18 +176,20 @@ pub struct XYPointInGeometryWeight {
 
 impl XYPointInGeometryWeight {
   fn new(query: XYPointInGeometryQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let query_clone = query.clone();
     let parent_query = Arc::new(query.into());
     Self {
-      query: query_clone,
       base: ConstantScoreWeight::new(boost),
       parent_query,
       score_mode,
     }
   }
 
-  fn get_intersect_visitor(&self, result: DocIdSetBuilder) -> XYPointInGeometryIntersectVisitor {
-    XYPointInGeometryIntersectVisitor::new(result, self.query.component2d.clone())
+  fn get_intersect_visitor(
+    &self,
+    result: DocIdSetBuilder,
+    component2d: Arc<XYGeometryType<<XYGeometryEnum as Geometry>::Component2D>>,
+  ) -> XYPointInGeometryIntersectVisitor {
+    XYPointInGeometryIntersectVisitor::new(result, component2d)
   }
 }
 
@@ -236,20 +237,25 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::XYPointInGeometry(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected XYPointInGeometryQuery",
+      ));
+    };
     let reader = context.reader();
-    let values = match reader.get_point_values(&self.query.field)? {
+    let values = match reader.get_point_values(&query.field)? {
       Some(values) => values,
       None => return Ok(None),
     };
     let field_infos = reader.get_field_infos()?;
-    let Some(field_info) = field_infos.field_info_by_name(&self.query.field)? else {
+    let Some(field_info) = field_infos.field_info_by_name(&query.field)? else {
       // No docs in this segment indexed this field at all
       return Ok(None);
     };
     XYPointField::check_compatible(field_info)?;
 
-    let result = DocIdSetBuilder::from_point_values(reader.max_doc()?, &values, &self.query.field)?;
-    let visitor = self.get_intersect_visitor(result);
+    let result = DocIdSetBuilder::from_point_values(reader.max_doc()?, &values, &query.field)?;
+    let visitor = self.get_intersect_visitor(result, query.component2d.clone());
     Ok(Some(XYPointInGeometryScorerSupplier::new(
       self.base.score(),
       self.score_mode,
