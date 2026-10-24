@@ -37,7 +37,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Write as _;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -187,7 +187,6 @@ impl QueryBase for LatLonDocValuesBoxQuery {
 }
 
 pub struct LatLonDocValuesBoxQueryWeight {
-  query: LatLonDocValuesBoxQuery,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -195,10 +194,8 @@ pub struct LatLonDocValuesBoxQueryWeight {
 
 impl LatLonDocValuesBoxQueryWeight {
   fn new(query: LatLonDocValuesBoxQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let query_clone = query.clone();
     let parent_query = Arc::new(query.into());
     Self {
-      query: query_clone,
       base: ConstantScoreWeight::new(boost),
       parent_query,
       score_mode,
@@ -211,7 +208,12 @@ where
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = [self.query.field.as_str()];
+    let Query::LatLonDocValuesBox(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected LatLonDocValuesBoxQuery",
+      ));
+    };
+    let field = [query.field.as_str()];
     DocValues::is_cacheable(ctx, field)
   }
 }
@@ -256,12 +258,17 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::LatLonDocValuesBox(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected LatLonDocValuesBoxQuery",
+      ));
+    };
     match context
       .reader()
-      .get_sorted_numeric_doc_values(&self.query.field)?
+      .get_sorted_numeric_doc_values(&query.field)?
     {
       Some(values) => {
-        let iterator = LatLonDocValuesBoxTwoPhaseIterator::new(values, &self.query);
+        let iterator = LatLonDocValuesBoxTwoPhaseIterator::new(values, query);
         let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
         Ok(Some(DefaultScorerSupplier::new(scorer)))
       },
