@@ -152,10 +152,18 @@ impl OnHeapHnswGraph {
     level: usize,
     node: usize,
   ) -> Result<&mut NeighborArray<true>> {
+    Self::get_neighbors_mut_from_graph(&mut self.graph, level, node)
+  }
+
+  #[inline]
+  fn get_neighbors_mut_from_graph(
+    graph: &mut [OnceLock<NodeLevels>],
+    level: usize,
+    node: usize,
+  ) -> Result<&mut NeighborArray<true>> {
     #[cfg(debug_assertions)]
-    check_graph(&self.graph, level, node);
-    let levels = self
-      .graph
+    check_graph(graph, level, node);
+    let levels = graph
       .get_mut(node)
       .and_then(OnceLock::get_mut)
       .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} is not initialized")))?;
@@ -337,6 +345,8 @@ impl OnHeapHnswGraph {
   }
 }
 impl HnswGraph for OnHeapHnswGraph {
+  const HAS_BORROWED_NEIGHBORS: bool = true;
+
   fn seek(&mut self, level: usize, target_node: usize) -> Result<()> {
     self.cur_node = target_node;
     self.cur_level = level;
@@ -379,6 +389,18 @@ impl HnswGraph for OnHeapHnswGraph {
     } else {
       Ok(NO_MORE_DOCS as usize)
     }
+  }
+
+  #[inline]
+  fn borrow_neighbors(&mut self) -> Result<(&NeighborArray<true>, &mut usize)> {
+    let current = self.upto;
+    // Match next_neighbor's advancement before any failing lookup or panic.
+    self.upto += 1;
+    let neighbors =
+      Self::get_neighbors_mut_from_graph(&mut self.graph, self.cur_level, self.cur_node)?;
+    // A successful borrow prepares the first read; the while condition consumes it.
+    self.upto = current;
+    Ok((neighbors, &mut self.upto))
   }
   /// Returns the current number of levels in the graph.
   ///

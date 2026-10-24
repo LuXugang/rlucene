@@ -45,6 +45,9 @@ use crate::core::util::hnsw::neighbor_array::NeighborArray;
 /// **updates are not thread-safe**. The search method optionally takes a set of
 /// *accepted nodes*, which can be used to exclude deleted documents.
 pub trait HnswGraph {
+  /// Whether traversal can exclusively borrow its current neighbor array.
+  const HAS_BORROWED_NEIGHBORS: bool = false;
+
   /// Move the pointer to exactly the given `level`'s `target`.
   ///
   /// After this method returns, call [`next_neighbor()`](Self::next_neighbor)
@@ -71,6 +74,18 @@ pub trait HnswGraph {
   /// A node ordinal in the graph, or [`NO_MORE_DOCS`] if the iteration is
   /// complete.
   fn next_neighbor(&mut self) -> Result<usize>;
+  /// Borrows the current array and the graph's original next-neighbor index.
+  ///
+  /// Only implementations with [`Self::HAS_BORROWED_NEIGHBORS`] may use this
+  /// entry. Success leaves the index unchanged. Failure, including a panic,
+  /// must leave it as a failed first [`Self::next_neighbor`] call would.
+  /// The array cannot change while borrowed; shared traversal must keep its
+  /// original per-neighbor access and lock boundaries instead.
+  fn borrow_neighbors(&mut self) -> Result<(&NeighborArray<true>, &mut usize)> {
+    Err(LuceneError::unsupported_operation(
+      "exclusive neighbor borrowing is unavailable",
+    ))
+  }
   /// Returns the number of levels of the graph
   fn num_levels(&self) -> Result<usize>;
   /// Returns graph's entry point on the top level *
@@ -109,6 +124,8 @@ impl<T> HnswGraph for Box<T>
 where
   T: HnswGraph + ?Sized,
 {
+  const HAS_BORROWED_NEIGHBORS: bool = T::HAS_BORROWED_NEIGHBORS;
+
   fn seek(&mut self, level: usize, target: usize) -> Result<()> {
     (**self).seek(level, target)
   }
@@ -123,6 +140,11 @@ where
 
   fn next_neighbor(&mut self) -> Result<usize> {
     (**self).next_neighbor()
+  }
+
+  #[inline]
+  fn borrow_neighbors(&mut self) -> Result<(&NeighborArray<true>, &mut usize)> {
+    (**self).borrow_neighbors()
   }
 
   fn num_levels(&self) -> Result<usize> {
@@ -152,6 +174,8 @@ impl<T> HnswGraph for &mut T
 where
   T: HnswGraph + ?Sized,
 {
+  const HAS_BORROWED_NEIGHBORS: bool = T::HAS_BORROWED_NEIGHBORS;
+
   fn seek(&mut self, level: usize, target: usize) -> Result<()> {
     (**self).seek(level, target)
   }
@@ -167,6 +191,11 @@ where
   #[inline]
   fn next_neighbor(&mut self) -> Result<usize> {
     (**self).next_neighbor()
+  }
+
+  #[inline]
+  fn borrow_neighbors(&mut self) -> Result<(&NeighborArray<true>, &mut usize)> {
+    (**self).borrow_neighbors()
   }
 
   fn num_levels(&self) -> Result<usize> {

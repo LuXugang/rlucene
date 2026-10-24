@@ -18,7 +18,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_concurrent_merge_builder::MergeSearcher;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::GraphBuilderKnnCollector;
@@ -257,9 +257,32 @@ where
 
       let top_node = self.candidates.pop()?;
       self.graph_seek(&mut graph, level, top_node)?;
+      let (mut neighbors, mut fallback_graph) = if DEFAULT_HOOK && T::HAS_BORROWED_NEIGHBORS {
+        (Some(graph.borrow_neighbors()?), None)
+      } else {
+        (None, Some(&mut graph))
+      };
       let mut friend_ord;
       while {
-        friend_ord = self.graph_next_neighbor(&mut graph)?;
+        friend_ord = if DEFAULT_HOOK && T::HAS_BORROWED_NEIGHBORS {
+          let Some((neighbors, upto)) = neighbors.as_mut() else {
+            return Err(LuceneError::illegal_state(
+              "exclusive neighbors not prepared",
+            ));
+          };
+          let current = **upto;
+          **upto += 1;
+          if current < neighbors.size() {
+            neighbors.nodes()[current] as usize
+          } else {
+            NO_MORE_DOCS as usize
+          }
+        } else {
+          let Some(graph) = fallback_graph.as_mut() else {
+            return Err(LuceneError::illegal_state("graph traversal not retained"));
+          };
+          self.graph_next_neighbor(graph)?
+        };
         friend_ord != NO_MORE_DOCS as usize
       } {
         debug_assert!(friend_ord < size, "friendOrd={friend_ord} >= size={size}");
