@@ -156,18 +156,14 @@ impl LongHeap {
     let mut j = i << 1;
     let mut k = j + 1;
 
-    if k <= self.size && self.heap[k] < self.heap[j] {
-      j = k;
-    }
+    j += usize::from(k <= self.size && self.heap[k] < self.heap[j]);
 
     while j <= self.size && self.heap[j] < value {
       self.heap[i] = self.heap[j];
       i = j;
       j = i << 1;
       k = j + 1;
-      if k <= self.size && self.heap[k] < self.heap[j] {
-        j = k;
-      }
+      j += usize::from(k <= self.size && self.heap[k] < self.heap[j]);
     }
 
     self.heap[i] = value;
