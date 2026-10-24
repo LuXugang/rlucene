@@ -1,0 +1,14 @@
+{
+  "method_id": "search-benchmark-game",
+  "protocol_version": "macos-select-v1",
+  "modes": ["COUNT", "TOP_10", "TOP_100", "TOP_1000", "TOP_100_COUNT"],
+  "display_modes": ["TOP_10", "TOP_100", "TOP_1000", "TOP_100_COUNT", "COUNT"],
+  "batches": 2,
+  "rounds": 12,
+  "warmup_seconds_per_engine": 60,
+  "seed_base": 2026101900,
+  "bm25": {"k1": 1.2, "b": 0.75},
+  "query_cache": false,
+  "java": {"version": "23", "xms": "4g", "xmx": "4g", "gc": "ParallelGC"},
+  "measurement": "Parent write/flush through query parsing, full search, short response formatting/flush and parent read, including IPC. Full ordered-hit correctness is separate."
+}

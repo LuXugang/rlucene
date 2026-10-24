@@ -1,0 +1,42 @@
+{
+  "_0_Lucene99HnswVectorsFormat_0.vex": {
+    "bytes": 59251641,
+    "sha256": "3c70903edfbf587d7aa93bd1b693d342ed8b07a13388d19b700bd97712ad99a6"
+  },
+  "_0_Lucene99HnswVectorsFormat_0.vec": {
+    "bytes": 512000100,
+    "sha256": "351ea328819420010751ecfc3542abedb709f41d37106e26a827e08796e0574a"
+  },
+  "_0_Lucene99HnswVectorsFormat_0.vem": {
+    "bytes": 70147,
+    "sha256": "1b0e1293a5b5285276dd9e80f734d38a0cdf0f9fed1840177523ca1f24e33792"
+  },
+  "_0.si": {
+    "bytes": 483,
+    "sha256": "9424ca1c862852c1b23027e0e6cc157855b189aec11e0f778d63c8a8b2de06f6"
+  },
+  "_0.fnm": {
+    "bytes": 197,
+    "sha256": "fc7c7d89bdd5c34e46b2c1fda7b1ba61f6fb7596565bd4df2c17ef05a201ce53"
+  },
+  "_0.fdx": {
+    "bytes": 3488,
+    "sha256": "b22842990bdbf373fb075c1e6f738d47483f8ece2bb25ef68974bbbf47fae355"
+  },
+  "_0.fdm": {
+    "bytes": 159,
+    "sha256": "aeada550ea2086d4dc9b804e51018e73536b077d7ffd68d742b83d1d6ac6e5da"
+  },
+  "_0_Lucene99HnswVectorsFormat_0.vemf": {
+    "bytes": 145,
+    "sha256": "46b8dd365798d1f965d3e2c313e63275b9154cc64c37d8c776d901d6aeb06f0c"
+  },
+  "segments_1": {
+    "bytes": 155,
+    "sha256": "d9fabbf4c29dacbbdd25b6240b219624df26b17b01e1cfa62c917c7312d3418f"
+  },
+  "_0.fdt": {
+    "bytes": 4058267,
+    "sha256": "28f5af2039c639b3306c5c34bd07b8295c4d956e13c98efe072070cbd2c5b27c"
+  }
+}

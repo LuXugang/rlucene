@@ -1,0 +1,38 @@
+[
+  {
+    "file": "lucene-core-10.1.0.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-core/10.1.0/lucene-core-10.1.0.jar",
+    "sha256": "dfe584dbe6808942667e6f1bd558b3ab1dbc27b318fa1c53fb242f3289a7adc5",
+    "bytes": 4259172
+  },
+  {
+    "file": "lucene-analysis-common-10.1.0.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-analysis-common/10.1.0/lucene-analysis-common-10.1.0.jar",
+    "sha256": "6e3730816710f1caa50342034c18fbd705a5f3ac88909279fa1f7c5e1e04405a",
+    "bytes": 1754664
+  },
+  {
+    "file": "lucene-queryparser-10.1.0.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queryparser/10.1.0/lucene-queryparser-10.1.0.jar",
+    "sha256": "84888c96bcbee568a8f2187d7c4f0ef296c42fb697d27164e2d95d35e7306bb9",
+    "bytes": 423488
+  },
+  {
+    "file": "lucene-queries-10.1.0.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-queries/10.1.0/lucene-queries-10.1.0.jar",
+    "sha256": "6200da82653f2cceee9bb93f7458b326172ed4fb74fe36d3d4d03c228320e1ce",
+    "bytes": 517204
+  },
+  {
+    "file": "lucene-sandbox-10.1.0.jar",
+    "url": "https://repo.maven.apache.org/maven2/org/apache/lucene/lucene-sandbox/10.1.0/lucene-sandbox-10.1.0.jar",
+    "sha256": "d96aae12b1c3f399bbfd104599c46493b206cea54d6ff0389a64b19cd0d063ab",
+    "bytes": 307245
+  },
+  {
+    "file": "minimal-json-0.9.5.jar",
+    "url": "https://repo.maven.apache.org/maven2/com/eclipsesource/minimal-json/minimal-json/0.9.5/minimal-json-0.9.5.jar",
+    "sha256": "69ff84463d1d7cc5cfdb8baf2b6e5f7af153d351bf0dbee3bbc8916247afac74",
+    "bytes": 34221
+  }
+]

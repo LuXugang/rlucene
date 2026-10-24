@@ -1,0 +1,3 @@
+# Keep GitHub Languages focused on Rust; preserve normal syntax highlighting.
+* -linguist-detectable
+*.rs linguist-detectable

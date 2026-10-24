@@ -30,6 +30,8 @@ RLucene 目前基于 Apache Lucene 10.1。待当前移植版本功能完善并�
 
 查看[最新基准测试结果](https://benchmark.amazingkoala.com.cn/)。
 
+使用仓库中的[测试代码与 macOS 复现说明](benchmark/README.zh-CN.md)运行基准测试。
+
 ## 项目状态
 
 RLucene 还在积极开发中。最常用的功能已经实现，不过距离完整稳定还有很多移植、

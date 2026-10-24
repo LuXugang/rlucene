@@ -1,0 +1,36 @@
+{
+  "corpus": {
+    "documents": 5032104,
+    "bytes": 8327453114,
+    "sha256": "b11c3c90041e4b88296f19c10b6469590bac200b76a4094a3b455e22e9bc71eb",
+    "compressed_bytes": 2515058275,
+    "compressed_sha256": "ab4e69b72a139b2dd9df28ee59dc82e0a8b65d3de24c478e2fcc131423b1ad7f",
+    "transform_sha256": "d9070fdf423e803afb4d31713a94f65ab10b9a420e9da4ceaf24827eb1ddf629",
+    "complete_bzip2_decode": true,
+    "path": "data/corpus.json",
+    "compressed_path": "data/wiki-articles.json.bz2"
+  },
+  "queries": {
+    "path": "queries.txt",
+    "count": 962,
+    "sha256": "a8e8f2c1a4bede53063de22fb13be83b585683da1c28208da4921de73ce254bd"
+  },
+  "index": {
+    "path": "indices/wiki",
+    "manifest_sha256": "6f642f7cc613e808b440b5eaa393926e9df3de7219012833c6f61f5ecc054828",
+    "geometry": {
+      "max_doc": 5032104,
+      "num_docs": 5032104,
+      "leaves": 1,
+      "deletions": false,
+      "text_doc_count": 4640493,
+      "text_sum_total_term_freq": 1330791242,
+      "text_sum_doc_freq": 586083751
+    },
+    "download_url": null,
+    "distribution_note": "Exact published index is a separately distributed artifact; prepare-index rebuilds an index and records a distinct identity."
+  },
+  "source_commit": "23a045fb21634a07e7acf87a9bf05a636018145e",
+  "download_url": "https://www.dropbox.com/scl/fi/u77j9yg4cxiwqe1/wiki-articles.json.bz2?rlkey=5c1vn0sf74bsbamt6nwi0duir&dl=1",
+  "transform_sha256": "d9070fdf423e803afb4d31713a94f65ab10b9a420e9da4ceaf24827eb1ddf629"
+}

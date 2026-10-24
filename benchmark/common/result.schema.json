@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RLucene benchmark result envelope v1",
+  "type": "object",
+  "required": ["schema_version", "method_id", "protocol_version", "status", "complete", "run_receipt_sha256"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "method_id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+    "protocol_version": {"type": "string"},
+    "status": {"enum": ["COMPLETE", "SMOKE_OK", "FAILED", "STOPPED_BY_USER"]},
+    "complete": {"type": "boolean"},
+    "run_receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": true
+}

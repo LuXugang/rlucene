@@ -1,0 +1,60 @@
+{
+  "repository": "https://github.com/quickwit-oss/search-benchmark-game",
+  "commit": "a7c75473e91746280c5f01e69bf594ece5fca560",
+  "files": [
+    {
+      "file": "README.md",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/README.md",
+      "bytes": 4672,
+      "sha256": "c180b7b4a52ed2101711fc3c77603fb34070c0b9cf32c3078c3db4a06e952a60"
+    },
+    {
+      "file": "RUNNING.md",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/RUNNING.md",
+      "bytes": 1256,
+      "sha256": "d7cc255b1303c7347c1c2069e57a161684602f948fa3c283090746957f87d23b"
+    },
+    {
+      "file": "Makefile",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/Makefile",
+      "bytes": 1612,
+      "sha256": "60158b4f970d8fd4fbe8441354d18d13a8d65114fda24a9ef85ba96332b6ae5c"
+    },
+    {
+      "file": "queries.txt",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/queries.txt",
+      "bytes": 82954,
+      "sha256": "a8e8f2c1a4bede53063de22fb13be83b585683da1c28208da4921de73ce254bd"
+    },
+    {
+      "file": "commands.txt",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/commands.txt",
+      "bytes": 289897,
+      "sha256": "7b305f3d8470abb8fd9c996aa4d16cdf0e40e17a3b649e22ba3536dd6a46f25f"
+    },
+    {
+      "file": "corpus_transform.py",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/corpus_transform.py",
+      "bytes": 518,
+      "sha256": "d9070fdf423e803afb4d31713a94f65ab10b9a420e9da4ceaf24827eb1ddf629"
+    },
+    {
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/LICENSE",
+      "bytes": 1068,
+      "sha256": "ef23432abb346429442107aa44d92f802c0e09bb77dea0614306081f9d3ed699"
+    },
+    {
+      "file": "engines/lucene-10.4.0/src/main/java/BuildIndex.java",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/engines/lucene-10.4.0/src/main/java/BuildIndex.java",
+      "bytes": 3809,
+      "sha256": "d9105aef9ba3adfddd54c0515436b4471c54871ef66bf57cc48b1a0548102a81"
+    },
+    {
+      "file": "engines/lucene-10.4.0/src/main/java/DoQuery.java",
+      "url": "https://raw.githubusercontent.com/quickwit-oss/search-benchmark-game/a7c75473e91746280c5f01e69bf594ece5fca560/engines/lucene-10.4.0/src/main/java/DoQuery.java",
+      "bytes": 4660,
+      "sha256": "f0270d38c3c4816a9b5c61a1f78c363aa3f641b9d221ecca433cb58de2d16405"
+    }
+  ]
+}

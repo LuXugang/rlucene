@@ -1,0 +1,46 @@
+{
+  "dataset": "SIFT1M",
+  "base_shape": [
+    1000000,
+    128
+  ],
+  "query_shape": [
+    10000,
+    128
+  ],
+  "groundtruth_shape": [
+    10000,
+    100
+  ],
+  "original_source": "http://corpus-texmex.irisa.fr/",
+  "mirror": "https://huggingface.co/datasets/zjd2000/ANN_SIFT/resolve/main/sift.tar.gz",
+  "archive_sha256": "92f1270c5e3a0cb46b89983e72b0511e4df065c31a9fa0276d8c9b1fca5bc81a",
+  "base_fvecs_sha256_expected_independent_mirrors": "21f66e2975057b5728ba56de1c825bac4f4d89d596609ae985741c6242631816",
+  "conversion": "Remove per-row dimension headers, preserve original little-endian float32/int32 bytes. No normalization.",
+  "files": {
+    "sift_base.fvecs": {
+      "bytes": 516000000,
+      "sha256": "21f66e2975057b5728ba56de1c825bac4f4d89d596609ae985741c6242631816"
+    },
+    "sift_query.fvecs": {
+      "bytes": 5160000,
+      "sha256": "f7fc9be140accdfd64116c2fa2365ecdb69b8f084970c6b0532db5ff79ac8fdc"
+    },
+    "sift_groundtruth.ivecs": {
+      "bytes": 4040000,
+      "sha256": "2b71de0a8d5a83e6a84eec3e23fb8b611d8801dd9b3a6cd62f070ab65ea65f4f"
+    },
+    "base.raw": {
+      "bytes": 512000000,
+      "sha256": "ac8e11ed111b09e882bcf0ef1a77ebdd36c89f495bce8fd596603f69c35148e6"
+    },
+    "query.raw": {
+      "bytes": 5120000,
+      "sha256": "bf4c4c9db385017e63e7b0a9ccd8e3aab3744a02e053c135e000fa0b1dea2d6f"
+    },
+    "groundtruth.raw": {
+      "bytes": 4000000,
+      "sha256": "c1130328dffc9ac74262669f0879856786eb15dba7cb2d72d0af7d51efa680a6"
+    }
+  }
+}

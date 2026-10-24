@@ -34,6 +34,8 @@ Apache Lucene under the same search workloads.
 
 See the [latest benchmark results](https://benchmark.amazingkoala.com.cn/).
 
+Reproduce the tests with the [benchmark drivers and macOS instructions](benchmark/README.md).
+
 ## Project Status
 
 RLucene is still under active development. Most commonly used features are

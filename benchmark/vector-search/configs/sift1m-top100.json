@@ -1,0 +1,23 @@
+{
+  "method_id": "vector-search",
+  "protocol_version": "luceneutil-adapted-query-v1",
+  "upstream": {"repository": "https://github.com/mikemccand/luceneutil", "commit": "f77ba1c41c181b9361a7ab5d48fa83b4a367f2e9"},
+  "dataset": "SIFT1M",
+  "documents": 1000000,
+  "dimensions": 128,
+  "queries": 10000,
+  "top_k": 100,
+  "similarity": "Euclidean",
+  "encoding": "float32, unquantized",
+  "field": "knn",
+  "M": 16,
+  "beam_width": 100,
+  "seed": 42,
+  "segments": 1,
+  "batches": 2,
+  "rounds": 12,
+  "warmup_seconds_per_engine": 60,
+  "ordering": "Full 10000-query sweeps, balanced AB/BA per round; reverse warmup order in batch 2",
+  "java": {"version": "23", "xms": "512m", "xmx": "6g", "gc": "JDK default"},
+  "measurement": "Driver-internal vector read/decode, query construction, search and result retention. Timing excludes index open, output, checksum, ordered-result/recall/visited verification."
+}
