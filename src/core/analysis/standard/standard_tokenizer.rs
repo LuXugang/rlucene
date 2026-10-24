@@ -139,40 +139,48 @@ impl Closeable for StandardTokenizer {
 
 impl TokenStream for StandardTokenizer {
   fn increment_token(&mut self) -> Result<bool> {
-    self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .clear_attributes()?;
-    self.skipped_positions = 0;
+    // A caller may replace attributes between calls. Select for this call,
+    // then keep the original character/token body concrete.
+    macro_rules! increment_with_attributes {
+      ($attributes:expr) => {{
+        let att = $attributes;
+        att.clear_attributes()?;
+        self.skipped_positions = 0;
 
-    loop {
-      let token_type = self.scanner.get_next_token()?;
-      if token_type == YYEOF {
-        return Ok(false);
-      }
+        loop {
+          let token_type = self.scanner.get_next_token()?;
+          if token_type == YYEOF {
+            return Ok(false);
+          }
 
-      if self.scanner.yylength() <= self.max_token_length {
-        {
-          let att = &mut self.tokenizer_base.token_stream_base.att;
-          att.set_position_increment(self.skipped_positions + 1)?;
-          self.scanner.get_text(att)?;
+          if self.scanner.yylength() <= self.max_token_length {
+            {
+              att.set_position_increment(self.skipped_positions + 1)?;
+              self.scanner.get_text(att)?;
+            }
+            let start = self.scanner.yychar();
+            let end = start + att.length()? as i32;
+            let start = self.tokenizer_base.input.correct_offset(start);
+            let end = self.tokenizer_base.input.correct_offset(end);
+            att.set_offset(start, end)?;
+            att.set_type(
+              TOKEN_TYPES
+                .get(token_type as usize)
+                .ok_or_else(|| LuceneError::illegal_state("invalid token type"))?,
+            )?;
+            return Ok(true);
+          }
+
+          self.skipped_positions += 1;
         }
-        let start = self.scanner.yychar();
-        let end = start + self.tokenizer_base.token_stream_base.att.length()? as i32;
-        let start = self.correct_offset(start);
-        let end = self.correct_offset(end);
-        let att = &mut self.tokenizer_base.token_stream_base.att;
-        att.set_offset(start, end)?;
-        att.set_type(
-          TOKEN_TYPES
-            .get(token_type as usize)
-            .ok_or_else(|| LuceneError::illegal_state("invalid token type"))?,
-        )?;
-        return Ok(true);
-      }
-
-      self.skipped_positions += 1;
+      }};
+    }
+    match &mut self.tokenizer_base.token_stream_base.att {
+      Attributes::PackedToken(att) => increment_with_attributes!(att),
+      Attributes::BytesTerm(att) => increment_with_attributes!(att),
+      Attributes::BinaryTokenStream(att) => increment_with_attributes!(att),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(att) => increment_with_attributes!(att),
     }
   }
 

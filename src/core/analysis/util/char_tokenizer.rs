@@ -83,72 +83,76 @@ where
   S: CharTokenizerBase,
 {
   fn increment_token(&mut self) -> Result<bool> {
-    self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .clear_attributes()?;
-    let mut length: usize = 0;
-    let mut start: i32 = -1;
-    let mut end: i32 = -1;
-    loop {
-      if self.buffer_index >= self.data_len {
-        // // read supplementary char aware with CharacterUtils
-        CharacterUtils::fill(&mut self.io_buffer, &mut self.tokenizer_base.input)?;
-        if self.io_buffer.get_length() == 0 {
-          self.data_len = 0;
-          if length > 0 {
+    // A caller may replace attributes between calls. Select for this call,
+    // then keep the original character/token body concrete.
+    macro_rules! increment_with_attributes {
+      ($attributes:expr) => {{
+        let att = $attributes;
+        att.clear_attributes()?;
+        let mut length: usize = 0;
+        let mut start: i32 = -1;
+        let mut end: i32 = -1;
+        loop {
+          if self.buffer_index >= self.data_len {
+            // // read supplementary char aware with CharacterUtils
+            CharacterUtils::fill(&mut self.io_buffer, &mut self.tokenizer_base.input)?;
+            if self.io_buffer.get_length() == 0 {
+              self.data_len = 0;
+              if length > 0 {
+                break;
+              } else {
+                let offset = self.offset;
+                self.final_offset = self.tokenizer_base.input.correct_offset(offset);
+                return Ok(false);
+              }
+            }
+            self.data_len = self.io_buffer.get_length();
+            self.buffer_index = 0;
+          }
+          let c = self.io_buffer.get_buffer()[self.buffer_index];
+          self.buffer_index += 1;
+          // Rust buffers contain scalar values; Lucene offsets count UTF-16 code units.
+          let char_count = c.len_utf16() as i32;
+          self.offset += char_count;
+          if self.sub.is_token_char(&c) {
+            let mut buffer = att.buffer_mut()?;
+            if length == 0 {
+              // start of token
+              debug_assert_eq!(start, -1);
+              start = self.offset - char_count;
+              end = start;
+            } else if length >= buffer.len() - 1 {
+              buffer = att.resize_buffer(2 + length)?;
+            }
+
+            buffer[length] = c;
+            length += 1;
+            end += char_count;
+
+            if end - start >= self.max_token_len as i32 {
+              break;
+            }
+          } else if length > 0 {
             break;
-          } else {
-            let offset = self.offset;
-            self.final_offset = self.correct_offset(offset);
-            return Ok(false);
           }
         }
-        self.data_len = self.io_buffer.get_length();
-        self.buffer_index = 0;
-      }
-      let c = self.io_buffer.get_buffer()[self.buffer_index];
-      self.buffer_index += 1;
-      // Rust buffers contain scalar values; Lucene offsets count UTF-16 code units.
-      let char_count = c.len_utf16() as i32;
-      self.offset += char_count;
-      if self.sub.is_token_char(&c) {
-        let att = &mut self.tokenizer_base.token_stream_base.att;
-        let mut buffer = att.buffer_mut()?;
-        if length == 0 {
-          // start of token
-          debug_assert_eq!(start, -1);
-          start = self.offset - char_count;
-          end = start;
-        } else if length >= buffer.len() - 1 {
-          buffer = att.resize_buffer(2 + length)?;
-        }
-
-        buffer[length] = c;
-        length += 1;
-        end += char_count;
-
-        if end - start >= self.max_token_len as i32 {
-          break;
-        }
-      } else if length > 0 {
-        break;
-      }
+        att.set_length(length)?;
+        debug_assert_ne!(start, -1);
+        self.final_offset = self.tokenizer_base.input.correct_offset(end);
+        att.set_offset(
+          self.tokenizer_base.input.correct_offset(start),
+          self.final_offset,
+        )?;
+        Ok(true)
+      }};
     }
-    self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .set_length(length)?;
-    debug_assert_ne!(start, -1);
-    self.final_offset = self.correct_offset(end);
-    self
-      .tokenizer_base
-      .token_stream_base
-      .att
-      .set_offset(self.correct_offset(start), self.final_offset)?;
-    Ok(true)
+    match &mut self.tokenizer_base.token_stream_base.att {
+      Attributes::PackedToken(att) => increment_with_attributes!(att),
+      Attributes::BytesTerm(att) => increment_with_attributes!(att),
+      Attributes::BinaryTokenStream(att) => increment_with_attributes!(att),
+      #[cfg(test)]
+      Attributes::RandomTokenStream(att) => increment_with_attributes!(att),
+    }
   }
 
   fn end(&mut self) -> Result<()> {
