@@ -929,10 +929,11 @@ where
       suffix_bytes.offset,
       suffix_bytes.length,
     );
-    let payload_bytes = BytesRef::from_slice(
-      suffix_bytes.bytes.clone(),
-      suffix_bytes.offset + doc_len,
-      payload_len,
+    let payload_offset = suffix_bytes.offset + doc_len;
+    debug_assert!(
+      payload_offset <= suffix_bytes.bytes.len()
+        && payload_len <= suffix_bytes.bytes.len()
+        && payload_offset + payload_len <= suffix_bytes.bytes.len()
     );
 
     let mut field_flags = vec![0i32; num_fields];
@@ -1007,7 +1008,8 @@ where
           },
         )
         .collect(),
-      payload_bytes,
+      payload_offset,
+      payload_len,
       suffix_bytes,
       self.field_infos.clone(),
     )?))
@@ -1134,7 +1136,8 @@ pub struct TVFields {
 
   term_data: Vec<Rc<TVTermData>>,
 
-  payload_bytes: BytesRef<Rc<Vec<u8>>>,
+  payload_offset: usize,
+  payload_length: usize,
   suffix_bytes: BytesRef<Rc<Vec<u8>>>,
 
   field_infos: Arc<FieldInfos>,
@@ -1148,7 +1151,8 @@ impl TVFields {
     num_terms: Vec<usize>,
     field_lengths: Vec<usize>,
     term_data: Vec<Rc<TVTermData>>,
-    payload_bytes: BytesRef<Rc<Vec<u8>>>,
+    payload_offset: usize,
+    payload_length: usize,
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
     field_infos: Arc<FieldInfos>,
   ) -> Result<Self> {
@@ -1173,7 +1177,8 @@ impl TVFields {
       field_lengths,
 
       term_data,
-      payload_bytes,
+      payload_offset,
+      payload_length,
       suffix_bytes,
       field_infos,
     })
@@ -1259,7 +1264,8 @@ impl Fields for TVFields {
       self.num_terms[idx],
       self.field_flags[idx],
       self.term_data[idx].clone(),
-      self.payload_bytes.clone(),
+      self.payload_offset,
+      self.payload_length,
       term_bytes,
     );
     Ok(Some(tv_terms))
@@ -1278,7 +1284,8 @@ pub struct TVTerms {
 
   term_data: Rc<TVTermData>,
 
-  payload_bytes: BytesRef<Rc<Vec<u8>>>,
+  payload_offset: usize,
+  payload_length: usize,
   term_bytes: BytesRef<Rc<Vec<u8>>>,
 }
 impl TVTerms {
@@ -1287,7 +1294,8 @@ impl TVTerms {
     num_terms: usize,
     flags: i32,
     term_data: Rc<TVTermData>,
-    payload_bytes: BytesRef<Rc<Vec<u8>>>,
+    payload_offset: usize,
+    payload_length: usize,
     term_bytes: BytesRef<Rc<Vec<u8>>>,
   ) -> Self {
     let total_term_freq = term_data.term_freqs.iter().map(|&x| x as i64).sum();
@@ -1296,7 +1304,8 @@ impl TVTerms {
       num_terms,
       flags,
       term_data,
-      payload_bytes,
+      payload_offset,
+      payload_length,
       term_bytes,
       total_term_freq,
     }
@@ -1310,7 +1319,8 @@ impl Terms for TVTerms {
       self.num_terms,
       self.flags,
       self.term_data.clone(),
-      self.payload_bytes.clone(),
+      self.payload_offset,
+      self.payload_length,
       ByteArrayDataInput::with_range(
         self.term_bytes.bytes.clone(),
         self.term_bytes.offset,
@@ -1374,7 +1384,8 @@ pub struct TVTermsEnum {
   term_data: Rc<TVTermData>,
 
   input: ByteArrayDataInput<Rc<Vec<u8>>>,
-  payloads: BytesRef<Rc<Vec<u8>>>,
+  payload_offset: usize,
+  payload_length: usize,
   term: BytesRef<Vec<u8>>,
 }
 impl TVTermsEnum {
@@ -1383,7 +1394,8 @@ impl TVTermsEnum {
     num_terms: usize,
     _flags: i32,
     term_data: Rc<TVTermData>,
-    payloads: BytesRef<Rc<Vec<u8>>>,
+    payload_offset: usize,
+    payload_length: usize,
     input: ByteArrayDataInput<Rc<Vec<u8>>>,
   ) -> Result<Self> {
     let start_pos = input.get_position();
@@ -1392,7 +1404,8 @@ impl TVTermsEnum {
     let mut term_enum = TVTermsEnum {
       num_terms,
       term_data,
-      payloads,
+      payload_offset,
+      payload_length,
       input,
       start_pos,
       ord: None,
@@ -1560,7 +1573,11 @@ impl TermsEnum for TVTermsEnum {
       self.term_data.term_freqs[ord],
       self.term_data.position_index[ord],
       self.term_data.clone(),
-      self.payloads.clone(),
+      BytesRef::from_slice(
+        self.input.bytes.clone(),
+        self.payload_offset,
+        self.payload_length,
+      ),
     );
     Ok(docs_enum)
   }
