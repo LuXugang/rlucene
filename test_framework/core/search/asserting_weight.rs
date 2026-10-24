@@ -21,7 +21,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::QueryRef;
 use crate::core::search::query::{
-  Query, QueryWeight, QueryWeightMatches, QueryWeightSs, QueryWeightSsBulkScorer,
+  QueryWeight, QueryWeightMatches, QueryWeightSs, QueryWeightSsBulkScorer,
 };
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -33,7 +33,6 @@ use crate::test_framework::core::search::asserting_matches::AssertingMatches;
 use crate::test_framework::core::search::asserting_scorer::AssertingScorer;
 use crate::test_framework::core::util::lucene_test_case::{random_from_seed, usually};
 use rand::RngExt;
-use std::sync::Arc;
 
 pub struct AssertingWeight<
   IRC: IndexReaderContext + 'static,

@@ -20,14 +20,12 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::Query;
 use crate::core::search::query::QueryRef;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
 
 pub struct DummyWeight;
 

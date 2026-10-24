@@ -44,7 +44,6 @@ use rand::RngExt;
 use rand::prelude::StdRng;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 /// A Query that adds random approximations to its scorers.
 #[derive(Clone, Debug)]
 pub struct RandomApproximationQuery {
