@@ -76,7 +76,7 @@ use std::sync::Arc;
 pub struct Lucene90DocValuesProducer<I> {
   numerics: Arc<HashMap<i32, NumericEntry>>,
   binaries: Arc<HashMap<i32, BinaryEntry>>,
-  sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
+  sorted: Arc<HashMap<i32, SortedEntry>>,
   sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
   sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
   skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
@@ -210,7 +210,7 @@ where
   fn with_merging(
     numerics: Arc<HashMap<i32, NumericEntry>>,
     binaries: Arc<HashMap<i32, BinaryEntry>>,
-    sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
+    sorted: Arc<HashMap<i32, SortedEntry>>,
     sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
     sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
     skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
@@ -238,7 +238,7 @@ where
     infos: &Arc<FieldInfos>,
     numerics: &mut HashMap<i32, NumericEntry>,
     binaries: &mut HashMap<i32, BinaryEntry>,
-    sorted: &mut HashMap<i32, Arc<SortedEntry>>,
+    sorted: &mut HashMap<i32, SortedEntry>,
     sorted_sets: &mut HashMap<i32, Arc<SortedSetEntry>>,
     sorted_numerics: &mut HashMap<i32, SortedNumericEntry>,
     skippers: &mut HashMap<i32, DocValuesSkipperEntry>,
@@ -274,7 +274,7 @@ where
           binaries.insert(info.number, entry);
         },
         t if t == Lucene90DocValuesFormat::SORTED => {
-          let entry = Arc::new(Self::read_sorted(meta)?);
+          let entry = Self::read_sorted(meta)?;
           sorted.insert(info.number, entry);
         },
         t if t == Lucene90DocValuesFormat::SORTED_SET => {
@@ -423,7 +423,7 @@ where
     let mut entry = SortedSetEntry::default();
     match multi_valued {
       0 => {
-        entry.single_value_entry = Some(Arc::new(Self::read_sorted(meta)?));
+        entry.single_value_entry = Some(Self::read_sorted(meta)?);
         return Ok(entry);
       },
       1 => {},
@@ -694,7 +694,7 @@ where
     Ok(long_values)
   }
 
-  fn get_sorted(&self, entry: Arc<SortedEntry>) -> Result<BaseSortedDocValues<I>> {
+  fn get_sorted(&self, entry: &SortedEntry) -> Result<BaseSortedDocValues<I>> {
     let ords_entry = &entry.ords_entry;
 
     if ords_entry.block_shift < 0 && ords_entry.bits_per_value > 0 {
@@ -919,7 +919,7 @@ where
     let entry = self.sorted.get(&field.number).ok_or_else(|| {
       LuceneError::illegal_state(format!("Missing sorted entry for field {}", field.number))
     })?;
-    self.get_sorted(entry.clone())
+    self.get_sorted(entry)
   }
 
   type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<I>;
@@ -945,7 +945,7 @@ where
       )));
     };
     if let Some(ref single_value_entry) = entry.single_value_entry {
-      let singleton = DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)?;
+      let singleton = DocValues::singleton_sorted(self.get_sorted(single_value_entry)?)?;
       return Ok(Lucene90SortedSetDocValuesEnum::Single(singleton));
     }
     // Specialize the common case for ordinals: single block of
@@ -1125,7 +1125,7 @@ pub struct SortedEntry {
 
 #[derive(Default)]
 pub struct SortedSetEntry {
-  pub single_value_entry: Option<Arc<SortedEntry>>,
+  pub single_value_entry: Option<SortedEntry>,
   pub ords_entry: Option<SortedNumericEntry>,
   pub terms_dict_entry: Option<Arc<TermsDictEntry>>,
 }
@@ -2246,7 +2246,6 @@ pub struct BaseSortedDocValues<I>
 where
   I: IndexInput,
 {
-  entry: Arc<SortedEntry>,
   terms_enum: TermsDict<I>,
   sub: BaseSortedDocValuesEnum<I>,
   data: Arc<I>,
@@ -2258,14 +2257,13 @@ where
   I: IndexInput,
 {
   fn new(
-    entry: Arc<SortedEntry>,
+    entry: &SortedEntry,
     data: Arc<I>,
     sub: BaseSortedDocValuesEnum<I>,
     merging: bool,
   ) -> Result<Self> {
     let terms_enum = TermsDict::new(entry.terms_dict_entry.clone(), data.as_ref(), merging)?;
     Ok(Self {
-      entry,
       terms_enum,
       sub,
       data,
@@ -2334,7 +2332,7 @@ where
   }
 
   fn get_value_count(&self) -> Result<i32> {
-    let v: i32 = self.entry.terms_dict_entry.terms_dict_size.try_convert()?;
+    let v: i32 = self.terms_enum.entry.terms_dict_size.try_convert()?;
     Ok(v)
   }
 
@@ -2357,7 +2355,7 @@ where
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     TermsDict::new(
-      self.entry.terms_dict_entry.clone(),
+      self.terms_enum.entry.clone(),
       self.data.as_ref(),
       self.merging,
     )
