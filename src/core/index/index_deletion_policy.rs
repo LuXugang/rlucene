@@ -284,11 +284,11 @@ where
   }
 }
 
-impl<D> IndexDeletionPolicy<SnapshotCommitPoint<D>> for IndexDeletionPolicyEnum<D>
+impl<'a, D> IndexDeletionPolicy<SnapshotCommitPoint<'a, D>> for IndexDeletionPolicyEnum<D>
 where
   D: Directory,
 {
-  fn on_init(&self, commits: &[SnapshotCommitPoint<D>]) -> Result<()> {
+  fn on_init(&self, commits: &[SnapshotCommitPoint<'a, D>]) -> Result<()> {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_init(commits),
       Self::No(policy) => policy.on_init(commits),
@@ -317,7 +317,7 @@ where
     }
   }
 
-  fn on_commit(&self, commits: &[SnapshotCommitPoint<D>]) -> Result<()> {
+  fn on_commit(&self, commits: &[SnapshotCommitPoint<'a, D>]) -> Result<()> {
     match self {
       Self::KeepOnlyLastCommit(policy) => policy.on_commit(commits),
       Self::No(policy) => policy.on_commit(commits),

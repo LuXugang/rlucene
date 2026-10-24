@@ -187,10 +187,13 @@ where
   }
 
   /// Wraps each [`IndexCommit`] as a [`SnapshotCommitPoint`].
-  fn wrap_commits(&self, commits: &[Arc<CommitPoint<D>>]) -> Vec<SnapshotCommitPoint<D>> {
+  fn wrap_commits<'a>(
+    &'a self,
+    commits: &'a [Arc<CommitPoint<D>>],
+  ) -> Vec<SnapshotCommitPoint<'a, D>> {
     let mut wrapped_commits = Vec::with_capacity(commits.len());
     for ic in commits {
-      wrapped_commits.push(SnapshotCommitPoint::new(self.inner.clone(), ic.clone()));
+      wrapped_commits.push(SnapshotCommitPoint::new(&self.inner, ic));
     }
     wrapped_commits
   }
@@ -239,15 +242,15 @@ impl<D> Display for SnapshotDeletionPolicy<D> {
 }
 
 /// Wraps a provided [`IndexCommit`] and prevents it from being deleted.
-pub struct SnapshotCommitPoint<D> {
+pub struct SnapshotCommitPoint<'a, D> {
   /// The [`IndexCommit`] we are preventing from deletion.
-  cp: Arc<CommitPoint<D>>,
-  snapshot_policy: Arc<ReentrantMutex<RefCell<Inner<D>>>>,
+  cp: &'a CommitPoint<D>,
+  snapshot_policy: &'a ReentrantMutex<RefCell<Inner<D>>>,
 }
 
-impl<D> SnapshotCommitPoint<D> {
+impl<'a, D> SnapshotCommitPoint<'a, D> {
   /// Creates a [`SnapshotCommitPoint`] wrapping the provided [`IndexCommit`].
-  fn new(policy: Arc<ReentrantMutex<RefCell<Inner<D>>>>, cp: Arc<CommitPoint<D>>) -> Self {
+  fn new(policy: &'a ReentrantMutex<RefCell<Inner<D>>>, cp: &'a CommitPoint<D>) -> Self {
     SnapshotCommitPoint {
       cp,
       snapshot_policy: policy,
@@ -255,16 +258,16 @@ impl<D> SnapshotCommitPoint<D> {
   }
 }
 
-impl<D> Clone for SnapshotCommitPoint<D> {
+impl<D> Clone for SnapshotCommitPoint<'_, D> {
   fn clone(&self) -> Self {
     SnapshotCommitPoint {
-      cp: self.cp.clone(),
-      snapshot_policy: self.snapshot_policy.clone(),
+      cp: self.cp,
+      snapshot_policy: self.snapshot_policy,
     }
   }
 }
 
-impl<D> PartialEq for SnapshotCommitPoint<D>
+impl<D> PartialEq for SnapshotCommitPoint<'_, D>
 where
   D: Directory,
 {
@@ -273,9 +276,9 @@ where
   }
 }
 
-impl<D> Eq for SnapshotCommitPoint<D> where D: Directory {}
+impl<D> Eq for SnapshotCommitPoint<'_, D> where D: Directory {}
 
-impl<D> PartialOrd for SnapshotCommitPoint<D>
+impl<D> PartialOrd for SnapshotCommitPoint<'_, D>
 where
   D: Directory,
 {
@@ -284,7 +287,7 @@ where
   }
 }
 
-impl<D> Ord for SnapshotCommitPoint<D>
+impl<D> Ord for SnapshotCommitPoint<'_, D>
 where
   D: Directory,
 {
@@ -293,13 +296,13 @@ where
   }
 }
 
-impl<D> Display for SnapshotCommitPoint<D> {
+impl<D> Display for SnapshotCommitPoint<'_, D> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SnapshotDeletionPolicy.SnapshotCommitPoint({})", self.cp)
   }
 }
 
-impl<D> IndexCommit for SnapshotCommitPoint<D>
+impl<D> IndexCommit for SnapshotCommitPoint<'_, D>
 where
   D: Directory,
 {
