@@ -367,7 +367,10 @@ where
     }
     Ok(())
   }
-  pub(crate) fn serialized_document(&mut self, doc_id: i32) -> Result<SerializedDocument<'_, I>> {
+  pub(crate) fn serialized_document(
+    &mut self,
+    doc_id: i32,
+  ) -> Result<(SerializedDocument<'_, I>, &FieldInfos)> {
     if !self.state.contains(doc_id) {
       let pointer = self.index_reader.get_start_pointer(doc_id)?;
       self.state.fields_stream.seek(pointer)?;
@@ -375,7 +378,7 @@ where
     }
 
     debug_assert!(self.state.contains(doc_id));
-    self.state.document(doc_id)
+    Ok((self.state.document(doc_id)?, &self.field_infos))
   }
   /// Checks if a given docID was loaded in the current block state.
   pub(crate) fn is_loaded(&self, doc_id: i32) -> Result<bool> {
@@ -499,8 +502,7 @@ where
     S: StoredFieldsWriter,
     V: StoredFieldVisitor,
   {
-    let field_infos = &self.field_infos.clone();
-    let mut doc = self.serialized_document(doc_id)?;
+    let (mut doc, field_infos) = self.serialized_document(doc_id)?;
     for field_idx in 0..doc.num_stored_fields {
       let info_and_bits = doc.input.read_vlong()?;
       let field_number = ((info_and_bits as u64 >> TYPE_BITS) as i64) as i32;

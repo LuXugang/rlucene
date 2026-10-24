@@ -300,7 +300,7 @@ where
   {
     debug_assert_eq!(reader.get_version(), VERSION_CURRENT);
 
-    let mut doc = reader.serialized_document(doc_id)?;
+    let (mut doc, _) = reader.serialized_document(doc_id)?;
 
     self.start_document()?;
 
