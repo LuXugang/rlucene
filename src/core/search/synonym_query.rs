@@ -92,7 +92,12 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct SynonymQuery {
   id: Identity,
-  terms: Arc<Vec<TermAndBoost>>,
+  data: Arc<SynonymQueryData>,
+}
+
+#[derive(Clone)]
+struct SynonymQueryData {
+  terms: Vec<TermAndBoost>,
   field: String,
 }
 
@@ -100,23 +105,23 @@ impl SynonymQuery {
   fn new(terms: Vec<TermAndBoost>, field: String) -> Self {
     Self {
       id: Identity::new(),
-      terms: Arc::new(terms),
-      field,
+      data: Arc::new(SynonymQueryData { terms, field }),
     }
   }
 
   /// Returns the terms of this [`SynonymQuery`].
   pub fn get_terms(&self) -> Vec<Term> {
     self
+      .data
       .terms
       .iter()
-      .map(|term| Term::new(self.field.clone(), term.term.clone()))
+      .map(|term| Term::new(self.data.field.clone(), term.term.clone()))
       .collect()
   }
 
   /// Returns the field name of this [`SynonymQuery`].
   pub fn get_field(&self) -> &str {
-    &self.field
+    &self.data.field
   }
 
   /// Merge impacts for multiple synonyms.
@@ -133,7 +138,7 @@ impl SynonymQuery {
 
 impl PartialEq for SynonymQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.field == other.field && self.terms == other.terms
+    self.data.field == other.data.field && self.data.terms == other.data.terms
   }
 }
 
@@ -145,8 +150,8 @@ impl Hash for SynonymQuery {
     H: Hasher,
   {
     std::any::TypeId::of::<Self>().hash(state);
-    self.field.hash(state);
-    self.terms.hash(state);
+    self.data.field.hash(state);
+    self.data.terms.hash(state);
   }
 }
 
@@ -174,12 +179,15 @@ impl QueryBase for SynonymQuery {
 
   fn to_string(&self, field: &str) -> Result<String> {
     let mut builder = String::from("Synonym(");
-    for (i, term_and_boost) in self.terms.iter().enumerate() {
+    for (i, term_and_boost) in self.data.terms.iter().enumerate() {
       if i != 0 {
         builder.push(' ');
       }
-      let term_query: Query =
-        TermQuery::new(Term::new(self.field.clone(), term_and_boost.term.clone())).into();
+      let term_query: Query = TermQuery::new(Term::new(
+        self.data.field.clone(),
+        term_and_boost.term.clone(),
+      ))
+      .into();
       builder.push_str(&term_query.to_string(field)?);
       if term_and_boost.boost != 1.0 {
         builder.push('^');
@@ -207,9 +215,10 @@ impl QueryBase for SynonymQuery {
     } else {
       // If scores are not needed, let BooleanWeight deal with optimizing that case.
       let mut builder = boolean_query::Builder::new();
-      for term in Arc::unwrap_or_clone(self.terms) {
+      let data = Arc::unwrap_or_clone(self.data);
+      for term in data.terms {
         builder.add(
-          TermQuery::new(Term::new(self.field.clone(), term.term)),
+          TermQuery::new(Term::new(data.field.clone(), term.term)),
           Occur::Should,
         )?;
       }
@@ -227,12 +236,16 @@ impl QueryBase for SynonymQuery {
     Self: Sized,
     IndexSearcher<IRC, SIM>: Sync,
   {
-    if self.terms.is_empty() {
+    if self.data.terms.is_empty() {
       return Ok(Some(boolean_query::Builder::new().build().into()));
     }
-    if self.terms.len() == 1 && self.terms[0].boost == 1.0 {
+    if self.data.terms.len() == 1 && self.data.terms[0].boost == 1.0 {
       return Ok(Some(
-        TermQuery::new(Term::new(self.field.clone(), self.terms[0].term.clone())).into(),
+        TermQuery::new(Term::new(
+          self.data.field.clone(),
+          self.data.terms[0].term.clone(),
+        ))
+        .into(),
       ));
     }
     Ok(None)
@@ -242,7 +255,7 @@ impl QueryBase for SynonymQuery {
   where
     QV: QueryVisitor,
   {
-    if !visitor.accept_field(&self.field) {
+    if !visitor.accept_field(&self.data.field) {
       return Ok(());
     }
     let query = self.into();
@@ -303,13 +316,16 @@ where
   {
     debug_assert!(score_mode.needs_scores());
 
-    let collection_stats = searcher.collection_statistics(&query.field)?;
+    let collection_stats = searcher.collection_statistics(&query.data.field)?;
     let mut doc_freq = 0;
     let mut total_term_freq = 0;
-    let mut term_states = Vec::with_capacity(query.terms.len());
+    let mut term_states = Vec::with_capacity(query.data.terms.len());
 
-    for term_and_boost in query.terms.iter() {
-      let term = Arc::new(Term::new(query.field.clone(), term_and_boost.term.clone()));
+    for term_and_boost in query.data.terms.iter() {
+      let term = Arc::new(Term::new(
+        query.data.field.clone(),
+        term_and_boost.term.clone(),
+      ));
       let ts = term_states::build(searcher, term.clone(), true)?;
 
       let ts_doc_freq = ts.doc_freq()?;
@@ -327,7 +343,7 @@ where
         LuceneError::illegal_state("collection statistics are missing for matching synonym terms")
       })?;
       let pseudo_stats = TermStatistics::new(
-        Term::from_text(&query.field, "synonym pseudo-term"),
+        Term::from_text(&query.data.field, "synonym pseudo-term"),
         doc_freq,
         total_term_freq,
       )?;
@@ -394,7 +410,7 @@ where
   {
     let parent_query = self.parent_query.as_ref();
 
-    let mut prepare_states = Vec::with_capacity(parent_query.terms.len());
+    let mut prepare_states = Vec::with_capacity(parent_query.data.terms.len());
     for term_states in self.term_states.iter() {
       prepare_states.push(term_states.get(context)?);
     }
@@ -422,7 +438,7 @@ where
     let freq_explanation = Explanation::match_no_details(freq, format!("termFreq={freq}"));
 
     let mut norm = 1;
-    if let Some(mut norms) = context.reader().get_norm_values(&parent_query.field)?
+    if let Some(mut norms) = context.reader().get_norm_values(&parent_query.data.field)?
       && norms.advance_exact(doc)?
     {
       norm = norms.long_value()?;
@@ -470,7 +486,7 @@ where
 
     let parent_query = self.parent_query.as_ref();
 
-    let mut prepare_states = Vec::with_capacity(parent_query.terms.len());
+    let mut prepare_states = Vec::with_capacity(parent_query.data.terms.len());
     for term_states in self.term_states.iter() {
       prepare_states.push(term_states.get(context)?);
     }
@@ -1757,12 +1773,12 @@ where
     }
 
     let query = self.query.as_ref();
-    let mut iterators = Vec::with_capacity(query.terms.len());
-    let mut impacts = Vec::with_capacity(query.terms.len());
-    let mut term_boosts = Vec::with_capacity(query.terms.len());
+    let mut iterators = Vec::with_capacity(query.data.terms.len());
+    let mut impacts = Vec::with_capacity(query.data.terms.len());
+    let mut term_boosts = Vec::with_capacity(query.data.terms.len());
     let mut cost = 0;
 
-    for i in 0..query.terms.len() {
+    for i in 0..query.data.terms.len() {
       let Some(mut prepare_state) = self.prepare_states[i].take() else {
         continue;
       };
@@ -1770,10 +1786,10 @@ where
       if let Some(state) = state {
         let mut terms_enum = context
           .reader()
-          .terms(&query.field)?
+          .terms(&query.data.field)?
           .ok_or_else(|| LuceneError::illegal_state("term should exist here"))?
           .iterator()?;
-        terms_enum.seek_exact_with_state(&query.terms[i].term, state.as_ref())?;
+        terms_enum.seek_exact_with_state(&query.data.terms[i].term, state.as_ref())?;
         if self.score_mode == ScoreMode::TopScores {
           let impacts_enum = SharedImpactsEnum::new(terms_enum.impacts(FREQS as i32)?);
           iterators.push(PostingsEnumEnum2::A(impacts_enum.clone()));
@@ -1784,7 +1800,7 @@ where
           iterators.push(PostingsEnumEnum2::B(postings_enum.clone()));
           impacts.push(ImpactsEnumEnum2::B(SlowImpactsEnum::new(postings_enum)));
         }
-        term_boosts.push(query.terms[i].boost);
+        term_boosts.push(query.data.terms[i].boost);
       }
     }
 
@@ -1833,7 +1849,7 @@ where
       LuceneError::illegal_state("simWeight is missing for matching synonym terms")
     })?;
     let query = self.query.as_ref();
-    let norms = context.reader().get_norm_values(&query.field)?;
+    let norms = context.reader().get_norm_values(&query.data.field)?;
 
     if iterators.len() == 1 {
       let iterator = iterators.remove(0);

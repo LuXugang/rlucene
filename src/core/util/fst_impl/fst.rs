@@ -1087,7 +1087,7 @@ impl<T: Clone> Arc<T> {
     self.next_final_output.clone()
   }
 }
-impl<T: Display + Clone> Display for Arc<T> {
+impl<T: Display> Display for Arc<T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, " target={}", self.target)?;
     write!(f, " label=0x{:x}", self.label)?;
@@ -1105,10 +1105,10 @@ impl<T: Display + Clone> Display for Arc<T> {
       write!(f, " stop")?;
     }
     if self.flag(BIT_ARC_HAS_OUTPUT) {
-      write!(f, " output={}", self.output.clone())?;
+      write!(f, " output={}", self.output)?;
     }
     if self.flag(BIT_ARC_HAS_FINAL_OUTPUT) {
-      write!(f, " nextFinalOutput={}", self.next_final_output.clone())?;
+      write!(f, " nextFinalOutput={}", self.next_final_output)?;
     }
     if self.bytes_per_arc() != 0 {
       let node_flag_str = match self.node_flags {

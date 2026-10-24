@@ -20,6 +20,7 @@ use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 #[cfg(unix)]
 use crate::core::store::{native_access::NativeAccess, posix_native_access::PosixNativeAccess};
+#[cfg(unix)]
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
@@ -230,6 +231,7 @@ impl MemorySegmentIndexInput {
     Ok(())
   }
 
+  #[cfg(unix)]
   fn count(&self) -> usize {
     (((self.start & ((1usize << self.power) - 1)) + self.length) >> self.power) + 1
   }

@@ -1437,17 +1437,22 @@ where
   {
     debug_assert!(no_output.is_same_reference(output_prefix) || *output_prefix != *no_output);
     for i in 0..self.num_arcs {
-      let new_output = outputs
-        .add(output_prefix, &self.arcs[i].output)
-        .into_owned();
-      self.arcs[i].output = new_output;
+      let current = &mut self.arcs[i].output;
+      match outputs.add(output_prefix, current) {
+        std::borrow::Cow::Borrowed(next) if std::ptr::eq(next, current) => {},
+        std::borrow::Cow::Borrowed(next) => *current = next.clone(),
+        std::borrow::Cow::Owned(next) => *current = next,
+      }
       // TODO:
       // debug_assert!(compiler.valid_output(&new_output));
     }
 
     if self.is_final {
-      let new_output = outputs.add(output_prefix, &self.output).into_owned();
-      self.output = new_output;
+      match outputs.add(output_prefix, &self.output) {
+        std::borrow::Cow::Borrowed(next) if std::ptr::eq(next, &self.output) => {},
+        std::borrow::Cow::Borrowed(next) => self.output = next.clone(),
+        std::borrow::Cow::Owned(next) => self.output = next,
+      }
       // TODO:
       // debug_assert!(compiler.valid_output(&new_output));
     }

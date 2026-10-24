@@ -198,11 +198,11 @@ impl Util {
       };
 
       let (is_final, final_output) = if start_arc.is_final() {
-        let next_final_output = start_arc.next_final_output();
-        if &next_final_output == no_output {
+        let next_final_output = &start_arc.next_final_output;
+        if next_final_output == no_output {
           (true, String::new())
         } else {
-          (true, fst.outputs.output_to_string(&next_final_output))
+          (true, fst.outputs.output_to_string(next_final_output))
         }
       } else {
         (false, String::new())
@@ -244,9 +244,9 @@ impl Util {
                 None
               };
 
-              let next_final_output = arc.next_final_output();
-              let final_output = if &next_final_output != no_output {
-                fst.outputs.output_to_string(&next_final_output)
+              let next_final_output = &arc.next_final_output;
+              let final_output = if next_final_output != no_output {
+                fst.outputs.output_to_string(next_final_output)
               } else {
                 String::new()
               };
@@ -263,17 +263,17 @@ impl Util {
               same_level_states.push(arc.target());
             }
 
-            let mut outs = if &arc.output() != no_output {
-              format!("/{}", fst.outputs.output_to_string(&arc.output()))
+            let mut outs = if &arc.output != no_output {
+              format!("/{}", fst.outputs.output_to_string(&arc.output))
             } else {
               String::new()
             };
 
-            if !target_has_arcs(&arc) && arc.is_final() && &arc.next_final_output() != no_output {
+            if !target_has_arcs(&arc) && arc.is_final() && &arc.next_final_output != no_output {
               write!(
                 outs,
                 "/[{}]",
-                fst.outputs.output_to_string(&arc.next_final_output())
+                fst.outputs.output_to_string(&arc.next_final_output)
               )?;
             }
 
@@ -812,7 +812,7 @@ where
     let output = self
       .fst
       .outputs
-      .add(&path.output, &path.arc.output())
+      .add(&path.output, &path.arc.output)
       .into_owned();
 
     if let Some(queue) = self.queue.as_ref()
@@ -950,7 +950,7 @@ where
         let mut found_zero = false;
         let mut arc_copy_is_pending = false;
         loop {
-          if self.comparator.compare(no_output, &path.arc.output())? == 0 {
+          if self.comparator.compare(no_output, &path.arc.output)? == 0 {
             if self.queue.is_none() {
               found_zero = true;
               break;
@@ -983,7 +983,7 @@ where
           path.output = self
             .fst
             .outputs
-            .add(&path.output, &path.arc.output())
+            .add(&path.output, &path.arc.output)
             .into_owned();
           if self.base.accept_result_path(&path) {
             let mut input = path.input.get_owner();
@@ -998,7 +998,7 @@ where
           path.output = self
             .fst
             .outputs
-            .add(&path.output, &path.arc.output())
+            .add(&path.output, &path.arc.output)
             .into_owned();
           if !self.base.accept_partial_path(&path) {
             break;

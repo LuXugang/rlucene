@@ -55,20 +55,36 @@ use std::sync::Arc;
 
 /// A generalized version of [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery), with the possibility of adding
 /// more than one term at the same position that are treated as a disjunction (OR).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MultiPhraseQuery {
   id: Identity,
   slop: i32,
   field: Option<Arc<str>>,
-  term_arrays: Arc<Vec<Vec<Term>>>,
-  positions: Arc<Vec<i32>>,
+  data: Arc<MultiPhraseQueryData>,
+}
+
+struct MultiPhraseQueryData {
+  term_arrays: Vec<Vec<Term>>,
+  positions: Vec<i32>,
+}
+
+impl std::fmt::Debug for MultiPhraseQuery {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("MultiPhraseQuery")
+      .field("id", &self.id)
+      .field("slop", &self.slop)
+      .field("field", &self.field)
+      .field("term_arrays", &self.data.term_arrays)
+      .field("positions", &self.data.positions)
+      .finish()
+  }
 }
 
 impl PartialEq for MultiPhraseQuery {
   fn eq(&self, other: &Self) -> bool {
     self.slop == other.slop
-      && term_arrays_equals(&self.term_arrays, &other.term_arrays)
-      && self.positions.as_ref() == other.positions.as_ref()
+      && term_arrays_equals(&self.data.term_arrays, &other.data.term_arrays)
+      && self.data.positions == other.data.positions
   }
 }
 
@@ -77,10 +93,10 @@ impl Eq for MultiPhraseQuery {}
 impl Hash for MultiPhraseQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.slop.hash(state);
-    for term_array in self.term_arrays.iter() {
+    for term_array in self.data.term_arrays.iter() {
       term_array.hash(state);
     }
-    self.positions.hash(state);
+    self.data.positions.hash(state);
   }
 }
 
@@ -102,11 +118,11 @@ impl MultiPhraseQuery {
   }
 
   pub fn get_term_arrays(&self) -> &Vec<Vec<Term>> {
-    &self.term_arrays
+    &self.data.term_arrays
   }
 
   pub fn get_positions(&self) -> &Vec<i32> {
-    &self.positions
+    &self.data.positions
   }
 
   pub fn builder() -> Builder {
@@ -148,8 +164,8 @@ impl Builder {
   pub fn from_query(query: &MultiPhraseQuery) -> Self {
     Builder {
       field: query.field.clone(),
-      term_arrays: query.term_arrays.to_vec(),
-      positions: query.positions.to_vec(),
+      term_arrays: query.data.term_arrays.to_vec(),
+      positions: query.data.positions.to_vec(),
       slop: query.slop,
     }
   }
@@ -225,8 +241,10 @@ impl Builder {
       id: Identity::new(),
       slop: self.slop,
       field: self.field,
-      term_arrays: Arc::new(self.term_arrays),
-      positions: Arc::new(self.positions),
+      data: Arc::new(MultiPhraseQueryData {
+        term_arrays: self.term_arrays,
+        positions: self.positions,
+      }),
     }
   }
 }
@@ -250,9 +268,9 @@ impl QueryBase for MultiPhraseQuery {
     }
     buffer.push('"');
     let mut last_pos: i32 = -1;
-    for i in 0..self.term_arrays.len() {
-      let terms = &self.term_arrays[i];
-      let position = self.positions[i];
+    for i in 0..self.data.term_arrays.len() {
+      let terms = &self.data.term_arrays[i];
+      let position = self.data.positions[i];
       if i != 0 {
         buffer.push(' ');
         for _j in 1..(position - last_pos) {
@@ -312,13 +330,13 @@ impl QueryBase for MultiPhraseQuery {
     Self: Sized,
     IndexSearcher<IRC, SIM>: Sync,
   {
-    if self.term_arrays.is_empty() {
+    if self.data.term_arrays.is_empty() {
       Ok(Some(
         MatchNoDocsQuery::with_reason("empty MultiPhraseQuery").into(),
       ))
-    } else if self.term_arrays.len() == 1 {
+    } else if self.data.term_arrays.len() == 1 {
       let mut builder = BooleanQueryBuilder::new();
-      for term in &self.term_arrays[0] {
+      for term in &self.data.term_arrays[0] {
         builder.add(TermQuery::new(term.clone()), Occur::Should)?;
       }
       Ok(Some(builder.build().into()))
@@ -339,7 +357,7 @@ impl QueryBase for MultiPhraseQuery {
     }
     let query = self.into();
     let mut visitor = visitor.get_sub_visitor(Occur::Must, query);
-    for terms in self.term_arrays.iter() {
+    for terms in self.data.term_arrays.iter() {
       let mut sub_visitor = visitor.get_sub_visitor(Occur::Should, query);
       sub_visitor.consume_terms(query, terms)?;
     }
@@ -384,12 +402,12 @@ where
     IRC: IndexReaderContext + 'static,
   {
     let mut all_term_stats = Vec::with_capacity(if self.base.score_mode.needs_scores() {
-      self.query.term_arrays.len()
+      self.query.data.term_arrays.len()
     } else {
       0
     });
 
-    for terms in &*self.query.term_arrays {
+    for terms in &*self.query.data.term_arrays {
       for term in terms {
         if !self.term_states.contains_key(term) {
           let term = Arc::new(term.clone());
@@ -434,7 +452,7 @@ where
   where
     LR: LeafReader,
   {
-    debug_assert!(!self.query.term_arrays.is_empty());
+    debug_assert!(!self.query.data.term_arrays.is_empty());
     let reader = context.reader();
 
     let field_terms = match reader.terms(&self.base.field)? {
@@ -454,7 +472,7 @@ where
     let mut total_match_cost: f32 = 0.0;
 
     let mut postings_freqs: Vec<PostingsAndFreq<'_, Self::IE<LR>>> =
-      Vec::with_capacity(self.query.term_arrays.len());
+      Vec::with_capacity(self.query.data.term_arrays.len());
 
     let postings_flags = if expose_offsets {
       crate::core::index::postings_enum::ALL as i32
@@ -462,8 +480,8 @@ where
       crate::core::index::postings_enum::POSITIONS as i32
     };
 
-    for pos in 0..self.query.term_arrays.len() {
-      let terms = &self.query.term_arrays[pos];
+    for pos in 0..self.query.data.term_arrays.len() {
+      let terms = &self.query.data.term_arrays[pos];
       let mut posting_enums: Vec<LRPosting<LR>> = Vec::with_capacity(terms.len());
 
       for term in terms {
@@ -504,7 +522,7 @@ where
 
       postings_freqs.push(PostingsAndFreq::new(
         SlowImpactsEnum::new(postings_enum),
-        self.query.positions[pos],
+        self.query.data.positions[pos],
         terms,
       ));
     }

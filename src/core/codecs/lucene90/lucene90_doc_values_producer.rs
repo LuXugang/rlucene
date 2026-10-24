@@ -74,16 +74,20 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct Lucene90DocValuesProducer<I> {
-  numerics: Arc<HashMap<i32, NumericEntry>>,
-  binaries: Arc<HashMap<i32, BinaryEntry>>,
-  sorted: Arc<HashMap<i32, SortedEntry>>,
-  sorted_sets: Arc<HashMap<i32, SortedSetEntry>>,
-  sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
-  skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
+  entries: Arc<DocValuesEntries>,
   data: Arc<I>,
   max_doc: i32,
   version: i32,
   merging: bool,
+}
+
+struct DocValuesEntries {
+  numerics: HashMap<i32, NumericEntry>,
+  binaries: HashMap<i32, BinaryEntry>,
+  sorted: HashMap<i32, SortedEntry>,
+  sorted_sets: HashMap<i32, SortedSetEntry>,
+  sorted_numerics: HashMap<i32, SortedNumericEntry>,
+  skippers: HashMap<i32, DocValuesSkipperEntry>,
 }
 
 impl<I> Lucene90DocValuesProducer<I>
@@ -189,12 +193,14 @@ where
       );
       success = true;
       Ok(Self {
-        numerics: Arc::new(numerics),
-        binaries: Arc::new(binaries),
-        sorted: Arc::new(sorted),
-        sorted_sets: Arc::new(sorted_sets),
-        sorted_numerics: Arc::new(sorted_numerics),
-        skippers: Arc::new(skippers),
+        entries: Arc::new(DocValuesEntries {
+          numerics,
+          binaries,
+          sorted,
+          sorted_sets,
+          sorted_numerics,
+          skippers,
+        }),
         data,
         max_doc,
         version,
@@ -206,25 +212,14 @@ where
     }
     unwrap_caught_result!(result)
   }
-  #[allow(clippy::too_many_arguments)]
   fn with_merging(
-    numerics: Arc<HashMap<i32, NumericEntry>>,
-    binaries: Arc<HashMap<i32, BinaryEntry>>,
-    sorted: Arc<HashMap<i32, SortedEntry>>,
-    sorted_sets: Arc<HashMap<i32, SortedSetEntry>>,
-    sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
-    skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
+    entries: Arc<DocValuesEntries>,
     data: &I,
     max_doc: i32,
     version: i32,
   ) -> Result<Self> {
     Ok(Self {
-      numerics,
-      binaries,
-      sorted,
-      sorted_sets,
-      sorted_numerics,
-      skippers,
+      entries,
       data: Arc::new(data.try_clone()?),
       max_doc,
       version,
@@ -814,7 +809,7 @@ where
   type NumericDocValues = Lucene90NumericDocValuesEnum<I>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NumericDocValuesEnum<I>> {
-    let entry = self.numerics.get(&field.number).ok_or_else(|| {
+    let entry = self.entries.numerics.get(&field.number).ok_or_else(|| {
       LuceneError::illegal_state(format!("Missing numeric entry for field {}", field.number))
     })?;
     self.get_numeric(entry)
@@ -823,7 +818,7 @@ where
   type BinaryDocValues = Lucene90BinaryDocValuesEnum<I>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    let entry = self.binaries.get(&field.number);
+    let entry = self.entries.binaries.get(&field.number);
     let Some(entry) = entry else {
       return Err(LuceneError::illegal_state(format!(
         "Missing sorted set entry for field {}",
@@ -916,7 +911,7 @@ where
   type SortedDocValues = Lucene90SortedDocValuesEnum<I>;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-    let entry = self.sorted.get(&field.number).ok_or_else(|| {
+    let entry = self.entries.sorted.get(&field.number).ok_or_else(|| {
       LuceneError::illegal_state(format!("Missing sorted entry for field {}", field.number))
     })?;
     self.get_sorted(entry)
@@ -925,12 +920,16 @@ where
   type SortedNumericDocValues = Lucene90SortedNumericDocValuesEnum<I>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-    let entry = self.sorted_numerics.get(&field.number).ok_or_else(|| {
-      LuceneError::illegal_state(format!(
-        "Missing sorted numeric entry for field {}",
-        field.number
-      ))
-    })?;
+    let entry = self
+      .entries
+      .sorted_numerics
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "Missing sorted numeric entry for field {}",
+          field.number
+        ))
+      })?;
     self.get_sorted_numeric(entry)
   }
 
@@ -938,7 +937,7 @@ where
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     let field_number = field.number;
-    let entry = self.sorted_sets.get(&field_number);
+    let entry = self.entries.sorted_sets.get(&field_number);
     let Some(entry) = entry else {
       return Err(LuceneError::illegal_state(format!(
         "Missing sorted set entry for field {field_number}"
@@ -1021,7 +1020,7 @@ where
   type DocValuesSkipper = Lucene90Skipper<I::IndexInput>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-    let entry = self.skippers.get(&field.number).ok_or_else(|| {
+    let entry = self.entries.skippers.get(&field.number).ok_or_else(|| {
       LuceneError::illegal_state(format!("Missing skipper entry for field {}", field.number))
     })?;
 
@@ -1047,12 +1046,7 @@ where
     Self: Sized,
   {
     Ok(Some(Lucene90DocValuesProducer::with_merging(
-      self.numerics.clone(),
-      self.binaries.clone(),
-      self.sorted.clone(),
-      self.sorted_sets.clone(),
-      self.sorted_numerics.clone(),
-      self.skippers.clone(),
+      self.entries.clone(),
       self.data.as_ref(),
       self.max_doc,
       self.version,

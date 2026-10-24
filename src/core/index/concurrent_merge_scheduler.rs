@@ -114,12 +114,16 @@ const MIN_BIG_MERGE_MB: i64 = 50;
 /// [`ConcurrentMergeScheduler::set_default_max_merges_and_threads`].
 #[derive(Clone)]
 pub struct ConcurrentMergeScheduler {
-  inner: Arc<Mutex<Inner>>,
-  changed: Arc<Condvar>,
-  info_stream: Arc<Mutex<InfoStreamMT>>,
-  #[allow(clippy::type_complexity)]
-  intra_merge_executor: Arc<Mutex<Option<(usize, Arc<TaskExecutor>)>>>,
+  shared: Arc<ConcurrentMergeSchedulerShared>,
   hook: ConcurrentMergeSchedulerHook,
+}
+
+struct ConcurrentMergeSchedulerShared {
+  inner: Mutex<Inner>,
+  changed: Condvar,
+  info_stream: Mutex<InfoStreamMT>,
+  #[allow(clippy::type_complexity)]
+  intra_merge_executor: Mutex<Option<(usize, Arc<TaskExecutor>)>>,
 }
 
 pub(crate) struct Inner {
@@ -756,7 +760,7 @@ impl ConcurrentMergeScheduler {
   }
 
   pub(crate) fn with_hook(hook: ConcurrentMergeSchedulerHook) -> Self {
-    let inner = Arc::new(Mutex::new(Inner {
+    let inner = Mutex::new(Inner {
       merge_threads: Vec::new(),
       max_thread_count: AUTO_DETECT_MERGES_AND_THREADS,
       max_merge_count: AUTO_DETECT_MERGES_AND_THREADS,
@@ -765,12 +769,14 @@ impl ConcurrentMergeScheduler {
       do_auto_io_throttle: false,
       force_merge_mb_per_sec: f64::INFINITY,
       suppress_exceptions: false,
-    }));
+    });
     Self {
-      inner,
-      changed: Arc::new(Condvar::new()),
-      info_stream: Arc::new(Mutex::new(get_default_info_stream())),
-      intra_merge_executor: Arc::new(Mutex::new(None)),
+      shared: Arc::new(ConcurrentMergeSchedulerShared {
+        inner,
+        changed: Condvar::new(),
+        info_stream: Mutex::new(get_default_info_stream()),
+        intra_merge_executor: Mutex::new(None),
+      }),
       hook,
     }
   }
@@ -790,7 +796,7 @@ impl ConcurrentMergeScheduler {
     max_merge_count: i32,
     max_thread_count: i32,
   ) -> Result<()> {
-    let mut inner = self.inner.lock();
+    let mut inner = self.shared.inner.lock();
     if max_merge_count == AUTO_DETECT_MERGES_AND_THREADS
       && max_thread_count == AUTO_DETECT_MERGES_AND_THREADS
     {
@@ -831,7 +837,7 @@ impl ConcurrentMergeScheduler {
    *   non-rotational storage such as solid-state drives.
    */
   pub fn set_default_max_merges_and_threads(&self, spins: bool) {
-    let mut inner = self.inner.lock();
+    let mut inner = self.shared.inner.lock();
     if spins {
       inner.max_thread_count = 1;
       inner.max_merge_count = 6;
@@ -863,14 +869,14 @@ impl ConcurrentMergeScheduler {
    * Set the per-merge IO throttle rate for forced merges (default: `f64::INFINITY`).
    */
   pub fn set_force_merge_mb_per_sec(&self, v: f64) -> Result<()> {
-    let mut inner = self.inner.lock();
+    let mut inner = self.shared.inner.lock();
     inner.force_merge_mb_per_sec = v;
     self.update_merge_threads(&mut inner)
   }
 
   /** Get the per-merge IO throttle rate for forced merges. */
   pub fn get_force_merge_mb_per_sec(&self) -> f64 {
-    self.inner.lock().force_merge_mb_per_sec
+    self.shared.inner.lock().force_merge_mb_per_sec
   }
 
   /**
@@ -879,7 +885,7 @@ impl ConcurrentMergeScheduler {
    * rate-limited.
    */
   pub fn enable_auto_io_throttle(&self) -> Result<()> {
-    let mut inner = self.inner.lock();
+    let mut inner = self.shared.inner.lock();
     inner.do_auto_io_throttle = true;
     inner.target_mb_per_sec = START_MB_PER_SEC;
     self.update_merge_threads(&mut inner)
@@ -891,14 +897,14 @@ impl ConcurrentMergeScheduler {
    * See [`Self::enable_auto_io_throttle`].
    */
   pub fn disable_auto_io_throttle(&self) -> Result<()> {
-    let mut inner = self.inner.lock();
+    let mut inner = self.shared.inner.lock();
     inner.do_auto_io_throttle = false;
     self.update_merge_threads(&mut inner)
   }
 
   /** Returns true if auto IO throttling is currently enabled. */
   pub fn get_auto_io_throttle(&self) -> bool {
-    self.inner.lock().do_auto_io_throttle
+    self.shared.inner.lock().do_auto_io_throttle
   }
 
   /**
@@ -906,7 +912,7 @@ impl ConcurrentMergeScheduler {
    * called, else `f64::INFINITY`.
    */
   pub fn get_io_rate_limit_mb_per_sec(&self) -> f64 {
-    let inner = self.inner.lock();
+    let inner = self.shared.inner.lock();
     if inner.do_auto_io_throttle {
       inner.target_mb_per_sec
     } else {
@@ -920,12 +926,12 @@ impl ConcurrentMergeScheduler {
    * See [`Self::set_max_merges_and_threads`].
    */
   pub fn get_max_thread_count(&self) -> i32 {
-    self.inner.lock().max_thread_count
+    self.shared.inner.lock().max_thread_count
   }
 
   /** See `set_max_merges_and_threads`. */
   pub fn get_max_merge_count(&self) -> i32 {
-    self.inner.lock().max_merge_count
+    self.shared.inner.lock().max_merge_count
   }
 
   /** Removes the calling thread from the active merge threads. */
@@ -953,8 +959,8 @@ impl ConcurrentMergeScheduler {
   }
 
   pub(crate) fn get_parallel_merge_executor(&self) -> Result<Arc<TaskExecutor>> {
-    let num_threads = cmp::max(1, self.inner.lock().max_thread_count) as usize;
-    let mut cached = self.intra_merge_executor.lock();
+    let num_threads = cmp::max(1, self.shared.inner.lock().max_thread_count) as usize;
+    let mut cached = self.shared.intra_merge_executor.lock();
     if let Some((cached_num_threads, executor)) = cached.as_ref()
       && *cached_num_threads == num_threads
     {
@@ -1068,7 +1074,7 @@ impl ConcurrentMergeScheduler {
   where
     D: Directory,
   {
-    let should_init = self.inner.lock().max_thread_count == AUTO_DETECT_MERGES_AND_THREADS;
+    let should_init = self.shared.inner.lock().max_thread_count == AUTO_DETECT_MERGES_AND_THREADS;
     if should_init {
       self.set_default_max_merges_and_threads(false);
     }
@@ -1094,7 +1100,7 @@ impl CloseableRef for ConcurrentMergeScheduler {
 impl ConcurrentMergeSchedulerDefaults {
   pub(crate) fn close(scheduler: &ConcurrentMergeScheduler) -> Result<()> {
     scheduler.sync()?;
-    scheduler.intra_merge_executor.lock().take();
+    scheduler.shared.intra_merge_executor.lock().take();
     Ok(())
   }
 }
@@ -1105,13 +1111,13 @@ impl ConcurrentMergeScheduler {
    * `close`.
    */
   pub fn sync(&self) -> Result<()> {
-    let mut inner = self.inner.lock();
+    let mut inner = self.shared.inner.lock();
     while inner
       .merge_threads
       .iter()
       .any(|merge_thread| merge_thread.is_alive() && !merge_thread.is_current_thread())
     {
-      self.changed.wait(&mut inner);
+      self.shared.changed.wait(&mut inner);
     }
     Ok(())
   }
@@ -1123,7 +1129,7 @@ impl ConcurrentMergeScheduler {
    * @lucene.internal
    */
   pub fn merge_thread_count(&self) -> usize {
-    let inner = self.inner.lock();
+    let inner = self.shared.inner.lock();
     Self::merge_thread_count_locked(&inner)
   }
 
@@ -1141,13 +1147,13 @@ impl ConcurrentMergeScheduler {
 
   /// Returns true if messages about merge scheduling are enabled.
   fn verbose(&self) -> bool {
-    let info_stream = self.info_stream.lock().clone();
+    let info_stream = self.shared.info_stream.lock().clone();
     info_stream.is_enabled("MS")
   }
 
   /// Outputs the given message. This method assumes [`Self::verbose`] returned true.
   fn message(&self, message: &str) -> Result<()> {
-    let info_stream = self.info_stream.lock().clone();
+    let info_stream = self.shared.info_stream.lock().clone();
     info_stream.message("MS", message)
   }
 }
@@ -1190,7 +1196,7 @@ impl MergeScheduler for ConcurrentMergeScheduler {
   where
     D: Directory,
   {
-    *self.info_stream.lock() = info_stream;
+    *self.shared.info_stream.lock() = info_stream;
     self.init_dynamic_defaults(directory);
     Ok(())
   }
@@ -1216,7 +1222,7 @@ impl ConcurrentMergeSchedulerDefaults {
     D: Directory + 'static,
     OneMerge<D, MS::Reader>: Send + 'static,
   {
-    let mut inner = scheduler.inner.lock();
+    let mut inner = scheduler.shared.inner.lock();
     scheduler.merge_locked(&mut inner, merge_source, trigger)
   }
 }
@@ -1346,6 +1352,7 @@ impl ConcurrentMergeSchedulerDefaults {
   pub(crate) fn do_stall(scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>) {
     // Defensively wait for only .25 seconds in case we are missing a notify/all somewhere:
     scheduler
+      .shared
       .changed
       .wait_for(inner, Duration::from_millis(250));
   }
@@ -1421,7 +1428,7 @@ impl ConcurrentMergeScheduler {
     D: Directory + 'static,
     OneMerge<D, MS::Reader>: Send + 'static,
   {
-    let mut inner = self.inner.lock();
+    let mut inner = self.shared.inner.lock();
     // The merge call as well as the merge thread handling in the finally
     // block must be sync'd on CMS otherwise stalling decisions might cause
     // us to miss pending merges.
@@ -1450,7 +1457,7 @@ impl ConcurrentMergeScheduler {
     self.update_merge_threads(&mut inner)?;
     // In case we had stalled indexing, we can now wake up
     // and possibly unstall:
-    self.changed.notify_all();
+    self.shared.changed.notify_all();
     unwrap_caught_result!(merge_result)
   }
 }
@@ -1578,7 +1585,7 @@ where
     });
 
     if !matches!(&merge_result, Ok(Ok(()))) {
-      let mut inner = merge_scheduler.inner.lock();
+      let mut inner = merge_scheduler.shared.inner.lock();
       // `run_on_merge_finished` removes the current merge thread in its cleanup path before
       // returning an error. Only perform this cleanup here when the failure happened before
       // `run_on_merge_finished` was entered.
@@ -1589,7 +1596,7 @@ where
       {
         ConcurrentMergeScheduler::remove_merge_thread(&mut inner);
         merge_scheduler.update_merge_threads(&mut inner)?;
-        merge_scheduler.changed.notify_all();
+        merge_scheduler.shared.changed.notify_all();
       }
       drop(inner);
       if matches!(
@@ -1600,7 +1607,7 @@ where
       ) {
         // OK to ignore.
         Ok(())
-      } else if !merge_scheduler.inner.lock().suppress_exceptions {
+      } else if !merge_scheduler.shared.inner.lock().suppress_exceptions {
         merge_scheduler.handle_merge_exception(merge_result)
       } else {
         Ok(())
@@ -1656,13 +1663,13 @@ impl ConcurrentMergeScheduler {
   /** Used for testing */
   #[cfg(test)]
   pub(crate) fn set_suppress_exceptions(&self) {
-    self.inner.lock().suppress_exceptions = true;
+    self.shared.inner.lock().suppress_exceptions = true;
   }
 
   /** Used for testing */
   #[cfg(test)]
   pub(crate) fn clear_suppress_exceptions(&self) {
-    self.inner.lock().suppress_exceptions = false;
+    self.shared.inner.lock().suppress_exceptions = false;
   }
 }
 
@@ -1683,7 +1690,7 @@ impl ConcurrentMergeSchedulerDefaults {
 
 impl Display for ConcurrentMergeScheduler {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let inner = self.inner.lock();
+    let inner = self.shared.inner.lock();
     write!(
       f,
       "ConcurrentMergeScheduler: maxThreadCount={}, maxMergeCount={}, ioThrottle={}",

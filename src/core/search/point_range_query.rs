@@ -74,21 +74,26 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct PointRangeQuery {
   id: Identity,
-  field: String,
   num_dims: usize,
   bytes_per_dim: usize,
-  points: Arc<(Vec<u8>, Vec<u8>)>,
+  points: Arc<PointRangeQueryData>,
   sub: PointRangeBaseEnum,
+}
+
+struct PointRangeQueryData {
+  field: String,
+  lower: Vec<u8>,
+  upper: Vec<u8>,
 }
 impl Debug for PointRangeQuery {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("PointRangeQuery")
       .field("id", &self.id)
-      .field("field", &self.field)
+      .field("field", &self.points.field)
       .field("num_dims", &self.num_dims)
       .field("bytes_per_dim", &self.bytes_per_dim)
-      .field("lower_point", &self.points.0)
-      .field("upper_point", &self.points.1)
+      .field("lower_point", &self.points.lower)
+      .field("upper_point", &self.points.upper)
       .field("sub", &self.sub)
       .finish()
   }
@@ -146,26 +151,29 @@ impl PointRangeQuery {
 
     Ok(Self {
       id: Identity::new(),
-      field,
       num_dims,
       bytes_per_dim,
-      points: Arc::new((lower_point, upper_point)),
+      points: Arc::new(PointRangeQueryData {
+        field,
+        lower: lower_point,
+        upper: upper_point,
+      }),
       sub: sub.into(),
     })
   }
 
   fn equals_to(&self, other: &PointRangeQuery) -> bool {
-    self.field == other.field
+    self.points.field == other.points.field
       && self.num_dims == other.num_dims
       && self.bytes_per_dim == other.bytes_per_dim
-      && self.points.0 == other.points.0
-      && self.points.1 == other.points.1
+      && self.points.lower == other.points.lower
+      && self.points.upper == other.points.upper
   }
   pub fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
 
-    if self.field != field {
-      sb.push_str(&self.field);
+    if self.points.field != field {
+      sb.push_str(&self.points.field);
       sb.push(':');
     }
 
@@ -176,8 +184,8 @@ impl PointRangeQuery {
       let start = self.bytes_per_dim * i;
       let end = start + self.bytes_per_dim;
 
-      let lower = &self.points.0[start..end];
-      let upper = &self.points.1[start..end];
+      let lower = &self.points.lower[start..end];
+      let upper = &self.points.upper[start..end];
 
       sb.push('[');
       sb.push_str(&self.sub.to_string(i, lower)?);
@@ -190,11 +198,11 @@ impl PointRangeQuery {
   }
   #[cfg(test)]
   pub fn get_lower_point(&self) -> &[u8] {
-    &self.points.0
+    &self.points.lower
   }
   #[cfg(test)]
   pub fn get_upper_point(&self) -> &[u8] {
-    &self.points.1
+    &self.points.upper
   }
 }
 
@@ -217,11 +225,11 @@ impl Hash for PointRangeQuery {
   where
     H: Hasher,
   {
-    self.field.hash(state);
+    self.points.field.hash(state);
     self.num_dims.hash(state);
     self.bytes_per_dim.hash(state);
-    self.points.0.hash(state);
-    self.points.1.hash(state);
+    self.points.lower.hash(state);
+    self.points.upper.hash(state);
   }
 }
 
@@ -261,7 +269,7 @@ impl QueryBase for PointRangeQuery {
     QV: QueryVisitor,
   {
     let query = self.into();
-    if visitor.accept_field(&self.field) {
+    if visitor.accept_field(&self.points.field) {
       visitor.visit_leaf(query)?;
     }
     Ok(())
@@ -298,7 +306,7 @@ impl PointRangeWeight {
     let q = self.point_range_query()?;
     let num_dims = q.num_dims;
     let bytes_per_dim = q.bytes_per_dim;
-    let field = &q.field;
+    let field = &q.points.field;
 
     if values.get_num_index_dimensions()? != num_dims {
       return Err(LuceneError::illegal_argument(format!(
@@ -437,7 +445,7 @@ where
   {
     let reader = context.reader();
 
-    let values_opt = reader.get_point_values(&self.point_range_query()?.field)?;
+    let values_opt = reader.get_point_values(&self.point_range_query()?.points.field)?;
     if !self.check_valid_point_values(values_opt.as_ref())? {
       return Ok(None);
     }
@@ -466,11 +474,11 @@ where
 
         if self
           .comparator
-          .compare(&q.points.0, offset, field_packed_upper.as_ref(), offset)
+          .compare(&q.points.lower, offset, field_packed_upper.as_ref(), offset)
           > 0
           || self
             .comparator
-            .compare(&q.points.1, offset, field_packed_lower.as_ref(), offset)
+            .compare(&q.points.upper, offset, field_packed_lower.as_ref(), offset)
             < 0
         {
           // If this query is a required clause of a boolean query, then returning None here
@@ -502,11 +510,11 @@ where
 
         if self
           .comparator
-          .compare(&q.points.0, offset, field_packed_lower.as_ref(), offset)
+          .compare(&q.points.lower, offset, field_packed_lower.as_ref(), offset)
           > 0
           || self
             .comparator
-            .compare(&q.points.1, offset, field_packed_upper.as_ref(), offset)
+            .compare(&q.points.upper, offset, field_packed_upper.as_ref(), offset)
             < 0
         {
           all_docs_match = false;
@@ -525,7 +533,7 @@ where
       let result = DocIdSetBuilder::from_point_values(
         max_doc,
         &values,
-        self.point_range_query()?.field.as_ref(),
+        self.point_range_query()?.points.field.as_ref(),
       )?;
       Ok(Some(
         Box::new(ScorerSupplierImpl1::new(
@@ -552,7 +560,7 @@ where
     let query = self.point_range_query()?;
     let reader = context.reader();
 
-    let values = reader.get_point_values(query.field.as_str())?;
+    let values = reader.get_point_values(query.points.field.as_str())?;
 
     if !self.check_valid_point_values(values.as_ref())? {
       return Ok(0);
@@ -600,11 +608,11 @@ pub(crate) fn matches(
   let bytes_per_dim = query.bytes_per_dim;
   let mut offset = 0usize;
   for _ in 0..num_dims {
-    if comparator.compare(packed_value, offset, query.points.0.as_ref(), offset) < 0 {
+    if comparator.compare(packed_value, offset, query.points.lower.as_ref(), offset) < 0 {
       // Doc's value is too low, in this dimension
       return Ok(false);
     }
-    if comparator.compare(packed_value, offset, query.points.1.as_ref(), offset) > 0 {
+    if comparator.compare(packed_value, offset, query.points.upper.as_ref(), offset) > 0 {
       // Doc's value is too high, in this dimension
       return Ok(false);
     }
@@ -633,14 +641,14 @@ pub(crate) fn relate(
   let mut offset = 0usize;
 
   for _ in 0..num_dims {
-    if comparator.compare(min_packed_value, offset, &query.points.1, offset) > 0
-      || comparator.compare(max_packed_value, offset, &query.points.0, offset) < 0
+    if comparator.compare(min_packed_value, offset, &query.points.upper, offset) > 0
+      || comparator.compare(max_packed_value, offset, &query.points.lower, offset) < 0
     {
       return Ok(Relation::CellOutsideQuery);
     }
 
-    if comparator.compare(min_packed_value, offset, &query.points.0, offset) < 0
-      || comparator.compare(max_packed_value, offset, &query.points.1, offset) > 0
+    if comparator.compare(min_packed_value, offset, &query.points.lower, offset) < 0
+      || comparator.compare(max_packed_value, offset, &query.points.upper, offset) > 0
     {
       crosses = true;
     }
