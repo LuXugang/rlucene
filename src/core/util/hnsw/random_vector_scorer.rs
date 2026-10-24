@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::memory_segment_index_input::MappedFloatVectors;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
 
@@ -29,6 +30,17 @@ pub trait RandomVectorScorer {
   ///
   /// Returns an error if the scoring fails (e.g., I/O error).
   fn score(&self, node: usize) -> Result<f32>;
+
+  /// Optional concrete immutable context for fresh owning float scorers.
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    None
+  }
+
+  /// Called only for a prepared mapped context; ordinary/custom scorers retain
+  /// their original score operation and error order.
+  fn score_mapped_float(&self, node: usize, _vector: &[f32]) -> Result<f32> {
+    self.score(node)
+  }
 
   /// Returns the maximum possible ordinal for this scorer.
   fn max_ord(&self) -> usize;

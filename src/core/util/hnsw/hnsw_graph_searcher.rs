@@ -547,7 +547,76 @@ where
 
   Ok(knn_collector)
 }
+struct MappedFloatScorer<'a, S> {
+  parent: &'a S,
+  vectors: &'a [f32],
+  dimension: usize,
+}
+
+impl<S: RandomVectorScorer> RandomVectorScorer for MappedFloatScorer<'_, S> {
+  #[inline]
+  fn score(&self, node: usize) -> Result<f32> {
+    if let Some(start) = node.checked_mul(self.dimension)
+      && let Some(end) = start.checked_add(self.dimension)
+      && let Some(vector) = self.vectors.get(start..end)
+    {
+      self.parent.score_mapped_float(node, vector)
+    } else {
+      self.parent.score(node)
+    }
+  }
+
+  fn max_ord(&self) -> usize {
+    self.parent.max_ord()
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    self.parent.ord_to_doc(ord)
+  }
+
+  type Bits<'a, B>
+    = S::Bits<'a, B>
+  where
+    Self: 'a,
+    B: Bits;
+
+  fn get_accept_ords<'a, B: Bits>(
+    &'a self,
+    accept_docs: Option<B>,
+  ) -> Result<Option<Self::Bits<'a, B>>> {
+    self.parent.get_accept_ords(accept_docs)
+  }
+}
+
 pub(crate) fn search_with_searcher<S, B, V, T, T2, const DEFAULT_HOOK: bool>(
+  scorer: &S,
+  knn_collector: &mut V,
+  graph: T,
+  graph_searcher: &mut HnswGraphSearcher<B, DEFAULT_HOOK>,
+  accept_ords: Option<&T2>,
+) -> Result<()>
+where
+  B: BitSet,
+  S: RandomVectorScorer,
+  V: KnnCollector,
+  T: HnswGraph,
+  T2: Bits,
+{
+  if let Some(vectors) = scorer.mapped_float_vectors()
+    && let Some(values) = vectors.as_slice()
+  {
+    let mapped = MappedFloatScorer {
+      parent: scorer,
+      vectors: values,
+      dimension: vectors.dimension(),
+    };
+    search_with_searcher_impl(&mapped, knn_collector, graph, graph_searcher, accept_ords)
+  } else {
+    search_with_searcher_impl(scorer, knn_collector, graph, graph_searcher, accept_ords)
+  }
+}
+
+fn search_with_searcher_impl<S, B, V, T, T2, const DEFAULT_HOOK: bool>(
   scorer: &S,
   knn_collector: &mut V,
   mut graph: T,

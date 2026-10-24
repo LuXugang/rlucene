@@ -18,7 +18,7 @@
 use crate::core::store::byte_buffers_index_input::ByteBuffersIndexInputOwned;
 use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::memory_segment_index_input::{
-  MemorySegmentIndexInput, MemorySegmentRandomAccessInput,
+  MappedFloatVectors, MemorySegmentIndexInput, MemorySegmentRandomAccessInput,
 };
 use crate::core::store::nio_fs_directory::NIOFSIndexInput;
 use crate::core::store::random_access_input::{
@@ -161,6 +161,12 @@ pub trait IndexInput: DataInput + TryClone + CloseableRef {
   /// The default implementation returns [`None`].
   fn is_loaded(&self) -> Result<Option<bool>> {
     Ok(None)
+  }
+
+  /// Optional immutable native-float view. Unknown inputs and wrappers keep
+  /// their existing buffered behavior; this never reads or advances a cursor.
+  fn mapped_float_vectors(&self, _dimension: usize, _count: usize) -> Option<MappedFloatVectors> {
+    None
   }
 }
 pub trait ErasedIndexInput:

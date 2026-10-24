@@ -20,6 +20,7 @@ use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::{VectorSimilarity, VectorSimilarityFunction};
+use crate::core::store::memory_segment_index_input::MappedFloatVectors;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -465,6 +466,25 @@ impl<FV, Sim: VectorSimilarity> RandomVectorScorer for FloatVectorScorer<FV, Sim
 where
   FV: FloatVectorValues,
 {
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    if !Sim::SUPPORTS_MAPPED_FLOAT_INPUT {
+      return None;
+    }
+    let vectors = self.values.mapped_float_vectors()?;
+    (vectors.dimension() == self.query.len()).then_some(vectors)
+  }
+
+  #[inline]
+  fn score_mapped_float(&self, node: usize, vector: &[f32]) -> Result<f32> {
+    match self
+      .values
+      .compare_mapped_float(self.query.as_slice(), vector, self.similarity_function)
+    {
+      Some(result) => result,
+      None => self.score(node),
+    }
+  }
+
   #[inline]
   fn score(&self, node: usize) -> Result<f32> {
     let value = self.values.vector_value(node)?;

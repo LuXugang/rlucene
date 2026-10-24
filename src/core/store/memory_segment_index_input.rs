@@ -47,6 +47,29 @@ struct MappedFile {
   segments: Box<[Mmap]>,
 }
 
+/// An immutable native-float view retaining its indexed-file mapping.
+/// Used only by fresh owning scorers; ordinary buffered reads are unchanged.
+pub struct MappedFloatVectors {
+  file: Arc<MappedFile>,
+  segment: usize,
+  start: usize,
+  length: usize,
+  dimension: usize,
+}
+
+impl MappedFloatVectors {
+  pub(crate) fn dimension(&self) -> usize {
+    self.dimension
+  }
+
+  #[inline]
+  pub(crate) fn as_slice(&self) -> Option<&[f32]> {
+    let map = self.file.segments.get(self.segment)?;
+    let bytes = map.get(self.start..self.start.checked_add(self.length)?)?;
+    wide::bytemuck::try_cast_slice::<u8, f32>(bytes).ok()
+  }
+}
+
 struct SegmentState {
   index: usize,
   // Private stable view retained by the input's immutable MappedFile.
@@ -1187,6 +1210,39 @@ impl TryClone for MemorySegmentIndexInput {
   }
 }
 impl IndexInput for MemorySegmentIndexInput {
+  fn mapped_float_vectors(&self, dimension: usize, count: usize) -> Option<MappedFloatVectors> {
+    #[cfg(target_endian = "big")]
+    {
+      let _ = (dimension, count);
+      None
+    }
+    #[cfg(target_endian = "little")]
+    {
+      if dimension == 0 || count == 0 {
+        return None;
+      }
+      let length = dimension.checked_mul(count)?.checked_mul(4)?;
+      if length != self.length {
+        return None;
+      }
+      let segment = self.start >> self.power;
+      let start = self.start & ((1usize << self.power) - 1);
+      let bytes = self
+        .file
+        .segments
+        .get(segment)?
+        .get(start..start.checked_add(length)?)?;
+      wide::bytemuck::try_cast_slice::<u8, f32>(bytes).ok()?;
+      Some(MappedFloatVectors {
+        file: Arc::clone(&self.file),
+        segment,
+        start,
+        length,
+        dimension,
+      })
+    }
+  }
+
   type IndexInput = Self;
   type RandomAccessSlice = MemorySegmentRandomAccessInput;
   #[inline]

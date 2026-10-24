@@ -30,12 +30,14 @@ use crate::core::index::knn_vector_values::{
   DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, create_dense_iterator,
 };
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarity;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIteratorExtensions};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::IndexInput;
+use crate::core::store::memory_segment_index_input::MappedFloatVectors;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
@@ -158,6 +160,33 @@ impl<I, F> FloatVectorValues for OffHeapFloatVectorValues<I, F>
 where
   I: IndexInput,
 {
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    if self.byte_size != self.dimension.checked_mul(4)? {
+      return None;
+    }
+    let inner = self.inner.try_lock()?;
+    if inner.last_ord.is_some() {
+      return None;
+    }
+    inner.slice.mapped_float_vectors(self.dimension, self.size)
+  }
+
+  #[inline]
+  fn compare_mapped_float<S: VectorSimilarity>(
+    &self,
+    query: &[f32],
+    vector: &[f32],
+    similarity: S,
+  ) -> Option<Result<f32>> {
+    if !S::SUPPORTS_MAPPED_FLOAT_INPUT {
+      return None;
+    }
+    let guard = self.inner.lock();
+    let result = similarity.compare_f32(query, vector);
+    drop(guard);
+    Some(result)
+  }
+
   type VectorValue<'v>
     = parking_lot::MappedMutexGuard<'v, [f32]>
   where
@@ -297,6 +326,20 @@ where
   I: IndexInput,
   F: FlatVectorsScorer + Clone,
 {
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    self.base.mapped_float_vectors()
+  }
+
+  #[inline]
+  fn compare_mapped_float<S: VectorSimilarity>(
+    &self,
+    query: &[f32],
+    vector: &[f32],
+    similarity: S,
+  ) -> Option<Result<f32>> {
+    self.base.compare_mapped_float(query, vector, similarity)
+  }
+
   type VectorValue<'v>
     = parking_lot::MappedMutexGuard<'v, [f32]>
   where
@@ -534,6 +577,20 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    self.base.mapped_float_vectors()
+  }
+
+  #[inline]
+  fn compare_mapped_float<S: VectorSimilarity>(
+    &self,
+    query: &[f32],
+    vector: &[f32],
+    similarity: S,
+  ) -> Option<Result<f32>> {
+    self.base.compare_mapped_float(query, vector, similarity)
+  }
+
   type VectorValue<'v>
     = parking_lot::MappedMutexGuard<'v, [f32]>
   where
@@ -833,6 +890,26 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    match self {
+      Self::Dense(values) => values.mapped_float_vectors(),
+      Self::Sparse(values) => values.mapped_float_vectors(),
+    }
+  }
+
+  #[inline]
+  fn compare_mapped_float<S: VectorSimilarity>(
+    &self,
+    query: &[f32],
+    vector: &[f32],
+    similarity: S,
+  ) -> Option<Result<f32>> {
+    match self {
+      Self::Dense(values) => values.compare_mapped_float(query, vector, similarity),
+      Self::Sparse(values) => values.compare_mapped_float(query, vector, similarity),
+    }
+  }
+
   type VectorValue<'v>
     = parking_lot::MappedMutexGuard<'v, [f32]>
   where
@@ -990,6 +1067,28 @@ where
   I: IndexInput + Clone,
   F: FlatVectorsScorer + Clone,
 {
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    match self {
+      Self::Dense(values) => values.mapped_float_vectors(),
+      Self::Sparse(values) => values.mapped_float_vectors(),
+      Self::Empty(_) => None,
+    }
+  }
+
+  #[inline]
+  fn compare_mapped_float<S: VectorSimilarity>(
+    &self,
+    query: &[f32],
+    vector: &[f32],
+    similarity: S,
+  ) -> Option<Result<f32>> {
+    match self {
+      Self::Dense(values) => values.compare_mapped_float(query, vector, similarity),
+      Self::Sparse(values) => values.compare_mapped_float(query, vector, similarity),
+      Self::Empty(_) => None,
+    }
+  }
+
   type VectorValue<'v>
     = parking_lot::MappedMutexGuard<'v, [f32]>
   where

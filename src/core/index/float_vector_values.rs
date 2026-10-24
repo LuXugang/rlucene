@@ -18,8 +18,10 @@ use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::knn_vector_values::{BitsImpl, KnnVectorValues};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::vector_encoding::VectorEncoding;
+use crate::core::index::vector_similarity_function::VectorSimilarity;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
+use crate::core::store::memory_segment_index_input::MappedFloatVectors;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -132,6 +134,23 @@ pub trait FloatVectorValues: KnnVectorValues {
   /// copying or otherwise accessing the same instance again. Use independent
   /// [`Self::float_copy`] instances for simultaneous reads of reusable buffers.
   fn vector_value(&self, ord: usize) -> Result<Self::VectorValue<'_>>;
+
+  /// Optional fresh owning reader capability. Borrowed, shared and custom
+  /// providers do not forward it and retain their original snapshots/guards.
+  fn mapped_float_vectors(&self) -> Option<MappedFloatVectors> {
+    None
+  }
+
+  /// Compares an immutable mapped row while retaining the original buffer lock.
+  /// Unsupported providers return `None` and use ordinary vector_value instead.
+  fn compare_mapped_float<S: VectorSimilarity>(
+    &self,
+    _query: &[f32],
+    _vector: &[f32],
+    _similarity: S,
+  ) -> Option<Result<f32>> {
+    None
+  }
 
   type FloatVectorValues: FloatVectorValues;
   /// Creates a copy of this [`KnnVectorValues`] when an independent instance is

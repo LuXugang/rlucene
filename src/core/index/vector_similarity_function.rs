@@ -81,6 +81,10 @@ impl Default for VectorSimilarityFunction {
 /// Scoring policy selected before entering a vector scoring loop.
 /// Concrete zero-sized policies preserve the same arithmetic as the metadata enum.
 pub trait VectorSimilarity: Copy + Send + Sync + std::fmt::Debug {
+  /// Built-in pure policies accept identical float bits from immutable indexed
+  /// storage. Custom policies retain their original buffer and slice identity.
+  const SUPPORTS_MAPPED_FLOAT_INPUT: bool = false;
+
   fn function(self) -> VectorSimilarityFunction;
   fn compare_f32(&self, v1: &[f32], v2: &[f32]) -> Result<f32>;
   fn compare_u8(&self, v1: &[u8], v2: &[u8]) -> Result<f32>;
@@ -91,6 +95,8 @@ pub trait VectorSimilarity: Copy + Send + Sync + std::fmt::Debug {
 pub struct EuclideanSimilarity;
 
 impl VectorSimilarity for EuclideanSimilarity {
+  const SUPPORTS_MAPPED_FLOAT_INPUT: bool = true;
+
   fn function(self) -> VectorSimilarityFunction {
     VectorSimilarityFunction::Euclidean
   }
@@ -111,6 +117,8 @@ impl VectorSimilarity for EuclideanSimilarity {
 pub struct DotProductSimilarity;
 
 impl VectorSimilarity for DotProductSimilarity {
+  const SUPPORTS_MAPPED_FLOAT_INPUT: bool = true;
+
   fn function(self) -> VectorSimilarityFunction {
     VectorSimilarityFunction::DotProduct
   }
@@ -128,6 +136,8 @@ impl VectorSimilarity for DotProductSimilarity {
 pub struct CosineSimilarity;
 
 impl VectorSimilarity for CosineSimilarity {
+  const SUPPORTS_MAPPED_FLOAT_INPUT: bool = true;
+
   fn function(self) -> VectorSimilarityFunction {
     VectorSimilarityFunction::Cosine
   }
@@ -146,6 +156,8 @@ impl VectorSimilarity for CosineSimilarity {
 pub struct MaximumInnerProductSimilarity;
 
 impl VectorSimilarity for MaximumInnerProductSimilarity {
+  const SUPPORTS_MAPPED_FLOAT_INPUT: bool = true;
+
   fn function(self) -> VectorSimilarityFunction {
     VectorSimilarityFunction::MaximumInnerProduct
   }
@@ -181,6 +193,8 @@ impl VectorSimilarityFunction {
 }
 
 impl VectorSimilarity for VectorSimilarityFunction {
+  const SUPPORTS_MAPPED_FLOAT_INPUT: bool = true;
+
   fn function(self) -> VectorSimilarityFunction {
     self
   }
