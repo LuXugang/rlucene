@@ -170,7 +170,6 @@ impl QueryBase for BinaryRangeFieldRangeQuery {
 }
 
 pub struct BinaryRangeFieldRangeWeight {
-  query: BinaryRangeFieldRangeQuery,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -179,10 +178,8 @@ pub struct BinaryRangeFieldRangeWeight {
 
 impl BinaryRangeFieldRangeWeight {
   fn new(query: BinaryRangeFieldRangeQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let query_clone = query.clone();
     let parent_query = Arc::new(query.into());
     Self {
-      query: query_clone,
       base: ConstantScoreWeight::new(boost),
       parent_query,
       score_mode,
@@ -196,7 +193,12 @@ where
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = [self.query.sub.field()];
+    let Query::BinaryRangeFieldRange(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected BinaryRangeFieldRangeQuery",
+      ));
+    };
+    let field = [query.sub.field()];
     DocValues::is_cacheable(ctx, field)
   }
 }
@@ -239,24 +241,29 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::BinaryRangeFieldRange(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected BinaryRangeFieldRangeQuery",
+      ));
+    };
     let field_infos = context.reader().get_field_infos()?;
-    let field_info = field_infos.field_info_by_name(self.query.sub.field())?;
+    let field_info = field_infos.field_info_by_name(query.sub.field())?;
     if field_info.is_none() {
       return Ok(None);
     }
-    let binary_doc_values = DocValues::get_binary(context.reader(), self.query.sub.field())?;
+    let binary_doc_values = DocValues::get_binary(context.reader(), query.sub.field())?;
     let brdv = BinaryRangeDocValues::new(
       binary_doc_values,
-      self.query.num_dims,
-      self.query.num_bytes_per_dimension,
+      query.num_dims,
+      query.num_bytes_per_dimension,
     );
     let tpi = BinaryRangeFieldRangeTPI::new(
       brdv,
-      self.query.query_packed_value.clone(),
-      self.query.num_dims,
-      self.query.num_bytes_per_dimension,
-      self.query.query_type,
-      self.query.comparator.clone(),
+      query.query_packed_value.clone(),
+      query.num_dims,
+      query.num_bytes_per_dimension,
+      query.query_type,
+      query.comparator.clone(),
     );
     let scorer = ConstantScoreScorer::from_tpi(self.boost, self.score_mode, tpi);
     Ok(Some(DefaultScorerSupplier::new(scorer)))
