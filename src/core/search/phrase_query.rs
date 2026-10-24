@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 use std::fmt::Write as _;
 
 use crate::core::index::BytesRef;
@@ -309,12 +310,11 @@ impl QueryBase for PhraseQuery {
     IndexSearcher<IRC, SIM>: Sync,
   {
     let similarity = searcher.get_similarity();
-    let query = self.clone();
     let field = self
       .get_field()
       .map(str::to_owned)
       .ok_or_else(|| LuceneError::illegal_state("field is None"))?;
-    let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
+    let base = PhraseWeightMeta::new(field, *score_mode, similarity);
     let sub = PhraseQueryWeightBase::new(self, boost, base);
     let weight = PhraseWeight::new(searcher, sub)?;
     Ok(weight)
@@ -705,6 +705,10 @@ where
       )?)
     };
     Ok(Some(v))
+  }
+
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   fn base(&self) -> &PhraseWeightMeta<SIM> {

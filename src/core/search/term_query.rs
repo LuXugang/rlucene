@@ -35,7 +35,8 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::for_field;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::QueryBase;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{ScorerEnum2, ScorerEnum4};
@@ -188,7 +189,7 @@ where
   sim_scorer: Option<Arc<TermQuerySimScorer<SIM>>>,
   term_states: Arc<TermStates>,
   score_mode: ScoreMode,
-  parent_query: Arc<Query>,
+  parent_query: TermQuery,
 }
 impl<SIM> TermWeight<SIM>
 where
@@ -253,7 +254,7 @@ where
       sim_scorer,
       term_states,
       score_mode,
-      parent_query: Arc::new(query.into()),
+      parent_query: query,
     })
   }
   /// Returns a TermsEnum positioned at this weights Term or None if the term does not exist in the given context
@@ -275,11 +276,7 @@ where
       Some(ref mut s) => term_states.resolve(s)?,
       None => None,
     };
-    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-      v
-    } else {
-      return Err(LuceneError::illegal_state(""));
-    };
+    let parent_query = &self.parent_query;
 
     let Some(state) = state else {
       debug_assert!(
@@ -328,11 +325,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let parent_query = if let Query::Term(query) = self.parent_query.as_ref() {
-      query
-    } else {
-      return Err(LuceneError::illegal_state(""));
-    };
+    let parent_query = &self.parent_query;
     for_field(&parent_query.term.field, (self, context, doc).into())
   }
 
@@ -345,11 +338,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-      v
-    } else {
-      return Err(LuceneError::illegal_state(""));
-    };
+    let parent_query = &self.parent_query;
     let mut terms_enum = self.get_terms_enum(context)?;
     let mut scorer = Self::build_term_scorer(
       context,
@@ -390,7 +379,9 @@ where
         score_explanation.value.clone(),
         format!(
           "weight({:?} in {}) [{}], result of:",
-          self.parent_query, doc, self.similarity,
+          QueryRef::Term(&self.parent_query),
+          doc,
+          self.similarity,
         ),
         vec![score_explanation],
       ));
@@ -399,8 +390,8 @@ where
     Ok(Explanation::no_match_no_details("no matching term"))
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::Term(&self.parent_query)
   }
 
   type ScorerSupplier = TermScorerSupplier<IRCLeafReader<IRC>, SIM>;
@@ -421,11 +412,7 @@ where
       "The top-reader used to create Weight is not the same as the current reader's top-reader"
     );
     let state_supplier = self.term_states.get(context)?;
-    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-      v
-    } else {
-      return Err(LuceneError::illegal_state(""));
-    };
+    let parent_query = &self.parent_query;
 
     match state_supplier {
       None => Ok(None),
@@ -736,7 +723,7 @@ where
     Ok(Some(
       Box::new(TermMatchesIterator::new(
         postings,
-        self.parent_query.clone(),
+        Arc::new(self.parent_query.clone().into()),
       )?)
       .into(),
     ))

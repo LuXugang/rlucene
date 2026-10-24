@@ -31,7 +31,7 @@ use crate::core::search::doc_id_set_iterator::{
 };
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryRef, QueryWeightSs};
+use crate::core::search::query::{QueryRef, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -103,6 +103,7 @@ impl<G, C> SpatialQuery<G, C> {
 impl<G, C> SpatialQuery<G, C>
 where
   C: SpatialQueryBase + 'static,
+  for<'a> QueryRef<'a>: From<&'a SpatialQuery<G, C>>,
   G: Geometry + 'static,
 {
   pub(crate) fn to_string(&self, field: &str) -> Result<String> {
@@ -128,7 +129,6 @@ where
     _searcher: &IndexSearcher<IRC, SIM>,
     score_mode: &ScoreMode,
     boost: f32,
-    query: Arc<Query>,
   ) -> Result<SpatialWeight<G, C>>
   where
     SIM: Similarity,
@@ -140,7 +140,7 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     let spatial_visitor = self.sub.get_spatial_visitor()?;
-    let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode, query);
+    let spatial_weight = SpatialWeight::new(self, spatial_visitor, boost, *score_mode);
     Ok(spatial_weight)
   }
 
@@ -205,7 +205,6 @@ where
   base: ConstantScoreWeight,
   spatial_visitor: Arc<C::SpatialVisitor>,
   score_mode: ScoreMode,
-  query_s: Arc<Query>,
 }
 impl<G, C> SpatialWeight<G, C>
 where
@@ -217,7 +216,6 @@ where
     spatial_visitor: C::SpatialVisitor,
     boost: f32,
     score_mode: ScoreMode,
-    query_s: Arc<Query>,
   ) -> Self {
     let parent_query = query;
     let base = ConstantScoreWeight::new(boost);
@@ -226,7 +224,6 @@ where
       base,
       spatial_visitor: Arc::new(spatial_visitor),
       score_mode,
-      query_s,
     }
   }
 }
@@ -246,6 +243,7 @@ impl<G, C, IRC, SIM> Weight<IRC, SIM> for SpatialWeight<G, C>
 where
   SIM: Similarity,
   C: SpatialQueryBase + 'static,
+  for<'a> QueryRef<'a>: From<&'a SpatialQuery<G, C>>,
   G: Geometry + 'static,
   IRC: IndexReaderContext + 'static,
   QueryWeightSs<IRC, SIM>: From<
@@ -272,8 +270,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query_s.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.parent_query).into()
   }
 
   type ScorerSupplier = QueryWeightSs<IRC, SIM>;

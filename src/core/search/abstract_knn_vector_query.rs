@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_reader::{Identity, IndexReader};
@@ -713,22 +714,19 @@ impl Hash for DocAndScoreQuery {
 }
 
 pub struct DocAndScoreQueryWeight {
-  parent_query: Arc<Query>,
+  parent_query: DocAndScoreQuery,
   boost: f32,
 }
 impl DocAndScoreQueryWeight {
   pub fn new(query: DocAndScoreQuery, boost: f32) -> Self {
     Self {
-      parent_query: Arc::new(query.into()),
+      parent_query: query,
       boost,
     }
   }
 
   fn query(&self) -> Result<&DocAndScoreQuery> {
-    let Query::DocAndScore(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state("expected DocAndScoreQuery"));
-    };
-    Ok(query)
+    Ok(&self.parent_query)
   }
 }
 
@@ -771,8 +769,8 @@ where
     }
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::DocAndScore(&self.parent_query)
   }
 
   type ScorerSupplier = DefaultScorerSupplier<ScorerImpl>;

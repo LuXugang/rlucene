@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
@@ -42,7 +43,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum2, EmptyDISI};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::QueryBase;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
@@ -165,7 +166,7 @@ impl QueryBase for LatLonPointDistanceFeatureQuery {
 }
 
 pub struct LatLonPointDistanceFeatureWeight {
-  parent_query: Arc<Query>,
+  parent_query: Arc<LatLonPointDistanceFeatureQuery>,
   query_meta: QueryMeta,
   boost: f32,
 }
@@ -178,7 +179,7 @@ impl LatLonPointDistanceFeatureWeight {
       pivot_distance: query.pivot_distance,
     };
     Self {
-      parent_query: Arc::new(query.into()),
+      parent_query: Arc::new(query),
       query_meta,
       boost,
     }
@@ -238,11 +239,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::LatLonPointDistanceFeature(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected LatLonPointDistanceFeatureQuery",
-      ));
-    };
+    let query = self.parent_query.as_ref();
     let reader = context.reader();
     let mut multi_doc_values = DocValues::get_sorted_numeric(reader, &query.field)?;
     if !multi_doc_values.advance_exact(doc)? {
@@ -283,8 +280,8 @@ where
     ))
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::LatLonPointDistanceFeature(self.parent_query.as_ref())
   }
 
   type ScorerSupplier = ScorerSupplierImpl<SelectValue<IRC>>;
@@ -297,11 +294,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::LatLonPointDistanceFeature(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected LatLonPointDistanceFeatureQuery",
-      ));
-    };
+    let query = self.parent_query.as_ref();
     let reader = context.reader();
     if reader.get_point_values(&query.field)?.is_none() {
       return Ok(None);
@@ -330,7 +323,7 @@ pub struct QueryMeta {
   pivot_distance: f64,
 }
 pub struct ScorerSupplierImpl<DV> {
-  parent_query: Arc<Query>,
+  parent_query: Arc<LatLonPointDistanceFeatureQuery>,
   query_meta: QueryMeta,
   max_doc: i32,
   boost: f32,
@@ -342,7 +335,7 @@ where
   DV: NumericDocValues,
 {
   fn new(
-    parent_query: Arc<Query>,
+    parent_query: Arc<LatLonPointDistanceFeatureQuery>,
     query_meta: QueryMeta,
     max_doc: i32,
     boost: f32,
@@ -381,11 +374,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::LatLonPointDistanceFeature(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected LatLonPointDistanceFeatureQuery",
-      ));
-    };
+    let query = self.parent_query.as_ref();
     let reader = context.reader();
     let point_values = reader.get_point_values(&query.field)?.ok_or_else(|| {
       LuceneError::illegal_state(format!("Field {} does not have point values", query.field))

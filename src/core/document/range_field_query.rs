@@ -31,7 +31,8 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
+use crate::core::search::query::QueryRef;
+use crate::core::search::query::{QueryBase, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -217,13 +218,13 @@ impl QueryBase for RangeFieldQuery {
 
 pub struct RangeFieldWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: Arc<RangeFieldQuery>,
   score_mode: ScoreMode,
 }
 
 impl RangeFieldWeight {
   fn new(query: RangeFieldQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let parent_query = Arc::new(query.into());
+    let parent_query = Arc::new(query);
     Self {
       base: ConstantScoreWeight::new(boost),
       parent_query,
@@ -261,8 +262,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::RangeField(self.parent_query.as_ref())
   }
 
   type ScorerSupplier = QueryWeightSs<IRC, SIM>;
@@ -275,9 +276,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::RangeField(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state("expected RangeFieldQuery"));
-    };
+    let query = self.parent_query.as_ref();
     let reader = context.reader();
     let Some(values) = reader.get_point_values(&query.field)? else {
       return Ok(None);
@@ -330,7 +329,7 @@ pub struct RangeFieldScorerSupplier<PV> {
   score_mode: ScoreMode,
   values: PV,
   result: DocIdSetBuilder,
-  query: Arc<Query>,
+  query: Arc<RangeFieldQuery>,
   cost: i64,
 }
 
@@ -340,7 +339,7 @@ impl<PV> RangeFieldScorerSupplier<PV> {
     score_mode: ScoreMode,
     values: PV,
     result: DocIdSetBuilder,
-    query: Arc<Query>,
+    query: Arc<RangeFieldQuery>,
   ) -> Self {
     Self {
       score,
@@ -373,9 +372,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::RangeField(query) = self.query.as_ref() else {
-      return Err(LuceneError::illegal_state("expected RangeFieldQuery"));
-    };
+    let query = self.query.as_ref();
     let mut visitor = RangeFieldIntersectVisitor::new(&mut self.result, query);
     self.values.intersect(&mut visitor)?;
     let iterator = self.result.build_iterator()?;
@@ -406,9 +403,7 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     if self.cost == -1 {
-      let Query::RangeField(query) = self.query.as_ref() else {
-        return Err(LuceneError::illegal_state("expected RangeFieldQuery"));
-      };
+      let query = self.query.as_ref();
       let visitor = RangeFieldIntersectVisitor::new(&mut self.result, query);
       self.cost = self.values.estimate_doc_count(&visitor)?;
       debug_assert!(self.cost >= 0);

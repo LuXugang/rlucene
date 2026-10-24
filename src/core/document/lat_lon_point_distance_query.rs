@@ -28,7 +28,8 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
+use crate::core::search::query::QueryRef;
+use crate::core::search::query::{QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -160,7 +161,6 @@ impl QueryBase for LatLonPointDistanceQuery {
 
 pub struct LatLonPointDistanceWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
   query: LatLonPointDistanceQuery,
   score_mode: ScoreMode,
   min_lat: i32,
@@ -201,7 +201,6 @@ impl LatLonPointDistanceWeight {
     )?;
     Ok(Self {
       base: ConstantScoreWeight::new(boost),
-      parent_query: Arc::new(query.clone().into()),
       query,
       score_mode,
       min_lat,
@@ -259,13 +258,11 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
-    self
-      .base
-      .explain(scorer, doc, self.parent_query.to_string("")?)
+    self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   type ScorerSupplier = ScorerSupplierImpl<<IRCLeafReader<IRC> as LeafReader>::PointValues>;

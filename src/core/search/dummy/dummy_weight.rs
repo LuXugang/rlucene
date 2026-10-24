@@ -21,6 +21,7 @@ use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::Query;
+use crate::core::search::query::QueryRef;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -82,7 +83,7 @@ where
     dummy_unreachable!()
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     dummy_unreachable!()
   }
 

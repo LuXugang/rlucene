@@ -38,7 +38,8 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
+use crate::core::search::query::QueryRef;
+use crate::core::search::query::{QueryBase, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
@@ -283,13 +284,13 @@ impl QueryBase for PointInSetQuery {
 
 pub struct PointInSetWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: PointInSetQuery,
   score_mode: ScoreMode,
 }
 
 impl PointInSetWeight {
   pub fn new(score: f32, query: PointInSetQuery, score_mode: ScoreMode) -> Self {
-    let parent_query = Arc::new(query.into());
+    let parent_query = query;
     Self {
       base: ConstantScoreWeight::new(score),
       parent_query,
@@ -327,8 +328,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::PointInSet(&self.parent_query)
   }
 
   type ScorerSupplier = QueryWeightSs<IRC, SIM>;
@@ -341,9 +342,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::PointInSet(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state("expected PointInSetQuery"));
-    };
+    let query = &self.parent_query;
     let reader = context.reader();
     let values = match reader.get_point_values(&query.field)? {
       Some(v) => v,

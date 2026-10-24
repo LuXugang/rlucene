@@ -19,17 +19,17 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::QueryBase;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// A query that matches no documents.
 #[derive(Clone, Debug)]
@@ -123,13 +123,13 @@ impl QueryBase for MatchNoDocsQuery {
 }
 
 pub struct MatchNoDocsWeight {
-  parent_query: Arc<Query>,
+  parent_query: MatchNoDocsQuery,
 }
 
 impl MatchNoDocsWeight {
   pub fn new(query: MatchNoDocsQuery) -> Self {
     Self {
-      parent_query: Arc::new(query.into()),
+      parent_query: query,
     }
   }
 }
@@ -157,18 +157,14 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let parent_query = if let Query::MatchNoDocs(v) = self.parent_query.as_ref() {
-      v
-    } else {
-      return Err(LuceneError::illegal_state(""));
-    };
+    let parent_query = &self.parent_query;
     Ok(Explanation::no_match_no_details(
       parent_query.reason.clone(),
     ))
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::MatchNoDocs(&self.parent_query)
   }
 
   type ScorerSupplier = crate::core::search::weight::DefaultScorerSupplier<
@@ -202,7 +198,7 @@ where
 
 impl std::fmt::Debug for MatchNoDocsWeight {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "weight({:?})", self.parent_query)
+    write!(f, "weight({:?})", QueryRef::MatchNoDocs(&self.parent_query))
   }
 }
 

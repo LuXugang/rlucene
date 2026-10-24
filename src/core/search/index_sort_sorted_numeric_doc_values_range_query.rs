@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
+use crate::core::search::query::QueryRef;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use std::fmt::Write as _;
 
@@ -151,7 +152,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
       Arc::clone(&self.field),
       self.lower_value,
       self.upper_value,
-      Arc::new(self.into()),
+      self,
       ConstantScoreWeight::new(boost),
       *score_mode,
       fallback_query_weight,
@@ -212,7 +213,7 @@ pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<
   base: ConstantScoreWeight,
   score_mode: ScoreMode,
   fallback_query_weight: QueryWeight<IRC, SIM>,
-  parent_query: Arc<Query>,
+  parent_query: IndexSortSortedNumericDocValuesRangeQuery,
 }
 impl<IRC, SIM> IndexSortSortedNumericDocValuesRangeQueryWeight<IRC, SIM>
 where
@@ -223,7 +224,7 @@ where
     field: Arc<String>,
     lower_value: i64,
     upper_value: i64,
-    parent_query: Arc<Query>,
+    parent_query: IndexSortSortedNumericDocValuesRangeQuery,
     base: ConstantScoreWeight,
     score_mode: ScoreMode,
     fallback_query_weight: QueryWeight<IRC, SIM>,
@@ -273,8 +274,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::IndexSortSortedNumericDocValuesRange(&self.parent_query)
   }
 
   type ScorerSupplier = QueryWeightSs<IRC, SIM>;

@@ -34,7 +34,8 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIterator};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::QueryBase;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -171,14 +172,14 @@ impl QueryBase for BinaryRangeFieldRangeQuery {
 
 pub struct BinaryRangeFieldRangeWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: BinaryRangeFieldRangeQuery,
   score_mode: ScoreMode,
   boost: f32,
 }
 
 impl BinaryRangeFieldRangeWeight {
   fn new(query: BinaryRangeFieldRangeQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let parent_query = Arc::new(query.into());
+    let parent_query = query;
     Self {
       base: ConstantScoreWeight::new(boost),
       parent_query,
@@ -193,11 +194,7 @@ where
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let Query::BinaryRangeFieldRange(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected BinaryRangeFieldRangeQuery",
-      ));
-    };
+    let query = &self.parent_query;
     let field = [query.sub.field()];
     DocValues::is_cacheable(ctx, field)
   }
@@ -223,8 +220,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::BinaryRangeFieldRange(&self.parent_query)
   }
 
   type ScorerSupplier = DefaultScorerSupplier<
@@ -241,11 +238,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::BinaryRangeFieldRange(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected BinaryRangeFieldRangeQuery",
-      ));
-    };
+    let query = &self.parent_query;
     let field_infos = context.reader().get_field_infos()?;
     let field_info = field_infos.field_info_by_name(query.sub.field())?;
     if field_info.is_none() {

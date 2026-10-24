@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -206,7 +207,7 @@ where
     self.in_.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     self.in_.get_query()
   }
 

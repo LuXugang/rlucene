@@ -34,6 +34,7 @@ use crate::core::search::doc_values_range_iterator::DocValuesRangeIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -43,7 +44,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use std::fmt::Write as _;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -184,7 +185,7 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
 
 pub struct SortedSetDocValuesRangeQueryWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: Arc<SortedSetDocValuesRangeQuery>,
   score_mode: ScoreMode,
 }
 impl SortedSetDocValuesRangeQueryWeight {
@@ -193,7 +194,7 @@ impl SortedSetDocValuesRangeQueryWeight {
     score: f32,
     score_mode: ScoreMode,
   ) -> Self {
-    let parent_query = Arc::new(query.into());
+    let parent_query = Arc::new(query);
     SortedSetDocValuesRangeQueryWeight {
       base: ConstantScoreWeight::new(score),
       parent_query,
@@ -207,11 +208,7 @@ where
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let Query::SortedSetDocValuesRange(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected SortedSetDocValuesRangeQuery",
-      ));
-    };
+    let query = self.parent_query.as_ref();
     let field = [query.field.as_str()];
     DocValues::is_cacheable(ctx, field)
   }
@@ -237,8 +234,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::SortedSetDocValuesRange(self.parent_query.as_ref())
   }
 
   type ScorerSupplier = ScorerSupplierImpl3<SortedSet<IRCLeafReader<IRC>>>;
@@ -251,11 +248,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::SortedSetDocValuesRange(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected SortedSetDocValuesRangeQuery",
-      ));
-    };
+    let query = self.parent_query.as_ref();
     if context
       .reader()
       .get_field_infos()?
@@ -373,7 +366,7 @@ where
   Ok(doc)
 }
 pub struct ScorerSupplierImpl3<S> {
-  query: Arc<Query>,
+  query: Arc<SortedSetDocValuesRangeQuery>,
   values: Option<S>,
   cost: i64,
   score: f32,
@@ -383,7 +376,12 @@ impl<S> ScorerSupplierImpl3<S>
 where
   S: SortedSetDocValues,
 {
-  pub fn new(query: Arc<Query>, values: S, score: f32, score_mode: ScoreMode) -> Result<Self> {
+  pub fn new(
+    query: Arc<SortedSetDocValuesRangeQuery>,
+    values: S,
+    score: f32,
+    score_mode: ScoreMode,
+  ) -> Result<Self> {
     let cost = values.cost()?;
     Ok(ScorerSupplierImpl3 {
       query,
@@ -411,11 +409,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::SortedSetDocValuesRange(query) = self.query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected SortedSetDocValuesRangeQuery",
-      ));
-    };
+    let query = self.query.as_ref();
     let mut skipper_opt = context.reader().get_doc_values_skipper(&query.field)?;
     let mut values = match self.values.take() {
       Some(v) => v,

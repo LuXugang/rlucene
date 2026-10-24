@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
@@ -1018,8 +1019,8 @@ where
     self.delegate_weight.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.parent_query.as_ref().into()
   }
 
   fn scorer_supplier(

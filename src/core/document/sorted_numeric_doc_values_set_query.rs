@@ -30,6 +30,7 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -160,7 +161,6 @@ impl Accountable for SortedNumericDocValuesSetQuery {
 pub struct SortedNumericDocValuesSetQueryWeight {
   query: SortedNumericDocValuesSetQuery,
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
   score_mode: ScoreMode,
 }
 impl SortedNumericDocValuesSetQueryWeight {
@@ -169,12 +169,9 @@ impl SortedNumericDocValuesSetQueryWeight {
     score_mode: ScoreMode,
     boost: f32,
   ) -> Self {
-    let query_clone = query.clone();
-    let parent_query = Arc::new(query.into());
     Self {
-      query: query_clone,
+      query,
       base: ConstantScoreWeight::new(boost),
-      parent_query,
       score_mode,
     }
   }
@@ -205,13 +202,11 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
-    self
-      .base
-      .explain(scorer, doc, self.parent_query.to_string("")?)
+    self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   type ScorerSupplier = DefaultScorerSupplier<ConstantScoreTwoPhaseScorer<TwoPhaseIteratorEnum2<

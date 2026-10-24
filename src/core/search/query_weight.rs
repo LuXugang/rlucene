@@ -18,6 +18,7 @@
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -224,7 +225,7 @@ where
       inner, context, doc, searcher
     ))
   }
-  fn get_query(&self) -> std::sync::Arc<search::query::Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     dispatch_weight!(&self.inner, |inner| Weight::<IRC, SIM>::get_query(inner))
   }
   fn scorer(

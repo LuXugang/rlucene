@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -204,8 +205,8 @@ where
     self.in_weight.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier = DefaultScorerSupplier<BlockScoreScorer>;
@@ -467,7 +468,7 @@ where
       Self::Inner(inner) => Weight::<IRC, SIM>::explain(inner, context, doc, searcher),
     }
   }
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     match self {
       Self::Scoring(inner) => Weight::<IRC, SIM>::get_query(inner),
       Self::Inner(inner) => Weight::<IRC, SIM>::get_query(inner),

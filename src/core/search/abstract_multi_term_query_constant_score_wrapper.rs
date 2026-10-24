@@ -38,11 +38,12 @@ use crate::core::search::matches_utils::for_field;
 use crate::core::search::multi_term_query::MultiTermQuery;
 use crate::core::search::multi_term_query_constant_score_blended_wrapper::BlendedRewritingWeight;
 use crate::core::search::multi_term_query_constant_score_wrapper::StandardRewritingWeight;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::QueryWeightMatches;
 use crate::core::search::query::QueryWeightMatchesIterator;
 use crate::core::search::query::QueryWeightSs;
 use crate::core::search::query::{
-  Query, QueryBase, QueryWeight, QueryWeightSsBulkScorer, QueryWeightSsScorer,
+  QueryBase, QueryWeight, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum4;
@@ -71,21 +72,19 @@ pub struct RewritingWeight<Q> {
   q: Q,
   base: ConstantScoreWeight,
   sub: RewritingWeightBaseEnum,
-  query: Arc<Query>,
 }
 impl<Q> RewritingWeight<Q>
 where
   Q: MultiTermQuery,
+  for<'a> QueryRef<'a>: From<&'a Q>,
 {
   pub(crate) fn new(score: f32, score_mode: ScoreMode, q: Q, sub: RewritingWeightBaseEnum) -> Self {
-    let query = Arc::new(q.to_query());
     let base = ConstantScoreWeight::new(score);
     Self {
       score_mode,
       q,
       base,
       sub,
-      query,
     }
   }
   fn collect_terms<TE>(
@@ -130,6 +129,7 @@ impl<IRC, Q> SegmentCacheable<IRC> for RewritingWeight<Q>
 where
   IRC: IndexReaderContext + 'static,
   Q: MultiTermQuery,
+  for<'a> QueryRef<'a>: From<&'a Q>,
 {
   fn is_cacheable(&self, _ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     Ok(true)
@@ -142,6 +142,7 @@ SIM: Similarity,
 
   IRC: IndexReaderContext + 'static,
   Q: MultiTermQuery,
+  for<'a> QueryRef<'a>: From<&'a Q>,
   <Q as MultiTermQuery>::TermsEnum<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms>:
     'static,
   <Q as MultiTermQuery>::TermsEnum<
@@ -177,11 +178,11 @@ SIM: Similarity,
     IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
-    self.base.explain(scorer, doc, self.query.to_string("")?)
+    self.base.explain(scorer, doc, self.q.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.q).into()
   }
 
   type ScorerSupplier = ScorerSupplierImpl<
@@ -698,7 +699,7 @@ SIM: Similarity,
   {
     let field = self.q.get_field();
     let terms_enum = self.q.get_terms_enum(terms)?;
-    from_terms_enum(context, doc, self.query.clone(), field, terms_enum)
+    from_terms_enum(context, doc, Arc::new(self.q.to_query()), field, terms_enum)
       .map(|value| value.map(|iterator| Box::new(iterator).into()))
   }
 }
@@ -795,7 +796,7 @@ where
       Self::DumbRegexp(inner) => Weight::<IRC, SIM>::explain(inner, context, doc, searcher),
     }
   }
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     match self {
       Self::Prefix(inner) => Weight::<IRC, SIM>::get_query(inner),
       Self::TermRange(inner) => Weight::<IRC, SIM>::get_query(inner),

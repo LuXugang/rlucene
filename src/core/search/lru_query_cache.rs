@@ -28,6 +28,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::doc_id_set_iterator::{
   DocIdSetIterator, DocIdSetIteratorEnum2, DocIdSetIteratorEnum3, EmptyDISI,
 };
+use crate::core::search::query::QueryRef;
 use crate::core::search::similarities_impl::similarities::Similarity;
 
 use crate::core::search::explanation::Explanation;
@@ -975,6 +976,7 @@ pub struct CachingWrapperWeight<
   SIM: Similarity,
 {
   in_: QueryWeight<IRC, SIM>,
+  query: Arc<Query>,
   base: ConstantScoreWeight,
   policy: Arc<QueryCachingPolicyEnum>,
   used: AtomicBool,
@@ -990,8 +992,10 @@ where
     policy: Arc<QueryCachingPolicyEnum>,
     lru_cache: Arc<LRUQueryCache>,
   ) -> Self {
+    let query = Arc::new(Query::from(in_.get_query()));
     Self {
       in_,
+      query,
       base: ConstantScoreWeight::new(1.0),
       policy,
       used: AtomicBool::new(false),
@@ -1069,7 +1073,7 @@ where
       .base
       .explain(scorer, doc, self.get_query().to_string("")?)
   }
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     self.in_.get_query()
   }
 
@@ -1088,7 +1092,7 @@ where
       .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
     {
-      self.policy.on_use(self.get_query().as_ref());
+      self.policy.on_use(self.query.as_ref());
     }
 
     if !self.in_.is_cacheable(context)? {
@@ -1108,12 +1112,12 @@ where
       };
       self
         .lru_cache
-        .get(self.get_query().as_ref(), &cache_helper, &inner_read)
+        .get(self.query.as_ref(), &cache_helper, &inner_read)
         .cloned()
     };
     match cached {
       None => {
-        let query = self.get_query();
+        let query = self.query.clone();
         if self.policy.should_cache(query.as_ref())? {
           let Some(mut supplier) = self.in_.scorer_supplier(context, searcher)? else {
             self.lru_cache.put_if_absent(
@@ -1169,7 +1173,7 @@ where
       .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
     {
-      self.policy.on_use(self.get_query().as_ref());
+      self.policy.on_use(self.query.as_ref());
     }
 
     if !self.in_.is_cacheable(context)? {
@@ -1188,7 +1192,7 @@ where
       return self.in_.count(context, searcher);
     };
 
-    let query = self.get_query();
+    let query = self.query.clone();
     let cached = self
       .lru_cache
       .get(query.as_ref(), &cache_helper, &inner_read);

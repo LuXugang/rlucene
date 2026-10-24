@@ -19,6 +19,7 @@ use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{
   Query, QueryWeight, QueryWeightMatches, QueryWeightSs, QueryWeightSsBulkScorer,
 };
@@ -103,7 +104,7 @@ where
     self.in_.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     self.in_.get_query()
   }
 

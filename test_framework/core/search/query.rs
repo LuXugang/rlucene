@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::search::approximation_disi::ApproximationBitSetAccess;
 use crate::core::search::approximation_disi::ApproximationDISI;
@@ -259,8 +260,8 @@ where
     Ok(result)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   fn scorer_supplier(
@@ -505,8 +506,8 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier = CrazyMustUseBulkScorerSupplier;
@@ -779,8 +780,8 @@ where
     self.inner_weight.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   fn scorer_supplier(
@@ -930,8 +931,8 @@ where
     self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier =
@@ -1127,8 +1128,8 @@ where
     self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier =
@@ -1282,8 +1283,8 @@ where
     self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier = DefaultScorerSupplier<ConstantScoreDisiScorer<AllDISI>>;
@@ -1513,8 +1514,8 @@ where
     self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier = TestLRUScorerSupplier;
@@ -1729,8 +1730,8 @@ where
     ConstantScoreWeight::new(1.0).explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier = DVCacheScorerSupplier;
@@ -2163,7 +2164,7 @@ where
     self.weight.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     self.weight.get_query()
   }
 
@@ -2386,8 +2387,8 @@ where
     unreachable!("")
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.query.as_ref().into()
   }
 
   type ScorerSupplier = DefaultScorerSupplier<

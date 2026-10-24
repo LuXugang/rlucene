@@ -32,7 +32,8 @@ use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::doc_id_set_iterator::{AllDISI, DocIdSetIterator};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase, QueryWeightSs};
+use crate::core::search::query::QueryRef;
+use crate::core::search::query::{QueryBase, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
@@ -269,14 +270,14 @@ impl QueryBase for PointRangeQuery {
 
 pub struct PointRangeWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: Arc<PointRangeQuery>,
   comparator: ByteArrayComparatorEnum,
   score_mode: ScoreMode,
 }
 impl PointRangeWeight {
   pub fn new(score: f32, query: PointRangeQuery, score_mode: ScoreMode) -> Self {
     let comparator = ArrayUtil::get_unsigned_comparator(query.bytes_per_dim);
-    let parent_query = Arc::new(query.into());
+    let parent_query = Arc::new(query);
     Self {
       base: ConstantScoreWeight::new(score),
       parent_query,
@@ -387,11 +388,7 @@ impl PointRangeWeight {
     }
   }
   fn point_range_query(&self) -> Result<&PointRangeQuery> {
-    if let Query::PointRange(v) = self.parent_query.as_ref() {
-      Ok(v)
-    } else {
-      Err(LuceneError::illegal_state(""))
-    }
+    Ok(&self.parent_query)
   }
 }
 
@@ -424,8 +421,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::PointRange(self.parent_query.as_ref())
   }
 
   type ScorerSupplier = QueryWeightSs<IRC, SIM>;
@@ -662,7 +659,7 @@ pub struct ScorerSupplierImpl1<PV> {
   score_mode: ScoreMode,
   values: PV,
   result: DocIdSetBuilder,
-  parent_query: Arc<Query>,
+  parent_query: Arc<PointRangeQuery>,
   comparator: ByteArrayComparatorEnum,
   cost: i64,
 }
@@ -672,7 +669,7 @@ impl<PV> ScorerSupplierImpl1<PV> {
     score_mode: ScoreMode,
     values: PV,
     result: DocIdSetBuilder,
-    parent_query: Arc<Query>,
+    parent_query: Arc<PointRangeQuery>,
     comparator: ByteArrayComparatorEnum,
   ) -> Self {
     Self {
@@ -932,12 +929,10 @@ pub struct IntersectVisitorImpl1<'a> {
 impl<'a> IntersectVisitorImpl1<'a> {
   pub fn new(
     result: &'a mut DocIdSetBuilder,
-    parent_query: &'a Query,
+    parent_query: &'a PointRangeQuery,
     comparator: &'a ByteArrayComparatorEnum,
   ) -> Result<Self> {
-    let Query::PointRange(query) = parent_query else {
-      return Err(LuceneError::illegal_state(""));
-    };
+    let query = parent_query;
     Ok(Self {
       result,
       query,

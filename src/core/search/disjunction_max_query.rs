@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use std::borrow::Cow;
 use std::fmt::Write as _;
@@ -291,7 +292,7 @@ pub struct DisjunctionMaxWeight<
 > where
   SIM: Similarity,
 {
-  parent_query: Arc<Query>,
+  parent_query: DisjunctionMaxQuery,
   tie_breaker_multiplier: f32,
   score_mode: ScoreMode,
   weights: Vec<QueryWeight<IRC, SIM>>,
@@ -318,7 +319,7 @@ where
     }
     let tie_breaker_multiplier = query.get_tie_breaker_multiplier();
     Ok(Self {
-      parent_query: Arc::new(query.into()),
+      parent_query: query,
       tie_breaker_multiplier,
       score_mode,
       weights,
@@ -428,8 +429,8 @@ where
     }
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::DisjunctionMax(&self.parent_query)
   }
 
   type ScorerSupplier = QueryWeightSs<IRC, SIM>;

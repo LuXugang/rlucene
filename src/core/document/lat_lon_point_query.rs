@@ -77,8 +77,7 @@ impl QueryBase for LatLonPointQuery {
     Self: Sized,
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let query = Arc::new(self.clone().into());
-    self.inner_create_weight(searcher, score_mode, boost, query)
+    self.inner_create_weight(searcher, score_mode, boost)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::search::query::QueryRef;
 use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
 
 use crate::core::index::index_reader_context::IRCLeafReader;
@@ -172,7 +173,7 @@ where
     unreachable!()
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     unreachable!()
   }
 

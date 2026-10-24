@@ -21,6 +21,7 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{
   IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer,
   QueryWeightSsScorer,
@@ -34,7 +35,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 /// A query that uses either an index structure (points or terms) or doc values in order to run a
 /// query, depending which one is more efficient. This is typically useful for range queries, whose
 /// [`Weight::scorer`] is costly to create since it usually needs to sort large lists of doc ids.
@@ -203,7 +203,7 @@ pub struct IndexOrDocValuesQueryWeight<
 {
   dv_weight: QueryWeight<IRC, SIM>,
   index_weight: QueryWeight<IRC, SIM>,
-  query: Arc<Query>,
+  query: IndexOrDocValuesQuery,
 }
 impl<IRC, SIM> IndexOrDocValuesQueryWeight<IRC, SIM>
 where
@@ -218,7 +218,7 @@ where
     Self {
       dv_weight,
       index_weight,
-      query: Arc::new(query.into()),
+      query,
     }
   }
 }
@@ -264,8 +264,8 @@ where
     self.dv_weight.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   type ScorerSupplier = IndexOrDocValuesQuerySs<IRC, SIM>;

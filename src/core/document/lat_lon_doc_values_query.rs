@@ -35,7 +35,8 @@ use crate::core::search::constant_score_scorer::ConstantScoreTwoPhaseScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::QueryBase;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -192,7 +193,6 @@ impl QueryBase for LatLonDocValuesQuery {
 pub struct LatLonDocValuesQueryWeight {
   query: LatLonDocValuesQuery,
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
   score_mode: ScoreMode,
   boost: f32,
   component2d_predicate:
@@ -208,12 +208,9 @@ impl LatLonDocValuesQueryWeight {
         query.component2d.clone(),
       )?))
     };
-    let query_clone = query.clone();
-    let parent_query = Arc::new(query.into());
     Ok(Self {
-      query: query_clone,
+      query,
       base: ConstantScoreWeight::new(boost),
-      parent_query,
       score_mode,
       boost,
       component2d_predicate,
@@ -246,13 +243,11 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
-    self
-      .base
-      .explain(scorer, doc, self.parent_query.to_string("")?)
+    self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   type ScorerSupplier = DefaultScorerSupplier<

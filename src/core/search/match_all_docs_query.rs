@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
+use crate::core::search::query::QueryRef;
 use crate::core::search::similarities_impl::similarities::Similarity;
 
 use crate::core::index::index_reader::{Identity, IndexReader};
@@ -27,7 +28,7 @@ use crate::core::search::doc_id_set_iterator::AllDISI;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::QueryBase;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score::Score;
 use crate::core::search::score_mode::ScoreMode;
@@ -39,7 +40,6 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// A query that matches all documents.
 #[derive(Debug, Clone)]
@@ -118,14 +118,14 @@ impl QueryBase for MatchAllDocsQuery {
 
 pub struct MatchAllWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: MatchAllDocsQuery,
   score_mode: ScoreMode,
 }
 impl MatchAllWeight {
   pub fn new(score: f32, query: MatchAllDocsQuery, score_mode: ScoreMode) -> Self {
     Self {
       base: ConstantScoreWeight::new(score),
-      parent_query: Arc::new(query.into()),
+      parent_query: query,
       score_mode,
     }
   }
@@ -160,8 +160,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::MatchAllDocs(&self.parent_query)
   }
 
   type ScorerSupplier = MatchAllDocsScorerSupplier;

@@ -76,7 +76,6 @@ use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::impl_from_for_enum;
 use crate::sandbox::search::term_automaton_query::TermAutomatonQuery;
 #[cfg(test)]
 use crate::test_framework::core::search::asserting_query::AssertingQuery;
@@ -141,146 +140,6 @@ macro_rules! impl_into_box_query {
         )*
     };
 }
-macro_rules! dispatch_query {
-  ($self:expr, |$inner:ident| $body:expr) => {{
-    match $self {
-      Query::BinaryRangeFieldRange($inner) => $body,
-      Query::BlendedTerm($inner) => $body,
-      Query::Boolean($inner) => $body,
-      Query::Boost($inner) => $body,
-      Query::ByteVectorSimilarity($inner) => $body,
-      Query::ConstantScore($inner) => $body,
-      Query::DisjunctionMax($inner) => $body,
-      Query::DocAndScore($inner) => $body,
-      Query::Dummy($inner) => $body,
-      Query::FieldExists($inner) => $body,
-      Query::FloatVectorSimilarity($inner) => $body,
-      Query::IndexOrDocValues($inner) => $body,
-      Query::IndexSortSortedNumericDocValuesRange($inner) => $body,
-      Query::KnnByteVector($inner) => $body,
-      Query::KnnFloatVector($inner) => $body,
-      Query::LatLonDocValues($inner) => $body,
-      Query::LatLonDocValuesBox($inner) => $body,
-      Query::LatLonPoint($inner) => $body,
-      Query::LatLonPointDistance($inner) => $body,
-      Query::LatLonPointDistanceFeature($inner) => $body,
-      Query::MatchAllDocs($inner) => $body,
-      Query::MatchNoDocs($inner) => $body,
-      Query::Named($inner) => $body,
-      Query::MultiPhrase($inner) => $body,
-      Query::MultiTermQuery($inner) => $body,
-      Query::MultiTermQueryDocValuesWrapper($inner) => $body,
-      Query::MultiTermQueryConstantScoreBlendedWrapper($inner) => $body,
-      Query::MultiTermQueryConstantScoreWrapper($inner) => $body,
-      Query::NGramPhrase($inner) => $body,
-      Query::Phrase($inner) => $body,
-      Query::PointInSet($inner) => $body,
-      Query::PointRange($inner) => $body,
-      Query::RangeField($inner) => $body,
-      Query::SortedNumericDocValuesRange($inner) => $body,
-      Query::SortedNumericDocValuesSet($inner) => $body,
-      Query::SortedSetDocValuesRange($inner) => $body,
-      Query::Synonym($inner) => $body,
-      Query::Term($inner) => $body,
-      Query::TermAutomaton($inner) => $body,
-      Query::XYDocValuesPointInGeometry($inner) => $body,
-      Query::XYPointInGeometry($inner) => $body,
-      #[cfg(test)]
-      Query::Asserting($inner) => $body,
-      #[cfg(test)]
-      Query::AssertNeedsScores($inner) => $body,
-      #[cfg(test)]
-      Query::BitSet($inner) => $body,
-      #[cfg(test)]
-      Query::BlockScoreQueryWrapper($inner) => $body,
-      #[cfg(test)]
-      Query::BrokenExplainTerm($inner) => $body,
-      #[cfg(test)]
-      Query::Counting($inner) => $body,
-      #[cfg(test)]
-      Query::CrazyMustUseBulkScorer($inner) => $body,
-      #[cfg(test)]
-      Query::Dummy1($inner) => $body,
-      #[cfg(test)]
-      Query::TestLRU($inner) => $body,
-      #[cfg(test)]
-      Query::DVCache($inner) => $body,
-      #[cfg(test)]
-      Query::MaxScoreWrapper($inner) => $body,
-      #[cfg(test)]
-      Query::Random($inner) => $body,
-      #[cfg(test)]
-      Query::RandomApproximation($inner) => $body,
-      #[cfg(test)]
-      Query::TestRewrite($inner) => $body,
-      #[cfg(test)]
-      Query::WANDScorer($inner) => $body,
-    }
-  }};
-}
-impl_from_for_enum!(
-    Query,
-    BinaryRangeFieldRangeQuery => BinaryRangeFieldRange,
-    BlendedTermQuery=> BlendedTerm,
-    BooleanQuery => Boolean,
-    BoostQuery => Boost,
-    ByteVectorSimilarityQuery => ByteVectorSimilarity,
-    ConstantScoreQuery => ConstantScore,
-    DisjunctionMaxQuery => DisjunctionMax,
-    DocAndScoreQuery => DocAndScore,
-    DummyQuery => Dummy,
-    FieldExistsQuery => FieldExists,
-    FloatVectorSimilarityQuery => FloatVectorSimilarity,
-    IndexOrDocValuesQuery => IndexOrDocValues,
-    IndexSortSortedNumericDocValuesRangeQuery => IndexSortSortedNumericDocValuesRange,
-    KnnByteVectorQuery => KnnByteVector,
-    KnnFloatVectorQuery => KnnFloatVector,
-    LatLonDocValuesBoxQuery => LatLonDocValuesBox,
-    LatLonDocValuesQuery => LatLonDocValues,
-    LatLonPointDistanceFeatureQuery => LatLonPointDistanceFeature,
-    LatLonPointDistanceQuery => LatLonPointDistance,
-    LatLonPointQuery=> LatLonPoint,
-    MatchAllDocsQuery => MatchAllDocs,
-    MatchNoDocsQuery => MatchNoDocs,
-    NamedQuery => Named,
-    MultiTermQuerySet => MultiTermQuery,
-    MultiPhraseQuery=> MultiPhrase,
-    MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
-    MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
-    MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
-    NGramPhraseQuery=> NGramPhrase,
-    PhraseQuery=> Phrase,
-    PointInSetQuery => PointInSet,
-    PointRangeQuery => PointRange,
-    RangeFieldQuery => RangeField,
-    SortedNumericDocValuesRangeQuery => SortedNumericDocValuesRange,
-    SortedNumericDocValuesSetQuery => SortedNumericDocValuesSet,
-    SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
-    SynonymQuery => Synonym,
-    TermQuery => Term,
-    TermAutomatonQuery => TermAutomaton,
-    XYDocValuesPointInGeometryQuery => XYDocValuesPointInGeometry,
-    XYPointInGeometryQuery => XYPointInGeometry,
-);
-#[cfg(test)]
-impl_from_for_enum!(
-    Query,
-    AssertingQuery => Asserting,
-    AssertNeedsScores => AssertNeedsScores,
-    BitSetQuery => BitSet,
-    BlockScoreQueryWrapper => BlockScoreQueryWrapper,
-    BrokenExplainTermQuery => BrokenExplainTerm,
-    CountingQuery => Counting,
-    CrazyMustUseBulkScorerQuery => CrazyMustUseBulkScorer,
-    DummyQuery1=> Dummy1,
-    TestLRUQuery => TestLRU,
-    DVCacheQuery => DVCache,
-    MaxScoreWrapperQuery => MaxScoreWrapper,
-    RandomApproximationQuery => RandomApproximation,
-    RandomQuery => Random,
-    TestRewriteQuery => TestRewrite,
-    WANDScorerQuery => WANDScorer
-);
 impl_into_box_query!(
   BinaryRangeFieldRangeQuery,
   BlendedTermQuery,
@@ -361,304 +220,157 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
     QV: QueryVisitor;
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Query {
-  BinaryRangeFieldRange(BinaryRangeFieldRangeQuery),
-  BlendedTerm(BlendedTermQuery),
-  Boolean(BooleanQuery),
-  Boost(BoostQuery),
-  ByteVectorSimilarity(ByteVectorSimilarityQuery),
-  ConstantScore(ConstantScoreQuery),
-  DisjunctionMax(DisjunctionMaxQuery),
-  DocAndScore(DocAndScoreQuery),
-  Dummy(DummyQuery),
-  FieldExists(FieldExistsQuery),
-  FloatVectorSimilarity(FloatVectorSimilarityQuery),
-  IndexOrDocValues(IndexOrDocValuesQuery),
-  IndexSortSortedNumericDocValuesRange(IndexSortSortedNumericDocValuesRangeQuery),
-  KnnByteVector(KnnByteVectorQuery),
-  KnnFloatVector(KnnFloatVectorQuery),
-  LatLonDocValues(LatLonDocValuesQuery),
-  LatLonDocValuesBox(LatLonDocValuesBoxQuery),
-  LatLonPoint(LatLonPointQuery),
-  LatLonPointDistance(LatLonPointDistanceQuery),
-  LatLonPointDistanceFeature(LatLonPointDistanceFeatureQuery),
-  MatchAllDocs(MatchAllDocsQuery),
-  MatchNoDocs(MatchNoDocsQuery),
-  Named(NamedQuery),
-  MultiPhrase(MultiPhraseQuery),
-  MultiTermQuery(MultiTermQuerySet),
-  MultiTermQueryDocValuesWrapper(MultiTermQueryDocValuesWrapper),
-  MultiTermQueryConstantScoreBlendedWrapper(MultiTermQueryConstantScoreBlendedWrapper),
-  MultiTermQueryConstantScoreWrapper(MultiTermQueryConstantScoreWrapper),
-  NGramPhrase(NGramPhraseQuery),
-  Phrase(PhraseQuery),
-  PointInSet(PointInSetQuery),
-  PointRange(PointRangeQuery),
-  RangeField(RangeFieldQuery),
-  SortedNumericDocValuesRange(SortedNumericDocValuesRangeQuery),
-  SortedNumericDocValuesSet(SortedNumericDocValuesSetQuery),
-  SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
-  Synonym(SynonymQuery),
-  Term(TermQuery),
-  TermAutomaton(TermAutomatonQuery),
-  XYDocValuesPointInGeometry(XYDocValuesPointInGeometryQuery),
-  XYPointInGeometry(XYPointInGeometryQuery),
-  #[cfg(test)]
-  Asserting(AssertingQuery),
-  #[cfg(test)]
-  AssertNeedsScores(AssertNeedsScores),
-  #[cfg(test)]
-  BitSet(BitSetQuery),
-  #[cfg(test)]
-  BlockScoreQueryWrapper(BlockScoreQueryWrapper),
-  #[cfg(test)]
-  BrokenExplainTerm(BrokenExplainTermQuery),
-  #[cfg(test)]
-  Counting(CountingQuery),
-  #[cfg(test)]
-  CrazyMustUseBulkScorer(CrazyMustUseBulkScorerQuery),
-  #[cfg(test)]
-  Dummy1(DummyQuery1),
-  #[cfg(test)]
-  TestLRU(TestLRUQuery),
-  #[cfg(test)]
-  DVCache(DVCacheQuery),
-  #[cfg(test)]
-  MaxScoreWrapper(MaxScoreWrapperQuery),
-  #[cfg(test)]
-  Random(RandomQuery),
-  #[cfg(test)]
-  RandomApproximation(RandomApproximationQuery),
-  #[cfg(test)]
-  TestRewrite(TestRewriteQuery),
-  #[cfg(test)]
-  WANDScorer(WANDScorerQuery),
-}
-
-macro_rules! define_query_ref {
-  ($($variant:ident => $query:ty),* $(,)?) => {
-    /// A borrowed query value used by [`QueryVisitor`].
-    #[derive(Clone, Copy, Debug)]
-    pub enum QueryRef<'a> {
-      $($variant(&'a $query),)*
-      #[cfg(test)]
-      Asserting(&'a AssertingQuery),
-      #[cfg(test)]
-      AssertNeedsScores(&'a AssertNeedsScores),
-      #[cfg(test)]
-      BitSet(&'a BitSetQuery),
-      #[cfg(test)]
-      BlockScoreQueryWrapper(&'a BlockScoreQueryWrapper),
-      #[cfg(test)]
-      BoostChecking(&'a BoostCheckingQuery),
-      #[cfg(test)]
-      BrokenExplainTerm(&'a BrokenExplainTermQuery),
-      #[cfg(test)]
-      Counting(&'a CountingQuery),
-      #[cfg(test)]
-      CrazyMustUseBulkScorer(&'a CrazyMustUseBulkScorerQuery),
-      #[cfg(test)]
-      DumbPrefix(&'a DumbPrefixQuery),
-      #[cfg(test)]
-      DumbRegexp(&'a DumbRegexpQuery),
-      #[cfg(test)]
-      Dummy1(&'a DummyQuery1),
-      #[cfg(test)]
-      TestLRU(&'a TestLRUQuery),
-      #[cfg(test)]
-      DVCache(&'a DVCacheQuery),
-      #[cfg(test)]
-      MaxScoreWrapper(&'a MaxScoreWrapperQuery),
-      #[cfg(test)]
-      Random(&'a RandomQuery),
-      #[cfg(test)]
-      RandomApproximation(&'a RandomApproximationQuery),
-      #[cfg(test)]
-      TestRewrite(&'a TestRewriteQuery),
-      #[cfg(test)]
-      WANDScorer(&'a WANDScorerQuery),
+// Keep owned queries and borrowed views in one variant registry.
+macro_rules! define_queries {
+  ($d:tt; owned { $( $(#[$attrs:meta])* $variant:ident => $query:ty, )* }
+   multi_term { $( $(#[$multi_attrs:meta])* $multi:ident => $multi_query:ty, )* }) => {
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub enum Query {
+      $( $(#[$attrs])* $variant($query), )*
     }
 
-    $(
-      impl<'a> From<&'a $query> for QueryRef<'a> {
-        fn from(query: &'a $query) -> Self {
-          Self::$variant(query)
+    /// A borrowed view of a query, including concrete multi-term queries.
+    #[derive(Clone, Copy, Debug)]
+    pub enum QueryRef<'a> {
+      $( $(#[$attrs])* $variant(&'a $query), )*
+      $( $(#[$multi_attrs])* $multi(&'a $multi_query), )*
+    }
+
+    $( $(#[$attrs])* impl From<$query> for Query {
+      fn from(query: $query) -> Self { Self::$variant(query) }
+    }
+    $(#[$attrs])* impl<'a> From<&'a $query> for QueryRef<'a> {
+      fn from(query: &'a $query) -> Self { Self::$variant(query) }
+    } )*
+    $( $(#[$multi_attrs])* impl<'a> From<&'a $multi_query> for QueryRef<'a> {
+      fn from(query: &'a $multi_query) -> Self { Self::$multi(query) }
+    } )*
+
+    impl<'a> From<&'a Query> for QueryRef<'a> {
+      fn from(query: &'a Query) -> Self {
+        match query { $( $(#[$attrs])* Query::$variant(query) => Self::$variant(query), )* }
+      }
+    }
+    impl From<QueryRef<'_>> for Query {
+      fn from(query: QueryRef<'_>) -> Self {
+        match query {
+          $( $(#[$attrs])* QueryRef::$variant(query) => Self::$variant(query.clone()), )*
+          $( $(#[$multi_attrs])* QueryRef::$multi(query) => Self::MultiTermQuery(query.clone().into()), )*
         }
       }
-    )*
+    }
+    impl QueryRef<'_> {
+      pub fn to_string(self, field: &str) -> Result<String> {
+        match self {
+          $( $(#[$attrs])* Self::$variant(query) => QueryBase::to_string(query, field), )*
+          $( $(#[$multi_attrs])* Self::$multi(query) => QueryBase::to_string(query, field), )*
+        }
+      }
+    }
+    impl Query {
+      pub fn name(&self) -> &'static str {
+        match self { $( $(#[$attrs])* Self::$variant(_) => stringify!($variant), )* }
+      }
+    }
+    macro_rules! dispatch_query {
+      ($d value:expr, |$d inner:ident| $d body:expr) => {
+        match $d value { $( $(#[$attrs])* Query::$variant($d inner) => $d body, )* }
+      };
+    }
   };
 }
 
-define_query_ref!(
-  BinaryRangeFieldRange => BinaryRangeFieldRangeQuery,
-  BlendedTerm => BlendedTermQuery,
-  Boolean => BooleanQuery,
-  Boost => BoostQuery,
-  ByteVectorSimilarity => ByteVectorSimilarityQuery,
-  ConstantScore => ConstantScoreQuery,
-  DisjunctionMax => DisjunctionMaxQuery,
-  DocAndScore => DocAndScoreQuery,
-  Dummy => DummyQuery,
-  FieldExists => FieldExistsQuery,
-  FloatVectorSimilarity => FloatVectorSimilarityQuery,
-  IndexOrDocValues => IndexOrDocValuesQuery,
-  IndexSortSortedNumericDocValuesRange => IndexSortSortedNumericDocValuesRangeQuery,
-  KnnByteVector => KnnByteVectorQuery,
-  KnnFloatVector => KnnFloatVectorQuery,
-  LatLonDocValues => LatLonDocValuesQuery,
-  LatLonDocValuesBox => LatLonDocValuesBoxQuery,
-  LatLonPoint => LatLonPointQuery,
-  LatLonPointDistance => LatLonPointDistanceQuery,
-  LatLonPointDistanceFeature => LatLonPointDistanceFeatureQuery,
-  MatchAllDocs => MatchAllDocsQuery,
-  MatchNoDocs => MatchNoDocsQuery,
-  Named => NamedQuery,
-  MultiPhrase => MultiPhraseQuery,
-  MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
-  MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
-  MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
-  NGramPhrase => NGramPhraseQuery,
-  Phrase => PhraseQuery,
-  PointInSet => PointInSetQuery,
-  PointRange => PointRangeQuery,
-  RangeField => RangeFieldQuery,
-  SortedNumericDocValuesRange => SortedNumericDocValuesRangeQuery,
-  SortedNumericDocValuesSet => SortedNumericDocValuesSetQuery,
-  SortedSetDocValuesRange => SortedSetDocValuesRangeQuery,
-  Synonym => SynonymQuery,
-  Term => TermQuery,
-  TermAutomaton => TermAutomatonQuery,
-  XYDocValuesPointInGeometry => XYDocValuesPointInGeometryQuery,
-  XYPointInGeometry => XYPointInGeometryQuery,
-  Automaton => AutomatonQuery,
-  Fuzzy => FuzzyQuery,
-  Prefix => PrefixQuery,
-  Regexp => RegexpQuery,
-  TermInSet => TermInSetQuery,
-  TermRange => TermRangeQuery,
-  Wildcard => WildcardQuery,
-);
-
-#[cfg(test)]
-macro_rules! impl_test_query_ref_from {
-  ($($variant:ident => $query:ty),* $(,)?) => {
-    $(
-      impl<'a> From<&'a $query> for QueryRef<'a> {
-        fn from(query: &'a $query) -> Self {
-          Self::$variant(query)
-        }
-      }
-    )*
-  };
-}
-
-#[cfg(test)]
-impl_test_query_ref_from!(
-  Asserting => AssertingQuery,
-  AssertNeedsScores => AssertNeedsScores,
-  BitSet => BitSetQuery,
-  BlockScoreQueryWrapper => BlockScoreQueryWrapper,
-  BoostChecking => BoostCheckingQuery,
-  BrokenExplainTerm => BrokenExplainTermQuery,
-  Counting => CountingQuery,
-  CrazyMustUseBulkScorer => CrazyMustUseBulkScorerQuery,
-  DumbPrefix => DumbPrefixQuery,
-  DumbRegexp => DumbRegexpQuery,
-  Dummy1 => DummyQuery1,
-  TestLRU => TestLRUQuery,
-  DVCache => DVCacheQuery,
-  MaxScoreWrapper => MaxScoreWrapperQuery,
-  Random => RandomQuery,
-  RandomApproximation => RandomApproximationQuery,
-  TestRewrite => TestRewriteQuery,
-  WANDScorer => WANDScorerQuery,
-);
-
-macro_rules! query_variant_name {
-    (
-        $self:expr;
-        normal: [ $( $variant:ident ),* $(,)? ];
-        test: [ $( $test_variant:ident ),* $(,)? ]
-    ) => {
-        match $self {
-            $(
-                Query::$variant(_) => stringify!($variant),
-            )*
-            $(
-                #[cfg(test)]
-                Query::$test_variant(_) => stringify!($test_variant),
-            )*
-        }
-    };
-}
-impl Query {
-  pub fn name(&self) -> &'static str {
-    query_variant_name!(
-        self;
-        normal: [
-            BinaryRangeFieldRange,
-            BlendedTerm,
-            Boolean,
-            Boost,
-            ByteVectorSimilarity,
-            ConstantScore,
-            DisjunctionMax,
-            DocAndScore,
-            Dummy,
-            FieldExists,
-            FloatVectorSimilarity,
-            IndexOrDocValues,
-            IndexSortSortedNumericDocValuesRange,
-            KnnByteVector,
-            KnnFloatVector,
-            LatLonDocValues,
-            LatLonDocValuesBox,
-            LatLonPoint,
-            LatLonPointDistance,
-            LatLonPointDistanceFeature,
-            MatchAllDocs,
-            MatchNoDocs,
-            Named,
-            MultiPhrase,
-            MultiTermQuery,
-            MultiTermQueryDocValuesWrapper,
-            MultiTermQueryConstantScoreBlendedWrapper,
-            MultiTermQueryConstantScoreWrapper,
-            NGramPhrase,
-            Phrase,
-            PointInSet,
-            PointRange,
-            RangeField,
-            SortedNumericDocValuesRange,
-            SortedNumericDocValuesSet,
-            SortedSetDocValuesRange,
-            Synonym,
-            Term,
-            TermAutomaton,
-            XYDocValuesPointInGeometry,
-            XYPointInGeometry,
-        ];
-        test: [
-            Asserting,
-            AssertNeedsScores,
-            BitSet,
-            BlockScoreQueryWrapper,
-            BrokenExplainTerm,
-            Counting,
-            CrazyMustUseBulkScorer,
-            Dummy1,
-            TestLRU,
-            DVCache,
-            MaxScoreWrapper,
-            Random,
-            RandomApproximation,
-            TestRewrite,
-            WANDScorer,
-        ]
-    )
+define_queries! {
+  $; owned {
+    BinaryRangeFieldRange => BinaryRangeFieldRangeQuery,
+    BlendedTerm => BlendedTermQuery,
+    Boolean => BooleanQuery,
+    Boost => BoostQuery,
+    ByteVectorSimilarity => ByteVectorSimilarityQuery,
+    ConstantScore => ConstantScoreQuery,
+    DisjunctionMax => DisjunctionMaxQuery,
+    DocAndScore => DocAndScoreQuery,
+    Dummy => DummyQuery,
+    FieldExists => FieldExistsQuery,
+    FloatVectorSimilarity => FloatVectorSimilarityQuery,
+    IndexOrDocValues => IndexOrDocValuesQuery,
+    IndexSortSortedNumericDocValuesRange => IndexSortSortedNumericDocValuesRangeQuery,
+    KnnByteVector => KnnByteVectorQuery,
+    KnnFloatVector => KnnFloatVectorQuery,
+    LatLonDocValues => LatLonDocValuesQuery,
+    LatLonDocValuesBox => LatLonDocValuesBoxQuery,
+    LatLonPoint => LatLonPointQuery,
+    LatLonPointDistance => LatLonPointDistanceQuery,
+    LatLonPointDistanceFeature => LatLonPointDistanceFeatureQuery,
+    MatchAllDocs => MatchAllDocsQuery,
+    MatchNoDocs => MatchNoDocsQuery,
+    Named => NamedQuery,
+    MultiPhrase => MultiPhraseQuery,
+    MultiTermQuery => MultiTermQuerySet,
+    MultiTermQueryDocValuesWrapper => MultiTermQueryDocValuesWrapper,
+    MultiTermQueryConstantScoreBlendedWrapper => MultiTermQueryConstantScoreBlendedWrapper,
+    MultiTermQueryConstantScoreWrapper => MultiTermQueryConstantScoreWrapper,
+    NGramPhrase => NGramPhraseQuery,
+    Phrase => PhraseQuery,
+    PointInSet => PointInSetQuery,
+    PointRange => PointRangeQuery,
+    RangeField => RangeFieldQuery,
+    SortedNumericDocValuesRange => SortedNumericDocValuesRangeQuery,
+    SortedNumericDocValuesSet => SortedNumericDocValuesSetQuery,
+    SortedSetDocValuesRange => SortedSetDocValuesRangeQuery,
+    Synonym => SynonymQuery,
+    Term => TermQuery,
+    TermAutomaton => TermAutomatonQuery,
+    XYDocValuesPointInGeometry => XYDocValuesPointInGeometryQuery,
+    XYPointInGeometry => XYPointInGeometryQuery,
+    #[cfg(test)]
+    Asserting => AssertingQuery,
+    #[cfg(test)]
+    AssertNeedsScores => AssertNeedsScores,
+    #[cfg(test)]
+    BitSet => BitSetQuery,
+    #[cfg(test)]
+    BlockScoreQueryWrapper => BlockScoreQueryWrapper,
+    #[cfg(test)]
+    BrokenExplainTerm => BrokenExplainTermQuery,
+    #[cfg(test)]
+    Counting => CountingQuery,
+    #[cfg(test)]
+    CrazyMustUseBulkScorer => CrazyMustUseBulkScorerQuery,
+    #[cfg(test)]
+    Dummy1 => DummyQuery1,
+    #[cfg(test)]
+    TestLRU => TestLRUQuery,
+    #[cfg(test)]
+    DVCache => DVCacheQuery,
+    #[cfg(test)]
+    MaxScoreWrapper => MaxScoreWrapperQuery,
+    #[cfg(test)]
+    Random => RandomQuery,
+    #[cfg(test)]
+    RandomApproximation => RandomApproximationQuery,
+    #[cfg(test)]
+    TestRewrite => TestRewriteQuery,
+    #[cfg(test)]
+    WANDScorer => WANDScorerQuery,
+  }
+  multi_term {
+    Automaton => AutomatonQuery,
+    Fuzzy => FuzzyQuery,
+    Prefix => PrefixQuery,
+    Regexp => RegexpQuery,
+    TermInSet => TermInSetQuery,
+    TermRange => TermRangeQuery,
+    Wildcard => WildcardQuery,
+    #[cfg(test)]
+    BoostChecking => BoostCheckingQuery,
+    #[cfg(test)]
+    DumbPrefix => DumbPrefixQuery,
+    #[cfg(test)]
+    DumbRegexp => DumbRegexpQuery,
   }
 }
+
 // for padding
 impl Default for Query {
   fn default() -> Self {

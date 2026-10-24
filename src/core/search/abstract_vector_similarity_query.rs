@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -80,6 +81,7 @@ pub trait AbstractVectorSimilarityQuery: QueryBase {
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC, SIM>: Sync,
     Self: Clone + Into<Query> + Send + Sync + Sized + 'static,
+    for<'a> QueryRef<'a>: From<&'a Self>,
   {
     let filter_weight = match self.base().filter.as_ref() {
       Some(filter) => {
@@ -231,7 +233,6 @@ pub struct AbstractVectorSimilarityQueryWeight<
 > where
   SIM: Similarity,
 {
-  parent_query: Arc<Query>,
   query: Q,
   filter_weight: Option<QueryWeight<IRC, SIM>>,
   time_limiting_knn_collector_manager:
@@ -243,6 +244,7 @@ impl<Q, IRC, QT, SIM> AbstractVectorSimilarityQueryWeight<Q, IRC, QT, SIM>
 where
   SIM: Similarity,
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
+  for<'a> QueryRef<'a>: From<&'a Q>,
   IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
 {
@@ -253,9 +255,7 @@ where
     boost: f32,
   ) -> Self {
     let manager = query.get_knn_collector_manager();
-    let parent_query = Arc::new(query.clone().into());
     Self {
-      parent_query,
       query,
       filter_weight,
       time_limiting_knn_collector_manager: TimeLimitingKnnCollectorManager::new(
@@ -271,6 +271,7 @@ impl<Q, IRC, QT, SIM> SegmentCacheable<IRC> for AbstractVectorSimilarityQueryWei
 where
   SIM: Similarity,
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
+  for<'a> QueryRef<'a>: From<&'a Q>,
   IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
 {
@@ -283,6 +284,7 @@ impl<Q, IRC, QT, SIM> Weight<IRC, SIM> for AbstractVectorSimilarityQueryWeight<Q
 where
   SIM: Similarity,
   Q: AbstractVectorSimilarityQuery + Clone + Into<Query>,
+  for<'a> QueryRef<'a>: From<&'a Q>,
   IRC: IndexReaderContext + 'static,
   QT: QueryTimeout,
 {
@@ -336,8 +338,8 @@ where
     }
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   type ScorerSupplier = QueryWeightSs<IRC, SIM>;

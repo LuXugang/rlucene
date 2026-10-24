@@ -32,7 +32,8 @@ use crate::core::search::constant_score_scorer::ConstantScoreTwoPhaseScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::query::{Query, QueryBase};
+use crate::core::search::query::QueryBase;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -163,14 +164,14 @@ impl QueryBase for XYDocValuesPointInGeometryQuery {
 
 pub struct XYDocValuesPointInGeometryQueryWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: XYDocValuesPointInGeometryQuery,
   score_mode: ScoreMode,
   boost: f32,
 }
 
 impl XYDocValuesPointInGeometryQueryWeight {
   fn new(query: XYDocValuesPointInGeometryQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let parent_query = Arc::new(query.into());
+    let parent_query = query;
     Self {
       base: ConstantScoreWeight::new(boost),
       parent_query,
@@ -185,11 +186,7 @@ where
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let Query::XYDocValuesPointInGeometry(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected XYDocValuesPointInGeometryQuery",
-      ));
-    };
+    let query = &self.parent_query;
     let field = [query.field.as_str()];
     DocValues::is_cacheable(ctx, field)
   }
@@ -215,8 +212,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::XYDocValuesPointInGeometry(&self.parent_query)
   }
 
   type ScorerSupplier = DefaultScorerSupplier<
@@ -236,11 +233,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let Query::XYDocValuesPointInGeometry(query) = self.parent_query.as_ref() else {
-      return Err(LuceneError::illegal_state(
-        "expected XYDocValuesPointInGeometryQuery",
-      ));
-    };
+    let query = &self.parent_query;
     match context
       .reader()
       .get_sorted_numeric_doc_values(&query.field)?

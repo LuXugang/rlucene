@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 use std::fmt::Write as _;
 
 use crate::core::index::bytes_ref::BytesRefValueEnum;
@@ -298,7 +299,7 @@ impl QueryBase for MultiPhraseQuery {
       .as_deref()
       .map(str::to_owned)
       .ok_or_else(|| LuceneError::illegal_state("MultiPhraseQuery field is not set"))?;
-    let base = PhraseWeightMeta::new(field, *score_mode, similarity, self.clone().into());
+    let base = PhraseWeightMeta::new(field, *score_mode, similarity);
     let sub = MultiPhraseQueryWeightBase::new(self, boost, base);
     let weight = PhraseWeight::new(searcher, sub)?;
     Ok(weight)
@@ -526,6 +527,10 @@ where
       )?)
     };
     Ok(Some(v))
+  }
+
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   fn base(&self) -> &PhraseWeightMeta<SIM> {

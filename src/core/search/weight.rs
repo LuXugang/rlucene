@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::search::approximation_disi::ApproximationDISI;
 use crate::core::search::similarities_impl::similarities::Similarity;
@@ -32,18 +33,17 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::MatchWithNoTerms;
-use crate::core::search::query::{Query, QueryWeight, QueryWeightMatches};
+use crate::core::search::query::{QueryWeight, QueryWeightMatches};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::sync::Arc;
 
 /// Expert: Calculate query weights and build query scorers.
 ///
-/// The purpose of [`Weight`] is to ensure searching does not modify a [`Query`],
-/// so that a [`Query`] instance can be reused.
+/// The purpose of [`Weight`] is to ensure searching does not modify a [`Query`](crate::core::search::query::Query)(crate::core::search::query::Query),
+/// so that a [`Query`](crate::core::search::query::Query)(crate::core::search::query::Query) instance can be reused.
 ///
 /// - [`IndexSearcher`]-dependent state of the query should reside in the [`Weight`].
 /// - [`LeafReader`]-dependent state should reside in the [`Scorer`].
@@ -115,7 +115,8 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync;
 
-  fn get_query(&self) -> Arc<Query>;
+  /// Borrow the query represented by this weight without allocating or cloning it.
+  fn get_query(&self) -> QueryRef<'_>;
 
   /// Optional method that delegates to [`Weight::scorer_supplier`].
   ///
@@ -298,7 +299,7 @@ where
     (**self).explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     (**self).get_query()
   }
 

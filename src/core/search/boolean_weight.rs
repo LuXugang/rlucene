@@ -26,7 +26,8 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::from_sub_matches;
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::QueryRef;
+use crate::core::search::query::{QueryBase, QueryWeight};
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -303,9 +304,8 @@ where
     }
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    let v: Query = self.query.clone().into();
-    Arc::new(v)
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   type ScorerSupplier = BooleanScorerSupplier<IRC, SIM>;

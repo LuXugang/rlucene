@@ -35,6 +35,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum4, DocIdSetIt
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -46,7 +47,6 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// A [`Query`] that matches documents that contain either a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField),
 /// [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField), or a field that indexes norms
@@ -240,13 +240,13 @@ impl QueryBase for FieldExistsQuery {
 
 pub struct FieldExistsWeight {
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
+  parent_query: FieldExistsQuery,
   score_mode: ScoreMode,
   score: f32,
 }
 impl FieldExistsWeight {
   fn new(score: f32, query: FieldExistsQuery, score_mode: ScoreMode) -> Self {
-    let parent_query = Arc::new(query.into());
+    let parent_query = query;
     Self {
       base: ConstantScoreWeight::new(score),
       parent_query,
@@ -256,10 +256,7 @@ impl FieldExistsWeight {
   }
 
   fn query(&self) -> Result<&FieldExistsQuery> {
-    match self.parent_query.as_ref() {
-      Query::FieldExists(query) => Ok(query),
-      _ => Err(LuceneError::illegal_state("expected FieldExistsQuery")),
-    }
+    Ok(&self.parent_query)
   }
 }
 
@@ -307,8 +304,8 @@ where
       .explain(scorer, doc, self.parent_query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::FieldExists(&self.parent_query)
   }
 
   type ScorerSupplier = DefaultScorerSupplier<

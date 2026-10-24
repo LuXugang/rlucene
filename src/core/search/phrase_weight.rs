@@ -27,7 +27,8 @@ use crate::core::search::matches_iterator::MatchesIterator;
 use crate::core::search::matches_utils::for_field;
 use crate::core::search::phrase_matcher::{PhraseMatcher, PhraseMatcherEnum};
 use crate::core::search::phrase_scorer::PhraseScorer;
-use crate::core::search::query::{Query, QueryBase, QueryWeightMatchesIterator};
+use crate::core::search::query::QueryRef;
+use crate::core::search::query::{Query, QueryWeightMatchesIterator};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerEnum2;
 use crate::core::search::segment_cacheable::SegmentCacheable;
@@ -264,7 +265,7 @@ where
       score_explanation.value.clone(),
       format!(
         "weight({} in {}) [{}], result of:",
-        self.sub.base().query.to_string(&self.sub.base().field)?,
+        self.sub.get_query().to_string(&self.sub.base().field)?,
         doc,
         self.sub.base().similarity
       ),
@@ -272,8 +273,8 @@ where
     ))
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.sub.base().query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    self.sub.get_query()
   }
 
   type ScorerSupplier = DefaultScorerSupplier<PhraseWeightScorer<S, IRC, SIM>>;
@@ -341,6 +342,7 @@ pub trait PhraseWeightBase<
   where
     LR: LeafReader;
   fn base(&self) -> &PhraseWeightMeta<SIM>;
+  fn get_query(&self) -> QueryRef<'_>;
 }
 pub struct PhraseWeightMeta<
   SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
@@ -350,23 +352,16 @@ pub struct PhraseWeightMeta<
   pub(crate) field: String,
   pub(crate) score_mode: ScoreMode,
   pub(crate) similarity: Arc<SIM>,
-  pub(crate) query: Arc<Query>,
 }
 impl<SIM> PhraseWeightMeta<SIM>
 where
   SIM: Similarity,
 {
-  pub(crate) fn new(
-    field: String,
-    score_mode: ScoreMode,
-    similarity: Arc<SIM>,
-    query: Query,
-  ) -> Self {
+  pub(crate) fn new(field: String, score_mode: ScoreMode, similarity: Arc<SIM>) -> Self {
     Self {
       field,
       score_mode,
       similarity,
-      query: Arc::new(query),
     }
   }
 }
@@ -411,7 +406,7 @@ where
       Box::new(PhraseMatchesIterator {
         matcher,
         started: false,
-        query: self.sub.base().query.clone(),
+        query: Arc::new(self.sub.get_query().into()),
       })
       .into(),
     ))

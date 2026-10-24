@@ -62,6 +62,7 @@ use crate::core::search::lru_query_cache::{
 };
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::phrase_query::{self, PhraseQuery};
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
@@ -2473,7 +2474,7 @@ where
     self.in_.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     self.in_.get_query()
   }
 

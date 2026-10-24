@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 use std::fmt::Write as _;
 
 use crate::core::index::BytesRef;
@@ -609,7 +610,7 @@ pub struct TermAutomatonWeight<
   stats: Option<Arc<SimilaritySimScorer<SIM>>>,
   #[allow(dead_code)]
   similarity: Arc<SIM>,
-  parent_query: Arc<Query>,
+  parent_query: TermAutomatonQuery,
 }
 
 impl<SIM> Debug for TermAutomatonWeight<SIM>
@@ -679,17 +680,12 @@ where
       term_states,
       stats,
       similarity,
-      parent_query: Arc::new(query.into()),
+      parent_query: query,
     })
   }
 
   fn query(&self) -> Result<&TermAutomatonQuery> {
-    match self.parent_query.as_ref() {
-      Query::TermAutomaton(query) => Ok(query),
-      _ => Err(LuceneError::illegal_state(
-        "TermAutomatonWeight has the wrong parent query",
-      )),
-    }
+    Ok(&self.parent_query)
   }
 
   #[allow(clippy::type_complexity)] // Preserve the concrete generic scorer types without erasure.
@@ -844,8 +840,8 @@ where
     stats.explain(freq_explanation, norm)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    QueryRef::TermAutomaton(&self.parent_query)
   }
 
   type ScorerSupplier = DefaultScorerSupplier<

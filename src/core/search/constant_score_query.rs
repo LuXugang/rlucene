@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::search::query::QueryRef;
 
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -46,7 +47,6 @@ use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// A query that wraps another query and simply returns a constant score equal to 1 for every document that matches the query.
 /// It therefore simply strips of all scores and always returns 1.
@@ -272,7 +272,7 @@ where
       .explain(scorer, doc, self.get_query().to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     self.inner_weight.get_query()
   }
 
@@ -616,7 +616,7 @@ where
       Self::Inner(inner) => Weight::<IRC, SIM>::explain(inner, context, doc, searcher),
     }
   }
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     match self {
       Self::Scoring(inner) => Weight::<IRC, SIM>::get_query(inner),
       Self::Inner(inner) => Weight::<IRC, SIM>::get_query(inner),

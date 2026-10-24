@@ -21,6 +21,7 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches::Matches;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{
   IntoBoxQuery, Query, QueryBase, QueryWeight, QueryWeightMatches, QueryWeightMatchesIterator,
   QueryWeightSs,
@@ -295,7 +296,7 @@ where
     self.in_.explain(context, doc, searcher)
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> QueryRef<'_> {
     self.in_.get_query()
   }
 

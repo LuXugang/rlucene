@@ -24,6 +24,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::term::Term;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
+use crate::core::search::query::QueryRef;
 use crate::core::search::similarities_impl::raw_tf_similarity::RawTFSimilarity;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
@@ -262,8 +263,8 @@ impl Collector for TestCollector {
       .ok_or_else(|| LuceneError::illegal_state("weight should not None"))?;
     let query = weight.get_query();
 
-    let bq = match query.as_ref() {
-      Query::Boolean(q) => q,
+    let bq = match query {
+      QueryRef::Boolean(q) => q,
       _ => unreachable!("expected BooleanQuery"),
     };
 

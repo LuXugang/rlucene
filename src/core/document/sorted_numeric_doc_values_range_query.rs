@@ -35,6 +35,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_no_docs_query::MatchNoDocsQuery;
+use crate::core::search::query::QueryRef;
 use crate::core::search::query::{Query, QueryBase, QueryWeightSsScorer};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
@@ -45,7 +46,6 @@ use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct SortedNumericDocValuesRangeQuery {
@@ -164,7 +164,6 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
 pub struct SortedNumericDocValuesRangeQueryWeight {
   query: SortedNumericDocValuesRangeQuery,
   base: ConstantScoreWeight,
-  parent_query: Arc<Query>,
   score_mode: ScoreMode,
 }
 impl SortedNumericDocValuesRangeQueryWeight {
@@ -173,12 +172,9 @@ impl SortedNumericDocValuesRangeQueryWeight {
     score_mode: ScoreMode,
     boost: f32,
   ) -> Self {
-    let query_clone = query.clone();
-    let parent_query = Arc::new(query.into());
     Self {
-      query: query_clone,
+      query,
       base: ConstantScoreWeight::new(boost),
-      parent_query,
       score_mode,
     }
   }
@@ -302,13 +298,11 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     let scorer = self.scorer(context, searcher)?;
-    self
-      .base
-      .explain(scorer, doc, self.parent_query.to_string("")?)
+    self.base.explain(scorer, doc, self.query.to_string("")?)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.parent_query.clone()
+  fn get_query(&self) -> QueryRef<'_> {
+    (&self.query).into()
   }
 
   type ScorerSupplier = DefaultScorerSupplier<QueryWeightSsScorer<IRC, SIM>>;
