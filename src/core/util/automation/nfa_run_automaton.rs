@@ -41,15 +41,15 @@ use std::sync::Arc;
 /// Implemented based on: <https://swtch.com/~rsc/regexp/regexp1.html>
 #[derive(Clone)]
 pub struct NFARunAutomaton {
-  pub(crate) automaton: Arc<Automaton>,
-  tables: Arc<NFARunAutomatonTables>,
+  pub(crate) tables: Arc<NFARunAutomatonTables>,
   alphabet_size: i32,
   dstates: Vec<DState>,
   dstate_slots: usize,
   state: State,
   states_set: StateSet,
 }
-struct NFARunAutomatonTables {
+pub(crate) struct NFARunAutomatonTables {
+  pub(crate) automaton: Automaton,
   points: Vec<i32>,
   classmap: Vec<usize>, // map from char number to class
 }
@@ -83,8 +83,11 @@ impl NFARunAutomaton {
     };
 
     let mut automaton_instance = NFARunAutomaton {
-      automaton: Arc::new(automaton),
-      tables: Arc::new(NFARunAutomatonTables { points, classmap }),
+      tables: Arc::new(NFARunAutomatonTables {
+        automaton,
+        points,
+        classmap,
+      }),
       alphabet_size,
       dstates: Vec::with_capacity(10),
       dstate_slots: 0,
@@ -258,10 +261,13 @@ impl NFARunAutomaton {
     let step_transition = &mut dstate.step_transition;
 
     for &nfa_state in nfa_states.iter() {
-      let num_transitions = self.automaton.init_transition(nfa_state, step_transition);
+      let num_transitions = self
+        .tables
+        .automaton
+        .init_transition(nfa_state, step_transition);
 
       for _ in 0..num_transitions {
-        self.automaton.get_next_transition(step_transition)?;
+        self.tables.automaton.get_next_transition(step_transition)?;
 
         if (step_transition.min..=step_transition.max).contains(&c) {
           self.states_set.incr(step_transition.dest);
@@ -303,10 +309,12 @@ impl NFARunAutomaton {
 
     for &nfa_state in dstate.nfa_states.iter() {
       let num_transitions = self
+        .tables
         .automaton
         .init_transition(nfa_state, &mut dstate.step_transition);
       for _ in 0..num_transitions {
         self
+          .tables
           .automaton
           .get_next_transition(&mut dstate.step_transition)?;
         self.state.transition_set.add(&dstate.step_transition)?;
@@ -489,9 +497,8 @@ impl ByteRunnable for NFARunAutomaton {
 
 impl Accountable for NFARunAutomaton {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = (mem::size_of_val(self.automaton.as_ref()) as i64)
-      .saturating_add(self.automaton.ram_bytes_used()?)
-      .saturating_add(mem::size_of_val(self.tables.as_ref()) as i64)
+    let mut size = (mem::size_of_val(self.tables.as_ref()) as i64)
+      .saturating_add(self.tables.automaton.ram_bytes_used()?)
       .saturating_add(size_of_vec(&self.tables.points))
       .saturating_add(size_of_vec(&self.tables.classmap))
       .saturating_add(size_of_vec(&self.dstates))
@@ -526,7 +533,7 @@ impl DState {
 
     for s in nfa_states.iter() {
       hash_code = hash_code.wrapping_add(BitMixer::mix_i32(*s));
-      if nfa.automaton.is_accept(*s) {
+      if nfa.tables.automaton.is_accept(*s) {
         is_accept = true;
       }
     }

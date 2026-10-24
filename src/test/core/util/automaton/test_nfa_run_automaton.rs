@@ -58,8 +58,8 @@ fn test_ram_usage_estimation() -> Result<()> {
   let estimation = run_automaton.ram_bytes_used()?;
 
   // TODO RamUsageTester未实现
-  let automaton_retained_heap = std::mem::size_of_val(run_automaton.automaton.as_ref()) as i64
-    + run_automaton.automaton.ram_bytes_used()?;
+  let automaton_retained_heap = std::mem::size_of_val(&run_automaton.tables.automaton) as i64
+    + run_automaton.tables.automaton.ram_bytes_used()?;
   assert!(estimation >= automaton_retained_heap);
   assert!(estimation > 0);
   Ok(())
