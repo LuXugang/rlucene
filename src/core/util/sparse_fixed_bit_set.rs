@@ -513,8 +513,11 @@ impl BitSet for SparseFixedBitSet {
       // the index of the long we need to update
       let location = (index & (i64bit - 1)).count_ones() as usize;
       let bit = 1_u64 << (i % 64);
-      let v = self.bits[i4096][location] & bit != 0;
-      self.bits[i4096][location] |= bit;
+      let word = &mut self.bits[i4096][location];
+      let v = *word & bit != 0;
+      if !v {
+        *word |= bit;
+      }
       Ok(v)
     } else if index == 0 {
       // if the index is 0, it means that we just found a block of 4096

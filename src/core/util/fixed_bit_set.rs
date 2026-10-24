@@ -584,8 +584,11 @@ impl BitSet for FixedBitSet {
     );
     let word_num = i >> 6;
     let bit_mask = 1_i64 << (i % 64);
-    let val = (self.bits[word_num] & bit_mask) != 0;
-    self.bits[word_num] |= bit_mask;
+    let word = &mut self.bits[word_num];
+    let val = (*word & bit_mask) != 0;
+    if !val {
+      *word |= bit_mask;
+    }
     Ok(val)
   }
 
