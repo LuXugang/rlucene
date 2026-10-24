@@ -43,9 +43,13 @@ const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be
 ///
 /// # Experimental
 pub struct SnapshotDeletionPolicy<D> {
-  primary: Arc<IndexDeletionPolicyEnum<D>>,
+  shared: Arc<SnapshotPolicyShared<D>>,
+}
+
+struct SnapshotPolicyShared<D> {
+  primary: IndexDeletionPolicyEnum<D>,
   // The policy and its commit wrappers share the same reentrant monitor.
-  inner: Arc<ReentrantMutex<RefCell<Inner<D>>>>,
+  inner: ReentrantMutex<RefCell<Inner<D>>>,
 }
 
 pub(crate) struct Inner<D> {
@@ -65,8 +69,7 @@ pub(crate) struct Inner<D> {
 impl<D> Clone for SnapshotDeletionPolicy<D> {
   fn clone(&self) -> Self {
     Self {
-      primary: self.primary.clone(),
-      inner: self.inner.clone(),
+      shared: self.shared.clone(),
     }
   }
 }
@@ -81,18 +84,20 @@ where
     T: Into<IndexDeletionPolicyEnum<D>>,
   {
     SnapshotDeletionPolicy {
-      primary: Arc::new(primary.into()),
-      inner: Arc::new(ReentrantMutex::new(RefCell::new(Inner {
-        ref_counts: HashMap::new(),
-        index_commits: HashMap::new(),
-        last_commit: None,
-        init_called: false,
-      }))),
+      shared: Arc::new(SnapshotPolicyShared {
+        primary: primary.into(),
+        inner: ReentrantMutex::new(RefCell::new(Inner {
+          ref_counts: HashMap::new(),
+          index_commits: HashMap::new(),
+          last_commit: None,
+          init_called: false,
+        })),
+      }),
     }
   }
 
   pub(crate) fn lock(&self) -> ReentrantMutexGuard<'_, RefCell<Inner<D>>> {
-    self.inner.lock()
+    self.shared.inner.lock()
   }
 
   /// Release a snapshotted commit.
@@ -193,7 +198,7 @@ where
   ) -> Vec<SnapshotCommitPoint<'a, D>> {
     let mut wrapped_commits = Vec::with_capacity(commits.len());
     for ic in commits {
-      wrapped_commits.push(SnapshotCommitPoint::new(&self.inner, ic));
+      wrapped_commits.push(SnapshotCommitPoint::new(&self.shared.inner, ic));
     }
     wrapped_commits
   }
@@ -210,7 +215,7 @@ where
       inner.init_called = true;
     }
     // Keep the monitor held, but release the mutable borrow before delete() reenters it.
-    self.primary.on_init(&wrapped_commits)?;
+    self.shared.primary.on_init(&wrapped_commits)?;
     let mut inner = guard.borrow_mut();
     for commit in commits {
       if inner.ref_counts.contains_key(&commit.get_generation()) {
@@ -228,7 +233,7 @@ where
   fn on_commit(&self, commits: &[Arc<CommitPoint<D>>]) -> Result<()> {
     let guard = self.lock();
     let wrapped_commits = self.wrap_commits(commits);
-    self.primary.on_commit(&wrapped_commits)?;
+    self.shared.primary.on_commit(&wrapped_commits)?;
     let mut inner = guard.borrow_mut();
     inner.last_commit = commits.last().cloned();
     Ok(())
