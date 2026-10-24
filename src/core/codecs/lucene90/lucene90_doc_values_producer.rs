@@ -77,7 +77,7 @@ pub struct Lucene90DocValuesProducer<I> {
   numerics: Arc<HashMap<i32, NumericEntry>>,
   binaries: Arc<HashMap<i32, BinaryEntry>>,
   sorted: Arc<HashMap<i32, SortedEntry>>,
-  sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
+  sorted_sets: Arc<HashMap<i32, SortedSetEntry>>,
   sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
   skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
   data: Arc<I>,
@@ -211,7 +211,7 @@ where
     numerics: Arc<HashMap<i32, NumericEntry>>,
     binaries: Arc<HashMap<i32, BinaryEntry>>,
     sorted: Arc<HashMap<i32, SortedEntry>>,
-    sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
+    sorted_sets: Arc<HashMap<i32, SortedSetEntry>>,
     sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
     skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
     data: &I,
@@ -239,7 +239,7 @@ where
     numerics: &mut HashMap<i32, NumericEntry>,
     binaries: &mut HashMap<i32, BinaryEntry>,
     sorted: &mut HashMap<i32, SortedEntry>,
-    sorted_sets: &mut HashMap<i32, Arc<SortedSetEntry>>,
+    sorted_sets: &mut HashMap<i32, SortedSetEntry>,
     sorted_numerics: &mut HashMap<i32, SortedNumericEntry>,
     skippers: &mut HashMap<i32, DocValuesSkipperEntry>,
   ) -> Result<()>
@@ -278,7 +278,7 @@ where
           sorted.insert(info.number, entry);
         },
         t if t == Lucene90DocValuesFormat::SORTED_SET => {
-          let entry = Arc::new(Self::read_sorted_set(meta)?);
+          let entry = Self::read_sorted_set(meta)?;
           sorted_sets.insert(info.number, entry);
         },
         t if t == Lucene90DocValuesFormat::SORTED_NUMERIC => {
@@ -1007,14 +1007,14 @@ where
         BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesOrdinals::new(ords))
       };
       return Ok(Lucene90SortedSetDocValuesEnum::Multi(
-        BaseSortedSetDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)?,
+        BaseSortedSetDocValues::new(entry, self.data.clone(), sub, self.merging)?,
       ));
     }
 
     let ords = self.get_sorted_numeric(ords_entry)?;
     let sub = BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesOrdinals::new(ords));
     Ok(Lucene90SortedSetDocValuesEnum::Multi(
-      BaseSortedSetDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)?,
+      BaseSortedSetDocValues::new(entry, self.data.clone(), sub, self.merging)?,
     ))
   }
 
@@ -2683,7 +2683,6 @@ pub struct BaseSortedSetDocValues<I>
 where
   I: IndexInput,
 {
-  entry: Arc<SortedSetEntry>,
   terms_enum: TermsDict<I>,
   sub: BaseSortedSetDocValuesEnum<I>,
   data: Arc<I>,
@@ -2695,7 +2694,7 @@ where
   I: IndexInput,
 {
   fn new(
-    entry: Arc<SortedSetEntry>,
+    entry: &SortedSetEntry,
     data: Arc<I>,
     sub: BaseSortedSetDocValuesEnum<I>,
     merging: bool,
@@ -2707,7 +2706,6 @@ where
       .clone();
     let terms_enum = TermsDict::new(terms_dict_entry, data.as_ref(), merging)?;
     Ok(Self {
-      entry,
       terms_enum,
       sub,
       data,
@@ -2780,12 +2778,7 @@ where
   }
 
   fn get_value_count(&self) -> Result<i64> {
-    let entry = self
-      .entry
-      .terms_dict_entry
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("TermsDictEntry's terms_dict_entry is None"))?;
-    Ok(entry.terms_dict_size)
+    Ok(self.terms_enum.entry.terms_dict_size)
   }
 
   fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
@@ -2804,12 +2797,7 @@ where
     I: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    let terms_dict_entry = self
-      .entry
-      .terms_dict_entry
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("TermsDictEntry's terms_dict_entry is None"))?
-      .clone();
+    let terms_dict_entry = self.terms_enum.entry.clone();
     TermsDict::new(terms_dict_entry, self.data.as_ref(), self.merging)
   }
 
