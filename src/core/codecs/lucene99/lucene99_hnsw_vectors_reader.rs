@@ -65,7 +65,7 @@ use std::sync::Arc;
 pub struct Lucene99HnswVectorsReader<F, I> {
   flat_vectors_reader: F,
   field_infos: Arc<FieldInfos>,
-  fields: HashMap<i32, FieldEntry>,
+  fields: Arc<HashMap<i32, FieldEntry>>,
   vector_index: I,
 }
 
@@ -230,7 +230,7 @@ where
     Ok(Self {
       flat_vectors_reader,
       field_infos,
-      fields,
+      fields: Arc::new(fields),
       vector_index,
     })
   }
