@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use std::fmt;
+use wide::bytemuck::{cast_slice, cast_slice_mut};
 
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
@@ -37,8 +38,10 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 #[derive(Clone, Default)]
 pub struct NeighborArray<const DESC_ORDER: bool> {
   size: usize,
-  scores: Vec<f32>,
-  nodes: Vec<u32>,
+  // One aligned owner for the two Java-style 32-bit columns. For capacity N,
+  // the first N cells are node ordinals and the last N cells are f32 scores.
+  // Existing typed views keep the columns independent, including final node sorting.
+  data: Vec<u64>,
   sorted_node_size: usize,
 }
 
@@ -48,8 +51,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     Self {
       size: 0,
       sorted_node_size: 0,
-      scores: vec![0.0; max_size],
-      nodes: vec![0; max_size],
+      data: vec![0; max_size],
     }
   }
   /// Add a new node to the [`NeighborArray`].
@@ -61,14 +63,14 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
       "cannot call add_in_order after add_out_of_order"
     );
 
-    if self.size == self.nodes.len() {
+    if self.size == self.data.len() {
       return Err(LuceneError::illegal_state("No growth is allowed"));
     }
 
     if self.size > 0 {
       debug_assert!(
         {
-          let previous_score = self.scores[self.size - 1];
+          let previous_score = self.scores()[self.size - 1];
           if DESC_ORDER {
             previous_score >= new_score
           } else {
@@ -77,12 +79,14 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
         },
         "Nodes are added in the incorrect order! Comparing {} to {:?}",
         new_score,
-        &self.scores[0..self.size]
+        &self.scores()[0..self.size]
       );
     }
 
-    self.nodes[self.size] = new_node.try_convert()?;
-    self.scores[self.size] = new_score;
+    let size = self.size;
+    self.nodes_mut()[size] = new_node.try_convert()?;
+    let score_start = self.data.len();
+    cast_slice_mut::<u64, f32>(&mut self.data)[score_start + size] = new_score;
     self.size += 1;
     self.sorted_node_size += 1;
 
@@ -90,12 +94,14 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
   }
   /// Adds `new_node` and `new_score` without inserting them in sorted order.
   pub fn add_out_of_order(&mut self, new_node: usize, new_score: f32) -> Result<()> {
-    if self.size == self.nodes.len() {
+    if self.size == self.data.len() {
       return Err(LuceneError::illegal_state("No growth is allowed"));
     }
 
-    self.scores[self.size] = new_score;
-    self.nodes[self.size] = new_node.try_convert()?;
+    let size = self.size;
+    let score_start = self.data.len();
+    cast_slice_mut::<u64, f32>(&mut self.data)[score_start + size] = new_score;
+    self.nodes_mut()[size] = new_node.try_convert()?;
     self.size += 1;
 
     Ok(())
@@ -123,7 +129,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
   {
     self.add_out_of_order(new_node, new_score)?;
 
-    if self.size < self.nodes.len() {
+    if self.size < self.data.len() {
       return Ok(());
     }
 
@@ -131,7 +137,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     let worst_idx = self.find_worst_non_diverse(node_id, scorer_supplier)?;
     self.remove_index(worst_idx);
 
-    debug_assert!(self.size == self.nodes.len() - 1);
+    debug_assert!(self.size == self.data.len() - 1);
 
     Ok(())
   }
@@ -182,8 +188,8 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
       "Call this method only when there's an unsorted node"
     );
 
-    let tmp_node = self.nodes[self.sorted_node_size];
-    let mut tmp_score = self.scores[self.sorted_node_size];
+    let tmp_node = self.nodes()[self.sorted_node_size];
+    let mut tmp_score = self.scores()[self.sorted_node_size];
 
     if tmp_score.is_nan() {
       tmp_score = scorer.score(tmp_node as usize)?;
@@ -196,15 +202,16 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     };
 
     // Move [insertion_point..sorted_node_size) one position to the right
+    let sorted_node_size = self.sorted_node_size;
     self
-      .nodes
-      .copy_within(insertion_point..self.sorted_node_size, insertion_point + 1);
-    self
-      .scores
-      .copy_within(insertion_point..self.sorted_node_size, insertion_point + 1);
+      .nodes_mut()
+      .copy_within(insertion_point..sorted_node_size, insertion_point + 1);
+    let score_start = self.data.len();
+    cast_slice_mut::<u64, f32>(&mut self.data)[score_start..]
+      .copy_within(insertion_point..sorted_node_size, insertion_point + 1);
 
-    self.nodes[insertion_point] = tmp_node;
-    self.scores[insertion_point] = tmp_score;
+    self.nodes_mut()[insertion_point] = tmp_node;
+    cast_slice_mut::<u64, f32>(&mut self.data)[score_start + insertion_point] = tmp_score;
 
     self.sorted_node_size += 1;
     Ok(insertion_point)
@@ -223,14 +230,15 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
   /// Direct access to the 32-bit node ordinals, matching Java int[] storage.
   /// Provided for efficient graph writing without a conversion buffer.
   pub fn nodes(&self) -> &[u32] {
-    &self.nodes
+    &cast_slice::<u64, u32>(&self.data)[..self.data.len()]
   }
   pub fn nodes_mut(&mut self) -> &mut [u32] {
-    &mut self.nodes
+    let capacity = self.data.len();
+    &mut cast_slice_mut::<u64, u32>(&mut self.data)[..capacity]
   }
 
   pub fn scores(&self) -> &[f32] {
-    &self.scores
+    &cast_slice::<u64, f32>(&self.data)[self.data.len()..]
   }
 
   pub fn clear(&mut self) {
@@ -249,8 +257,10 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
       self.remove_last();
       return;
     }
-    self.nodes.copy_within(idx + 1..self.size, idx);
-    self.scores.copy_within(idx + 1..self.size, idx);
+    let size = self.size;
+    self.nodes_mut().copy_within(idx + 1..size, idx);
+    let score_start = self.data.len();
+    cast_slice_mut::<u64, f32>(&mut self.data)[score_start..].copy_within(idx + 1..size, idx);
 
     if idx < self.sorted_node_size {
       self.sorted_node_size -= 1;
@@ -264,7 +274,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     let mut insertion_point = None;
     while low as isize <= high {
       let mid = (low + high as usize) / 2;
-      match CoreHelper::compare_f32(self.scores[mid], new_score) {
+      match CoreHelper::compare_f32(self.scores()[mid], new_score) {
         std::cmp::Ordering::Less => low = mid + 1,
         std::cmp::Ordering::Greater => high = mid as isize - 1,
         std::cmp::Ordering::Equal => {
@@ -281,7 +291,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     if insertion_point < bound {
       // Move right over equal values.
       while insertion_point < bound - 1
-        && self.scores[insertion_point + 1] == self.scores[insertion_point]
+        && self.scores()[insertion_point + 1] == self.scores()[insertion_point]
       {
         insertion_point += 1;
       }
@@ -297,7 +307,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
     let mut end = bound as isize - 1;
     while start as isize <= end {
       let mid = (start + end as usize) / 2;
-      if self.scores[mid] < new_score {
+      if self.scores()[mid] < new_score {
         end = mid as isize - 1;
       } else {
         start = mid + 1;
@@ -350,14 +360,14 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
   where
     S: RandomVectorScorerSupplier,
   {
-    let min_accepted_similarity = self.scores[candidate_index];
-    let candidate_node = self.nodes[candidate_index];
+    let min_accepted_similarity = self.scores()[candidate_index];
+    let candidate_node = self.nodes()[candidate_index];
     let scorer = scorer_supplier.scorer(candidate_node as usize)?;
 
     if candidate_index == unchecked_indexes[unchecked_cursor] {
       // the candidate itself is unchecked
       for i in (0..candidate_index).rev() {
-        let neighbor_node = self.nodes[i];
+        let neighbor_node = self.nodes()[i];
         let neighbor_similarity = scorer.score(neighbor_node as usize)?;
         if neighbor_similarity >= min_accepted_similarity {
           return Ok(true);
@@ -368,7 +378,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
       // (newly inserted) unchecked nodes
       debug_assert!(candidate_index > unchecked_indexes[unchecked_cursor],);
       for &unchecked_idx in unchecked_indexes.iter().take(unchecked_cursor + 1).rev() {
-        let neighbor_node = self.nodes[unchecked_idx];
+        let neighbor_node = self.nodes()[unchecked_idx];
         let neighbor_similarity = scorer.score(neighbor_node as usize)?;
         if neighbor_similarity >= min_accepted_similarity {
           return Ok(true);
@@ -382,7 +392,7 @@ impl<const DESC_ORDER: bool> NeighborArray<DESC_ORDER> {
 
 impl<const DESC_ORDER: bool> Accountable for NeighborArray<DESC_ORDER> {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(size_of_vec(&self.scores).saturating_add(size_of_vec(&self.nodes)))
+    Ok(size_of_vec(&self.data))
   }
 }
 impl<const DESC_ORDER: bool> fmt::Display for NeighborArray<DESC_ORDER> {
