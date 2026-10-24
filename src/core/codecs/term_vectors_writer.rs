@@ -21,6 +21,7 @@ use crate::core::index::bytes_ref::BytesRefValue;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap, MergeState, MergeStateMeta};
 use crate::core::index::postings_enum::{OFFSETS, PAYLOADS, PostingsEnum};
 use crate::core::index::term_vectors::TermVectors;
@@ -36,17 +37,16 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
-use std::rc::Rc;
 
 struct TermVectorsMergeSub<DM> {
   reader_index: usize,
   max_doc: i32,
   doc_id: i32,
-  doc_map: Rc<DM>,
+  doc_map: SharedDocMap<DM>,
 }
 
 impl<DM> TermVectorsMergeSub<DM> {
-  fn new(doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
+  fn new(doc_map: SharedDocMap<DM>, reader_index: usize, max_doc: i32) -> Self {
     Self {
       reader_index,
       max_doc,
@@ -355,7 +355,7 @@ impl TermVectorsWriterDefaults {
         reader.check_integrity()?;
       }
       subs.push(Sub::new(TermVectorsMergeSub::new(
-        merge_state.doc_maps[i].clone(),
+        merge_state.doc_map(i),
         i,
         merge_state.max_docs[i],
       )));

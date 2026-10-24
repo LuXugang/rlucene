@@ -47,14 +47,14 @@ type MergeNormsProducer<CR> =
 /// Holds common state used during segment merging.
 ///
 /// @lucene.experimental
-pub struct MergeState<'a, D, CR>
+pub struct MergeState<'a, D, CR, DocMaps = Rc<Vec<MergeStateDocMap<CR>>>>
 where
   CR: CodecReader,
 {
   /// [SegmentInfo] of the newly merged segment.
   pub(crate) segment_info: &'a mut SegmentInfo<D>,
   /// Maps document IDs from old segments to document IDs in the new segment
-  pub(crate) doc_maps: Rc<Vec<Rc<MergeStateDocMap<CR>>>>,
+  pub(crate) doc_maps: DocMaps,
   /// [FieldInfos] of the newly merged segment.
   pub(crate) merge_field_infos: Arc<FieldInfos>,
   /// Stored field producers being merged
@@ -100,7 +100,11 @@ pub trait MergeStateAccess {
 
   fn doc_values_producers(&self) -> &[Option<Self::DocValuesProducer>];
 
-  fn doc_maps(&self) -> &[Rc<Self::DocMap>];
+  fn doc_maps(&self) -> &Rc<Vec<Self::DocMap>>;
+
+  fn doc_map(&self, index: usize) -> SharedDocMap<Self::DocMap> {
+    SharedDocMap::new(self.doc_maps().clone(), index)
+  }
 
   fn merge_field_infos(&self) -> &Arc<FieldInfos>;
 
@@ -114,7 +118,7 @@ pub trait MergeStateAccess {
 
   fn intra_merge_task_executor(&self) -> &Arc<TaskExecutor>;
 
-  fn get_meta(&self) -> MergeStateMeta<Rc<Self::DocMap>>;
+  fn get_meta(&self) -> MergeStateMeta<Self::DocMap>;
 }
 
 impl<D, CR> MergeStateAccess for MergeState<'_, D, CR>
@@ -134,8 +138,8 @@ where
     &self.doc_values_producers
   }
 
-  fn doc_maps(&self) -> &[Rc<Self::DocMap>] {
-    self.doc_maps.as_slice()
+  fn doc_maps(&self) -> &Rc<Vec<Self::DocMap>> {
+    &self.doc_maps
   }
 
   fn merge_field_infos(&self) -> &Arc<FieldInfos> {
@@ -162,7 +166,7 @@ where
     &self.intra_merge_task_executor
   }
 
-  fn get_meta(&self) -> MergeStateMeta<Rc<Self::DocMap>> {
+  fn get_meta(&self) -> MergeStateMeta<Self::DocMap> {
     MergeState::get_meta(self)
   }
 }
@@ -286,10 +290,11 @@ where
 
     segment_info.set_max_doc(num_docs)?;
 
-    let doc_maps = Rc::new(Vec::new());
+    // The construction stage owns all resources in their usual declaration order.
+    let doc_maps = ();
     // let doc_maps = build_doc_maps(readers, segment_info.index_sort());
 
-    let mut merge_state = Self {
+    let mut merge_state = MergeState {
       segment_info,
       doc_maps,
       merge_field_infos: Arc::clone(&EMPTY),
@@ -307,10 +312,14 @@ where
       info_stream,
       intra_merge_task_executor,
     };
-    merge_state.build_doc_maps(readers)?;
-    Ok(merge_state)
+    let doc_maps = merge_state.build_doc_maps(readers)?;
+    Ok(merge_state.with_doc_maps(doc_maps))
   }
-  pub(crate) fn get_meta(&self) -> MergeStateMeta<Rc<MergeStateDocMap<CR>>> {
+  pub(crate) fn doc_map(&self, index: usize) -> SharedDocMap<MergeStateDocMap<CR>> {
+    SharedDocMap::new(self.doc_maps.clone(), index)
+  }
+
+  pub(crate) fn get_meta(&self) -> MergeStateMeta<MergeStateDocMap<CR>> {
     MergeStateMeta {
       fields_producers_len: self.fields_producers.len(),
       doc_maps: self.doc_maps.clone(),
@@ -319,7 +328,13 @@ where
       field_infos: self.field_infos.clone(),
     }
   }
-  fn build_doc_maps(&mut self, readers: &[CR]) -> Result<()>
+}
+
+impl<D, CR, DocMaps> MergeState<'_, D, CR, DocMaps>
+where
+  CR: CodecReader,
+{
+  fn build_doc_maps(&mut self, readers: &[CR]) -> Result<Rc<Vec<MergeStateDocMap<CR>>>>
   where
     CR: CodecReader,
   {
@@ -350,8 +365,33 @@ where
       // docID space
       build_deletion_doc_maps(readers)?
     };
-    self.doc_maps = Rc::new(v);
-    Ok(())
+    Ok(Rc::new(v))
+  }
+}
+
+impl<'a, D, CR> MergeState<'a, D, CR, ()>
+where
+  CR: CodecReader,
+{
+  fn with_doc_maps(self, doc_maps: Rc<Vec<MergeStateDocMap<CR>>>) -> MergeState<'a, D, CR> {
+    MergeState {
+      segment_info: self.segment_info,
+      doc_maps,
+      merge_field_infos: self.merge_field_infos,
+      stored_fields_readers: self.stored_fields_readers,
+      term_vectors_readers: self.term_vectors_readers,
+      norms_producers: self.norms_producers,
+      doc_values_producers: self.doc_values_producers,
+      fields_producers: self.fields_producers,
+      points_readers: self.points_readers,
+      knn_vectors_readers: self.knn_vectors_readers,
+      field_infos: self.field_infos,
+      live_docs: self.live_docs,
+      needs_index_sort: self.needs_index_sort,
+      max_docs: self.max_docs,
+      info_stream: self.info_stream,
+      intra_merge_task_executor: self.intra_merge_task_executor,
+    }
   }
 }
 
@@ -431,7 +471,7 @@ where
 }
 
 // Remap docIDs around deletions
-fn build_deletion_doc_maps<CR>(readers: &[CR]) -> Result<Vec<Rc<MergeStateDocMap<CR>>>>
+fn build_deletion_doc_maps<CR>(readers: &[CR]) -> Result<Vec<MergeStateDocMap<CR>>>
 where
   CR: CodecReader,
 {
@@ -450,11 +490,11 @@ where
 
     let doc_base = total_docs;
 
-    doc_maps.push(Rc::new(MergeStateDocMapImpl::new_deletions(
+    doc_maps.push(MergeStateDocMapImpl::new_deletions(
       live_docs,
       del_doc_map,
       doc_base,
-    )));
+    ));
 
     total_docs += reader.num_docs()?;
   }
@@ -512,6 +552,54 @@ pub trait DocMap {
   /// Return the mapped docID or -1 if the given doc is not mapped.
   fn get(&self, doc_id: i32) -> Result<i32>;
 }
+/// An independently owned view of one immutable map in a shared directory.
+///
+/// Retaining a view keeps the whole directory alive without allocating a box per map.
+pub struct SharedDocMap<DM> {
+  directory: Rc<Vec<DM>>,
+  index: usize,
+}
+
+impl<DM> SharedDocMap<DM> {
+  /// Retain the directory and select one immutable map without copying its data.
+  ///
+  /// # Panics
+  ///
+  /// Panics if `index` is outside `directory`.
+  pub fn new(directory: Rc<Vec<DM>>, index: usize) -> Self {
+    let _ = &directory[index];
+    Self { directory, index }
+  }
+}
+
+impl<DM> Clone for SharedDocMap<DM> {
+  fn clone(&self) -> Self {
+    Self {
+      directory: self.directory.clone(),
+      index: self.index,
+    }
+  }
+}
+
+impl<DM> std::ops::Deref for SharedDocMap<DM> {
+  type Target = DM;
+  fn deref(&self) -> &DM {
+    &self.directory[self.index]
+  }
+}
+
+impl<DM> AsRef<DM> for SharedDocMap<DM> {
+  fn as_ref(&self) -> &DM {
+    self
+  }
+}
+
+impl<DM: DocMap> DocMap for SharedDocMap<DM> {
+  fn get(&self, doc_id: i32) -> Result<i32> {
+    self.as_ref().get(doc_id)
+  }
+}
+
 impl<T> DocMap for Rc<T>
 where
   T: DocMap,

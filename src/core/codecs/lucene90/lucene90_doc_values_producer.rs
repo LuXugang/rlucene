@@ -74,11 +74,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct Lucene90DocValuesProducer<I> {
-  numerics: Arc<HashMap<i32, Arc<NumericEntry>>>,
-  binaries: Arc<HashMap<i32, Arc<BinaryEntry>>>,
+  numerics: Arc<HashMap<i32, NumericEntry>>,
+  binaries: Arc<HashMap<i32, BinaryEntry>>,
   sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
   sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
-  sorted_numerics: Arc<HashMap<i32, Arc<SortedNumericEntry>>>,
+  sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
   skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
   data: Arc<I>,
   max_doc: i32,
@@ -208,11 +208,11 @@ where
   }
   #[allow(clippy::too_many_arguments)]
   fn with_merging(
-    numerics: Arc<HashMap<i32, Arc<NumericEntry>>>,
-    binaries: Arc<HashMap<i32, Arc<BinaryEntry>>>,
+    numerics: Arc<HashMap<i32, NumericEntry>>,
+    binaries: Arc<HashMap<i32, BinaryEntry>>,
     sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
     sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
-    sorted_numerics: Arc<HashMap<i32, Arc<SortedNumericEntry>>>,
+    sorted_numerics: Arc<HashMap<i32, SortedNumericEntry>>,
     skippers: Arc<HashMap<i32, DocValuesSkipperEntry>>,
     data: &I,
     max_doc: i32,
@@ -236,11 +236,11 @@ where
   fn read_fields<II>(
     meta: &mut II,
     infos: &Arc<FieldInfos>,
-    numerics: &mut HashMap<i32, Arc<NumericEntry>>,
-    binaries: &mut HashMap<i32, Arc<BinaryEntry>>,
+    numerics: &mut HashMap<i32, NumericEntry>,
+    binaries: &mut HashMap<i32, BinaryEntry>,
     sorted: &mut HashMap<i32, Arc<SortedEntry>>,
     sorted_sets: &mut HashMap<i32, Arc<SortedSetEntry>>,
-    sorted_numerics: &mut HashMap<i32, Arc<SortedNumericEntry>>,
+    sorted_numerics: &mut HashMap<i32, SortedNumericEntry>,
     skippers: &mut HashMap<i32, DocValuesSkipperEntry>,
   ) -> Result<()>
   where
@@ -266,12 +266,12 @@ where
 
       match type_byte {
         t if t == Lucene90DocValuesFormat::NUMERIC => {
-          let entry = Arc::new(Self::read_numeric(meta)?);
+          let entry = Self::read_numeric(meta)?;
           numerics.insert(info.number, entry);
         },
         t if t == Lucene90DocValuesFormat::BINARY => {
           let entry = Self::read_binary(meta)?;
-          binaries.insert(info.number, Arc::new(entry));
+          binaries.insert(info.number, entry);
         },
         t if t == Lucene90DocValuesFormat::SORTED => {
           let entry = Arc::new(Self::read_sorted(meta)?);
@@ -282,7 +282,7 @@ where
           sorted_sets.insert(info.number, entry);
         },
         t if t == Lucene90DocValuesFormat::SORTED_NUMERIC => {
-          let entry = Arc::new(Self::read_sorted_numeric(meta)?);
+          let entry = Self::read_sorted_numeric(meta)?;
           sorted_numerics.insert(info.number, entry);
         },
         _ => {
@@ -411,7 +411,7 @@ where
     let mut terms_dict_entry = TermsDictEntry::default();
     Self::read_term_dict_with_entry(meta, &mut terms_dict_entry)?;
     Ok(SortedEntry {
-      ords_entry: Arc::new(ords_entry),
+      ords_entry,
       terms_dict_entry: Arc::new(terms_dict_entry),
     })
   }
@@ -438,7 +438,7 @@ where
     let mut terms_dict_entry = TermsDictEntry::default();
     Self::read_term_dict_with_entry(meta, &mut terms_dict_entry)?;
 
-    entry.ords_entry = Some(Arc::new(ords_entry));
+    entry.ords_entry = Some(ords_entry);
     entry.terms_dict_entry = Some(Arc::new(terms_dict_entry));
     Ok(entry)
   }
@@ -486,14 +486,10 @@ where
   where
     II: IndexInput,
   {
-    debug_assert!(*entry.base == NumericEntry::default());
+    debug_assert!(entry.base == NumericEntry::default());
     let mut numeric_entry = NumericEntry::default();
     Self::read_numeric_with_entry(meta, &mut numeric_entry)?;
-    if let Some(base) = Arc::get_mut(&mut entry.base) {
-      *base = numeric_entry;
-    } else {
-      entry.base = Arc::new(numeric_entry);
-    }
+    entry.base = numeric_entry;
     entry.num_docs_with_field = meta.read_int()?;
 
     if entry.num_docs_with_field as usize != entry.base.num_values {
@@ -509,7 +505,7 @@ where
     Ok(())
   }
 
-  fn get_numeric(&self, entry: &Arc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
+  fn get_numeric(&self, entry: &NumericEntry) -> Result<Lucene90NumericDocValuesEnum<I>> {
     if entry.docs_with_field_offset == -2 {
       // empty
       Ok(Lucene90NumericDocValuesEnum::C(DocValues::empty_numeric()))
@@ -529,8 +525,7 @@ where
           slice.prefetch(0, 1)?
         }
         if entry.block_shift >= 0 {
-          let vbpv_reader =
-            VaryingBPVReader::new(entry.clone(), slice, self.data.as_ref(), self.merging)?;
+          let vbpv_reader = VaryingBPVReader::new(entry, slice, self.data.as_ref(), self.merging)?;
           DenseNumericDocValuesSubEnum::Dense1(DenseNumericDocValuesBaseImpl1 { vbpv_reader })
         } else {
           let values = get_direct_reader_instance(
@@ -589,12 +584,7 @@ where
         }
         if entry.block_shift >= 0 {
           SparseNumericDocValuesSubEnum::Sparse1(SparseNumericDocValuesBaseImpl1 {
-            vbpv_reader: VaryingBPVReader::new(
-              entry.clone(),
-              slice,
-              self.data.as_ref(),
-              self.merging,
-            )?,
+            vbpv_reader: VaryingBPVReader::new(entry, slice, self.data.as_ref(), self.merging)?,
           })
         } else {
           let values = get_direct_reader_instance(
@@ -632,7 +622,7 @@ where
   }
   fn get_numeric_values(
     &self,
-    entry: &Arc<NumericEntry>,
+    entry: &NumericEntry,
   ) -> Result<LongValuesEnums<I::RandomAccessSlice>>
   where
     I: IndexInput,
@@ -650,12 +640,7 @@ where
       }
       if entry.block_shift >= 0 {
         LongValuesEnums::Block(LongValuesImpl1 {
-          vbpv_reader: VaryingBPVReader::new(
-            entry.clone(),
-            slice,
-            self.data.as_ref(),
-            self.merging,
-          )?,
+          vbpv_reader: VaryingBPVReader::new(entry, slice, self.data.as_ref(), self.merging)?,
         })
       } else {
         let values = get_direct_reader_instance(
@@ -946,7 +931,7 @@ where
         field.number
       ))
     })?;
-    self.get_sorted_numeric(entry.as_ref())
+    self.get_sorted_numeric(entry)
   }
 
   type SortedSetDocValues = Lucene90SortedSetDocValuesEnum<I>;
@@ -1134,19 +1119,19 @@ pub struct TermsDictEntry {
 }
 
 pub struct SortedEntry {
-  pub ords_entry: Arc<NumericEntry>,
+  pub ords_entry: NumericEntry,
   pub terms_dict_entry: Arc<TermsDictEntry>,
 }
 
 #[derive(Default)]
 pub struct SortedSetEntry {
   pub single_value_entry: Option<Arc<SortedEntry>>,
-  pub ords_entry: Option<Arc<SortedNumericEntry>>,
+  pub ords_entry: Option<SortedNumericEntry>,
   pub terms_dict_entry: Option<Arc<TermsDictEntry>>,
 }
 #[derive(Default)]
 pub struct SortedNumericEntry {
-  pub base: Arc<NumericEntry>,
+  pub base: NumericEntry,
   pub num_docs_with_field: i32,
   pub addresses_meta: Option<Meta>,
   pub addresses_offset: usize,
@@ -1463,7 +1448,8 @@ struct VaryingBPVReader<R> {
   // 2 slices to avoid cache thrashing when using rank
   slice: R,
   rank_slice: Option<R>,
-  entry: Arc<NumericEntry>,
+  values_offset: usize,
+  num_values: usize,
 
   shift: usize,
   mul: i64,
@@ -1482,7 +1468,7 @@ where
   R: RandomAccessInput,
 {
   fn new<I>(
-    entry: Arc<NumericEntry>,
+    entry: &NumericEntry,
     slice: I::RandomAccessSlice,
     data: &I,
     merging: bool,
@@ -1508,7 +1494,8 @@ where
     Ok(Self {
       slice,
       rank_slice,
-      entry,
+      values_offset: entry.values_offset,
+      num_values: entry.num_values,
       shift,
       mul,
       mask: mask as usize,
@@ -1531,7 +1518,7 @@ where
           && block != self.block.map_or(0, |block| block + 1)
         {
           self.block_end_offset = (rank_slice.read_long(block * BitUtil::LONG_BYTES)? as usize)
-            .checked_sub(self.entry.values_offset)
+            .checked_sub(self.values_offset)
             .ok_or_else(|| LuceneError::illegal_state("underflow?"))?;
           self.block = block.checked_sub(1);
         }
@@ -1556,10 +1543,7 @@ where
           break;
         }
       }
-      let num_values = std::cmp::min(
-        1 << self.shift,
-        self.entry.num_values - (block << self.shift),
-      );
+      let num_values = std::cmp::min(1 << self.shift, self.num_values - (block << self.shift));
 
       self.values = if bits_per_value == 0 {
         Some(DirectPackedEnum::Zeroes(Zeroes))

@@ -17,6 +17,7 @@
 use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::index_writer::MAX_POSITION;
 use crate::core::index::merge_state::DocMap;
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::multi_postings_enum::MultiPostingsEnum;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of_with_max_count};
@@ -73,14 +74,17 @@ where
 
   pub(crate) fn new(
     field: Arc<str>,
-    doc_maps: &[Rc<DM>],
+    doc_maps: &Rc<Vec<DM>>,
     fields_producers_len: usize,
     needs_index_sort: bool,
   ) -> Result<Self> {
     let mut all_subs = Vec::with_capacity(fields_producers_len);
 
-    for doc_map in &doc_maps[..fields_producers_len] {
-      all_subs.push(MappingPostingsSub::new(doc_map.clone()));
+    for index in 0..doc_maps[..fields_producers_len].len() {
+      all_subs.push(MappingPostingsSub::new(SharedDocMap::new(
+        doc_maps.clone(),
+        index,
+      )));
     }
     let subs = Vec::new();
 
@@ -234,10 +238,10 @@ where
 }
 pub(crate) struct MappingPostingsSub<PE, DM> {
   postings: Option<PE>,
-  doc_map: Rc<DM>,
+  doc_map: SharedDocMap<DM>,
 }
 impl<PE, DM> MappingPostingsSub<PE, DM> {
-  fn new(doc_map: Rc<DM>) -> Self {
+  fn new(doc_map: SharedDocMap<DM>) -> Self {
     Self {
       postings: None,
       doc_map,

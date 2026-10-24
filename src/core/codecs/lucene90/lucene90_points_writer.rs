@@ -154,7 +154,7 @@ where
         }
         if let Some(values) = reader.get_values(&reader_field_info.name)? {
           point_values.push(values);
-          doc_maps.push(merge_state.doc_maps[i].clone());
+          doc_maps.push(merge_state.doc_map(i));
         }
       }
 

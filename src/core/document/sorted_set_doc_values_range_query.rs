@@ -43,7 +43,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Write as _;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -183,7 +183,6 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
 }
 
 pub struct SortedSetDocValuesRangeQueryWeight {
-  query: Arc<SortedSetDocValuesRangeQuery>,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -194,10 +193,8 @@ impl SortedSetDocValuesRangeQueryWeight {
     score: f32,
     score_mode: ScoreMode,
   ) -> Self {
-    let query_clone = Arc::new(query.clone());
     let parent_query = Arc::new(query.into());
     SortedSetDocValuesRangeQueryWeight {
-      query: query_clone,
       base: ConstantScoreWeight::new(score),
       parent_query,
       score_mode,
@@ -210,7 +207,12 @@ where
   IRC: IndexReaderContext + 'static,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = [self.query.field.as_str()];
+    let Query::SortedSetDocValuesRange(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected SortedSetDocValuesRangeQuery",
+      ));
+    };
+    let field = [query.field.as_str()];
     DocValues::is_cacheable(ctx, field)
   }
 }
@@ -249,18 +251,23 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::SortedSetDocValuesRange(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected SortedSetDocValuesRangeQuery",
+      ));
+    };
     if context
       .reader()
       .get_field_infos()?
-      .field_info_by_name(&self.query.field)?
+      .field_info_by_name(&query.field)?
       .is_none()
     {
       return Ok(None);
     }
 
-    let values = DocValues::get_sorted_set(context.reader(), &self.query.field)?;
+    let values = DocValues::get_sorted_set(context.reader(), &query.field)?;
     Ok(Some(ScorerSupplierImpl3::new(
-      self.query.clone(),
+      self.parent_query.clone(),
       values,
       self.base.score(),
       self.score_mode,
@@ -366,7 +373,7 @@ where
   Ok(doc)
 }
 pub struct ScorerSupplierImpl3<S> {
-  query: Arc<SortedSetDocValuesRangeQuery>,
+  query: Arc<Query>,
   values: Option<S>,
   cost: i64,
   score: f32,
@@ -376,12 +383,7 @@ impl<S> ScorerSupplierImpl3<S>
 where
   S: SortedSetDocValues,
 {
-  pub fn new(
-    query: Arc<SortedSetDocValuesRangeQuery>,
-    values: S,
-    score: f32,
-    score_mode: ScoreMode,
-  ) -> Result<Self> {
+  pub fn new(query: Arc<Query>, values: S, score: f32, score_mode: ScoreMode) -> Result<Self> {
     let cost = values.cost()?;
     Ok(ScorerSupplierImpl3 {
       query,
@@ -409,18 +411,23 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let mut skipper_opt = context.reader().get_doc_values_skipper(&self.query.field)?;
+    let Query::SortedSetDocValuesRange(query) = self.query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected SortedSetDocValuesRangeQuery",
+      ));
+    };
+    let mut skipper_opt = context.reader().get_doc_values_skipper(&query.field)?;
     let mut values = match self.values.take() {
       Some(v) => v,
-      None => DocValues::get_sorted_set(context.reader(), &self.query.field)?,
+      None => DocValues::get_sorted_set(context.reader(), &query.field)?,
     };
-    let min_ord: i64 = match self.query.lower_value.as_ref() {
+    let min_ord: i64 = match query.lower_value.as_ref() {
       None => 0,
       Some(lv) => {
         let ord = values.lookup_term(lv)?;
         if ord < 0 {
           -1 - ord
-        } else if self.query.lower_inclusive {
+        } else if query.lower_inclusive {
           ord
         } else {
           ord + 1
@@ -428,13 +435,13 @@ where
       },
     };
 
-    let max_ord: i64 = match self.query.upper_value.as_ref() {
+    let max_ord: i64 = match query.upper_value.as_ref() {
       None => values.get_value_count()? - 1,
       Some(uv) => {
         let ord = values.lookup_term(uv)?;
         if ord < 0 {
           -2 - ord
-        } else if self.query.upper_inclusive {
+        } else if query.upper_inclusive {
           ord
         } else {
           ord - 1
@@ -477,7 +484,7 @@ where
             skipper,
             min_ord,
             max_ord,
-            &self.query.field,
+            &query.field,
           )?;
           match ps_iterator_opt {
             Some(ps_iterator) => {

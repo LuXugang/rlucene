@@ -198,7 +198,7 @@ where
     use crate::core::codecs::norms_producer::NormsProducerEnum2;
     Ok(Some(match self.in_.get_merge_instance()? {
       Some(in_) => NormsProducerEnum2::A(AssertingNormsProducer {
-        in_,
+        in_: Arc::new(in_),
         max_doc: self.max_doc,
         merging: true,
         creation_thread: std::thread::current().id(),

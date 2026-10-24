@@ -143,7 +143,7 @@ where
     self.in_.doc_values_producers()
   }
 
-  fn doc_maps(&self) -> &[std::rc::Rc<Self::DocMap>] {
+  fn doc_maps(&self) -> &std::rc::Rc<Vec<Self::DocMap>> {
     self.in_.doc_maps()
   }
 
@@ -171,7 +171,7 @@ where
     self.in_.intra_merge_task_executor()
   }
 
-  fn get_meta(&self) -> MergeStateMeta<std::rc::Rc<Self::DocMap>> {
+  fn get_meta(&self) -> MergeStateMeta<Self::DocMap> {
     let mut meta = self.in_.get_meta();
     meta.fields_producers_len = self.fields_producers.len();
     meta.merge_field_infos = self.merge_field_infos.clone();

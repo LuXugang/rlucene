@@ -216,7 +216,6 @@ impl QueryBase for RangeFieldQuery {
 }
 
 pub struct RangeFieldWeight {
-  query: Arc<RangeFieldQuery>,
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
   score_mode: ScoreMode,
@@ -224,10 +223,8 @@ pub struct RangeFieldWeight {
 
 impl RangeFieldWeight {
   fn new(query: RangeFieldQuery, score_mode: ScoreMode, boost: f32) -> Self {
-    let query_clone = Arc::new(query.clone());
     let parent_query = Arc::new(query.into());
     Self {
-      query: query_clone,
       base: ConstantScoreWeight::new(boost),
       parent_query,
       score_mode,
@@ -278,19 +275,22 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::RangeField(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state("expected RangeFieldQuery"));
+    };
     let reader = context.reader();
-    let Some(values) = reader.get_point_values(&self.query.field)? else {
+    let Some(values) = reader.get_point_values(&query.field)? else {
       return Ok(None);
     };
     let field_infos = reader.get_field_infos()?;
-    let Some(field_info) = field_infos.field_info_by_name(&self.query.field)? else {
+    let Some(field_info) = field_infos.field_info_by_name(&query.field)? else {
       return Ok(None);
     };
-    self.query.check_field_info(field_info.as_ref())?;
+    query.check_field_info(field_info.as_ref())?;
 
     let all_docs_match = values.get_doc_count()? == reader.max_doc()?
-      && self.query.query_type.compare(
-        &self.query.ranges,
+      && query.query_type.compare(
+        &query.ranges,
         values
           .get_min_packed_value()?
           .ok_or_else(|| LuceneError::illegal_state("min_packed_value is None"))?
@@ -299,9 +299,9 @@ where
           .get_max_packed_value()?
           .ok_or_else(|| LuceneError::illegal_state("max_packed_value is None"))?
           .as_ref(),
-        self.query.num_dims,
-        self.query.bytes_per_dim,
-        &self.query.comparator,
+        query.num_dims,
+        query.bytes_per_dim,
+        &query.comparator,
       )? == Relation::CellInsideQuery;
 
     if all_docs_match {
@@ -310,15 +310,14 @@ where
           .into(),
       ))
     } else {
-      let result =
-        DocIdSetBuilder::from_point_values(reader.max_doc()?, &values, &self.query.field)?;
-      let visitor = RangeFieldIntersectVisitor::new(result, self.query.clone());
+      let result = DocIdSetBuilder::from_point_values(reader.max_doc()?, &values, &query.field)?;
       Ok(Some(
         Box::new(RangeFieldScorerSupplier::new(
           self.base.score(),
           self.score_mode,
           values,
-          visitor,
+          result,
+          self.parent_query.clone(),
         ))
         .into(),
       ))
@@ -330,7 +329,8 @@ pub struct RangeFieldScorerSupplier<PV> {
   score: f32,
   score_mode: ScoreMode,
   values: PV,
-  visitor: RangeFieldIntersectVisitor,
+  result: DocIdSetBuilder,
+  query: Arc<Query>,
   cost: i64,
 }
 
@@ -339,13 +339,15 @@ impl<PV> RangeFieldScorerSupplier<PV> {
     score: f32,
     score_mode: ScoreMode,
     values: PV,
-    visitor: RangeFieldIntersectVisitor,
+    result: DocIdSetBuilder,
+    query: Arc<Query>,
   ) -> Self {
     Self {
       score,
       score_mode,
       values,
-      visitor,
+      result,
+      query,
       cost: -1,
     }
   }
@@ -371,8 +373,12 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    self.values.intersect(&mut self.visitor)?;
-    let iterator = self.visitor.result.build_iterator()?;
+    let Query::RangeField(query) = self.query.as_ref() else {
+      return Err(LuceneError::illegal_state("expected RangeFieldQuery"));
+    };
+    let mut visitor = RangeFieldIntersectVisitor::new(&mut self.result, query);
+    self.values.intersect(&mut visitor)?;
+    let iterator = self.result.build_iterator()?;
     Ok(ConstantScoreScorer::from_disi(
       self.score,
       self.score_mode,
@@ -400,7 +406,11 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     if self.cost == -1 {
-      self.cost = self.values.estimate_doc_count(&self.visitor)?;
+      let Query::RangeField(query) = self.query.as_ref() else {
+        return Err(LuceneError::illegal_state("expected RangeFieldQuery"));
+      };
+      let visitor = RangeFieldIntersectVisitor::new(&mut self.result, query);
+      self.cost = self.values.estimate_doc_count(&visitor)?;
       debug_assert!(self.cost >= 0);
     }
     Ok(self.cost)
@@ -473,18 +483,18 @@ where
   }
 }
 
-pub struct RangeFieldIntersectVisitor {
-  result: DocIdSetBuilder,
-  query: Arc<RangeFieldQuery>,
+pub struct RangeFieldIntersectVisitor<'a> {
+  result: &'a mut DocIdSetBuilder,
+  query: &'a RangeFieldQuery,
 }
 
-impl RangeFieldIntersectVisitor {
-  fn new(result: DocIdSetBuilder, query: Arc<RangeFieldQuery>) -> Self {
+impl<'a> RangeFieldIntersectVisitor<'a> {
+  fn new(result: &'a mut DocIdSetBuilder, query: &'a RangeFieldQuery) -> Self {
     Self { result, query }
   }
 }
 
-impl IntersectVisitor for RangeFieldIntersectVisitor {
+impl IntersectVisitor for RangeFieldIntersectVisitor<'_> {
   fn grow(&mut self, count: usize) -> Result<()> {
     self.result.grow(count)?;
     Ok(())

@@ -54,6 +54,7 @@ use crate::core::index::knn_vector_values::{
   KnnVectorValuesEnm2,
 };
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMapImpl};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -1685,10 +1686,15 @@ where
   V: QuantizedByteVectorValues,
   LiveBits: Bits,
 {
-  state: RefCell<Option<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMapImpl<LiveBits>>>>>,
+  state: RefCell<
+    Option<MergedQuantizedVectorValuesState<V, SharedDocMap<MergeStateDocMapImpl<LiveBits>>>>,
+  >,
   #[allow(clippy::type_complexity)]
-  iterator_state:
-    RefCell<Weak<RefCell<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMapImpl<LiveBits>>>>>>,
+  iterator_state: RefCell<
+    Weak<
+      RefCell<MergedQuantizedVectorValuesState<V, SharedDocMap<MergeStateDocMapImpl<LiveBits>>>>,
+    >,
+  >,
   size: usize,
   dimension: usize,
 }
@@ -1767,7 +1773,7 @@ where
             ))
           },
         };
-        let sub = QuantizedByteVectorValueSub::new(merge_state.doc_maps[i].clone(), values)?;
+        let sub = QuantizedByteVectorValueSub::new(merge_state.doc_map(i), values)?;
         subs.push(Sub::new(sub));
       }
     }
@@ -1781,7 +1787,7 @@ where
   LiveBits: Bits,
 {
   fn new<D, CR>(
-    subs: Vec<Sub<QuantizedByteVectorValueSub<V, Rc<MergeStateDocMapImpl<LiveBits>>>>>,
+    subs: Vec<Sub<QuantizedByteVectorValueSub<V, SharedDocMap<MergeStateDocMapImpl<LiveBits>>>>>,
     merge_state: &MergeState<'_, D, CR>,
   ) -> Result<Self>
   where
@@ -1942,7 +1948,7 @@ where
   V: QuantizedByteVectorValues,
   B: Bits,
 {
-  state: Rc<RefCell<MergedQuantizedVectorValuesState<V, Rc<MergeStateDocMapImpl<B>>>>>,
+  state: Rc<RefCell<MergedQuantizedVectorValuesState<V, SharedDocMap<MergeStateDocMapImpl<B>>>>>,
   size: usize,
 }
 

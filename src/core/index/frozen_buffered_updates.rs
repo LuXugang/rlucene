@@ -461,7 +461,7 @@ impl FrozenBufferedUpdates {
       let info = infos
         .index_of(&seg_state.rld.info_id)
         .ok_or_else(|| LuceneError::illegal_state("segment is missing"))?;
-      let reader_context = Arc::new((seg_state.reader.clone()).get_context()?);
+      let mut reader_context = seg_state.reader.clone().get_context()?;
 
       for (i, query0) in self.delete_queries.iter().cloned().enumerate() {
         let limit = if self.del_gen == seg_state.del_gen {
@@ -471,39 +471,48 @@ impl FrozenBufferedUpdates {
           i32::MAX
         };
 
-        let mut searcher = IndexSearcher::new(reader_context.clone())?;
-        searcher.set_query_cache(None);
-        let query = searcher.rewrite(query0)?;
-        let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
-        let scorer = weight.scorer(&reader_context, &searcher)?;
+        let mut searcher = IndexSearcher::new(reader_context)?;
+        let query_result = (|| -> Result<()> {
+          searcher.set_query_cache(None);
+          let query = searcher.rewrite(query0)?;
+          let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
+          let scorer = weight.scorer(&searcher.reader_context, &searcher)?;
 
-        if let Some(mut scorer) = scorer {
-          let it = &mut scorer;
-          if let (Some(sort_map), true) = (seg_state.rld.sort_map.as_ref(), limit != i32::MAX) {
-            debug_assert!(self.private_segment.is_some());
+          if let Some(mut scorer) = scorer {
+            let it = &mut scorer;
+            if let (Some(sort_map), true) = (seg_state.rld.sort_map.as_ref(), limit != i32::MAX) {
+              debug_assert!(self.private_segment.is_some());
 
-            loop {
-              let doc_id = it.next_doc()?;
-              if doc_id == NO_MORE_DOCS {
-                break;
+              loop {
+                let doc_id = it.next_doc()?;
+                if doc_id == NO_MORE_DOCS {
+                  break;
+                }
+                if sort_map.new_to_old(doc_id)? < limit
+                  && seg_state.rld.delete(doc_id, info, None)?
+                {
+                  del_count += 1;
+                }
               }
-              if sort_map.new_to_old(doc_id)? < limit && seg_state.rld.delete(doc_id, info, None)? {
-                del_count += 1;
-              }
-            }
-          } else {
-            let mut doc_id;
-            loop {
-              doc_id = it.next_doc()?;
-              if doc_id >= limit {
-                break;
-              }
-              if seg_state.rld.delete(doc_id, info, None)? {
-                del_count += 1;
+            } else {
+              let mut doc_id;
+              loop {
+                doc_id = it.next_doc()?;
+                if doc_id >= limit {
+                  break;
+                }
+                if seg_state.rld.delete(doc_id, info, None)? {
+                  del_count += 1;
+                }
               }
             }
           }
-        }
+          Ok(())
+        })();
+        // Keep the same context identity for the next query and reclaim its owner
+        // before propagating an error from query processing.
+        reader_context = searcher.reader_context;
+        query_result?;
       }
     }
 

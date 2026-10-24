@@ -2035,13 +2035,13 @@ where
 
         let doc_maps = if reorder_doc_maps.is_empty() {
           let mut v = Vec::with_capacity(merger.merge_state.doc_maps.len());
-          for doc_map in merger.merge_state.doc_maps.iter() {
-            v.push(DocMapEnum2::A(doc_map.clone()))
+          for index in 0..merger.merge_state.doc_maps.len() {
+            v.push(DocMapEnum2::A(merger.merge_state.doc_map(index)))
           }
           v
         } else {
           debug_assert!(merger.merge_state.doc_maps.len() == 1);
-          let compaction_doc_map = merger.merge_state.doc_maps[0].clone();
+          let compaction_doc_map = merger.merge_state.doc_map(0);
           let len = reorder_doc_maps.len();
           let mut v = Vec::with_capacity(len);
           for rdm in reorder_doc_maps.into_iter() {

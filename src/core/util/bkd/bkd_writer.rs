@@ -45,7 +45,6 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{IOUtils, SliceCopyOps, ToInt, TryIntoInt};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Recursively builds a block KD-tree to assign all incoming points in N-dim
@@ -483,7 +482,7 @@ where
   pub fn merge<S, DM, IO>(
     &mut self,
     data_out: &mut IO,
-    doc_maps: Option<Vec<Rc<DM>>>,
+    doc_maps: Option<Vec<DM>>,
     readers: Vec<S>,
   ) -> Result<Option<IORunnable>>
   where
@@ -498,7 +497,7 @@ where
     });
     match doc_maps {
       Some(doc_maps) => self.merge_with_doc_map(data_out, readers, |i| {
-        let doc_map = doc_maps[i].as_ref();
+        let doc_map = &doc_maps[i];
         move |doc_id| doc_map.get(doc_id)
       }),
       None => self.merge_with_doc_map(data_out, readers, |_| |doc_id| Ok(doc_id)),

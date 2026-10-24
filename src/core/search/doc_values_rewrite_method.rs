@@ -63,6 +63,7 @@ use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -334,7 +335,12 @@ where
     let query = &wrapper.query;
     let field = dispatch_multi_term_query!(query, |q| q.get_field());
     let values = DocValues::get_sorted_set(context.reader(), field)?;
-    let mut terms_enum = get_terms_enum(query, values)?;
+    let term_values = RefCell::new(values);
+    let terms = DocValuesTerms {
+      values: &term_values,
+      source_type: std::marker::PhantomData,
+    };
+    let mut terms_enum = get_terms_enum(query, terms)?;
 
     if terms_enum.next()?.is_none() {
       let v = ConstantScoreScorer::from_disi(self.score, self.score_mode, EmptyDISI::default());
@@ -414,14 +420,14 @@ where
 }
 /// Create a [`TermsEnum`] that provides the intersection of the query terms with the terms
 /// present in the doc values.
-pub(crate) fn get_terms_enum<S>(
+pub(crate) fn get_terms_enum<S, V>(
   query: &MultiTermQuerySet,
-  values: S,
-) -> Result<MultiTermQueryDocValuesTermsEnum<S>>
+  terms: DocValuesTerms<S, V>,
+) -> Result<MultiTermQueryDocValuesTermsEnum<S, V>>
 where
   S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
 {
-  let terms = DocValuesTerms::new(values);
   match query {
     MultiTermQuerySet::Automaton(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
@@ -615,37 +621,43 @@ where
   }
 }
 
-pub struct DocValuesTerms<S> {
-  values: Rc<RefCell<S>>,
+pub struct DocValuesTerms<S, V = Rc<RefCell<S>>> {
+  values: V,
+  source_type: std::marker::PhantomData<fn() -> S>,
 }
 
 impl<S> DocValuesTerms<S> {
   fn new(values: S) -> Self {
     Self {
       values: Rc::new(RefCell::new(values)),
+      source_type: std::marker::PhantomData,
     }
   }
 }
 
-impl<S> Clone for DocValuesTerms<S> {
+impl<S, V: Clone> Clone for DocValuesTerms<S, V> {
   fn clone(&self) -> Self {
     Self {
-      values: self.values.clone(),
+      values: <V as Clone>::clone(&self.values),
+      source_type: std::marker::PhantomData,
     }
   }
 }
 
-impl<S> Terms for DocValuesTerms<S>
+impl<S, V> Terms for DocValuesTerms<S, V>
 where
   S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
 {
-  type TermsEnum = SortedSetDocValuesTermsEnum<Rc<RefCell<S>>>;
+  type TermsEnum = SortedSetDocValuesTermsEnum<Self>;
 
-  fn iterator(&self) -> Result<Self::TermsEnum> {
-    Ok(SortedSetDocValuesTermsEnum::new(self.values.clone()))
+  fn iterator(&self) -> Result<<Self as Terms>::TermsEnum> {
+    Ok(SortedSetDocValuesTermsEnum::new(<Self as Clone>::clone(
+      self,
+    )))
   }
 
-  type IntersectIter = FilteredTermsEnum<Self::TermsEnum, AutomatonTermsEnum>;
+  type IntersectIter = FilteredTermsEnum<<Self as Terms>::TermsEnum, AutomatonTermsEnum>;
 
   fn intersect(
     &self,
@@ -688,30 +700,123 @@ where
   }
 }
 
-#[allow(clippy::large_enum_variant)] // Keep doc-values terms iteration allocation-free.
-pub enum MultiTermQueryDocValuesTermsEnum<S>
+impl<S, V> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocValuesTerms<S, V>
 where
   S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
 {
-  Automaton(<AutomatonQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
-  Fuzzy(<FuzzyQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
-  TermInSet(<TermInSetQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
+}
+impl<S, V> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocValuesTerms<S, V>
+where
+  S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
+{
+}
+impl<S, V> DocIdSetIterator for DocValuesTerms<S, V>
+where
+  S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
+{
+  fn doc_id(&self) -> i32 {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow().doc_id()
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow_mut().next_doc()
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow_mut().advance(target)
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow_mut().slow_advance(target)
+  }
+  fn cost(&self) -> Result<i64> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow().cost()
+  }
+}
+impl<S, V> crate::core::index::doc_values_iterator::DocValuesIterator for DocValuesTerms<S, V>
+where
+  S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow_mut().advance_exact(target)
+  }
+}
+impl<S, V> SortedSetDocValues for DocValuesTerms<S, V>
+where
+  S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
+{
+  type OrdValue<'a>
+    = BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+  fn next_ord(&mut self) -> Result<i64> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow_mut().next_ord()
+  }
+  fn doc_value_count(&mut self) -> Result<i32> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow_mut().doc_value_count()
+  }
+  fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
+    let values: &RefCell<S> = self.values.borrow();
+    Ok(values.borrow_mut().lookup_ord(ord)?.into_owned())
+  }
+  fn get_value_count(&self) -> Result<i64> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow().get_value_count()
+  }
+  fn lookup_term<BS: ByteSource>(&mut self, key: &BytesRef<BS>) -> Result<i64> {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow_mut().lookup_term(key)
+  }
+  type TermsEnum<'a>
+    = SortedSetDocValuesTermsEnum<&'a mut Self>
+  where
+    Self: 'a;
+  fn terms_enum(&mut self) -> Result<<Self as SortedSetDocValues>::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
+  fn is_single_valued(&self) -> bool {
+    let values: &RefCell<S> = self.values.borrow();
+    values.borrow().is_single_valued()
+  }
+  type SortedDocValues = crate::core::index::doc_values::EmptySorted;
+}
+
+#[allow(clippy::large_enum_variant)] // Keep doc-values terms iteration allocation-free.
+pub enum MultiTermQueryDocValuesTermsEnum<S, V = Rc<RefCell<S>>>
+where
+  S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
+{
+  Automaton(<AutomatonQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S, V>>),
+  Fuzzy(<FuzzyQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S, V>>),
+  TermInSet(<TermInSetQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S, V>>),
   #[cfg(test)]
   BoostChecking(
     <crate::test_framework::core::search::multi_term::BoostCheckingQuery as MultiTermQuery>::TermsEnum<
-      DocValuesTerms<S>,
+      DocValuesTerms<S, V>,
     >,
   ),
   #[cfg(test)]
   DumbPrefix(
     <crate::test_framework::core::search::multi_term::DumbPrefixQuery as MultiTermQuery>::TermsEnum<
-      DocValuesTerms<S>,
+      DocValuesTerms<S, V>,
     >,
   ),
   #[cfg(test)]
   DumbRegexp(
     <crate::test_framework::core::search::multi_term::DumbRegexpQuery as MultiTermQuery>::TermsEnum<
-      DocValuesTerms<S>,
+      DocValuesTerms<S, V>,
     >,
   ),
 }
@@ -732,9 +837,10 @@ macro_rules! dispatch_doc_values_terms_enum {
   }};
 }
 
-impl<S> BytesRefIterator for MultiTermQueryDocValuesTermsEnum<S>
+impl<S, V> BytesRefIterator for MultiTermQueryDocValuesTermsEnum<S, V>
 where
   S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
 {
   type Value<'a>
     = BytesRefValueEnum<'a>
@@ -748,9 +854,10 @@ where
   }
 }
 
-impl<S> TermsEnum for MultiTermQueryDocValuesTermsEnum<S>
+impl<S, V> TermsEnum for MultiTermQueryDocValuesTermsEnum<S, V>
 where
   S: SortedSetDocValues,
+  V: Borrow<RefCell<S>> + Clone,
 {
   type AttributeSource<'a>
     = &'a DummyAttributeSource
@@ -871,7 +978,7 @@ impl MultiTermQueryDocValuesWeight {
     let query = &wrapper.query;
     let field = dispatch_multi_term_query!(query, |q| q.get_field());
     let values = DocValues::get_sorted_set(context.reader(), field)?;
-    let terms_enum = get_terms_enum(query, values)?;
+    let terms_enum = get_terms_enum(query, DocValuesTerms::new(values))?;
     from_terms_enum(context, doc, self.matches_query.clone(), field, terms_enum)
       .map(|value| value.map(|iterator| Box::new(iterator).into()))
   }

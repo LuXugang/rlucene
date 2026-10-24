@@ -173,7 +173,6 @@ pub struct LatLonPointDistanceFeatureWeight {
 impl LatLonPointDistanceFeatureWeight {
   fn new(query: LatLonPointDistanceFeatureQuery, boost: f32) -> Self {
     let query_meta = QueryMeta {
-      field: Arc::from(query.field.as_str()),
       origin_lat: query.origin_lat,
       origin_lon: query.origin_lon,
       pivot_distance: query.pivot_distance,
@@ -239,12 +238,17 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::LatLonPointDistanceFeature(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected LatLonPointDistanceFeatureQuery",
+      ));
+    };
     let reader = context.reader();
-    let mut multi_doc_values = DocValues::get_sorted_numeric(reader, &self.query_meta.field)?;
+    let mut multi_doc_values = DocValues::get_sorted_numeric(reader, &query.field)?;
     if !multi_doc_values.advance_exact(doc)? {
       return Ok(Explanation::no_match_no_details(format!(
         "Document {doc} doesn't have a value for field {}",
-        self.query_meta.field
+        query.field
       )));
     }
     let encoded = select_value(
@@ -293,11 +297,16 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::LatLonPointDistanceFeature(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected LatLonPointDistanceFeatureQuery",
+      ));
+    };
     let reader = context.reader();
-    if reader.get_point_values(&self.query_meta.field)?.is_none() {
+    if reader.get_point_values(&query.field)?.is_none() {
       return Ok(None);
     }
-    let multi_doc_values = DocValues::get_sorted_numeric(reader, &self.query_meta.field)?;
+    let multi_doc_values = DocValues::get_sorted_numeric(reader, &query.field)?;
     let max_doc = reader.max_doc()?;
     let doc_values = select_value_with_geo(
       multi_doc_values,
@@ -305,6 +314,7 @@ where
       self.query_meta.origin_lon,
     )?;
     let v = ScorerSupplierImpl::new(
+      self.parent_query.clone(),
       self.query_meta.clone(),
       max_doc,
       self.boost,
@@ -315,12 +325,12 @@ where
 }
 #[derive(Clone)]
 pub struct QueryMeta {
-  field: Arc<str>,
   origin_lat: f64,
   origin_lon: f64,
   pivot_distance: f64,
 }
 pub struct ScorerSupplierImpl<DV> {
+  parent_query: Arc<Query>,
   query_meta: QueryMeta,
   max_doc: i32,
   boost: f32,
@@ -331,7 +341,13 @@ impl<DV> ScorerSupplierImpl<DV>
 where
   DV: NumericDocValues,
 {
-  fn new(query_meta: QueryMeta, max_doc: i32, boost: f32, doc_values: Option<DV>) -> Result<Self> {
+  fn new(
+    parent_query: Arc<Query>,
+    query_meta: QueryMeta,
+    max_doc: i32,
+    boost: f32,
+    doc_values: Option<DV>,
+  ) -> Result<Self> {
     let cost = doc_values
       .as_ref()
       .ok_or_else(|| {
@@ -339,6 +355,7 @@ where
       })?
       .cost()?;
     Ok(Self {
+      parent_query,
       query_meta,
       max_doc,
       boost,
@@ -364,15 +381,15 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
+    let Query::LatLonPointDistanceFeature(query) = self.parent_query.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "expected LatLonPointDistanceFeatureQuery",
+      ));
+    };
     let reader = context.reader();
-    let point_values = reader
-      .get_point_values(&self.query_meta.field)?
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "Field {} does not have point values",
-          self.query_meta.field
-        ))
-      })?;
+    let point_values = reader.get_point_values(&query.field)?.ok_or_else(|| {
+      LuceneError::illegal_state(format!("Field {} does not have point values", query.field))
+    })?;
     let doc_values = match self.doc_values.take() {
       Some(v) => v,
       None => return Err(LuceneError::illegal_state("get only call once")),

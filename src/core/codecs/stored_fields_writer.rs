@@ -20,6 +20,7 @@ use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap, MergeState};
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::StoredFields;
@@ -31,7 +32,6 @@ use crate::core::util::access::ByteSource;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 
 /// Codec API for writing stored fields:
 ///
@@ -163,7 +163,7 @@ impl StoredFieldsWriterDefaults {
 
       subs.push(Sub::new(StoredFieldsMergeSub::new(
         visitor,
-        merge_state.doc_maps[i].clone(),
+        merge_state.doc_map(i),
         i,
         merge_state.max_docs[i],
       )));
@@ -201,11 +201,16 @@ struct StoredFieldsMergeSub<'a, DM> {
   pub max_doc: i32,
   pub visitor: MergeVisitor<'a>,
   pub doc_id: i32,
-  pub doc_map: Rc<DM>,
+  pub doc_map: SharedDocMap<DM>,
 }
 
 impl<'a, DM> StoredFieldsMergeSub<'a, DM> {
-  fn new(visitor: MergeVisitor<'a>, doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
+  fn new(
+    visitor: MergeVisitor<'a>,
+    doc_map: SharedDocMap<DM>,
+    reader_index: usize,
+    max_doc: i32,
+  ) -> Self {
     Self {
       reader_index,
       max_doc,

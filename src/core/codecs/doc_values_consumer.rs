@@ -34,6 +34,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap, MergeStateAccess};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
@@ -421,14 +422,14 @@ impl FilteredTermsEnumBase for BitsFilteredTermsEnum {
 /// Tracks state of one numeric sub-reader that we are merging.
 pub(crate) struct NumericDocValuesSub<N, DM> {
   values: N,
-  doc_map: Rc<DM>,
+  doc_map: SharedDocMap<DM>,
 }
 
 impl<N, DM> NumericDocValuesSub<N, DM>
 where
   N: DocIdSetIterator,
 {
-  fn new(doc_map: Rc<DM>, values: N) -> Self {
+  fn new(doc_map: SharedDocMap<DM>, values: N) -> Self {
     debug_assert!(values.doc_id() == -1);
     NumericDocValuesSub { values, doc_map }
   }
@@ -570,7 +571,7 @@ where
       }
 
       if let Some(values) = values {
-        let doc_map = self.merge_state.doc_maps()[i].clone();
+        let doc_map = self.merge_state.doc_map(i);
         subs.push(Sub::new(NumericDocValuesSub::new(doc_map, values)));
       }
     }
@@ -588,14 +589,14 @@ where
 /// Tracks state of one binary sub-reader that we are merging.
 struct BinaryDocValuesSub<B, DM> {
   values: B,
-  doc_map: Rc<DM>,
+  doc_map: SharedDocMap<DM>,
 }
 
 impl<B, DM> BinaryDocValuesSub<B, DM>
 where
   B: DocIdSetIterator,
 {
-  fn new(doc_map: Rc<DM>, values: B) -> Self {
+  fn new(doc_map: SharedDocMap<DM>, values: B) -> Self {
     debug_assert!(values.doc_id() == -1);
     BinaryDocValuesSub { values, doc_map }
   }
@@ -746,7 +747,7 @@ where
 
       if let Some(values) = values {
         cost += values.cost()?;
-        let doc_map = self.merge_state.doc_maps()[i].clone();
+        let doc_map = self.merge_state.doc_map(i);
         subs.push(Sub::new(BinaryDocValuesSub::new(doc_map, values)));
       }
     }
@@ -770,14 +771,14 @@ where
 /// Tracks state of one sorted numeric sub-reader that we are merging.
 struct SortedNumericDocValuesSub<SN, DM> {
   values: SN,
-  doc_map: Rc<DM>,
+  doc_map: SharedDocMap<DM>,
 }
 
 impl<SN, DM> SortedNumericDocValuesSub<SN, DM>
 where
   SN: DocIdSetIterator,
 {
-  fn new(doc_map: Rc<DM>, values: SN) -> Self {
+  fn new(doc_map: SharedDocMap<DM>, values: SN) -> Self {
     debug_assert!(values.doc_id() == -1);
     SortedNumericDocValuesSub { values, doc_map }
   }
@@ -955,7 +956,7 @@ where
       if all_singletons && !values.is_single_valued() {
         all_singletons = false;
       }
-      let doc_map = self.merge_state.doc_maps()[i].clone();
+      let doc_map = self.merge_state.doc_map(i);
       subs.push(Sub::new(SortedNumericDocValuesSub::new(doc_map, values)));
     }
 
@@ -1014,14 +1015,14 @@ where
 // 4. SortedDocValues
 struct SortedDocValuesSub<S, DM> {
   values: S,
-  map: Rc<SegmentToGlobalOrds>,
-  doc_map: Rc<DM>,
+  map: SegmentToGlobalOrds,
+  doc_map: SharedDocMap<DM>,
 }
 impl<S, DM> SortedDocValuesSub<S, DM>
 where
   S: DocIdSetIterator,
 {
-  fn new(doc_map: Rc<DM>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
+  fn new(doc_map: SharedDocMap<DM>, values: S, map: SegmentToGlobalOrds) -> Self {
     debug_assert!(values.doc_id() == -1);
     SortedDocValuesSub {
       values,
@@ -1091,7 +1092,7 @@ where
         None => SortedDocValuesWithEmpty::B(DocValues::empty_sorted()),
       };
 
-      let doc_map = self.merge_state.doc_maps()[i].clone();
+      let doc_map = self.merge_state.doc_map(i);
       let map = self.map.get_global_ords(i).clone();
 
       subs.push(Sub::new(SortedDocValuesSub::new(doc_map, values, map)));
@@ -1399,15 +1400,15 @@ where
 // 4. SortedSetDocValues
 struct SortedSetDocValuesSub<S, DM> {
   values: S,
-  map: Rc<SegmentToGlobalOrds>,
-  doc_map: Rc<DM>,
+  map: SegmentToGlobalOrds,
+  doc_map: SharedDocMap<DM>,
 }
 
 impl<S, DM> SortedSetDocValuesSub<S, DM>
 where
   S: DocIdSetIterator,
 {
-  fn new(doc_map: Rc<DM>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
+  fn new(doc_map: SharedDocMap<DM>, values: S, map: SegmentToGlobalOrds) -> Self {
     debug_assert!(values.doc_id() == -1);
     Self {
       values,
@@ -1631,7 +1632,7 @@ where
         all_singletons = false;
       }
 
-      let doc_map = self.merge_state.doc_maps()[i].clone();
+      let doc_map = self.merge_state.doc_map(i);
       let seg_map = self.map.get_global_ords(i).clone();
 
       subs.push(Sub::new(SortedSetDocValuesSub::new(

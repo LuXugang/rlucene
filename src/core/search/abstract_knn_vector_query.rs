@@ -63,6 +63,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, HasIdentity};
+use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -585,13 +586,27 @@ where
     }
   }
 }
+#[derive(Debug)]
+struct DocAndScoreArrays {
+  docs: Vec<i32>,
+  scores: Vec<f32>,
+  segment_starts: Vec<usize>,
+}
+
+#[derive(Clone, Debug)]
+struct DocAndScoreData(Arc<DocAndScoreArrays>);
+
+impl Borrow<Vec<i32>> for DocAndScoreData {
+  fn borrow(&self) -> &Vec<i32> {
+    &self.0.docs
+  }
+}
+
 /// Caches the results of a KnnVector search: a list of docs and their scores
 #[derive(Clone, Debug)]
 pub struct DocAndScoreQuery {
-  docs: Arc<Vec<i32>>,
-  scores: Arc<Vec<f32>>,
+  data: DocAndScoreData,
   max_score: f32,
-  segment_starts: Arc<Vec<usize>>,
   context_identity: Identity,
   id: Identity,
 }
@@ -617,10 +632,12 @@ impl DocAndScoreQuery {
     context_identity: Identity,
   ) -> Self {
     Self {
-      docs: Arc::new(docs),
-      scores: Arc::new(scores),
+      data: DocAndScoreData(Arc::new(DocAndScoreArrays {
+        docs,
+        scores,
+        segment_starts,
+      })),
       max_score,
-      segment_starts: Arc::new(segment_starts),
       context_identity,
       id: Identity::new(),
     }
@@ -643,7 +660,7 @@ impl QueryBase for DocAndScoreQuery {
   fn to_string(&self, _field: &str) -> Result<String> {
     Ok(format!(
       "DocAndScoreQuery[{},...][{},...],{}",
-      self.docs[0], self.scores[0], self.max_score
+      self.data.0.docs[0], self.data.0.scores[0], self.max_score
     ))
   }
 
@@ -678,8 +695,8 @@ impl Eq for DocAndScoreQuery {}
 impl PartialEq for DocAndScoreQuery {
   fn eq(&self, other: &Self) -> bool {
     self.context_identity == other.context_identity
-      && self.docs == other.docs
-      && CoreHelper::array_equals_f32(&self.scores, &other.scores)
+      && (Arc::ptr_eq(&self.data.0, &other.data.0) || self.data.0.docs == other.data.0.docs)
+      && CoreHelper::array_equals_f32(&self.data.0.scores, &other.data.0.scores)
   }
 }
 impl Hash for DocAndScoreQuery {
@@ -688,8 +705,8 @@ impl Hash for DocAndScoreQuery {
     H: Hasher,
   {
     self.context_identity.hash(state);
-    self.docs.hash(state);
-    for f in self.scores.iter() {
+    self.data.0.docs.hash(state);
+    for f in self.data.0.scores.iter() {
       state.write_u32(BitUtil::float_to_int_bits(*f) as u32);
     }
   }
@@ -741,15 +758,15 @@ where
     let target = doc + context.doc_base as i32;
 
     let query = self.query()?;
-    match query.docs.binary_search(&target) {
+    match query.data.0.docs.binary_search(&target) {
       Ok(found) => Ok(Explanation::match_(
-        query.scores[found] * self.boost,
-        format!("within top {} docs", query.docs.len()),
+        query.data.0.scores[found] * self.boost,
+        format!("within top {} docs", query.data.0.docs.len()),
         vec![],
       )),
       Err(_) => Ok(Explanation::no_match_no_details(format!(
         "not in top {} docs",
-        query.docs.len()
+        query.data.0.docs.len()
       ))),
     }
   }
@@ -769,16 +786,16 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     let query = self.query()?;
-    if query.segment_starts[context.ord] == query.segment_starts[context.ord + 1] {
+    if query.data.0.segment_starts[context.ord] == query.data.0.segment_starts[context.ord + 1] {
       return Ok(None);
     }
     let disi = DocIdSetIteratorImpl::new(
-      query.segment_starts[context.ord],
-      query.segment_starts[context.ord + 1],
-      query.docs.clone(),
+      query.data.0.segment_starts[context.ord],
+      query.data.0.segment_starts[context.ord + 1],
+      query.data.clone(),
       context.doc_base,
     );
-    let scorer = ScorerImpl::new(disi, query.max_score, self.boost, query.scores.clone());
+    let scorer = ScorerImpl::new(disi, query.max_score, self.boost);
     Ok(Some(DefaultScorerSupplier::new(scorer)))
   }
 
@@ -791,19 +808,22 @@ where
     IndexSearcher<IRC, SIM>: Sync,
   {
     let query = self.query()?;
-    Ok((query.segment_starts[context.ord + 1] - query.segment_starts[context.ord]) as i32)
+    Ok(
+      (query.data.0.segment_starts[context.ord + 1] - query.data.0.segment_starts[context.ord])
+        as i32,
+    )
   }
 }
 
-pub struct DocIdSetIteratorImpl {
+pub struct DocIdSetIteratorImpl<D = Arc<Vec<i32>>> {
   lower: usize,
   upper: usize,
   upto: Option<usize>,
-  docs: Arc<Vec<i32>>,
+  docs: D,
   doc_base: usize,
 }
-impl DocIdSetIteratorImpl {
-  pub fn new(lower: usize, upper: usize, docs: Arc<Vec<i32>>, doc_base: usize) -> Self {
+impl<D> DocIdSetIteratorImpl<D> {
+  pub fn new(lower: usize, upper: usize, docs: D, doc_base: usize) -> Self {
     Self {
       lower,
       upper,
@@ -813,12 +833,18 @@ impl DocIdSetIteratorImpl {
     }
   }
 }
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DocIdSetIteratorImpl {}
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIdSetIteratorImpl {}
+impl<D: Borrow<Vec<i32>>> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorImpl<D>
+{
+}
+impl<D: Borrow<Vec<i32>>> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DocIdSetIteratorImpl<D>
+{
+}
 
-impl DocIdSetIterator for DocIdSetIteratorImpl {
+impl<D: Borrow<Vec<i32>>> DocIdSetIterator for DocIdSetIteratorImpl<D> {
   fn doc_id(&self) -> i32 {
-    doc_id_no_shadow(self.upto, self.upper, self.docs.as_ref(), self.doc_base)
+    doc_id_no_shadow(self.upto, self.upper, self.docs.borrow(), self.doc_base)
   }
 
   fn next_doc(&mut self) -> Result<i32> {
@@ -831,7 +857,7 @@ impl DocIdSetIterator for DocIdSetIteratorImpl {
     Ok(doc_id_no_shadow(
       self.upto,
       self.upper,
-      self.docs.as_ref(),
+      self.docs.borrow(),
       self.doc_base,
     ))
   }
@@ -857,19 +883,17 @@ fn doc_id_no_shadow(upto: Option<usize>, upper: usize, docs: &[i32], doc_base: u
 }
 
 pub struct ScorerImpl {
-  disi: DocIdSetIteratorImpl,
+  disi: DocIdSetIteratorImpl<DocAndScoreData>,
   max_score: f32,
   boost: f32,
-  scorers: Arc<Vec<f32>>,
 }
 
 impl ScorerImpl {
-  fn new(disi: DocIdSetIteratorImpl, max_score: f32, boost: f32, scorers: Arc<Vec<f32>>) -> Self {
+  fn new(disi: DocIdSetIteratorImpl<DocAndScoreData>, max_score: f32, boost: f32) -> Self {
     Self {
       disi,
       max_score,
       boost,
-      scorers,
     }
   }
 }
@@ -881,12 +905,13 @@ impl Scorable for ScorerImpl {
     Self: 'a;
 
   fn score(&mut self) -> Result<f32> {
+    let scores = &self.disi.docs.0.scores;
     let upto = self
       .disi
       .upto
-      .filter(|&upto| upto < self.scorers.len())
+      .filter(|&upto| upto < scores.len())
       .ok_or_else(|| LuceneError::array_index_out_of_bounds("upto is out of bounds"))?;
-    Ok(self.scorers[upto] * self.boost)
+    Ok(scores[upto] * self.boost)
   }
 }
 
@@ -954,12 +979,7 @@ impl TwoPhaseIterator for ScorerImpl {
 
 impl Scorer for ScorerImpl {
   fn scoring_doc_id(&mut self) -> Result<i32> {
-    Ok(doc_id_no_shadow(
-      self.disi.upto,
-      self.disi.upper,
-      self.disi.docs.as_ref(),
-      self.disi.doc_base,
-    ))
+    Ok(DocIdSetIterator::doc_id(&self.disi))
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {

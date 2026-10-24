@@ -35,8 +35,8 @@ use std::sync::Arc;
 #[derive(Default)]
 pub struct PagedBytes {
   blocks: Vec<Vec<u8>>,
-  // Share the directory across readers; fill() can independently retain a single page.
-  frozen_blocks: Option<Arc<Vec<Arc<Vec<u8>>>>>,
+  // Share the immutable page directory across readers and retained page views.
+  frozen_blocks: Option<Arc<Vec<Vec<u8>>>>,
   num_blocks: usize,
   block_size: usize,
   block_bits: usize,
@@ -173,7 +173,7 @@ impl PagedBytes {
 
     let mut block = Vec::with_capacity(self.num_blocks);
     for i in 0..self.num_blocks {
-      block.push(Arc::new(std::mem::take(&mut self.blocks[i])));
+      block.push(std::mem::take(&mut self.blocks[i]));
     }
     self.frozen_blocks = Some(Arc::new(block));
     // Frozen readers own the shared page directory; release the emptied write directory.
@@ -242,17 +242,14 @@ impl Accountable for PagedBytes {
       // The shared directory retains its Vec control value and Arc reference counts.
       bytes = bytes
         .saturating_add(size_of_vec(frozen_blocks))
-        .saturating_add(mem::size_of::<Vec<Arc<Vec<u8>>>>() as i64)
+        .saturating_add(mem::size_of::<Vec<Vec<u8>>>() as i64)
         .saturating_add((2 * mem::size_of::<usize>()) as i64);
       if let Some(last_block) = frozen_blocks.last() {
         bytes = bytes
           .saturating_add(
-            (frozen_blocks.len() as i64).saturating_mul(mem::size_of::<Vec<u8>>() as i64),
-          )
-          .saturating_add(
             ((frozen_blocks.len() - 1) as i64).saturating_mul(self.bytes_used_per_block),
           )
-          .saturating_add(size_of_vec(last_block.as_ref()));
+          .saturating_add(size_of_vec(last_block));
       }
     } else {
       if self.num_blocks > 0 {
@@ -267,10 +264,54 @@ impl Accountable for PagedBytes {
     Ok(bytes)
   }
 }
+/// An independent byte view that retains the frozen page directory.
+///
+/// Its default is an empty byte source. A populated view retains all pages,
+/// including after the originating Reader or PagedBytes has been dropped.
+#[derive(Clone, Default)]
+pub struct PagedBytesPage {
+  source: Option<(Arc<Vec<Vec<u8>>>, usize)>,
+}
+
+impl Clone for BytesRef<PagedBytesPage> {
+  fn clone(&self) -> Self {
+    let bytes_ref = Self {
+      bytes: self.bytes.clone(),
+      offset: self.offset,
+      length: self.length,
+    };
+    debug_assert!({
+      let bytes = crate::core::util::access::ByteSource::as_slice(&bytes_ref.bytes);
+      bytes_ref.offset <= bytes.len()
+        && bytes_ref.length <= bytes.len()
+        && bytes_ref.offset + bytes_ref.length <= bytes.len()
+    });
+    bytes_ref
+  }
+}
+
+impl crate::core::util::access::ByteSource for PagedBytesPage {
+  fn as_slice(&self) -> &[u8] {
+    match &self.source {
+      Some((blocks, index)) => &blocks[*index],
+      None => &[],
+    }
+  }
+}
+
+impl PagedBytesPage {
+  fn retains(&self, blocks: &Arc<Vec<Vec<u8>>>, index: usize) -> bool {
+    self
+      .source
+      .as_ref()
+      .is_some_and(|(retained, page)| *page == index && Arc::ptr_eq(retained, blocks))
+  }
+}
+
 /// Provides methods to read BytesRefs from a frozen PagedBytes.
 #[derive(Clone, Default)]
 pub struct Reader {
-  blocks: Arc<Vec<Arc<Vec<u8>>>>,
+  blocks: Arc<Vec<Vec<u8>>>,
   block_bits: usize,
   block_mask: usize,
   block_size: usize,
@@ -353,12 +394,14 @@ impl Reader {
   }
   /// Reads a one- or two-byte length prefix at `start` and fills `b`.
   /// The slice must be contained within a single block.
-  pub fn fill(&self, b: &mut BytesRef<Arc<Vec<u8>>>, start: usize) -> Result<()> {
+  pub fn fill(&self, b: &mut BytesRef<PagedBytesPage>, start: usize) -> Result<()> {
     let index = start >> self.block_bits;
     let offset = start & self.block_mask;
     let block = &self.blocks[index];
-    if !Arc::ptr_eq(&b.bytes, block) {
-      b.bytes = Arc::clone(block);
+    if !b.bytes.retains(&self.blocks, index) {
+      b.bytes = PagedBytesPage {
+        source: Some((Arc::clone(&self.blocks), index)),
+      };
     }
     if block[offset] & 128 == 0 {
       b.length = block[offset] as usize;
@@ -375,13 +418,12 @@ impl Accountable for Reader {
   fn ram_bytes_used(&self) -> Result<i64> {
     // Report the complete retained shared directory, as for the shared page payloads.
     let mut bytes = size_of_vec(&self.blocks)
-      .saturating_add(mem::size_of::<Vec<Arc<Vec<u8>>>>() as i64)
+      .saturating_add(mem::size_of::<Vec<Vec<u8>>>() as i64)
       .saturating_add((2 * mem::size_of::<usize>()) as i64);
     if let Some(last_block) = self.blocks.last() {
       bytes = bytes
-        .saturating_add((self.blocks.len() as i64).saturating_mul(mem::size_of::<Vec<u8>>() as i64))
         .saturating_add(((self.blocks.len() - 1) as i64).saturating_mul(self.bytes_used_per_block))
-        .saturating_add(size_of_vec(last_block.as_ref()));
+        .saturating_add(size_of_vec(last_block));
     }
     Ok(bytes)
   }
@@ -409,7 +451,7 @@ pub struct PagedBytesDataInput {
   block_size: usize,
   block_bits: usize,
   block_mask: usize,
-  blocks: Arc<Vec<Arc<Vec<u8>>>>,
+  blocks: Arc<Vec<Vec<u8>>>,
 }
 
 impl PagedBytesDataInput {

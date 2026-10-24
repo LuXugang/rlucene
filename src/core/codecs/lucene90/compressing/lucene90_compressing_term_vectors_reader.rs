@@ -968,33 +968,6 @@ where
 
     debug_assert_eq!(sum(&field_lengths), doc_len);
 
-    // Missing optional data uses empty Vecs. While an empty Vec has no element
-    // allocation, wrapping each one in Rc would still allocate an Rc object.
-    // Share one lazily created empty Rc across this document's positions,
-    // start offsets and lengths. These arrays are read-only after construction;
-    // non-empty Vecs keep their own Rc and are moved without copying elements.
-    let mut empty_positions = None;
-    let mut share_positions = |values: Vec<i32>| {
-      if values.is_empty() {
-        empty_positions
-          .get_or_insert_with(|| Rc::new(values))
-          .clone()
-      } else {
-        Rc::new(values)
-      }
-    };
-    // Payload indices use usize rather than i32, so they need a separate empty Rc.
-    let mut empty_payload_index = None;
-    let mut share_payload_index = |values: Vec<usize>| {
-      if values.is_empty() {
-        empty_payload_index
-          .get_or_insert_with(|| Rc::new(values))
-          .clone()
-      } else {
-        Rc::new(values)
-      }
-    };
-
     Ok(Some(TVFields::new(
       field_nums,
       field_flags,
@@ -1006,28 +979,35 @@ where
         .zip(suffix_lengths)
         .zip(field_term_freqs)
         .zip(position_index)
+        .zip(positions)
+        .zip(start_offsets)
+        .zip(lengths)
+        .zip(payload_index)
         .map(
-          |(((prefix_lengths, suffix_lengths), term_freqs), position_index)| {
-            Rc::new(TVTermData {
+          |(
+            (
+              (
+                ((((prefix_lengths, suffix_lengths), term_freqs), position_index), positions),
+                start_offsets,
+              ),
+              lengths,
+            ),
+            payload_index,
+          )| {
+            Rc::new(TVTermData::new(
               prefix_lengths,
               suffix_lengths,
               term_freqs,
               position_index,
-            })
+              positions,
+              start_offsets,
+              lengths,
+              payload_index,
+            ))
           },
         )
         .collect(),
-      positions.into_iter().map(&mut share_positions).collect(),
-      start_offsets
-        .into_iter()
-        .map(&mut share_positions)
-        .collect(),
-      lengths.into_iter().map(share_positions).collect(),
       payload_bytes,
-      payload_index
-        .into_iter()
-        .map(&mut share_payload_index)
-        .collect(),
       suffix_bytes,
       self.field_infos.clone(),
     )?))
@@ -1106,11 +1086,43 @@ impl BlockState {
   }
 }
 
-pub(crate) struct TVTermData {
+/// Immutable data shared by one term-vector field and its independent iterators.
+#[derive(Default)]
+pub struct TVTermData {
   prefix_lengths: Vec<usize>,
   suffix_lengths: Vec<usize>,
   term_freqs: Vec<usize>,
   position_index: Vec<usize>,
+  positions: Vec<i32>,
+  start_offsets: Vec<i32>,
+  lengths: Vec<i32>,
+  payload_index: Vec<usize>,
+}
+
+impl TVTermData {
+  /// Moves the decoded field arrays into one shared immutable field owner.
+  #[allow(clippy::too_many_arguments)]
+  pub fn new(
+    prefix_lengths: Vec<usize>,
+    suffix_lengths: Vec<usize>,
+    term_freqs: Vec<usize>,
+    position_index: Vec<usize>,
+    positions: Vec<i32>,
+    start_offsets: Vec<i32>,
+    lengths: Vec<i32>,
+    payload_index: Vec<usize>,
+  ) -> Self {
+    Self {
+      prefix_lengths,
+      suffix_lengths,
+      term_freqs,
+      position_index,
+      positions,
+      start_offsets,
+      lengths,
+      payload_index,
+    }
+  }
 }
 
 pub struct TVFields {
@@ -1121,12 +1133,8 @@ pub struct TVFields {
   field_lengths: Vec<usize>,
 
   term_data: Vec<Rc<TVTermData>>,
-  positions: Vec<Rc<Vec<i32>>>,
-  start_offsets: Vec<Rc<Vec<i32>>>,
-  lengths: Vec<Rc<Vec<i32>>>,
 
   payload_bytes: BytesRef<Rc<Vec<u8>>>,
-  payload_index: Vec<Rc<Vec<usize>>>,
   suffix_bytes: BytesRef<Rc<Vec<u8>>>,
 
   field_infos: Arc<FieldInfos>,
@@ -1140,11 +1148,7 @@ impl TVFields {
     num_terms: Vec<usize>,
     field_lengths: Vec<usize>,
     term_data: Vec<Rc<TVTermData>>,
-    positions: Vec<Rc<Vec<i32>>>,
-    start_offsets: Vec<Rc<Vec<i32>>>,
-    lengths: Vec<Rc<Vec<i32>>>,
     payload_bytes: BytesRef<Rc<Vec<u8>>>,
-    payload_index: Vec<Rc<Vec<usize>>>,
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
     field_infos: Arc<FieldInfos>,
   ) -> Result<Self> {
@@ -1169,11 +1173,7 @@ impl TVFields {
       field_lengths,
 
       term_data,
-      positions,
-      start_offsets,
-      lengths,
       payload_bytes,
-      payload_index,
       suffix_bytes,
       field_infos,
     })
@@ -1259,10 +1259,6 @@ impl Fields for TVFields {
       self.num_terms[idx],
       self.field_flags[idx],
       self.term_data[idx].clone(),
-      self.positions[idx].clone(),
-      self.start_offsets[idx].clone(),
-      self.lengths[idx].clone(),
-      self.payload_index[idx].clone(),
       self.payload_bytes.clone(),
       term_bytes,
     );
@@ -1281,10 +1277,6 @@ pub struct TVTerms {
   total_term_freq: i64,
 
   term_data: Rc<TVTermData>,
-  positions: Rc<Vec<i32>>,
-  start_offsets: Rc<Vec<i32>>,
-  lengths: Rc<Vec<i32>>,
-  payload_index: Rc<Vec<usize>>,
 
   payload_bytes: BytesRef<Rc<Vec<u8>>>,
   term_bytes: BytesRef<Rc<Vec<u8>>>,
@@ -1295,10 +1287,6 @@ impl TVTerms {
     num_terms: usize,
     flags: i32,
     term_data: Rc<TVTermData>,
-    positions: Rc<Vec<i32>>,
-    start_offsets: Rc<Vec<i32>>,
-    lengths: Rc<Vec<i32>>,
-    payload_index: Rc<Vec<usize>>,
     payload_bytes: BytesRef<Rc<Vec<u8>>>,
     term_bytes: BytesRef<Rc<Vec<u8>>>,
   ) -> Self {
@@ -1308,10 +1296,6 @@ impl TVTerms {
       num_terms,
       flags,
       term_data,
-      positions,
-      start_offsets,
-      lengths,
-      payload_index,
       payload_bytes,
       term_bytes,
       total_term_freq,
@@ -1326,10 +1310,6 @@ impl Terms for TVTerms {
       self.num_terms,
       self.flags,
       self.term_data.clone(),
-      self.positions.clone(),
-      self.start_offsets.clone(),
-      self.lengths.clone(),
-      self.payload_index.clone(),
       self.payload_bytes.clone(),
       ByteArrayDataInput::with_range(
         self.term_bytes.bytes.clone(),
@@ -1392,10 +1372,6 @@ pub struct TVTermsEnum {
   ord: Option<usize>,
 
   term_data: Rc<TVTermData>,
-  positions: Rc<Vec<i32>>,
-  start_offsets: Rc<Vec<i32>>,
-  lengths: Rc<Vec<i32>>,
-  payload_index: Rc<Vec<usize>>,
 
   input: ByteArrayDataInput<Rc<Vec<u8>>>,
   payloads: BytesRef<Rc<Vec<u8>>>,
@@ -1407,10 +1383,6 @@ impl TVTermsEnum {
     num_terms: usize,
     _flags: i32,
     term_data: Rc<TVTermData>,
-    positions: Rc<Vec<i32>>,
-    start_offsets: Rc<Vec<i32>>,
-    lengths: Rc<Vec<i32>>,
-    payload_index: Rc<Vec<usize>>,
     payloads: BytesRef<Rc<Vec<u8>>>,
     input: ByteArrayDataInput<Rc<Vec<u8>>>,
   ) -> Result<Self> {
@@ -1420,10 +1392,6 @@ impl TVTermsEnum {
     let mut term_enum = TVTermsEnum {
       num_terms,
       term_data,
-      positions,
-      start_offsets,
-      lengths,
-      payload_index,
       payloads,
       input,
       start_pos,
@@ -1591,11 +1559,8 @@ impl TermsEnum for TVTermsEnum {
     docs_enum.reset(
       self.term_data.term_freqs[ord],
       self.term_data.position_index[ord],
-      self.positions.clone(),
-      self.start_offsets.clone(),
-      self.lengths.clone(),
+      self.term_data.clone(),
       self.payloads.clone(),
-      self.payload_index.clone(),
     );
     Ok(docs_enum)
   }
@@ -1613,15 +1578,12 @@ impl TermsEnum for TVTermsEnum {
 }
 
 pub struct TVPostingsEnum {
+  term_data: Rc<TVTermData>,
   doc: i32,
   term_freq: usize,
   position_index: usize,
 
-  positions: Rc<Vec<i32>>,
-  start_offsets: Rc<Vec<i32>>,
-  lengths: Rc<Vec<i32>>,
   payload: BytesRef<Rc<Vec<u8>>>,
-  payload_index: Rc<Vec<usize>>,
   base_payload_offset: usize,
   i: Option<usize>,
 
@@ -1629,9 +1591,8 @@ pub struct TVPostingsEnum {
   payload_offset: usize,
 }
 struct EmptyTVBuffers {
-  positions: Rc<Vec<i32>>,
+  term_data: Rc<TVTermData>,
   payload: Rc<Vec<u8>>,
-  payload_index: Rc<Vec<usize>>,
 }
 impl Default for TVPostingsEnum {
   fn default() -> Self {
@@ -1643,31 +1604,22 @@ impl TVPostingsEnum {
   pub fn new() -> Self {
     thread_local! {
       static EMPTY_BUFFERS: EmptyTVBuffers = EmptyTVBuffers {
-        positions: Rc::new(Vec::new()),
+        term_data: Rc::new(TVTermData::default()),
         payload: Rc::new(Vec::new()),
-        payload_index: Rc::new(Vec::new()),
       };
     }
-    let (empty_positions, empty_payload, empty_payload_index) = EMPTY_BUFFERS.with(|buffers| {
-      (
-        Rc::clone(&buffers.positions),
-        Rc::clone(&buffers.payload),
-        Rc::clone(&buffers.payload_index),
-      )
-    });
+    let (term_data, payload) =
+      EMPTY_BUFFERS.with(|buffers| (Rc::clone(&buffers.term_data), Rc::clone(&buffers.payload)));
     TVPostingsEnum {
+      term_data,
       doc: -1,
       term_freq: 0,
       position_index: 0,
-      positions: Rc::clone(&empty_positions),
-      start_offsets: Rc::clone(&empty_positions),
-      lengths: empty_positions,
       payload: BytesRef {
-        bytes: empty_payload,
+        bytes: payload,
         offset: 0,
         length: 0,
       },
-      payload_index: empty_payload_index,
       base_payload_offset: 0,
       i: None,
       payload_length: 0,
@@ -1679,25 +1631,18 @@ impl TVPostingsEnum {
     &mut self,
     freq: usize,
     position_index: usize,
-    positions: Rc<Vec<i32>>,
-    start_offsets: Rc<Vec<i32>>,
-    lengths: Rc<Vec<i32>>,
+    term_data: Rc<TVTermData>,
     payloads: BytesRef<Rc<Vec<u8>>>,
-    payload_index: Rc<Vec<usize>>,
   ) {
     self.term_freq = freq;
     self.position_index = position_index;
-    self.positions = positions;
-    self.start_offsets = start_offsets;
-    self.lengths = lengths;
+    self.term_data = term_data;
 
     self.base_payload_offset = payloads.offset;
 
     self.payload.bytes = payloads.bytes;
     self.payload.offset = 0;
     self.payload.length = 0;
-
-    self.payload_index = payload_index;
 
     self.payload_length = 0;
     self.payload_offset = 0;
@@ -1777,40 +1722,41 @@ impl PostingsEnum for TVPostingsEnum {
     if equal {
       return Err(LuceneError::illegal_state("Read past last position"));
     }
-    if !self.payload_index.is_empty() {
+    if !self.term_data.payload_index.is_empty() {
       let index = self.position_index + i;
-      self.payload_offset = self.base_payload_offset + self.payload_index[index];
-      self.payload_length = self.payload_index[index + 1] - self.payload_index[index];
+      self.payload_offset = self.base_payload_offset + self.term_data.payload_index[index];
+      self.payload_length =
+        self.term_data.payload_index[index + 1] - self.term_data.payload_index[index];
     }
-    if self.positions.is_empty() {
+    if self.term_data.positions.is_empty() {
       Ok(-1)
     } else {
-      Ok(self.positions[self.position_index + i])
+      Ok(self.term_data.positions[self.position_index + i])
     }
   }
 
   fn start_offset(&self) -> Result<i32> {
     let i = self.check_position()?;
-    if self.start_offsets.is_empty() {
+    if self.term_data.start_offsets.is_empty() {
       Ok(-1)
     } else {
-      Ok(self.start_offsets[self.position_index + i])
+      Ok(self.term_data.start_offsets[self.position_index + i])
     }
   }
 
   fn end_offset(&self) -> Result<i32> {
     let i = self.check_position()?;
-    if self.start_offsets.is_empty() {
+    if self.term_data.start_offsets.is_empty() {
       Ok(-1)
     } else {
       let index = self.position_index + i;
-      Ok(self.start_offsets[index] + self.lengths[index])
+      Ok(self.term_data.start_offsets[index] + self.term_data.lengths[index])
     }
   }
 
   fn get_payload(&self) -> Result<Option<BytesRefValueEnum<'_>>> {
     let _ = self.check_position()?;
-    if self.payload_index.is_empty() || self.payload_length == 0 {
+    if self.term_data.payload_index.is_empty() || self.payload_length == 0 {
       Ok(None)
     } else {
       let bytes =

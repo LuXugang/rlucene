@@ -32,7 +32,6 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// A [`Fields`] implementation that merges multiple
@@ -44,7 +43,7 @@ pub struct MappedMultiFields<'a, F, DM>
 where
   F: Fields,
 {
-  merge_state_meta: Rc<MergeStateMeta<Rc<DM>>>,
+  merge_state_meta: MergeStateMeta<DM>,
   inner: &'a MultiFields<F>,
 }
 
@@ -52,9 +51,9 @@ impl<'a, F, DM> MappedMultiFields<'a, F, DM>
 where
   F: Fields,
 {
-  pub fn new(merge_state_meta: MergeStateMeta<Rc<DM>>, multi_fields: &'a MultiFields<F>) -> Self {
+  pub fn new(merge_state_meta: MergeStateMeta<DM>, multi_fields: &'a MultiFields<F>) -> Self {
     MappedMultiFields {
-      merge_state_meta: Rc::new(merge_state_meta),
+      merge_state_meta,
       inner: multi_fields,
     }
   }
@@ -93,14 +92,14 @@ where
 }
 
 pub struct MappedMultiTerms<T, DM> {
-  merge_state: Rc<MergeStateMeta<Rc<DM>>>,
+  merge_state: MergeStateMeta<DM>,
   field: Arc<str>,
   inner: MultiFieldsTerms<T>,
 }
 impl<T, DM> MappedMultiTerms<T, DM> {
   pub fn new<FName>(
     field: FName,
-    merge_state: Rc<MergeStateMeta<Rc<DM>>>,
+    merge_state: MergeStateMeta<DM>,
     multi_terms: MultiFieldsTerms<T>,
   ) -> Self
   where
@@ -365,13 +364,13 @@ where
 
 pub struct MappedMultiTermsEnum<TE, DM> {
   field: Arc<str>,
-  merge_state_meta: Rc<MergeStateMeta<Rc<DM>>>,
+  merge_state_meta: MergeStateMeta<DM>,
   in_: MultiTermsEnum<TE>,
 }
 impl<TE, DM> MappedMultiTermsEnum<TE, DM> {
   pub fn new<FName>(
     field: FName,
-    merge_state: Rc<MergeStateMeta<Rc<DM>>>,
+    merge_state: MergeStateMeta<DM>,
     multi_terms_enum: MultiTermsEnum<TE>,
   ) -> Self
   where

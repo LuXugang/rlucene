@@ -60,8 +60,10 @@ use crate::test_framework::core::index::mismatched_leaf_reader::{
 type BaseStoredFieldsReader<D> = <DefaultLeafReader<D> as CodecReader>::StoredFieldsReader;
 type BaseTermVectorsReader<D> = <DefaultLeafReader<D> as CodecReader>::TermVectorsReader;
 type BaseNormsProducer<D> = <DefaultLeafReader<D> as CodecReader>::NormsProducer;
-type NormsChoice<D> =
-  NormsProducerEnum2<BaseNormsProducer<D>, <BaseNormsProducer<D> as NormsProducer>::MergeInstance>;
+type NormsChoice<D> = NormsProducerEnum2<
+  BaseNormsProducer<D>,
+  Arc<<BaseNormsProducer<D> as NormsProducer>::MergeInstance>,
+>;
 type BaseDocValuesProducer<D> = <DefaultLeafReader<D> as CodecReader>::DocValuesProducer;
 type BaseFieldsProducer<D> = <DefaultLeafReader<D> as CodecReader>::FieldsProducer;
 type BasePointsReader<D> = <DefaultLeafReader<D> as CodecReader>::PointsReader;
@@ -102,7 +104,7 @@ where
       Some(norms) => {
         let merge_instance = norms.get_merge_instance()?;
         Some(match merge_instance {
-          Some(merge) => NormsProducerEnum2::B(merge),
+          Some(merge) => NormsProducerEnum2::B(Arc::new(merge)),
           None => NormsProducerEnum2::A(norms),
         })
       },

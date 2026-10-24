@@ -682,7 +682,7 @@ where
         )?);
       }
       subs.push(Sub::new(CompressingStoredFieldsMergeSub::new(
-        merge_state.doc_maps[i].as_ref(),
+        &merge_state.doc_maps[i],
         merge_state.max_docs[i],
         strategy,
         i,

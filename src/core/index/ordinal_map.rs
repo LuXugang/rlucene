@@ -22,7 +22,7 @@ use crate::core::index::terms_enum_index::{TermState, TermsEnumIndex};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
-use crate::core::util::long_values::{LongValues, LongValuesEnum2, LongValuesEnum3, Zeroes};
+use crate::core::util::long_values::{LongValues, LongValuesEnum2, Zeroes};
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::packed_long_values::{
   Builder, PackedLongValues, PackedLongValuesIterator,
@@ -34,8 +34,24 @@ use crate::core::util::{Sorter, ToInt};
 use std::mem;
 use std::rc::Rc;
 
-pub(crate) type SegmentToGlobalOrds =
-  LongValuesEnum3<crate::core::util::long_values::Identity, LongValuesImpl, LongValuesImpl1>;
+type NonIdentitySegmentToGlobalOrds = LongValuesEnum2<LongValuesImpl, LongValuesImpl1>;
+
+// None is the stateless identity mapping. The data-bearing mappings retain
+// their independent shared owner, while each directory entry remains one handle.
+#[derive(Clone)]
+pub(crate) struct SegmentToGlobalOrds(Option<Rc<NonIdentitySegmentToGlobalOrds>>);
+
+const _: [(); mem::size_of::<Rc<NonIdentitySegmentToGlobalOrds>>()] =
+  [(); mem::size_of::<SegmentToGlobalOrds>()];
+
+impl LongValues for SegmentToGlobalOrds {
+  fn get(&self, index: usize) -> Result<i64> {
+    match self.0.as_ref() {
+      None => Ok(index as i64),
+      Some(values) => values.get(index),
+    }
+  }
+}
 
 impl OrdinalMap {
   /// Create an ordinal map that uses the number of unique values of each
@@ -136,7 +152,7 @@ pub struct OrdinalMap {
   pub(crate) global_ord_deltas: LongValuesEnum2<PackedLongValues, Zeroes>,
   /// globalOrd -> first segment container
   pub(crate) first_segments: LongValuesEnum2<PackedLongValues, Zeroes>,
-  segment_to_global_ords: Vec<Rc<SegmentToGlobalOrds>>,
+  segment_to_global_ords: Vec<SegmentToGlobalOrds>,
   /// the map from/to segment ids
   segment_map: SegmentMap,
   /// ram usage
@@ -333,18 +349,12 @@ impl OrdinalMap {
     // ordDeltas is typically the bottleneck, so let's see what we can do to make it faster
     let mut segment_to_global_ords = Vec::with_capacity(sub_len);
     ram_bytes_used += size_of_vec(&segment_to_global_ords);
-    let mut identity: Option<Rc<SegmentToGlobalOrds>> = None;
     for i in 0..ord_deltas.len() {
       let deltas = ord_deltas[i].build()?;
       if ord_delta_bits[i] == 0 {
         // segment ords perfectly match global ordinals
         // likely in case of low cardinalities and large segments
-        let global_ords = identity.get_or_insert_with(|| {
-          let global_ords = Rc::new(LongValuesEnum3::A(crate::core::util::long_values::Identity));
-          ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
-          global_ords
-        });
-        segment_to_global_ords.push(Rc::clone(global_ords));
+        segment_to_global_ords.push(SegmentToGlobalOrds(None));
       } else {
         let bits_required = if ord_delta_bits[i] < 0 {
           64
@@ -370,16 +380,16 @@ impl OrdinalMap {
           }
           debug_assert!(!it.has_next());
           let new_deltas_ram_bytes_used = new_deltas.ram_bytes_used()?;
-          let global_ords = Rc::new(LongValuesEnum3::B(LongValuesImpl::new(new_deltas)));
+          let global_ords = Rc::new(LongValuesEnum2::A(LongValuesImpl::new(new_deltas)));
           ram_bytes_used += new_deltas_ram_bytes_used;
           ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
-          segment_to_global_ords.push(global_ords);
+          segment_to_global_ords.push(SegmentToGlobalOrds(Some(global_ords)));
         } else {
           let deltas_ram_bytes_used = deltas.ram_bytes_used()?;
-          let global_ords = Rc::new(LongValuesEnum3::C(LongValuesImpl1::new(deltas)));
+          let global_ords = Rc::new(LongValuesEnum2::B(LongValuesImpl1::new(deltas)));
           ram_bytes_used += deltas_ram_bytes_used;
           ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
-          segment_to_global_ords.push(global_ords);
+          segment_to_global_ords.push(SegmentToGlobalOrds(Some(global_ords)));
         }
       }
     }
@@ -395,7 +405,7 @@ impl OrdinalMap {
   }
   /// Given a segment number, return a [`LongValues`] instance that maps segment ordinals
   /// to global ordinals.
-  pub(crate) fn get_global_ords(&self, segment_index: usize) -> &Rc<SegmentToGlobalOrds> {
+  pub(crate) fn get_global_ords(&self, segment_index: usize) -> &SegmentToGlobalOrds {
     let mapped = self.segment_map.old_to_new(segment_index) as usize;
     &self.segment_to_global_ords[mapped]
   }

@@ -64,7 +64,7 @@ impl<T> NormsProducer for Arc<T>
 where
   T: NormsProducer,
 {
-  type MergeInstance = Arc<T::MergeInstance>;
+  type MergeInstance = T::MergeInstance;
   type NumericDocValues = T::NumericDocValues;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -79,11 +79,7 @@ where
   where
     Self: Sized,
   {
-    let v = match (**self).get_merge_instance()? {
-      Some(v) => Arc::new(v),
-      None => return Ok(None),
-    };
-    Ok(Some(v))
+    (**self).get_merge_instance()
   }
 }
 

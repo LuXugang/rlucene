@@ -19,6 +19,7 @@ use crate::core::codecs::lucene90_points_writer::Lucene90PointsWriter;
 use crate::core::codecs::points_reader::PointsReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::point_values::Relation::CellCrossesQuery;
 use crate::core::index::point_values::{IntersectVisitor, PointTree, PointValues, Relation};
@@ -28,7 +29,6 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Write points
@@ -82,9 +82,9 @@ pub trait PointsWriter: Closeable {
       };
 
       max_point_count += values.size()?;
-      point_values.push((values, merge_state.doc_maps[i].clone()));
+      point_values.push((values, merge_state.doc_map(i)));
     }
-    let mut points_reader: PointsReaderImpl<'_, _, Rc<MergeStateDocMap<CR>>> =
+    let mut points_reader: PointsReaderImpl<'_, _, SharedDocMap<MergeStateDocMap<CR>>> =
       PointsReaderImpl::new(field_info.as_ref(), max_point_count, &point_values);
     self.write_field(
       field_info,

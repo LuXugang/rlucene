@@ -28,6 +28,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::{FloatVectorValue, FloatVectorValues};
 use crate::core::index::knn_vector_values::{BitsImpl, DocIndexIterator, KnnVectorValues};
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -986,9 +987,9 @@ fn merge_vector_values<D, CR, V, S, VSupplier, NewSub>(
 where
   CR: CodecReader,
   V: KnnVectorValues,
-  S: SubBase<DocMap = Rc<MergeStateDocMap<CR>>>,
+  S: SubBase<DocMap = SharedDocMap<MergeStateDocMap<CR>>>,
   VSupplier: FnMut(&CRKnnVectorReader<CR>, &str) -> Result<V>,
-  NewSub: FnMut(Rc<MergeStateDocMap<CR>>, V) -> Result<S>,
+  NewSub: FnMut(SharedDocMap<MergeStateDocMap<CR>>, V) -> Result<S>,
 {
   let mut subs = Vec::with_capacity(merge_state.knn_vectors_readers.len());
   for i in 0..merge_state.knn_vectors_readers.len() {
@@ -999,7 +1000,7 @@ where
 
     if let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref() {
       let values = values_supplier(knn_vectors_reader, &merging_field.name)?;
-      subs.push(Sub::new(new_sub(merge_state.doc_maps[i].clone(), values)?));
+      subs.push(Sub::new(new_sub(merge_state.doc_map(i), values)?));
     }
   }
   Ok(subs)
@@ -1012,7 +1013,7 @@ pub(crate) fn merge_float_vector_values<D, CR>(
 ) -> Result<
   MergedFloat32VectorValues<
     <CRKnnVectorReader<CR> as KnnVectorsReader>::FloatVectorValues,
-    Rc<MergeStateDocMap<CR>>,
+    SharedDocMap<MergeStateDocMap<CR>>,
   >,
 >
 where
@@ -1037,7 +1038,7 @@ pub(crate) fn merge_byte_vector_values<D, CR>(
 ) -> Result<
   MergedByteVectorValues<
     <CRKnnVectorReader<CR> as KnnVectorsReader>::ByteVectorValues,
-    Rc<MergeStateDocMap<CR>>,
+    SharedDocMap<MergeStateDocMap<CR>>,
   >,
 >
 where

@@ -18,6 +18,7 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::index::codec_reader::{CRNormsProducer, CodecReader};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
@@ -25,7 +26,6 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Consumes normalization values.
@@ -202,7 +202,7 @@ where
       }
 
       if let Some(norms) = norms {
-        let doc_map = self.merge_state.doc_maps[i].clone();
+        let doc_map = self.merge_state.doc_map(i);
         subs.push(Sub::new(NumericDocValuesSub::new(doc_map, norms)));
       }
     }
@@ -302,14 +302,14 @@ where
 /// Tracks state of one numeric sub-reader that we are merging.
 struct NumericDocValuesSub<N, DM> {
   values: N,
-  doc_map: Rc<DM>,
+  doc_map: SharedDocMap<DM>,
 }
 
 impl<N, DM> NumericDocValuesSub<N, DM>
 where
   N: DocIdSetIterator,
 {
-  fn new(doc_map: Rc<DM>, values: N) -> Self {
+  fn new(doc_map: SharedDocMap<DM>, values: N) -> Self {
     debug_assert!(values.doc_id() == -1);
     NumericDocValuesSub { values, doc_map }
   }

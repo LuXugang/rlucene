@@ -426,6 +426,8 @@ struct DirectFieldData {
   skips: Vec<i32>,
   skip_offsets: Vec<i32>,
   terms: Vec<DirectTerm>,
+  low_terms: Vec<LowFreqTerm>,
+  high_terms: Vec<HighFreqTerm>,
   has_freq: bool,
   has_pos: bool,
   has_offsets: bool,
@@ -442,8 +444,8 @@ enum PendingTerm {
 }
 
 enum DirectTerm {
-  LowFreq(Arc<LowFreqTerm>),
-  HighFreq(Arc<HighFreqTerm>),
+  LowFreq(usize),
+  HighFreq(usize),
 }
 
 struct LowFreqTerm {
@@ -498,12 +500,47 @@ impl Accountable for HighFreqTerm {
   }
 }
 
-impl Accountable for DirectTerm {
-  fn ram_bytes_used(&self) -> Result<i64> {
-    match self {
-      Self::LowFreq(term) => Ok(size_of_val(term.as_ref()) as i64 + term.ram_bytes_used()?),
-      Self::HighFreq(term) => Ok(size_of_val(term.as_ref()) as i64 + term.ram_bytes_used()?),
+// Each cursor retains the existing immutable field directory, rather than
+// allocating a separate shared owner for every term.
+struct LowFreqTermOwner {
+  data: Arc<DirectFieldData>,
+  ord: usize,
+}
+
+impl LowFreqTermOwner {
+  fn new(data: &Arc<DirectFieldData>, ord: usize) -> Self {
+    Self {
+      data: Arc::clone(data),
+      ord,
     }
+  }
+}
+
+impl std::ops::Deref for LowFreqTermOwner {
+  type Target = LowFreqTerm;
+  fn deref(&self) -> &Self::Target {
+    &self.data.low_terms[self.ord]
+  }
+}
+
+struct HighFreqTermOwner {
+  data: Arc<DirectFieldData>,
+  ord: usize,
+}
+
+impl HighFreqTermOwner {
+  fn new(data: &Arc<DirectFieldData>, ord: usize) -> Self {
+    Self {
+      data: Arc::clone(data),
+      ord,
+    }
+  }
+}
+
+impl std::ops::Deref for HighFreqTermOwner {
+  type Target = HighFreqTerm;
+  fn deref(&self) -> &Self::Target {
+    &self.data.high_terms[self.ord]
   }
 }
 
@@ -746,19 +783,39 @@ impl DirectField {
     debug_assert_eq!(skip_offset, skip_count);
     term_bytes.shrink_to_fit();
 
+    // Typed term slots let independent cursors project their data without a
+    // self-reference or a runtime variant assertion. Only Vec control values move.
+    let low_count = terms
+      .iter()
+      .filter(|term| matches!(term, PendingTerm::LowFreq(_)))
+      .count();
+    let mut low_terms = Vec::with_capacity(low_count);
+    let mut high_terms = Vec::with_capacity(terms.len() - low_count);
+    let terms = terms
+      .into_iter()
+      .map(|term| match term {
+        PendingTerm::LowFreq(term) => {
+          let index = low_terms.len();
+          low_terms.push(term);
+          DirectTerm::LowFreq(index)
+        },
+        PendingTerm::HighFreq(term) => {
+          let index = high_terms.len();
+          high_terms.push(term);
+          DirectTerm::HighFreq(index)
+        },
+      })
+      .collect();
+
     Ok(Self {
       data: Arc::new(DirectFieldData {
         term_bytes,
         term_offsets,
         skips,
         skip_offsets,
-        terms: terms
-          .into_iter()
-          .map(|term| match term {
-            PendingTerm::LowFreq(term) => DirectTerm::LowFreq(Arc::new(term)),
-            PendingTerm::HighFreq(term) => DirectTerm::HighFreq(Arc::new(term)),
-          })
-          .collect(),
+        terms,
+        low_terms,
+        high_terms,
         has_freq,
         has_pos,
         has_offsets,
@@ -889,8 +946,13 @@ impl Accountable for DirectField {
       + size_of_vec(&data.term_offsets)
       + size_of_vec(&data.skips)
       + size_of_vec(&data.skip_offsets)
-      + size_of_vec(&data.terms);
-    for term in &data.terms {
+      + size_of_vec(&data.terms)
+      + size_of_vec(&data.low_terms)
+      + size_of_vec(&data.high_terms);
+    for term in &data.low_terms {
+      size += term.ram_bytes_used()?;
+    }
+    for term in &data.high_terms {
       size += term.ram_bytes_used()?;
     }
     Ok(size)
@@ -1136,15 +1198,15 @@ impl TermsEnum for DirectTermsEnum {
 
   fn doc_freq(&mut self) -> Result<i32> {
     Ok(match self.current_term()? {
-      DirectTerm::LowFreq(term) => term.doc_freq,
-      DirectTerm::HighFreq(term) => term.doc_ids.len() as i32,
+      DirectTerm::LowFreq(index) => self.data.low_terms[*index].doc_freq,
+      DirectTerm::HighFreq(index) => self.data.high_terms[*index].doc_ids.len() as i32,
     })
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
     Ok(match self.current_term()? {
-      DirectTerm::LowFreq(term) => term.total_term_freq as i64,
-      DirectTerm::HighFreq(term) => term.total_term_freq,
+      DirectTerm::LowFreq(index) => self.data.low_terms[*index].total_term_freq as i64,
+      DirectTerm::HighFreq(index) => self.data.high_terms[*index].total_term_freq,
     })
   }
 
@@ -1155,15 +1217,7 @@ impl TermsEnum for DirectTermsEnum {
     reuse: Option<Self::PostingsEnum>,
     flags: i32,
   ) -> Result<Self::PostingsEnum> {
-    DirectPostingsEnum::for_term(
-      self.current_term()?,
-      self.data.has_freq,
-      self.data.has_pos,
-      self.data.has_offsets,
-      self.data.has_payloads,
-      reuse,
-      flags,
-    )
+    DirectPostingsEnum::for_term(&self.data, self.term_ord, reuse, flags)
   }
 
   type ImpactsEnum = SlowImpactsEnum<DirectPostingsEnum>;
@@ -1660,15 +1714,15 @@ impl TermsEnum for DirectIntersectTermsEnum {
 
   fn doc_freq(&mut self) -> Result<i32> {
     Ok(match self.current_term()? {
-      DirectTerm::LowFreq(term) => term.doc_freq,
-      DirectTerm::HighFreq(term) => term.doc_ids.len() as i32,
+      DirectTerm::LowFreq(index) => self.data.low_terms[*index].doc_freq,
+      DirectTerm::HighFreq(index) => self.data.high_terms[*index].doc_ids.len() as i32,
     })
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
     Ok(match self.current_term()? {
-      DirectTerm::LowFreq(term) => term.total_term_freq as i64,
-      DirectTerm::HighFreq(term) => term.total_term_freq,
+      DirectTerm::LowFreq(index) => self.data.low_terms[*index].total_term_freq as i64,
+      DirectTerm::HighFreq(index) => self.data.high_terms[*index].total_term_freq,
     })
   }
 
@@ -1679,15 +1733,7 @@ impl TermsEnum for DirectIntersectTermsEnum {
     reuse: Option<Self::PostingsEnum>,
     flags: i32,
   ) -> Result<Self::PostingsEnum> {
-    DirectPostingsEnum::for_term(
-      self.current_term()?,
-      self.data.has_freq,
-      self.data.has_pos,
-      self.data.has_offsets,
-      self.data.has_payloads,
-      reuse,
-      flags,
-    )
+    DirectPostingsEnum::for_term(&self.data, self.term_ord, reuse, flags)
   }
 
   type ImpactsEnum = SlowImpactsEnum<DirectPostingsEnum>;
@@ -1717,18 +1763,23 @@ pub enum DirectPostingsEnum {
 
 impl DirectPostingsEnum {
   fn for_term(
-    term: &DirectTerm,
-    has_freq: bool,
-    has_pos: bool,
-    has_offsets: bool,
-    has_payloads: bool,
+    data: &Arc<DirectFieldData>,
+    term_ord: Option<usize>,
     reuse: Option<Self>,
     flags: i32,
   ) -> Result<Self> {
+    let ord = term_ord
+      .filter(|&ord| ord < data.terms.len())
+      .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
+    let term = &data.terms[ord];
+    let has_freq = data.has_freq;
+    let has_pos = data.has_pos;
+    let has_offsets = data.has_offsets;
+    let has_payloads = data.has_payloads;
     if feature_requested(flags, POSITIONS) {
       return Ok(match term {
-        DirectTerm::LowFreq(term) if !has_freq => {
-          let term = Arc::clone(term);
+        DirectTerm::LowFreq(index) if !has_freq => {
+          let term = LowFreqTermOwner::new(data, *index);
           let docs_enum = match reuse {
             Some(Self::LowFreqDocsNoTf(mut value)) => {
               value.reset(term);
@@ -1738,8 +1789,8 @@ impl DirectPostingsEnum {
           };
           Self::LowFreqDocsNoTf(docs_enum)
         },
-        DirectTerm::LowFreq(term) if !has_pos => {
-          let term = Arc::clone(term);
+        DirectTerm::LowFreq(index) if !has_pos => {
+          let term = LowFreqTermOwner::new(data, *index);
           let docs_enum = match reuse {
             Some(Self::LowFreqDocsNoPos(mut value)) => {
               value.reset(term);
@@ -1749,13 +1800,13 @@ impl DirectPostingsEnum {
           };
           Self::LowFreqDocsNoPos(docs_enum)
         },
-        DirectTerm::LowFreq(term) => Self::LowFreqPostings(LowFreqPostingsEnum::new(
-          Arc::clone(term),
+        DirectTerm::LowFreq(index) => Self::LowFreqPostings(LowFreqPostingsEnum::new(
+          LowFreqTermOwner::new(data, *index),
           has_offsets,
           has_payloads,
         )),
-        DirectTerm::HighFreq(term) if !has_pos => {
-          let term = Arc::clone(term);
+        DirectTerm::HighFreq(index) if !has_pos => {
+          let term = HighFreqTermOwner::new(data, *index);
           let docs_enum = match reuse {
             Some(Self::HighFreqDocs(mut value)) => {
               value.reset(term);
@@ -1765,15 +1816,16 @@ impl DirectPostingsEnum {
           };
           Self::HighFreqDocs(docs_enum)
         },
-        DirectTerm::HighFreq(term) => {
-          Self::HighFreqPostings(HighFreqPostingsEnum::new(Arc::clone(term), has_offsets))
-        },
+        DirectTerm::HighFreq(index) => Self::HighFreqPostings(HighFreqPostingsEnum::new(
+          HighFreqTermOwner::new(data, *index),
+          has_offsets,
+        )),
       });
     }
 
     Ok(match term {
-      DirectTerm::LowFreq(term) if has_freq && has_pos => {
-        let term = Arc::clone(term);
+      DirectTerm::LowFreq(index) if has_freq && has_pos => {
+        let term = LowFreqTermOwner::new(data, *index);
         let mut pos_len = if has_offsets { 3 } else { 1 };
         if has_payloads {
           pos_len += 1;
@@ -1787,8 +1839,8 @@ impl DirectPostingsEnum {
         };
         Self::LowFreqDocs(docs_enum)
       },
-      DirectTerm::LowFreq(term) if has_freq => {
-        let term = Arc::clone(term);
+      DirectTerm::LowFreq(index) if has_freq => {
+        let term = LowFreqTermOwner::new(data, *index);
         let docs_enum = match reuse {
           Some(Self::LowFreqDocsNoPos(mut value)) => {
             value.reset(term);
@@ -1798,8 +1850,8 @@ impl DirectPostingsEnum {
         };
         Self::LowFreqDocsNoPos(docs_enum)
       },
-      DirectTerm::LowFreq(term) => {
-        let term = Arc::clone(term);
+      DirectTerm::LowFreq(index) => {
+        let term = LowFreqTermOwner::new(data, *index);
         let docs_enum = match reuse {
           Some(Self::LowFreqDocsNoTf(mut value)) => {
             value.reset(term);
@@ -1809,8 +1861,8 @@ impl DirectPostingsEnum {
         };
         Self::LowFreqDocsNoTf(docs_enum)
       },
-      DirectTerm::HighFreq(term) => {
-        let term = Arc::clone(term);
+      DirectTerm::HighFreq(index) => {
+        let term = HighFreqTermOwner::new(data, *index);
         let docs_enum = match reuse {
           Some(Self::HighFreqDocs(mut value)) => {
             value.reset(term);
@@ -1932,16 +1984,16 @@ impl PostingsEnum for DirectPostingsEnum {
 
 // Docs only:
 pub struct LowFreqDocsEnumNoTf {
-  term: Arc<LowFreqTerm>,
+  term: LowFreqTermOwner,
   upto: Option<usize>,
 }
 
 impl LowFreqDocsEnumNoTf {
-  fn new(term: Arc<LowFreqTerm>) -> Self {
+  fn new(term: LowFreqTermOwner) -> Self {
     Self { term, upto: None }
   }
 
-  fn reset(&mut self, term: Arc<LowFreqTerm>) {
+  fn reset(&mut self, term: LowFreqTermOwner) {
     self.term = term;
     self.upto = None;
   }
@@ -2004,16 +2056,16 @@ impl PostingsEnum for LowFreqDocsEnumNoTf {
 
 // Docs + freqs:
 pub struct LowFreqDocsEnumNoPos {
-  term: Arc<LowFreqTerm>,
+  term: LowFreqTermOwner,
   upto: Option<usize>,
 }
 
 impl LowFreqDocsEnumNoPos {
-  fn new(term: Arc<LowFreqTerm>) -> Self {
+  fn new(term: LowFreqTermOwner) -> Self {
     Self { term, upto: None }
   }
 
-  fn reset(&mut self, term: Arc<LowFreqTerm>) {
+  fn reset(&mut self, term: LowFreqTermOwner) {
     self.term = term;
     self.upto = None;
   }
@@ -2076,14 +2128,14 @@ impl PostingsEnum for LowFreqDocsEnumNoPos {
 
 // Docs + freqs + positions/offsets:
 pub struct LowFreqDocsEnum {
-  term: Arc<LowFreqTerm>,
+  term: LowFreqTermOwner,
   pos_mult: usize,
   upto: Option<usize>,
   freq: i32,
 }
 
 impl LowFreqDocsEnum {
-  fn new(term: Arc<LowFreqTerm>, pos_mult: usize) -> Self {
+  fn new(term: LowFreqTermOwner, pos_mult: usize) -> Self {
     Self {
       term,
       pos_mult,
@@ -2096,7 +2148,7 @@ impl LowFreqDocsEnum {
     self.pos_mult == pos_mult
   }
 
-  fn reset(&mut self, term: Arc<LowFreqTerm>) {
+  fn reset(&mut self, term: LowFreqTermOwner) {
     self.term = term;
     self.upto = None;
     self.freq = 0;
@@ -2163,7 +2215,7 @@ impl PostingsEnum for LowFreqDocsEnum {
 }
 
 pub struct LowFreqPostingsEnum {
-  term: Arc<LowFreqTerm>,
+  term: LowFreqTermOwner,
   pos_mult: usize,
   has_offsets: bool,
   has_payloads: bool,
@@ -2181,7 +2233,7 @@ pub struct LowFreqPostingsEnum {
 }
 
 impl LowFreqPostingsEnum {
-  fn new(term: Arc<LowFreqTerm>, has_offsets: bool, has_payloads: bool) -> Self {
+  fn new(term: LowFreqTermOwner, has_offsets: bool, has_payloads: bool) -> Self {
     let pos_mult = if has_offsets {
       if has_payloads { 4 } else { 3 }
     } else if has_payloads {
@@ -2320,13 +2372,13 @@ impl PostingsEnum for LowFreqPostingsEnum {
 
 // Docs + freqs:
 pub struct HighFreqDocsEnum {
-  term: Arc<HighFreqTerm>,
+  term: HighFreqTermOwner,
   upto: Option<usize>,
   doc_id: i32,
 }
 
 impl HighFreqDocsEnum {
-  fn new(term: Arc<HighFreqTerm>) -> Self {
+  fn new(term: HighFreqTermOwner) -> Self {
     Self {
       term,
       upto: None,
@@ -2334,7 +2386,7 @@ impl HighFreqDocsEnum {
     }
   }
 
-  fn reset(&mut self, term: Arc<HighFreqTerm>) {
+  fn reset(&mut self, term: HighFreqTermOwner) {
     self.term = term;
     self.doc_id = -1;
     self.upto = None;
@@ -2451,7 +2503,7 @@ impl PostingsEnum for HighFreqDocsEnum {
 }
 
 pub struct HighFreqPostingsEnum {
-  term: Arc<HighFreqTerm>,
+  term: HighFreqTermOwner,
   has_offsets: bool,
   pos_jump: i32,
   upto: Option<usize>,
@@ -2462,7 +2514,7 @@ pub struct HighFreqPostingsEnum {
 }
 
 impl HighFreqPostingsEnum {
-  fn new(term: Arc<HighFreqTerm>, has_offsets: bool) -> Self {
+  fn new(term: HighFreqTermOwner, has_offsets: bool) -> Self {
     Self {
       term,
       has_offsets,

@@ -28,7 +28,6 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::{CoreHelper, ToInt};
 use std::borrow::Cow;
-use std::rc::Rc;
 /// Handles how documents should be sorted in an index, both within a segment
 /// and between segments.
 pub trait IndexSorter {
@@ -838,7 +837,7 @@ where
 }
 pub struct StringComparableProvider<SDV> {
   reader_values: SDV,
-  global_ords: Rc<SegmentToGlobalOrds>,
+  global_ords: SegmentToGlobalOrds,
   missing_ord: i32,
 }
 

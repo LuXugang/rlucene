@@ -28,6 +28,7 @@ use crate::core::codecs::term_vectors_reader::TermVectorsReader;
 use crate::core::codecs::term_vectors_writer::TermVectorsWriter;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::merge_state::SharedDocMap;
 use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap, MergeStateMeta};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
@@ -49,7 +50,6 @@ use crate::core::util::packed::direct_writer::{DirectWriter, bits_required};
 use crate::core::util::packed::{PackedImpl, PackedInts, Writer};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{SliceCopyOps, StringHelper, TryIntoInt};
-use std::rc::Rc;
 use std::sync::LazyLock;
 
 pub(crate) static FLAGS_BITS: LazyLock<i32> = LazyLock::new(|| {
@@ -764,7 +764,7 @@ where
   fn copy_chunks<MD, CR>(
     &mut self,
     merge_state: &mut MergeState<MD, CR>,
-    merge_state_meta: &MergeStateMeta<Rc<MergeStateDocMap<CR>>>,
+    merge_state_meta: &MergeStateMeta<MergeStateDocMap<CR>>,
     sub: &CompressingTermVectorsSub<MergeStateDocMap<CR>>,
     from_doc_id: i32,
     to_doc_id: i32,
@@ -1256,7 +1256,7 @@ where
 
       let bulk_merge = self.can_perform_bulk_merge(merge_state, &matching_readers, reader_index)?;
       subs.push(Sub::new(CompressingTermVectorsSub::new(
-        merge_state.doc_maps[reader_index].clone(),
+        merge_state.doc_map(reader_index),
         merge_state.max_docs[reader_index],
         bulk_merge,
         reader_index,
@@ -1328,12 +1328,12 @@ pub struct CompressingTermVectorsSub<DM> {
   reader_index: usize,
   can_perform_bulk_merge: bool,
   doc_id: i32,
-  doc_map: Rc<DM>,
+  doc_map: SharedDocMap<DM>,
 }
 
 impl<DM> CompressingTermVectorsSub<DM> {
   pub fn new(
-    doc_map: Rc<DM>,
+    doc_map: SharedDocMap<DM>,
     max_doc: i32,
     can_perform_bulk_merge: bool,
     reader_index: usize,
