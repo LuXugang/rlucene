@@ -85,7 +85,6 @@ where
   {
     let mut fields = HashMap::new();
 
-    let field_infos = state.field_infos.clone();
     let mut version_meta = -1;
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
@@ -165,7 +164,7 @@ where
           .ok_or_else(|| LuceneError::illegal_state("quantizedVectorData was not initialized"))?,
       ),
       raw_vectors_reader,
-      field_infos,
+      field_infos: Arc::clone(&state.field_infos),
       flat_vector_scorer,
     })
   }
@@ -347,8 +346,8 @@ where
   fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
     let field_entry = self.get_field_entry(field)?;
     let raw_vector_values = self.raw_vectors_reader.get_float_vector_values(field)?;
-    let quantized_vector_values = OffHeapQuantizedByteVectorValuesEnum::load(
-      field_entry.ord_to_doc.clone(),
+    let quantized_vector_values = OffHeapQuantizedByteVectorValuesEnum::load_from_reader(
+      &field_entry.ord_to_doc,
       field_entry.dimension,
       field_entry.size,
       field_entry.scalar_quantizer.clone(),
@@ -357,7 +356,7 @@ where
       field_entry.compress,
       field_entry.vector_data_offset,
       field_entry.vector_data_length,
-      self.quantized_vector_data.clone(),
+      &self.quantized_vector_data,
     )?;
     Ok(QuantizedVectorValues::new(
       raw_vector_values,
@@ -470,8 +469,8 @@ where
         .get_random_vector_scorer_f32(field, target, similarity)
         .map(RandomVectorScorerEnum2::A);
     }
-    let vector_values = OffHeapQuantizedByteVectorValuesEnum::load(
-      field_entry.ord_to_doc.clone(),
+    let vector_values = OffHeapQuantizedByteVectorValuesEnum::load_from_reader(
+      &field_entry.ord_to_doc,
       field_entry.dimension,
       field_entry.size,
       field_entry.scalar_quantizer.clone(),
@@ -480,7 +479,7 @@ where
       field_entry.compress,
       field_entry.vector_data_offset,
       field_entry.vector_data_length,
-      self.quantized_vector_data.clone(),
+      &self.quantized_vector_data,
     )?;
     self
       .flat_vector_scorer
@@ -521,8 +520,8 @@ where
 
   fn get_quantized_vector_values(&self, field: &str) -> Result<Self::QuantizedByteVectorValues> {
     let field_entry = self.get_field_entry(field)?;
-    OffHeapQuantizedByteVectorValuesEnum::load(
-      field_entry.ord_to_doc.clone(),
+    OffHeapQuantizedByteVectorValuesEnum::load_from_reader(
+      &field_entry.ord_to_doc,
       field_entry.dimension,
       field_entry.size,
       field_entry.scalar_quantizer.clone(),
@@ -531,7 +530,7 @@ where
       field_entry.compress,
       field_entry.vector_data_offset,
       field_entry.vector_data_length,
-      self.quantized_vector_data.clone(),
+      &self.quantized_vector_data,
     )
   }
 

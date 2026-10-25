@@ -206,15 +206,14 @@ impl KnnVectorsFormat for Lucene99HnswScalarQuantizedVectorsFormat {
           return Ok(Arc::clone(format));
         }
         let format = Arc::new(Self::new()?);
-        if FORMAT.set(Arc::clone(&format)).is_ok() {
-          Ok(format)
-        } else {
-          FORMAT.get().map(Arc::clone).ok_or_else(|| {
-            LuceneError::illegal_state(format!(
-              "failed to initialize vectors format named \"{NAME}\""
-            ))
-          })
-        }
+        let unpublished = FORMAT.set(format).err();
+        let selected = FORMAT.get().map(Arc::clone).ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "failed to initialize vectors format named \"{NAME}\""
+          ))
+        });
+        drop(unpublished);
+        selected
       },
       _ => Err(LuceneError::illegal_argument(format!(
         "Could not load vectors format named \"{name}\""

@@ -481,8 +481,12 @@ where
         Some(format) => Arc::new(format),
         None => Arc::clone(format),
       };
-      formats.insert(segment_suffix.clone(), Arc::clone(&values));
-      old_to_new.insert(Arc::as_ptr(format), values);
+      formats.insert(segment_suffix.clone(), values);
+    }
+
+    // The format map owns every merge instance before the temporary lookup borrows it.
+    for (segment_suffix, format) in &other.formats {
+      old_to_new.insert(Arc::as_ptr(format), &formats[segment_suffix]);
     }
 
     // Then rebuild fields.

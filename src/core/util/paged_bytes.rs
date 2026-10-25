@@ -161,7 +161,8 @@ impl PagedBytes {
 
     if let Some(mut block) = self.current_block.take() {
       if trim && self.upto < self.block_size {
-        block = block[..self.upto].to_vec();
+        block.truncate(self.upto);
+        block.shrink_to_fit();
       }
       self.add_block(block)?;
     } else {

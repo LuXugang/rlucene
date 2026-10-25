@@ -178,8 +178,12 @@ where
   pub fn get_first_arc(&self, arc: &mut Arc<O::V>) {
     let (flags, no_output, final_output) = self.first_arc_state();
     arc.flags = flags;
-    arc.next_final_output = final_output.clone();
-    arc.output = no_output.clone();
+    if !arc.next_final_output.is_same_reference(final_output) {
+      arc.next_final_output = final_output.clone();
+    }
+    if !arc.output.is_same_reference(no_output) {
+      arc.output = no_output.clone();
+    }
     // If there are no nodes, ie, the FST only accepts the
     // empty string, then startNode is 0
     arc.target = self.metadata.start_node;
@@ -237,7 +241,9 @@ where
       debug_assert!(follow.is_final());
       arc.label = END_LABEL;
       arc.target = FINAL_END_NODE;
-      arc.output = follow.next_final_output.clone();
+      if !arc.output.is_same_reference(&follow.next_final_output) {
+        arc.output = follow.next_final_output.clone();
+      }
       arc.flags = BIT_LAST_ARC;
       arc.node_flags = arc.flags;
       return Ok(arc);

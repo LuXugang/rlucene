@@ -49,6 +49,11 @@ where
   type T = Vec<M::T>;
 
   fn new_collector(&self) -> Result<Self::C> {
+    if let [collector_manager] = self.collector_managers.as_slice() {
+      return collector_manager
+        .new_collector()
+        .map(OneOrMultiCollector::One);
+    }
     let mut collectors = Vec::with_capacity(self.collector_managers.len());
     for collector_manager in &self.collector_managers {
       collectors.push(Some(collector_manager.new_collector()?));
@@ -64,7 +69,16 @@ where
 
     for collector in reducable_collectors {
       let collectors = match collector {
-        OneOrMultiCollector::One(collector) => vec![collector],
+        OneOrMultiCollector::One(collector) => {
+          if self.collector_managers.len() != 1 {
+            return Err(LuceneError::illegal_state(format!(
+              "expected {} collectors, got 1",
+              self.collector_managers.len(),
+            )));
+          }
+          reducable_collectors_by_manager[0].push(collector);
+          continue;
+        },
         OneOrMultiCollector::Multi(collector) => collector.into_collectors(),
       };
 

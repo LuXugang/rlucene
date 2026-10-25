@@ -57,8 +57,7 @@ use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::{
 };
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{
-  ArrayNodesIterator, CollectionNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnum2,
-  get_sorted_nodes,
+  ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnum2, get_sorted_nodes,
 };
 use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, create, rand_seed};
 use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMerger;
@@ -266,6 +265,10 @@ where
 
     let vector_index_length = self.vector_index.get_file_pointer()? - vector_index_offset;
 
+    let mut graph_view = mock_graph
+      .as_mut()
+      .map(|(graph, upper_level_nodes)| HnswGraphImpl::new(graph, upper_level_nodes));
+
     Self::write_meta(
       &mut self.vector_index,
       &mut self.meta,
@@ -274,7 +277,7 @@ where
       vector_index_offset.try_convert()?,
       vector_index_length.try_convert()?,
       count,
-      mock_graph.as_mut(),
+      graph_view.as_mut(),
       &graph_level_node_offsets,
     )?;
 
@@ -301,13 +304,12 @@ where
     new_to_old_map: &[usize],
     old_to_new_map: &[usize],
     level_node_offsets: &mut [Vec<i32>],
-  ) -> Result<Option<HnswGraphImpl<'a>>> {
+  ) -> Result<Option<ReconstructedGraph<'a>>> {
     let Some(graph) = graph else {
       return Ok(None);
     };
     let num_levels = graph.num_levels()?;
-    let mut nodes_by_level = Vec::with_capacity(num_levels);
-    nodes_by_level.push(None);
+    let mut upper_level_nodes = Vec::with_capacity(num_levels.saturating_sub(1));
 
     let max_ord = graph.size();
     let mut nodes_on_level0 = graph.get_nodes_on_level(0)?;
@@ -360,10 +362,10 @@ where
 
         level_offsets[node_offset_index] = delta;
       }
-      nodes_by_level.push(Some(Arc::new(new_nodes)));
+      upper_level_nodes.push(new_nodes);
     }
 
-    Ok(Some(HnswGraphImpl::new(graph, nodes_by_level)))
+    Ok(Some((graph, upper_level_nodes)))
   }
   fn reconstruct_and_write_neighbours(
     vector_index: &mut F::IndexOutput,
@@ -489,7 +491,7 @@ where
 
     meta.write_vint(graph.num_levels()? as i32)?;
     let mut value_count: i64 = 0;
-    let mut nol = Vec::new();
+    let mut nol = smallvec::SmallVec::<[usize; 32]>::new();
 
     for level in 0..graph.num_levels()? {
       let mut nodes_on_level = graph.get_nodes_on_level(level)?;
@@ -1105,15 +1107,17 @@ where
   }
 }
 
+type ReconstructedGraph<'a> = (&'a mut OnHeapHnswGraph, Vec<Vec<usize>>);
+
 struct HnswGraphImpl<'a> {
   graph: &'a mut OnHeapHnswGraph,
-  nodes_by_level: Vec<Option<Arc<Vec<usize>>>>,
+  upper_level_nodes: &'a [Vec<usize>],
 }
 impl<'a> HnswGraphImpl<'a> {
-  fn new(graph: &'a mut OnHeapHnswGraph, nodes_by_level: Vec<Option<Arc<Vec<usize>>>>) -> Self {
+  fn new(graph: &'a mut OnHeapHnswGraph, upper_level_nodes: &'a [Vec<usize>]) -> Self {
     Self {
       graph,
-      nodes_by_level,
+      upper_level_nodes,
     }
   }
 }
@@ -1144,19 +1148,21 @@ impl<'a> HnswGraph for HnswGraphImpl<'a> {
     ))
   }
 
-  type NodeIterator = NodesIteratorEnum2<ArrayNodesIterator, CollectionNodesIterator>;
+  type NodeIterator = NodesIteratorEnum2<
+    ArrayNodesIterator<&'a Vec<usize>>,
+    <OnHeapHnswGraph as HnswGraph>::NodeIterator,
+  >;
 
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
     if level == 0 {
-      self.graph.get_nodes_on_level(0)
+      self.graph.get_nodes_on_level(0).map(NodesIteratorEnum2::B)
     } else {
       let nodes = self
-        .nodes_by_level
-        .get(level)
-        .and_then(Option::as_ref)
+        .upper_level_nodes
+        .get(level - 1)
         .ok_or_else(|| LuceneError::illegal_argument(format!("Invalid level: {}", level)))?;
       Ok(NodesIteratorEnum2::A(ArrayNodesIterator::from_nodes(
-        Option::from(nodes.clone()),
+        Option::from(nodes),
         nodes.len(),
       )))
     }

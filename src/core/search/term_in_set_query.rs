@@ -43,6 +43,11 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::LazyLock;
+
+// Only the immutable byte block is shared; iterator state and metadata stay local.
+static EMPTY_TERM_DATA: LazyLock<PrefixCodedTermsArc> =
+  LazyLock::new(|| PrefixCodedTermsBuilder::new().finish().into());
 
 #[derive(Clone)]
 pub struct TermInSetQuery {
@@ -114,6 +119,9 @@ impl TermInSetQuery {
   }
 
   fn pack_terms(field: &str, mut terms: Vec<BytesRef<Vec<u8>>>) -> Result<PrefixCodedTermsArc> {
+    if terms.is_empty() {
+      return Ok(EMPTY_TERM_DATA.clone());
+    }
     if !terms.is_sorted() {
       terms.sort_unstable();
     }
@@ -131,6 +139,19 @@ impl TermInSetQuery {
 
   pub fn get_terms_count(&self) -> i64 {
     self.term_data.size()
+  }
+
+  pub(crate) fn clone_with_rewrite_method<R>(&self, rewrite_method: R) -> Self
+  where
+    R: Into<RewriteMethodEnum>,
+  {
+    Self {
+      id: Identity::default(),
+      field: self.field.clone(),
+      term_data: self.term_data.clone(),
+      term_data_hash_code: self.term_data_hash_code,
+      rewrite_method: rewrite_method.into(),
+    }
   }
 
   pub fn get_bytes_ref_iterator(&self) -> Result<TermIteratorArc> {

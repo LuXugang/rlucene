@@ -515,7 +515,7 @@ impl<D> SegmentInfos<D> {
 
       let info = Arc::new(info);
       let mut si_per_commit = SegmentCommitInfo::new(
-        info.clone(),
+        info,
         del_count,
         soft_del_count,
         del_gen,
@@ -536,8 +536,10 @@ impl<D> SegmentInfos<D> {
         map
       };
       si_per_commit.set_doc_values_updates_files(std::borrow::Cow::Owned(dv_update_files));
+      let segment_index = infos.segments.len();
       infos.add(si_per_commit)?;
 
+      let info = &infos.segments[segment_index].info;
       let segment_version = info.get_version_ref().ok_or_else(|| {
         LuceneError::corrupt_index(format!(
           "segment {} does not record a Lucene version (resource={})",

@@ -272,13 +272,12 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
           return Ok(Arc::clone(format));
         }
         let format = Arc::new(Self::new()?);
-        if FORMAT.set(Arc::clone(&format)).is_ok() {
-          Ok(format)
-        } else {
-          FORMAT.get().map(Arc::clone).ok_or_else(|| {
-            LuceneError::illegal_state("failed to initialize doc values format named \"Lucene90\"")
-          })
-        }
+        let unpublished = FORMAT.set(format).err();
+        let selected = FORMAT.get().map(Arc::clone).ok_or_else(|| {
+          LuceneError::illegal_state("failed to initialize doc values format named \"Lucene90\"")
+        });
+        drop(unpublished);
+        selected
       },
       _ => Err(LuceneError::illegal_argument(format!(
         "Could not load doc values format named \"{name}\""

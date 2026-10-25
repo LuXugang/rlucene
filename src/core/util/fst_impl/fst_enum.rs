@@ -34,7 +34,6 @@ where
   pub(crate) arcs: Vec<Arc<O::V>>,
   pub(crate) output: Vec<O::V>,
 
-  pub(crate) no_output: O::V,
   pub(crate) fst_reader: F::FstBytesReader,
   pub(crate) upto: usize,
   pub(crate) target_length: usize,
@@ -46,7 +45,7 @@ where
 {
   pub(crate) fn new(fst: FST<O, F>) -> Result<Self> {
     let fst_reader = fst.get_bytes_reader()?;
-    let no_output = fst.outputs.get_no_output().clone();
+    let no_output = fst.outputs.get_no_output();
     let mut arcs = Vec::with_capacity(10);
     let mut output = Vec::with_capacity(10);
     let root = fst.get_first_arc_owned();
@@ -57,7 +56,6 @@ where
       fst,
       arcs,
       output,
-      no_output,
       fst_reader,
       upto: 0,
       target_length: 0,
@@ -1068,10 +1066,10 @@ where
   fn grow_slots(&mut self) {
     // A new depth needs one slot; leave spare Vec capacity uninitialized.
     if self.arcs.len() <= self.upto {
-      self.arcs.push(Arc::with_outputs(
-        self.no_output.clone(),
-        self.no_output.clone(),
-      ));
+      let no_output = self.fst.outputs.get_no_output();
+      self
+        .arcs
+        .push(Arc::with_outputs(no_output.clone(), no_output.clone()));
     }
   }
   // Appends current arc, and then recurses from its target,

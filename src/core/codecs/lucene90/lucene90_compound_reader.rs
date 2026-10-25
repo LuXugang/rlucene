@@ -64,11 +64,11 @@ where
   where
     D: Directory<IndexInput = I>,
   {
-    let segment_name = si.name.clone();
+    let segment_name = &si.name;
     let data_file_name =
-      IndexFileNames::segment_file_name(&segment_name, "", Lucene90CompoundFormat::DATA_EXTENSION);
+      IndexFileNames::segment_file_name(segment_name, "", Lucene90CompoundFormat::DATA_EXTENSION);
     let entries_file_name = IndexFileNames::segment_file_name(
-      &segment_name,
+      segment_name,
       "",
       Lucene90CompoundFormat::ENTRIES_EXTENSION,
     );
@@ -123,7 +123,7 @@ where
     unwrap_caught_result!(result)?;
     let dir_fmt = directory.to_string();
     Ok(Self {
-      segment_name,
+      segment_name: Arc::clone(segment_name),
       entries,
       handle: Mutex::new(handle),
       dir_fmt,

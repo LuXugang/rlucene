@@ -62,7 +62,6 @@ use crate::core::util::fst_impl::fst_compiler::{
 use crate::core::util::fst_impl::util::Util;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::packed::PackedInts;
-use crate::core::util::to_string_utils::ToStringUtils;
 use crate::core::util::{CoreHelper, StringHelper, TryIntoInt};
 use std::borrow::Cow;
 use std::fmt;
@@ -247,7 +246,6 @@ where
     }
 
     let max_doc = segment_info.max_doc()?;
-    let field_infos = Arc::clone(&state.field_infos);
     let terms_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, TERMS_EXTENSION);
     let mut terms_out = state.directory.create_output(&terms_name, state.context)?;
@@ -334,7 +332,7 @@ where
       max_items_in_block,
       version,
       postings_writer,
-      field_infos,
+      field_infos: Arc::clone(&state.field_infos),
       fields: vec![],
       closed: false,
     })
@@ -517,13 +515,23 @@ impl<S> PendingTerm<S> {
 }
 impl<S> fmt::Display for PendingTerm<S> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let term = BytesRef::from_slice(
-      Cow::Borrowed(self.term_bytes.as_ref()),
-      0,
-      self.term_bytes.len(),
-    );
-    let s = ToStringUtils::bytes_ref_to_string(&term);
-    write!(f, "TERM: {s}")
+    f.write_str("TERM: ")?;
+    if self.term_bytes.is_empty() {
+      f.write_str("null")
+    } else {
+      match std::str::from_utf8(self.term_bytes.as_slice()) {
+        Ok(term) => f.write_str(term),
+        Err(_) => write!(
+          f,
+          "{}",
+          BytesRef::from_slice(
+            Cow::Borrowed(self.term_bytes.as_ref()),
+            0,
+            self.term_bytes.len(),
+          )
+        ),
+      }
+    }
   }
 }
 pub struct PendingBlock {

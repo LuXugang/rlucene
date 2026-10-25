@@ -148,15 +148,15 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
   {
     let fallback_query = self.fallback_query.as_ref().clone();
     let fallback_query_weight = fallback_query.create_weight(searcher, score_mode, boost)?;
-    Ok(IndexSortSortedNumericDocValuesRangeQueryWeight::new(
-      Arc::clone(&self.field),
-      self.lower_value,
-      self.upper_value,
-      self,
-      ConstantScoreWeight::new(boost),
-      *score_mode,
+    Ok(IndexSortSortedNumericDocValuesRangeQueryWeight {
+      field: None,
+      lower_value: self.lower_value,
+      upper_value: self.upper_value,
+      parent_query: self,
+      base: ConstantScoreWeight::new(boost),
+      score_mode: *score_mode,
       fallback_query_weight,
-    ))
+    })
   }
 
   fn rewrite<IRC, SIM>(&self, searcher: &IndexSearcher<IRC, SIM>) -> Result<Option<Query>>
@@ -207,7 +207,7 @@ pub struct IndexSortSortedNumericDocValuesRangeQueryWeight<
 > where
   SIM: Similarity,
 {
-  field: Arc<String>,
+  field: Option<Arc<String>>,
   lower_value: i64,
   upper_value: i64,
   base: ConstantScoreWeight,
@@ -230,7 +230,7 @@ where
     fallback_query_weight: QueryWeight<IRC, SIM>,
   ) -> Self {
     Self {
-      field,
+      field: Some(field),
       lower_value,
       upper_value,
       base,
@@ -238,6 +238,10 @@ where
       fallback_query_weight,
       parent_query,
     }
+  }
+
+  fn field(&self) -> &Arc<String> {
+    self.field.as_ref().unwrap_or(&self.parent_query.field)
   }
 }
 pub type Disi<LR> = <SortedNumeric<LR> as SortedNumericDocValues>::NumericDocValues;
@@ -288,8 +292,12 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    match get_doc_id_set_iterator_or_null(context, self.lower_value, self.upper_value, &self.field)?
-    {
+    match get_doc_id_set_iterator_or_null(
+      context,
+      self.lower_value,
+      self.upper_value,
+      self.field(),
+    )? {
       Some(it_and_count) => {
         let disi = it_and_count.it;
         let scorer_supplier = ScorerSupplierImpl::new(
@@ -297,7 +305,7 @@ where
           self.score_mode,
           self.lower_value,
           self.upper_value,
-          Arc::clone(&self.field),
+          Arc::clone(self.field()),
           self.base.score(),
         )?;
         Ok(Some(Box::new(scorer_supplier).into()))
@@ -327,7 +335,7 @@ where
         return Ok(0);
       }
 
-      let mut sorted_numeric_values = DocValues::get_sorted_numeric(reader, &self.field)?;
+      let mut sorted_numeric_values = DocValues::get_sorted_numeric(reader, self.field())?;
       if !sorted_numeric_values.is_single_valued() {
         return self.fallback_query_weight.count(context, searcher);
       }
@@ -335,7 +343,7 @@ where
         &mut sorted_numeric_values,
       )?);
 
-      let point_values = reader.get_point_values(&self.field)?;
+      let point_values = reader.get_point_values(self.field())?;
 
       if let Some(ref points) = point_values
         && points.get_doc_count()? == reader.max_doc()?
@@ -348,7 +356,7 @@ where
           values,
           self.lower_value,
           self.upper_value,
-          &self.field,
+          self.field(),
         )?;
         numeric_values = remaining_numeric_values;
 
@@ -363,7 +371,7 @@ where
       if let Some(index_sort) = meta.get_sort() {
         let sort_fields = index_sort.get_sort();
 
-        if !sort_fields.is_empty() && sort_fields[0].get_field() == Some(self.field.as_str()) {
+        if !sort_fields.is_empty() && sort_fields[0].get_field() == Some(self.field().as_str()) {
           let sort_field = &sort_fields[0];
           let sort_field_type = get_sort_field_type(sort_field);
           // The index sort optimization is only supported for Type.INT and Type.LONG
@@ -394,7 +402,7 @@ where
                 numeric_values,
                 self.lower_value,
                 self.upper_value,
-                &self.field,
+                self.field(),
               )?;
               if itc.count != -1 {
                 return Ok(itc.count);

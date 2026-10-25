@@ -257,13 +257,13 @@ impl Display for Stats {
     }
 
     // Compression algorithm usage summary
-    let mut compression_summary: [String; 3] = std::array::from_fn(|_| String::new());
+    let mut compression_summary = [None; 3];
     let mut filled = 0;
     for (code, &count) in self.compression_algorithms.iter().enumerate() {
       if count > 0 {
         match CompressionAlgorithm::by_code(code as u8) {
           Ok(v) => {
-            compression_summary[filled] = format!("{v:?}: {count}");
+            compression_summary[filled] = Some((v, count));
             filled += 1;
           },
           Err(e) => {
@@ -281,13 +281,18 @@ impl Display for Stats {
     } else {
       0.0
     };
-    writeln!(
+    write!(
       f,
-      "    {} compressed term suffix bytes ({:.2} compression ratio - compression count by algorithm: {})",
-      self.total_block_suffix_bytes,
-      compression_ratio,
-      compression_summary[..filled].join(", ")
+      "    {} compressed term suffix bytes ({:.2} compression ratio - compression count by algorithm: ",
+      self.total_block_suffix_bytes, compression_ratio
     )?;
+    for (index, &(algorithm, count)) in compression_summary[..filled].iter().flatten().enumerate() {
+      if index != 0 {
+        f.write_str(", ")?;
+      }
+      write!(f, "{algorithm:?}: {count}")?;
+    }
+    writeln!(f, ")")?;
 
     // Term stats bytes
     if self.total_block_count != 0 {

@@ -497,6 +497,10 @@ pub struct Component2DPredicate<C> {
 }
 
 impl<C> Component2DPredicate<C> {
+  pub(crate) fn component2d(&self) -> &C {
+    &self.tree
+  }
+
   #[allow(clippy::too_many_arguments)]
   fn new(
     lat_shift: u32,

@@ -32,6 +32,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -230,9 +231,9 @@ impl BooleanQuery {
     }
 
     let mut new_query = Builder::new();
-    let mut queries = Vec::with_capacity(3);
+    let mut queries: [Option<Query>; 2] = [None, None];
 
-    for clause in &mut self.clauses {
+    for (clause, result) in self.clauses.iter_mut().zip(&mut queries) {
       let term_query = match &mut clause.query {
         Query::Term(q) => q,
         _ => {
@@ -248,13 +249,16 @@ impl BooleanQuery {
       }
 
       new_query.add(term_query.clone(), Occur::Must)?;
-      queries.push(term_query.clone().into());
+      *result = Some(term_query.clone().into());
     }
 
-    queries.push(new_query.build().into());
-    queries.try_into().map_err(|_| {
-      LuceneError::illegal_state("two-clause count rewrite did not create three queries")
-    })
+    let conjunction = new_query.build().into();
+    match queries {
+      [Some(first), Some(second)] => Ok([first, second, conjunction]),
+      _ => Err(LuceneError::illegal_state(
+        "two-clause count rewrite did not create three queries",
+      )),
+    }
   }
 }
 
@@ -265,7 +269,7 @@ impl Hash for BooleanQuery {
   {
     self.minimum_number_should_match.hash(state);
     // FILTER and MUST_NOT clauses may have been deduplicated in clause_sets.
-    let mut hs = Vec::with_capacity(self.clause_sets.iter().map(Vec::len).sum());
+    let mut hs = SmallVec::<[u64; 8]>::with_capacity(self.clause_sets.iter().map(Vec::len).sum());
     for occur in [Occur::Must, Occur::Filter, Occur::Should, Occur::MustNot] {
       let indices = self.get_clauses_idx(occur);
       for &idx in indices {
@@ -406,8 +410,9 @@ impl QueryBase for BooleanQuery {
         let query = &clause.query;
         let occur = clause.occur;
         let rewritten = match occur {
-          Occur::Filter | Occur::MustNot => {
+          Occur::Filter | Occur::MustNot if !matches!(query, Query::Term(_)) => {
             // Clauses that are not involved in scoring can get some extra simplifications.
+            // TermQuery's default rewrite is unchanged, so it needs no temporary wrapper.
             let rewritten = ConstantScoreQuery::new(query.clone()).rewrite(searcher)?;
             match rewritten {
               Some(Query::ConstantScore(constant_score_query)) => {

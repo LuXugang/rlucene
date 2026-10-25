@@ -262,15 +262,15 @@ where
 
   fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
     let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
-    OffHeapFloatVectorValuesEnum::load(
+    OffHeapFloatVectorValuesEnum::load_from_reader(
       field_entry.similarity_function,
       self.vector_scorer.clone(),
-      field_entry.ord_to_doc.clone(),
+      &field_entry.ord_to_doc,
       field_entry.vector_encoding,
       field_entry.dimension,
       field_entry.vector_data_offset,
       field_entry.vector_data_length,
-      self.vector_data.clone(),
+      &self.vector_data,
     )
   }
 
@@ -278,15 +278,15 @@ where
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
     let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
-    OffHeapByteVectorValuesEnum::load(
+    OffHeapByteVectorValuesEnum::load_from_reader(
       field_entry.similarity_function,
       self.vector_scorer.clone(),
-      field_entry.ord_to_doc.clone(),
+      &field_entry.ord_to_doc,
       field_entry.vector_encoding,
       field_entry.dimension,
       field_entry.vector_data_offset,
       field_entry.vector_data_length,
-      self.vector_data.clone(),
+      &self.vector_data,
     )
   }
 
@@ -375,15 +375,15 @@ where
   {
     let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
-    let off_heap_float_vector_values = OffHeapFloatVectorValuesEnum::load(
+    let off_heap_float_vector_values = OffHeapFloatVectorValuesEnum::load_from_reader(
       field_entry.similarity_function,
       self.vector_scorer.clone(),
-      field_entry.ord_to_doc.clone(),
+      &field_entry.ord_to_doc,
       field_entry.vector_encoding,
       field_entry.dimension,
       field_entry.vector_data_offset,
       field_entry.vector_data_length,
-      self.vector_data.clone(),
+      &self.vector_data,
     )?;
     self.vector_scorer.get_random_vector_scorer_f32(
       similarity,
@@ -406,15 +406,15 @@ where
   {
     let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
-    let off_heap_float_vector_values = OffHeapByteVectorValuesEnum::load(
+    let off_heap_float_vector_values = OffHeapByteVectorValuesEnum::load_from_reader(
       field_entry.similarity_function,
       self.vector_scorer.clone(),
-      field_entry.ord_to_doc.clone(),
+      &field_entry.ord_to_doc,
       field_entry.vector_encoding,
       field_entry.dimension,
       field_entry.vector_data_offset,
       field_entry.vector_data_length,
-      self.vector_data.clone(),
+      &self.vector_data,
     )?;
     self
       .vector_scorer

@@ -52,6 +52,7 @@ use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use parking_lot::Mutex;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -1393,6 +1394,66 @@ where
   where
     S: Into<Option<ScalarQuantizer>>,
   {
+    Self::load_with_sources(
+      Cow::Owned(configuration),
+      dimension,
+      size,
+      scalar_quantizer,
+      similarity_function,
+      vectors_scorer,
+      compress,
+      quantized_vector_data_offset,
+      quantized_vector_data_length,
+      Cow::Owned(vector_data),
+    )
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  pub(crate) fn load_from_reader<S>(
+    configuration: &Arc<OrdToDocDISIReaderConfiguration>,
+    dimension: usize,
+    size: usize,
+    scalar_quantizer: S,
+    similarity_function: VectorSimilarityFunction,
+    vectors_scorer: F,
+    compress: bool,
+    quantized_vector_data_offset: usize,
+    quantized_vector_data_length: usize,
+    vector_data: &I,
+  ) -> Result<Self>
+  where
+    S: Into<Option<ScalarQuantizer>>,
+  {
+    Self::load_with_sources(
+      Cow::Borrowed(configuration),
+      dimension,
+      size,
+      scalar_quantizer,
+      similarity_function,
+      vectors_scorer,
+      compress,
+      quantized_vector_data_offset,
+      quantized_vector_data_length,
+      Cow::Borrowed(vector_data),
+    )
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  fn load_with_sources<S>(
+    configuration: Cow<'_, Arc<OrdToDocDISIReaderConfiguration>>,
+    dimension: usize,
+    size: usize,
+    scalar_quantizer: S,
+    similarity_function: VectorSimilarityFunction,
+    vectors_scorer: F,
+    compress: bool,
+    quantized_vector_data_offset: usize,
+    quantized_vector_data_length: usize,
+    vector_data: Cow<'_, I>,
+  ) -> Result<Self>
+  where
+    S: Into<Option<ScalarQuantizer>>,
+  {
     if configuration.is_empty() {
       return Ok(Self::Empty(EmptyOffHeapVectorValues::new(dimension)));
     }
@@ -1416,12 +1477,12 @@ where
       )))
     } else {
       Ok(Self::Sparse(SparseOffHeapVectorValues::new(
-        configuration,
+        configuration.into_owned(),
         dimension,
         size,
         scalar_quantizer,
         compress,
-        vector_data,
+        vector_data.into_owned(),
         similarity_function,
         vectors_scorer,
         bytes_slice,

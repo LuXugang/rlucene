@@ -105,7 +105,7 @@ where
   where
     D1: Directory<IndexInput = I>,
   {
-    let segment = segment_info.name.clone();
+    let segment = &segment_info.name;
     let mut postings_reader = Some(postings_reader);
     let mut terms_in = None;
     let mut index_in = None;
@@ -115,7 +115,7 @@ where
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let terms_name =
-        IndexFileNames::segment_file_name(&segment, &state.segment_suffix, TERMS_EXTENSION);
+        IndexFileNames::segment_file_name(segment, &state.segment_suffix, TERMS_EXTENSION);
       terms_in = Some(state.directory.open_input(&terms_name, state.context)?);
       let terms_in_ref = terms_in
         .as_mut()
@@ -130,7 +130,7 @@ where
       )?;
 
       let index_name =
-        IndexFileNames::segment_file_name(&segment, &state.segment_suffix, TERMS_INDEX_EXTENSION);
+        IndexFileNames::segment_file_name(segment, &state.segment_suffix, TERMS_INDEX_EXTENSION);
       index_in = Some(
         state.directory.open_input(
           &index_name,
@@ -151,7 +151,7 @@ where
       )?;
 
       let meta_name =
-        IndexFileNames::segment_file_name(&segment, &state.segment_suffix, TERMS_META_EXTENSION);
+        IndexFileNames::segment_file_name(segment, &state.segment_suffix, TERMS_META_EXTENSION);
       let mut field_map = HashMap::new();
       let mut index_length = -1i64;
       let mut terms_length = -1i64;
@@ -296,7 +296,7 @@ where
         postings_reader: postings_reader
           .take()
           .ok_or_else(|| LuceneError::illegal_state("postings reader is missing"))?,
-        segment,
+        segment: Arc::clone(segment),
         version,
       }));
       shared_index_in =

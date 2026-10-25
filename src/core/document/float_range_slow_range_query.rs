@@ -20,27 +20,35 @@ use crate::core::document::range_field_query::QueryType;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
+use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct FloatRangeSlowRangeQuery {
   field: String,
-  min: Vec<f32>,
-  max: Vec<f32>,
+  limits: SmallVec<[f32; 4]>,
+  min_len: usize,
 }
 
 impl FloatRangeSlowRangeQuery {
   #[allow(clippy::new_ret_no_self)]
   pub(crate) fn new(
     field: String,
-    min: Vec<f32>,
-    max: Vec<f32>,
+    min: &[f32],
+    max: &[f32],
     query_type: QueryType,
   ) -> Result<BinaryRangeFieldRangeQuery> {
-    let range = encode_ranges(&min, &max)?;
+    let range = encode_ranges(min, max)?;
     let len = min.len();
-    let sub = Self { field, min, max };
+    let mut limits = SmallVec::with_capacity(min.len() + max.len());
+    limits.extend_from_slice(min);
+    limits.extend_from_slice(max);
+    let sub = Self {
+      field,
+      limits,
+      min_len: len,
+    };
     BinaryRangeFieldRangeQuery::new(range, float_range::BYTES, len, query_type, sub)
   }
 
@@ -49,19 +57,19 @@ impl FloatRangeSlowRangeQuery {
   }
 
   pub(crate) fn min(&self) -> &[f32] {
-    &self.min
+    &self.limits[..self.min_len]
   }
 
   pub(crate) fn max(&self) -> &[f32] {
-    &self.max
+    &self.limits[self.min_len..]
   }
 }
 
 impl PartialEq for FloatRangeSlowRangeQuery {
   fn eq(&self, other: &Self) -> bool {
     self.field == other.field
-      && CoreHelper::array_equals_f32(&self.min, &other.min)
-      && CoreHelper::array_equals_f32(&self.max, &other.max)
+      && CoreHelper::array_equals_f32(self.min(), other.min())
+      && CoreHelper::array_equals_f32(self.max(), other.max())
   }
 }
 
@@ -70,10 +78,10 @@ impl Eq for FloatRangeSlowRangeQuery {}
 impl Hash for FloatRangeSlowRangeQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.field.hash(state);
-    for value in &self.min {
+    for value in self.min() {
       (BitUtil::float_to_int_bits(*value) as u32).hash(state);
     }
-    for value in &self.max {
+    for value in self.max() {
       (BitUtil::float_to_int_bits(*value) as u32).hash(state);
     }
   }
@@ -81,7 +89,7 @@ impl Hash for FloatRangeSlowRangeQuery {
 
 impl Display for FloatRangeSlowRangeQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}:{:?} TO {:?}", self.field, self.min, self.max)
+    write!(f, "{}:{:?} TO {:?}", self.field, self.min(), self.max())
   }
 }
 

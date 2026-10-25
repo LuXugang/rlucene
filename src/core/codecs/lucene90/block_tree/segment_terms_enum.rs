@@ -20,6 +20,7 @@ use crate::core::util::access::ByteSource;
 use std::fmt::{Display, Formatter};
 
 use crate::core::codecs::block_term_state::TermStateEnum;
+use crate::core::codecs::block_tree::floor_data::FloorData;
 use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
   NO_OUTPUT, OUTPUT_FLAG_HAS_TERMS, OUTPUT_FLAG_IS_FLOOR, OUTPUT_FLAGS_NUM_BITS,
 };
@@ -1097,10 +1098,7 @@ impl OutputAccumulator {
   }
   /// Set the last arc as the source of the floorData.  
   /// This won't change the reading position of this [`OutputAccumulator`].
-  pub(crate) fn set_floor_data(
-    &self,
-    floor_data: &mut ByteArrayDataInput<std::sync::Arc<Vec<u8>>>,
-  ) {
+  pub(crate) fn set_floor_data(&self, floor_data: &mut ByteArrayDataInput<FloorData>) {
     debug_assert!(
       self.current_index == self.num - 1,
       "floor data should be stored in last arc, got current_index={}, num={}",
@@ -1112,10 +1110,10 @@ impl OutputAccumulator {
     let start = output.offset + self.index;
     let length = output.length - self.index;
 
-    if std::sync::Arc::ptr_eq(&floor_data.bytes, &output.bytes) {
+    if floor_data.bytes.shares_storage_with(&output.bytes) {
       floor_data.reset_meta(start, length);
     } else {
-      floor_data.reset_with_range(output.bytes.clone(), start, length);
+      floor_data.reset_with_range(FloorData::Shared(output.bytes.clone()), start, length);
     }
   }
 }

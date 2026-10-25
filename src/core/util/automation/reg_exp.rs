@@ -841,7 +841,7 @@ impl RegExp {
   fn make_concatenation(flags: i32, mut exp1: RegExp, mut exp2: RegExp) -> Result<Self> {
     let is_str_or_char = |e: &RegExp| matches!(e.kind, RegExpKind::Char | RegExpKind::String);
     if is_str_or_char(&exp1) && is_str_or_char(&exp2) {
-      return Ok(RegExp::make_string_concat(flags, &exp1, &exp2));
+      return Ok(RegExp::make_string_concat(flags, exp1, exp2));
     }
 
     let merge_left = if exp1.kind == RegExpKind::Concatenation {
@@ -861,7 +861,7 @@ impl RegExp {
         .exp2
         .take()
         .ok_or_else(|| LuceneError::illegal_state("second child expression is missing"))?;
-      let rexp2 = RegExp::make_string_concat(flags, &e2, &exp2);
+      let rexp2 = RegExp::make_string_concat(flags, e2, exp2);
       return Ok(RegExp::new_container_node(
         flags,
         RegExpKind::Concatenation,
@@ -887,7 +887,7 @@ impl RegExp {
         .exp2
         .take()
         .ok_or_else(|| LuceneError::illegal_state("second child expression is missing"))?;
-      let rexp1 = RegExp::make_string_concat(flags, &exp1, &e1);
+      let rexp1 = RegExp::make_string_concat(flags, exp1, e1);
       return Ok(RegExp::new_container_node(
         flags,
         RegExpKind::Concatenation,
@@ -903,18 +903,18 @@ impl RegExp {
       Some(exp2),
     ))
   }
-  fn make_string_concat(flags: i32, exp1: &RegExp, exp2: &RegExp) -> Self {
-    let mut b = String::new();
-
-    match exp1.kind {
-      RegExpKind::String => b.push_str(&exp1.s),
+  fn make_string_concat(flags: i32, mut exp1: RegExp, exp2: RegExp) -> Self {
+    let mut b = match exp1.kind {
+      RegExpKind::String => std::mem::take(&mut exp1.s),
       RegExpKind::Char => {
+        let mut b = String::new();
         if let Some(ch) = std::char::from_u32(exp1.c as u32) {
           b.push(ch);
         }
+        b
       },
-      _ => {},
-    }
+      _ => String::new(),
+    };
 
     match exp2.kind {
       RegExpKind::String => b.push_str(&exp2.s),

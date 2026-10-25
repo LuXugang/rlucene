@@ -51,7 +51,7 @@ use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::disi_priority_queue::DisiPriorityQueue;
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
-use crate::core::search::disjunction_matches_iterator::from_terms;
+use crate::core::search::disjunction_matches_iterator::from_terms_enum;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::impacts_disi::SeparateImpactsDISI;
@@ -73,6 +73,7 @@ use crate::core::search::term_scorer::{TermScorer, TermScorerState};
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::core_helper::{CoreHelper, HasIdentity};
 use crate::core::util::error::UncheckedIOError;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -270,6 +271,26 @@ struct TermAndBoost {
   boost: f32,
 }
 
+pub(crate) struct SynonymTermBytesRefIterator<'a> {
+  terms: &'a [TermAndBoost],
+  index: usize,
+}
+
+impl BytesRefIterator for SynonymTermBytesRefIterator<'_> {
+  type Value<'a>
+    = &'a BytesRef<Vec<u8>>
+  where
+    Self: 'a;
+
+  fn next(&mut self) -> Result<Option<Self::Value<'_>>> {
+    let Some(term) = self.terms.get(self.index) else {
+      return Ok(None);
+    };
+    self.index += 1;
+    Ok(Some(&term.term))
+  }
+}
+
 impl PartialEq for TermAndBoost {
   fn eq(&self, other: &Self) -> bool {
     self.term == other.term && CoreHelper::compare_f32(self.boost, other.boost).is_eq()
@@ -394,9 +415,7 @@ where
     if context.reader().terms(query.get_field())?.is_none() {
       return Ok(None);
     }
-    let field = query.get_field();
-    let terms: Arc<[Term]> = query.get_terms().into();
-    for_field(field.to_owned(), (self, context, doc, terms).into())
+    for_field(&query.data.field, (self, context, doc).into())
   }
 
   fn explain(
@@ -2034,18 +2053,20 @@ where
     &'a self,
     context: &'a LeafReaderContext<IRCLeafReader<IRC>>,
     doc: i32,
-    terms: Arc<[Term]>,
   ) -> Result<
     Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>,
   > {
     let query = self.parent_query.as_ref();
     let field = query.get_field();
-    from_terms(
+    from_terms_enum(
       context,
       doc,
       Arc::new(self.parent_query.as_ref().clone().into()),
       field,
-      terms,
+      SynonymTermBytesRefIterator {
+        terms: &query.data.terms,
+        index: 0,
+      },
     )
     .map(|value| value.map(|iterator| Box::new(iterator).into()))
   }

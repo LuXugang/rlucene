@@ -364,7 +364,7 @@ impl FieldInfos {
       LuceneError::illegal_argument(format!("field number is too large: {max_field_number}"))
     })? as usize;
     let mut by_number: Vec<Option<Arc<FieldInfo>>>;
-    let mut values: Vec<Arc<FieldInfo>>;
+    let values: Vec<Arc<FieldInfo>>;
     if field_number_strictly_ascending && by_number_len == infos.len() {
       // The input FieldInfo[] contains all fields numbered from 0 to
       // infos.length - 1, and they are sorted, use it
@@ -392,11 +392,15 @@ impl FieldInfos {
         by_number[field_number] = Some(field_info.clone());
       }
       if by_number_len == infos.len() {
-        infos.clear();
-        values = infos;
-        for fi in by_number.iter().flatten() {
-          values.push(fi.clone())
+        // Unique field numbers now cover 0..infos.len(), so retain these owners
+        // while moving each field into its numbered slot.
+        for index in 0..infos.len() {
+          while infos[index].number as usize != index {
+            let destination = infos[index].number as usize;
+            infos.swap(index, destination);
+          }
         }
+        values = infos;
       } else {
         if !field_number_strictly_ascending {
           infos.sort_unstable_by_key(|fi| fi.number);
@@ -600,7 +604,7 @@ where
   for leaf in leaves {
     let field_infos = leaf.reader().get_field_infos()?;
     for fi in field_infos.iter() {
-      if *fi.get_index_options() != IndexOptions::None {
+      if *fi.get_index_options() != IndexOptions::None && !fields.contains(fi.name.as_str()) {
         fields.insert(fi.name.clone());
       }
     }
@@ -1089,7 +1093,7 @@ impl Builder {
     F: Borrow<FieldInfo>,
   {
     let fi = fi.borrow();
-    if let Some(cur_fi) = self.field_info(&fi.name) {
+    if let Some(cur_fi) = self.by_name.get(&fi.name) {
       cur_fi.verify_same_schema(fi)?;
 
       let attributes = fi.attributes();
@@ -1099,7 +1103,7 @@ impl Builder {
       if fi.has_payloads() {
         cur_fi.set_store_payloads()?;
       }
-      return Ok(cur_fi);
+      return Ok(cur_fi.clone());
     }
 
     self.assert_not_finished()?;

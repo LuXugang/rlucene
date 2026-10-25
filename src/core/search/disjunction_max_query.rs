@@ -43,6 +43,7 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, HasIdentity};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
@@ -255,7 +256,7 @@ impl Hash for DisjunctionMaxQuery {
   {
     CoreHelper::hash_bits_f32_for_primitive_eq(self.tie_breaker_multiplier).hash(state);
 
-    let mut entries: Vec<_> = self.disjuncts.iter().collect();
+    let mut entries: SmallVec<[_; 8]> = self.disjuncts.iter().collect();
     entries.sort_by(|a, b| {
       // compare name
       let cmp = a.0.name().cmp(b.0.name());

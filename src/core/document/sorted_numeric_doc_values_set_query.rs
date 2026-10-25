@@ -44,7 +44,15 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ram_usage_estimator::size_of_string;
 use std::hash::{Hash, Hasher};
 use std::mem::size_of_val;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
+
+// This owner stays private: callers cannot observe its sharing or mutate the set.
+static EMPTY_NUMBERS: LazyLock<Arc<DocValuesLongHashSet>> = LazyLock::new(|| {
+  Arc::new(expect_invariant!(
+    DocValuesLongHashSet::new(&[]),
+    "an empty numeric set is always valid"
+  ))
+});
 
 /// Similar to SortedNumericDocValuesRangeQuery but for a set
 #[derive(Debug, Clone)]
@@ -65,7 +73,11 @@ impl SortedNumericDocValuesSetQuery {
     Ok(SortedNumericDocValuesSetQuery {
       id: Identity::new(),
       field,
-      numbers: Arc::new(DocValuesLongHashSet::new(numbers.as_slice())?),
+      numbers: if numbers.is_empty() {
+        Arc::clone(&EMPTY_NUMBERS)
+      } else {
+        Arc::new(DocValuesLongHashSet::new(numbers.as_slice())?)
+      },
     })
   }
 }

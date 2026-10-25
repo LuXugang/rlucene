@@ -39,10 +39,9 @@ use std::fmt::{Display, Formatter};
 /// document due to wrapping a BinaryDocValuesField.
 pub struct DoubleRangeDocValuesField {
   pub(crate) base: BinaryDocValuesField,
-  #[allow(dead_code)]
-  pub(crate) field: String,
-  pub(crate) min: Vec<f64>,
-  pub(crate) max: Vec<f64>,
+  pub(crate) min: [f64; 4],
+  pub(crate) max: [f64; 4],
+  num_dims: usize,
 }
 
 impl DoubleRangeDocValuesField {
@@ -59,24 +58,32 @@ impl DoubleRangeDocValuesField {
     let max = max.as_ref();
     Self::check_args(min, max)?;
     let encoded = double_range::encode_range(min, max)?;
-    let base = BinaryDocValuesField::new(field.clone(), BytesRef::from_bytes(encoded));
+    let base = BinaryDocValuesField::new(field, BytesRef::from_bytes(encoded));
     Ok(Self {
       base,
-      field,
-      min: min.to_vec(),
-      max: max.to_vec(),
+      min: {
+        let mut values = [0.0; 4];
+        values[..min.len()].copy_from_slice(min);
+        values
+      },
+      max: {
+        let mut values = [0.0; 4];
+        values[..max.len()].copy_from_slice(max);
+        values
+      },
+      num_dims: min.len(),
     })
   }
 
   /// Get the minimum value for the given dimension.
   pub fn get_min(&self, dimension: usize) -> Result<f64> {
-    CoreHelper::check_index(dimension, self.min.len())?;
+    CoreHelper::check_index(dimension, self.num_dims)?;
     Ok(self.min[dimension])
   }
 
   /// Get the maximum value for the given dimension.
   pub fn get_max(&self, dimension: usize) -> Result<f64> {
-    CoreHelper::check_index(dimension, self.max.len())?;
+    CoreHelper::check_index(dimension, self.num_dims)?;
     Ok(self.max[dimension])
   }
 
@@ -94,7 +101,7 @@ impl DoubleRangeDocValuesField {
     let min = min.as_ref();
     let max = max.as_ref();
     Self::check_args(min, max)?;
-    DoubleRangeSlowRangeQuery::new(field.into(), min.to_vec(), max.to_vec(), query_type)
+    DoubleRangeSlowRangeQuery::new(field.into(), min, max, query_type)
   }
 
   /// Create a new range query that finds all ranges that intersect using doc values. NOTE: This

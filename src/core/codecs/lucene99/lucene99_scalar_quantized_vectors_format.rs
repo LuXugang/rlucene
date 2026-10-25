@@ -32,7 +32,6 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, HasIdentity};
-use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, LazyLock, OnceLock};
 
@@ -148,20 +147,15 @@ impl Lucene99ScalarQuantizedVectorsFormat {
 
 impl Display for Lucene99ScalarQuantizedVectorsFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let confidence_interval = self
-      .confidence_interval
-      .map(|value| Cow::Owned(value.to_string()))
-      .unwrap_or(Cow::Borrowed("null"));
+    write!(f, "{NAME}(name={NAME}, confidenceInterval=")?;
+    match self.confidence_interval {
+      Some(value) => write!(f, "{value}")?,
+      None => f.write_str("null")?,
+    }
     write!(
       f,
-      "{}(name={}, confidenceInterval={}, bits={}, compress={}, flatVectorScorer={}, rawVectorFormat={})",
-      NAME,
-      NAME,
-      confidence_interval,
-      self.bits,
-      self.compress,
-      self.flat_vector_scorer,
-      *RAW_VECTOR_FORMAT
+      ", bits={}, compress={}, flatVectorScorer={}, rawVectorFormat={})",
+      self.bits, self.compress, self.flat_vector_scorer, *RAW_VECTOR_FORMAT
     )
   }
 }
@@ -226,15 +220,14 @@ impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
           return Ok(Arc::clone(format));
         }
         let format = Arc::new(Self::new()?);
-        if FORMAT.set(Arc::clone(&format)).is_ok() {
-          Ok(format)
-        } else {
-          FORMAT.get().map(Arc::clone).ok_or_else(|| {
-            LuceneError::illegal_state(format!(
-              "failed to initialize vectors format named \"{NAME}\""
-            ))
-          })
-        }
+        let unpublished = FORMAT.set(format).err();
+        let selected = FORMAT.get().map(Arc::clone).ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "failed to initialize vectors format named \"{NAME}\""
+          ))
+        });
+        drop(unpublished);
+        selected
       },
       _ => Err(LuceneError::illegal_argument(format!(
         "Could not load vectors format named \"{name}\""

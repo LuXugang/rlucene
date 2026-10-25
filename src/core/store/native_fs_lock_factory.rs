@@ -129,11 +129,12 @@ impl FSLockFactory for NativeFSLockFactory {
     let metadata = file.metadata()?;
 
     let mut lock_held = self.lock_held.lock();
-    if !lock_held.insert(real_path_str.to_string()) {
+    if lock_held.contains(real_path_str.as_ref()) {
       return Err(LuceneError::lock_obtain_failed(format!(
         "Lock held by this virtual machine: {real_path_str}"
       )));
     }
+    lock_held.insert(real_path_str.to_string());
     drop(lock_held);
     let result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| file.try_lock_exclusive()));

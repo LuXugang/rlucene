@@ -159,9 +159,8 @@ impl KeywordField {
     B: Into<BytesRef<Vec<u8>>>,
   {
     let field = field.into();
-    let values: Vec<BytesRef<Vec<u8>>> = values.into_iter().map(Into::into).collect();
-    let index_query = TermInSetQuery::new(field.clone(), values.clone())?;
-    let dv_query = TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values)?;
+    let index_query = TermInSetQuery::new(field, values)?;
+    let dv_query = index_query.clone_with_rewrite_method(DOC_VALUES_REWRITE);
     Ok(IndexOrDocValuesQuery::new(
       MultiTermQuerySet::from(index_query),
       MultiTermQuerySet::from(dv_query),

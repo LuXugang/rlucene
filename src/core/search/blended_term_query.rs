@@ -35,7 +35,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
 use crate::core::util::{HasIdentity, Sorter, ToInt};
 use crate::impl_from_for_enum;
+use smallvec::SmallVec;
 use std::cmp::PartialEq;
+use std::fmt::Write as _;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -132,12 +134,15 @@ impl QueryBase for BlendedTermQuery {
         builder.push(' ');
       }
 
-      let mut term_query: Query = TermQuery::new(term.clone()).into();
       if self.boosts[i] != 1.0 {
-        term_query = BoostQuery::new(term_query, self.boosts[i])?.into();
+        BoostQuery::check_boost(self.boosts[i])?;
+        builder.push('(');
+        builder.push_str(&TermQuery::format_term(term, field)?);
+        builder.push_str(")^");
+        write!(builder, "{:.1}", self.boosts[i])?;
+      } else {
+        builder.push_str(&TermQuery::format_term(term, field)?);
       }
-
-      builder.push_str(&term_query.to_string(field)?);
     }
 
     builder.push(')');
@@ -224,7 +229,7 @@ impl QueryBase for BlendedTermQuery {
   where
     QV: QueryVisitor,
   {
-    let terms: Vec<_> = self
+    let terms: SmallVec<[_; 8]> = self
       .terms
       .iter()
       .filter(|term| visitor.accept_field(term.field()))

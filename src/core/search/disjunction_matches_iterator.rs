@@ -317,39 +317,6 @@ pub(crate) type LeafTermsMatchesIterator<LR, BRI> = TermsEnumDisjunctionMatchesI
   BRI,
 >;
 
-/// Create a [`MatchesIterator`] over a list of terms.
-///
-/// Only terms that have at least one match in the given document will be included.
-pub(crate) fn from_terms<'a, LR>(
-  context: &LeafReaderContext<LR>,
-  doc: i32,
-  query: Arc<Query>,
-  field: &str,
-  terms: Arc<[Term]>,
-) -> Result<Option<LeafTermsMatchesIterator<LR, TermBytesRefIterator>>>
-where
-  LR: LeafReader,
-  <LR::Terms as Terms>::TermsEnum: 'a,
-  <<LR::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum: 'a,
-{
-  for term in terms.iter() {
-    if term.field() != field {
-      return Err(LuceneError::illegal_argument(format!(
-        "Tried to generate iterator from terms in multiple fields: expected [{}] but got [{}]",
-        field,
-        term.field()
-      )));
-    }
-  }
-  from_terms_enum(
-    context,
-    doc,
-    query,
-    field,
-    TermBytesRefIterator { terms, index: 0 },
-  )
-}
-
 /// Create a [`MatchesIterator`] over terms extracted from a [`BytesRefIterator`].
 ///
 /// Only terms that have at least one match in the given document will be included.

@@ -1565,20 +1565,24 @@ impl TermsEnum for TVTermsEnum {
     reuse: Option<Self::PostingsEnum>,
     _flags: i32,
   ) -> Result<Self::PostingsEnum> {
-    let mut docs_enum = reuse.unwrap_or_else(TVPostingsEnum::new);
     let ord = self
       .ord
       .ok_or_else(|| LuceneError::illegal_state("ord is None"))?;
-    docs_enum.reset(
-      self.term_data.term_freqs[ord],
-      self.term_data.position_index[ord],
-      self.term_data.clone(),
-      BytesRef::from_slice(
-        self.input.bytes.clone(),
-        self.payload_offset,
-        self.payload_length,
-      ),
+    let freq = self.term_data.term_freqs[ord];
+    let position_index = self.term_data.position_index[ord];
+    let term_data = self.term_data.clone();
+    let payloads = BytesRef::from_slice(
+      self.input.bytes.clone(),
+      self.payload_offset,
+      self.payload_length,
     );
+    let docs_enum = match reuse {
+      Some(mut docs_enum) => {
+        docs_enum.reset(freq, position_index, term_data, payloads);
+        docs_enum
+      },
+      None => TVPostingsEnum::with_term(freq, position_index, term_data, payloads),
+    };
     Ok(docs_enum)
   }
 
@@ -1627,17 +1631,35 @@ impl TVPostingsEnum {
     }
     let (term_data, payload) =
       EMPTY_BUFFERS.with(|buffers| (Rc::clone(&buffers.term_data), Rc::clone(&buffers.payload)));
-    TVPostingsEnum {
+    Self::with_term(
+      0,
+      0,
       term_data,
-      doc: -1,
-      term_freq: 0,
-      position_index: 0,
-      payload: BytesRef {
+      BytesRef {
         bytes: payload,
         offset: 0,
         length: 0,
       },
-      base_payload_offset: 0,
+    )
+  }
+
+  fn with_term(
+    term_freq: usize,
+    position_index: usize,
+    term_data: Rc<TVTermData>,
+    payloads: BytesRef<Rc<Vec<u8>>>,
+  ) -> Self {
+    Self {
+      term_data,
+      doc: -1,
+      term_freq,
+      position_index,
+      payload: BytesRef {
+        bytes: payloads.bytes,
+        offset: 0,
+        length: 0,
+      },
+      base_payload_offset: payloads.offset,
       i: None,
       payload_length: 0,
       payload_offset: 0,

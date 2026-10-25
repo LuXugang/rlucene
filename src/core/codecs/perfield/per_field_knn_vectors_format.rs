@@ -347,7 +347,6 @@ where
     PF: KnnVectorsFormat<KnnVectorsReader<D1::IndexInput> = KVR>,
     D1: Directory,
   {
-    let field_infos = Arc::clone(&read_state.field_infos);
     let mut fields = HashMap::new();
     let mut formats: HashMap<String, Arc<KVR>> = HashMap::new();
 
@@ -393,7 +392,7 @@ where
 
     Ok(Self {
       fields,
-      field_infos,
+      field_infos: Arc::clone(&read_state.field_infos),
     })
   }
 

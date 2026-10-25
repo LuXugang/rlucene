@@ -233,11 +233,14 @@ impl QueryVisitor for TermCollector<'_> {
 
   fn consume_terms<T: Borrow<Term>>(&mut self, _query: QueryRef<'_>, terms: &[T]) -> Result<()> {
     match self {
-      Self::Collector(term_set) => term_set.extend(
-        terms
-          .iter()
-          .map(|term| Borrow::<Term>::borrow(term).clone()),
-      ),
+      Self::Collector(term_set) => {
+        for term in terms {
+          let term = Borrow::<Term>::borrow(term);
+          if !term_set.contains(term) {
+            term_set.insert(term.clone());
+          }
+        }
+      },
       Self::Empty(_) => {},
     }
     Ok(())

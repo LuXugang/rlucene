@@ -329,8 +329,7 @@ where
   fn create_output(&self, name: &str, _context: &IOContext) -> Result<Self::IndexOutput> {
     self.ensure_open()?;
     let file_name: Arc<str> = Arc::from(name);
-    let entry = Arc::new(Mutex::new(FileEntry::new(file_name.clone())));
-    {
+    let entry = {
       let mut files = self.files.lock();
       match files.entry(file_name) {
         Entry::Occupied(_) => {
@@ -343,10 +342,12 @@ where
           ));
         },
         Entry::Vacant(vacant) => {
+          let entry = Arc::new(Mutex::new(FileEntry::new(vacant.key().clone())));
           vacant.insert(entry.clone());
+          entry
         },
       }
-    }
+    };
     create_output(
       entry,
       &self.bb_output_supplier,
@@ -367,16 +368,17 @@ where
       let segment_suffix = self.temp_file_name.apply(suffix);
       let name = IndexFileNames::segment_file_name(prefix, &segment_suffix, "tmp");
       let name: Arc<str> = Arc::from(name);
-      let entry = Arc::new(Mutex::new(FileEntry::new(name.clone())));
-      {
+      let entry = {
         let mut files = self.files.lock();
         match files.entry(name) {
           Entry::Occupied(_) => continue,
           Entry::Vacant(vacant) => {
+            let entry = Arc::new(Mutex::new(FileEntry::new(vacant.key().clone())));
             vacant.insert(entry.clone());
+            entry
           },
         }
-      }
+      };
       return create_output(
         entry,
         &self.bb_output_supplier,

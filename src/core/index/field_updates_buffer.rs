@@ -92,16 +92,18 @@ impl FieldUpdatesBuffer {
     }
     bytes_used.add_and_get(Self::size_of_string(&term.field));
 
+    let term_values = BytesRefArray::new(bytes_used.clone())?;
+    let byte_values = if is_numeric {
+      None
+    } else {
+      Some(BytesRefArray::new(bytes_used.clone())?)
+    };
     let mut buffer = FieldUpdatesBuffer {
-      bytes_used: bytes_used.clone(),
+      bytes_used,
       num_updates: 1,
-      term_values: BytesRefArray::new(bytes_used.clone())?,
+      term_values,
       term_sort_state: None,
-      byte_values: if is_numeric {
-        None
-      } else {
-        Some(BytesRefArray::new(bytes_used)?)
-      },
+      byte_values,
       docs_upto: vec![doc_upto],
       numeric_values: if is_numeric { Some(vec![]) } else { None },
       has_values,

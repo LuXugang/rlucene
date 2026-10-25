@@ -370,7 +370,7 @@ where
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       let directory_orig = d.clone();
-      let directory = Arc::new(LockValidatingDirectoryWrapper::new(d.clone(), write_lock));
+      let directory = Arc::new(LockValidatingDirectoryWrapper::new(d, write_lock));
       directory_for_cleanup = Some(directory.clone());
 
       let mode = conf.get_open_mode();

@@ -362,9 +362,9 @@ impl CompiledAutomaton {
         let term = self
           .term
           .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("term must exist for AutomatonType::Single"))?
-          .clone();
-        CompiledAutomatonTE::Single(SingleTermsEnum::new(terms.iterator()?, term))
+          .ok_or_else(|| LuceneError::illegal_state("term must exist for AutomatonType::Single"))?;
+        let terms_enum = terms.iterator()?;
+        CompiledAutomatonTE::Single(SingleTermsEnum::new(terms_enum, term.clone()))
       },
       AutomatonType::Normal => CompiledAutomatonTE::Intersect(terms.intersect(self, None)?),
     };

@@ -126,7 +126,11 @@ impl LowercaseAsciiCompression {
           "{} <> {} {}",
           num_exceptions,
           num_exceptions2,
-          BytesRef::from_slice(input.to_vec(), 0, len),
+          BytesRef {
+            bytes: input,
+            offset: 0,
+            length: len,
+          },
         )));
       }
     }

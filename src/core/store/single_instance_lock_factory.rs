@@ -64,8 +64,9 @@ impl LockFactory for SingleInstanceLockFactory {
   fn obtain_lock(&self, dir: &Path, lock_name: &str) -> Result<Self::Lock> {
     let mut inner = self.inner.lock();
 
-    let name: Arc<str> = Arc::from(lock_name);
-    if inner.locks.insert(name.clone()) {
+    if !inner.locks.contains(lock_name) {
+      let name: Arc<str> = Arc::from(lock_name);
+      inner.locks.insert(name.clone());
       return Ok(SingleInstanceLock::new(name, self.inner.clone()));
     }
     Err(LuceneError::lock_obtain_failed(format!(

@@ -213,34 +213,37 @@ where
     Ok(vector_data_offset)
   }
   fn write_field(
-    &mut self,
+    meta: &mut O,
+    vector_data: &mut O,
+    fields: &mut [FlatFieldWriter],
     field_data_idx: usize,
     max_doc: i32,
-    vectors: VectorSlices<'_>,
+    vectors: Option<VectorSlices<'_>>,
   ) -> Result<()>
   where
     O: IndexOutput,
   {
-    let field_data = self.fields.get_mut(field_data_idx).ok_or_else(|| {
+    let field_data = fields.get_mut(field_data_idx).ok_or_else(|| {
       LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
     })?;
     field_data.docs_with_field.finish();
-    let vector_data_offset = self.vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
+    let vectors = vectors.unwrap_or_else(|| field_data.vectors.as_slices());
+    let vector_data_offset = vector_data.align_file_pointer(BitUtil::FLOAT_BYTES)?;
 
     match vectors {
       VectorSlices::Byte(vectors) => {
-        Self::write_byte_vectors(&mut self.vector_data, vectors)?;
+        Self::write_byte_vectors(vector_data, vectors)?;
       },
       VectorSlices::Float(vectors) => {
-        Self::write_float32_vectors(&mut self.vector_data, field_data.dim, vectors)?;
+        Self::write_float32_vectors(vector_data, field_data.dim, vectors)?;
       },
     }
 
-    let vector_data_length = self.vector_data.get_file_pointer()? - vector_data_offset;
+    let vector_data_length = vector_data.get_file_pointer()? - vector_data_offset;
 
     write_meta(
-      &mut self.meta,
-      &mut self.vector_data,
+      meta,
+      vector_data,
       &field_data.field_info,
       max_doc,
       vector_data_offset,
@@ -251,19 +254,22 @@ where
     Ok(())
   }
   fn write_sorting_field<DM>(
-    &mut self,
+    meta: &mut O,
+    vector_data: &mut O,
+    fields: &mut [FlatFieldWriter],
     field_data_idx: usize,
     max_doc: i32,
     sort_map: &DM,
-    vectors: VectorSlices<'_>,
+    vectors: Option<VectorSlices<'_>>,
   ) -> Result<()>
   where
     DM: DocMap,
   {
-    let field_data = self.fields.get_mut(field_data_idx).ok_or_else(|| {
+    let field_data = fields.get_mut(field_data_idx).ok_or_else(|| {
       LuceneError::illegal_argument(format!("Invalid field_data_idx: {}", field_data_idx))
     })?;
     field_data.docs_with_field.finish();
+    let vectors = vectors.unwrap_or_else(|| field_data.vectors.as_slices());
 
     let cardinality = field_data.get_docs_with_field_set().cardinality() as usize;
 
@@ -284,17 +290,17 @@ where
     // write vector values
     let vector_data_offset = match vectors {
       VectorSlices::Byte(vectors) => {
-        Self::write_sorted_byte_vectors(&mut self.vector_data, &ord_map, vectors)?
+        Self::write_sorted_byte_vectors(vector_data, &ord_map, vectors)?
       },
       VectorSlices::Float(vectors) => {
-        Self::write_sorted_float32_vectors(&mut self.vector_data, field_data, &ord_map, vectors)?
+        Self::write_sorted_float32_vectors(vector_data, field_data, &ord_map, vectors)?
       },
     };
-    let vector_data_length = self.vector_data.get_file_pointer()? - vector_data_offset;
+    let vector_data_length = vector_data.get_file_pointer()? - vector_data_offset;
 
     write_meta(
-      &mut self.meta,
-      &mut self.vector_data,
+      meta,
+      vector_data,
       &field_data.field_info,
       max_doc,
       vector_data_offset,
@@ -348,11 +354,25 @@ where
     DM: DocMap,
   {
     for field_idx in 0..self.fields.len() {
-      let vectors = self.fields[field_idx].get_vectors()?;
       if let Some(sort_map) = sort_map {
-        self.write_sorting_field(field_idx, max_doc, sort_map, vectors.as_slices())?;
+        Self::write_sorting_field(
+          &mut self.meta,
+          &mut self.vector_data,
+          &mut self.fields,
+          field_idx,
+          max_doc,
+          sort_map,
+          None,
+        )?;
       } else {
-        self.write_field(field_idx, max_doc, vectors.as_slices())?;
+        Self::write_field(
+          &mut self.meta,
+          &mut self.vector_data,
+          &mut self.fields,
+          field_idx,
+          max_doc,
+          None,
+        )?;
       }
       self.fields[field_idx].finish()?;
     }
@@ -492,9 +512,24 @@ where
       let fields = &fields[idx];
       let vectors = fields.get_vectors()?;
       if let Some(sm) = sort_map {
-        self.write_sorting_field(idx, max_doc, sm, vectors)?;
+        Self::write_sorting_field(
+          &mut self.meta,
+          &mut self.vector_data,
+          &mut self.fields,
+          idx,
+          max_doc,
+          sm,
+          Some(vectors),
+        )?;
       } else {
-        self.write_field(idx, max_doc, vectors)?;
+        Self::write_field(
+          &mut self.meta,
+          &mut self.vector_data,
+          &mut self.fields,
+          idx,
+          max_doc,
+          Some(vectors),
+        )?;
       }
       self.fields[idx].finish()?;
     }

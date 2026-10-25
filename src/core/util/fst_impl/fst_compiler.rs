@@ -1400,7 +1400,9 @@ where
     self.num_arcs += 1;
     arc.label = label;
     arc.target = target;
-    arc.output = no_outputs.clone();
+    if !arc.output.is_same_reference(no_outputs) {
+      arc.output = no_outputs.clone();
+    }
     if !arc.next_final_output.is_same_reference(no_outputs) {
       arc.next_final_output = no_outputs.clone();
     }

@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::block_term_state::{BlockTermState, TermStateEnum};
 use crate::core::codecs::block_tree::field_reader::FieldReader;
-use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::NO_OUTPUT;
+use crate::core::codecs::block_tree::floor_data::FloorData;
 use crate::core::codecs::block_tree::segment_terms_enum::SegmentTermsEnum;
 use crate::core::codecs::lucene90::block_tree::compression_algorithm::CompressionAlgorithm;
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum::OutputAccumulator;
@@ -29,7 +29,6 @@ use crate::core::util::access::ByteSource;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
-use std::sync::Arc;
 
 pub struct SegmentTermsEnumFrame<S = TermStateEnum> {
   /// Stack ordinal; -1 for the static frame.
@@ -53,7 +52,7 @@ pub struct SegmentTermsEnumFrame<S = TermStateEnum> {
   pub(crate) stats_reader: ByteArrayDataInput<Vec<u8>>,
 
   pub(crate) rewind_pos: usize,
-  pub(crate) floor_data_reader: ByteArrayDataInput<Arc<Vec<u8>>>,
+  pub(crate) floor_data_reader: ByteArrayDataInput<FloorData>,
 
   // Length of prefix shared by all terms in this block
   pub(crate) prefix_length: usize,
@@ -140,7 +139,7 @@ impl<S> SegmentTermsEnumFrame<S> {
       stats_reader,
 
       rewind_pos: 0,
-      floor_data_reader: ByteArrayDataInput::with_bytes(NO_OUTPUT.bytes.clone()),
+      floor_data_reader: ByteArrayDataInput::with_bytes(FloorData::Empty),
 
       prefix_length: 0,
       ent_count: 0,

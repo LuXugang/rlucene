@@ -2599,12 +2599,16 @@ fn value_in_order(
       debug_assert!(
         false,
         "values out of order: last value={:?} current value={:?} ord={}",
-        BytesRef::from_bytes(last_packed_value.to_vec()),
-        BytesRef::from_slice(
-          packed_value.to_vec(),
-          packed_value_offset,
-          config.packed_index_bytes_length()
-        ),
+        BytesRef {
+          bytes: &*last_packed_value,
+          offset: 0,
+          length: last_packed_value.len()
+        },
+        BytesRef {
+          bytes: packed_value,
+          offset: packed_value_offset,
+          length: config.packed_index_bytes_length()
+        },
         ord
       );
     }
@@ -2620,12 +2624,16 @@ fn value_in_order(
         debug_assert!(
           false,
           "data values out of order: last value={:?} current value={:?} ord={}",
-          BytesRef::from_bytes(last_packed_value.to_vec()),
-          BytesRef::from_slice(
-            packed_value.to_vec(),
-            packed_value_offset,
-            config.packed_index_bytes_length()
-          ),
+          BytesRef {
+            bytes: &*last_packed_value,
+            offset: 0,
+            length: last_packed_value.len()
+          },
+          BytesRef {
+            bytes: packed_value,
+            offset: packed_value_offset,
+            length: config.packed_index_bytes_length()
+          },
           ord
         );
       }

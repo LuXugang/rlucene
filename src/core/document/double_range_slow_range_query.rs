@@ -20,27 +20,35 @@ use crate::core::document::range_field_query::QueryType;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
+use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct DoubleRangeSlowRangeQuery {
   field: String,
-  min: Vec<f64>,
-  max: Vec<f64>,
+  limits: SmallVec<[f64; 4]>,
+  min_len: usize,
 }
 
 impl DoubleRangeSlowRangeQuery {
   #[allow(clippy::new_ret_no_self)]
   pub(crate) fn new(
     field: String,
-    min: Vec<f64>,
-    max: Vec<f64>,
+    min: &[f64],
+    max: &[f64],
     query_type: QueryType,
   ) -> Result<BinaryRangeFieldRangeQuery> {
-    let range = encode_ranges(&min, &max)?;
+    let range = encode_ranges(min, max)?;
     let len = min.len();
-    let sub = Self { field, min, max };
+    let mut limits = SmallVec::with_capacity(min.len() + max.len());
+    limits.extend_from_slice(min);
+    limits.extend_from_slice(max);
+    let sub = Self {
+      field,
+      limits,
+      min_len: len,
+    };
     BinaryRangeFieldRangeQuery::new(range, double_range::BYTES, len, query_type, sub)
   }
 
@@ -49,19 +57,19 @@ impl DoubleRangeSlowRangeQuery {
   }
 
   pub(crate) fn min(&self) -> &[f64] {
-    &self.min
+    &self.limits[..self.min_len]
   }
 
   pub(crate) fn max(&self) -> &[f64] {
-    &self.max
+    &self.limits[self.min_len..]
   }
 }
 
 impl PartialEq for DoubleRangeSlowRangeQuery {
   fn eq(&self, other: &Self) -> bool {
     self.field == other.field
-      && CoreHelper::array_equals_f64(&self.min, &other.min)
-      && CoreHelper::array_equals_f64(&self.max, &other.max)
+      && CoreHelper::array_equals_f64(self.min(), other.min())
+      && CoreHelper::array_equals_f64(self.max(), other.max())
   }
 }
 
@@ -70,10 +78,10 @@ impl Eq for DoubleRangeSlowRangeQuery {}
 impl Hash for DoubleRangeSlowRangeQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.field.hash(state);
-    for value in &self.min {
+    for value in self.min() {
       (BitUtil::double_to_long_bits(*value) as u64).hash(state);
     }
-    for value in &self.max {
+    for value in self.max() {
       (BitUtil::double_to_long_bits(*value) as u64).hash(state);
     }
   }
@@ -81,7 +89,7 @@ impl Hash for DoubleRangeSlowRangeQuery {
 
 impl Display for DoubleRangeSlowRangeQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}:{:?} TO {:?}", self.field, self.min, self.max)
+    write!(f, "{}:{:?} TO {:?}", self.field, self.min(), self.max())
   }
 }
 fn encode_ranges(min: &[f64], max: &[f64]) -> Result<Vec<u8>> {

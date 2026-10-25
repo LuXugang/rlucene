@@ -18,27 +18,35 @@ use crate::core::document::binary_range_field_range_query::BinaryRangeFieldRange
 use crate::core::document::int_range;
 use crate::core::document::range_field_query::QueryType;
 use crate::core::util::error::lucene_error::Result;
+use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
 #[derive(Clone)]
 pub struct IntRangeSlowRangeQuery {
   field: String,
-  min: Vec<i32>,
-  max: Vec<i32>,
+  limits: SmallVec<[i32; 4]>,
+  min_len: usize,
 }
 
 impl IntRangeSlowRangeQuery {
   #[allow(clippy::new_ret_no_self)]
   pub(crate) fn new(
     field: String,
-    min: Vec<i32>,
-    max: Vec<i32>,
+    min: &[i32],
+    max: &[i32],
     query_type: QueryType,
   ) -> Result<BinaryRangeFieldRangeQuery> {
-    let range = encode_ranges(&min, &max)?;
+    let range = encode_ranges(min, max)?;
     let len = min.len();
-    let sub = Self { field, min, max };
+    let mut limits = SmallVec::with_capacity(min.len() + max.len());
+    limits.extend_from_slice(min);
+    limits.extend_from_slice(max);
+    let sub = Self {
+      field,
+      limits,
+      min_len: len,
+    };
     BinaryRangeFieldRangeQuery::new(range, int_range::BYTES, len, query_type, sub)
   }
 
@@ -47,17 +55,17 @@ impl IntRangeSlowRangeQuery {
   }
 
   pub(crate) fn min(&self) -> &[i32] {
-    &self.min
+    &self.limits[..self.min_len]
   }
 
   pub(crate) fn max(&self) -> &[i32] {
-    &self.max
+    &self.limits[self.min_len..]
   }
 }
 
 impl PartialEq for IntRangeSlowRangeQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.field == other.field && self.min == other.min && self.max == other.max
+    self.field == other.field && self.min() == other.min() && self.max() == other.max()
   }
 }
 
@@ -66,10 +74,10 @@ impl Eq for IntRangeSlowRangeQuery {}
 impl Hash for IntRangeSlowRangeQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.field.hash(state);
-    for value in &self.min {
+    for value in self.min() {
       value.hash(state);
     }
-    for value in &self.max {
+    for value in self.max() {
       value.hash(state);
     }
   }
@@ -77,7 +85,7 @@ impl Hash for IntRangeSlowRangeQuery {
 
 impl Display for IntRangeSlowRangeQuery {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}:{:?} TO {:?}", self.field, self.min, self.max)
+    write!(f, "{}:{:?} TO {:?}", self.field, self.min(), self.max())
   }
 }
 

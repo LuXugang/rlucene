@@ -45,6 +45,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use parking_lot::Mutex;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -1149,6 +1150,52 @@ where
     vector_data_length: usize,
     vector_data: I,
   ) -> Result<Self> {
+    Self::load_with_sources(
+      vector_similarity_function,
+      flat_vectors_scorer,
+      Cow::Owned(configuration),
+      vector_encoding,
+      dimension,
+      vector_data_offset,
+      vector_data_length,
+      Cow::Owned(vector_data),
+    )
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  pub(crate) fn load_from_reader(
+    vector_similarity_function: VectorSimilarityFunction,
+    flat_vectors_scorer: F,
+    configuration: &Arc<OrdToDocDISIReaderConfiguration>,
+    vector_encoding: VectorEncoding,
+    dimension: usize,
+    vector_data_offset: usize,
+    vector_data_length: usize,
+    vector_data: &I,
+  ) -> Result<Self> {
+    Self::load_with_sources(
+      vector_similarity_function,
+      flat_vectors_scorer,
+      Cow::Borrowed(configuration),
+      vector_encoding,
+      dimension,
+      vector_data_offset,
+      vector_data_length,
+      Cow::Borrowed(vector_data),
+    )
+  }
+
+  #[allow(clippy::too_many_arguments)]
+  fn load_with_sources(
+    vector_similarity_function: VectorSimilarityFunction,
+    flat_vectors_scorer: F,
+    configuration: Cow<'_, Arc<OrdToDocDISIReaderConfiguration>>,
+    vector_encoding: VectorEncoding,
+    dimension: usize,
+    vector_data_offset: usize,
+    vector_data_length: usize,
+    vector_data: Cow<'_, I>,
+  ) -> Result<Self> {
     if configuration.is_empty() || vector_encoding != VectorEncoding::BYTE(1) {
       return Ok(Self::Empty(EmptyOffHeapVectorValues::new(dimension)));
     }
@@ -1166,8 +1213,8 @@ where
       )))
     } else {
       Ok(Self::Sparse(SparseOffHeapVectorValues::new(
-        configuration,
-        vector_data,
+        configuration.into_owned(),
+        vector_data.into_owned(),
         bytes_slice,
         dimension,
         dimension,

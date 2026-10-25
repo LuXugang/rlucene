@@ -39,10 +39,9 @@ use std::fmt::{Display, Formatter};
 /// BinaryDocValuesField.
 pub struct LongRangeDocValuesField {
   pub(crate) base: BinaryDocValuesField,
-  #[allow(dead_code)]
-  pub(crate) field: String,
-  pub(crate) min: Vec<i64>,
-  pub(crate) max: Vec<i64>,
+  pub(crate) min: [i64; 4],
+  pub(crate) max: [i64; 4],
+  num_dims: usize,
 }
 
 impl LongRangeDocValuesField {
@@ -59,24 +58,32 @@ impl LongRangeDocValuesField {
     let max = max.as_ref();
     Self::check_args(min, max)?;
     let encoded = long_range::encode_range(min, max)?;
-    let base = BinaryDocValuesField::new(field.clone(), BytesRef::from_bytes(encoded));
+    let base = BinaryDocValuesField::new(field, BytesRef::from_bytes(encoded));
     Ok(Self {
       base,
-      field,
-      min: min.to_vec(),
-      max: max.to_vec(),
+      min: {
+        let mut values = [0; 4];
+        values[..min.len()].copy_from_slice(min);
+        values
+      },
+      max: {
+        let mut values = [0; 4];
+        values[..max.len()].copy_from_slice(max);
+        values
+      },
+      num_dims: min.len(),
     })
   }
 
   /// Get the minimum value for the given dimension.
   pub fn get_min(&self, dimension: usize) -> Result<i64> {
-    CoreHelper::check_index(dimension, self.min.len())?;
+    CoreHelper::check_index(dimension, self.num_dims)?;
     Ok(self.min[dimension])
   }
 
   /// Get the maximum value for the given dimension.
   pub fn get_max(&self, dimension: usize) -> Result<i64> {
-    CoreHelper::check_index(dimension, self.max.len())?;
+    CoreHelper::check_index(dimension, self.num_dims)?;
     Ok(self.max[dimension])
   }
 
@@ -94,7 +101,7 @@ impl LongRangeDocValuesField {
     let min = min.as_ref();
     let max = max.as_ref();
     Self::check_args(min, max)?;
-    LongRangeSlowRangeQuery::new(field.into(), min.to_vec(), max.to_vec(), query_type)
+    LongRangeSlowRangeQuery::new(field.into(), min, max, query_type)
   }
 
   /// Create a new range query that finds all ranges that intersect using doc values. NOTE: This

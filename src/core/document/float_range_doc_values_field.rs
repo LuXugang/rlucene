@@ -39,8 +39,6 @@ use std::fmt::{Display, Formatter};
 /// BinaryDocValuesField.
 pub struct FloatRangeDocValuesField {
   pub(crate) base: BinaryDocValuesField,
-  #[allow(dead_code)]
-  pub(crate) field: String,
   pub(crate) min: [f32; 4],
   pub(crate) max: [f32; 4],
   num_dims: usize,
@@ -60,10 +58,9 @@ impl FloatRangeDocValuesField {
     let max = max.as_ref();
     Self::check_args(min, max)?;
     let encoded = float_range::encode_range(min, max)?;
-    let base = BinaryDocValuesField::new(field.clone(), BytesRef::from_bytes(encoded));
+    let base = BinaryDocValuesField::new(field, BytesRef::from_bytes(encoded));
     Ok(Self {
       base,
-      field,
       min: {
         let mut values = [0.0; 4];
         values[..min.len()].copy_from_slice(min);
@@ -104,7 +101,7 @@ impl FloatRangeDocValuesField {
     let min = min.as_ref();
     let max = max.as_ref();
     Self::check_args(min, max)?;
-    FloatRangeSlowRangeQuery::new(field.into(), min.to_vec(), max.to_vec(), query_type)
+    FloatRangeSlowRangeQuery::new(field.into(), min, max, query_type)
   }
 
   /// Create a new range query that finds all ranges that intersect using doc values. NOTE: This

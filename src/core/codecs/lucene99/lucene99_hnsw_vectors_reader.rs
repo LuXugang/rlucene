@@ -147,7 +147,7 @@ where
     D1: Directory<IndexInput = I>,
   {
     let mut fields = HashMap::new();
-    let field_infos = state.field_infos.clone();
+    let field_infos = &state.field_infos;
 
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
@@ -229,7 +229,7 @@ where
 
     Ok(Self {
       flat_vectors_reader,
-      field_infos,
+      field_infos: Arc::clone(field_infos),
       fields: Arc::new(fields),
       vector_index,
     })

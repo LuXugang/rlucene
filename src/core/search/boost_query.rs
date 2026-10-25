@@ -51,17 +51,22 @@ impl BoostQuery {
     T: IntoBoxQuery,
   {
     let query = query.into_box_query();
+    Self::check_boost(boost)?;
+    Ok(Self {
+      id: Identity::new(),
+      query,
+      boost,
+    })
+  }
+
+  pub(crate) fn check_boost(boost: f32) -> Result<()> {
     if !boost.is_finite() || boost < 0.0 || (boost == 0.0 && boost.is_sign_negative()) {
       return Err(LuceneError::illegal_argument(format!(
         "boost must be a positive float, got {:.1}",
         boost
       )));
     }
-    Ok(Self {
-      id: Identity::new(),
-      query,
-      boost,
-    })
+    Ok(())
   }
   pub fn get_query(&self) -> &Query {
     &self.query

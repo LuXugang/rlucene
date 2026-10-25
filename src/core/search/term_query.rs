@@ -86,6 +86,25 @@ impl TermQuery {
   pub fn get_term_states(&self) -> Option<&TermStates> {
     self.per_reader_term_state.as_deref()
   }
+
+  pub(crate) fn format_term(term: &Term, field: &str) -> Result<String> {
+    let mut buffer = String::new();
+    if term.field != field {
+      buffer.push_str(&term.field);
+      buffer.push(':');
+    }
+    if buffer.is_empty() {
+      let bytes = term.bytes();
+      return Ok(bytes.utf8_to_string().unwrap_or_else(|_| bytes.to_string()));
+    }
+    match term.text() {
+      Ok(text) => buffer.push_str(&text),
+      Err(_) => {
+        buffer.push_str("<?>");
+      },
+    }
+    Ok(buffer)
+  }
 }
 
 impl PartialEq for TermQuery {
@@ -127,22 +146,7 @@ impl QueryBase for TermQuery {
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
-    let mut buffer = String::new();
-    if self.term.field != field {
-      buffer.push_str(&self.term.field);
-      buffer.push(':');
-    }
-    if buffer.is_empty() {
-      let bytes = self.term.bytes();
-      return Ok(bytes.utf8_to_string().unwrap_or_else(|_| bytes.to_string()));
-    }
-    match self.term.text() {
-      Ok(text) => buffer.push_str(&text),
-      Err(_) => {
-        buffer.push_str("<?>");
-      },
-    }
-    Ok(buffer)
+    Self::format_term(&self.term, field)
   }
 
   fn create_weight<IRC, SIM>(

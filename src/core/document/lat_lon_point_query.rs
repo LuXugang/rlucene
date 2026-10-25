@@ -113,8 +113,7 @@ impl SpatialQueryBase for LatLonPointSpatial {
     let min_lon = GeoEncodingUtils::encode_longitude(self.query_component2d.get_min_x())?;
     let max_lon = GeoEncodingUtils::encode_longitude(self.query_component2d.get_max_x())?;
 
-    Ok(SpatialVisitorImpl::new(
-      self.query_component2d.clone(),
+    Ok(SpatialVisitorImpl::from_predicate(
       component2d_predicate,
       min_lat,
       max_lat,
@@ -124,7 +123,7 @@ impl SpatialQueryBase for LatLonPointSpatial {
   }
 }
 pub struct SpatialVisitorImpl<C> {
-  query_component2d: C,
+  query_component2d: Option<C>,
   component2d_predicate: Component2DPredicate<C>,
   min_lat: i32,
   max_lat: i32,
@@ -141,13 +140,37 @@ impl<C> SpatialVisitorImpl<C> {
     max_lon: i32,
   ) -> SpatialVisitorImpl<C> {
     SpatialVisitorImpl {
-      query_component2d,
+      query_component2d: Some(query_component2d),
       component2d_predicate,
       min_lat,
       max_lat,
       min_lon,
       max_lon,
     }
+  }
+
+  fn from_predicate(
+    component2d_predicate: Component2DPredicate<C>,
+    min_lat: i32,
+    max_lat: i32,
+    min_lon: i32,
+    max_lon: i32,
+  ) -> Self {
+    Self {
+      query_component2d: None,
+      component2d_predicate,
+      min_lat,
+      max_lat,
+      min_lon,
+      max_lon,
+    }
+  }
+
+  fn query_component2d(&self) -> &C {
+    self
+      .query_component2d
+      .as_ref()
+      .unwrap_or_else(|| self.component2d_predicate.component2d())
   }
 }
 impl<C> SpatialVisitor for SpatialVisitorImpl<C>
@@ -173,7 +196,7 @@ where
     let cell_max_lon = GeoEncodingUtils::decode_longitude(lon_upper_bound);
 
     self
-      .query_component2d
+      .query_component2d()
       .relate(cell_min_lon, cell_max_lon, cell_min_lat, cell_max_lat)
   }
 
@@ -192,7 +215,7 @@ where
   }
 
   fn contains(&self, packed_value: &[u8]) -> Result<WithinRelation> {
-    self.query_component2d.within_point(
+    self.query_component2d().within_point(
       GeoEncodingUtils::decode_longitude(NumericUtils::sortable_bytes_to_int(
         packed_value,
         BitUtil::INT_BYTES,

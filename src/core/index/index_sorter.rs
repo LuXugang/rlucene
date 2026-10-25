@@ -775,11 +775,11 @@ where
     };
     match ordinal_map {
       Some(omap) => {
-        let global_ords = omap.get_global_ords(reader_index).clone();
+        let global_ords = omap.get_global_ords(reader_index);
         let reader_values = self.values_provider.get(reader)?;
         Ok(StringComparableProvider {
           reader_values,
-          global_ords,
+          global_ords: global_ords.clone(),
           missing_ord: *missing_ord,
         })
       },
