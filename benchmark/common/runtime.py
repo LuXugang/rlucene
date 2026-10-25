@@ -57,7 +57,11 @@ class Lock:
     def __enter__(self):
         self.stream = open("/tmp/rlucene-performance-build.lock", "a")
         print("WAIT /tmp/rlucene-performance-build.lock", flush=True)
-        fcntl.flock(self.stream, fcntl.LOCK_EX)
+        try:
+            fcntl.flock(self.stream, fcntl.LOCK_EX)
+        except BaseException:
+            self.stream.close()
+            raise
         return self
 
     def __exit__(self, *_):

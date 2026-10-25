@@ -266,6 +266,12 @@ def main():
 
 
 if __name__ == "__main__":
+    # Preserve the original SIFT query CLI; new presets use explicit stages.
+    if any(arg == "--preset" or arg.startswith("--preset=") for arg in sys.argv) or (len(sys.argv) > 1 and sys.argv[1] in {
+        "presets", "plan", "prepare-data", "truth", "build-index", "verify-index", "query", "all", "report"
+    }):
+        import os
+        os.execv(sys.executable, [sys.executable, "-B", str(SUITE / "reproduce.py"), *sys.argv[1:]])
     try:
         main()
     except KeyboardInterrupt:

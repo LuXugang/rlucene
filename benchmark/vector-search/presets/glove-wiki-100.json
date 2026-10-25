@@ -1,0 +1,63 @@
+{
+  "id": "glove-wiki-100",
+  "protocol_version": "luceneutil-adapted-full-v2",
+  "upstream": {
+    "repository": "https://github.com/mikemccand/luceneutil",
+    "commit": "c7eeab0ceb661dae8cf4171ceed7761689acc0e0"
+  },
+  "dataset": "glove-wiki-100",
+  "documents": 1000000,
+  "dimensions": 100,
+  "queries": 2641,
+  "top_k": 100,
+  "similarity": "DOT_PRODUCT",
+  "field": "knn",
+  "encoding": "float32",
+  "M": 16,
+  "beam_width": 100,
+  "ram_buffer_MiB": 2048,
+  "seed": 42,
+  "segments": 1,
+  "compound": false,
+  "writer_threads": 1,
+  "fanouts": [
+    0,
+    100
+  ],
+  "batches": 2,
+  "rounds": 12,
+  "warmup_seconds_per_engine": 60,
+  "java": {
+    "version": "23",
+    "xms": "512m",
+    "xmx": "6g",
+    "gc": "JDK default"
+  },
+  "score_policy": "report",
+  "input_files": {
+    "base.raw": {
+      "bytes": 400000000,
+      "sha256": "920557ce584b9201c66bc1402349264e1970119cc219cd5a38bac300e0314826"
+    },
+    "query.raw": {
+      "bytes": 1056400,
+      "sha256": "1e578e12c1a1fec792db58995f621448c4d7d5e4f4895cd54ebad9726606409e"
+    },
+    "groundtruth.raw": {
+      "bytes": 1056400,
+      "sha256": "9e125d4f38ca0130aaf0991ecde5a9b1c6e49753cff1f5ca4000030a5f11d90c"
+    },
+    "groundtruth.scores.raw": {
+      "bytes": 1056400,
+      "sha256": "c1b26c8259d81d2ff10b0a0faec554d49ba860f5be8a3a9405b77a73bc90b954"
+    }
+  },
+  "reference_query_count": 10000,
+  "query_count_note": "Use the complete 2641-line pinned Wiki query file; differs from upstream nquery=10000",
+  "upstream_differences": [
+    "RAM2048MiB rather than128MiB",
+    "serial writer/query, no quantization/rerank grid",
+    "two fresh batches with >=60s warmup and 12 balanced rounds",
+    "fanout0 extra; fanout100 matches upstream"
+  ]
+}

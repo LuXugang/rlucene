@@ -1,4 +1,19 @@
-# SIFT1M Top100 vector search
+# Vector search benchmarks
+
+For the five published SIFT/Wiki presets, complete graph construction, query
+measurement and bidirectional index verification, start with
+**[REPRODUCING.md](REPRODUCING.md)**. It documents explicit stages, source/data
+identities, groundtruth generation, result differences and partial-run handling.
+
+```sh
+python3 -B benchmark/run.py vector-search presets
+python3 -B benchmark/run.py vector-search plan --preset mpnet-wiki-768
+```
+
+The section below preserves the original **query-only SIFT v1** commands and
+measurement protocol. New preset runs use a separate cache and receipt format.
+
+## Original SIFT1M Top100 query protocol
 
 This is an independent Lucene 10.1 / RLucene comparison adapted from
 [luceneutil](https://github.com/mikemccand/luceneutil/tree/f77ba1c41c181b9361a7ab5d48fa83b4a367f2e9).

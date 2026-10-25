@@ -1,0 +1,63 @@
+{
+  "id": "mpnet-wiki-768",
+  "protocol_version": "luceneutil-adapted-full-v2",
+  "upstream": {
+    "repository": "https://github.com/mikemccand/luceneutil",
+    "commit": "c7eeab0ceb661dae8cf4171ceed7761689acc0e0"
+  },
+  "dataset": "mpnet-wiki-768",
+  "documents": 500000,
+  "dimensions": 768,
+  "queries": 2641,
+  "top_k": 100,
+  "similarity": "DOT_PRODUCT",
+  "field": "knn",
+  "encoding": "float32",
+  "M": 64,
+  "beam_width": 250,
+  "ram_buffer_MiB": 2048,
+  "seed": 42,
+  "segments": 1,
+  "compound": false,
+  "writer_threads": 1,
+  "fanouts": [
+    0,
+    100
+  ],
+  "batches": 2,
+  "rounds": 12,
+  "warmup_seconds_per_engine": 60,
+  "java": {
+    "version": "23",
+    "xms": "512m",
+    "xmx": "6g",
+    "gc": "JDK default"
+  },
+  "score_policy": "report",
+  "input_files": {
+    "base.raw": {
+      "bytes": 1536000000,
+      "sha256": "57807bd0c7f8a793ad85a2d4a22bbd025c39e614434390b76531b0d56935ccfd"
+    },
+    "query.raw": {
+      "bytes": 8113152,
+      "sha256": "fd03bed496b3ed0d41842554d3d89713c9b6f893616d1529abd9b6db7972a821"
+    },
+    "groundtruth.raw": {
+      "bytes": 1056400,
+      "sha256": "90632b9963d43b1e6c50578e0867b3afebd34db31215351e88969b67929a3e8c"
+    },
+    "groundtruth.scores.raw": {
+      "bytes": 1056400,
+      "sha256": "2dcbbd62911f67bf1a014a236d7443a85575a0c05e2ceafed5259d4e5b66b664"
+    }
+  },
+  "reference_query_count": 10000,
+  "query_count_note": "Use the complete 2641-line pinned Wiki query file; differs from upstream nquery=10000",
+  "upstream_differences": [
+    "RAM2048MiB rather than128MiB",
+    "serial writer/query, no quantization/rerank grid",
+    "two fresh batches with >=60s warmup and 12 balanced rounds",
+    "fanout0 extra; fanout100 matches upstream"
+  ]
+}

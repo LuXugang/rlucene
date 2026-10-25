@@ -1,0 +1,59 @@
+{
+  "id": "sift1m",
+  "protocol_version": "luceneutil-adapted-full-v2",
+  "upstream": {
+    "repository": "https://github.com/mikemccand/luceneutil",
+    "commit": "c7eeab0ceb661dae8cf4171ceed7761689acc0e0"
+  },
+  "dataset": "sift1m",
+  "documents": 1000000,
+  "dimensions": 128,
+  "queries": 10000,
+  "top_k": 100,
+  "similarity": "EUCLIDEAN",
+  "field": "knn",
+  "encoding": "float32",
+  "M": 16,
+  "beam_width": 100,
+  "ram_buffer_MiB": 2048,
+  "seed": 42,
+  "segments": 1,
+  "compound": false,
+  "writer_threads": 1,
+  "fanouts": [
+    0,
+    100
+  ],
+  "batches": 2,
+  "rounds": 12,
+  "warmup_seconds_per_engine": 60,
+  "java": {
+    "version": "23",
+    "xms": "512m",
+    "xmx": "6g",
+    "gc": "JDK default"
+  },
+  "score_policy": "strict",
+  "input_files": {
+    "base.raw": {
+      "bytes": 512000000,
+      "sha256": "ac8e11ed111b09e882bcf0ef1a77ebdd36c89f495bce8fd596603f69c35148e6"
+    },
+    "query.raw": {
+      "bytes": 5120000,
+      "sha256": "bf4c4c9db385017e63e7b0a9ccd8e3aab3744a02e053c135e000fa0b1dea2d6f"
+    },
+    "groundtruth.raw": {
+      "bytes": 4000000,
+      "sha256": "c1130328dffc9ac74262669f0879856786eb15dba7cb2d72d0af7d51efa680a6"
+    }
+  },
+  "reference_query_count": 10000,
+  "query_count_note": "All 10000 SIFT queries",
+  "upstream_differences": [
+    "RAM2048MiB rather than128MiB",
+    "serial writer/query, no quantization/rerank grid",
+    "two fresh batches with >=60s warmup and 12 balanced rounds",
+    "fanout0 extra; fanout100 matches upstream"
+  ]
+}

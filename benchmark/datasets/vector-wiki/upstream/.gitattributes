@@ -1,0 +1,2 @@
+# Preserve the pinned upstream script byte-for-byte, including its trailing space.
+infer_token_vectors.py whitespace=-blank-at-eol

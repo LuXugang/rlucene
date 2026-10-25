@@ -1,0 +1,58 @@
+{
+  "source_commit_for_original_measurements": "512589f0e0c4798c4e0149a981edaacb3663aa3d",
+  "origin_status": "Previously validated standalone drivers; migrated executable identities and parameterized variants require independent validation",
+  "changes": [
+    "Dimensions/documents/query counts runtime parameters retained",
+    "M/beam/RAM/similarity selected once outside hot loops",
+    "Removed unused default Java setup builder; WriterMetrics is the explicit full-lifecycle entry",
+    "Actual field similarity checked before timing",
+    "No new library algorithm or test target"
+  ],
+  "drivers": {
+    "rust/src/thread_cpu.rs": {
+      "origin_run": "hnsw-mpnet-wiki-768-m64-b250-500k-java-20261025",
+      "original_sha256": "dbe1ff499582c8e8bf147857af7528195995deeca4778454853ed92e8c7e4387",
+      "migrated_sha256": "ffd91714723a3c2875018356853add0a15b3d442a82c0c7aac2f263553bcbfe5"
+    },
+    "rust/src/main.rs": {
+      "origin_run": "hnsw-mpnet-wiki-768-m64-b250-500k-java-20261025",
+      "original_sha256": "8f4be159f01d04c35fe58b5204fe0a6c3f6ce342bb392912cbf50d846751e76f",
+      "migrated_sha256": "60270001cb1b26e70d7bbc0fbe4c3a5f5aa4c74c612c03a2dc3c4982ec54fed8"
+    },
+    "rust/src/profiled.rs": {
+      "origin_run": "hnsw-mpnet-wiki-768-m64-b250-500k-java-20261025",
+      "original_sha256": "337bccf658d78ebed4c83ab9c2f47b6182f1e1b9db07b9224b6b8ec94bd86cf5",
+      "migrated_sha256": "6a4d0819dad1b09b9be9bdf4a05483bcef0db5a3399ba5aa719b0ec4a2587854"
+    },
+    "rust/src/bin/writer_metrics.rs": {
+      "origin_run": "hnsw-minilm-wiki-384-m64-b250-500k-java-20261025",
+      "original_sha256": "cd5f6304937f28622cd0432d5a5898a6c58cec44bd4319b27f59ccf0bd56f851",
+      "migrated_sha256": "2afd1eb87a0f9af1a94ec87b6bc3a9d9f8ea1476d6a242812df9f4b80ca62044"
+    },
+    "rust/src/bin/verify_index.rs": {
+      "origin_run": "hnsw-mpnet-wiki-768-m64-b250-500k-java-20261025",
+      "original_sha256": "76c74770c50691b5cb0ef2f32cbe9f33484c787e4aab372a8970458980399146",
+      "migrated_sha256": "b4a03c5b27676e125c0a69f5e87688f3ecfdee4464a48d7608932c01c7d8a822"
+    },
+    "java/SiftBench.java": {
+      "origin_run": "hnsw-mpnet-wiki-768-m64-b250-500k-java-20261025",
+      "original_sha256": "db279eae8deba2337dbd9bd8524d94014d4dc55d7a061ed184ab93099cdf06df",
+      "migrated_sha256": "6c00c5c3e09b53d10a0b2df378776061afb8d3ed565ff896485f59e20e02bfb3"
+    },
+    "java/VerifyIndex.java": {
+      "origin_run": "hnsw-mpnet-wiki-768-m64-b250-500k-java-20261025",
+      "original_sha256": "e329834285ffc72f7ce541d61f696dce35ceca8b1e4f5b56ac08e2a8071b7f9b",
+      "migrated_sha256": "d5c2a2971e4eb245e5dd5168596821680944d916e0ca60ea12bf0faeae31d5a5"
+    },
+    "java/ExactGroundTruth.java": {
+      "origin_run": "hnsw-mpnet-wiki-768-m64-b250-500k-java-20261025",
+      "original_sha256": "366b82fbe728bc3199f7cfa65c613afefd04e7799006127d581c62ddf2b06eee",
+      "migrated_sha256": "a961d0929701cbdcb661779b4b1dfb06b77fa1457f9c3dda1230eff9bf38c888"
+    },
+    "java/WriterMetrics.java": {
+      "origin_run": "hnsw-minilm-wiki-384-m64-b250-500k-java-20261025",
+      "original_sha256": "4dbe14c09cb2bec5daf5c20744682cf57a97206cb9a8a8de726cb241d457173c",
+      "migrated_sha256": "b9bd6bfb6aa059cdd8dbb5526ce747bf767fb2710af7dd98d47f93c5a4b8be60"
+    }
+  }
+}

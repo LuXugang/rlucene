@@ -8,7 +8,7 @@ small Python runners while preserving the inputs, protocol and measurement scope
 | Homepage card | Directory | Status |
 |---|---|---|
 | Search Benchmark, the Game | [search-benchmark-game](search-benchmark-game/README.md) | Wikipedia, 962 queries, five modes |
-| Vector Search | [vector-search](vector-search/README.md) | SIFT1M, complete Top100 query metrics |
+| Vector Search | [vector-search](vector-search/README.md) | SIFT1M, GloVe100/300, MiniLM384, MPNet768: HNSW build, query and compatibility |
 | Indexing Benchmark | [indexing](indexing/README.md) | In preparation |
 
 See also [中文说明](README.zh-CN.md).
@@ -20,6 +20,12 @@ See also [中文说明](README.zh-CN.md).
   use `/usr/libexec/java_home -v 23`. Published reference runs used JDK 23.0.2.
 - Sufficient memory for the selected suite: full-text Java uses a 4 GiB heap;
   vector Java uses a 512 MiB initial / 6 GiB maximum heap.
+- Model generation additionally requires the pinned Python3.12 inference environment.
+
+See the [multi-dataset guide](vector-search/REPRODUCING.md) for all five presets,
+pinned sources, explicit stages, and the recorded frozen codec configuration patch.
+`vector-search presets` and `vector-search plan --preset mpnet-wiki-768` only inspect
+configuration; they do not execute a benchmark.
 
 ```sh
 rustup toolchain install 1.98.1 --profile minimal
@@ -36,7 +42,8 @@ Java main. Each consumer has its own `[workspace]`, tracked `Cargo.lock` and a
 
 Each suite documents data preparation and index construction. Existing indexes
 can be reused read-only through `--index`. New indexes are created only by the
-explicit `prepare-index` action. Downloads, indexes and large outputs stay in
+explicit `prepare-index` (legacy), or preset `build-index`/`all` actions.
+Downloads, indexes and large outputs stay in
 ignored `data/`, `.cache/` and `runs/` directories, or user-selected paths.
 
 ## Results and reproducibility
@@ -49,13 +56,17 @@ its modified files and hashes rather than represented as the clean commit.
 
 The default full-text protocol is two fresh-process batches, at least 60 seconds
 of actual mixed-request warmup per engine/mode/batch, then 12 balanced AB/BA
-rounds over all queries. The vector protocol uses complete 10,000-query sweeps;
-its timing boundary and CPU/RSS metrics are documented separately. CPU load is
+rounds over all queries. New vector presets use complete sweeps:10,000 queries
+for SIFT and all2,641 pinned queries for Wiki. The original SIFT commands without
+`--preset` remain protocolv1; new presets use protocolv2. Their timing boundaries and CPU/RSS metrics are documented separately. CPU load is
 never used to gate runs, remove samples or trigger retries.
 
 Runs first compare independent complete correctness output. All regressions and
 partial/stopped runs are preserved. Ctrl+C stops the active run; there is no
 automatic resume. `summarize --output RUN_DIRECTORY` only reads existing data.
+New vector presets use `report --output RUN_DIRECTORY` for read-only reporting.
+Wiki score, ordering and visited differences are fully reported. Original SIFT
+query checks and all structural index checks remain strict.
 
 `RUN.json`, `RESULT.json`, `REGRESSIONS.json`, `per-query.csv` and raw files are
 the reproducibility artifacts. Keep the build receipt/logs under `.cache/SUITE/`
