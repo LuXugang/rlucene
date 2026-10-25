@@ -361,7 +361,7 @@ fn test_sub_scorer_next_is_not_match() -> Result<()> {
   optional_scorers.shuffle(&mut random);
 
   let needs_scores = rand::random::<bool>();
-  let mut bs = BooleanScorer::new(optional_scorers, 1, needs_scores)?;
+  let mut bs = BooleanScorer::new(optional_scorers, 1, needs_scores, 10_000_000)?;
 
   let matches = Vec::with_capacity(7);
   let mut collector = LeafCollectorImpl::new(matches);

@@ -51,12 +51,18 @@ pub struct BooleanScorer<S> {
   pub(crate) min_should_match: usize,
   pub(crate) cost: i64,
   pub(crate) needs_scores: bool,
+  word_cache_min_cost: i64,
 }
 impl<S> BooleanScorer<S>
 where
   S: Scorer,
 {
-  pub(crate) fn new(scorers: Vec<S>, min_should_match: usize, needs_scores: bool) -> Result<Self> {
+  pub(crate) fn new(
+    scorers: Vec<S>,
+    min_should_match: usize,
+    needs_scores: bool,
+    max_doc: i32,
+  ) -> Result<Self> {
     if min_should_match < 1 || min_should_match > scorers.len() {
       return Err(LuceneError::illegal_argument(format!(
         "minShouldMatch should be within 1..num_scorers. Got {}",
@@ -107,6 +113,8 @@ where
       min_should_match,
       cost,
       needs_scores,
+      // Word reuse needs enough documents to amortize its per-word loop control.
+      word_cache_min_cost: (i64::from(max_doc) + 7) / 8,
     })
   }
   fn score_disi_wrapper_into_bitset<AB: Bits + ?Sized>(
@@ -119,6 +127,22 @@ where
     let mut doc = w.doc;
     if doc < min {
       doc = w.scorer.advance(min)?;
+    }
+    if self.buckets.is_none() && accept_docs.is_none() && w.cost >= self.word_cache_min_cost {
+      while doc < max {
+        let index = (doc as usize & MASK) >> 6;
+        let word_end = max.min((doc | 0x3f).saturating_add(1));
+        let matching = &mut self.matching[index];
+        let mut bits = *matching;
+        while doc < word_end {
+          bits |= 1u64 << (doc as usize & 0x3f);
+          // Commit before advancing so errors and panics retain every prior hit.
+          *matching = bits;
+          doc = w.scorer.next_doc()?;
+        }
+      }
+      w.doc = doc;
+      return Ok(());
     }
     while doc < max {
       let doc_index = doc as usize;

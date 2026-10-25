@@ -689,12 +689,12 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
       // while a zero maximum means that neither block matched.
       let mut blocks = buffer[from..end].chunks_exact(8);
       for block in &mut blocks {
-        let first = i32x4::from(&block[..4]).simd_ge(target_vector);
-        let second = i32x4::from(&block[4..]).simd_ge(target_vector);
-        let first = first & i32x4::from([8, 7, 6, 5]);
-        let second = second & i32x4::from([4, 3, 2, 1]);
-        let first_match = first.max(second).reduce_max();
-        if first_match != 0 {
+        if block[7] >= target {
+          let first = i32x4::from(&block[..4]).simd_ge(target_vector);
+          let second = i32x4::from(&block[4..]).simd_ge(target_vector);
+          let first = first & i32x4::from([8, 7, 6, 5]);
+          let second = second & i32x4::from([4, 3, 2, 1]);
+          let first_match = first.max(second).reduce_max();
           return from + (8 - first_match) as usize;
         }
         from += 8;

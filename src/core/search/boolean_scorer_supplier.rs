@@ -543,6 +543,7 @@ where
           optional,
           std::cmp::max(1, self.min_should_match) as usize,
           self.score_mode.needs_scores(),
+          self.max_doc,
         )?,
       )));
     }
@@ -557,6 +558,7 @@ where
       optional,
       msm as usize,
       self.score_mode.needs_scores(),
+      self.max_doc,
     )?);
     Ok(Some(v))
   }

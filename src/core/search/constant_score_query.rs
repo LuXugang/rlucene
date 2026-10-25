@@ -146,7 +146,12 @@ impl QueryBase for ConstantScoreQuery {
     IndexSearcher<IRC, SIM>: Sync,
   {
     let query = self.get_query();
-    let rewritten = match query.rewrite(searcher)? {
+    let rewritten = query.rewrite(searcher);
+    // Inspect the borrowed result before moving its large Query payload.
+    if matches!(&rewritten, Ok(None)) && matches!(query, Query::Term(_)) {
+      return Ok(None);
+    }
+    let rewritten = match rewritten? {
       Some(rewritten) => Cow::Owned(rewritten),
       None => Cow::Borrowed(query),
     };
