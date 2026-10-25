@@ -1117,8 +1117,8 @@ where
     };
     match cached {
       None => {
-        let query = self.query.clone();
-        if self.policy.should_cache(query.as_ref())? {
+        if self.policy.should_cache(self.query.as_ref())? {
+          let query = self.query.clone();
           let Some(mut supplier) = self.in_.scorer_supplier(context, searcher)? else {
             self.lru_cache.put_if_absent(
               query,
@@ -1192,10 +1192,9 @@ where
       return self.in_.count(context, searcher);
     };
 
-    let query = self.query.clone();
     let cached = self
       .lru_cache
-      .get(query.as_ref(), &cache_helper, &inner_read);
+      .get(self.query.as_ref(), &cache_helper, &inner_read);
 
     if let Some(cached) = cached {
       return cached.count().try_convert();

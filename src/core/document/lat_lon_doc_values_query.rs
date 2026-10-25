@@ -267,7 +267,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let component2d_predicate = self.component2d_predicate.clone();
+    let component2d_predicate = self.component2d_predicate.as_ref();
     match context
       .reader()
       .get_sorted_numeric_doc_values(&self.query.field)?
@@ -277,20 +277,20 @@ where
           QueryRelation::Intersects => {
             LatLonDocValuesTwoPhaseIterator::Intersects(IntersectsTPI::new(
               values,
-              component2d_predicate.ok_or_else(|| {
+              component2d_predicate.cloned().ok_or_else(|| {
                 LuceneError::illegal_state("intersects query has no component predicate")
               })?,
             ))
           },
           QueryRelation::Within => LatLonDocValuesTwoPhaseIterator::Within(WithinTPI::new(
             values,
-            component2d_predicate.ok_or_else(|| {
+            component2d_predicate.cloned().ok_or_else(|| {
               LuceneError::illegal_state("within query has no component predicate")
             })?,
           )),
           QueryRelation::Disjoint => LatLonDocValuesTwoPhaseIterator::Disjoint(DisjointTPI::new(
             values,
-            component2d_predicate.ok_or_else(|| {
+            component2d_predicate.cloned().ok_or_else(|| {
               LuceneError::illegal_state("disjoint query has no component predicate")
             })?,
           )),

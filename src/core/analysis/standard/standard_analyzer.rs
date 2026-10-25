@@ -26,7 +26,9 @@ use crate::core::analysis::stop_word_analyzer_base::{StopWordAnalyzerBase, init_
 use crate::core::analysis::token_stream::NormalizeTokenStream;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
-use std::sync::Arc;
+use std::sync::LazyLock;
+
+static EMPTY_STOP_WORDS: LazyLock<CharArraySet> = LazyLock::new(|| init_stop_wors(None));
 
 /// Default maximum allowed token length
 pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
@@ -34,7 +36,6 @@ pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
 /// using a configurable list of stop words.
 pub struct StandardAnalyzer {
   max_token_length: usize,
-  stop_words: Arc<CharArraySet>,
   stored_value: AnalyzerStoredValue,
 }
 
@@ -46,10 +47,8 @@ impl Default for StandardAnalyzer {
 
 impl StandardAnalyzer {
   pub fn new() -> Self {
-    let stop_words = Arc::new(init_stop_wors(None));
     Self {
       max_token_length: DEFAULT_MAX_TOKEN_LENGTH,
-      stop_words,
       stored_value: AnalyzerStoredValue::new(),
     }
   }
@@ -83,7 +82,7 @@ impl Analyzer for StandardAnalyzer {
   fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
     let mut src = StandardTokenizer::new()?;
     src.set_max_token_length(self.max_token_length)?;
-    let tok = StopFilter::new(LowerCaseFilter::new(src), self.stop_words.clone());
+    let tok = StopFilter::with_empty_stop_words(LowerCaseFilter::new(src));
     Ok(TokenStreamComponents::new(tok, Some(self.max_token_length)))
   }
 
@@ -104,6 +103,6 @@ crate::impl_analyzer_close!(StandardAnalyzer);
 
 impl StopWordAnalyzerBase for StandardAnalyzer {
   fn get_stop_words(&self) -> &CharArraySet {
-    self.stop_words.as_ref()
+    &EMPTY_STOP_WORDS
   }
 }

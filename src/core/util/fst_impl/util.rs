@@ -167,7 +167,7 @@ impl Util {
 
     let mut this_level_queue = Vec::new();
     let mut next_level_queue = Vec::new();
-    next_level_queue.push(start_arc.clone());
+    next_level_queue.push(start_arc.target());
 
     let mut same_level_states = Vec::new();
     let mut seen = HashSet::new();
@@ -223,6 +223,7 @@ impl Util {
 
     out.write_all(format!("  initial -> {}\n", start_arc.target()).as_bytes())?;
 
+    let mut arc = start_arc;
     let mut level = 0;
 
     while !next_level_queue.is_empty() {
@@ -230,11 +231,9 @@ impl Util {
 
       level += 1;
       out.write_all(format!("\n  // Transitions and states at level: {level}\n").as_bytes())?;
-      while let Some(mut arc) = this_level_queue.pop() {
-        if target_has_arcs(&arc) {
-          let node = arc.target();
-
-          fst.read_first_real_target_arc(arc.target(), &mut arc, &mut r)?;
+      while let Some(node) = this_level_queue.pop() {
+        if node > 0 {
+          fst.read_first_real_target_arc(node, &mut arc, &mut r)?;
 
           loop {
             if arc.target() >= 0 && !seen.contains(&arc.target()) {
@@ -259,7 +258,7 @@ impl Util {
                 Some(&final_output),
               )?;
               seen.insert(arc.target());
-              next_level_queue.push(arc.clone());
+              next_level_queue.push(arc.target());
               same_level_states.push(arc.target());
             }
 
@@ -942,10 +941,9 @@ where
       }
 
       loop {
-        let follow = path.arc.clone();
         self
           .fst
-          .read_first_target_arc(&follow, &mut path.arc, &mut fst_reader)?;
+          .read_first_target_arc_impl(None, &mut path.arc, &mut fst_reader)?;
 
         let mut found_zero = false;
         let mut arc_copy_is_pending = false;

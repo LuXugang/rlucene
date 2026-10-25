@@ -2343,13 +2343,13 @@ where
     }
   }
   type TermsEnum<'a>
-    = TermsDict<I>
+    = TermsDict<I, &'a TermsDictEntry>
   where
     I: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     TermsDict::new(
-      self.terms_enum.entry.clone(),
+      self.terms_enum.entry.as_ref(),
       self.data.as_ref(),
       self.merging,
     )
@@ -2786,23 +2786,23 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsDict<I>
+    = TermsDict<I, &'a TermsDictEntry>
   where
     I: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    let terms_dict_entry = self.terms_enum.entry.clone();
+    let terms_dict_entry = self.terms_enum.entry.as_ref();
     TermsDict::new(terms_dict_entry, self.data.as_ref(), self.merging)
   }
 
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub struct TermsDict<I>
+pub struct TermsDict<I, E = Arc<TermsDictEntry>>
 where
   I: IndexInput,
 {
-  entry: Arc<TermsDictEntry>,
+  entry: E,
   block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
   bytes: I::IndexInput,
   block_mask: u64,
@@ -2817,13 +2817,14 @@ where
   current_compressed_block_end: Option<usize>,
 }
 
-impl<I> TermsDict<I>
+impl<I, E> TermsDict<I, E>
 where
   I: IndexInput,
+  E: std::ops::Deref<Target = TermsDictEntry>,
 {
   const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
-  pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<Self> {
+  pub fn new(entry: E, data: &I, merging: bool) -> Result<Self> {
     let addresses_slice =
       data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?;
 
@@ -3085,9 +3086,10 @@ where
   }
 }
 
-impl<I> BytesRefIterator for TermsDict<I>
+impl<I, E> BytesRefIterator for TermsDict<I, E>
 where
   I: IndexInput,
+  E: std::ops::Deref<Target = TermsDictEntry>,
 {
   type Value<'a>
     = &'a BytesRef<Vec<u8>>
@@ -3126,9 +3128,10 @@ where
   }
 }
 
-impl<I> TermsEnum for TermsDict<I>
+impl<I, E> TermsEnum for TermsDict<I, E>
 where
   I: IndexInput,
+  E: std::ops::Deref<Target = TermsDictEntry>,
 {
   type AttributeSource<'a>
     = &'a DummyAttributeSource

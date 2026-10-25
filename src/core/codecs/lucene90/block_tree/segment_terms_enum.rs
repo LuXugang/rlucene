@@ -143,7 +143,7 @@ where
     } else {
       None
     };
-    self.current_frame_idx = self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
+    self.current_frame_idx = self.push_root_frame(arc)?;
     self.stack[self.current_frame_idx].fp_orig = self.stack[self.current_frame_idx].fp;
     SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
     self.valid_index_prefix = 0;
@@ -198,7 +198,7 @@ where
     } else {
       None
     };
-    self.current_frame_idx = self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
+    self.current_frame_idx = self.push_root_frame(arc)?;
     self.stack[self.current_frame_idx].rewind()?;
     SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
     self.valid_index_prefix = 0;
@@ -231,15 +231,10 @@ where
     }
     Ok(ord)
   }
-  pub(crate) fn push_frame_with_data(
-    &mut self,
-    arc: Option<usize>,
-    frame_data: BytesRef<std::sync::Arc<Vec<u8>>>,
-    length: usize,
-  ) -> Result<usize> {
+  fn push_root_frame(&mut self, arc: Option<usize>) -> Result<usize> {
     self.output_accumulator.reset();
-    self.output_accumulator.push(&frame_data);
-    self.push_frame_with_length(arc, length)
+    self.output_accumulator.push(&self.fr.root_code);
+    self.push_frame_with_length(arc, 0)
   }
   pub(crate) fn push_frame_with_length(
     &mut self,
@@ -552,7 +547,7 @@ where
       } else {
         None
       };
-      self.current_frame_idx = self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
+      self.current_frame_idx = self.push_root_frame(arc)?;
       SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
     }
     self.target_before_current_length = if self.current_frame_idx == STATIC_FRAME_IDX {

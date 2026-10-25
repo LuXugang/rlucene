@@ -154,19 +154,20 @@ where
         )));
       }
     } else {
-      let tracker = Arc::new(SearcherTracker::new(searcher.clone())?);
-      let existing = {
+      let tracker = SearcherTracker::new(searcher.clone())?;
+      let losing_tracker = {
         let mut searchers = self.searchers.write();
         match searchers.entry(version) {
-          Entry::Occupied(entry) => Some(Arc::clone(entry.get())),
+          Entry::Occupied(entry) => Some((tracker, Arc::clone(entry.get()))),
           Entry::Vacant(entry) => {
-            entry.insert(Arc::clone(&tracker));
+            entry.insert(Arc::new(tracker));
             None
           },
         }
       };
-      if existing.is_some() {
+      if let Some((tracker, _existing)) = losing_tracker {
         // Another thread beat us: undo the incRef performed by SearcherTracker::new.
+        // Keep the existing tracker alive through this close, outside the map lock.
         tracker.close()?;
       }
     }

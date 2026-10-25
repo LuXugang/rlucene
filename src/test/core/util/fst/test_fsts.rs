@@ -1117,13 +1117,13 @@ fn test_non_final_stop_node() -> Result<()> {
   let nothing = outputs.get_no_output();
   let builder: Builder<_, DummyIndexOutput> = Builder::new(InputType::Byte1, outputs.clone());
   let mut fst_compiler = builder.build()?;
-  let no_output = fst_compiler.no_output.clone();
+  let no_output = fst_compiler.fst.outputs.get_no_output().clone();
   // Root node
   let mut root_node = UnCompiledNode::new(no_output, 0);
 
   // Add final stop node for 'a'
   {
-    let no_output = fst_compiler.no_output.clone();
+    let no_output = fst_compiler.fst.outputs.get_no_output().clone();
     let mut node = UnCompiledNode::new(no_output.clone(), 0);
     node.is_final = true;
     fst_compiler.frontier[0] = node;
@@ -1140,7 +1140,7 @@ fn test_non_final_stop_node() -> Result<()> {
 
   // Add non-final stop node for 'b'
   {
-    let no_output = fst_compiler.no_output.clone();
+    let no_output = fst_compiler.fst.outputs.get_no_output().clone();
     let node = UnCompiledNode::new(no_output.clone(), 0);
     fst_compiler.frontier[1] = node;
     root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode, &no_output)?;

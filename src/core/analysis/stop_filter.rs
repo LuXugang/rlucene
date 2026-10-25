@@ -24,7 +24,8 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 pub struct StopFilter {
-  stop_words: Arc<CharArraySet>,
+  // None is the immutable empty set used by StandardAnalyzer.
+  stop_words: Option<Arc<CharArraySet>>,
 }
 impl StopFilter {
   pub fn make_stop_set<I>(stop_words: I) -> Arc<CharArraySet>
@@ -51,9 +52,16 @@ impl StopFilter {
     S: Into<Arc<CharArraySet>>,
   {
     let v = StopFilter {
-      stop_words: stop_words.into(),
+      stop_words: Some(stop_words.into()),
     };
     FilteringTokenFilter::new(input, v)
+  }
+
+  pub(crate) fn with_empty_stop_words<T>(input: T) -> FilteringTokenFilter<T, StopFilter>
+  where
+    T: TokenStream,
+  {
+    FilteringTokenFilter::new(input, Self { stop_words: None })
   }
 }
 
@@ -61,6 +69,12 @@ impl FilteringTokenFilterBase for StopFilter {
   fn accept(&self, att: &Attributes) -> Result<bool> {
     let length = att.length()?;
     debug_assert!(length <= i32::MAX as usize);
-    Ok(!self.stop_words.contains_key(att.buffer()?, 0, length))
+    let token = &att.buffer()?[..length];
+    Ok(
+      self
+        .stop_words
+        .as_ref()
+        .is_none_or(|stop_words| !stop_words.contains_key(token, 0, length)),
+    )
   }
 }

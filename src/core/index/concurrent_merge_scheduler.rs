@@ -1550,6 +1550,28 @@ where
       merge,
     } = self;
 
+    struct AliveOnExit<'a> {
+      state: &'a MergeThreadState,
+    }
+
+    impl Drop for AliveOnExit<'_> {
+      fn drop(&mut self) {
+        self.state.set_alive(false);
+      }
+    }
+
+    let _alive_on_exit = AliveOnExit { state: &state };
+    // Keep the guard outside run_merge so its source, merge and scheduler are
+    // dropped before the thread is announced as no longer alive, also on unwind.
+    Self::run_merge(&state, merge_source, merge, merge_scheduler)
+  }
+
+  fn run_merge(
+    state: &MergeThreadState,
+    merge_source: MS,
+    merge: OneMerge<D, MS::Reader>,
+    merge_scheduler: ConcurrentMergeScheduler,
+  ) -> Result<()> {
     state.set_owner_to_current_thread();
     let previous =
       CURRENT_MERGE_RATE_LIMITER.with(|slot| slot.borrow_mut().replace(state.rate_limiter.clone()));
@@ -1620,31 +1642,14 @@ where
   fn start(self, merge_scheduler: ConcurrentMergeScheduler) -> Result<()> {
     let state = self.state.clone();
     let thread_name = self.state.name.clone();
-    let thread_state = state.clone();
     // WARNING: this must be set before spawning. After spawn succeeds, the caller immediately
     // runs update_merge_threads; if the new thread has not entered its closure yet, leaving this
     // false would let the scheduler prune a live merge thread.
     state.set_alive(true);
     match thread::Builder::new()
       .name(thread_name)
-      .spawn(move || -> Result<()> {
-        // Guard used as a Rust finally block: whenever the merge thread closure exits, mark the
-        // tracked thread as no longer alive so update_merge_threads can prune it.
-        struct AliveOnExit {
-          state: Arc<MergeThreadState>,
-        }
-
-        impl Drop for AliveOnExit {
-          fn drop(&mut self) {
-            self.state.set_alive(false);
-          }
-        }
-
-        let _alive_on_exit = AliveOnExit {
-          state: thread_state,
-        };
-        self.run(merge_scheduler)
-      }) {
+      .spawn(move || -> Result<()> { self.run(merge_scheduler) })
+    {
       Ok(_handle) => Ok(()),
       Err(err) => {
         state.set_alive(false);

@@ -200,8 +200,8 @@ where
     let cardinality = field_data
       .get_docs_with_field_set(flat_field_vectors_writers)?
       .cardinality();
-    let field_info = field_data.field_info().clone();
-    let mut graph = field_data.get_graph(flat_field_vectors_writers)?;
+    let (field_info, mut graph) =
+      field_data.get_graph_and_field_info(flat_field_vectors_writers)?;
     let graph_level_node_offsets = Self::write_graph(&mut self.vector_index, graph.as_deref_mut())?;
 
     let vector_index_length = self.vector_index.get_file_pointer()? - vector_index_offset;
@@ -209,7 +209,7 @@ where
       &mut self.vector_index,
       &mut self.meta,
       self.m,
-      &field_info,
+      field_info,
       vector_index_offset.try_convert()?,
       vector_index_length.try_convert()?,
       cardinality,
@@ -245,12 +245,10 @@ where
 
     let vector_index_offset = self.vector_index.get_file_pointer()?;
 
-    let field_info = field_data.field_info().clone();
-
     let count = field_data
       .get_docs_with_field_set(flat_field_vectors_writers)?
       .cardinality();
-    let graph = field_data.get_graph(flat_field_vectors_writers)?;
+    let (field_info, graph) = field_data.get_graph_and_field_info(flat_field_vectors_writers)?;
 
     let mut graph_level_node_offsets = if let Some(ref g) = graph {
       vec![Vec::new(); g.num_levels()?]
@@ -272,7 +270,7 @@ where
       &mut self.vector_index,
       &mut self.meta,
       self.m,
-      &field_info,
+      field_info,
       vector_index_offset.try_convert()?,
       vector_index_length.try_convert()?,
       count,
@@ -879,9 +877,6 @@ macro_rules! with_similarity_field {
 }
 
 impl<S: FlatVectorsScorer> EncodedFieldWriter<S> {
-  fn field_info(&self) -> &Arc<FieldInfo> {
-    with_similarity_field!(self, field, field.field_info())
-  }
   pub(crate) fn get_vectors(&self) -> Result<VectorSlices<'_>> {
     with_similarity_field!(self, field, field.get_vectors())
   }
@@ -891,11 +886,11 @@ impl<S: FlatVectorsScorer> EncodedFieldWriter<S> {
   ) -> Result<&'a DocsWithFieldSet> {
     with_similarity_field!(self, field, field.get_docs_with_field_set(writers))
   }
-  fn get_graph<W: FlatFieldVectorsWriter>(
+  fn get_graph_and_field_info<W: FlatFieldVectorsWriter>(
     &mut self,
     writers: &mut [W],
-  ) -> Result<Option<&mut OnHeapHnswGraph>> {
-    with_similarity_field!(self, field, field.get_graph(writers))
+  ) -> Result<(&Arc<FieldInfo>, Option<&mut OnHeapHnswGraph>)> {
+    with_similarity_field!(self, field, field.get_graph_and_field_info(writers))
   }
 }
 impl<S: FlatVectorsScorer> Accountable for EncodedFieldWriter<S> {
@@ -922,12 +917,6 @@ pub enum FieldWriterEnum<B, F> {
 impl<B: BufferedVectorScorerSupplier<Element = u8>, F: BufferedVectorScorerSupplier<Element = f32>>
   FieldWriterEnum<B, F>
 {
-  fn field_info(&self) -> &Arc<FieldInfo> {
-    match self {
-      Self::Byte(w) => &w.field_info,
-      Self::Float(w) => &w.field_info,
-    }
-  }
   pub(crate) fn get_vectors(&self) -> Result<VectorSlices<'_>> {
     match self {
       Self::Byte(w) => w
@@ -951,13 +940,13 @@ impl<B: BufferedVectorScorerSupplier<Element = u8>, F: BufferedVectorScorerSuppl
       Self::Float(w) => w.get_docs_with_field_set(writers),
     }
   }
-  fn get_graph<W: FlatFieldVectorsWriter>(
+  fn get_graph_and_field_info<W: FlatFieldVectorsWriter>(
     &mut self,
     writers: &mut [W],
-  ) -> Result<Option<&mut OnHeapHnswGraph>> {
+  ) -> Result<(&Arc<FieldInfo>, Option<&mut OnHeapHnswGraph>)> {
     match self {
-      Self::Byte(w) => w.get_graph(writers),
-      Self::Float(w) => w.get_graph(writers),
+      Self::Byte(w) => w.get_graph_and_field_info(writers),
+      Self::Float(w) => w.get_graph_and_field_info(writers),
     }
   }
 }
@@ -1038,10 +1027,10 @@ where
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
     Ok(v.get_docs_with_field_set())
   }
-  pub(crate) fn get_graph<F>(
+  fn get_graph_and_field_info<F>(
     &mut self,
     flat_field_vectors_writers: &mut [F],
-  ) -> Result<Option<&mut OnHeapHnswGraph>>
+  ) -> Result<(&Arc<FieldInfo>, Option<&mut OnHeapHnswGraph>)>
   where
     F: FlatFieldVectorsWriter,
   {
@@ -1052,11 +1041,12 @@ where
       v.is_finished()
     });
 
-    if self.node > 0 {
-      Ok(Some(self.hnsw_graph_builder.get_completed_graph()?))
+    let graph = if self.node > 0 {
+      Some(self.hnsw_graph_builder.get_completed_graph()?)
     } else {
-      Ok(None)
-    }
+      None
+    };
+    Ok((&self.field_info, graph))
   }
 }
 impl<S> Accountable for FieldWriter<S>

@@ -667,27 +667,28 @@ where
   }
 
   fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
+    if *field_info.get_vector_encoding() != VectorEncoding::FLOAT32(BitUtil::FLOAT_BYTES) {
+      return self.raw_vector_delegate.flat_add_field(field_info);
+    }
     let raw_vector_delegate = self
       .raw_vector_delegate
       .flat_add_field(field_info.clone())?;
-    if *field_info.get_vector_encoding() == VectorEncoding::FLOAT32(BitUtil::FLOAT_BYTES) {
-      if self.bits <= 4 && field_info.get_vector_dimension() % 2 != 0 {
-        return Err(LuceneError::illegal_argument(format!(
-          "bits={} is not supported for odd vector dimensions; vector dimension={}",
-          self.bits,
-          field_info.get_vector_dimension()
-        )));
-      }
-      let quantized_writer = ScalarQuantizedFieldWriter::new(
-        self.confidence_interval,
+    if self.bits <= 4 && field_info.get_vector_dimension() % 2 != 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "bits={} is not supported for odd vector dimensions; vector dimension={}",
         self.bits,
-        self.compress,
-        field_info,
-        self.info_stream.clone(),
-        raw_vector_delegate,
-      );
-      self.fields.push(quantized_writer);
+        field_info.get_vector_dimension()
+      )));
     }
+    let quantized_writer = ScalarQuantizedFieldWriter::new(
+      self.confidence_interval,
+      self.bits,
+      self.compress,
+      field_info,
+      self.info_stream.clone(),
+      raw_vector_delegate,
+    );
+    self.fields.push(quantized_writer);
     Ok(raw_vector_delegate)
   }
 

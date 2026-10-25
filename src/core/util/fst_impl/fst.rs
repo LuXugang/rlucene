@@ -434,25 +434,45 @@ where
   where
     T: BytesReader,
   {
-    if follow.is_final() {
+    self.read_first_target_arc_impl(Some(follow), arc, input)
+  }
+
+  /// `None` follows the current arc in-place without copying its output owners.
+  pub(crate) fn read_first_target_arc_impl<'a, T, AF>(
+    &self,
+    follow: AF,
+    arc: &mut Arc<O::V>,
+    input: &mut T,
+  ) -> Result<()>
+  where
+    T: BytesReader,
+    O::V: 'a,
+    AF: Into<Option<&'a Arc<O::V>>>,
+  {
+    let follow = follow.into();
+    let follow_target = follow.unwrap_or(arc).target;
+    if follow.unwrap_or(arc).is_final() {
       // Insert "fake" final arc to END_LABEL
       arc.label = END_LABEL;
-      if !arc.output.is_same_reference(&follow.next_final_output) {
-        arc.output = follow.next_final_output.clone();
+      if !arc
+        .output
+        .is_same_reference(&follow.unwrap_or(arc).next_final_output)
+      {
+        arc.output = follow.unwrap_or(arc).next_final_output.clone();
       }
       arc.flags = BIT_FINAL_ARC;
 
-      if follow.target <= 0 {
+      if follow_target <= 0 {
         arc.flags |= BIT_LAST_ARC;
       } else {
-        arc.next_arc = follow.target;
+        arc.next_arc = follow_target;
       }
 
       arc.target = FINAL_END_NODE;
       arc.node_flags = arc.flags;
       Ok(())
     } else {
-      self.read_first_real_target_arc(follow.target, arc, input)
+      self.read_first_real_target_arc(follow_target, arc, input)
     }
   }
   fn read_first_arc_info<T>(

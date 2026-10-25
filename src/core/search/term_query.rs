@@ -28,7 +28,6 @@ use crate::core::index::term::Term;
 use crate::core::index::term_states::{PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
-use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
@@ -49,7 +48,6 @@ use crate::core::search::term_matches_iterator::TermMatchesIterator;
 use crate::core::search::term_scorer::{
   ImpactsTermState, PostingsTermState, TermScorer, TermScorerState,
 };
-use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::UncheckedIOError;
@@ -209,7 +207,7 @@ where
     debug_assert!(query.per_reader_term_state.is_none());
     let similarity = searcher.get_similarity();
 
-    let (collection_stats, term_stats) = if score_mode.needs_scores() {
+    let sim_scorer = if score_mode.needs_scores() {
       let collection_stats = searcher.collection_statistics(query.term.field())?;
       let term_stats = if term_states.doc_freq()? > 0 {
         Some(searcher.term_statistics(
@@ -220,20 +218,8 @@ where
       } else {
         None
       };
-      (collection_stats, term_stats)
-    } else {
-      // we do not need the actual stats, use fake stats with docFreq=maxDoc=ttf=1
-      let collection_stats = Some(CollectionStatistics::new(query.term.field(), 1, 1, 1, 1)?);
-      let term_stats = Some(TermStatistics::new(query.term.clone(), 1, 1)?);
-      (collection_stats, term_stats)
-    };
-
-    // Assign a dummy similarity scorer when scores are not needed to avoid an unnecessary `Vec<f32>`.
-    // allocations in case default BM25Scorer is used.
-    // See: https://github.com/apache/lucene/issues/12297
-    let sim_scorer = if let Some(term_stats) = term_stats {
-      debug_assert!(collection_stats.is_some());
-      if score_mode.needs_scores() {
+      if let Some(term_stats) = term_stats {
+        debug_assert!(collection_stats.is_some());
         let collection_stats = collection_stats.as_ref().ok_or_else(|| {
           LuceneError::illegal_state("term query collection statistics are missing")
         })?;
@@ -243,10 +229,12 @@ where
           &[term_stats],
         )?)))
       } else {
-        Some(Arc::new(TermQuerySimScorer::<SIM>::B(SimScorerImpl)))
+        None
       }
     } else {
-      None
+      // The dummy scorer does not consume statistics, so no fake term or collection
+      // statistics need to retain the term or copy the field name.
+      Some(Arc::new(TermQuerySimScorer::<SIM>::B(SimScorerImpl)))
     };
 
     Ok(Self {
@@ -344,7 +332,7 @@ where
       context,
       terms_enum.as_mut(),
       parent_query.term.as_ref(),
-      self.sim_scorer.clone(),
+      self.sim_scorer.as_deref(),
       self.score_mode,
       false,
     )?;
@@ -458,16 +446,17 @@ impl<SIM> TermWeight<SIM>
 where
   SIM: Similarity,
 {
-  fn build_term_scorer<LR>(
+  fn build_term_scorer<LR, SS>(
     context: &LeafReaderContext<LR>,
     terms_enum: Option<&mut LRTermsEnum<LR>>,
     term: &Term,
-    sim_scorer: Option<Arc<TermQuerySimScorer<SIM>>>,
+    sim_scorer: Option<SS>,
     score_mode: ScoreMode,
     top_level_scoring_clause: bool,
-  ) -> Result<TermScorerEnum<LR, SIM>>
+  ) -> Result<TermScorerWithSimilarity<LR, SS>>
   where
     LR: LeafReader,
+    SS: SimScorer,
   {
     match terms_enum {
       Some(terms_enum) => {
@@ -677,20 +666,13 @@ pub(crate) type TermQuerySimScorer<
 pub type TermScorerEnum<
   LR,
   SIM = crate::core::search::similarities_impl::bm25_similarity::BM25Similarity,
-> = ScorerEnum4<
+> = TermScorerWithSimilarity<LR, Arc<TermQuerySimScorer<SIM>>>;
+
+type TermScorerWithSimilarity<LR, SS> = ScorerEnum4<
+  TermScorer<PostingsTermState<LRPosting<LR>, SS>, LRNormNumericDocValues<LR>>,
+  TermScorer<ImpactsTermState<LRImpactsEnum<LR>, SS>, LRNormNumericDocValues<LR>>,
   TermScorer<
-    PostingsTermState<LRPosting<LR>, Arc<TermQuerySimScorer<SIM>>>,
-    LRNormNumericDocValues<LR>,
-  >,
-  TermScorer<
-    ImpactsTermState<LRImpactsEnum<LR>, Arc<TermQuerySimScorer<SIM>>>,
-    LRNormNumericDocValues<LR>,
-  >,
-  TermScorer<
-    crate::core::search::impacts_disi::SourceImpactsDISI<
-      LRImpactsEnum<LR>,
-      Arc<TermQuerySimScorer<SIM>>,
-    >,
+    crate::core::search::impacts_disi::SourceImpactsDISI<LRImpactsEnum<LR>, SS>,
     LRNormNumericDocValues<LR>,
   >,
   ConstantScoreDisiScorer<EmptyDISI>,

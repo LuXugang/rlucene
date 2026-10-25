@@ -253,7 +253,7 @@ where
 impl<PE, SS> TermScorerState for PostingsTermState<PE, SS>
 where
   PE: PostingsEnum + 'static,
-  SS: SimScorer + 'static,
+  SS: SimScorer,
 {
   type Scorer = SS;
 
@@ -277,7 +277,7 @@ where
 impl<IE, SS> TermScorerState for ImpactsTermState<IE, SS>
 where
   IE: ImpactsEnum + 'static,
-  SS: SimScorer + 'static,
+  SS: SimScorer,
 {
   type Scorer = SS;
 
@@ -301,7 +301,7 @@ where
 impl<IE, SS> TermScorerState for SourceImpactsDISI<IE, SS>
 where
   IE: ImpactsEnum + 'static,
-  SS: SimScorer + 'static,
+  SS: SimScorer,
 {
   type Scorer = SS;
 

@@ -66,6 +66,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_bit_set::LongBitSet;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -1208,7 +1209,7 @@ where
   }
 
   type TermsEnum<'a>
-    = MergedTermsEnum<<S as SortedDocValues>::TermsEnum<'a>>
+    = MergedTermsEnum<<S as SortedDocValues>::TermsEnum<'a>, &'a OrdinalMap>
   where
     Self: 'a;
 
@@ -1218,22 +1219,25 @@ where
     for sub in subs {
       terms_enum_subs.push(sub.sub.values.terms_enum()?);
     }
-    Ok(MergedTermsEnum::new(self.map.clone(), terms_enum_subs))
+    Ok(MergedTermsEnum::new(self.map.as_ref(), terms_enum_subs))
   }
 }
 /// A merged [`TermsEnum`]. This helps avoid relying on the default terms enum, which calls
 /// [`SortedDocValues::lookup_ord`] or [`SortedSetDocValues::lookup_ord`] on every call to
 /// [`BytesRefIterator::next`].
-pub struct MergedTermsEnum<TE> {
+pub struct MergedTermsEnum<TE, M = Rc<OrdinalMap>> {
   subs: Vec<TE>,
-  ordinal_map: Rc<OrdinalMap>,
+  ordinal_map: M,
   value_count: i64,
   ord: i64,
   sub_num: usize,
   term: BytesRef<Vec<u8>>,
 }
-impl<TE> MergedTermsEnum<TE> {
-  fn new(ordinal_map: Rc<OrdinalMap>, subs: Vec<TE>) -> Self {
+impl<TE, M> MergedTermsEnum<TE, M>
+where
+  M: Deref<Target = OrdinalMap>,
+{
+  fn new(ordinal_map: M, subs: Vec<TE>) -> Self {
     let value_count = ordinal_map.get_value_count();
     Self {
       subs,
@@ -1246,9 +1250,10 @@ impl<TE> MergedTermsEnum<TE> {
   }
 }
 
-impl<TE> BytesRefIterator for MergedTermsEnum<TE>
+impl<TE, M> BytesRefIterator for MergedTermsEnum<TE, M>
 where
   TE: TermsEnum,
+  M: Deref<Target = OrdinalMap>,
 {
   type Value<'a>
     = BytesRefValueEnum2<TE::Value<'a>, &'a BytesRef<Vec<u8>>>
@@ -1281,9 +1286,10 @@ where
   }
 }
 
-impl<TE> TermsEnum for MergedTermsEnum<TE>
+impl<TE, M> TermsEnum for MergedTermsEnum<TE, M>
 where
   TE: TermsEnum,
+  M: Deref<Target = OrdinalMap>,
 {
   type AttributeSource<'a>
     = &'a DummyAttributeSource
@@ -1536,7 +1542,7 @@ where
     for dv in self.to_merge.iter_mut() {
       subs.push(dv.terms_enum()?);
     }
-    Ok(MergedTermsEnum::new(self.map.clone(), subs))
+    Ok(MergedTermsEnum::new(self.map.as_ref(), subs))
   }
   type SortedDocValues = DummySortedDocValues;
 
@@ -1552,7 +1558,7 @@ where
   }
 
   type TermsEnum<'a>
-    = MergedTermsEnum<<S as SortedSetDocValues>::TermsEnum<'a>>
+    = MergedTermsEnum<<S as SortedSetDocValues>::TermsEnum<'a>, &'a OrdinalMap>
   where
     Self: 'a;
 }

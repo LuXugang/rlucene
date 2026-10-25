@@ -298,7 +298,6 @@ where
   }
 }
 
-#[derive(Clone)]
 struct LatLonDistanceContext {
   latitude: f64,
   longitude: f64,
@@ -416,7 +415,7 @@ where
         let mut visitor = LatLonDistanceInverseIntersectVisitor::new(
           &mut result,
           max_doc as i64,
-          self.visitor.ctx.clone(),
+          &self.visitor.ctx,
         );
         self.values.intersect(&mut visitor)?;
         visitor.cost
@@ -518,11 +517,11 @@ impl IntersectVisitor for LatLonDistanceIntersectVisitor {
 struct LatLonDistanceInverseIntersectVisitor<'a> {
   result: &'a mut FixedBitSet,
   cost: i64,
-  ctx: LatLonDistanceContext,
+  ctx: &'a LatLonDistanceContext,
 }
 
 impl<'a> LatLonDistanceInverseIntersectVisitor<'a> {
-  fn new(result: &'a mut FixedBitSet, cost: i64, ctx: LatLonDistanceContext) -> Self {
+  fn new(result: &'a mut FixedBitSet, cost: i64, ctx: &'a LatLonDistanceContext) -> Self {
     Self { result, cost, ctx }
   }
 }

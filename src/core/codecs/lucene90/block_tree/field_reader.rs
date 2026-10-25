@@ -133,7 +133,6 @@ where
         ));
       },
     };
-    let empty_output = index.metadata().empty_output().cloned();
     reader.index = Some(Arc::new(index));
     // ownership to ByteArrayDataInput
     let mut input = ByteArrayDataInput::with_range(
@@ -146,13 +145,17 @@ where
     // ownership from ByteArrayDataInput
     let root_code = tmp_data.root_code;
     // Get empty output and adjust rootCode
+    let empty_output = reader
+      .index
+      .as_ref()
+      .and_then(|index| index.metadata().empty_output());
     let root_code_final = match empty_output {
       Some(empty_output)
         if root_code.bytes[root_code.offset..root_code.offset + root_code.length]
           == empty_output.bytes[empty_output.offset..empty_output.offset + empty_output.length] =>
       {
         drop(root_code);
-        empty_output
+        empty_output.clone()
       },
       _ => BytesRef {
         bytes: Arc::new(root_code.bytes),

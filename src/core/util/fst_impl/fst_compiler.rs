@@ -75,7 +75,6 @@ where
   pub(crate) dedup_hash: Option<NodeHash<O::V>>,
   /// A temporary FST used during building for NodeHash cache.
   pub(crate) fst: FST<O, NullFSTReader>,
-  pub(crate) no_output: O::V,
   /// Node deduplication hash table.
   /// Last input added.
   pub(crate) last_input: IntsRefBuilder<Vec<i32>>,
@@ -133,9 +132,9 @@ where
     let num_bytes_written = 1; // pad 1 byte, written lazily
     let padding_byte_pending = true;
 
-    let no_output = outputs.get_no_output().clone();
     let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
     let fst = FST::new(fst_meta, NullFSTReader);
+    let no_output = fst.outputs.get_no_output();
     let mut frontier = Vec::with_capacity(16);
     for i in 0..10 {
       frontier.push(UnCompiledNode::new(no_output.clone(), i));
@@ -143,7 +142,6 @@ where
     Ok(Self {
       dedup_hash,
       fst,
-      no_output,
       last_input: IntsRefBuilder::default(),
       padding_byte_pending,
       last_frozen_node: 0,
@@ -192,7 +190,7 @@ where
       self.last_frozen_node = node;
     }
 
-    self.frontier[node_in_idx].clear(&self.no_output);
+    self.frontier[node_in_idx].clear(self.fst.outputs.get_no_output());
 
     Ok(CompiledNode { node })
   }
@@ -206,7 +204,7 @@ where
         let prev_idx = idx - 1;
 
         let next_final_output = if self.dedup_hash.is_none() {
-          std::mem::replace(&mut node.output, self.no_output.clone())
+          std::mem::replace(&mut node.output, self.fst.outputs.get_no_output().clone())
         } else {
           node.output.clone()
         };
@@ -248,8 +246,10 @@ where
     let ints = &input.ints;
 
     // De-dup NO_OUTPUT since it must be a singleton:
-    if output == self.no_output && !output.is_same_reference(&self.no_output) {
-      output = self.no_output.clone();
+    if &output == self.fst.outputs.get_no_output()
+      && !output.is_same_reference(self.fst.outputs.get_no_output())
+    {
+      output = self.fst.outputs.get_no_output().clone();
     }
 
     debug_assert!(
@@ -292,9 +292,10 @@ where
       };
       self.frontier.reserve_exact(new_len - old_len);
       for i in old_len..new_len {
-        self
-          .frontier
-          .push(UnCompiledNode::new(self.no_output.clone(), i));
+        self.frontier.push(UnCompiledNode::new(
+          self.fst.outputs.get_no_output().clone(),
+          i,
+        ));
       }
     }
     // minimize/compile states from previous input's
@@ -305,21 +306,24 @@ where
     for idx in prefix_len_plus1..=input.length {
       let label = ints[offset + idx - 1];
       let un_compiled = NodeEnum::UnCompiledNode;
-      self.frontier[idx - 1].add_arc(label, un_compiled, &self.no_output)?;
+      self.frontier[idx - 1].add_arc(label, un_compiled, self.fst.outputs.get_no_output())?;
     }
 
     let last_input_len = self.last_input.length();
     let last_node = &mut self.frontier[input.length];
     if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
       last_node.is_final = true;
-      if !last_node.output.is_same_reference(&self.no_output) {
-        last_node.output = self.no_output.clone();
+      if !last_node
+        .output
+        .is_same_reference(self.fst.outputs.get_no_output())
+      {
+        last_node.output = self.fst.outputs.get_no_output().clone();
       }
     }
     // push conflicting outputs forward, only as far as
     // needed
     let outputs = &self.fst.outputs;
-    let no_output = &self.no_output;
+    let no_output = self.fst.outputs.get_no_output();
     for idx in 1..prefix_len_plus1 {
       let (parents, nodes) = self.frontier.split_at_mut(idx);
       let parent = &mut parents[idx - 1];
@@ -364,7 +368,11 @@ where
       // this new arc is private to this new input; set its
       // arc output to the leftover output:
       let label = ints[input.offset + prefix_len_plus1 - 1];
-      let _ = self.frontier[prefix_len_plus1 - 1].set_last_output(label, output, &self.no_output);
+      let _ = self.frontier[prefix_len_plus1 - 1].set_last_output(
+        label,
+        output,
+        self.fst.outputs.get_no_output(),
+      );
     }
 
     // Save last input
@@ -439,6 +447,7 @@ where
     self.arc_count += node_in.num_arcs as i64;
 
     let last_arc = node_in.num_arcs - 1;
+    let no_output = self.fst.outputs.get_no_output();
     let mut last_arc_start = 0;
     let mut max_bytes_per_arc = 0;
     let mut max_bytes_per_arc_without_label = 0;
@@ -458,11 +467,11 @@ where
 
           if arc.is_final {
             flags |= BIT_FINAL_ARC;
-            if !self.no_output.is_same_reference(&arc.next_final_output) {
+            if !no_output.is_same_reference(&arc.next_final_output) {
               flags |= BIT_ARC_HAS_FINAL_OUTPUT;
             }
           } else {
-            debug_assert!(self.no_output.is_same_reference(&arc.next_final_output));
+            debug_assert!(no_output.is_same_reference(&arc.next_final_output));
           }
 
           let target_has_arcs = target.node > 0;
@@ -472,7 +481,7 @@ where
 
           // `arc.output` is not mutated while this arc is serialized, so the reference
           // check only needs to be evaluated once.
-          let arc_has_output = !self.no_output.is_same_reference(&arc.output);
+          let arc_has_output = !no_output.is_same_reference(&arc.output);
           if arc_has_output {
             flags |= BIT_ARC_HAS_OUTPUT;
           }
@@ -508,7 +517,7 @@ where
               .write(&arc.output, &mut self.scratch_bytes)?;
           }
 
-          if !self.no_output.is_same_reference(&arc.next_final_output) {
+          if !no_output.is_same_reference(&arc.next_final_output) {
             self
               .fst
               .outputs
@@ -993,7 +1002,8 @@ where
     Ok(())
   }
   fn valid_output(&self, output: &O::V) -> bool {
-    self.no_output.is_same_reference(output) || *output != self.no_output
+    let no_output = self.fst.outputs.get_no_output();
+    no_output.is_same_reference(output) || output != no_output
   }
   /// Returns the estimated heap memory used by the in-construction FST.
   pub fn fst_ram_bytes_used(&self) -> Result<i64> {
