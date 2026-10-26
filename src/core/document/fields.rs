@@ -191,6 +191,8 @@ macro_rules! dispatch_fields {
   }};
 }
 
+pub(crate) use dispatch_fields;
+
 impl_from_for_enum!(
     Fields,
     BinaryPoint => Binary,

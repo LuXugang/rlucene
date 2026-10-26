@@ -23,7 +23,7 @@ use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
-use crate::core::document::fields::Fields;
+use crate::core::document::fields::{Fields, dispatch_fields};
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
@@ -900,13 +900,14 @@ where
       for field in first_field.iter_mut().chain(document.iter_mut()) {
         let field = field.borrow_mut();
         let per_field_idx = self.doc_fields[doc_field_idx];
-        if self.process_field(
+        // Keep the concrete field type through all accesses in process_field.
+        if dispatch_fields!(field, |field| self.process_field(
           doc_id,
           field,
           per_field_idx,
           index_writer_config,
           aborting_exception_consumer,
-        )? {
+        ))? {
           self.fields.push(self.doc_fields[doc_field_idx]);
           indexed_field_count += 1;
         }
