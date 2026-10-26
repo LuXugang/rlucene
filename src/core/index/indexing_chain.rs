@@ -841,34 +841,13 @@ where
       document.reserve(document_fields.size_hint().0.saturating_sub(1));
       while let Some(field_value) = document_fields.next().transpose()? {
         let field = field_value.borrow();
-        let field_type = field.field_type();
-        let is_reserved = field.is_reserved();
-        let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
-        {
-          let pf = &mut self.per_fields[pf_idx];
-          if pf.reserved != is_reserved {
-            return Err(LuceneError::illegal_argument(format!(
-              "\"{}\" is a reserved field and should not be added to any document",
-              field.name()
-            )));
-          }
-
-          if pf.field_gen != field_gen {
-            // first time we see this field in this document
-            self.fields.push(pf_idx);
-            field_count += 1;
-            pf.field_gen = field_gen;
-            pf.reset(doc_id);
-          }
-        }
-        if self.doc_fields.len() == self.doc_fields.capacity() {
-          let min_size = self.doc_fields.len() + 1;
-          ArrayUtil::grow_capacity(&mut self.doc_fields, min_size)?;
-        }
-        self.doc_fields.push(pf_idx);
-        doc_field_idx += 1;
-        let pf = &mut self.per_fields[pf_idx];
-        Self::update_doc_field_schema(field.name(), &mut pf.schema, &field_type)?;
+        dispatch_fields!(field, |field| self.process_field_schema(
+          field,
+          doc_id,
+          field_gen,
+          &mut field_count,
+          &mut doc_field_idx,
+        ))?;
         if first_field.is_none() {
           first_field = Some(field_value);
         } else {
@@ -1162,9 +1141,54 @@ where
 
     Ok(indexed_field)
   }
+  // Keep the concrete field and field type through the first schema pass.
+  fn process_field_schema<F>(
+    &mut self,
+    field: &F,
+    doc_id: i32,
+    field_gen: i64,
+    field_count: &mut usize,
+    doc_field_idx: &mut usize,
+  ) -> Result<()>
+  where
+    F: IndexableField,
+  {
+    let field_type = field.field_type();
+    let is_reserved = field.is_reserved();
+    let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
+    {
+      let pf = &mut self.per_fields[pf_idx];
+      if pf.reserved != is_reserved {
+        return Err(LuceneError::illegal_argument(format!(
+          "\"{}\" is a reserved field and should not be added to any document",
+          field.name()
+        )));
+      }
+
+      if pf.field_gen != field_gen {
+        // first time we see this field in this document
+        self.fields.push(pf_idx);
+        *field_count += 1;
+        pf.field_gen = field_gen;
+        pf.reset(doc_id);
+      }
+    }
+    if self.doc_fields.len() == self.doc_fields.capacity() {
+      let min_size = self.doc_fields.len() + 1;
+      ArrayUtil::grow_capacity(&mut self.doc_fields, min_size)?;
+    }
+    self.doc_fields.push(pf_idx);
+    *doc_field_idx += 1;
+    let pf = &mut self.per_fields[pf_idx];
+    Self::update_doc_field_schema(field.name(), &mut pf.schema, &field_type)?;
+    Ok(())
+  }
   /// Returns a previously created [`PerField`], absorbing the type information from
   /// [`FieldType`](crate::core::document::field_type::FieldType), and creates a new [`PerField`] if this field name wasn't seen yet.
-  pub(crate) fn get_or_add_per_field(&mut self, field: &Fields, reserved: bool) -> Result<usize> {
+  pub(crate) fn get_or_add_per_field<F>(&mut self, field: &F, reserved: bool) -> Result<usize>
+  where
+    F: IndexableField,
+  {
     let field_name = field.name();
     let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
