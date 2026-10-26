@@ -194,13 +194,10 @@ where
   }
 }
 fn norm(ignore: bool, s: &[char]) -> Cow<'_, [char]> {
-  if ignore
-    && !s
-      .iter()
-      .copied()
-      .eq(s.iter().flat_map(|c| c.to_lowercase()))
-  {
-    Cow::Owned(s.iter().flat_map(|c| c.to_lowercase()).collect())
+  // Match Lucene's single-code-point lowercase mapping (U+0130 becomes 'i').
+  let lowercase = || s.iter().map(|c| c.to_lowercase().next().unwrap_or(*c));
+  if ignore && !s.iter().copied().eq(lowercase()) {
+    Cow::Owned(lowercase().collect())
   } else {
     Cow::Borrowed(s)
   }
