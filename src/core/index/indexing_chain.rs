@@ -1740,8 +1740,8 @@ impl PerField {
         .ok_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))?;
       // Keep the owner (including the analyzer's RefMut) alive while a concrete
       // stream is borrowed for the entire reset/increment/end/close sequence.
-      macro_rules! consume_stream {
-        ($stream:expr) => {{
+      macro_rules! consume_stream_with_vectors {
+        ($stream:expr, $vectors:literal) => {{
           let stream = $stream;
       let stream_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
         || -> Result<()> {
@@ -1816,7 +1816,7 @@ impl PerField {
             // corrupt and should not be flushed to a
             // new segment:
             let add_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-              terms_hash_per_field.add_with_bytes_ref(
+              terms_hash_per_field.add_with_bytes_ref_mode::<$vectors, _>(
                 // use attribute_source's bytes_ref
                 None,
                 doc_id,
@@ -1878,6 +1878,21 @@ impl PerField {
       succeeded_in_processing_field = matches!(&stream_result, Ok(Ok(())));
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stream.close()));
       IOUtils::use_or_suppress_caught_result(stream_result, close_result)
+        }};
+      }
+      // start has fixed this value's vector state; preserve the normal checks
+      // for enabled vectors and remove them from the disabled token loop.
+      macro_rules! consume_stream {
+        ($stream:expr) => {{
+          if terms_hash_per_field
+            .next_per_field
+            .as_ref()
+            .is_some_and(|next| next.do_vectors)
+          {
+            consume_stream_with_vectors!($stream, true)
+          } else {
+            consume_stream_with_vectors!($stream, false)
+          }
         }};
       }
       match &mut stream {

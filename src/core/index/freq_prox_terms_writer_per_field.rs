@@ -241,6 +241,26 @@ impl FreqProxTermsWriterPerField {
   where
     AS: AttributeSource,
   {
+    self.add_with_bytes_ref_mode::<true, AS>(
+      term_bytes,
+      doc_id,
+      field_state,
+      attribute_source,
+      context,
+    )
+  }
+  // The false mode is selected only after start has disabled vectors for this value.
+  pub(crate) fn add_with_bytes_ref_mode<const VECTORS: bool, AS>(
+    &mut self,
+    term_bytes: Option<&BytesRef<&[u8]>>,
+    doc_id: i32,
+    field_state: &mut FieldInvertState,
+    attribute_source: &mut AS,
+    context: &mut IndexContext,
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     debug_assert!(self.base.assert_doc_id(doc_id));
     // We are first in the chain so we must "intern" the
     // term text into textStart address
@@ -292,7 +312,8 @@ impl FreqProxTermsWriterPerField {
       term_id
     };
 
-    if let Some(ref mut next_per_field) = self.next_per_field
+    if VECTORS
+      && let Some(ref mut next_per_field) = self.next_per_field
       && next_per_field.do_vectors
     {
       let text_start = self
