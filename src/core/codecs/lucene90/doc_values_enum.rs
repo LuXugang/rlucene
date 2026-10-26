@@ -18,7 +18,7 @@ pub mod norms {
   use crate::core::codecs::lucene90_norms_producer::{DenseNormsIterator, SparseNormsIterator};
   use crate::core::index::doc_values::EmptyNumeric;
   use crate::core::index::doc_values_iterator::DocValuesIterator;
-  use crate::core::index::numeric_doc_values::NumericDocValues;
+  use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesVisitor};
   use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
   use crate::core::store::IndexInput;
   use crate::core::store::random_access_input::RandomAccessInput;
@@ -115,6 +115,14 @@ pub mod norms {
         Self::Dense(dense) => dense.long_value(),
         Self::Sparse(sparse) => sparse.long_value(),
         Self::Empty(empty) => empty.long_value(),
+      }
+    }
+
+    fn visit<V: NumericDocValuesVisitor>(&mut self, visitor: V) -> V::Output {
+      match self {
+        Self::Dense(dense) => dense.visit(visitor),
+        Self::Sparse(sparse) => sparse.visit(visitor),
+        Self::Empty(empty) => empty.visit(visitor),
       }
     }
   }

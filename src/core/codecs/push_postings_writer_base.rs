@@ -18,7 +18,7 @@ use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::postings_writer_base::PostingsWriterBase;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
-use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesVisitor};
 use crate::core::index::postings_enum::{FREQS, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -85,6 +85,77 @@ impl<S> PushPostingsWriterBase<S> {
     }
   }
 }
+/// Keeps the borrowed norms layout concrete for the original term loop.
+struct WriteTermNormsVisitor<'a, S, PE> {
+  sub: &'a mut S,
+  options: &'a FieldWriteOptions,
+  postings_enum: &'a mut PE,
+  docs_seen: &'a mut FixedBitSet,
+}
+
+impl<S, PE> NumericDocValuesVisitor for WriteTermNormsVisitor<'_, S, PE>
+where
+  S: PushPostingsWriterBaseAbstract,
+  PE: PostingsEnum,
+{
+  type Output = Result<(i32, i64)>;
+
+  fn visit<D: NumericDocValues>(self, mut norm_values: Option<&mut D>) -> Self::Output {
+    let mut doc_freq = 0;
+    let mut total_term_freq = 0i64;
+    loop {
+      let doc_id = self.postings_enum.next_doc()?;
+      if doc_id == NO_MORE_DOCS {
+        break;
+      }
+      doc_freq += 1;
+      self.docs_seen.set(doc_id as usize)?;
+
+      let freq = if self.options.write_freqs {
+        let f = self.postings_enum.freq()?;
+        total_term_freq += f as i64;
+        f
+      } else {
+        -1
+      };
+
+      self
+        .sub
+        .start_doc(norm_values.as_deref_mut(), doc_id, freq, self.options)?;
+
+      if self.options.write_positions {
+        for _ in 0..freq {
+          let pos = self.postings_enum.next_position()?;
+          let payload = if self.options.write_payloads {
+            self.postings_enum.get_payload()?
+          } else {
+            None
+          };
+          let (start_offset, end_offset) = if self.options.write_offsets {
+            (
+              self.postings_enum.start_offset()?,
+              self.postings_enum.end_offset()?,
+            )
+          } else {
+            (-1, -1)
+          };
+          let payload = payload.as_ref().map(BytesRefValue::as_bytes_ref);
+          self.sub.add_position(
+            pos,
+            payload.as_ref(),
+            start_offset,
+            end_offset,
+            self.options,
+          )?;
+        }
+      }
+
+      self.sub.finish_doc()?;
+    }
+    Ok((doc_freq, total_term_freq))
+  }
+}
+
 impl<S> Closeable for PushPostingsWriterBase<S>
 where
   S: Closeable,
@@ -142,54 +213,16 @@ where
 
     let mut postings_enum = terms_enum.postings_with_flags(postings_enum, self.enum_flags)?;
 
-    let mut doc_freq = 0;
-    let mut total_term_freq = 0i64;
-    loop {
-      let doc_id = postings_enum.next_doc()?;
-      if doc_id == NO_MORE_DOCS {
-        break;
-      }
-      doc_freq += 1;
-      docs_seen.set(doc_id as usize)?;
-
-      let freq = if self.options.write_freqs {
-        let f = postings_enum.freq()?;
-        total_term_freq += f as i64;
-        f
-      } else {
-        -1
-      };
-
-      self
-        .sub
-        .start_doc(norm_values.as_mut(), doc_id, freq, &self.options)?;
-
-      if self.options.write_positions {
-        for _ in 0..freq {
-          let pos = postings_enum.next_position()?;
-          let payload = if self.options.write_payloads {
-            postings_enum.get_payload()?
-          } else {
-            None
-          };
-          let (start_offset, end_offset) = if self.options.write_offsets {
-            (postings_enum.start_offset()?, postings_enum.end_offset()?)
-          } else {
-            (-1, -1)
-          };
-          let payload = payload.as_ref().map(BytesRefValue::as_bytes_ref);
-          self.sub.add_position(
-            pos,
-            payload.as_ref(),
-            start_offset,
-            end_offset,
-            &self.options,
-          )?;
-        }
-      }
-
-      self.sub.finish_doc()?;
-    }
+    let visitor = WriteTermNormsVisitor {
+      sub: &mut self.sub,
+      options: &self.options,
+      postings_enum: &mut postings_enum,
+      docs_seen,
+    };
+    let (doc_freq, total_term_freq) = match norm_values.as_mut() {
+      Some(values) => values.visit(visitor),
+      None => visitor.visit::<N::NumericDocValues>(None),
+    }?;
 
     if doc_freq == 0 {
       return Ok((Some(postings_enum), None));

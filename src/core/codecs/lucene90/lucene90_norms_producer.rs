@@ -26,7 +26,7 @@ use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesVisitor};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -649,7 +649,79 @@ where
     }
     self.sub_dense_norms.long_value(self.doc)
   }
+
+  fn visit<V: NumericDocValuesVisitor>(&mut self, visitor: V) -> V::Output {
+    macro_rules! visit_dense {
+      ($values:expr) => {
+        visitor.visit(Some(&mut DenseNormsIteratorView {
+          max_doc: self.max_doc,
+          doc: &mut self.doc,
+          values: $values,
+        }))
+      };
+    }
+    match &self.sub_dense_norms {
+      DenseNormsIteratorBaseEnum::Dense(values) => visit_dense!(values),
+      DenseNormsIteratorBaseEnum::Dense1(values) => visit_dense!(values),
+      DenseNormsIteratorBaseEnum::Dense2(values) => visit_dense!(values),
+      DenseNormsIteratorBaseEnum::Dense3(values) => visit_dense!(values),
+      DenseNormsIteratorBaseEnum::Dense4(values) => visit_dense!(values),
+    }
+  }
 }
+
+/// Borrows the original cursor state and one fixed-width value reader.
+struct DenseNormsIteratorView<'a, V> {
+  max_doc: i32,
+  doc: &'a mut i32,
+  values: &'a V,
+}
+
+impl<V: DenseNormsIteratorBase> DocValuesIterator for DenseNormsIteratorView<'_, V> {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    *self.doc = target;
+    Ok(true)
+  }
+}
+
+impl<V> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DenseNormsIteratorView<'_, V>
+{
+}
+impl<V> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DenseNormsIteratorView<'_, V>
+{
+}
+
+impl<V: DenseNormsIteratorBase> DocIdSetIterator for DenseNormsIteratorView<'_, V> {
+  fn doc_id(&self) -> i32 {
+    *self.doc
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.advance(*self.doc + 1)
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    *self.doc = if target >= self.max_doc {
+      NO_MORE_DOCS
+    } else {
+      target
+    };
+    Ok(*self.doc)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    Ok(self.max_doc as i64)
+  }
+}
+
+impl<V: DenseNormsIteratorBase> NumericDocValues for DenseNormsIteratorView<'_, V> {
+  fn long_value(&mut self) -> Result<i64> {
+    self.values.long_value(*self.doc)
+  }
+}
+
 trait DenseNormsIteratorBase {
   fn long_value(&self, doc: i32) -> Result<i64>;
 }
@@ -805,6 +877,83 @@ where
     self
       .sub_sparse_norms
       .long_value(self.disi.index().try_convert()?)
+  }
+
+  fn visit<V: NumericDocValuesVisitor>(&mut self, visitor: V) -> V::Output {
+    macro_rules! visit_sparse {
+      ($values:expr) => {
+        visitor.visit(Some(&mut SparseNormsIteratorView {
+          disi: &mut self.disi,
+          values: $values,
+        }))
+      };
+    }
+    match &self.sub_sparse_norms {
+      SparseNormsIteratorBaseEnum::Sparse(values) => visit_sparse!(values),
+      SparseNormsIteratorBaseEnum::Sparse1(values) => visit_sparse!(values),
+      SparseNormsIteratorBaseEnum::Sparse2(values) => visit_sparse!(values),
+      SparseNormsIteratorBaseEnum::Sparse3(values) => visit_sparse!(values),
+      SparseNormsIteratorBaseEnum::Sparse4(values) => visit_sparse!(values),
+    }
+  }
+}
+
+/// Borrows the existing sparse iterator and one fixed-width value reader.
+struct SparseNormsIteratorView<'a, I: IndexInput, R: RandomAccessInput, V> {
+  disi: &'a mut IndexedDISIImpl<I, R>,
+  values: &'a V,
+}
+
+impl<I: IndexInput, R: RandomAccessInput, V> DocValuesIterator
+  for SparseNormsIteratorView<'_, I, R, V>
+where
+  V: SparseNormsIteratorBase,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    self.disi.advance_exact(target)
+  }
+}
+
+impl<I: IndexInput, R: RandomAccessInput, V>
+  crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SparseNormsIteratorView<'_, I, R, V>
+{
+}
+impl<I: IndexInput, R: RandomAccessInput, V>
+  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SparseNormsIteratorView<'_, I, R, V>
+{
+}
+
+impl<I: IndexInput, R: RandomAccessInput, V> DocIdSetIterator
+  for SparseNormsIteratorView<'_, I, R, V>
+where
+  V: SparseNormsIteratorBase,
+{
+  fn doc_id(&self) -> i32 {
+    self.disi.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.disi.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.disi.advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.disi.cost()
+  }
+}
+
+impl<I: IndexInput, R: RandomAccessInput, V> NumericDocValues
+  for SparseNormsIteratorView<'_, I, R, V>
+where
+  V: SparseNormsIteratorBase,
+{
+  fn long_value(&mut self) -> Result<i64> {
+    self.values.long_value(self.disi.index().try_convert()?)
   }
 }
 

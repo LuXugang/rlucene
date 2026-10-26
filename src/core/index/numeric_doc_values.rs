@@ -26,6 +26,26 @@ pub trait NumericDocValues: DocValuesIterator {
   /// # Returns
   /// The numeric value for the current document ID.
   fn long_value(&mut self) -> Result<i64>;
+
+  /// Visits a borrowed cursor for an operation that can retain its concrete type.
+  /// The default preserves this cursor's behavior, including any wrapper logic.
+  /// Overrides must preserve cursor state, values, errors and capabilities;
+  /// mutations made by the visitor remain visible on this cursor.
+  fn visit<V: NumericDocValuesVisitor>(&mut self, visitor: V) -> V::Output
+  where
+    Self: Sized,
+  {
+    visitor.visit(Some(self))
+  }
+}
+
+/// An operation over a borrowed numeric cursor, or over an absent norms field.
+/// The result cannot retain the cursor borrow. Implementations may keep the
+/// concrete cursor type throughout their document-processing loop.
+pub trait NumericDocValuesVisitor {
+  type Output;
+
+  fn visit<D: NumericDocValues>(self, values: Option<&mut D>) -> Self::Output;
 }
 
 macro_rules! either_numeric_docvalues {
