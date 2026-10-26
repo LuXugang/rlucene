@@ -163,7 +163,8 @@ impl PointRangeQuery {
   }
 
   fn equals_to(&self, other: &PointRangeQuery) -> bool {
-    self.points.field == other.points.field
+    std::mem::discriminant(&self.sub) == std::mem::discriminant(&other.sub)
+      && self.points.field == other.points.field
       && self.num_dims == other.num_dims
       && self.bytes_per_dim == other.bytes_per_dim
       && self.points.lower == other.points.lower
@@ -225,6 +226,7 @@ impl Hash for PointRangeQuery {
   where
     H: Hasher,
   {
+    std::mem::discriminant(&self.sub).hash(state);
     self.points.field.hash(state);
     self.num_dims.hash(state);
     self.bytes_per_dim.hash(state);

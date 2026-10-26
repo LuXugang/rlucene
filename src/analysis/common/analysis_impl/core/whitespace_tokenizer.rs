@@ -19,7 +19,7 @@ use crate::core::analysis::util::char_tokenizer::{CharTokenizer, CharTokenizerBa
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 /// A tokenizer that divides text at whitespace characters as defined by
-/// [`char::is_whitespace`].
+/// Java's `Character.isWhitespace`.
 /// Note: That definition explicitly excludes the non-breaking space.
 /// Adjacent sequences of non-whitespace characters form tokens.
 pub struct WhitespaceTokenizer;
@@ -63,6 +63,16 @@ impl WhitespaceTokenizer {
 }
 impl CharTokenizerBase for WhitespaceTokenizer {
   fn is_token_char(&self, c: &char) -> bool {
-    !c.is_whitespace()
+    !matches!(
+      *c,
+      '\u{0009}'..='\u{000d}'
+        | '\u{001c}'..='\u{0020}'
+        | '\u{1680}'
+        | '\u{2000}'..='\u{2006}'
+        | '\u{2008}'..='\u{200a}'
+        | '\u{2028}'..='\u{2029}'
+        | '\u{205f}'
+        | '\u{3000}'
+    )
   }
 }

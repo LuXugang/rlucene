@@ -138,6 +138,14 @@ impl Outputs for PositiveIntOutputs {
     }
   }
 
+  fn skip_output<DI>(&self, input: &mut DI) -> Result<()>
+  where
+    DI: DataInput,
+  {
+    input.read_vlong()?;
+    Ok(())
+  }
+
   fn get_no_output(&self) -> &Self::V {
     self.no_output
   }

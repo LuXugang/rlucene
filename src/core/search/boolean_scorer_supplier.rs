@@ -736,26 +736,13 @@ where
 
       if all_no_scoring_no_two_phase && all_scoring_no_two_phase {
         // Turn all filters into scoring clauses with a score of zero
-        let mut wrap_required_scoring =
-          Vec::with_capacity(required_no_scoring.len() + required_scoring.len());
-        for x in required_scoring.into_iter() {
-          wrap_required_scoring.push(ScorerEnum2::A(x))
-        }
         for filter_scorer in required_no_scoring {
-          wrap_required_scoring.push(ScorerEnum2::B(ConstantScoreScorer::from_disi(
-            0.0,
-            ScoreMode::Complete,
-            filter_scorer,
-          )));
+          required_scoring.push(QueryWeightSsScorer::<IRC, SIM>::new(
+            ConstantScoreScorer::from_disi(0.0, ScoreMode::Complete, filter_scorer),
+          ));
         }
         return Ok(Some(QueryWeightSsBulkScorer::<IRC, SIM>::new(
-          BlockMaxConjunctionBulkScorer::new(
-            self.max_doc,
-            wrap_required_scoring
-              .into_iter()
-              .map(QueryWeightSsScorer::<IRC, SIM>::new)
-              .collect(),
-          )?,
+          BlockMaxConjunctionBulkScorer::new(self.max_doc, required_scoring)?,
         )));
       }
     }

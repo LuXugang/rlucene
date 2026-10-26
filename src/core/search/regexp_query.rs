@@ -53,10 +53,6 @@ use std::hash::Hash;
 /// See [`RegExp`].
 #[derive(Clone)]
 pub struct RegexpQuery {
-  syntax_flags: i32,
-  match_flags: i32,
-  determinize_work_limit: i32,
-  do_determinization: bool,
   base: AutomatonQuery,
   id: Identity,
 }
@@ -246,10 +242,6 @@ impl RegexpQuery {
     let base = AutomatonQuery::new(term, automaton, false, rewrite_method)?;
 
     Ok(Self {
-      syntax_flags,
-      match_flags,
-      determinize_work_limit,
-      do_determinization,
       base,
       id: Identity::default(),
     })
@@ -353,10 +345,6 @@ impl Hash for RegexpQuery {
     H: std::hash::Hasher,
   {
     self.base.hash(state);
-    self.syntax_flags.hash(state);
-    self.match_flags.hash(state);
-    self.determinize_work_limit.hash(state);
-    self.do_determinization.hash(state);
   }
 }
 
@@ -365,10 +353,6 @@ impl Eq for RegexpQuery {}
 impl PartialEq for RegexpQuery {
   fn eq(&self, other: &Self) -> bool {
     self.base == other.base
-      && self.syntax_flags == other.syntax_flags
-      && self.match_flags == other.match_flags
-      && self.determinize_work_limit == other.determinize_work_limit
-      && self.do_determinization == other.do_determinization
   }
 }
 

@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 use crate::core::search::collector_manager::CollectorManager;
-use crate::core::search::multi_collector::{OneOrMultiCollector, wrap};
+use crate::core::search::multi_collector::{MultiCollector, OneOrMultiCollector};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// A [`CollectorManager`] implementation which wraps a set of [`CollectorManager`]s as
-/// [`MultiCollector`](crate::core::search::multi_collector::MultiCollector) acts for
+/// [`MultiCollector`] acts for
 /// [`Collector`](crate::core::search::collector::Collector).
 pub struct MultiCollectorManager<M> {
   collector_managers: Vec<M>,
@@ -56,9 +56,9 @@ where
     }
     let mut collectors = Vec::with_capacity(self.collector_managers.len());
     for collector_manager in &self.collector_managers {
-      collectors.push(Some(collector_manager.new_collector()?));
+      collectors.push(collector_manager.new_collector()?);
     }
-    wrap(collectors)
+    Ok(OneOrMultiCollector::Multi(MultiCollector::new(collectors)?))
   }
 
   fn reduce(&self, reducable_collectors: Vec<Self::C>) -> Result<Self::T> {

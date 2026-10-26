@@ -122,7 +122,8 @@ impl RangeFieldQuery {
   }
 
   fn equals_to(&self, other: &RangeFieldQuery) -> bool {
-    self.field == other.field
+    std::mem::discriminant(&self.sub) == std::mem::discriminant(&other.sub)
+      && self.field == other.field
       && self.num_dims == other.num_dims
       && self.ranges == other.ranges
       && self.query_type == other.query_type
@@ -152,6 +153,7 @@ impl Hash for RangeFieldQuery {
   where
     H: Hasher,
   {
+    std::mem::discriminant(&self.sub).hash(state);
     self.field.hash(state);
     self.num_dims.hash(state);
     self.query_type.hash(state);

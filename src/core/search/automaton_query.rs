@@ -217,7 +217,9 @@ impl PartialEq for AutomatonQuery {
     if std::ptr::eq(self, other) {
       return true;
     }
-    self.compiled == other.compiled && self.term == other.term
+    self.rewrite_method == other.rewrite_method
+      && self.compiled == other.compiled
+      && self.term == other.term
   }
 }
 impl Eq for AutomatonQuery {}
@@ -226,6 +228,7 @@ impl Hash for AutomatonQuery {
   where
     H: Hasher,
   {
+    self.rewrite_method.hash(state);
     self.compiled.hash(state);
     self.term.hash(state);
   }

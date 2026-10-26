@@ -178,7 +178,8 @@ impl PointInSetQuery {
   }
 
   fn equals_to(&self, other: &PointInSetQuery) -> bool {
-    self.field == other.field
+    std::mem::discriminant(&self.sub) == std::mem::discriminant(&other.sub)
+      && self.field == other.field
       && self.num_dims == other.num_dims
       && self.bytes_per_dim == other.bytes_per_dim
       && self.sorted_packed_points_hash_code == other.sorted_packed_points_hash_code
@@ -231,6 +232,7 @@ impl Hash for PointInSetQuery {
   where
     H: Hasher,
   {
+    std::mem::discriminant(&self.sub).hash(state);
     self.field.hash(state);
     self.sorted_packed_points_hash_code.hash(state);
     self.num_dims.hash(state);

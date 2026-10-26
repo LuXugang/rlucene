@@ -44,7 +44,7 @@ where
     Self::with_max_token_len(att, DEFAULT_MAX_WORD_LEN, sub)
   }
   pub fn with_max_token_len(att: Attributes, max_token_len: usize, sub: S) -> Result<Self> {
-    if max_token_len > MAX_TOKEN_LENGTH_LIMIT {
+    if max_token_len > MAX_TOKEN_LENGTH_LIMIT || max_token_len == 0 {
       return Err(LuceneError::illegal_argument(format!(
         "maxTokenLen must be greater than 0 and less than {}, passed: {}",
         MAX_TOKEN_LENGTH_LIMIT, max_token_len

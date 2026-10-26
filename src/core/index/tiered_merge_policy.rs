@@ -1001,11 +1001,9 @@ where
     // This is the special case of merging down to one segment
     if max_segment_count == 1 && total_merge_bytes < max_merge_bytes {
       let mut spec = DefaultMergeSpecification::new();
-      let all_of_them: Vec<SegmentCommitInfoMeta<'_, D>> = sorted_size_and_docs
-        .iter()
-        .map(|s| SegmentCommitInfoMeta::new(s.seg_info, s.size_in_seg, s.max_doc))
-        .collect();
-      spec.add(OneMerge::from_meta(all_of_them.as_ref())?);
+      spec.add(OneMerge::new(sorted_size_and_docs.iter().map(|s| {
+        SegmentDocAndID::new(s.seg_info.info.id_key.clone(), s.max_doc)
+      }))?);
       return Ok(Some(spec));
     }
 

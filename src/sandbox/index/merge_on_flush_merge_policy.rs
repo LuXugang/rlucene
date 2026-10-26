@@ -29,6 +29,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 
 pub struct MergeOnFlushMergePolicy<D>
 where
@@ -168,7 +169,7 @@ where
         && !merging_segments.contains(sci.info.get_id_key())
       {
         small_segments.push(SegmentDocAndID::new(
-          sci.info.get_id_key().to_string(),
+          Arc::clone(&sci.info.id_key),
           sci.info.max_doc()?,
         ));
       }
