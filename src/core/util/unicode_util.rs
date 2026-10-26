@@ -25,17 +25,15 @@ impl UnicodeUtil {
   pub const UNI_SUR_LOW_END: i32 = 0xDFFF;
   pub const MAX_UTF8_BYTES_PER_CHAR: i32 = 3;
   pub fn valid_utf16_string(s: &str) -> bool {
-    let utf16: Vec<u16> = s.encode_utf16().collect();
-    let mut i = 0;
-    while i < utf16.len() {
-      let ch = utf16[i] as i32;
+    let mut utf16 = s.encode_utf16();
+    while let Some(ch) = utf16.next() {
+      let ch = ch as i32;
       if (Self::UNI_SUR_HIGH_START..=Self::UNI_SUR_HIGH_END).contains(&ch) {
         // High surrogate
-        if i + 1 < utf16.len() {
-          let next = utf16[i + 1] as i32;
+        if let Some(next) = utf16.next() {
+          let next = next as i32;
           if (Self::UNI_SUR_LOW_START..=Self::UNI_SUR_LOW_END).contains(&next) {
             // Valid surrogate pair
-            i += 2;
             continue;
           } else {
             // Unmatched high surrogate
@@ -49,7 +47,6 @@ impl UnicodeUtil {
         // Unmatched low surrogate
         return false;
       }
-      i += 1;
     }
     true
   }

@@ -50,6 +50,7 @@ use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::DefaultBulkScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use smallvec::SmallVec;
 #[cfg(test)]
 use std::any::Any;
 use std::collections::HashMap;
@@ -168,7 +169,7 @@ where
     }
     let should_cost = match self.subs.get_mut(&Occur::Should) {
       Some(v) => {
-        let mut costs = Vec::with_capacity(v.len());
+        let mut costs: SmallVec<[i64; 8]> = SmallVec::with_capacity(v.len());
         for ss in v.iter_mut() {
           costs.push(ss.cost(context, searcher)?);
         }

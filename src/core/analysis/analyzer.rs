@@ -613,7 +613,11 @@ impl ReuseStrategy for PerFieldReuseStrategy {
   ) -> Result<()> {
     match self.store_value {
       Some(ref mut v) => {
-        let _ = v.insert(field_name.to_string(), components);
+        if let Some(existing) = v.get_mut(field_name) {
+          let _ = std::mem::replace(existing, components);
+        } else {
+          let _ = v.insert(field_name.to_string(), components);
+        }
         Ok(())
       },
       None => Err(LuceneError::already_closed("this Analyzer is closed")),

@@ -241,14 +241,14 @@ fn zz_unpack_action() -> [i32; 59] {
   result
 }
 fn zz_unpack_action_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
-  let packed: Vec<char> = packed.chars().collect();
-  let mut i = 0;
+  let mut packed = packed.chars();
   let mut j = offset;
-  while i < packed.len() {
-    let mut count = packed[i] as usize;
-    i += 1;
-    let value = packed[i] as i32;
-    i += 1;
+  while let Some(count) = packed.next() {
+    let mut count = count as usize;
+    let value = expect_invariant!(
+      packed.next(),
+      "packed tokenizer action has count/value pairs"
+    ) as i32;
     while count > 0 {
       result[j] = value;
       j += 1;
@@ -274,14 +274,12 @@ fn zz_unpack_row_map() -> [usize; 59] {
   result
 }
 fn zz_unpack_row_map_with_offset(packed: &str, _offset: usize, result: &mut [usize]) -> usize {
-  let packed: Vec<char> = packed.chars().collect();
-  let mut i = 0;
+  let mut packed = packed.chars();
   let mut j = 0;
-  while i < packed.len() {
-    let high = (packed[i] as usize) << 16;
-    i += 1;
-    result[j] = high | packed[i] as usize;
-    i += 1;
+  while let Some(high) = packed.next() {
+    let high = (high as usize) << 16;
+    let low = expect_invariant!(packed.next(), "packed tokenizer row map has high/low pairs");
+    result[j] = high | low as usize;
     j += 1;
   }
   j
@@ -392,14 +390,14 @@ fn zz_unpack_attribute() -> [i32; 59] {
   result
 }
 fn zz_unpack_attribute_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
-  let packed: Vec<char> = packed.chars().collect();
-  let mut i = 0;
+  let mut packed = packed.chars();
   let mut j = offset;
-  while i < packed.len() {
-    let mut count = packed[i] as usize;
-    i += 1;
-    let value = packed[i] as i32;
-    i += 1;
+  while let Some(count) = packed.next() {
+    let mut count = count as usize;
+    let value = expect_invariant!(
+      packed.next(),
+      "packed tokenizer attributes have count/value pairs"
+    ) as i32;
     while count > 0 {
       result[j] = value;
       j += 1;

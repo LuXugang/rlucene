@@ -95,13 +95,13 @@ where
     created_version_major: i32,
     context: &IOContext,
   ) -> Result<Self> {
-    let si = si.clone();
     let meta_data = LeafMetaData::new(
       created_version_major,
       si.info.get_min_version(),
       si.info.get_index_sort(),
       si.info.get_has_blocks(),
     )?;
+    let si = si.clone();
     let meta_data = Arc::new(meta_data);
 
     let is_nrt = false;
@@ -180,7 +180,6 @@ where
     num_docs: i32,
     is_nrt: bool,
   ) -> Result<Self> {
-    let si = si.clone();
     let max_doc = si.info.max_doc()?;
     if num_docs > max_doc {
       return Err(LuceneError::illegal_argument(format!(
@@ -198,6 +197,7 @@ where
       }
     }
 
+    let si = si.clone();
     let meta_data = Arc::clone(&sr.meta_data);
     let core = &sr.core;
     let seg_doc_values = &sr.seg_doc_values;

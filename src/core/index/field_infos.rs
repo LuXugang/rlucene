@@ -82,6 +82,20 @@ pub(crate) struct FilterFieldInfosHook {
   pub(crate) filtered_has_point_values: bool,
 }
 
+struct AvailableFieldNames<'a>(&'a HashSet<String>);
+
+impl std::fmt::Display for AvailableFieldNames<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    for (index, name) in self.0.iter().enumerate() {
+      if index != 0 {
+        f.write_str(", ")?;
+      }
+      f.write_str(name)?;
+    }
+    Ok(())
+  }
+}
+
 struct FieldInfosDefaults;
 
 impl FieldInfosDefaults {
@@ -239,12 +253,7 @@ impl FieldInfosHook {
       Self::Filter(hook) => {
         if !hook.filtered_names.contains(field_name) {
           // Return `IllegalArgument` to match `field_info_by_number` for invalid numbers.
-          let available_fields = hook
-            .filtered_names
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>()
-            .join(", ");
+          let available_fields = AvailableFieldNames(&hook.filtered_names);
           return Err(LuceneError::illegal_argument(format!(
             "The field named '{field_name}' is not accessible in the current merge context, available ones are: [{available_fields}]"
           )));
@@ -266,12 +275,7 @@ impl FieldInfosHook {
         if let Some(field_info) = &field_info
           && !hook.filtered_names.contains(&field_info.name)
         {
-          let available_fields = hook
-            .filtered_names
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>()
-            .join(", ");
+          let available_fields = AvailableFieldNames(&hook.filtered_names);
           return Err(LuceneError::illegal_argument(format!(
             "The field named '{}' numbered '{field_number}' is not accessible in the current merge context, available ones are: [{available_fields}]",
             field_info.name

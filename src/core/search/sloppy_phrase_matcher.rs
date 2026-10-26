@@ -468,20 +468,16 @@ where
 
   /// sort each repetition group by (query) offset. Done only once (at first doc)
   /// and allows to initialize faster for each doc.
-  fn sort_rpt_groups(&mut self, rgs: Vec<Vec<usize>>) {
-    let mut rpt_groups = Vec::with_capacity(rgs.len());
-
-    for mut rg in rgs {
+  fn sort_rpt_groups(&mut self, mut rgs: Vec<Vec<usize>>) {
+    for rg in &mut rgs {
       // sort by offset
       rg.sort_by_key(|&pp_idx| self.pq.compare.phrase_positions[pp_idx].offset);
       for (j, &pp_idx) in rg.iter().enumerate() {
         // we use this index for efficient re-queuing
         self.pq.compare.phrase_positions[pp_idx].rpt_ind = j;
       }
-
-      rpt_groups.push(rg);
     }
-    self.rpt_groups = rpt_groups;
+    self.rpt_groups = rgs;
   }
 
   /// Detect repetition groups. Done once - for first doc

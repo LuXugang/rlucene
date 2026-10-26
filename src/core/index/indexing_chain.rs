@@ -1045,9 +1045,7 @@ where
         &mut self.has_hit_aborting_exception,
         aborting_exception,
         "panic while adding vector field",
-        self
-          .vector_values_consumer
-          .add_field(fi.clone(), segment_info)
+        self.vector_values_consumer.add_field(fi, segment_info)
       )?;
       pf.knn_field_vectors_writer = Some(writer);
     }

@@ -66,7 +66,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
         let coordinate = match coordinate {
           JsonValue::Array(items) => items,
           _ => {
-            return Err(self.new_parse_error(format!(
+            return Err(self.new_parse_error(format_args!(
               "elements of coordinates array should be an array, but got: {}",
               coordinate.type_name()
             )));
@@ -92,7 +92,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
             break;
           }
         } else {
-          return Err(self.new_parse_error(format!("expected , but got {}", ch)));
+          return Err(self.new_parse_error(format_args!("expected , but got {}", ch)));
         }
       }
 
@@ -142,7 +142,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
       } else if ch == '}' {
         break;
       } else {
-        return Err(self.new_parse_error(format!(
+        return Err(self.new_parse_error(format_args!(
           "expected array, object, string or literal value, but got: {}",
           ch
         )));
@@ -153,7 +153,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
           JsonValue::String(crs) => crs,
           _ => {
             self.upto = upto_start;
-            return Err(self.new_parse_error(format!(
+            return Err(self.new_parse_error(format_args!(
               "crs.properties.name should be a string, but saw: {}",
               value.type_name()
             )));
@@ -162,7 +162,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
         if !crs.starts_with("urn:ogc:def:crs:OGC") || !crs.ends_with(":CRS84") {
           self.upto = upto_start;
           return Err(
-            self.new_parse_error(format!("crs must be CRS84 from OGC, but saw: {}", crs)),
+            self.new_parse_error(format_args!("crs must be CRS84 from OGC, but saw: {}", crs)),
           );
         }
       }
@@ -172,7 +172,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
           JsonValue::String(type_name) => type_name,
           _ => {
             self.upto = upto_start;
-            return Err(self.new_parse_error(format!(
+            return Err(self.new_parse_error(format_args!(
               "type should be a string, but got: {}",
               value.type_name()
             )));
@@ -188,7 +188,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
         {
         } else {
           self.upto = upto_start;
-          return Err(self.new_parse_error(format!(
+          return Err(self.new_parse_error(format_args!(
             "can only handle type FeatureCollection (if it has a single polygon geometry), Feature, Polygon or MultiPolygon, but got {}",
             type_name
           )));
@@ -198,7 +198,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
           JsonValue::Array(items) => items,
           other => {
             self.upto = upto_start;
-            return Err(self.new_parse_error(format!(
+            return Err(self.new_parse_error(format_args!(
               "coordinates should be an array, but got: {}",
               other.type_name()
             )));
@@ -230,7 +230,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
     let poly_points = match first {
       JsonValue::Array(items) => self.parse_points(items)?,
       _ => {
-        return Err(self.new_parse_error(format!(
+        return Err(self.new_parse_error(format_args!(
           "first element of polygon array must be an array [[lat, lon], [lat, lon] ...] but got: {}",
           first.type_name()
         )));
@@ -241,7 +241,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
       let hole_points = match coordinate {
         JsonValue::Array(items) => self.parse_points(items)?,
         _ => {
-          return Err(self.new_parse_error(format!(
+          return Err(self.new_parse_error(format_args!(
             "elements of coordinates array must be an array [[lat, lon], [lat, lon] ...] but got: {}",
             coordinate.type_name()
           )));
@@ -261,7 +261,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
       let point = match point {
         JsonValue::Array(items) => items,
         _ => {
-          return Err(self.new_parse_error(format!(
+          return Err(self.new_parse_error(format_args!(
             "elements of coordinates array must [lat, lon] array, but got: {}",
             point.type_name()
           )));
@@ -269,7 +269,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
       };
 
       if point.len() != 2 {
-        return Err(self.new_parse_error(format!(
+        return Err(self.new_parse_error(format_args!(
           "elements of coordinates array must [lat, lon] array, but got wrong element count: {}",
           point.len()
         )));
@@ -278,7 +278,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
       let lon = match &point[0] {
         JsonValue::Number(value) => *value,
         _ => {
-          return Err(self.new_parse_error(format!(
+          return Err(self.new_parse_error(format_args!(
             "elements of coordinates array must [lat, lon] array, but first element is not a Double: {}",
             point[0].type_name()
           )));
@@ -288,7 +288,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
       let lat = match &point[1] {
         JsonValue::Number(value) => *value,
         _ => {
-          return Err(self.new_parse_error(format!(
+          return Err(self.new_parse_error(format_args!(
             "elements of coordinates array must [lat, lon] array, but second element is not a Double: {}",
             point[1].type_name()
           )));
@@ -315,7 +315,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
 
       if !result.is_empty() {
         if ch != ',' {
-          return Err(self.new_parse_error(format!(
+          return Err(self.new_parse_error(format_args!(
             "expected ',' separating list items, but got '{}'",
             ch
           )));
@@ -338,7 +338,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
       } else if ch == '"' {
         JsonValue::String(self.parse_string()?)
       } else {
-        return Err(self.new_parse_error(format!(
+        return Err(self.new_parse_error(format_args!(
           "expected another array or number while parsing array, not '{}'",
           ch
         )));
@@ -400,9 +400,10 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
           result.push('\\');
           self.upto += 1;
         } else {
-          return Err(
-            self.new_parse_error(format!("unsupported string escape character \\{}", escaped)),
-          );
+          return Err(self.new_parse_error(format_args!(
+            "unsupported string escape character \\{}",
+            escaped
+          )));
         }
       } else {
         result.push(ch);
@@ -434,23 +435,23 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
         continue;
       }
       if ch != expected {
-        return Err(self.new_parse_error(format!("expected '{}' but got '{}'", expected, ch)));
+        return Err(self.new_parse_error(format_args!("expected '{}' but got '{}'", expected, ch)));
       }
       self.upto += 1;
       return Ok(());
     }
 
-    Err(self.new_parse_error(format!("expected '{}' but got EOF", expected)))
+    Err(self.new_parse_error(format_args!("expected '{}' but got EOF", expected)))
   }
 
   fn scan_string(&mut self, expected: &str) -> Result<()> {
     if self.upto + expected.len() > self.input.len() {
-      return Err(self.new_parse_error(format!("expected \"{}\" but hit EOF", expected)));
+      return Err(self.new_parse_error(format_args!("expected \"{}\" but hit EOF", expected)));
     }
 
     let substring = &self.input[self.upto..self.upto + expected.len()];
     if substring != expected {
-      return Err(self.new_parse_error(format!(
+      return Err(self.new_parse_error(format_args!(
         "expected \"{}\" but got \"{}\"",
         expected, substring
       )));
@@ -463,7 +464,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
     while self.upto < self.input.len() {
       let ch = self.input.as_bytes()[self.upto] as char;
       if !Self::is_json_whitespace(ch) {
-        return Err(self.new_parse_error(format!(
+        return Err(self.new_parse_error(format_args!(
           "unexpected character '{}' after end of GeoJSON object",
           ch
         )));
@@ -479,20 +480,18 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
 
   fn new_parse_error<T>(&self, details: T) -> LuceneError
   where
-    T: AsRef<str>,
+    T: std::fmt::Display,
   {
     let end = self.input.len().min(self.upto + 1);
-    let fragment = if self.upto < 50 {
-      Cow::Borrowed(&self.input[..end])
+    let (prefix, fragment) = if self.upto < 50 {
+      ("", &self.input[..end])
     } else {
-      Cow::Owned(format!("...{}", &self.input[self.upto - 50..end]))
+      ("...", &self.input[self.upto - 50..end])
     };
 
     LuceneError::illegal_state(format!(
-      "{} at character offset {}; fragment leading to this:\n{}",
-      details.as_ref(),
-      self.upto,
-      fragment
+      "{} at character offset {}; fragment leading to this:\n{}{}",
+      details, self.upto, prefix, fragment
     ))
   }
 }

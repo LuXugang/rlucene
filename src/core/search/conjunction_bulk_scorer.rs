@@ -21,6 +21,7 @@ use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use smallvec::SmallVec;
 /// BulkScorer implementation of [`ConjunctionScorer`](crate::core::search::conjunction_scorer::ConjunctionScorer).
 ///
 /// For simplicity, it focuses on scorers that produce regular
@@ -44,7 +45,7 @@ where
         "Expected 2 or more clauses, got {num_clauses}"
       )));
     }
-    let mut costs = Vec::with_capacity(num_clauses);
+    let mut costs: SmallVec<[(i64, usize); 8]> = SmallVec::with_capacity(num_clauses);
     let mut i = 0usize;
     let mut tmp_all_scores = Vec::with_capacity(num_clauses);
     for scorer in required_scoring.into_iter() {
@@ -277,7 +278,7 @@ where
   }
 
   fn get_children(&mut self) -> Result<Vec<ChildScorable<Self::Child<'_>>>> {
-    let mut scorers: Vec<_> = self.base.all_scores.iter_mut().map(Some).collect();
+    let mut scorers: SmallVec<[_; 8]> = self.base.all_scores.iter_mut().map(Some).collect();
     self
       .base
       .all_scores_input_idx

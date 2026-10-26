@@ -903,14 +903,14 @@ where
   O: IndexOutput,
 {
   let dimension = field_data.field_info.get_vector_dimension() as usize;
-  let mut vector = vec![0u8; dimension];
+  let mut vector: smallvec::SmallVec<[u8; 32]> = smallvec::smallvec![0u8; dimension];
   let mut compressed_vector = if field_data.compress {
     compressed_array(dimension, field_data.bits)
   } else {
     None
   };
-  let mut copy = if field_data.normalize {
-    Some(vec![0f32; dimension])
+  let mut copy: Option<smallvec::SmallVec<[f32; 32]>> = if field_data.normalize {
+    Some(smallvec::smallvec![0f32; dimension])
   } else {
     None
   };
@@ -957,14 +957,14 @@ where
   O: IndexOutput,
 {
   let dimension = field_data.field_info.get_vector_dimension() as usize;
-  let mut vector = vec![0u8; dimension];
+  let mut vector: smallvec::SmallVec<[u8; 32]> = smallvec::smallvec![0u8; dimension];
   let mut compressed_vector = if field_data.compress {
     compressed_array(dimension, field_data.bits)
   } else {
     None
   };
-  let mut copy = if field_data.normalize {
-    Some(vec![0f32; dimension])
+  let mut copy: Option<smallvec::SmallVec<[f32; 32]>> = if field_data.normalize {
+    Some(smallvec::smallvec![0f32; dimension])
   } else {
     None
   };

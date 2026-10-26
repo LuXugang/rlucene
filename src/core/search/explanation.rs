@@ -16,7 +16,6 @@
  */
 use std::borrow::Cow;
 use std::fmt;
-use std::fmt::Write as _;
 use std::hash::Hash;
 
 use crate::core::util::number::Number;
@@ -55,7 +54,7 @@ impl Explanation {
     &self.description
   }
 
-  fn get_summary(&self, buffer: &mut String) -> fmt::Result {
+  fn get_summary<W: fmt::Write + ?Sized>(&self, buffer: &mut W) -> fmt::Result {
     write!(buffer, "{} = {}", self.get_value(), self.get_description())
   }
   /// The sub-nodes of this explanation node.
@@ -63,12 +62,16 @@ impl Explanation {
     &self.details
   }
   /// Render an explanation as text.
-  fn to_string_with_depth(&self, depth: usize, buffer: &mut String) -> fmt::Result {
+  fn to_string_with_depth<W: fmt::Write + ?Sized>(
+    &self,
+    depth: usize,
+    buffer: &mut W,
+  ) -> fmt::Result {
     for _ in 0..depth {
-      buffer.push_str("  ");
+      buffer.write_str("  ")?;
     }
     self.get_summary(buffer)?;
-    buffer.push('\n');
+    buffer.write_char('\n')?;
 
     for detail in &self.details {
       detail.to_string_with_depth(depth + 1, buffer)?;
@@ -145,8 +148,6 @@ impl Hash for Explanation {
 impl Eq for Explanation {}
 impl fmt::Display for Explanation {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut buffer = String::new();
-    self.to_string_with_depth(0, &mut buffer)?;
-    write!(f, "{buffer}")
+    self.to_string_with_depth(0, f)
   }
 }

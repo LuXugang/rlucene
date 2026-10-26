@@ -546,9 +546,9 @@ macro_rules! impl_norms_producer {
         Self: Sized,
       {
         Ok(Some(Lucene90NormsProducer {
-          norms: self.norms.clone(),
           max_doc: self.max_doc,
           data: self.data.try_clone()?,
+          norms: self.norms.clone(),
           disi_inputs: HashMap::new().into(),
           disi_jump_tables: HashMap::new().into(),
           data_inputs: HashMap::new().into(),

@@ -792,7 +792,7 @@ where
       entry.vector_index_length,
     )?;
 
-    let nodes_by_level = entry.nodes_by_level.clone();
+    let nodes_by_level = &entry.nodes_by_level;
     let num_levels = entry.num_levels;
     let entry_node = if num_levels > 1 {
       nodes_by_level[num_levels - 1][0]
@@ -826,7 +826,7 @@ where
 
     Ok(Self {
       data_in,
-      nodes_by_level,
+      nodes_by_level: Arc::clone(nodes_by_level),
       num_levels,
       entry_node,
       size,

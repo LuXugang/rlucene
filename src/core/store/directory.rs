@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-use crate::core::index::IndexFileNames;
 use crate::core::index::index_reader::Identity;
 #[cfg(test)]
 use crate::core::store::ByteBuffersDirectory;
@@ -312,8 +311,7 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
 pub fn get_temp_file_name(prefix: &str, suffix: &str, counter: u64) -> String {
   //base-36
   let counter_str = BigInt::from(counter).to_str_radix(36);
-  let full_suffix = format!("{suffix}_{counter_str}");
-  IndexFileNames::segment_file_name(prefix, &full_suffix, "tmp")
+  format!("{prefix}_{suffix}_{counter_str}.tmp")
 }
 
 pub trait ErasedDirectory:

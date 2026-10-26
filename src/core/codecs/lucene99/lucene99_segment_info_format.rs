@@ -89,7 +89,7 @@ impl Lucene99SegmentInfoFormat {
   const VERSION_START: i32 = 0;
   const VERSION_CURRENT: i32 = Lucene99SegmentInfoFormat::VERSION_START;
   fn parse_segment_info<D, DI>(
-    dir: Arc<D>,
+    dir: &Arc<D>,
     input: &mut DI,
     segment: &str,
     segment_id: &[u8; StringHelper::ID_LENGTH],
@@ -159,7 +159,7 @@ impl Lucene99SegmentInfoFormat {
     };
 
     let mut si = SegmentInfo::new(
-      dir,
+      Arc::clone(dir),
       Option::from(version),
       min_version,
       segment,
@@ -279,7 +279,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
               segment_id,
               "",
             )?;
-            Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
+            Self::parse_segment_info(&dir, &mut input, segment, segment_id)
           },
         ));
         match prior_result {

@@ -34,6 +34,7 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
+use std::fmt::Write as _;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 const IPV4_PREFIX: [u8; 12] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff];
@@ -496,10 +497,16 @@ pub fn decode_address(value: &[u8]) -> IpAddr {
 pub(crate) fn host_address(address: IpAddr) -> String {
   match address {
     IpAddr::V4(address) => address.to_string(),
-    IpAddr::V6(address) => address
-      .segments()
-      .map(|segment| format!("{segment:x}"))
-      .join(":"),
+    IpAddr::V6(address) => {
+      let mut result = String::with_capacity(39);
+      for (index, segment) in address.segments().iter().enumerate() {
+        if index != 0 {
+          result.push(':');
+        }
+        let _ = write!(result, "{segment:x}");
+      }
+      result
+    },
   }
 }
 

@@ -28,6 +28,7 @@ use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
+use smallvec::SmallVec;
 
 /// The two conjunction implementations selected by iterator cost.
 pub type ConjunctionDISIEnum<D> =
@@ -304,7 +305,7 @@ where
   ) -> Result<Self> {
     debug_assert!(!bit_set_iterators.is_empty());
     let mut temp_bit_set_iterators = Vec::with_capacity(bit_set_iterators.len());
-    let mut cost = Vec::with_capacity(bit_set_iterators.len());
+    let mut cost: SmallVec<[usize; 8]> = SmallVec::with_capacity(bit_set_iterators.len());
     for (idx, v) in bit_set_iterators.into_iter().enumerate() {
       cost.push(idx);
       temp_bit_set_iterators.push(Some(v));
@@ -313,7 +314,7 @@ where
     ArrayUtil::tim_sort_with_comparator(&mut cost, cmp)?;
 
     let mut bit_set_iterators = Vec::with_capacity(cost.len());
-    let mut sorted_indices = vec![0; cost.len()];
+    let mut sorted_indices: SmallVec<[usize; 8]> = SmallVec::from_elem(0, cost.len());
     for (sorted_idx, idx) in cost.into_iter().enumerate() {
       sorted_indices[idx] = sorted_idx;
       bit_set_iterators.push(

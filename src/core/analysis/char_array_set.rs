@@ -98,8 +98,9 @@ impl Display for CharArraySet {
         write!(f, ", ")?;
       }
       first = false;
-      let key: String = key.iter().collect();
-      write!(f, "{key}")?;
+      for ch in key {
+        write!(f, "{ch}")?;
+      }
     }
     write!(f, "]")
   }

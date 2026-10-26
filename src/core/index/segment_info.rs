@@ -334,13 +334,11 @@ impl<D> SegmentInfo<D> {
 
     // 处理 version 字段
     s.push('(');
-    s.push_str(
-      &self
-        .version
-        .as_ref()
-        .map(|v| v.to_string())
-        .unwrap_or_else(|| "?".to_string()),
-    );
+    if let Some(version) = &self.version {
+      write!(s, "{version}")?;
+    } else {
+      s.push('?');
+    }
     s.push(')');
 
     let cfs = if self.is_compound_file { 'c' } else { 'C' };
@@ -356,7 +354,7 @@ impl<D> SegmentInfo<D> {
 
     if let Some(index_sort) = &self.index_sort {
       s.push_str(":[indexSort=");
-      s.push_str(&index_sort.to_string());
+      write!(s, "{index_sort}")?;
       s.push(']');
     }
 

@@ -264,7 +264,6 @@ where
 
   pub fn with_reader(reader: &Lucene90CompressingTermVectorsReader<I>) -> Result<Self> {
     Ok(Self {
-      field_infos: Arc::clone(&reader.field_infos),
       vectors_stream: reader.vectors_stream.try_clone()?,
       index_reader: reader.index_reader.try_clone()?,
       packed_ints_version: reader.packed_ints_version,
@@ -282,6 +281,7 @@ where
       block_state: BlockState::new(None, None, 0),
       prefetched_block_id_cache: [-1; PREFETCH_CACHE_SIZE],
       prefetched_block_id_cache_index: 0,
+      field_infos: Arc::clone(&reader.field_infos),
     })
   }
 
@@ -614,7 +614,7 @@ where
         bits_required,
       )?;
       let mut sum = 0;
-      let mut num_terms = Vec::with_capacity(total_fields);
+      let mut num_terms = smallvec::SmallVec::<[usize; 32]>::with_capacity(total_fields);
       for i in 0..total_fields {
         let count = packed_num_terms.get(i)?;
         sum += count;
@@ -727,7 +727,7 @@ where
     let mut total_offsets = 0;
     let mut total_payloads = 0;
     let mut term_index = 0;
-    let mut all_flags = Vec::with_capacity(total_fields);
+    let mut all_flags = smallvec::SmallVec::<[i32; 32]>::with_capacity(total_fields);
     #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
     for i in 0..total_fields {
       let f = flags.get(i)? as i32;

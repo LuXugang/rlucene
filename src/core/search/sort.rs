@@ -139,13 +139,13 @@ impl Sort {
 
 impl Display for Sort {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let fields_string = self
-      .fields
-      .iter()
-      .map(|field| field.to_string())
-      .collect::<Vec<_>>()
-      .join(",");
-    write!(f, "{fields_string}")
+    for (index, field) in self.fields.iter().enumerate() {
+      if index != 0 {
+        f.write_str(",")?;
+      }
+      write!(f, "{field}")?;
+    }
+    Ok(())
   }
 }
 impl PartialEq for Sort {

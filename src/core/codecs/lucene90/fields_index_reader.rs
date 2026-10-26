@@ -138,7 +138,7 @@ where
     })
   }
   fn with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
-    let meta = Arc::clone(&other.meta);
+    let meta = &other.meta;
     let docs_slice = other.index_input.random_access_slice(
       other.docs_start_pointer,
       other.docs_end_pointer - other.docs_start_pointer,
@@ -154,8 +154,8 @@ where
       max_doc: other.max_doc,
       block_shift: other.block_shift,
       num_chunks: other.num_chunks,
-      meta,
       index_input: other.index_input.try_clone()?,
+      meta: Arc::clone(meta),
       docs_start_pointer: other.docs_start_pointer,
       docs_end_pointer: other.docs_end_pointer,
       start_pointers_start_pointer: other.start_pointers_start_pointer,

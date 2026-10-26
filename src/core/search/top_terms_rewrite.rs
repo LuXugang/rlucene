@@ -33,6 +33,7 @@ use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -67,7 +68,8 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
 
     let mut visited_terms = collector.st_queue.compare.visited_terms;
 
-    let mut score_terms = Vec::with_capacity(keys.len());
+    let mut score_terms: SmallVec<[(ScoreTermKey, ScoreTerm); 8]> =
+      SmallVec::with_capacity(keys.len());
     for (key, _) in keys {
       let st = visited_terms
         .remove(&key)

@@ -24,6 +24,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::Write as _;
 use std::fmt::{Display, Formatter};
 
 /// Represents a closed polygon on the earth's surface. You can either construct the Polygon directly
@@ -195,7 +196,7 @@ impl Polygon {
     let mut s = String::new();
     s.push('[');
     for i in 0..lats.len() {
-      s.push_str(&format!("[{}, {}]", lons[i], lats[i]));
+      let _ = write!(s, "[{}, {}]", lons[i], lats[i]);
       if i != lats.len() - 1 {
         s.push_str(", ");
       }

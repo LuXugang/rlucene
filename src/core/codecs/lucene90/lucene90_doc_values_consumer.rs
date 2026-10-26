@@ -431,7 +431,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
             < unsigned_bits_required(max.wrapping_sub(min) / gcd)
       });
       if let Some(set) = unique_values {
-        let mut sorted: Vec<i64> = set.iter().cloned().collect();
+        let mut sorted: smallvec::SmallVec<[i64; 32]> = set.iter().copied().collect();
         sorted.sort_unstable();
         debug_assert!(sorted.len() <= i32::MAX as usize);
         let set_len = sorted.len() as i32;
@@ -536,7 +536,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   where
     T: SortedNumericDocValues,
   {
-    let mut offsets: Vec<i64> = Vec::with_capacity(ArrayUtil::oversize(1, BitUtil::LONG_BYTES)?);
+    let mut offsets =
+      smallvec::SmallVec::<[i64; 16]>::with_capacity(ArrayUtil::oversize(1, BitUtil::LONG_BYTES)?);
     const NUMERIC_BLOCK_SIZE: usize = Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize;
     let mut buffer = [0i64; NUMERIC_BLOCK_SIZE];
     let mut encode_buffer = ByteBuffersDataOutput::new_resettable_instance();
@@ -551,7 +552,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         if upto == NUMERIC_BLOCK_SIZE {
           if offsets.len() == offsets.capacity() {
             let min_size = offsets.len() + 1;
-            ArrayUtil::grow_capacity(&mut offsets, min_size)?;
+            ArrayUtil::oversize(min_size, BitUtil::LONG_BYTES)?;
+            offsets.reserve(min_size.saturating_sub(offsets.len()));
           }
           offsets.push(self.data.get_file_pointer()? as i64);
           self.write_block(&buffer, NUMERIC_BLOCK_SIZE, gcd, &mut encode_buffer)?;
@@ -563,7 +565,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     if upto > 0 {
       if offsets.len() == offsets.capacity() {
         let min_size = offsets.len() + 1;
-        ArrayUtil::grow_capacity(&mut offsets, min_size)?;
+        ArrayUtil::oversize(min_size, BitUtil::LONG_BYTES)?;
+        offsets.reserve(min_size.saturating_sub(offsets.len()));
       }
       offsets.push(self.data.get_file_pointer()? as i64);
       self.write_block(&buffer[..upto], upto, gcd, &mut encode_buffer)?;
