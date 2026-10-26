@@ -503,45 +503,49 @@ where
     V: StoredFieldVisitor,
   {
     let (mut doc, field_infos) = self.serialized_document(doc_id)?;
-    for field_idx in 0..doc.num_stored_fields {
-      let info_and_bits = doc.input.read_vlong()?;
-      let field_number = ((info_and_bits as u64 >> TYPE_BITS) as i64) as i32;
-      let field_info = field_infos.field_info_by_number(field_number)?;
-      let bits = (info_and_bits & TYPE_MASK) as i32;
+    // Keep the concrete input through the field loop and its decoding methods.
+    macro_rules! read_fields {
+      ($input:ident) => {{
+        for field_idx in 0..doc.num_stored_fields {
+          let info_and_bits = $input.read_vlong()?;
+          let field_number = ((info_and_bits as u64 >> TYPE_BITS) as i64) as i32;
+          let field_info = field_infos.field_info_by_number(field_number)?;
+          let bits = (info_and_bits & TYPE_MASK) as i32;
 
-      debug_assert!(
-        bits <= NUMERIC_DOUBLE,
-        "bits={bits:#x} is out of valid range"
-      );
-      match field_info {
-        Some(field_info) => {
-          match visitor.needs_field(field_info, writer.as_deref_mut())? {
-            Status::Yes => {
-              Self::read_field(
-                &mut doc.input,
-                visitor,
-                field_info,
-                bits,
-                writer.as_deref_mut(),
-              )?;
-            },
-            Status::No => {
-              // don't skipField on last field value; treat like
-              // STOP
-              if field_idx == doc.num_stored_fields - 1 {
-                return Ok(());
+          debug_assert!(
+            bits <= NUMERIC_DOUBLE,
+            "bits={bits:#x} is out of valid range"
+          );
+          match field_info {
+            Some(field_info) => {
+              match visitor.needs_field(field_info, writer.as_deref_mut())? {
+                Status::Yes => {
+                  Self::read_field($input, visitor, field_info, bits, writer.as_deref_mut())?;
+                },
+                Status::No => {
+                  // don't skipField on last field value; treat like
+                  // STOP
+                  if field_idx == doc.num_stored_fields - 1 {
+                    return Ok(());
+                  }
+                  Self::skip_field($input, bits)?;
+                },
+                Status::Stop => return Ok(()),
               }
-              Self::skip_field(&mut doc.input, bits)?;
             },
-            Status::Stop => return Ok(()),
+            None => {
+              return Err(LuceneError::illegal_state(format!(
+                "field_info is None with number: {field_number}"
+              )));
+            },
           }
-        },
-        None => {
-          return Err(LuceneError::illegal_state(format!(
-            "field_info is None with number: {field_number}"
-          )));
-        },
-      }
+        }
+      }};
+    }
+    match &mut doc.input {
+      DataInputEnum3::A(input) => read_fields!(input),
+      DataInputEnum3::B(input) => read_fields!(input),
+      DataInputEnum3::C(input) => read_fields!(input),
     }
     Ok(())
   }
