@@ -2136,16 +2136,10 @@ where
         address,
       );
 
-      let mut min_split_packed_value = vec![0u8; self.config.packed_index_bytes_length()];
-      min_split_packed_value.copy_from(
-        &min_packed_value[0..self.config.packed_index_bytes_length()],
-        0,
-      );
-      let mut max_split_packed_value = vec![0u8; self.config.packed_index_bytes_length()];
-      max_split_packed_value.copy_from(
-        &max_packed_value[0..self.config.packed_index_bytes_length()],
-        0,
-      );
+      let mut min_split_packed_value =
+        ArrayUtil::copy_of_sub_array(min_packed_value, 0, self.config.packed_index_bytes_length());
+      let mut max_split_packed_value =
+        ArrayUtil::copy_of_sub_array(max_packed_value, 0, self.config.packed_index_bytes_length());
 
       let start = split_dim * self.config.bytes_per_dim;
       min_split_packed_value

@@ -445,7 +445,7 @@ impl<D> SegmentInfo<D> {
         )));
       }
 
-      if file.to_lowercase().ends_with(".tmp") {
+      if file.as_bytes()[file.len().saturating_sub(4)..].eq_ignore_ascii_case(b".tmp") {
         return Err(LuceneError::illegal_argument(format!(
           "Invalid codec filename '{file}', cannot end with .tmp extension"
         )));

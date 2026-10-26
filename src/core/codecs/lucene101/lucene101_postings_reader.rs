@@ -592,7 +592,7 @@ where
         (vec![], vec![], -1, -1)
       };
 
-    let (payload_length_buffer, payload_bytes, payload) = if index_has_payloads {
+    let (payload_length_buffer, payload_bytes, payload) = if index_has_payloads && needs_pos {
       (
         vec![0; ForUtil::BLOCK_SIZE],
         vec![0; 128],

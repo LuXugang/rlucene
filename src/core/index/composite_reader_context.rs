@@ -45,13 +45,11 @@ where
     reader,
     base,
   };
-  let top_parent_meta = TopParentMeta {
-    leaves_num: ctx.leaves.len(),
-    max_doc,
-    id: ctx.base.id().clone(),
-  };
+  let leaves_num = ctx.leaves.len();
   ctx.leaves.iter_mut().for_each(|leaf| {
-    leaf.top_parent = top_parent_meta.clone();
+    // add_leaf already retained this context's identity for every leaf.
+    leaf.top_parent.leaves_num = leaves_num;
+    leaf.top_parent.max_doc = max_doc;
   });
   Ok(ctx)
 }

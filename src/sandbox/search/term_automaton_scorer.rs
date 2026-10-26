@@ -25,7 +25,6 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::run_automaton::RunAutomaton;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -86,15 +85,12 @@ where
   N: NumericDocValues,
 {
   pub(crate) fn new(
-    automaton: Automaton,
+    run_automaton: RunAutomaton,
     subs: Vec<EnumAndScorer<PE>>,
-    term_count: usize,
     any_term_id: i32,
     scorer: Arc<SS>,
     norms: Option<N>,
   ) -> Result<Self> {
-    // println!("  automaton:\n{}", automaton.to_dot()?);
-    let run_automaton = RunAutomaton::new(automaton, term_count)?;
     let mut cost = 0i64;
     for sub in &subs {
       cost = cost.saturating_add(sub.pos_enum.cost()?);

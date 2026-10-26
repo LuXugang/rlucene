@@ -57,7 +57,7 @@ use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::{
 };
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::{
-  ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnum2, get_sorted_nodes,
+  ArrayNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnum2,
 };
 use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, create, rand_seed};
 use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMerger;
@@ -419,12 +419,13 @@ where
     let mut offsets = vec![Vec::new(); num_levels];
 
     for (level, level_offsets) in offsets.iter_mut().enumerate().take(num_levels) {
-      let mut nodes = graph.get_nodes_on_level(level)?;
-      let sorted_nodes = get_sorted_nodes(&mut nodes);
+      let nodes = graph.get_nodes_on_level(level)?;
+      // This private writer only accepts OnHeapHnswGraph. Level 0 is 0..size,
+      // and generate_level_to_nodes builds upper levels in ascending node order.
+      // Writing neighbors does not change these completed level directories.
+      let mut current_level_offsets = Vec::with_capacity(nodes.size());
 
-      let mut current_level_offsets = Vec::with_capacity(sorted_nodes.len());
-
-      for &node in &sorted_nodes {
+      for node in nodes {
         let neighbors = graph.get_neighbors_mut(level, node)?;
         let size = neighbors.size();
 

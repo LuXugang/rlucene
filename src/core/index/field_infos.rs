@@ -1097,17 +1097,8 @@ impl Builder {
     F: Borrow<FieldInfo>,
   {
     let fi = fi.borrow();
-    if let Some(cur_fi) = self.by_name.get(&fi.name) {
-      cur_fi.verify_same_schema(fi)?;
-
-      let attributes = fi.attributes();
-      for (k, v) in attributes.iter() {
-        cur_fi.put_attribute(k.clone(), v.clone());
-      }
-      if fi.has_payloads() {
-        cur_fi.set_store_payloads()?;
-      }
-      return Ok(cur_fi.clone());
+    if let Some(cur_fi) = self.add_existing(fi)? {
+      return Ok(cur_fi);
     }
 
     self.assert_not_finished()?;
@@ -1137,6 +1128,35 @@ impl Builder {
     )?);
     self.by_name.insert(fi_new.name.clone(), fi_new.clone());
     Ok(fi_new)
+  }
+
+  pub(crate) fn add_owned(&mut self, mut fi: FieldInfo) -> Result<Arc<FieldInfo>> {
+    if let Some(cur_fi) = self.add_existing(&fi)? {
+      return Ok(cur_fi);
+    }
+    self.assert_not_finished()?;
+    let field_number = self.global_field_numbers.lock().add_or_get(&fi)?;
+    fi.number = field_number;
+    fi.set_doc_values_gen(-1)?;
+    let fi = Arc::new(fi);
+    self.by_name.insert(fi.name.clone(), fi.clone());
+    Ok(fi)
+  }
+
+  fn add_existing(&self, fi: &FieldInfo) -> Result<Option<Arc<FieldInfo>>> {
+    if let Some(cur_fi) = self.by_name.get(&fi.name) {
+      cur_fi.verify_same_schema(fi)?;
+
+      let attributes = fi.attributes();
+      for (k, v) in attributes.iter() {
+        cur_fi.put_attribute(k.clone(), v.clone());
+      }
+      if fi.has_payloads() {
+        cur_fi.set_store_payloads()?;
+      }
+      return Ok(Some(cur_fi.clone()));
+    }
+    Ok(None)
   }
   pub fn field_info(&self, field_name: &str) -> Option<Arc<FieldInfo>> {
     self.by_name.get(field_name).cloned()

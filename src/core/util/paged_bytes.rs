@@ -172,13 +172,9 @@ impl PagedBytes {
     self.frozen = true;
     self.current_block = None;
 
-    let mut block = Vec::with_capacity(self.num_blocks);
-    for i in 0..self.num_blocks {
-      block.push(std::mem::take(&mut self.blocks[i]));
-    }
-    self.frozen_blocks = Some(Arc::new(block));
-    // Frozen readers own the shared page directory; release the emptied write directory.
-    self.blocks = Vec::new();
+    // Transfer the whole directory, including its spare capacity, to the readers.
+    // No writer can append after freeze, so rebuilding the outer Vec is unnecessary.
+    self.frozen_blocks = Some(Arc::new(std::mem::take(&mut self.blocks)));
 
     Reader::new(self)
   }

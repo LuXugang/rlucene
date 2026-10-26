@@ -44,6 +44,7 @@ use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, HasIdentity};
 use smallvec::SmallVec;
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
@@ -199,15 +200,22 @@ impl QueryBase for DisjunctionMaxQuery {
       return Ok(Some(builder.build().into()));
     }
 
-    let mut actually_rewritten = false;
-    let mut rewritten_disjuncts = Vec::with_capacity(self.ordered_queries.len());
-    for sub in self.ordered_queries.iter() {
+    let mut rewritten_disjuncts = None;
+    for (index, sub) in self.ordered_queries.iter().enumerate() {
       let rewritten_sub = sub.rewrite(index_searcher)?;
-      actually_rewritten |= rewritten_sub.is_some();
-      rewritten_disjuncts.push(rewritten_sub);
+      if rewritten_sub.is_some() {
+        let disjuncts = rewritten_disjuncts.get_or_insert_with(|| {
+          let mut disjuncts = Vec::with_capacity(self.ordered_queries.len());
+          disjuncts.resize_with(index, || None);
+          disjuncts
+        });
+        disjuncts.push(rewritten_sub);
+      } else if let Some(disjuncts) = &mut rewritten_disjuncts {
+        disjuncts.push(None);
+      }
     }
 
-    if actually_rewritten {
+    if let Some(rewritten_disjuncts) = rewritten_disjuncts {
       Ok(Some(
         DisjunctionMaxQuery::new(
           rewritten_disjuncts
@@ -256,7 +264,11 @@ impl Hash for DisjunctionMaxQuery {
   {
     CoreHelper::hash_bits_f32_for_primitive_eq(self.tie_breaker_multiplier).hash(state);
 
-    let mut entries: SmallVec<[_; 8]> = self.disjuncts.iter().collect();
+    let mut entries: SmallVec<[_; 8]> = self
+      .disjuncts
+      .iter()
+      .map(|(query, count)| (query, count, OnceCell::new()))
+      .collect();
     entries.sort_by(|a, b| {
       // compare name
       let cmp = a.0.name().cmp(b.0.name());
@@ -264,23 +276,27 @@ impl Hash for DisjunctionMaxQuery {
         return cmp;
       }
       // compare hash
-      let mut ah = DefaultHasher::new();
-      a.0.hash(&mut ah);
-      let ah = ah.finish();
+      let ah = a.2.get_or_init(|| {
+        let mut hash = DefaultHasher::new();
+        a.0.hash(&mut hash);
+        hash.finish()
+      });
 
-      let mut bh = DefaultHasher::new();
-      b.0.hash(&mut bh);
-      let bh = bh.finish();
+      let bh = b.2.get_or_init(|| {
+        let mut hash = DefaultHasher::new();
+        b.0.hash(&mut hash);
+        hash.finish()
+      });
 
       // compare count
-      let cmp = ah.cmp(&bh);
+      let cmp = ah.cmp(bh);
       if cmp != std::cmp::Ordering::Equal {
         return cmp;
       }
       a.1.cmp(b.1)
     });
 
-    for (query, count) in entries {
+    for (query, count, _) in entries {
       query.hash(state);
       count.hash(state);
     }

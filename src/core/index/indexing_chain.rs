@@ -997,7 +997,7 @@ where
       is_parent_field,
     )?;
 
-    let fi = field_infos.add(field_info)?;
+    let fi = field_infos.add_owned(field_info)?;
     pf.set_field_info(fi.clone());
 
     if *fi.get_index_options() != IndexOptions::None {

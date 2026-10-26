@@ -809,9 +809,9 @@ where
           segment_deletes,
           flush_state.live_docs.take(),
           flush_state.del_count_on_flush,
-          sort_map.clone(),
+          sort_map,
         )?;
-        self.seal_flushed_segment(&mut fs, sort_map, flush_notifications, index_writer_config)?;
+        self.seal_flushed_segment(&mut fs, flush_notifications, index_writer_config)?;
 
         if self.info_stream.is_enabled("DWPT") {
           self.info_stream.message(
@@ -887,19 +887,18 @@ where
     Ok(sorted_live_docs)
   }
   /// Seals the [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo) for the new flushed segment and persists the deleted documents [`FixedBitSet`].
-  pub(crate) fn seal_flushed_segment<FN, DM, T>(
+  pub(crate) fn seal_flushed_segment<FN, T>(
     &mut self,
     flushed_segment: &mut FlushedSegment<D>,
-    sort_map: Option<Arc<DM>>,
     flush_notifications: &FN,
     index_writer_config: &T,
   ) -> Result<()>
   where
     FN: FlushNotifications,
-    DM: DocMap,
     T: LiveIndexWriterConfig,
   {
     let new_segment = &mut flushed_segment.segment_info;
+    let sort_map = flushed_segment.sort_map.as_deref();
     let res: Result<()> = (|| {
       let segment_info = Arc::get_mut(&mut new_segment.info).ok_or_else(|| {
         LuceneError::illegal_state("flushed segment info must be uniquely owned while sealing")
@@ -960,7 +959,7 @@ where
           match sort_map {
             Some(map) => {
               codec.live_docs_format().write_live_docs(
-                &Self::sort_live_docs(live_docs, map.as_ref())?,
+                &Self::sort_live_docs(live_docs, map)?,
                 self.directory.as_ref(),
                 new_segment,
                 del_count,

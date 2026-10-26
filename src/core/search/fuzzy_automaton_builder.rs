@@ -48,17 +48,16 @@ impl FuzzyAutomatonBuilder {
     }
 
     let term = term.into();
-    let mut code_points = string_to_utf32(&term);
-    let term_length = code_points.len();
-    let prefix_length = prefix_length.min(term_length);
-    let suffix = if prefix_length == term_length {
-      Vec::new()
-    } else {
-      drop(code_points.drain(..prefix_length));
-      code_points
-    };
+    let mut chars = term.chars();
+    let mut term_length = 0;
+    let prefix = chars
+      .by_ref()
+      .take(prefix_length)
+      .inspect(|_| term_length += 1)
+      .collect();
+    let suffix: Vec<i32> = chars.map(|ch| ch as i32).collect();
+    term_length += suffix.len();
     let lev_builder = LevenshteinAutomata::from_word(suffix, char::MAX as i32, transpositions)?;
-    let prefix = term.chars().take(prefix_length).collect();
 
     Ok(Self {
       term,
@@ -103,8 +102,4 @@ impl FuzzyAutomatonBuilder {
       Err(err) => Err(err),
     }
   }
-}
-
-fn string_to_utf32(text: &str) -> Vec<i32> {
-  text.chars().map(|ch| ch as i32).collect()
 }

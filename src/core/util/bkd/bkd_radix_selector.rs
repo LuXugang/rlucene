@@ -753,7 +753,7 @@ impl<const N: usize> BKDRadixSelector<N> {
     let mut radix_selector = RadixSelector::new(max_length, sub_selector);
     radix_selector.select(from, to, partition_point)?;
 
-    let mut partition = vec![0u8; bytes_per_dim];
+    let mut partition = Vec::with_capacity(bytes_per_dim);
 
     {
       let point_value = points.get_packed_value_slice(partition_point)?;
@@ -762,7 +762,7 @@ impl<const N: usize> BKDRadixSelector<N> {
       let start = bytes.offset + (dim * bytes_per_dim);
       let end = start + bytes_per_dim;
 
-      partition.copy_from(&bytes.bytes[start..end], 0);
+      partition.extend_from_slice(&bytes.bytes[start..end]);
       Ok(partition)
     }
   }

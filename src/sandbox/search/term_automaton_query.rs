@@ -18,6 +18,7 @@ use crate::core::search::query::QueryRef;
 use std::fmt::Write as _;
 
 use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref::BytesRefValue;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -51,6 +52,7 @@ use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::automation::automaton::{Automaton, Builder};
 use crate::core::util::automation::operations::Operations;
+use crate::core::util::automation::run_automaton::RunAutomaton;
 use crate::core::util::automation::transition::Transition;
 use crate::core::util::automation::transition_accessor::TransitionAccessor;
 use crate::core::util::core_helper::HasIdentity;
@@ -63,7 +65,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// A proximity query that lets you express an automaton, whose transitions are terms, to match
 /// documents. This is a generalization of other proximity queries like [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery),
@@ -85,8 +87,8 @@ pub struct TermAutomatonQuery {
   field: String,
   builder: Builder,
   det: Option<Automaton>,
-  term_to_id: HashMap<Vec<u8>, i32>,
-  id_to_term: Vec<Option<BytesRef<Vec<u8>>>>,
+  term_to_id: HashMap<Arc<[u8]>, i32>,
+  id_to_term: Vec<Option<Arc<[u8]>>>,
   any_term_id: i32,
   hook: TermAutomatonQueryHook,
 }
@@ -255,8 +257,9 @@ impl TermAutomatonQuery {
     }
 
     let id = self.id_to_term.len() as i32;
-    self.term_to_id.insert(bytes.to_vec(), id);
-    self.id_to_term.push(Some(BytesRef::from(bytes)));
+    let term: Arc<[u8]> = Arc::from(bytes);
+    self.term_to_id.insert(Arc::clone(&term), id);
+    self.id_to_term.push(Some(term));
     Ok(id)
   }
 
@@ -313,7 +316,14 @@ impl TermAutomatonQuery {
             let term = self.id_to_term[term_id as usize]
               .as_ref()
               .ok_or_else(|| LuceneError::illegal_state("term id has no term"))?;
-            builder.push_str(&term.utf8_to_string()?);
+            builder.push_str(
+              BytesRef {
+                bytes: term.as_ref(),
+                offset: 0,
+                length: term.len(),
+              }
+              .utf8_to_string()?,
+            );
           }
           builder.push_str("\"]\n");
         }
@@ -369,10 +379,10 @@ impl Accountable for TermAutomatonQuery {
       size = size.saturating_add(det.ram_bytes_used()?);
     }
     for term in self.term_to_id.keys() {
-      size = size.saturating_add(term.capacity() as i64);
-    }
-    for term in self.id_to_term.iter().flatten() {
-      size = size.saturating_add(term.bytes.capacity() as i64);
+      // Both tables retain the same Arc allocation, including its two reference counts.
+      let allocation = (std::mem::size_of::<[std::sync::atomic::AtomicUsize; 2]>() + term.len())
+        .next_multiple_of(std::mem::align_of::<std::sync::atomic::AtomicUsize>());
+      size = size.saturating_add(allocation as i64);
     }
     Ok(size)
   }
@@ -462,7 +472,7 @@ impl TermAutomatonQueryDefaults {
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("singleton term is ANY"))?;
       return Ok(Some(
-        TermQuery::new(Term::new(query.field.clone(), term.clone())).into(),
+        TermQuery::new(Term::new(query.field.clone(), term.as_ref())).into(),
       ));
     }
 
@@ -511,7 +521,7 @@ impl TermAutomatonQueryDefaults {
             let bytes = query.id_to_term[term_id as usize]
               .as_ref()
               .ok_or_else(|| LuceneError::illegal_state("term id has no term"))?;
-            terms.push(Term::new(query.field.clone(), bytes.clone()));
+            terms.push(Term::new(query.field.clone(), bytes.as_ref()));
           }
         }
         multi_phrase_builder
@@ -595,7 +605,7 @@ impl QueryBase for TermAutomatonQuery {
       .id_to_term
       .iter()
       .flatten()
-      .map(|term| Term::new(self.field.clone(), term.clone()))
+      .map(|term| Term::new(self.field.clone(), term.as_ref()))
       .collect::<Vec<_>>();
     visitor.consume_terms(query, &terms)
   }
@@ -611,6 +621,7 @@ pub struct TermAutomatonWeight<
   #[allow(dead_code)]
   similarity: Arc<SIM>,
   parent_query: TermAutomatonQuery,
+  run_automaton: OnceLock<RunAutomaton>,
 }
 
 impl<SIM> Debug for TermAutomatonWeight<SIM>
@@ -647,7 +658,7 @@ where
     let mut all_term_stats = Vec::<TermStatistics>::with_capacity(query.id_to_term.len());
     for term in &query.id_to_term {
       if let Some(term) = term {
-        let index_term = Arc::new(Term::new(query.field.clone(), term.clone()));
+        let index_term = Arc::new(Term::new(query.field.clone(), term.as_ref()));
         let states = build(searcher, index_term.clone(), score_mode.needs_scores())?;
         if states.doc_freq()? > 0 {
           all_term_stats.push(searcher.term_statistics(
@@ -681,6 +692,7 @@ where
       stats,
       similarity,
       parent_query: query,
+      run_automaton: OnceLock::new(),
     })
   }
 
@@ -726,7 +738,14 @@ where
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("term states exist for ANY"))?;
       let mut terms_enum = field_terms.iterator()?;
-      terms_enum.seek_exact_with_state(term, state.as_ref())?;
+      terms_enum.seek_exact_with_state(
+        &BytesRef {
+          bytes: term.as_ref(),
+          offset: 0,
+          length: term.len(),
+        },
+        state.as_ref(),
+      )?;
       subs.push(EnumAndScorer::new(
         term_id as i32,
         terms_enum.postings_with_flags(None, POSITIONS as i32)?,
@@ -742,14 +761,22 @@ where
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("similarity scorer is missing"))?
       .clone();
+    let run_automaton = if let Some(compiled) = self.run_automaton.get() {
+      compiled.clone()
+    } else {
+      let compiled = RunAutomaton::new(
+        query
+          .det
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("Call finish first"))?
+          .clone(),
+        query.id_to_term.len(),
+      )?;
+      self.run_automaton.get_or_init(|| compiled).clone()
+    };
     Ok(Some(TermAutomatonScorer::new(
-      query
-        .det
-        .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("Call finish first"))?
-        .clone(),
+      run_automaton,
       subs,
-      query.id_to_term.len(),
       query.any_term_id,
       stats,
       norms,
@@ -823,7 +850,15 @@ where
           "term frequency in the document",
           vec![Explanation::match_no_details(
             term_score,
-            format!("score for term: {}", term.utf8_to_string()?),
+            format!(
+              "score for term: {}",
+              BytesRef {
+                bytes: term.as_ref(),
+                offset: 0,
+                length: term.len(),
+              }
+              .utf8_to_string()?
+            ),
           )],
         ));
       }

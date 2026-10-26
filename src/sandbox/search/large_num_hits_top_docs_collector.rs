@@ -63,8 +63,7 @@ impl LargeNumHitsTopDocsCollector {
       ));
     }
 
-    let mut results = vec![ScoreDoc::default(); how_many];
-    self.populate_results(&mut results, how_many)?;
+    let results = self.populate_results(how_many)?;
 
     Ok(self.new_top_docs(Some(results)))
   }
@@ -72,13 +71,14 @@ impl LargeNumHitsTopDocsCollector {
    * Populates the results array with the ScoreDoc instances. This can be
    * overridden in case a different ScoreDoc type should be returned.
    */
-  fn populate_results(&mut self, results: &mut [ScoreDoc], how_many: usize) -> Result<()> {
+  fn populate_results(&mut self, how_many: usize) -> Result<Vec<ScoreDoc>> {
     if let Some(pq) = &mut self.pq {
       debug_assert!(self.total_hits > self.requested_hit_count);
+      let mut results = vec![ScoreDoc::default(); how_many];
       for i in (0..how_many).rev() {
         results[i] = pq.pop_unchecked()?;
       }
-      return Ok(());
+      return Ok(results);
     }
 
     // Total number of hits collected were less than requestedHitCount
@@ -89,8 +89,7 @@ impl LargeNumHitsTopDocsCollector {
       .ok_or_else(|| LuceneError::illegal_state("hits list has already been converted to a PQ"))?;
     hits.sort_by(|a, b| CoreHelper::compare_f32(b.score, a.score).then_with(|| a.doc.cmp(&b.doc)));
 
-    results[..how_many].clone_from_slice(&hits[..how_many]);
-    Ok(())
+    Ok(hits[..how_many].to_vec())
   }
 
   /**
