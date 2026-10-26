@@ -127,7 +127,7 @@ pub(crate) struct State {
   pub(crate) id: Arc<str>,
   pub(crate) delete_queue: Arc<DocumentsWriterDeleteQueue>,
   has_flushed: OnceLock<bool>,
-  pub(crate) aborted: Arc<AtomicBool>,
+  pub(crate) aborted: AtomicBool,
 }
 impl State {
   pub(crate) fn is_flush_pending(&self) -> bool {
@@ -329,7 +329,7 @@ where
       id,
       delete_queue,
       has_flushed: OnceLock::new(),
-      aborted: Arc::new(AtomicBool::new(false)),
+      aborted: AtomicBool::new(false),
     };
     let parent_field = if let Some(parent_field) = index_writer_config.get_parent_field() {
       let field = NumericDocValuesField::new(parent_field, -1).into();

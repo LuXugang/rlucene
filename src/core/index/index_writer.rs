@@ -4370,8 +4370,8 @@ where
                 // no partial changes (eg a delete w/o
                 // corresponding to add from an updateDocument) can
                 // sneak into the commit point:
-                let commit_infos = Arc::new(Mutex::new(inner.segment_infos.try_clone()?));
-                to_commit = Some(commit_infos.clone());
+                let commit_infos =
+                  to_commit.insert(Arc::new(Mutex::new(inner.segment_infos.try_clone()?)));
                 self
                   .pending_commit_change_count
                   .store(inner.change_count, Ordering::SeqCst);
@@ -4388,7 +4388,7 @@ where
                   // We can safely call preparePointInTimeMerge since writeReaderPool(true) above wrote
                   // all necessary files to disk and checkpointed them.
                   point_in_time_merges = self.prepare_point_in_time_merge(
-                    commit_infos,
+                    Arc::clone(commit_infos),
                     stop_adding_merged_segments.clone(),
                     MergeTrigger::Commit,
                     PointInTimeMergeFinished::NoOp,
@@ -9241,7 +9241,7 @@ where
   D: Directory,
   CR: CodecReader,
 {
-  wrapped: Box<OneMergeHook<D, CR>>,
+  wrapped: OneMergeHook<D, CR>,
   merging_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
   stop_collecting_merge_results: Arc<AtomicBool>,
   trigger: MergeTrigger,
@@ -9256,7 +9256,7 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      wrapped: Box::new(OneMergeHook::Default),
+      wrapped: OneMergeHook::Default,
       merging_segment_infos: self.merging_segment_infos.clone(),
       stop_collecting_merge_results: self.stop_collecting_merge_results.clone(),
       trigger: self.trigger,
@@ -9291,7 +9291,7 @@ where
     merge_finished: PointInTimeMergeFinished<D>,
   ) -> Self {
     Self {
-      wrapped: Box::new(OneMergeHook::default()),
+      wrapped: OneMergeHook::default(),
       merging_segment_infos,
       stop_collecting_merge_results,
       trigger,
@@ -9302,7 +9302,7 @@ where
   }
 
   pub(crate) fn set_wrap(&mut self, to_wrap: OneMergeHook<D, CR>) {
-    *self.wrapped = to_wrap;
+    self.wrapped = to_wrap;
   }
 }
 

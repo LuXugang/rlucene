@@ -231,15 +231,13 @@ where
   pub fn close(&self) -> Result<()> {
     let _operation_lock = self.operation_lock.lock();
     self.closed.store(true, Ordering::SeqCst);
-    let to_close = self.searchers.read().values().cloned().collect::<Vec<_>>();
-
     // Remove up front in case closing fails, so a second close does not over-decRef.
-    {
-      let mut searchers = self.searchers.write();
-      for tracker in &to_close {
-        searchers.remove(&tracker.version);
-      }
-    }
+    let to_close = self
+      .searchers
+      .write()
+      .drain()
+      .map(|(_, tracker)| tracker)
+      .collect::<Vec<_>>();
 
     IOUtils::close_with(&to_close, |tracker| tracker.close())?;
 

@@ -327,9 +327,10 @@ where
       return Ok(());
     }
     let mut removed = Vec::with_capacity(self.commits.len());
+    // commits retains each owner until the compaction below.
     for commit in &self.commits {
       if commit.is_deleted() {
-        removed.push(Arc::clone(commit));
+        removed.push(commit);
       }
     }
 
@@ -347,7 +348,10 @@ where
         )?;
       }
       let failure = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        self.dec_ref(commit.files.iter())
+        #[cfg(test)]
+        let _execution_scope =
+          ExecutionScope::enter(ExecutionOwner::IndexFileDeleter, ExecutionMethod::DecRef);
+        self.file_deleter.dec_ref(commit.files.iter())
       }));
       if !matches!(&failure, Ok(Ok(()))) {
         match first_failure.as_mut() {

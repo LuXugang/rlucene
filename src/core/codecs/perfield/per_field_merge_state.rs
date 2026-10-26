@@ -195,6 +195,14 @@ pub(crate) struct FilterFieldsIterator<'a, N> {
   fields: std::slice::Iter<'a, N>,
 }
 
+impl<'a, N> FilterFieldsIterator<'a, N> {
+  pub(super) fn new(fields: &'a [N]) -> Self {
+    Self {
+      fields: fields.iter(),
+    }
+  }
+}
+
 impl<'a, N> IteratorExt for FilterFieldsIterator<'a, N>
 where
   N: Borrow<String>,
@@ -221,9 +229,7 @@ where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(FilterFieldsIterator {
-      fields: self.filtered.iter(),
-    })
+    Ok(FilterFieldsIterator::new(self.filtered))
   }
 
   type Terms = P::Terms;

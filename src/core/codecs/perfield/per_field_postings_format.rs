@@ -18,7 +18,9 @@
 use crate::core::codecs::fields_consumer::FieldsConsumer;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::norms_producer::NormsProducer;
-use crate::core::codecs::perfield::per_field_merge_state::PerFieldMergeState;
+use crate::core::codecs::perfield::per_field_merge_state::{
+  FilterFieldsIterator, PerFieldMergeState,
+};
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
@@ -31,7 +33,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::iterator::{IteratorExt, VecIter, VecIteratorExt};
+use crate::core::util::iterator::IteratorExt;
 use crate::core::util::merged_iterator::MergedIterator;
 use crate::core::util::{HasIdentity, IOUtils};
 use std::collections::BTreeMap;
@@ -109,22 +111,23 @@ impl<B> HasIdentity for PerFieldPostingsFormat<B> {
 ///
 /// `state` is the custom segment-write state for this group of fields, with a
 /// segment suffix unique to this postings format.
-struct FieldsGroup<'a, D> {
-  fields: Vec<String>,
+struct FieldsGroup<'a, 'fields, D> {
+  fields: Vec<&'fields String>,
   #[allow(dead_code)]
   suffix: i32,
   state: SegmentWriteState<'a, D>,
 }
 
-type FieldsGroupMapping<'a, 'b, F, D> = HashMap<&'b Identity, (&'b F, FieldsGroup<'a, D>)>;
+type FieldsGroupMapping<'a, 'b, 'fields, F, D> =
+  HashMap<&'b Identity, (&'b F, FieldsGroup<'a, 'fields, D>)>;
 
-struct FieldsGroupBuilder<'a, D> {
-  fields: HashSet<String>,
+struct FieldsGroupBuilder<'a, 'fields, D> {
+  fields: HashSet<&'fields String>,
   suffix: i32,
   state: SegmentWriteState<'a, D>,
 }
 
-impl<'a, D> FieldsGroupBuilder<'a, D> {
+impl<'a, 'fields, D> FieldsGroupBuilder<'a, 'fields, D> {
   fn new(suffix: i32, state: SegmentWriteState<'a, D>) -> Self {
     Self {
       fields: HashSet::new(),
@@ -133,12 +136,12 @@ impl<'a, D> FieldsGroupBuilder<'a, D> {
     }
   }
 
-  fn add_field(&mut self, field: String) {
+  fn add_field(&mut self, field: &'fields String) {
     self.fields.insert(field);
   }
 
-  fn build(self) -> FieldsGroup<'a, D> {
-    let mut fields: Vec<String> = self.fields.into_iter().collect();
+  fn build(self) -> FieldsGroup<'a, 'fields, D> {
+    let mut fields: Vec<&'fields String> = self.fields.into_iter().collect();
     fields.sort_unstable();
     FieldsGroup {
       fields,
@@ -191,19 +194,19 @@ impl<B> FieldsWriter<B>
 where
   B: PerFieldPostingsFormatBase,
 {
-  fn build_fields_group_mapping<'a, 'b, 'c, D1, I>(
+  fn build_fields_group_mapping<'a, 'b, 'fields, D1, I>(
     base: &'b B,
     write_state: &SegmentWriteState<'a, D1>,
     indexed_field_names: &mut I,
-  ) -> Result<FieldsGroupMapping<'a, 'b, B::Format, D1>>
+  ) -> Result<FieldsGroupMapping<'a, 'b, 'fields, B::Format, D1>>
   where
     D1: Directory,
-    I: IteratorExt<Item = &'c String>,
+    I: IteratorExt<Item = &'fields String>,
   {
     // Maps a PostingsFormat instance to the suffix it should use.
     let mut format_to_group_builders: HashMap<
       &'b Identity,
-      (&'b B::Format, FieldsGroupBuilder<'a, D1>),
+      (&'b B::Format, FieldsGroupBuilder<'a, 'fields, D1>),
     > = HashMap::new();
 
     // Holds last suffix of each PostingsFormat name.
@@ -267,7 +270,7 @@ where
         },
       };
 
-      group_builder.add_field(field.clone());
+      group_builder.add_field(field);
       field_info.put_attribute(PER_FIELD_FORMAT_KEY.to_string(), format_name.to_string());
       field_info.put_attribute(
         PER_FIELD_SUFFIX_KEY.to_string(),
@@ -598,11 +601,11 @@ where
 
 struct FilterFields<'a, F> {
   in_: &'a F,
-  fields: &'a Vec<String>,
+  fields: &'a [&'a String],
 }
 
 impl<'a, F> FilterFields<'a, F> {
-  fn new(in_: &'a F, fields: &'a Vec<String>) -> Self {
+  fn new(in_: &'a F, fields: &'a [&'a String]) -> Self {
     Self { in_, fields }
   }
 }
@@ -612,12 +615,12 @@ where
   F: Fields,
 {
   type FieldIter<'a>
-    = VecIter<'a, String>
+    = FilterFieldsIterator<'a, &'a String>
   where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(self.fields.iter_ext())
+    Ok(FilterFieldsIterator::new(self.fields))
   }
 
   type Terms = F::Terms;

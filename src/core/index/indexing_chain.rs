@@ -999,11 +999,16 @@ where
     )?;
 
     let fi = field_infos.add_owned(field_info)?;
-    pf.set_field_info(fi.clone());
+    let indexed = *fi.get_index_options() != IndexOptions::None;
+    pf.set_field_info(fi);
 
-    if *fi.get_index_options() != IndexOptions::None {
+    if indexed {
       pf.set_invert_state(&mut self.terms_hash, &self.bytes_used)?;
     }
+    let fi = pf
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
 
     match fi.get_doc_values_type() {
       DocValuesType::None => {},
@@ -1046,7 +1051,9 @@ where
         &mut self.has_hit_aborting_exception,
         aborting_exception,
         "panic while adding vector field",
-        self.vector_values_consumer.add_field(fi, segment_info)
+        self
+          .vector_values_consumer
+          .add_field(Arc::clone(fi), segment_info)
       )?;
       pf.knn_field_vectors_writer = Some(writer);
     }
