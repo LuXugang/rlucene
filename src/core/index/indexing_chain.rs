@@ -20,7 +20,7 @@ use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::codecs::norms_format::NormsFormat;
-use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
+use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
 use crate::core::document::fields::{FieldTokenStreamEnum, Fields, dispatch_fields};
@@ -444,25 +444,29 @@ where
         Some(norms) => norms.get_merge_instance()?,
         None => None,
       };
-      let norms_for_flush = norms_merge_instance
-        .as_ref()
-        .map(NormsProducerEnum2::B)
-        .or_else(|| norms.as_ref().map(NormsProducerEnum2::A));
-
-      // flush postings + vectors
-      let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
-      let byte_pool = std::mem::take(&mut self.context.byte_pool);
-      self.terms_hash.flush(
-        fields_to_flush,
-        state,
-        sort_map.as_ref(),
-        norms_for_flush.as_ref(),
-        index_writer_config.get_codec(),
-        segment_info,
-        seg_updates,
-        int_pool,
-        byte_pool,
-      )
+      // Keep the selected producer concrete throughout postings consumption.
+      macro_rules! flush_with_norms {
+        ($norms:expr) => {{
+          let norms_for_flush = $norms;
+          let int_pool = std::mem::take(&mut self.context.freq_prox_term_int_pool);
+          let byte_pool = std::mem::take(&mut self.context.byte_pool);
+          self.terms_hash.flush(
+            fields_to_flush,
+            state,
+            sort_map.as_ref(),
+            norms_for_flush,
+            index_writer_config.get_codec(),
+            segment_info,
+            seg_updates,
+            int_pool,
+            byte_pool,
+          )
+        }};
+      }
+      match norms_merge_instance.as_ref() {
+        Some(merge_norms) => flush_with_norms!(Some(merge_norms)),
+        None => flush_with_norms!(norms.as_ref()),
+      }
     }));
     let close_result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match norms.as_mut() {
