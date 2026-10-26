@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::Analyzer;
-use crate::core::analysis::token_stream::TokenStream;
+use crate::core::analysis::token_stream::{AnalyzerTokenStreams, TokenStream};
 use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
@@ -23,7 +23,7 @@ use crate::core::codecs::norms_format::NormsFormat;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
 use crate::core::codecs::points_format::PointsFormat;
 use crate::core::codecs::points_writer::PointsWriter;
-use crate::core::document::fields::{Fields, dispatch_fields};
+use crate::core::document::fields::{FieldTokenStreamEnum, Fields, dispatch_fields};
 use crate::core::document::invertable_field::InvertableType;
 use crate::core::index::BinaryValueEnum;
 use crate::core::index::BytesRef;
@@ -57,7 +57,7 @@ use std::borrow::{Borrow, BorrowMut, Cow};
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
-use crate::core::document::field::FieldDataEnum;
+use crate::core::document::field::{FieldDataEnum, IndexingTokenStreamEnum3};
 use crate::core::index::BytesRefValue;
 use crate::core::index::index_writer::{MAX_POSITION, MAX_STORED_STRING_LENGTH, MAX_TERM_LENGTH};
 use crate::core::index::indexable_field::{
@@ -1703,6 +1703,11 @@ impl PerField {
       let mut stream = field
         .token_stream(analyzer, &mut self.token_stream)?
         .ok_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))?;
+      // Keep the owner (including the analyzer's RefMut) alive while a concrete
+      // stream is borrowed for the entire reset/increment/end/close sequence.
+      macro_rules! consume_stream {
+        ($stream:expr) => {{
+          let stream = $stream;
       let stream_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
         || -> Result<()> {
           stream.reset()?;
@@ -1838,6 +1843,24 @@ impl PerField {
       succeeded_in_processing_field = matches!(&stream_result, Ok(Ok(())));
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| stream.close()));
       IOUtils::use_or_suppress_caught_result(stream_result, close_result)
+        }};
+      }
+      match &mut stream {
+        IndexingTokenStreamEnum3::AnalyzerTokenStream(stream) => match &mut **stream {
+          AnalyzerTokenStreams::Whitespace(stream) => consume_stream!(stream),
+          AnalyzerTokenStreams::Standard(stream) => consume_stream!(stream),
+          AnalyzerTokenStreams::Dummy(stream) => consume_stream!(stream),
+          AnalyzerTokenStreams::Custom(stream) => consume_stream!(stream),
+        },
+        IndexingTokenStreamEnum3::Reused(stream) => match &mut **stream {
+          ReusedIndexingTokenStream::A(stream) => consume_stream!(stream),
+          ReusedIndexingTokenStream::B(stream) => consume_stream!(stream),
+        },
+        IndexingTokenStreamEnum3::FieldTokenStream(stream) => match &mut **stream {
+          FieldTokenStreamEnum::Dummy(stream) => consume_stream!(stream),
+          FieldTokenStreamEnum::Custom(stream) => consume_stream!(stream),
+        },
+      }
     }));
 
     if !succeeded_in_processing_field && info_stream.is_enabled("DW") {
