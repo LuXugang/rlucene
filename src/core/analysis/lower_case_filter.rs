@@ -52,9 +52,21 @@ where
 {
   fn increment_token(&mut self) -> Result<bool> {
     if self.token_filter_base.input.increment_token()? {
-      let attr = self.get_attribute_source_mut();
-      let len = attr.length()?;
-      CharacterUtils::convert_to_lower_case(attr.buffer_mut()?, 0, len);
+      // Select the current attributes after each successful input token.
+      macro_rules! lower_case {
+        ($attr:expr) => {{
+          let attr = $attr;
+          let len = attr.length()?;
+          CharacterUtils::convert_to_lower_case(attr.buffer_mut()?, 0, len);
+        }};
+      }
+      match self.get_attribute_source_mut() {
+        Attributes::PackedToken(attr) => lower_case!(attr),
+        Attributes::BytesTerm(attr) => lower_case!(attr),
+        Attributes::BinaryTokenStream(attr) => lower_case!(attr),
+        #[cfg(test)]
+        Attributes::RandomTokenStream(attr) => lower_case!(attr),
+      }
       Ok(true)
     } else {
       Ok(false)

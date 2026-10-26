@@ -73,7 +73,14 @@ where
     self.skipped_positions = 0;
     {
       let att = self.base.input.get_attribute_source_mut();
-      if att.get_position_increment().is_err() {
+      let missing_position_increment = match att {
+        Attributes::PackedToken(att) => att.get_position_increment().is_err(),
+        Attributes::BytesTerm(att) => att.get_position_increment().is_err(),
+        Attributes::BinaryTokenStream(att) => att.get_position_increment().is_err(),
+        #[cfg(test)]
+        Attributes::RandomTokenStream(att) => att.get_position_increment().is_err(),
+      };
+      if missing_position_increment {
         return Err(LuceneError::illegal_state(
           "PositionIncrementAttribute is missing",
         ));
