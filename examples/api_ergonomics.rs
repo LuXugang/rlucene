@@ -63,7 +63,7 @@ use rlucene::core::search::term_in_set_query::TermInSetQuery;
 use rlucene::core::search::term_query::TermQuery;
 use rlucene::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use rlucene::core::store::data_input::DataInput;
-use rlucene::core::store::fs_directory::FSDirectory;
+use rlucene::core::store::mmap_directory::MMapDirectory;
 use rlucene::core::util::close::CloseableRef;
 use rlucene::core::util::error::lucene_error::Result;
 use rlucene::core::util::fixed_bit_set::FixedBitSet;
@@ -99,7 +99,7 @@ fn main() -> Result<()> {
 
   let temp = tempfile::tempdir()?;
   // Paths can be borrowed; no PathBuf conversion is needed at the call site.
-  let directory = Arc::new(FSDirectory::open(temp.path())?);
+  let directory = Arc::new(MMapDirectory::new(temp.path())?);
   let directory_result = (|| -> Result<()> {
     let writer = IndexWriter::new(directory.clone(), IndexWriterConfig::new()?)?;
     let writer_result = (|| -> Result<()> {

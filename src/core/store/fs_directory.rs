@@ -225,9 +225,12 @@ where
 }
 
 impl FSDirectory<LockFactoryEnum, FSDirectoryBaseEnum> {
-  /// Creates an [`FSDirectory`] instance, selecting the best implementation
-  /// for the current platform and using the default lock factory.
-  pub fn open<P>(directory: P) -> Result<FSDirectories>
+  /// Selects a directory implementation for internal tools and tests.
+  ///
+  /// Unlike Java's public factory, this is crate-private because its enum return
+  /// type can carry backend dispatch into reads. Public callers should construct
+  /// `MMapDirectory` or `NIOFSDirectory` directly to retain the concrete input type.
+  pub(crate) fn open<P>(directory: P) -> Result<FSDirectories>
   where
     P: Into<PathBuf>,
   {
@@ -235,7 +238,11 @@ impl FSDirectory<LockFactoryEnum, FSDirectoryBaseEnum> {
   }
 
   /// Just like [`FSDirectory::open`], but uses the provided lock factory.
-  pub fn open_with_lock<L, P>(directory: P, lock_factory: L) -> Result<FSDirectories>
+  ///
+  /// Unlike Java's public overload, this is crate-private to keep the enum-backed
+  /// factory for internal tools and tests. Public callers should use a concrete
+  /// backend's `with_lock_factory` constructor to retain its concrete input type.
+  pub(crate) fn open_with_lock<L, P>(directory: P, lock_factory: L) -> Result<FSDirectories>
   where
     L: Into<LockFactoryEnum>,
     P: Into<PathBuf>,
