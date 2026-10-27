@@ -514,21 +514,38 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   {
     let mut writer = DirectWriter::get_instance(&mut self.data, num_values, num_bits_per_value)?;
 
+    match encode.as_ref() {
+      Some(map) => {
+        Self::write_values_with_encoder(values, &mut writer, |v| *map.get(&v).unwrap_or(&0))?;
+      },
+      None => {
+        Self::write_values_with_encoder(values, &mut writer, |v| v.wrapping_sub(min) / gcd)?;
+      },
+    }
+
+    writer.finish()?;
+    Ok(())
+  }
+
+  fn write_values_with_encoder<T, E>(
+    values: &mut T,
+    writer: &mut DirectWriter<'_, O>,
+    mut encode_value: E,
+  ) -> Result<()>
+  where
+    T: SortedNumericDocValues,
+    E: FnMut(i64) -> i64,
+  {
     let mut doc = values.next_doc()?;
     while doc != NO_MORE_DOCS {
       for _ in 0..values.doc_value_count()? {
         let v = values.next_value()?;
-        let encoded = if let Some(map) = &encode {
-          *map.get(&v).unwrap_or(&0)
-        } else {
-          v.wrapping_sub(min) / gcd
-        };
+        let encoded = encode_value(v);
         writer.add(encoded)?;
       }
       doc = values.next_doc()?;
     }
 
-    writer.finish()?;
     Ok(())
   }
 
