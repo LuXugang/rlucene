@@ -961,7 +961,23 @@ pub type CPEnumType2<NP, LR> = ComparableProviderEnum4<ProviderNumeric<NP, LR>>;
 pub trait DocComparator {
   /// Compare docID1 against docID2.
   fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32;
+
+  /// Visits the comparator without changing its comparison semantics.
+  fn visit<V: DocComparatorVisitor>(&self, visitor: V) -> V::Output
+  where
+    Self: Sized,
+  {
+    visitor.visit(self)
+  }
 }
+
+/// An operation over a concrete, borrowed document comparator.
+pub trait DocComparatorVisitor {
+  type Output;
+
+  fn visit<DC: DocComparator>(self, comparator: &DC) -> Self::Output;
+}
+
 macro_rules! either_doc_comparator {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {
@@ -976,6 +992,12 @@ macro_rules! either_doc_comparator {
             fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
                 match self {
                     $( Self::$Variant(inner) => inner.compare(doc_id1, doc_id2), )+
+                }
+            }
+
+            fn visit<V: DocComparatorVisitor>(&self, visitor: V) -> V::Output {
+                match self {
+                    $( Self::$Variant(inner) => inner.visit(visitor), )+
                 }
             }
         }

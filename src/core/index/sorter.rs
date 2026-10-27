@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::index_sorter::{DocComparator, DocComparatorImpl, IndexSorter};
+use crate::core::index::index_sorter::{
+  DocComparator, DocComparatorImpl, DocComparatorVisitor, IndexSorter,
+};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
@@ -187,6 +189,9 @@ impl Sorter {
   where
     DC: DocComparator,
   {
+    if let [comparator] = comparators.as_slice() {
+      return comparator.visit(SingleComparatorVisitor { max_doc });
+    }
     let composite = {
       #[inline(never)]
       move |doc_id1: usize, doc_id2: usize| {
@@ -201,6 +206,28 @@ impl Sorter {
       }
     };
     Self::sort_impl(max_doc, composite)
+  }
+}
+
+struct SingleComparatorVisitor {
+  max_doc: i32,
+}
+
+impl DocComparatorVisitor for SingleComparatorVisitor {
+  type Output = Result<Option<DocMapImpl>>;
+
+  fn visit<DC: DocComparator>(self, comparator: &DC) -> Self::Output {
+    let composite = {
+      #[inline(never)]
+      move |doc_id1: usize, doc_id2: usize| {
+        let comp = comparator.compare(doc_id1, doc_id2);
+        if comp != 0 {
+          return comp;
+        }
+        doc_id1.cmp(&doc_id2).to_int()
+      }
+    };
+    Sorter::sort_impl(self.max_doc, composite)
   }
 }
 
