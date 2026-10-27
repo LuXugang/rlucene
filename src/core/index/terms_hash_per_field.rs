@@ -144,16 +144,12 @@ impl<PA: PostingsArray> TermsHashPerField<PA> {
     self.bytes_hash.ids.as_slice()
   }
 
-  pub(crate) fn write_byte(
+  fn write_byte(
     &self,
-    stream: i32,
+    stream_address: &mut i32,
     b: u8,
-    int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
-    let stream_address = (self.stream_address_offset + stream) as usize;
-    let term_stream_address_buffer = int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
-    let stream_address = &mut term_stream_address_buffer[stream_address];
     let upto = *stream_address;
     let mut block_index = (upto >> BYTE_BLOCK_SHIFT) as usize;
     debug_assert!(block_index <= byte_pool.buffer_upto()?);
@@ -228,11 +224,14 @@ impl<PA: PostingsArray> TermsHashPerField<PA> {
     byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
     debug_assert!(stream < self.stream_count);
+    let stream_address = (self.stream_address_offset + stream) as usize;
+    let term_stream_address_buffer = int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
+    let stream_address = &mut term_stream_address_buffer[stream_address];
     while (i & !0x7F) != 0 {
-      self.write_byte(stream, ((i & 0x7F) | 0x80) as u8, int_pool, byte_pool)?;
+      self.write_byte(stream_address, ((i & 0x7F) | 0x80) as u8, byte_pool)?;
       i = ((i as u32) >> 7) as i32;
     }
-    self.write_byte(stream, i as u8, int_pool, byte_pool)
+    self.write_byte(stream_address, i as u8, byte_pool)
   }
 
   pub(crate) fn get_num_terms(&self) -> usize {
