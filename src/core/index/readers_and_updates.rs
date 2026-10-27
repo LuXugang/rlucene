@@ -26,11 +26,11 @@ use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNume
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::doc_values_field_updates::merged_iterator;
 use crate::core::index::doc_values_field_updates::{
   BinaryDocValuesDVFU, DocValuesFieldIterator, DocValuesFieldIteratorEnum,
-  DocValuesFieldUpdatesEnum, MergedIterator, NumericDocValuesDVFU,
+  DocValuesFieldUpdatesEnum, MergedFieldIterator, MergedIterator, NumericDocValuesDVFU,
 };
+use crate::core::index::doc_values_field_updates::{merged_field_iterator, merged_iterator};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
@@ -495,7 +495,7 @@ where
 
             inner.pending_deletes.on_doc_values_update(
               field_info,
-              update_supplier.apply(field_info)?,
+              update_supplier.apply_legacy(field_info)?,
               info,
             )?;
             if ty == DocValuesType::Binary {
@@ -1025,8 +1025,8 @@ struct MergedDocValues<DI> {
 
   on_disk_doc_values: Option<DI>,
   update_doc_values: DocIdSetIteratorEnum2<
-    BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
-    NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
+    BinaryDocValuesDVFU<MergedFieldIterator>,
+    NumericDocValuesDVFU<MergedFieldIterator>,
   >,
   current_values_supplier: Option<CurrentSource>,
 }
@@ -1034,8 +1034,8 @@ impl<DI> MergedDocValues<DI> {
   pub fn new(
     on_disk_doc_values: Option<DI>,
     update_doc_values: DocIdSetIteratorEnum2<
-      BinaryDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
-      NumericDocValuesDVFU<MergedIterator<DocValuesFieldIteratorEnum>>,
+      BinaryDocValuesDVFU<MergedFieldIterator>,
+      NumericDocValuesDVFU<MergedFieldIterator>,
     >,
   ) -> Self {
     Self {
@@ -1423,13 +1423,16 @@ impl<'a> FunctionImpl<'a> {
     }
   }
 }
-impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>>
-  for FunctionImpl<'_>
-{
-  fn apply(
+impl FunctionImpl<'_> {
+  // Preserve the original carrier for pending (including soft) delete callbacks.
+  fn apply_legacy(
     &self,
     info: &Arc<FieldInfo>,
   ) -> Result<Option<MergedIterator<DocValuesFieldIteratorEnum>>> {
+    merged_iterator(self.iterators(info)?)
+  }
+
+  fn iterators(&self, info: &Arc<FieldInfo>) -> Result<Vec<DocValuesFieldIteratorEnum>> {
     if !Arc::ptr_eq(info, self.field_info) {
       return Err(LuceneError::illegal_argument(format!(
         "expected field info for field: {} but got: {}",
@@ -1441,7 +1444,12 @@ impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>
     for v in &self.updates_to_apply {
       subs.push(v.iterator()?)
     }
-    merged_iterator(subs)
+    Ok(subs)
+  }
+}
+impl Function<Arc<FieldInfo>, Option<MergedFieldIterator>> for FunctionImpl<'_> {
+  fn apply(&self, info: &Arc<FieldInfo>) -> Result<Option<MergedFieldIterator>> {
+    merged_field_iterator(self.iterators(info)?)
   }
 }
 

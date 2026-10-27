@@ -908,6 +908,118 @@ where
   }
 }
 
+pub(crate) enum MergedFieldIterator {
+  Binary(MergedIterator<AbstractIterator<AbstractIteratorBinary>>),
+  Numeric(MergedIterator<AbstractIterator<AbstractIteratorNumeric>>),
+  Single(MergedIterator<SingleValueDocValuesFieldUpdatesIterator>),
+  Mixed(MergedIterator<DocValuesFieldIteratorEnum>),
+}
+macro_rules! dispatch_merged_field_iterator {
+  ($this:expr, $inner:ident => $body:expr) => {
+    match $this {
+      MergedFieldIterator::Binary($inner) => $body,
+      MergedFieldIterator::Numeric($inner) => $body,
+      MergedFieldIterator::Single($inner) => $body,
+      MergedFieldIterator::Mixed($inner) => $body,
+    }
+  };
+}
+impl DocValuesIterator for MergedFieldIterator {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    dispatch_merged_field_iterator!(self, inner => inner.advance_exact(target))
+  }
+}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MergedFieldIterator {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MergedFieldIterator {}
+impl DocIdSetIterator for MergedFieldIterator {
+  fn doc_id(&self) -> i32 {
+    dispatch_merged_field_iterator!(self, inner => inner.doc_id())
+  }
+  fn next_doc(&mut self) -> Result<i32> {
+    dispatch_merged_field_iterator!(self, inner => inner.next_doc())
+  }
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    dispatch_merged_field_iterator!(self, inner => inner.advance(target))
+  }
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    dispatch_merged_field_iterator!(self, inner => inner.slow_advance(target))
+  }
+  fn cost(&self) -> Result<i64> {
+    dispatch_merged_field_iterator!(self, inner => inner.cost())
+  }
+}
+impl DocValuesFieldIterator for MergedFieldIterator {
+  fn long_value(&self) -> Result<i64> {
+    match self {
+      Self::Binary(inner) => {
+        inner
+          .queue
+          .top()
+          .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
+        Err(LuceneError::illegal_state(
+          "long_value is not supported for binary doc values",
+        ))
+      },
+      Self::Numeric(inner) => inner.long_value(),
+      Self::Single(inner) => inner.long_value(),
+      Self::Mixed(inner) => inner.long_value(),
+    }
+  }
+  fn binary_value(&self) -> Result<BytesRef<&[u8]>> {
+    dispatch_merged_field_iterator!(self, inner => inner.binary_value())
+  }
+  fn del_gen(&self) -> Result<i64> {
+    dispatch_merged_field_iterator!(self, inner => inner.del_gen())
+  }
+  fn has_value(&self) -> Result<bool> {
+    dispatch_merged_field_iterator!(self, inner => inner.has_value())
+  }
+}
+
+pub(crate) fn merged_field_iterator(
+  subs: Vec<DocValuesFieldIteratorEnum>,
+) -> Result<Option<MergedFieldIterator>> {
+  if subs
+    .iter()
+    .all(|sub| matches!(sub, DocValuesFieldIteratorEnum::AbstractBinary(_)))
+  {
+    let subs = subs
+      .into_iter()
+      .filter_map(|sub| match sub {
+        DocValuesFieldIteratorEnum::AbstractBinary(inner) => Some(inner),
+        _ => None,
+      })
+      .collect();
+    merged_iterator(subs).map(|merged| merged.map(MergedFieldIterator::Binary))
+  } else if subs
+    .iter()
+    .all(|sub| matches!(sub, DocValuesFieldIteratorEnum::AbstractNumeric(_)))
+  {
+    let subs = subs
+      .into_iter()
+      .filter_map(|sub| match sub {
+        DocValuesFieldIteratorEnum::AbstractNumeric(inner) => Some(inner),
+        _ => None,
+      })
+      .collect();
+    merged_iterator(subs).map(|merged| merged.map(MergedFieldIterator::Numeric))
+  } else if subs
+    .iter()
+    .all(|sub| matches!(sub, DocValuesFieldIteratorEnum::SingleValue(_)))
+  {
+    let subs = subs
+      .into_iter()
+      .filter_map(|sub| match sub {
+        DocValuesFieldIteratorEnum::SingleValue(inner) => Some(inner),
+        _ => None,
+      })
+      .collect();
+    merged_iterator(subs).map(|merged| merged.map(MergedFieldIterator::Single))
+  } else {
+    merged_iterator(subs).map(|merged| merged.map(MergedFieldIterator::Mixed))
+  }
+}
+
 pub(crate) struct MergedIterator<T> {
   queue: PriorityQueue<T, IteratorPQCmp>,
   doc: i32,
