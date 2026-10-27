@@ -49,7 +49,7 @@ impl MatchesIterator for DummyMatchesIterator {
     dummy_unreachable!()
   }
 
-  fn get_query(&self) -> Result<Arc<Query>> {
+  fn get_query(&self) -> Result<&Arc<Query>> {
     dummy_unreachable!()
   }
 }

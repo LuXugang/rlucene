@@ -57,8 +57,12 @@ use std::sync::Arc;
 pub struct LatLonDocValuesQuery {
   id: Identity,
   field: String,
-  geometries: Arc<Vec<LatLonGeometryEnum>>,
+  data: Arc<LatLonDocValuesQueryData>,
   query_relation: QueryRelation,
+}
+
+struct LatLonDocValuesQueryData {
+  geometries: Vec<LatLonGeometryEnum>,
   component2d: Arc<LatLonGeometryType<<LatLonGeometryEnum as Geometry>::Component2D>>,
 }
 
@@ -89,13 +93,15 @@ impl LatLonDocValuesQuery {
       }
     }
     let component2d = Arc::new(lat_lon_geometry::create(geometries.as_slice())?);
-    let geometries = Arc::new(geometries);
+    let data = Arc::new(LatLonDocValuesQueryData {
+      geometries,
+      component2d,
+    });
     Ok(Self {
       id: Identity::new(),
       field,
-      geometries,
+      data,
       query_relation,
-      component2d,
     })
   }
 }
@@ -111,9 +117,10 @@ impl Debug for LatLonDocValuesQuery {
 
 impl PartialEq for LatLonDocValuesQuery {
   fn eq(&self, other: &Self) -> bool {
+    // Preserve the original shared-geometry equality fast path.
     self.field == other.field
       && self.query_relation == other.query_relation
-      && self.geometries == other.geometries
+      && (Arc::ptr_eq(&self.data, &other.data) || self.data.geometries == other.data.geometries)
   }
 }
 
@@ -126,7 +133,7 @@ impl Hash for LatLonDocValuesQuery {
   {
     self.field.hash(state);
     self.query_relation.hash(state);
-    self.geometries.hash(state);
+    self.data.geometries.hash(state);
   }
 }
 
@@ -152,7 +159,7 @@ impl QueryBase for LatLonDocValuesQuery {
     write!(sb, "{:?}", self.query_relation)?;
     sb.push(':');
     sb.push_str("geometries(");
-    for (i, geometry) in self.geometries.iter().enumerate() {
+    for (i, geometry) in self.data.geometries.iter().enumerate() {
       if i > 0 {
         sb.push_str(", ");
       }
@@ -205,7 +212,7 @@ impl LatLonDocValuesQueryWeight {
       None
     } else {
       Some(Arc::new(GeoEncodingUtils::create_component_predicate(
-        query.component2d.clone(),
+        query.data.component2d.clone(),
       )?))
     };
     Ok(Self {
@@ -296,7 +303,7 @@ where
           )),
           QueryRelation::Contains => LatLonDocValuesTwoPhaseIterator::Contains(ContainsTPI::new(
             values,
-            self.query.geometries.as_slice(),
+            self.query.data.geometries.as_slice(),
           )?),
         };
         let scorer = ConstantScoreScorer::from_tpi(self.boost, self.score_mode, iterator);

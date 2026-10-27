@@ -147,7 +147,7 @@ macro_rules! iterator_nodes {
    fn end_position(&self) -> Result<i32> { dispatch_iterator!(&self.inner, |m| MatchesIterator::end_position(&**m)) }
    fn start_offset(&self) -> Result<i32> { dispatch_iterator!(&self.inner, |m| MatchesIterator::start_offset(&**m)) }
    fn end_offset(&self) -> Result<i32> { dispatch_iterator!(&self.inner, |m| MatchesIterator::end_offset(&**m)) }
-   fn get_query(&self) -> Result<Arc<Query>> { dispatch_iterator!(&self.inner, |m| MatchesIterator::get_query(&**m)) }
+   fn get_query(&self) -> Result<&Arc<Query>> { dispatch_iterator!(&self.inner, |m| MatchesIterator::get_query(&**m)) }
    fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {
     match &mut self.inner {
      $( $(#[$attr])* MatchesIteratorNode::$variant(m) => { let sub = MatchesIterator::get_sub_matches(&mut **m)?; debug_assert!(sub.is_none()); Ok(None) }, )+
@@ -180,7 +180,7 @@ pub trait TestMatchesIterator {
   fn end_position(&self) -> Result<i32>;
   fn start_offset(&self) -> Result<i32>;
   fn end_offset(&self) -> Result<i32>;
-  fn get_query(&self) -> Result<Arc<Query>>;
+  fn get_query(&self) -> Result<&Arc<Query>>;
   fn erased_sub_matches(&mut self) -> Result<Option<Box<dyn TestMatchesIterator + '_>>>;
 }
 #[cfg(test)]
@@ -200,7 +200,7 @@ impl<M: MatchesIterator> TestMatchesIterator for M {
   fn end_offset(&self) -> Result<i32> {
     MatchesIterator::end_offset(self)
   }
-  fn get_query(&self) -> Result<Arc<Query>> {
+  fn get_query(&self) -> Result<&Arc<Query>> {
     MatchesIterator::get_query(self)
   }
   fn erased_sub_matches(&mut self) -> Result<Option<Box<dyn TestMatchesIterator + '_>>> {
@@ -232,7 +232,7 @@ impl MatchesIterator for dyn TestMatchesIterator + '_ {
   fn end_offset(&self) -> Result<i32> {
     TestMatchesIterator::end_offset(self)
   }
-  fn get_query(&self) -> Result<Arc<Query>> {
+  fn get_query(&self) -> Result<&Arc<Query>> {
     TestMatchesIterator::get_query(self)
   }
   fn get_sub_matches(&mut self) -> Result<Option<Self::SubMatches<'_>>> {

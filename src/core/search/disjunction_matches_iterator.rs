@@ -134,7 +134,7 @@ where
       .get_sub_matches()
   }
 
-  fn get_query(&self) -> Result<Arc<Query>> {
+  fn get_query(&self) -> Result<&Arc<Query>> {
     self
       .queue
       .top()
@@ -283,7 +283,7 @@ where
       .get_sub_matches()
   }
 
-  fn get_query(&self) -> Result<Arc<Query>> {
+  fn get_query(&self) -> Result<&Arc<Query>> {
     self
       .it
       .as_ref()

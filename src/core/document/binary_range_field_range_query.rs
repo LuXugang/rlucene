@@ -53,12 +53,16 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct BinaryRangeFieldRangeQuery {
   id: Identity,
-  query_packed_value: Arc<[u8]>,
+  data: Arc<BinaryRangeFieldRangeQueryData>,
   num_dims: usize,
   num_bytes_per_dimension: usize,
   query_type: QueryType,
   comparator: ByteArrayComparatorEnum,
-  sub: Arc<BinaryRangeFieldRangeQueryEnum>,
+}
+
+struct BinaryRangeFieldRangeQueryData {
+  query_packed_value: Arc<[u8]>,
+  sub: BinaryRangeFieldRangeQueryEnum,
 }
 
 impl BinaryRangeFieldRangeQuery {
@@ -82,15 +86,17 @@ impl BinaryRangeFieldRangeQuery {
     let sub = sub.into();
     Ok(Self {
       id: Identity::new(),
-      query_packed_value: {
-        let value: Vec<u8> = query_packed_value.into();
-        value.into()
-      },
+      data: Arc::new(BinaryRangeFieldRangeQueryData {
+        query_packed_value: {
+          let value: Vec<u8> = query_packed_value.into();
+          value.into()
+        },
+        sub,
+      }),
       num_dims,
       num_bytes_per_dimension,
       query_type,
       comparator,
-      sub: Arc::new(sub),
     })
   }
 }
@@ -98,14 +104,15 @@ impl BinaryRangeFieldRangeQuery {
 impl Debug for BinaryRangeFieldRangeQuery {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("BinaryRangeFieldRangeQuery")
-      .field("field", &self.sub.field())
+      .field("field", &self.data.sub.field())
       .finish()
   }
 }
 
 impl PartialEq for BinaryRangeFieldRangeQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.sub == other.sub
+    // Preserve the original Arc equality fast path; packed bytes are not part of equality.
+    Arc::ptr_eq(&self.data, &other.data) || self.data.sub == other.data.sub
   }
 }
 
@@ -116,7 +123,7 @@ impl Hash for BinaryRangeFieldRangeQuery {
   where
     H: Hasher,
   {
-    self.sub.hash(state);
+    self.data.sub.hash(state);
   }
 }
 
@@ -135,11 +142,11 @@ impl QueryBase for BinaryRangeFieldRangeQuery {
 
   fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
-    if self.sub.field() != field {
-      sb.push_str(self.sub.field());
+    if self.data.sub.field() != field {
+      sb.push_str(self.data.sub.field());
       sb.push(':');
     }
-    sb.push_str(&self.sub.range_string());
+    sb.push_str(&self.data.sub.range_string());
     Ok(sb)
   }
 
@@ -163,7 +170,7 @@ impl QueryBase for BinaryRangeFieldRangeQuery {
     QV: QueryVisitor,
   {
     let query = self.into();
-    if visitor.accept_field(self.sub.field()) {
+    if visitor.accept_field(self.data.sub.field()) {
       visitor.visit_leaf(query)?;
     }
     Ok(())
@@ -195,7 +202,7 @@ where
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let query = &self.parent_query;
-    let field = [query.sub.field()];
+    let field = [query.data.sub.field()];
     DocValues::is_cacheable(ctx, field)
   }
 }
@@ -240,11 +247,11 @@ where
   {
     let query = &self.parent_query;
     let field_infos = context.reader().get_field_infos()?;
-    let field_info = field_infos.field_info_by_name(query.sub.field())?;
+    let field_info = field_infos.field_info_by_name(query.data.sub.field())?;
     if field_info.is_none() {
       return Ok(None);
     }
-    let binary_doc_values = DocValues::get_binary(context.reader(), query.sub.field())?;
+    let binary_doc_values = DocValues::get_binary(context.reader(), query.data.sub.field())?;
     let brdv = BinaryRangeDocValues::new(
       binary_doc_values,
       query.num_dims,
@@ -252,7 +259,7 @@ where
     );
     let tpi = BinaryRangeFieldRangeTPI::new(
       brdv,
-      query.query_packed_value.clone(),
+      query.data.query_packed_value.clone(),
       query.num_dims,
       query.num_bytes_per_dimension,
       query.query_type,

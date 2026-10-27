@@ -45,9 +45,8 @@ pub struct OnHeapHnswGraph {
   // is level
   // e.g. graph[1][2] is all the neighbours of node 1 at level 2
   graph: Vec<OnceLock<NodeLevels>>,
-  // essentially another 2d map which the first dimension is level and second dimension is node
-  // id, this is only
-  // generated on demand when there's someone calling getNodeOnLevel on a non-zero level
+  // Upper levels only: index 0 holds the nodes on level 1. Generated when
+  // get_nodes_on_level is first called for a non-zero level.
   level_to_nodes: Vec<Arc<Option<Vec<usize>>>>,
   last_freeze_size: usize,
   // remember the size we are at last time to freeze the graph and generate
@@ -313,10 +312,9 @@ impl OnHeapHnswGraph {
 
     let max_levels = self.num_levels()?;
     self.level_to_nodes.clear();
-    self.level_to_nodes.reserve(max_levels);
-    for level in 0..max_levels {
-      let nodes = if level == 0 { None } else { Some(Vec::new()) };
-      self.level_to_nodes.push(Arc::new(nodes));
+    self.level_to_nodes.reserve(max_levels.saturating_sub(1));
+    for _ in 1..max_levels {
+      self.level_to_nodes.push(Arc::new(Some(Vec::new())));
     }
 
     let mut non_null_node = 0;
@@ -325,12 +323,7 @@ impl OnHeapHnswGraph {
         continue;
       };
       non_null_node += 1;
-      for maybe_vec in self
-        .level_to_nodes
-        .iter_mut()
-        .take(levels.upper.len() + 1)
-        .skip(1)
-      {
+      for maybe_vec in self.level_to_nodes.iter_mut().take(levels.upper.len()) {
         if let Some(vec) = Arc::get_mut(maybe_vec).and_then(Option::as_mut) {
           vec.push(node);
         }
@@ -456,7 +449,7 @@ impl HnswGraph for OnHeapHnswGraph {
     } else {
       self.generate_level_to_nodes()?;
       Ok(NodesIteratorEnum2::B(CollectionNodesIterator::new(
-        self.level_to_nodes[level].clone(),
+        self.level_to_nodes[level - 1].clone(),
       )))
     }
   }

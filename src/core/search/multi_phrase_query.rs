@@ -59,11 +59,11 @@ use std::sync::Arc;
 pub struct MultiPhraseQuery {
   id: Identity,
   slop: i32,
-  field: Option<Arc<str>>,
   data: Arc<MultiPhraseQueryData>,
 }
 
 struct MultiPhraseQueryData {
+  field: Option<Arc<str>>,
   term_arrays: Vec<Vec<Term>>,
   positions: Vec<i32>,
 }
@@ -73,7 +73,7 @@ impl std::fmt::Debug for MultiPhraseQuery {
     f.debug_struct("MultiPhraseQuery")
       .field("id", &self.id)
       .field("slop", &self.slop)
-      .field("field", &self.field)
+      .field("field", &self.data.field)
       .field("term_arrays", &self.data.term_arrays)
       .field("positions", &self.data.positions)
       .finish()
@@ -163,7 +163,7 @@ impl Builder {
 
   pub fn from_query(query: &MultiPhraseQuery) -> Self {
     Builder {
-      field: query.field.clone(),
+      field: query.data.field.clone(),
       term_arrays: query.data.term_arrays.to_vec(),
       positions: query.data.positions.to_vec(),
       slop: query.slop,
@@ -240,8 +240,8 @@ impl Builder {
     MultiPhraseQuery {
       id: Identity::new(),
       slop: self.slop,
-      field: self.field,
       data: Arc::new(MultiPhraseQueryData {
+        field: self.field,
         term_arrays: self.term_arrays,
         positions: self.positions,
       }),
@@ -258,7 +258,7 @@ impl QueryBase for MultiPhraseQuery {
 
   fn to_string(&self, f: &str) -> Result<String> {
     let mut buffer = String::new();
-    match self.field.as_deref() {
+    match self.data.field.as_deref() {
       Some(field) if field == f => {},
       Some(field) => {
         buffer.push_str(field);
@@ -313,6 +313,7 @@ impl QueryBase for MultiPhraseQuery {
   {
     let similarity = searcher.get_similarity();
     let field = self
+      .data
       .field
       .as_deref()
       .map(str::to_owned)
@@ -349,7 +350,7 @@ impl QueryBase for MultiPhraseQuery {
   where
     QV: QueryVisitor,
   {
-    let Some(field) = self.field.as_deref() else {
+    let Some(field) = self.data.field.as_deref() else {
       return Ok(());
     };
     if !visitor.accept_field(field) {

@@ -209,21 +209,19 @@ impl TermStates {
       Ok(Some(PrepareState::Ready(ctx_ord)))
     }
   }
-  pub fn resolve<TE>(&self, state: &mut PrepareState<TE>) -> Result<Option<Arc<TermStateEnum>>>
+  /// Resolves a prepared lookup to a state borrowed from this [`TermStates`].
+  /// Call `.cloned()` on the returned `Option` to hold the `Arc` independently.
+  pub fn resolve<TE>(&self, state: &mut PrepareState<TE>) -> Result<Option<&Arc<TermStateEnum>>>
   where
     TE: TermsEnum,
   {
     match state {
-      PrepareState::Ready(ord) => self
-        .states
-        .get(*ord)
-        .map(|slot| slot.get().cloned())
-        .ok_or_else(|| {
-          LuceneError::illegal_argument(format!(
-            "leaf ordinal {ord} is out of bounds for {} states",
-            self.states.len()
-          ))
-        }),
+      PrepareState::Ready(ord) => self.states.get(*ord).map(|slot| slot.get()).ok_or_else(|| {
+        LuceneError::illegal_argument(format!(
+          "leaf ordinal {ord} is out of bounds for {} states",
+          self.states.len()
+        ))
+      }),
 
       PrepareState::Pending(term, ord, te) => {
         let state_count = self.states.len();
@@ -248,7 +246,7 @@ impl TermStates {
         if matches!(state.as_ref(), TermStateEnum::Empty(_)) {
           Ok(None)
         } else {
-          Ok(Some(state.clone()))
+          Ok(Some(state))
         }
       },
     }

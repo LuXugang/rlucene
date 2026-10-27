@@ -7386,10 +7386,10 @@ where
                 LuceneError::illegal_state("point-in-time getReader SegmentInfos is none")
               })?;
               if let Some(merged_reader) = self.finish_get_reader_merge(
-                stop_collecting_merged_readers.clone(),
-                merged_readers.clone(),
-                opened_read_only_clones.clone(),
-                opening_segment_infos.clone(),
+                &stop_collecting_merged_readers,
+                &merged_readers,
+                &opened_read_only_clones,
+                opening_segment_infos,
                 apply_all_deletes,
                 write_all_deletes,
                 on_get_reader_merges,
@@ -7456,10 +7456,10 @@ where
   #[allow(clippy::too_many_arguments)]
   fn finish_get_reader_merge(
     self: &Arc<Self>,
-    stop_collecting_merged_readers: Arc<AtomicBool>,
-    merged_readers: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
-    opened_read_only_clones: Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
-    opening_segment_infos: Arc<Mutex<SegmentInfos<D>>>,
+    stop_collecting_merged_readers: &AtomicBool,
+    merged_readers: &Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
+    opened_read_only_clones: &Arc<Mutex<HashMap<Arc<str>, DefaultLeafReader<D>>>>,
+    opening_segment_infos: &Arc<Mutex<SegmentInfos<D>>>,
     apply_all_deletes: bool,
     write_all_deletes: bool,
     point_in_time_merges: &UpdatePendingMergesResult<D>,
@@ -7478,9 +7478,9 @@ where
     let mut inner = self.inner.lock();
     stop_collecting_merged_readers.store(true, Ordering::SeqCst);
     let reader = self.maybe_reopen_merged_nrt_reader(
-      &merged_readers,
-      &opened_read_only_clones,
-      &opening_segment_infos,
+      merged_readers,
+      opened_read_only_clones,
+      opening_segment_infos,
       apply_all_deletes,
       write_all_deletes,
       &mut inner,

@@ -491,7 +491,7 @@ where
       continue;
     };
 
-    new_ctx.register(term_state, i);
+    new_ctx.register(term_state.clone(), i);
   }
   new_ctx.accumulate_statistics(artificial_df, artificial_ttf);
   Ok(new_ctx)

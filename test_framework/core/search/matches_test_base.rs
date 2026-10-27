@@ -98,7 +98,7 @@ pub trait MatchesTestBase {
       let mut labels = HashSet::new();
       while iterator.next()? {
         let query = iterator.get_query()?;
-        labels.insert(Arc::as_ptr(&query));
+        labels.insert(Arc::as_ptr(query));
       }
       assert_eq!(*expected, labels.len());
     }

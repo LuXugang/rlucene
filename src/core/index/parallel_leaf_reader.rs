@@ -275,15 +275,15 @@ where
         if !field_to_reader.contains_key(field_info.name.as_str()) {
           builder.add_with_dv_gen(field_info.as_ref(), field_info.get_doc_values_gen())?;
           let field_name: Arc<str> = Arc::from(field_info.name.as_str());
-          field_to_reader.insert(Arc::clone(&field_name), *complete_reader_index);
           // Only add these if the reader responsible for that field name is
           // the current reader.
           if field_info.has_term_vectors() {
             tv_field_to_reader.insert(Arc::clone(&field_name), parallel_reader_index);
           }
           if field_info.get_index_options() != &IndexOptions::None {
-            terms_field_to_reader.insert(field_name, *complete_reader_index);
+            terms_field_to_reader.insert(Arc::clone(&field_name), *complete_reader_index);
           }
+          field_to_reader.insert(field_name, *complete_reader_index);
         }
       }
     }

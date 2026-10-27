@@ -138,8 +138,8 @@ where
     Ok(None)
   }
 
-  fn get_query(&self) -> Result<Arc<Query>> {
-    Ok(self.query.clone())
+  fn get_query(&self) -> Result<&Arc<Query>> {
+    Ok(&self.query)
   }
 }
 

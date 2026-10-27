@@ -234,7 +234,6 @@ impl Builder {
           LuceneError::illegal_state("non-empty roaring block has no current block")
         })?] = medium;
       }
-      self.dense_buffer = FixedBitSet::new(0);
     }
     self.cardinality += self.current_block_cardinality;
     self.dense_buffer = FixedBitSet::new(0);

@@ -94,7 +94,7 @@ where
     self.in_.get_sub_matches()
   }
 
-  fn get_query(&self) -> Result<Arc<Query>> {
+  fn get_query(&self) -> Result<&Arc<Query>> {
     assert_eq!(self.state, State::Iterating);
     self.in_.get_query()
   }

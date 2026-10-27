@@ -72,7 +72,9 @@ pub trait MatchesIterator {
   /// then returns a [`TermQuery`](crate::core::search::term_query::TermQuery) equivalent to the current match.
   ///
   /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-  fn get_query(&self) -> Result<Arc<Query>>;
+  /// The returned query is borrowed from the iterator. Clone the `Arc` to retain
+  /// it independently, including across a subsequent call to `next`.
+  fn get_query(&self) -> Result<&Arc<Query>>;
 }
 
 impl<T> MatchesIterator for Box<T>
@@ -107,7 +109,7 @@ where
     (**self).get_sub_matches()
   }
 
-  fn get_query(&self) -> Result<Arc<Query>> {
+  fn get_query(&self) -> Result<&Arc<Query>> {
     (**self).get_query()
   }
 }
@@ -158,7 +160,7 @@ macro_rules! either_matches_iterator {
             }
 
             #[inline]
-            fn get_query(&self) -> Result<Arc<Query>> {
+            fn get_query(&self) -> Result<&Arc<Query>> {
                 match self { $( Self::$Variant(inner) => inner.get_query(), )+ }
             }
         }

@@ -180,11 +180,15 @@ where
   /// from a finally-equivalent path.
   pub fn acquire(&self, version: i64) -> Result<Option<Arc<ManagedSearcher<DR, SIM>>>> {
     self.ensure_open()?;
-    let tracker = self.searchers.read().get(&version).cloned();
-    if let Some(tracker) = tracker
-      && tracker.searcher.get_index_reader().try_inc_ref()
+    let searcher = self
+      .searchers
+      .read()
+      .get(&version)
+      .map(|tracker| Arc::clone(&tracker.searcher));
+    if let Some(searcher) = searcher
+      && searcher.get_index_reader().try_inc_ref()
     {
-      return Ok(Some(tracker.searcher.clone()));
+      return Ok(Some(searcher));
     }
     Ok(None)
   }

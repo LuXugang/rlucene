@@ -318,7 +318,7 @@ pub struct SynonymWeight<
   similarity: Arc<SIM>,
   sim_weight: Option<Arc<SynonymSimScorer<SIM::SimScorer>>>,
   score_mode: ScoreMode,
-  parent_query: Arc<SynonymQuery>,
+  parent_query: SynonymQuery,
 }
 
 impl<SIM> SynonymWeight<SIM>
@@ -382,7 +382,7 @@ where
       similarity,
       sim_weight,
       score_mode,
-      parent_query: Arc::new(query),
+      parent_query: query,
     })
   }
 }
@@ -411,7 +411,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let query = self.parent_query.as_ref();
+    let query = &self.parent_query;
     if context.reader().terms(query.get_field())?.is_none() {
       return Ok(None);
     }
@@ -427,7 +427,7 @@ where
   where
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let parent_query = self.parent_query.as_ref();
+    let parent_query = &self.parent_query;
 
     let mut prepare_states = Vec::with_capacity(parent_query.data.terms.len());
     for term_states in self.term_states.iter() {
@@ -437,7 +437,7 @@ where
       -1,
       self.term_states.clone(),
       prepare_states,
-      self.parent_query.clone(),
+      self.parent_query.data.clone(),
       self.sim_weight.clone(),
       self.score_mode,
     );
@@ -470,7 +470,7 @@ where
       score_explanation.value.clone(),
       format!(
         "weight({:?} in {}) [{}], result of:",
-        QueryRef::Synonym(self.parent_query.as_ref()),
+        QueryRef::Synonym(&self.parent_query),
         doc,
         self.similarity,
       ),
@@ -479,7 +479,7 @@ where
   }
 
   fn get_query(&self) -> QueryRef<'_> {
-    QueryRef::Synonym(self.parent_query.as_ref())
+    QueryRef::Synonym(&self.parent_query)
   }
 
   type ScorerSupplier = SynonymScorerSupplier<IRCLeafReader<IRC>, SIM>;
@@ -503,7 +503,7 @@ where
       "The top-reader used to create Weight is not the same as the current reader's top-reader"
     );
 
-    let parent_query = self.parent_query.as_ref();
+    let parent_query = &self.parent_query;
 
     let mut prepare_states = Vec::with_capacity(parent_query.data.terms.len());
     for term_states in self.term_states.iter() {
@@ -514,7 +514,7 @@ where
       -1,
       self.term_states.clone(),
       prepare_states,
-      self.parent_query.clone(),
+      self.parent_query.data.clone(),
       self.sim_weight.clone(),
       self.score_mode,
     )))
@@ -1750,7 +1750,7 @@ pub struct SynonymScorerSupplier<
   cost: i64,
   term_states: Arc<Vec<TermStates>>,
   prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
-  query: Arc<SynonymQuery>,
+  query: Arc<SynonymQueryData>,
   sim_weight: Option<Arc<SynonymSimScorer<SIM::SimScorer>>>,
   score_mode: ScoreMode,
   iterators: Option<Vec<SynonymPostingsEnum<LeafScorerTypes<LR, SIM>>>>,
@@ -1768,7 +1768,7 @@ where
     cost: i64,
     term_states: Arc<Vec<TermStates>>,
     prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
-    query: Arc<SynonymQuery>,
+    query: Arc<SynonymQueryData>,
     sim_weight: Option<Arc<SynonymSimScorer<SIM::SimScorer>>>,
     score_mode: ScoreMode,
   ) -> Self {
@@ -1792,12 +1792,12 @@ where
     }
 
     let query = self.query.as_ref();
-    let mut iterators = Vec::with_capacity(query.data.terms.len());
-    let mut impacts = Vec::with_capacity(query.data.terms.len());
-    let mut term_boosts = Vec::with_capacity(query.data.terms.len());
+    let mut iterators = Vec::with_capacity(query.terms.len());
+    let mut impacts = Vec::with_capacity(query.terms.len());
+    let mut term_boosts = Vec::with_capacity(query.terms.len());
     let mut cost = 0;
 
-    for i in 0..query.data.terms.len() {
+    for i in 0..query.terms.len() {
       let Some(mut prepare_state) = self.prepare_states[i].take() else {
         continue;
       };
@@ -1805,10 +1805,10 @@ where
       if let Some(state) = state {
         let mut terms_enum = context
           .reader()
-          .terms(&query.data.field)?
+          .terms(&query.field)?
           .ok_or_else(|| LuceneError::illegal_state("term should exist here"))?
           .iterator()?;
-        terms_enum.seek_exact_with_state(&query.data.terms[i].term, state.as_ref())?;
+        terms_enum.seek_exact_with_state(&query.terms[i].term, state.as_ref())?;
         if self.score_mode == ScoreMode::TopScores {
           let impacts_enum = SharedImpactsEnum::new(terms_enum.impacts(FREQS as i32)?);
           iterators.push(PostingsEnumEnum2::A(impacts_enum.clone()));
@@ -1819,7 +1819,7 @@ where
           iterators.push(PostingsEnumEnum2::B(postings_enum.clone()));
           impacts.push(ImpactsEnumEnum2::B(SlowImpactsEnum::new(postings_enum)));
         }
-        term_boosts.push(query.data.terms[i].boost);
+        term_boosts.push(query.terms[i].boost);
       }
     }
 
@@ -1868,7 +1868,7 @@ where
       LuceneError::illegal_state("simWeight is missing for matching synonym terms")
     })?;
     let query = self.query.as_ref();
-    let norms = context.reader().get_norm_values(&query.data.field)?;
+    let norms = context.reader().get_norm_values(&query.field)?;
 
     if iterators.len() == 1 {
       let iterator = iterators.remove(0);
@@ -2056,12 +2056,12 @@ where
   ) -> Result<
     Option<crate::core::search::query::QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>,
   > {
-    let query = self.parent_query.as_ref();
+    let query = &self.parent_query;
     let field = query.get_field();
     from_terms_enum(
       context,
       doc,
-      Arc::new(self.parent_query.as_ref().clone().into()),
+      Arc::new(self.parent_query.clone().into()),
       field,
       SynonymTermBytesRefIterator {
         terms: &query.data.terms,

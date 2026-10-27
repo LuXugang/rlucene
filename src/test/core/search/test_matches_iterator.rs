@@ -677,7 +677,7 @@ impl TestMatchesIterator {
         panic!("get_sub_matches should not be called")
       }
 
-      fn get_query(&self) -> Result<Arc<Query>> {
+      fn get_query(&self) -> Result<&Arc<Query>> {
         panic!("get_query should not be called")
       }
     }

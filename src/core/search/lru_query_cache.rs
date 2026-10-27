@@ -581,7 +581,7 @@ impl LRUQueryCache {
 
   pub(crate) fn put_if_absent<C>(
     self: &Arc<Self>,
-    query: Arc<Query>,
+    query: &Arc<Query>,
     cached: CacheAndCountEnum,
     cache_helper: &C,
   ) -> Result<()>
@@ -600,7 +600,7 @@ impl LRUQueryCache {
       } else {
         let prev = uq.insert(query.clone(), query.clone());
         debug_assert!(prev.is_none());
-        (query, true)
+        (query.clone(), true)
       }
     };
 
@@ -1110,18 +1110,25 @@ where
       let Some(inner_read) = self.lru_cache.inner.try_read() else {
         return self.in_.scorer_supplier(context, searcher);
       };
-      self
+      let cached = self
         .lru_cache
-        .get(self.query.as_ref(), &cache_helper, &inner_read)
-        .cloned()
+        .get(self.query.as_ref(), &cache_helper, &inner_read);
+      match cached {
+        Some(cached) => {
+          if matches!(cached.as_ref(), CacheAndCountEnum::Empty(_)) {
+            return Ok(None);
+          }
+          Some(cached.clone())
+        },
+        None => None,
+      }
     };
     match cached {
       None => {
         if self.policy.should_cache(self.query.as_ref())? {
-          let query = self.query.clone();
           let Some(mut supplier) = self.in_.scorer_supplier(context, searcher)? else {
             self.lru_cache.put_if_absent(
-              query,
+              &self.query,
               CacheAndCountEnum::Empty(CacheAndCount::empty()),
               &cache_helper,
             )?;
@@ -1135,7 +1142,7 @@ where
             supplier,
             max_doc,
             self.lru_cache.clone(),
-            query,
+            self.query.clone(),
             cache_helper,
           )?;
           let s = Box::new(ss).into();
@@ -1144,9 +1151,6 @@ where
         self.in_.scorer_supplier(context, searcher)
       },
       Some(cached) => {
-        if matches!(&*cached, CacheAndCountEnum::Empty(_)) {
-          return Ok(None);
-        }
         let disi = cached.iterator()?;
         let s: QueryWeightSs<IRC, SIM> = Box::new(ScorerSupplierImpl2::new(disi)?).into();
         Ok(Some(s))
@@ -1283,7 +1287,7 @@ where
     let disi = cached.iterator()?;
     self
       .lru_query_cache
-      .put_if_absent(self.query.clone(), cached, &self.cache_helper)?;
+      .put_if_absent(&self.query, cached, &self.cache_helper)?;
     let disi = DISI::B(disi);
     Ok(QueryWeightSsScorer::<IRC, SIM>::new(
       ConstantScoreScorer::from_disi(0.0, ScoreMode::CompleteNoScores, disi),
