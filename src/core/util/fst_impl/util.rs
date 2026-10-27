@@ -466,8 +466,7 @@ impl Util {
     F: FstReader,
   {
     if label == END_LABEL {
-      read_end_arc(follow, arc);
-      return Ok(Some(()));
+      return Ok(read_end_arc(follow, arc));
     }
 
     if !target_has_arcs(follow) {
@@ -516,12 +515,15 @@ impl Util {
           let mut idx = Self::binary_search(fst, arc, label)?;
           if idx >= 0 {
             fst.read_arc_by_index(arc, in_reader, idx)?;
+            return Ok(Some(()));
           }
           idx = -1 - idx;
           if idx == arc.num_arcs() {
             // DEAD END!
             return Ok(None);
           }
+          fst.read_arc_by_index(arc, in_reader, idx)?;
+          return Ok(Some(()));
         },
       }
     }
