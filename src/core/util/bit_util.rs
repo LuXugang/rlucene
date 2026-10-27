@@ -134,12 +134,13 @@ impl BitUtil {
 
   // i32 big_endian
   pub fn get_i32_be(bytes: &[u8], pos: usize) -> i32 {
-    debug_assert!(pos + Self::INT_BYTES <= bytes.len(), "Index out of bounds");
-
-    unsafe {
-      let raw_value = ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32);
-      i32::from_be(raw_value)
-    }
+    assert!(
+      bytes.len() >= Self::INT_BYTES && pos <= bytes.len() - Self::INT_BYTES,
+      "Index out of bounds"
+    );
+    let mut value = [0; Self::INT_BYTES];
+    value.copy_from_slice(&bytes[pos..][..Self::INT_BYTES]);
+    i32::from_be_bytes(value)
   }
   #[cfg(target_endian = "little")]
   pub fn set_i32_be(bytes: &mut [u8], pos: usize, value: i32) {
@@ -171,9 +172,13 @@ impl BitUtil {
   // i32 little_endian
   #[cfg(target_endian = "little")]
   pub fn get_i32_le(bytes: &[u8], pos: usize) -> i32 {
-    debug_assert!(pos + Self::INT_BYTES <= bytes.len(), "Index out of bounds");
-
-    unsafe { ptr::read_unaligned(bytes.as_ptr().add(pos) as *const i32) }
+    assert!(
+      bytes.len() >= Self::INT_BYTES && pos <= bytes.len() - Self::INT_BYTES,
+      "Index out of bounds"
+    );
+    let mut value = [0; Self::INT_BYTES];
+    value.copy_from_slice(&bytes[pos..][..Self::INT_BYTES]);
+    i32::from_le_bytes(value)
   }
 
   #[cfg(target_endian = "little")]
