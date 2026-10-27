@@ -368,56 +368,38 @@ impl FrozenBufferedUpdates {
               "doc values update index {update_index} is out of bounds"
             ))
           })?;
-          let mut doc_id_consumer = IntConsumerImpl::new(
-            update,
-            buffered_update.has_value,
-            long_value,
-            binary_value,
-            is_numeric,
-          );
-          let accept_docs = seg_state.rld.get_live_docs();
-          if let Some(sort_map) = seg_state.rld.sort_map.as_ref()
-            && segment_private_deletes
-          {
-            // This segment was sorted on flush; we must apply seg-private deletes carefully in this case:
-            loop {
-              let doc = doc_id_set_iterator.next_doc()?;
-              if doc == NO_MORE_DOCS {
-                break;
-              }
-
-              let live = match accept_docs.as_ref() {
-                None => true,
-                Some(bits) => bits.get(doc as usize)?,
-              };
-              if live {
-                // The limit is in the pre-sorted doc space:
-                if sort_map.new_to_old(doc)? < limit {
-                  doc_id_consumer.accept(doc)?;
-                  update_count += 1;
-                }
-              }
-            }
+          let count = if !buffered_update.has_value {
+            let mut consumer = ResetDocValuesConsumer { update };
+            Self::apply_update_docs(
+              seg_state,
+              doc_id_set_iterator,
+              limit,
+              segment_private_deletes,
+              &mut consumer,
+            )?
+          } else if is_numeric {
+            let mut consumer = NumericDocValuesConsumer { update, long_value };
+            Self::apply_update_docs(
+              seg_state,
+              doc_id_set_iterator,
+              limit,
+              segment_private_deletes,
+              &mut consumer,
+            )?
           } else {
-            loop {
-              let doc = doc_id_set_iterator.next_doc()?;
-              if doc == NO_MORE_DOCS {
-                break;
-              }
-              if doc >= limit {
-                break; // no more docs that can be updated for this term
-              }
-
-              let live = match accept_docs.as_ref() {
-                None => true,
-                Some(bits) => bits.get(doc as usize)?,
-              };
-              if live {
-                doc_id_consumer.accept(doc)?;
-                update_count += 1;
-              }
-            }
-          }
+            let mut consumer = BinaryDocValuesConsumer {
+              update,
+              binary_value,
+            };
+            Self::apply_update_docs(
+              seg_state,
+              doc_id_set_iterator,
+              limit,
+              segment_private_deletes,
+              &mut consumer,
+            )?
+          };
+          update_count += count;
         }
       }
     }
@@ -430,6 +412,64 @@ impl FrozenBufferedUpdates {
       }
     }
 
+    Ok(update_count)
+  }
+  fn apply_update_docs<D, P, C>(
+    seg_state: &SegmentState<D>,
+    doc_id_set_iterator: &mut P,
+    limit: i32,
+    segment_private_deletes: bool,
+    doc_id_consumer: &mut C,
+  ) -> Result<i64>
+  where
+    D: Directory,
+    P: DocIdSetIterator,
+    C: IntConsumer,
+  {
+    let mut update_count = 0;
+    let accept_docs = seg_state.rld.get_live_docs();
+    if let Some(sort_map) = seg_state.rld.sort_map.as_ref()
+      && segment_private_deletes
+    {
+      // This segment was sorted on flush; we must apply seg-private deletes carefully in this case:
+      loop {
+        let doc = doc_id_set_iterator.next_doc()?;
+        if doc == NO_MORE_DOCS {
+          break;
+        }
+
+        let live = match accept_docs.as_ref() {
+          None => true,
+          Some(bits) => bits.get(doc as usize)?,
+        };
+        if live {
+          // The limit is in the pre-sorted doc space:
+          if sort_map.new_to_old(doc)? < limit {
+            doc_id_consumer.accept(doc)?;
+            update_count += 1;
+          }
+        }
+      }
+    } else {
+      loop {
+        let doc = doc_id_set_iterator.next_doc()?;
+        if doc == NO_MORE_DOCS {
+          break;
+        }
+        if doc >= limit {
+          break; // no more docs that can be updated for this term
+        }
+
+        let live = match accept_docs.as_ref() {
+          None => true,
+          Some(bits) => bits.get(doc as usize)?,
+        };
+        if live {
+          doc_id_consumer.accept(doc)?;
+          update_count += 1;
+        }
+      }
+    }
     Ok(update_count)
   }
   fn apply_query_deletes<D>(
@@ -822,43 +862,35 @@ where
   }
 }
 
-struct IntConsumerImpl<'a> {
+struct ResetDocValuesConsumer<'a> {
   update: &'a mut DocValuesFieldUpdatesEnum,
-  long_value: i64,
-  binary_value: Option<&'a BytesRef<Vec<u8>>>,
-  has_value: bool,
-  is_numeric: bool,
 }
-impl<'a> IntConsumerImpl<'a> {
-  fn new(
-    update: &'a mut DocValuesFieldUpdatesEnum,
-    has_value: bool,
-    long_value: i64,
-    binary_value: Option<&'a BytesRef<Vec<u8>>>,
-    is_numeric: bool,
-  ) -> Self {
-    Self {
-      update,
-      has_value,
-      long_value,
-      binary_value,
-      is_numeric,
-    }
+impl IntConsumer for ResetDocValuesConsumer<'_> {
+  fn accept(&mut self, doc: i32) -> Result<()> {
+    self.update.reset(doc)
   }
 }
-impl<'a> IntConsumer for IntConsumerImpl<'a> {
+
+struct NumericDocValuesConsumer<'a> {
+  update: &'a mut DocValuesFieldUpdatesEnum,
+  long_value: i64,
+}
+impl IntConsumer for NumericDocValuesConsumer<'_> {
   fn accept(&mut self, doc: i32) -> Result<()> {
-    if !self.has_value {
-      self.update.reset(doc)?;
-    } else if self.is_numeric {
-      self.update.add_value(doc, self.long_value)?;
-    } else {
-      let binary_value = self
-        .binary_value
-        .ok_or_else(|| LuceneError::illegal_state("binary doc values update has no value"))?;
-      self.update.add_byte_ref(doc, binary_value)?;
-    }
-    Ok(())
+    self.update.add_value(doc, self.long_value)
+  }
+}
+
+struct BinaryDocValuesConsumer<'a> {
+  update: &'a mut DocValuesFieldUpdatesEnum,
+  binary_value: Option<&'a BytesRef<Vec<u8>>>,
+}
+impl IntConsumer for BinaryDocValuesConsumer<'_> {
+  fn accept(&mut self, doc: i32) -> Result<()> {
+    let binary_value = self
+      .binary_value
+      .ok_or_else(|| LuceneError::illegal_state("binary doc values update has no value"))?;
+    self.update.add_byte_ref(doc, binary_value)
   }
 }
 impl AsRef<FrozenBufferedUpdates> for FrozenBufferedUpdates {
