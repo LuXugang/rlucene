@@ -169,15 +169,26 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
     T: NumericDocValues,
     IO: IndexOutput,
   {
-    while values.next_doc()? != NO_MORE_DOCS {
-      let value = values.long_value()?;
-      match num_bytes_per_value {
-        1 => out.write_byte(value as u8)?,
-        2 => out.write_short(value as i16)?,
-        4 => out.write_int(value as i32)?,
-        8 => out.write_long(value)?,
-        _ => return Err(LuceneError::unreachable("invalid byte width")),
-      }
+    macro_rules! write_values {
+      ($write:ident, $value:ty) => {
+        while values.next_doc()? != NO_MORE_DOCS {
+          let value = values.long_value()?;
+          out.$write(value as $value)?;
+        }
+      };
+    }
+    match num_bytes_per_value {
+      1 => write_values!(write_byte, u8),
+      2 => write_values!(write_short, i16),
+      4 => write_values!(write_int, i32),
+      8 => write_values!(write_long, i64),
+      _ => {
+        // Preserve the empty-stream behavior and cursor errors before width validation.
+        if values.next_doc()? != NO_MORE_DOCS {
+          let _ = values.long_value()?;
+          return Err(LuceneError::unreachable("invalid byte width"));
+        }
+      },
     }
     Ok(())
   }
