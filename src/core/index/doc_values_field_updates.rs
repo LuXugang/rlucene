@@ -202,14 +202,9 @@ where
       for i in 0..self.size {
         ords.set(i, i as i64)?;
       }
-      let mut sorter = IntroSorterImpl {
-        ords: &mut ords,
-        pivot_doc: 0,
-        pivot_ord: 0,
-        sub_update: &mut self.sub_update,
-        docs: &mut self.docs,
-      };
-      sorter.sort(0, size)?;
+      self
+        .sub_update
+        .sort_updates(&mut ords, &mut self.docs, size)?;
     }
     self.docs_iter = Some(Arc::new(self.docs.take()));
     self.sub_update.finish();
@@ -303,6 +298,25 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
     inner: DocValuesFieldInnerIter,
     del_gen: i64,
   ) -> Result<DocValuesFieldIteratorEnum>;
+  /// Selects a concrete payload backend before the document-update sort.
+  fn sort_updates(
+    &mut self,
+    ords: &mut MutablePacked64Enum,
+    docs: &mut AbstractPagedMutable<PagedMutable>,
+    size: usize,
+  ) -> Result<()>
+  where
+    Self: Sized,
+  {
+    let mut sorter = IntroSorterImpl {
+      ords,
+      pivot_doc: 0,
+      pivot_ord: 0,
+      sub_update: self,
+      docs,
+    };
+    sorter.sort(0, size)
+  }
   fn swap(&mut self, _i: usize, _j: usize) -> Result<()> {
     Err(LuceneError::not_implemented(""))
   }
@@ -371,6 +385,21 @@ impl Accountable for DocValuesFieldUpdatesBaseEnum {
 }
 
 impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
+  fn sort_updates(
+    &mut self,
+    ords: &mut MutablePacked64Enum,
+    docs: &mut AbstractPagedMutable<PagedMutable>,
+    size: usize,
+  ) -> Result<()> {
+    match self {
+      Self::Numeric(n) => n.sort_updates(ords, docs, size),
+      Self::Binary(b) => b.sort_updates(ords, docs, size),
+      Self::SingleValue(s) => s.sort_updates(ords, docs, size),
+      #[cfg(test)]
+      Self::SingleUpdate(s) => s.sort_updates(ords, docs, size),
+    }
+  }
+
   fn finish(&mut self) {
     match self {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.finish(),
