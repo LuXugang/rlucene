@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #![allow(deprecated)]
+use crate::core::index::index_sorter::ComparableProvidersVisitor;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use std::fmt::Write as _;
 
@@ -1044,6 +1045,20 @@ impl IndexSorter for IndexSorterEnumSorter {
     = CPEnumType1<NPImpl1, LR, SProviderImpl2>
   where
     LR: LeafReader;
+
+  fn visit_comparable_providers<LR, V>(&self, readers: &[LR], visitor: V) -> Result<V::Output>
+  where
+    LR: LeafReader,
+    V: ComparableProvidersVisitor,
+  {
+    match self {
+      Self::Int(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::Long(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::Double(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::Float(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::String(sorter) => sorter.visit_comparable_providers(readers, visitor),
+    }
+  }
 
   fn get_comparable_providers<LR>(
     &self,

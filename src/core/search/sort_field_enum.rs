@@ -17,6 +17,7 @@
 use crate::core::document::lat_lon_point_sort_field::LatLonPointSortField;
 use crate::core::document::xy_point_sort_field::XYPointSortField;
 use crate::core::index::doc_values::SortedSet;
+use crate::core::index::index_sorter::ComparableProvidersVisitor;
 use crate::core::index::index_sorter::{
   CPEnumType1, CPEnumType2, ComparableProvider, DocComparatorImpl, IndexSorter,
   StringComparableProvider, StringSorter,
@@ -282,6 +283,18 @@ impl IndexSorter for IndexSortEnum {
     = CPType<LR>
   where
     LR: LeafReader;
+
+  fn visit_comparable_providers<LR, V>(&self, readers: &[LR], visitor: V) -> Result<V::Output>
+  where
+    LR: LeafReader,
+    V: ComparableProvidersVisitor,
+  {
+    match self {
+      Self::SortedNumeric(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::SortedSet(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::Sorter(sorter) => sorter.visit_comparable_providers(readers, visitor),
+    }
+  }
 
   fn get_comparable_providers<LR>(
     &self,

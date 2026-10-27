@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::index_sorter::ComparableProvidersVisitor;
 use crate::core::index::index_sorter::{ComparableProvider, ComparableProviderEnum2, IndexSorter};
 use crate::core::index::merge_state::{MergeStateDocMap, MergeStateDocMapImpl};
 use crate::core::search::sort::Sort;
@@ -40,6 +41,19 @@ impl MultiSorter {
     CR: CodecReader,
   {
     let fields = sort.get_sort();
+    if fields.len() == 1 {
+      let field = &fields[0];
+      let sorter = field.get_index_sorter()?.ok_or_else(|| {
+        LuceneError::illegal_argument(format!("Cannot use sort field {} for index sorting", field))
+      })?;
+      return sorter.visit_comparable_providers(
+        readers,
+        SingleFieldMergeSortVisitor {
+          readers,
+          reverse_mul: if field.get_reverse() { -1 } else { 1 },
+        },
+      );
+    }
     let mut comparables = Vec::with_capacity(fields.len());
     let mut reverse_muls = Vec::with_capacity(fields.len());
 
@@ -49,70 +63,43 @@ impl MultiSorter {
       })?;
 
       let providers = sorter.get_comparable_providers(readers)?;
-      let mut new_providers = Vec::with_capacity(providers.len());
-      let mut providers = providers.into_iter();
-      #[allow(clippy::needless_range_loop)]
-      for j in 0..readers.len() {
-        let reader = &readers[j];
-        let field_infos = reader.get_field_infos()?;
-        let meta = reader.get_metadata()?;
-
-        let inner = providers.next().ok_or_else(|| {
-          LuceneError::illegal_state(format!(
-            "index sorter did not return a comparable provider for reader {j}"
-          ))
-        })?;
-        let parents = if meta.get_has_blocks() {
-          match field_infos.get_parent_field() {
-            Some(parent_field) => {
-              let mut parent_docs = CodecReader::get_numeric_doc_values(reader, parent_field)?
-                .ok_or_else(|| {
-                  LuceneError::illegal_state(format!(
-                    "parent field {} must be present if index sorting is used with blocks",
-                    parent_field
-                  ))
-                })?;
-
-              Some(of(&mut parent_docs, reader.max_doc()? as usize)?)
-            },
-            None if meta.get_created_version_major() >= LUCENE_10_0_0.major => {
-              return Err(LuceneError::corrupt_index(format!(
-                "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {}",
-                meta.get_created_version_major()
-              )));
-            },
-            None => None,
-          }
-        } else {
-          None
-        };
-        let provider = match parents {
-          Some(parents) => ComparableProviderEnum2::A1(ComparableProviderImpl::new(parents, inner)),
-          None => ComparableProviderEnum2::B1(inner),
-        };
-        new_providers.push(provider);
-      }
+      let new_providers = Self::wrap_providers(readers, providers)?;
       reverse_muls.push(if field.get_reverse() { -1 } else { 1 });
       comparables.push(new_providers);
     }
+    Self::sort_with_providers::<CR, _, false>(readers, &reverse_muls, |reader, doc, values| {
+      for (j, comps_per_field) in comparables.iter_mut().enumerate() {
+        values[j] = comps_per_field[reader].get_as_comparable_long(doc)?;
+      }
+      Ok(())
+    })
+  }
+
+  fn sort_with_providers<CR, F, const SINGLE: bool>(
+    readers: &[CR],
+    reverse_muls: &[i32],
+    mut get_values: F,
+  ) -> Result<Option<Vec<MergeStateDocMap<CR>>>>
+  where
+    CR: CodecReader,
+    F: FnMut(usize, i32, &mut [i64]) -> Result<()>,
+  {
     let leaf_count = readers.len();
-    let comparables_len = comparables.len();
-    let cmp = LeafAndDocIDCmp::new(comparables_len, &reverse_muls);
+    let comparables_len = reverse_muls.len();
+    let cmp = LeafAndDocIDCmp::<SINGLE>::new(comparables_len, reverse_muls);
     let mut queue = PriorityQueue::new(leaf_count, cmp)?;
     let mut builders = Vec::with_capacity(leaf_count);
 
+    #[allow(clippy::needless_range_loop)]
     for i in 0..leaf_count {
       let reader = &readers[i];
       let mut leaf = LeafAndDocId::new(
         i,
         reader.get_live_docs()?,
         reader.max_doc()?,
-        comparables.len(),
+        comparables_len,
       );
-      for (j, comps_per_field) in comparables.iter_mut().enumerate() {
-        leaf.values_as_comparable_longs[j] =
-          comps_per_field[i].get_as_comparable_long(leaf.doc_id)?;
-      }
+      get_values(i, leaf.doc_id, &mut leaf.values_as_comparable_longs)?;
 
       queue.add(leaf)?;
       builders.push(PackedLongValues::monotonic_long_values_builder_default(
@@ -146,10 +133,11 @@ impl MultiSorter {
       top.doc_id += 1;
 
       if top.doc_id < top.max_doc {
-        for (j, comps_per_field) in comparables.iter_mut().enumerate() {
-          top.values_as_comparable_longs[j] =
-            comps_per_field[top.reader_index].get_as_comparable_long(top.doc_id)?;
-        }
+        get_values(
+          top.reader_index,
+          top.doc_id,
+          &mut top.values_as_comparable_longs,
+        )?;
         queue.update_top()?;
       } else {
         queue.pop()?;
@@ -168,7 +156,129 @@ impl MultiSorter {
     }
     Ok(Some(doc_maps))
   }
+  fn wrap_providers<CR, CP>(
+    readers: &[CR],
+    providers: Vec<CP>,
+  ) -> Result<Vec<ParentOrDirectComparable<CP>>>
+  where
+    CR: CodecReader,
+    CP: ComparableProvider,
+  {
+    let mut new_providers = Vec::with_capacity(providers.len());
+    let mut providers = providers.into_iter();
+    #[allow(clippy::needless_range_loop)]
+    for j in 0..readers.len() {
+      let reader = &readers[j];
+      let field_infos = reader.get_field_infos()?;
+      let meta = reader.get_metadata()?;
+
+      let inner = providers.next().ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "index sorter did not return a comparable provider for reader {j}"
+        ))
+      })?;
+      let parents = if meta.get_has_blocks() {
+        match field_infos.get_parent_field() {
+          Some(parent_field) => {
+            let mut parent_docs = CodecReader::get_numeric_doc_values(reader, parent_field)?
+              .ok_or_else(|| {
+                LuceneError::illegal_state(format!(
+                  "parent field {} must be present if index sorting is used with blocks",
+                  parent_field
+                ))
+              })?;
+
+            Some(of(&mut parent_docs, reader.max_doc()? as usize)?)
+          },
+          None if meta.get_created_version_major() >= LUCENE_10_0_0.major => {
+            return Err(LuceneError::corrupt_index(format!(
+              "parent field is not set but the index has blocks and uses index sorting. indexCreatedVersionMajor: {}",
+              meta.get_created_version_major()
+            )));
+          },
+          None => None,
+        }
+      } else {
+        None
+      };
+      let provider = match parents {
+        Some(parents) => ComparableProviderEnum2::A1(ComparableProviderImpl::new(parents, inner)),
+        None => ComparableProviderEnum2::B1(inner),
+      };
+      new_providers.push(provider);
+    }
+    Ok(new_providers)
+  }
 }
+type ParentOrDirectComparable<CP> = ComparableProviderEnum2<
+  ComparableProviderImpl<crate::core::util::bit_set::SparseFixedBitSetBitSet, CP>,
+  CP,
+>;
+
+struct SingleFieldMergeSortVisitor<'a, CR> {
+  readers: &'a [CR],
+  reverse_mul: i32,
+}
+
+impl<CR> ComparableProvidersVisitor for SingleFieldMergeSortVisitor<'_, CR>
+where
+  CR: CodecReader,
+{
+  type Output = Option<Vec<MergeStateDocMap<CR>>>;
+
+  fn visit<CP: ComparableProvider>(self, providers: Vec<CP>) -> Result<Self::Output> {
+    let readers = self.readers;
+    let new_providers = MultiSorter::wrap_providers(readers, providers)?;
+    if new_providers
+      .iter()
+      .all(|p| matches!(p, ComparableProviderEnum2::B1(_)))
+    {
+      let providers = new_providers
+        .into_iter()
+        .filter_map(|p| match p {
+          ComparableProviderEnum2::B1(inner) => Some(inner),
+          ComparableProviderEnum2::A1(_) => None,
+        })
+        .collect();
+      Self::sort_single(readers, self.reverse_mul, providers)
+    } else if new_providers
+      .iter()
+      .all(|p| matches!(p, ComparableProviderEnum2::A1(_)))
+    {
+      let providers = new_providers
+        .into_iter()
+        .filter_map(|p| match p {
+          ComparableProviderEnum2::A1(inner) => Some(inner),
+          ComparableProviderEnum2::B1(_) => None,
+        })
+        .collect();
+      Self::sort_single(readers, self.reverse_mul, providers)
+    } else {
+      Self::sort_single(readers, self.reverse_mul, new_providers)
+    }
+  }
+}
+
+impl<CR> SingleFieldMergeSortVisitor<'_, CR>
+where
+  CR: CodecReader,
+{
+  fn sort_single<CP: ComparableProvider>(
+    readers: &[CR],
+    reverse_mul: i32,
+    mut providers: Vec<CP>,
+  ) -> Result<Option<Vec<MergeStateDocMap<CR>>>> {
+    MultiSorter::sort_with_providers::<CR, _, true>(
+      readers,
+      &[reverse_mul],
+      |reader, doc, values| {
+        values[0] = providers[reader].get_as_comparable_long(doc)?;
+        Ok(())
+      },
+    )
+  }
+}
+
 pub(crate) struct LeafAndDocId<B> {
   reader_index: usize,
   live_docs: Option<B>,
@@ -188,11 +298,11 @@ impl<B> LeafAndDocId<B> {
   }
 }
 
-struct LeafAndDocIDCmp<'a> {
+struct LeafAndDocIDCmp<'a, const SINGLE: bool> {
   comparables_len: usize,
   reverse_muls: &'a [i32],
 }
-impl<'a> LeafAndDocIDCmp<'a> {
+impl<'a, const SINGLE: bool> LeafAndDocIDCmp<'a, SINGLE> {
   fn new(comparables_len: usize, reverse_muls: &'a [i32]) -> Self {
     LeafAndDocIDCmp {
       comparables_len,
@@ -200,18 +310,27 @@ impl<'a> LeafAndDocIDCmp<'a> {
     }
   }
 }
-impl<B> Compare<LeafAndDocId<B>> for LeafAndDocIDCmp<'_>
+impl<B, const SINGLE: bool> Compare<LeafAndDocId<B>> for LeafAndDocIDCmp<'_, SINGLE>
 where
   B: Bits,
 {
   fn less_than(&self, a: &LeafAndDocId<B>, b: &LeafAndDocId<B>) -> Result<bool> {
-    for i in 0..self.comparables_len {
-      let cmp = a.values_as_comparable_longs[i]
-        .cmp(&b.values_as_comparable_longs[i])
+    if SINGLE {
+      let cmp = a.values_as_comparable_longs[0]
+        .cmp(&b.values_as_comparable_longs[0])
         .to_int();
-
       if cmp != 0 {
-        return Ok(self.reverse_muls[i] * cmp < 0);
+        return Ok(self.reverse_muls[0] * cmp < 0);
+      }
+    } else {
+      for i in 0..self.comparables_len {
+        let cmp = a.values_as_comparable_longs[i]
+          .cmp(&b.values_as_comparable_longs[i])
+          .to_int();
+
+        if cmp != 0 {
+          return Ok(self.reverse_muls[i] * cmp < 0);
+        }
       }
     }
     // tie-break by docID natural order:

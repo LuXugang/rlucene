@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_sorter::ComparableProvidersVisitor;
 use std::fmt::Write as _;
 
 use crate::core::index::doc_values::{DocValues, SortedNumeric};
@@ -499,6 +500,19 @@ impl IndexSorter for IndexSorterNumeric {
     = CPEnumType2<NPImpl2, LR>
   where
     LR: LeafReader;
+
+  fn visit_comparable_providers<LR, V>(&self, readers: &[LR], visitor: V) -> Result<V::Output>
+  where
+    LR: LeafReader,
+    V: ComparableProvidersVisitor,
+  {
+    match self {
+      Self::Int(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::Long(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::Double(sorter) => sorter.visit_comparable_providers(readers, visitor),
+      Self::Float(sorter) => sorter.visit_comparable_providers(readers, visitor),
+    }
+  }
 
   fn get_comparable_providers_per_reader<LR>(
     &self,

@@ -56,6 +56,15 @@ pub trait IndexSorter {
     }
     Ok(providers)
   }
+  /// Visits the provider vector before its concrete provider type is erased.
+  fn visit_comparable_providers<LR, V>(&self, readers: &[LR], visitor: V) -> Result<V::Output>
+  where
+    LR: LeafReader,
+    V: ComparableProvidersVisitor,
+  {
+    visitor.visit(self.get_comparable_providers(readers)?)
+  }
+
   fn get_comparable_providers_per_reader<LR>(
     &self,
     _reader: &LR,
@@ -890,6 +899,12 @@ pub trait ComparableProvider {
   /// Returns an `i64` whose natural ordering matches the document-ID ordering for the comparator.
   fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64>;
 }
+/// Receives comparable providers with the sorter's concrete provider type.
+pub trait ComparableProvidersVisitor {
+  type Output;
+  fn visit<CP: ComparableProvider>(self, providers: Vec<CP>) -> Result<Self::Output>;
+}
+
 macro_rules! either_comparable_provider {
     ($vis:vis $name:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {
