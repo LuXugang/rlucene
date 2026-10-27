@@ -239,7 +239,7 @@ where
     let frame = &self.stack[new_ord];
     self
       .output_accumulator
-      .pop(&self.arcs[frame.arc].next_final_output());
+      .pop(&self.arcs[frame.arc].next_final_output);
     Ok(new_ord)
   }
   fn get_state(&mut self) -> Result<i32> {

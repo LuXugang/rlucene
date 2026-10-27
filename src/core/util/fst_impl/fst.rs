@@ -149,7 +149,7 @@ where
       InputType::Byte2 => {
         let raw = input.read_short()?;
         if version < VERSION_LITTLE_ENDIAN {
-          i32::from(u16::from_be_bytes(raw.to_be_bytes()))
+          i32::from(raw.swap_bytes() as u16)
         } else {
           raw as u16 as i32
         }

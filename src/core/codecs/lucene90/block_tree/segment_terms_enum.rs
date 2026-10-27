@@ -414,7 +414,7 @@ where
         }
       }
     } else {
-      let next_final_output = {
+      {
         arc_index = 0;
         let arc = &mut self.arcs[0];
         self.target_before_current_length = -1;
@@ -432,12 +432,10 @@ where
         self.current_frame_idx = STATIC_FRAME_IDX;
 
         target_upto = 0;
-        let next_final_output = arc.next_final_output();
-        self.output_accumulator.push(&next_final_output);
-        next_final_output
-      };
+        self.output_accumulator.push(&arc.next_final_output);
+      }
       self.current_frame_idx = self.push_frame_with_length(Some(0), 0)?;
-      self.output_accumulator.pop(&next_final_output);
+      self.output_accumulator.pop(&self.arcs[0].next_final_output);
     }
     // We are done sharing the common prefix with the incoming target and where we
     // are currently seek'd; now continue walking the index:
@@ -497,9 +495,10 @@ where
         target_upto += 1;
         if arc.is_final() {
           self.output_accumulator.push(&arc.next_final_output);
-          let v = arc.next_final_output();
           self.current_frame_idx = self.push_frame_with_length(Some(next_arc_idx), target_upto)?;
-          self.output_accumulator.pop(&v);
+          self
+            .output_accumulator
+            .pop(&self.arcs[next_arc_idx].next_final_output);
         }
       }
     }
@@ -783,9 +782,8 @@ where
 
       target_upto = 0;
       self.output_accumulator.push(&arc.next_final_output);
-      let v = arc.next_final_output();
       self.current_frame_idx = self.push_frame_with_length(Some(0), 0)?;
-      self.output_accumulator.pop(&v);
+      self.output_accumulator.pop(&self.arcs[0].next_final_output);
     }
     let mut next_arc_idx;
     while target_upto < target.length {
@@ -847,9 +845,10 @@ where
         target_upto += 1;
         if arc.is_final() {
           self.output_accumulator.push(&arc.next_final_output);
-          let v = arc.next_final_output();
           self.current_frame_idx = self.push_frame_with_length(Some(arc_index), target_upto)?;
-          self.output_accumulator.pop(&v);
+          self
+            .output_accumulator
+            .pop(&self.arcs[arc_index].next_final_output);
         }
       }
     }
