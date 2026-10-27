@@ -1617,6 +1617,13 @@ where
     }
   }
 
+  fn append_ords(&mut self, ords: &mut Vec<i64>, count: usize) -> Result<()> {
+    match self {
+      Self::Singleton(values) => values.append_ords(ords, count),
+      Self::Multi(values) => values.append_ords(ords, count),
+    }
+  }
+
   fn doc_value_count(&mut self) -> Result<i32> {
     match self {
       Self::Singleton(values) => values.doc_value_count(),

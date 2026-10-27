@@ -1528,9 +1528,7 @@ where
       let count = self.doc_value_count as usize;
       ArrayUtil::grow_capacity(&mut self.ords, count)?;
       self.ords.clear();
-      for _ in 0..count {
-        self.ords.push(self.value.next_ord()?);
-      }
+      self.value.append_ords(&mut self.ords, count)?;
       self.i = 0;
     }
     Ok(doc)

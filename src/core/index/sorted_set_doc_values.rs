@@ -58,6 +58,17 @@ pub trait SortedSetDocValues: DocValuesIterator {
   /// increment by 1 for the next value in sorted order.
   fn next_ord(&mut self) -> Result<i64>;
 
+  /// Appends the next `count` ordinals for the current document.
+  ///
+  /// This has the same state and error behavior as calling [`Self::next_ord`]
+  /// repeatedly: successfully read ordinals stay appended if a later read fails.
+  fn append_ords(&mut self, ords: &mut Vec<i64>, count: usize) -> Result<()> {
+    for _ in 0..count {
+      ords.push(self.next_ord()?);
+    }
+    Ok(())
+  }
+
   /// Retrieves the number of unique ords for the current document. This must
   /// always be greater than zero. It is illegal to call this method after
   /// [`advance_exact`](DocValuesIterator::advance_exact) returned
@@ -172,6 +183,10 @@ where
 
   fn next_ord(&mut self) -> Result<i64> {
     (**self).next_ord()
+  }
+
+  fn append_ords(&mut self, ords: &mut Vec<i64>, count: usize) -> Result<()> {
+    (**self).append_ords(ords, count)
   }
 
   fn doc_value_count(&mut self) -> Result<i32> {

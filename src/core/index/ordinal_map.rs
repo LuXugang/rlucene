@@ -22,7 +22,7 @@ use crate::core::index::terms_enum_index::{TermState, TermsEnumIndex};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
-use crate::core::util::long_values::{LongValues, LongValuesEnum2, Zeroes};
+use crate::core::util::long_values::{Identity, LongValues, LongValuesEnum2, Zeroes};
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::packed_long_values::{
   Builder, PackedLongValues, PackedLongValuesIterator,
@@ -50,6 +50,34 @@ impl LongValues for SegmentToGlobalOrds {
       None => Ok(index as i64),
       Some(values) => values.get(index),
     }
+  }
+}
+
+impl SegmentToGlobalOrds {
+  pub(crate) fn append_ords<S: SortedSetDocValues>(
+    &self,
+    values: &mut S,
+    ords: &mut Vec<i64>,
+    count: usize,
+  ) -> Result<()> {
+    match self.0.as_deref() {
+      None => Self::append_mapped_ords(values, &Identity, ords, count),
+      Some(LongValuesEnum2::A(map)) => Self::append_mapped_ords(values, map, ords, count),
+      Some(LongValuesEnum2::B(map)) => Self::append_mapped_ords(values, map, ords, count),
+    }
+  }
+
+  fn append_mapped_ords<S: SortedSetDocValues, V: LongValues>(
+    values: &mut S,
+    map: &V,
+    ords: &mut Vec<i64>,
+    count: usize,
+  ) -> Result<()> {
+    for _ in 0..count {
+      let sub_ord = values.next_ord()?;
+      ords.push(map.get(sub_ord as usize)?);
+    }
+    Ok(())
   }
 }
 

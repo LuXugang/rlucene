@@ -1526,6 +1526,21 @@ where
     current_sub.sub.map.get(sub_ord as usize)
   }
 
+  fn append_ords(&mut self, ords: &mut Vec<i64>, count: usize) -> Result<()> {
+    if count == 0 {
+      return Ok(());
+    }
+    let current = *self
+      .current_sub
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("current sorted-set sub is missing"))?;
+    let current_sub = &mut self.doc_id_merger.get_subs_mut()[current];
+    current_sub
+      .sub
+      .map
+      .append_ords(&mut current_sub.sub.values, ords, count)
+  }
+
   fn lookup_ord(&mut self, ord: i64) -> Result<Self::OrdValue<'_>> {
     let ord = ord as usize;
     let segment_number = self.map.get_first_segment_number(ord)?;
