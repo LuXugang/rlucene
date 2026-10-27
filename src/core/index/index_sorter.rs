@@ -17,7 +17,7 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesVisitor};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort_field::MissingValueEnum;
@@ -94,6 +94,23 @@ pub trait IndexSorter {
   fn get_doc_comparator<LR>(&self, leaf_reader: &LR, max_doc: i32) -> Result<Self::DocComparator>
   where
     LR: LeafReader;
+}
+
+struct IndexSortOrdValues<'a>(&'a mut [i32]);
+
+impl SortedDocValuesVisitor for IndexSortOrdValues<'_> {
+  type Output = Result<()>;
+
+  fn visit<D: SortedDocValues>(self, values: &mut D) -> Self::Output {
+    loop {
+      let doc_id = values.next_doc()?;
+      if doc_id == NO_MORE_DOCS {
+        break;
+      }
+      self.0[doc_id as usize] = values.ord_value()?;
+    }
+    Ok(())
+  }
 }
 
 // DoubleSorter
@@ -824,14 +841,7 @@ where
     };
 
     let mut ords = vec![missing_ord; max_doc as usize];
-    let mut doc_id;
-    loop {
-      doc_id = sorted.next_doc()?;
-      if doc_id == NO_MORE_DOCS {
-        break;
-      }
-      ords[doc_id as usize] = sorted.ord_value()?;
-    }
+    sorted.visit(IndexSortOrdValues(&mut ords))?;
     Ok(DocComparatorImplString::new(ords, self.reverse_mul))
   }
 }

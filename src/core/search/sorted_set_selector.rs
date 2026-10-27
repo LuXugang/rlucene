@@ -19,7 +19,7 @@ use crate::core::util::access::ByteSource;
 
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesVisitor};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::{BytesRef, BytesRefValue};
@@ -634,6 +634,16 @@ where
       SortedDocValuesWrap::Max(max) => max.ord_value(),
       SortedDocValuesWrap::MiddleMin(middle_min) => middle_min.ord_value(),
       SortedDocValuesWrap::MiddleMax(middle_max) => middle_max.ord_value(),
+    }
+  }
+
+  fn visit<V: SortedDocValuesVisitor>(&mut self, visitor: V) -> V::Output {
+    match self {
+      Self::Singleton(inner) => visitor.visit(inner),
+      Self::Min(inner) => visitor.visit(inner),
+      Self::Max(inner) => visitor.visit(inner),
+      Self::MiddleMin(inner) => visitor.visit(inner),
+      Self::MiddleMax(inner) => visitor.visit(inner),
     }
   }
 

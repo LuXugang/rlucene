@@ -55,6 +55,14 @@ pub trait SortedDocValues: DocValuesIterator {
   /// A dense ordinal (starts at 0, then increments in sorted order).
   fn ord_value(&mut self) -> Result<i32>;
 
+  /// Visits the borrowed cursor while preserving its state, values and errors.
+  fn visit<V: SortedDocValuesVisitor>(&mut self, visitor: V) -> V::Output
+  where
+    Self: Sized,
+  {
+    visitor.visit(self)
+  }
+
   /// Resolves the provided ordinal to the associated dictionary value.
   ///
   /// The returned [`BytesRef`] may be reused across calls,
@@ -143,6 +151,13 @@ pub trait SortedDocValues: DocValuesIterator {
       )),
     }
   }
+}
+
+/// An operation that retains a concrete borrowed sorted-values cursor.
+pub trait SortedDocValuesVisitor {
+  type Output;
+
+  fn visit<D: SortedDocValues>(self, values: &mut D) -> Self::Output;
 }
 
 macro_rules! either_sorted_docvalues {
