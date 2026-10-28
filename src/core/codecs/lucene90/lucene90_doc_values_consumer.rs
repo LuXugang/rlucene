@@ -351,7 +351,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
           block_min_max.next_block();
         }
 
-        if let Some(set) = unique_values.as_mut()
+        if !ords
+          && let Some(set) = unique_values.as_mut()
           && set.insert(v)
           && set.len() > 256
         {
