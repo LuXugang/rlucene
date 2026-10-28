@@ -330,7 +330,7 @@ impl DocIdsWriter {
       debug_assert!(pos == count, "pos: {pos}, count: {count}");
       return Ok(());
     }
-    let mut pos = 0;
+    let mut pos = 0usize;
     for (word_index, &bits) in iterator
       .get_bit_set()
       .get_bits()
@@ -339,6 +339,17 @@ impl DocIdsWriter {
       .enumerate()
     {
       let mut word = bits as u64;
+      if word == u64::MAX
+        && let Some(end) = pos.checked_add(64)
+        && let Some(dst) = doc_ids.get_mut(pos..end)
+      {
+        let base = doc_base + (word_index << 6);
+        for (bit, doc_id) in dst.iter_mut().enumerate() {
+          *doc_id = (base + bit) as i32;
+        }
+        pos = end;
+        continue;
+      }
       while word != 0 {
         let bit = word.trailing_zeros() as usize;
         doc_ids[pos] = (doc_base + (word_index << 6) + bit) as i32;
