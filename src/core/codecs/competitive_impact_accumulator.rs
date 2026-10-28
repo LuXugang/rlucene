@@ -16,6 +16,8 @@
  */
 use std::collections::BTreeSet;
 
+use smallvec::SmallVec;
+
 use crate::core::index::impact::Impact;
 
 /// This struct accumulates the (freq, norm) pairs that may produce competitive
@@ -83,8 +85,8 @@ impl CompetitiveImpactAccumulator {
   }
 
   /// Get the set of competitive (freq,norm) pairs, ordered by freq→norm.
-  pub fn get_competitive_freq_norm_pairs(&self) -> Vec<Impact> {
-    let mut impacts = Vec::new();
+  pub fn get_competitive_freq_norm_pairs(&self) -> SmallVec<[Impact; 8]> {
+    let mut impacts = SmallVec::new();
     let mut max_freq_for_lower_norms = 0;
     for (i, &freq) in self.max_freqs.iter().enumerate() {
       if freq > max_freq_for_lower_norms {

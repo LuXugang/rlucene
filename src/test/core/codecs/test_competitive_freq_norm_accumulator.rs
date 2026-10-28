@@ -23,20 +23,23 @@ fn test_basics() {
   let mut acc = CompetitiveImpactAccumulator::new();
 
   acc.add(3, 5);
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), [Impact::new(3, 5)]);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    [Impact::new(3, 5)]
+  );
   acc.add(6, 11);
   assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
+    acc.get_competitive_freq_norm_pairs().as_slice(),
     [Impact::new(3, 5), Impact::new(6, 11)]
   );
   acc.add(10, 13);
   assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
+    acc.get_competitive_freq_norm_pairs().as_slice(),
     [Impact::new(3, 5), Impact::new(6, 11), Impact::new(10, 13)]
   );
   acc.add(1, 2);
   assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
+    acc.get_competitive_freq_norm_pairs().as_slice(),
     [
       Impact::new(1, 2),
       Impact::new(3, 5),
@@ -47,7 +50,7 @@ fn test_basics() {
 
   acc.add(7, 9);
   assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
+    acc.get_competitive_freq_norm_pairs().as_slice(),
     [
       Impact::new(1, 2),
       Impact::new(3, 5),
@@ -58,7 +61,7 @@ fn test_basics() {
 
   acc.add(8, 2);
   assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
+    acc.get_competitive_freq_norm_pairs().as_slice(),
     [Impact::new(8, 2), Impact::new(10, 13)]
   );
 }
@@ -69,23 +72,38 @@ fn test_extreme_norms() {
 
   acc.add(3, 5);
   expected.push(Impact::new(3, 5));
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), expected);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    expected.as_slice()
+  );
 
   acc.add(10, 10000);
   expected.push(Impact::new(10, 10000));
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), expected);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    expected.as_slice()
+  );
 
   acc.add(5, 200);
   expected.insert(1, Impact::new(5, 200));
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), expected);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    expected.as_slice()
+  );
 
   acc.add(20, -100);
   expected.push(Impact::new(20, -100));
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), expected);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    expected.as_slice()
+  );
 
   acc.add(30, -3);
   expected.push(Impact::new(30, -3));
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), expected);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    expected.as_slice()
+  );
 }
 
 #[test]
@@ -97,70 +115,70 @@ fn test_copy() {
   acc.add(3, 5);
   copied_acc.copy_from(&acc);
   assert_eq!(
-    copied_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    copied_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   merged_acc.add_all(&acc);
   assert_eq!(
-    merged_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    merged_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   acc.add(10, 10000);
   copied_acc.copy_from(&acc);
   assert_eq!(
-    copied_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    copied_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   merged_acc.clear();
   merged_acc.add_all(&acc);
   assert_eq!(
-    merged_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    merged_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   acc.add(5, 200);
   copied_acc.copy_from(&acc);
   assert_eq!(
-    copied_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    copied_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   merged_acc.clear();
   merged_acc.add_all(&acc);
   assert_eq!(
-    merged_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    merged_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   acc.add(20, -100);
   copied_acc.copy_from(&acc);
   assert_eq!(
-    copied_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    copied_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   merged_acc.clear();
   merged_acc.add_all(&acc);
   assert_eq!(
-    merged_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    merged_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   acc.add(30, -3);
   copied_acc.copy_from(&acc);
   assert_eq!(
-    copied_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    copied_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 
   merged_acc.clear();
   merged_acc.add_all(&acc);
   assert_eq!(
-    merged_acc.get_competitive_freq_norm_pairs(),
-    acc.get_competitive_freq_norm_pairs()
+    merged_acc.get_competitive_freq_norm_pairs().as_slice(),
+    acc.get_competitive_freq_norm_pairs().as_slice()
   );
 }
 
@@ -170,7 +188,10 @@ fn test_omit_freqs() {
   acc.add(1, 5);
   acc.add(1, 7);
   acc.add(1, 4);
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), [Impact::new(1, 4)]);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    [Impact::new(1, 4)]
+  );
 }
 
 #[test]
@@ -179,5 +200,8 @@ fn test_omit_norms() {
   acc.add(5, 1);
   acc.add(7, 1);
   acc.add(4, 1);
-  assert_eq!(acc.get_competitive_freq_norm_pairs(), [Impact::new(7, 1)]);
+  assert_eq!(
+    acc.get_competitive_freq_norm_pairs().as_slice(),
+    [Impact::new(7, 1)]
+  );
 }
