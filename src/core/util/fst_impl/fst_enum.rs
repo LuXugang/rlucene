@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::util::OutputIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::{
   ARCS_FOR_BINARY_SEARCH, ARCS_FOR_CONTINUOUS, ARCS_FOR_DIRECT_ADDRESSING, Arc, BitTable,
   END_LABEL, FST,
 };
 use crate::core::util::fst_impl::fst_reader::FstReader;
-use crate::core::util::fst_impl::outputs::Outputs;
+use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
 use crate::core::util::fst_impl::util::Util;
 
 /// Can next() and advance() through the terms in an FST
@@ -1095,11 +1094,7 @@ where
           .outputs
           .add(&prefix[self.upto - 1], &self.arcs[self.upto].output)
         {
-          std::borrow::Cow::Borrowed(output) => {
-            if !current[0].is_same_reference(output) {
-              current[0] = output.clone();
-            }
-          },
+          std::borrow::Cow::Borrowed(output) => current[0].assign_from(output),
           std::borrow::Cow::Owned(output) => current[0] = output,
         }
       }
@@ -1144,11 +1139,7 @@ where
           .outputs
           .add(&prefix[self.upto - 1], &self.arcs[self.upto].output)
         {
-          std::borrow::Cow::Borrowed(output) => {
-            if !current[0].is_same_reference(output) {
-              current[0] = output.clone();
-            }
-          },
+          std::borrow::Cow::Borrowed(output) => current[0].assign_from(output),
           std::borrow::Cow::Owned(output) => current[0] = output,
         }
       }

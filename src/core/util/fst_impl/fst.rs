@@ -19,13 +19,13 @@ use crate::core::codecs::CodecUtil;
 use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
+use crate::core::util::IOUtils;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
-use crate::core::util::fst_impl::outputs::Outputs;
-use crate::core::util::{IOUtils, OutputIdentity};
+use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
 use core::fmt;
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -178,12 +178,8 @@ where
   pub fn get_first_arc(&self, arc: &mut Arc<O::V>) {
     let (flags, no_output, final_output) = self.first_arc_state();
     arc.flags = flags;
-    if !arc.next_final_output.is_same_reference(final_output) {
-      arc.next_final_output = final_output.clone();
-    }
-    if !arc.output.is_same_reference(no_output) {
-      arc.output = no_output.clone();
-    }
+    arc.next_final_output.assign_from(final_output);
+    arc.output.assign_from(no_output);
     // If there are no nodes, ie, the FST only accepts the
     // empty string, then startNode is 0
     arc.target = self.metadata.start_node;
@@ -241,9 +237,7 @@ where
       debug_assert!(follow.is_final());
       arc.label = END_LABEL;
       arc.target = FINAL_END_NODE;
-      if !arc.output.is_same_reference(&follow.next_final_output) {
-        arc.output = follow.next_final_output.clone();
-      }
+      arc.output.assign_from(&follow.next_final_output);
       arc.flags = BIT_LAST_ARC;
       arc.node_flags = arc.flags;
       return Ok(arc);
@@ -460,12 +454,11 @@ where
     if follow.unwrap_or(arc).is_final() {
       // Insert "fake" final arc to END_LABEL
       arc.label = END_LABEL;
-      if !arc
-        .output
-        .is_same_reference(&follow.unwrap_or(arc).next_final_output)
-      {
-        arc.output = follow.unwrap_or(arc).next_final_output.clone();
-      }
+      let final_output = match follow {
+        Some(follow) => &follow.next_final_output,
+        None => &arc.next_final_output,
+      };
+      arc.output.assign_from(final_output);
       arc.flags = BIT_FINAL_ARC;
 
       if follow_target <= 0 {
@@ -812,34 +805,22 @@ where
 
     if arc.flag(BIT_ARC_HAS_OUTPUT) {
       match self.outputs.read(reader)? {
-        std::borrow::Cow::Borrowed(output) => {
-          if !arc.output.is_same_reference(output) {
-            arc.output = output.clone();
-          }
-        },
+        std::borrow::Cow::Borrowed(output) => arc.output.assign_from(output),
         std::borrow::Cow::Owned(output) => arc.output = output,
       }
     } else {
       let no_output = self.outputs.get_no_output();
-      if !arc.output.is_same_reference(no_output) {
-        arc.output = no_output.clone();
-      }
+      arc.output.assign_from(no_output);
     }
 
     if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT) {
       match self.outputs.read_final_output(reader)? {
-        std::borrow::Cow::Borrowed(output) => {
-          if !arc.next_final_output.is_same_reference(output) {
-            arc.next_final_output = output.clone();
-          }
-        },
+        std::borrow::Cow::Borrowed(output) => arc.next_final_output.assign_from(output),
         std::borrow::Cow::Owned(output) => arc.next_final_output = output,
       }
     } else {
       let no_output = self.outputs.get_no_output();
-      if !arc.next_final_output.is_same_reference(no_output) {
-        arc.next_final_output = no_output.clone();
-      }
+      arc.next_final_output.assign_from(no_output);
     }
 
     if arc.flag(BIT_STOP_NODE) {

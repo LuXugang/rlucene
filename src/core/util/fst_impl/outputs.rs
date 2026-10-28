@@ -26,8 +26,9 @@ use std::sync::Arc;
 /// Represents the outputs for an FST, providing the basic algebra required for
 /// building and traversing the FST.
 ///
-/// Note that any operation that returns `NO_OUTPUT` must return the same
-/// SINGLETON object from [`get_no_output`](Outputs::get_no_output).
+/// Reference-backed outputs must return the same `NO_OUTPUT` singleton from
+/// [`get_no_output`](Outputs::get_no_output). Value outputs use their canonical
+/// no-output value instead; for [`i64`] this is zero.
 pub trait Outputs: Display + Clone + Default {
   type V: OutputsBound;
 
@@ -113,9 +114,9 @@ pub trait Outputs: Display + Clone + Default {
     Ok(())
   }
 
-  /// NOTE: this output is compared with pointer equality (`==`), so you must
-  /// ensure that all methods return the same SINGLETON object if it's
-  /// really no output.
+  /// Returns the canonical no-output value. Reference-backed outputs must use
+  /// the same singleton object whenever an operation returns no output.
+  /// Value outputs are recognized by [`OutputsBound::is_no_output`].
   fn get_no_output(&self) -> &Self::V;
 
   fn output_to_string(&self, output: &Self::V) -> String;
@@ -130,11 +131,63 @@ pub trait Outputs: Display + Clone + Default {
   fn ram_bytes_used(&self, output: &Self::V) -> i64;
 }
 
-pub trait OutputsBound:
-  Clone + PartialEq + Default + HashCode + Hash + Display + OutputIdentity
-{
+/// Output values used by the FST algorithms.
+///
+/// Recognizing no output and updating an existing slot are separate from
+/// physical reference identity, so scalar values need no shared allocation.
+pub trait OutputsBound: Clone + PartialEq + Default + HashCode + Hash + Display {
+  /// Whether this is the canonical no-output representation. Reference-backed
+  /// values compare singleton identity; scalar values compare their value.
+  fn is_no_output(&self, no_output: &Self) -> bool;
+
+  /// Copies `output` into this slot. Reference-backed implementations may
+  /// retain the slot when it already refers to exactly the same output.
+  fn assign_from(&mut self, output: &Self);
 }
-impl OutputsBound for Arc<i64> {}
-impl OutputsBound for BytesRef<Arc<Vec<u8>>> {}
-impl OutputsBound for IntsRef<Arc<Vec<i32>>> {}
-// impl<T: Clone + PartialEq + Default + Hash + Display> OutputsBound for T {}
+
+impl OutputsBound for i64 {
+  fn is_no_output(&self, no_output: &Self) -> bool {
+    self == no_output
+  }
+
+  fn assign_from(&mut self, output: &Self) {
+    *self = *output;
+  }
+}
+
+impl OutputsBound for Arc<i64> {
+  fn is_no_output(&self, no_output: &Self) -> bool {
+    self.is_same_reference(no_output)
+  }
+
+  #[inline]
+  fn assign_from(&mut self, output: &Self) {
+    if !self.is_same_reference(output) {
+      *self = output.clone();
+    }
+  }
+}
+
+impl OutputsBound for BytesRef<Arc<Vec<u8>>> {
+  fn is_no_output(&self, no_output: &Self) -> bool {
+    self.is_same_reference(no_output)
+  }
+
+  fn assign_from(&mut self, output: &Self) {
+    if !self.is_same_reference(output) {
+      *self = output.clone();
+    }
+  }
+}
+
+impl OutputsBound for IntsRef<Arc<Vec<i32>>> {
+  fn is_no_output(&self, no_output: &Self) -> bool {
+    self.is_same_reference(no_output)
+  }
+
+  fn assign_from(&mut self, output: &Self) {
+    if !self.is_same_reference(output) {
+      *self = output.clone();
+    }
+  }
+}

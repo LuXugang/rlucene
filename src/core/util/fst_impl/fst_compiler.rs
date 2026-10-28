@@ -38,7 +38,7 @@ use crate::core::util::fst_impl::read_write_data_output::ReadWriteDataOutput;
 use crate::core::util::fst_impl::reverse_bytes_reader::ReverseBytesReader;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
-use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
+use crate::core::util::{SliceCopyOps, TryIntoInt};
 
 /// Builds a minimal FST (maps an [`IntsRef`] term to an arbitrary output) from
 /// pre-sorted terms with outputs. The FST becomes an FSA if you use
@@ -245,9 +245,9 @@ where
   pub fn add(&mut self, input: &IntsRef<Vec<i32>>, mut output: O::V) -> Result<()> {
     let ints = &input.ints;
 
-    // De-dup NO_OUTPUT since it must be a singleton:
+    // Canonicalize NO_OUTPUT; reference-backed outputs must use a singleton.
     if &output == self.fst.outputs.get_no_output()
-      && !output.is_same_reference(self.fst.outputs.get_no_output())
+      && !output.is_no_output(self.fst.outputs.get_no_output())
     {
       output = self.fst.outputs.get_no_output().clone();
     }
@@ -313,12 +313,9 @@ where
     let last_node = &mut self.frontier[input.length];
     if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
       last_node.is_final = true;
-      if !last_node
+      last_node
         .output
-        .is_same_reference(self.fst.outputs.get_no_output())
-      {
-        last_node.output = self.fst.outputs.get_no_output().clone();
-      }
+        .assign_from(self.fst.outputs.get_no_output());
     }
     // push conflicting outputs forward, only as far as
     // needed
@@ -331,18 +328,18 @@ where
       let label = ints[offset + idx - 1];
       let last_output = parent.get_last_output(label);
 
-      debug_assert!(no_output.is_same_reference(last_output) || *last_output != *no_output);
+      debug_assert!(last_output.is_no_output(no_output) || *last_output != *no_output);
 
-      if !no_output.is_same_reference(last_output) {
+      if !last_output.is_no_output(no_output) {
         let common_output_prefix = outputs.common(&output, last_output);
         debug_assert!(
-          no_output.is_same_reference(&common_output_prefix) || common_output_prefix != *no_output
+          common_output_prefix.is_no_output(no_output) || common_output_prefix != *no_output
         );
 
         let word_suffix = outputs
           .subtract(last_output, &common_output_prefix)
           .into_owned();
-        debug_assert!(no_output.is_same_reference(&word_suffix) || word_suffix != *no_output);
+        debug_assert!(word_suffix.is_no_output(no_output) || word_suffix != *no_output);
 
         let common_output_prefix = parent.set_last_output(label, common_output_prefix, no_output);
         node.prepend_output(&word_suffix, outputs, no_output);
@@ -356,7 +353,7 @@ where
           output = next_output;
         }
       }
-      debug_assert!(no_output.is_same_reference(&output) || output != *no_output);
+      debug_assert!(output.is_no_output(no_output) || output != *no_output);
     }
     if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
       // same input more than 1 time in a row,
@@ -467,11 +464,11 @@ where
 
           if arc.is_final {
             flags |= BIT_FINAL_ARC;
-            if !no_output.is_same_reference(&arc.next_final_output) {
+            if !arc.next_final_output.is_no_output(no_output) {
               flags |= BIT_ARC_HAS_FINAL_OUTPUT;
             }
           } else {
-            debug_assert!(no_output.is_same_reference(&arc.next_final_output));
+            debug_assert!(arc.next_final_output.is_no_output(no_output));
           }
 
           let target_has_arcs = target.node > 0;
@@ -479,9 +476,9 @@ where
             flags |= BIT_STOP_NODE;
           }
 
-          // `arc.output` is not mutated while this arc is serialized, so the reference
-          // check only needs to be evaluated once.
-          let arc_has_output = !no_output.is_same_reference(&arc.output);
+          // `arc.output` is not mutated while this arc is serialized, so the
+          // no-output check only needs to be evaluated once.
+          let arc_has_output = !arc.output.is_no_output(no_output);
           if arc_has_output {
             flags |= BIT_ARC_HAS_OUTPUT;
           }
@@ -517,7 +514,7 @@ where
               .write(&arc.output, &mut self.scratch_bytes)?;
           }
 
-          if !no_output.is_same_reference(&arc.next_final_output) {
+          if !arc.next_final_output.is_no_output(no_output) {
             self
               .fst
               .outputs
@@ -1003,7 +1000,7 @@ where
   }
   fn valid_output(&self, output: &O::V) -> bool {
     let no_output = self.fst.outputs.get_no_output();
-    no_output.is_same_reference(output) || output != no_output
+    output.is_no_output(no_output) || output != no_output
   }
   /// Returns the estimated heap memory used by the in-construction FST.
   pub fn fst_ram_bytes_used(&self) -> Result<i64> {
@@ -1361,9 +1358,7 @@ where
   pub(crate) fn clear(&mut self, no_outputs: &T) {
     self.num_arcs = 0;
     self.is_final = false;
-    if !self.output.is_same_reference(no_outputs) {
-      self.output = no_outputs.clone();
-    }
+    self.output.assign_from(no_outputs);
     // We don't clear the depth here because it never changes
     // for nodes on the frontier (even when reused).
   }
@@ -1400,12 +1395,8 @@ where
     self.num_arcs += 1;
     arc.label = label;
     arc.target = target;
-    if !arc.output.is_same_reference(no_outputs) {
-      arc.output = no_outputs.clone();
-    }
-    if !arc.next_final_output.is_same_reference(no_outputs) {
-      arc.next_final_output = no_outputs.clone();
-    }
+    arc.output.assign_from(no_outputs);
+    arc.next_final_output.assign_from(no_outputs);
     arc.is_final = false;
     Ok(())
   }
@@ -1434,7 +1425,7 @@ where
     new_output: T,
     no_output: &T,
   ) -> &T {
-    debug_assert!(no_output.is_same_reference(&new_output) || new_output != *no_output);
+    debug_assert!(new_output.is_no_output(no_output) || new_output != *no_output);
     debug_assert!(self.num_arcs > 0);
     let arc = &mut self.arcs[self.num_arcs - 1];
     debug_assert_eq!(arc.label, label_to_match);
@@ -1447,7 +1438,7 @@ where
   where
     O: Outputs<V = T>,
   {
-    debug_assert!(no_output.is_same_reference(output_prefix) || *output_prefix != *no_output);
+    debug_assert!(output_prefix.is_no_output(no_output) || *output_prefix != *no_output);
     for i in 0..self.num_arcs {
       let current = &mut self.arcs[i].output;
       match outputs.add(output_prefix, current) {

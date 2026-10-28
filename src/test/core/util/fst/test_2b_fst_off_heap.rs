@@ -277,7 +277,7 @@ fn test() -> Result<()> {
     let mut r = StdRng::seed_from_u64(seed);
     loop {
       // println!("add: {input} -> {output}");
-      fst_compiler.add(&input, Arc::new(output))?;
+      fst_compiler.add(&input, output)?;
       output += 1 + r.random_range(0..10);
       count += 1;
       if count % 10_000 == 0 {
@@ -320,7 +320,7 @@ fn test() -> Result<()> {
           if i % 1_000_000 == 0 {
             println!("{}...: took {} seconds", i, start_time.elapsed().as_secs());
           }
-          assert_eq!(Some(Arc::new(output)), Util::get_from_ints(&fst, &input)?);
+          assert_eq!(Some(output), Util::get_from_ints(&fst, &input)?);
           output += 1 + r.random_range(0..10);
           next_input(&mut r, &mut input.ints);
         }
@@ -333,7 +333,7 @@ fn test() -> Result<()> {
         output = 1;
         while let Some(pair) = fst_enum.next_value()? {
           assert_eq!(input, pair.input);
-          assert_eq!(output, *pair.output);
+          assert_eq!(output, pair.output);
           output += 1 + r.random_range(0..10);
           upto += 1;
           next_input(&mut r, &mut input.ints);

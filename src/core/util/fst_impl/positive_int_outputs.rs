@@ -16,21 +16,20 @@
  */
 use std::fmt::{Display, Formatter};
 use std::mem;
-use std::sync::Arc;
 use std::sync::LazyLock;
 
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 
-static NO_OUTPUT: LazyLock<Arc<i64>> = LazyLock::new(|| Arc::new(0));
+static NO_OUTPUT: i64 = 0;
 
 pub static SINGLETON: LazyLock<PositiveIntOutputs> = LazyLock::new(|| PositiveIntOutputs {
   no_output: &NO_OUTPUT,
 });
 /// An FST [`Outputs`] implementation where each output is a non-negative `i64`.
 pub struct PositiveIntOutputs {
-  no_output: &'static Arc<i64>,
+  no_output: &'static i64,
 }
 
 impl Clone for PositiveIntOutputs {
@@ -55,14 +54,14 @@ impl PositiveIntOutputs {
   }
 
   #[cfg(debug_assertions)]
-  fn valid(&self, o: &Arc<i64>) -> bool {
-    debug_assert!(Arc::ptr_eq(o, self.no_output) || **o > 0, "o= {o}");
+  fn valid(&self, o: &i64) -> bool {
+    debug_assert!(*o == *self.no_output || *o > 0, "o= {o}");
     true
   }
 }
 
 impl Outputs for PositiveIntOutputs {
-  type V = Arc<i64>;
+  type V = i64;
 
   fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
     #[cfg(debug_assertions)]
@@ -71,15 +70,15 @@ impl Outputs for PositiveIntOutputs {
       debug_assert!(self.valid(output2));
     }
 
-    if Arc::ptr_eq(output1, self.no_output) || Arc::ptr_eq(output2, self.no_output) {
-      self.no_output.clone()
+    if *output1 == *self.no_output || *output2 == *self.no_output {
+      *self.no_output
     } else {
-      debug_assert!(**output1 > 0);
-      debug_assert!(**output2 > 0);
-      if **output1 <= **output2 {
-        Arc::clone(output1)
+      debug_assert!(*output1 > 0);
+      debug_assert!(*output2 > 0);
+      if *output1 <= *output2 {
+        *output1
       } else {
-        Arc::clone(output2)
+        *output2
       }
     }
   }
@@ -90,14 +89,14 @@ impl Outputs for PositiveIntOutputs {
       debug_assert!(self.valid(output));
       debug_assert!(self.valid(inc));
     }
-    debug_assert!(**output >= **inc);
+    debug_assert!(*output >= *inc);
 
-    if Arc::ptr_eq(inc, self.no_output) {
+    if *inc == *self.no_output {
       std::borrow::Cow::Borrowed(output)
-    } else if **output == **inc {
-      std::borrow::Cow::Owned(self.no_output.clone())
+    } else if *output == *inc {
+      std::borrow::Cow::Owned(*self.no_output)
     } else {
-      std::borrow::Cow::Owned(Arc::new(**output - **inc))
+      std::borrow::Cow::Owned(output.wrapping_sub(*inc))
     }
   }
 
@@ -108,12 +107,13 @@ impl Outputs for PositiveIntOutputs {
       debug_assert!(self.valid(output));
     }
 
-    if Arc::ptr_eq(prefix, self.no_output) {
+    if *prefix == *self.no_output {
       std::borrow::Cow::Borrowed(output)
-    } else if Arc::ptr_eq(output, self.no_output) {
+    } else if *output == *self.no_output {
       std::borrow::Cow::Borrowed(prefix)
     } else {
-      std::borrow::Cow::Owned(Arc::new(**prefix + **output))
+      // Java long arithmetic wraps even when debug assertions are enabled.
+      std::borrow::Cow::Owned(prefix.wrapping_add(*output))
     }
   }
 
@@ -123,7 +123,7 @@ impl Outputs for PositiveIntOutputs {
   {
     #[cfg(debug_assertions)]
     debug_assert!(self.valid(output));
-    out.write_vlong(**output)
+    out.write_vlong(*output)
   }
 
   fn read<DI>(&self, input: &mut DI) -> Result<std::borrow::Cow<'_, Self::V>>
@@ -134,7 +134,7 @@ impl Outputs for PositiveIntOutputs {
     if v == 0 {
       Ok(std::borrow::Cow::Borrowed(self.no_output))
     } else {
-      Ok(std::borrow::Cow::Owned(Arc::new(v)))
+      Ok(std::borrow::Cow::Owned(v))
     }
   }
 
@@ -155,7 +155,7 @@ impl Outputs for PositiveIntOutputs {
   }
 
   fn ram_bytes_used(&self, output: &Self::V) -> i64 {
-    mem::size_of_val(output.as_ref()) as i64
+    mem::size_of_val(output) as i64
   }
 }
 
