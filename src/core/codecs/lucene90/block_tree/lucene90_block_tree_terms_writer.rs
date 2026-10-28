@@ -980,8 +980,8 @@ where
         &mut self.stats_writer,
         *self.field_info.get_index_options() != IndexOptions::Docs,
       );
-      for i in start..end {
-        let term = match &self.pending[i] {
+      for entry in &self.pending[start..end] {
+        let term = match entry {
           PendingEntryEnum::Term(term) => term,
           _ => return Err(LuceneError::illegal_state("Expected PendingTerm")),
         };
@@ -1017,8 +1017,8 @@ where
         &mut self.stats_writer,
         *self.field_info.get_index_options() != IndexOptions::Docs,
       );
-      for i in start..end {
-        match &mut self.pending[i] {
+      for entry in &mut self.pending[start..end] {
+        match entry {
           PendingEntryEnum::Term(term) => {
             debug_assert!(StringHelper::starts_with_byte_array(
               &term.term_bytes,
