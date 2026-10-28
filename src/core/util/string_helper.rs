@@ -212,18 +212,30 @@ impl StringHelper {
     let mut h1 = seed as u32;
     let rounded_end = offset + (len & 0xfffffffc); // round down to 4 byte block
 
-    let mut i = offset;
-    while i < rounded_end {
-      let k1 = BitUtil::get_i32_le(data, i) as u32;
-      let mut k1 = k1.wrapping_mul(c1);
-      k1 = k1.rotate_left(15);
-      k1 = k1.wrapping_mul(c2);
+    if let Some(blocks) = data.get(offset..rounded_end) {
+      for block in blocks.as_chunks::<4>().0 {
+        let mut k1 = u32::from_le_bytes(*block).wrapping_mul(c1);
+        k1 = k1.rotate_left(15);
+        k1 = k1.wrapping_mul(c2);
 
-      h1 ^= k1;
-      h1 = h1.rotate_left(13);
-      h1 = h1.wrapping_mul(5).wrapping_add(0xe6546b64);
+        h1 ^= k1;
+        h1 = h1.rotate_left(13);
+        h1 = h1.wrapping_mul(5).wrapping_add(0xe6546b64);
+      }
+    } else {
+      let mut i = offset;
+      while i < rounded_end {
+        let k1 = BitUtil::get_i32_le(data, i) as u32;
+        let mut k1 = k1.wrapping_mul(c1);
+        k1 = k1.rotate_left(15);
+        k1 = k1.wrapping_mul(c2);
 
-      i += 4;
+        h1 ^= k1;
+        h1 = h1.rotate_left(13);
+        h1 = h1.wrapping_mul(5).wrapping_add(0xe6546b64);
+
+        i += 4;
+      }
     }
 
     // tail
