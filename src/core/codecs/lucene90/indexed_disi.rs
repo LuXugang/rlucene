@@ -1249,12 +1249,28 @@ where
     }
   } else {
     let mut iter = BitSetIterator::new(buffer, cardinality as i64)?;
-    let mut doc;
-    while {
-      doc = iter.next_doc()?;
-      doc != NO_MORE_DOCS
-    } {
-      out.write_short(doc as i16)?;
+    let mut doc = iter.next_doc()?;
+    if cardinality <= DENSE_BLOCK_LONGS as i32 {
+      while doc != NO_MORE_DOCS {
+        out.write_short(doc as i16)?;
+        doc = iter.next_doc()?;
+      }
+    } else {
+      while doc != NO_MORE_DOCS {
+        let word_index = (doc as usize) >> 6;
+        let mut word = iter.bits.get_bits()[word_index] as u64;
+        loop {
+          out.write_short(doc as i16)?;
+          word &= word - 1;
+          if word == 0 {
+            break;
+          }
+          doc = ((word_index << 6) + word.trailing_zeros() as usize) as i32;
+        }
+        // Keep the iterator's accelerated search for the next non-empty word.
+        iter.set_doc_id(doc | 63);
+        doc = iter.next_doc()?;
+      }
     }
     buffer = iter.bits
   }
