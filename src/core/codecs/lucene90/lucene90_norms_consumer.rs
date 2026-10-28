@@ -182,13 +182,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
       2 => write_values!(write_short, i16),
       4 => write_values!(write_int, i32),
       8 => write_values!(write_long, i64),
-      _ => {
-        // Preserve the empty-stream behavior and cursor errors before width validation.
-        if values.next_doc()? != NO_MORE_DOCS {
-          let _ = values.long_value()?;
-          return Err(LuceneError::unreachable("invalid byte width"));
-        }
-      },
+      _ => return Err(LuceneError::unreachable("invalid byte width")),
     }
     Ok(())
   }

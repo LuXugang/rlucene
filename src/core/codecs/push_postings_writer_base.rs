@@ -100,7 +100,24 @@ where
 {
   type Output = Result<(i32, i64)>;
 
-  fn visit<D: NumericDocValues>(self, mut norm_values: Option<&mut D>) -> Self::Output {
+  fn visit<D: NumericDocValues>(self, norm_values: Option<&mut D>) -> Self::Output {
+    if !self.options.write_payloads && !self.options.write_offsets {
+      self.visit_with_position_mode::<D, true>(norm_values)
+    } else {
+      self.visit_with_position_mode::<D, false>(norm_values)
+    }
+  }
+}
+
+impl<S, PE> WriteTermNormsVisitor<'_, S, PE>
+where
+  S: PushPostingsWriterBaseAbstract,
+  PE: PostingsEnum,
+{
+  fn visit_with_position_mode<D: NumericDocValues, const SIMPLE_POSITIONS: bool>(
+    self,
+    mut norm_values: Option<&mut D>,
+  ) -> Result<(i32, i64)> {
     let mut doc_freq = 0;
     let mut total_term_freq = 0i64;
     loop {
@@ -126,12 +143,12 @@ where
       if self.options.write_positions {
         for _ in 0..freq {
           let pos = self.postings_enum.next_position()?;
-          let payload = if self.options.write_payloads {
+          let payload = if !SIMPLE_POSITIONS && self.options.write_payloads {
             self.postings_enum.get_payload()?
           } else {
             None
           };
-          let (start_offset, end_offset) = if self.options.write_offsets {
+          let (start_offset, end_offset) = if !SIMPLE_POSITIONS && self.options.write_offsets {
             (
               self.postings_enum.start_offset()?,
               self.postings_enum.end_offset()?,
@@ -140,13 +157,19 @@ where
             (-1, -1)
           };
           let payload = payload.as_ref().map(BytesRefValue::as_bytes_ref);
-          self.sub.add_position(
-            pos,
-            payload.as_ref(),
-            start_offset,
-            end_offset,
-            self.options,
-          )?;
+          if SIMPLE_POSITIONS {
+            self
+              .sub
+              .add_position_without_payloads_or_offsets(pos, self.options)?;
+          } else {
+            self.sub.add_position(
+              pos,
+              payload.as_ref(),
+              start_offset,
+              end_offset,
+              self.options,
+            )?;
+          }
         }
       }
 
@@ -324,6 +347,17 @@ pub trait PushPostingsWriterBaseAbstract: PostingsWriterBase {
     end_offset: i32,
     options: &FieldWriteOptions,
   ) -> Result<()>;
+
+  /// Adds a position for a field with neither payloads nor offsets.
+  /// The caller must select this mode before the position loop. The default
+  /// preserves custom writers' existing [`add_position`](Self::add_position) callback.
+  fn add_position_without_payloads_or_offsets(
+    &mut self,
+    position: i32,
+    options: &FieldWriteOptions,
+  ) -> Result<()> {
+    self.add_position(position, None, -1, -1, options)
+  }
 
   /// Called when we are done adding positions and payloads for each doc.
   fn finish_doc(&mut self) -> Result<()>;

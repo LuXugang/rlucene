@@ -470,6 +470,97 @@ where
     debug_assert_eq!(self.doc_out.get_file_pointer()?, level1_end);
     Ok(())
   }
+
+  /// The term consumer fixes the common position mode before its loop.
+  fn add_position_impl<const SIMPLE_POSITIONS: bool>(
+    &mut self,
+    position: i32,
+    payload: Option<&BytesRef<&[u8]>>,
+    start_offset: i32,
+    end_offset: i32,
+    options: &FieldWriteOptions,
+  ) -> Result<()> {
+    if position > MAX_POSITION {
+      return Err(LuceneError::corrupt_index(format!(
+        "position={} is too large (> IndexWriter.MAX_POSITION={})  resource {}",
+        position, MAX_POSITION, self.doc_out
+      )));
+    }
+    if position < 0 {
+      return Err(LuceneError::corrupt_index(format!(
+        "position={} is < 0  resource {}",
+        position, self.doc_out
+      )));
+    }
+
+    let idx = self.pos_buffer_upto;
+    self.pos_delta_buffer[idx] = position - self.last_position;
+    if !SIMPLE_POSITIONS && options.write_payloads {
+      if let Some(p) = payload.as_ref() {
+        if p.length == 0 {
+          self.payload_length_buffer[idx] = 0;
+        } else {
+          self.payload_length_buffer[idx] = p.length as i32;
+          if self.payload_byte_upto + p.length > self.payload_bytes.len() {
+            ArrayUtil::grow_capacity(&mut self.payload_bytes, self.payload_byte_upto + p.length)?;
+          }
+          let start = p.offset;
+          let payload = &p.bytes[start..start + p.length];
+          self.payload_bytes.truncate(self.payload_byte_upto);
+          self.payload_bytes.extend_from_slice(payload);
+          self.payload_byte_upto += p.length;
+        }
+      } else {
+        self.payload_length_buffer[idx] = 0;
+      }
+    }
+
+    if !SIMPLE_POSITIONS && options.write_offsets {
+      debug_assert!(start_offset >= self.last_start_offset);
+      debug_assert!(end_offset >= start_offset);
+      self.offset_start_delta_buffer[idx] = start_offset - self.last_start_offset;
+      self.offset_length_buffer[idx] = end_offset - start_offset;
+      self.last_start_offset = start_offset;
+    }
+
+    self.pos_buffer_upto += 1;
+    self.last_position = position;
+
+    if self.pos_buffer_upto == Lucene101PostingsFormat::BLOCK_SIZE {
+      let po = self
+        .pos_out
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("positions output is missing"))?;
+      self.pfor_util.encode(&mut self.pos_delta_buffer, po)?;
+      if !SIMPLE_POSITIONS && options.write_payloads {
+        let pay_out = self
+          .pay_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))?;
+        self
+          .pfor_util
+          .encode(&mut self.payload_length_buffer, pay_out)?;
+        pay_out.write_vint(self.payload_byte_upto as i32)?;
+        pay_out.write_bytes_range(&self.payload_bytes, 0, self.payload_byte_upto)?;
+        self.payload_byte_upto = 0;
+      }
+      if !SIMPLE_POSITIONS && options.write_offsets {
+        let pay_out = self
+          .pay_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))?;
+        self
+          .pfor_util
+          .encode(&mut self.offset_start_delta_buffer, pay_out)?;
+        self
+          .pfor_util
+          .encode(&mut self.offset_length_buffer, pay_out)?;
+      }
+      self.pos_buffer_upto = 0;
+    }
+
+    Ok(())
+  }
 }
 impl<O> PostingsWriterBase for Lucene101PostingsWriter<O>
 where
@@ -779,86 +870,16 @@ where
     end_offset: i32,
     options: &FieldWriteOptions,
   ) -> Result<()> {
-    if position > MAX_POSITION {
-      return Err(LuceneError::corrupt_index(format!(
-        "position={} is too large (> IndexWriter.MAX_POSITION={})  resource {}",
-        position, MAX_POSITION, self.doc_out
-      )));
-    }
-    if position < 0 {
-      return Err(LuceneError::corrupt_index(format!(
-        "position={} is < 0  resource {}",
-        position, self.doc_out
-      )));
-    }
+    self.add_position_impl::<false>(position, payload, start_offset, end_offset, options)
+  }
 
-    let idx = self.pos_buffer_upto;
-    self.pos_delta_buffer[idx] = position - self.last_position;
-    if options.write_payloads {
-      if let Some(p) = payload.as_ref() {
-        if p.length == 0 {
-          self.payload_length_buffer[idx] = 0;
-        } else {
-          self.payload_length_buffer[idx] = p.length as i32;
-          if self.payload_byte_upto + p.length > self.payload_bytes.len() {
-            ArrayUtil::grow_capacity(&mut self.payload_bytes, self.payload_byte_upto + p.length)?;
-          }
-          let start = p.offset;
-          let payload = &p.bytes[start..start + p.length];
-          self.payload_bytes.truncate(self.payload_byte_upto);
-          self.payload_bytes.extend_from_slice(payload);
-          self.payload_byte_upto += p.length;
-        }
-      } else {
-        self.payload_length_buffer[idx] = 0;
-      }
-    }
-
-    if options.write_offsets {
-      debug_assert!(start_offset >= self.last_start_offset);
-      debug_assert!(end_offset >= start_offset);
-      self.offset_start_delta_buffer[idx] = start_offset - self.last_start_offset;
-      self.offset_length_buffer[idx] = end_offset - start_offset;
-      self.last_start_offset = start_offset;
-    }
-
-    self.pos_buffer_upto += 1;
-    self.last_position = position;
-
-    if self.pos_buffer_upto == Lucene101PostingsFormat::BLOCK_SIZE {
-      let po = self
-        .pos_out
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("positions output is missing"))?;
-      self.pfor_util.encode(&mut self.pos_delta_buffer, po)?;
-      if options.write_payloads {
-        let pay_out = self
-          .pay_out
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))?;
-        self
-          .pfor_util
-          .encode(&mut self.payload_length_buffer, pay_out)?;
-        pay_out.write_vint(self.payload_byte_upto as i32)?;
-        pay_out.write_bytes_range(&self.payload_bytes, 0, self.payload_byte_upto)?;
-        self.payload_byte_upto = 0;
-      }
-      if options.write_offsets {
-        let pay_out = self
-          .pay_out
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))?;
-        self
-          .pfor_util
-          .encode(&mut self.offset_start_delta_buffer, pay_out)?;
-        self
-          .pfor_util
-          .encode(&mut self.offset_length_buffer, pay_out)?;
-      }
-      self.pos_buffer_upto = 0;
-    }
-
-    Ok(())
+  fn add_position_without_payloads_or_offsets(
+    &mut self,
+    position: i32,
+    options: &FieldWriteOptions,
+  ) -> Result<()> {
+    debug_assert!(!options.write_payloads && !options.write_offsets);
+    self.add_position_impl::<true>(position, None, -1, -1, options)
   }
 
   fn finish_doc(&mut self) -> Result<()> {
