@@ -106,8 +106,10 @@ impl DeltaPackedLongValuesBuilder {
     for &value in values.iter().take(num_values).skip(1) {
       min = min.min(value);
     }
-    for value in values.iter_mut().take(num_values) {
-      *value = value.wrapping_sub(min);
+    if min != 0 {
+      for value in values.iter_mut().take(num_values) {
+        *value = value.wrapping_sub(min);
+      }
     }
     if block == self.mins.len() {
       self.mins.push(min);
