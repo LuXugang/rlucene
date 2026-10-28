@@ -130,36 +130,39 @@ impl DocIdsWriter {
     } else if max <= 0xFFFFFF {
       out.write_byte(DocIdsWriter::BPV_24 as u8)?;
       // write them the same way we are reading them.
-      let mut i = 0;
-      while i + 7 < count {
-        let doc1 = doc_ids[start + i];
-        let doc2 = doc_ids[start + i + 1];
-        let doc3 = doc_ids[start + i + 2];
-        let doc4 = doc_ids[start + i + 3];
-        let doc5 = doc_ids[start + i + 4];
-        let doc6 = doc_ids[start + i + 5];
-        let doc7 = doc_ids[start + i + 6];
-        let doc8 = doc_ids[start + i + 7];
-        let l1 = ((doc1 as i64 & 0xffffff) << 40)
-          | ((doc2 as i64 & 0xffffff) << 16)
-          | (((doc3 as u32) >> 8) as i64 & 0xffff);
-        let l2 = ((doc3 as i64 & 0xff) << 56)
-          | ((doc4 as i64 & 0xffffff) << 32)
-          | ((doc5 as i64 & 0xffffff) << 8)
-          | (((doc6 as u32) >> 16) as i64 & 0xff);
-        let l3 = ((doc6 as i64 & 0xffff) << 48)
-          | ((doc7 as i64 & 0xffffff) << 24)
-          | (doc8 as i64 & 0xffffff);
+      let (groups, tail) = doc_ids[start..start + count].as_chunks::<8>();
+      for &[doc1, doc2, doc3, doc4, doc5, doc6, doc7, doc8] in groups {
+        // Rearrange the low three bytes of each DocID into the original
+        // three long values, with the same byte order on every platform.
+        let first: wide::u8x16 =
+          wide::bytemuck::cast([doc1.to_le(), doc2.to_le(), doc3.to_le(), doc4.to_le()]);
+        let second: wide::u8x16 =
+          wide::bytemuck::cast([doc5.to_le(), doc6.to_le(), doc7.to_le(), doc8.to_le()]);
+        // This safe API also supports the minimum wide dependency version.
+        #[allow(deprecated)]
+        let first_two = first.swizzle(wide::i8x16::new([
+          9, 10, 4, 5, 6, 0, 1, 2, -1, -1, -1, -1, 12, 13, 14, 8,
+        ]))
+          | second.swizzle(wide::i8x16::new([
+            -1, -1, -1, -1, -1, -1, -1, -1, 6, 0, 1, 2, -1, -1, -1, -1,
+          ]));
+        #[allow(deprecated)]
+        let last = second.swizzle(wide::i8x16::new([
+          12, 13, 14, 8, 9, 10, 4, 5, -1, -1, -1, -1, -1, -1, -1, -1,
+        ]));
+        let first_two: [u64; 2] = wide::bytemuck::cast(first_two);
+        let last: [u64; 2] = wide::bytemuck::cast(last);
+        let l1 = u64::from_le(first_two[0]) as i64;
+        let l2 = u64::from_le(first_two[1]) as i64;
+        let l3 = u64::from_le(last[0]) as i64;
         out.write_long(l1)?;
         out.write_long(l2)?;
         out.write_long(l3)?;
-        i += 8;
       }
 
-      while i < count {
-        out.write_short(((doc_ids[start + i] as u32) >> 8) as i16)?;
-        out.write_byte(doc_ids[start + i] as u8)?;
-        i += 1;
+      for &doc in tail {
+        out.write_short(((doc as u32) >> 8) as i16)?;
+        out.write_byte(doc as u8)?;
       }
     } else {
       out.write_byte(DocIdsWriter::BPV_32 as u8)?;
