@@ -361,6 +361,48 @@ where
     self.pos += 1;
     Ok(value)
   }
+  fn read_vint(&mut self) -> Result<i32> {
+    let mut b = DataInput::read_byte(self)? as i32;
+    let mut i = b & 0x7F;
+    let mut shift = 7;
+    if (b & 0x80) == 0 {
+      return Ok(i);
+    }
+
+    if self
+      .pos
+      .checked_add(4)
+      .is_some_and(|end| end <= self.length + self.offset)
+    {
+      let block_index = self.block_index(self.pos);
+      let block_offset = self.block_offset(self.pos);
+      if let Some(bytes) = self
+        .blocks
+        .get(block_index)
+        .and_then(|block| block.get_ref().as_slice().get(block_offset..))
+        .and_then(|bytes| bytes.get(..4))
+      {
+        for &byte in bytes {
+          b = byte as i32;
+          self.pos += 1;
+          i |= (b & 0x7F).wrapping_shl(shift);
+          shift += 7;
+          if (b & 0x80) == 0 {
+            return Ok(i);
+          }
+        }
+      }
+    }
+
+    // Keep incremental reads and wrapping behavior for short tails,
+    // cross-block input and continuation sequences longer than five bytes.
+    while (b & 0x80) != 0 {
+      b = DataInput::read_byte(self)? as i32;
+      i |= (b & 0x7F).wrapping_shl(shift);
+      shift += 7;
+    }
+    Ok(i)
+  }
   fn get_bytes<'a>(&'a mut self, len: usize) -> Result<std::borrow::Cow<'a, [u8]>> {
     if len == 0 {
       return Ok(std::borrow::Cow::Borrowed(&[]));
