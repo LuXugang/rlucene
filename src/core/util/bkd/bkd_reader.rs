@@ -67,7 +67,23 @@ where
 {
   /// Caller must pre-seek the provided [`IndexInput`] to the index location
   /// that `BKDWriter::finish()` returned. BKD tree is always stored off-heap.
+  ///
+  /// Retains a cloned index view so the returned reader can create point trees.
   pub fn new<I1>(meta_in: &mut I1, index_in: &mut I, data_in: Arc<Mutex<I>>) -> Result<Self>
+  where
+    I1: IndexInput,
+  {
+    let mut reader = Self::read_metadata(meta_in, index_in, data_in)?;
+    reader.init_index_in(Arc::new(index_in.try_clone()?))?;
+    Ok(reader)
+  }
+
+  /// Reads metadata before the caller initializes the shared index input.
+  pub(crate) fn read_metadata<I1>(
+    meta_in: &mut I1,
+    index_in: &mut I,
+    data_in: Arc<Mutex<I>>,
+  ) -> Result<Self>
   where
     I1: IndexInput,
   {

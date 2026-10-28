@@ -146,7 +146,7 @@ where
                     "Illegal field number: {field_number}"
                   )));
                 }
-                let reader = BKDReader::new(
+                let reader = BKDReader::read_metadata(
                   &mut meta_in,
                   index_in
                     .as_mut()
