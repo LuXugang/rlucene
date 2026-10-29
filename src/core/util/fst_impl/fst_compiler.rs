@@ -1256,13 +1256,6 @@ impl<O> FstReader for DataOutputEnum<O> {
       DataOutputEnum::ReadWriter(rw) => rw.write_to(out),
     }
   }
-
-  fn init_reader(&mut self) {
-    match self {
-      DataOutputEnum::FromDir(_) => {},
-      DataOutputEnum::ReadWriter(rw) => rw.init_reader(),
-    }
-  }
 }
 impl<O> DataOutput for DataOutputEnum<O>
 where

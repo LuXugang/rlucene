@@ -30,7 +30,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// An adapter struct to use [`ByteBuffersDataOutput`] as a
 /// [`FSTReader`](FstReader). It allows the FST to be readable immediately after
-/// writing
+/// freezing the written bytes.
 pub struct ReadWriteDataOutput {
   pub data_output: ByteBuffersDataOutput,
   pub block_bits: i32,
@@ -85,7 +85,25 @@ impl ReadWriteDataOutput {
 
   pub fn freeze(&mut self) -> Result<()> {
     self.frozen = true;
-    // Reader initialization transfers the buffers; write_to uses their current owner.
+    // Prepare the immutable backing once, at the same boundary as Java freeze().
+    self.finish = true;
+    if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
+      self.num_bytes = self.data_output.size();
+      if self.contiguous_reader {
+        self.byte_buffer = Some(Rc::new(self.data_output.try_get_array_ownership()));
+      } else {
+        let (_, mut byte_buffers_raw) = self.data_output.to_buffer_list_owner(false);
+        if byte_buffers_raw.len() == 1 {
+          self.byte_buffer = Some(Rc::new(byte_buffers_raw.remove(0).into_inner()));
+        } else {
+          let data = byte_buffers_raw
+            .into_iter()
+            .map(|b| b.into_inner())
+            .collect();
+          self.byte_buffers = Some(Rc::new(data));
+        }
+      }
+    }
     Ok(())
   }
 }
@@ -116,7 +134,7 @@ impl FstReader for ReadWriteDataOutput {
   fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
     if !self.finish {
       return Err(LuceneError::illegal_state(
-        "Call ReadWriteDataOutput#init_byte_buffer before Call ReadWriteDataOutput#get_reverse_bytes_reader",
+        "Call ReadWriteDataOutput#freeze before Call ReadWriteDataOutput#get_reverse_bytes_reader",
       ));
     }
     match (self.byte_buffers.as_ref(), self.byte_buffer.as_ref()) {
@@ -161,27 +179,6 @@ impl FstReader for ReadWriteDataOutput {
       Ok(())
     } else {
       self.data_output.copy_to(out)
-    }
-  }
-
-  fn init_reader(&mut self) {
-    self.finish = true;
-    if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
-      self.num_bytes = self.data_output.size();
-      if self.contiguous_reader {
-        self.byte_buffer = Some(Rc::new(self.data_output.try_get_array_ownership()));
-      } else {
-        let (_, mut byte_buffers_raw) = self.data_output.to_buffer_list_owner(false);
-        if byte_buffers_raw.len() == 1 {
-          self.byte_buffer = Some(Rc::new(byte_buffers_raw.remove(0).into_inner()));
-        } else {
-          let data = byte_buffers_raw
-            .into_iter()
-            .map(|b| b.into_inner())
-            .collect();
-          self.byte_buffers = Some(Rc::new(data));
-        }
-      }
     }
   }
 }

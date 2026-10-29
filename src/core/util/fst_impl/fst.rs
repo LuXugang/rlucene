@@ -27,7 +27,6 @@ use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
 use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
 use core::fmt;
-use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -40,8 +39,8 @@ where
 {
   pub metadata: FSTMetadata<O>,
   pub outputs: O,
-  // wrap with RefCell to allow interior mutability
-  pub fst_reader: Mutex<F>,
+  /// Storage is prepared before the FST becomes readable. Each lookup owns its cursor.
+  pub fst_reader: F,
 }
 
 impl<O> FST<O, OnHeapFSTStore>
@@ -69,7 +68,7 @@ where
     Self {
       outputs: metadata.outputs.clone(),
       metadata,
-      fst_reader: Mutex::new(fst_reader),
+      fst_reader,
     }
   }
 
@@ -109,14 +108,14 @@ where
     DO2: DataOutput,
   {
     self.metadata.save(meta_out)?;
-    self.fst_reader.get_mut().write_to(out)
+    self.fst_reader.write_to(out)
   }
   pub fn save_with_same_data_out<DO>(&self, out: &mut DO) -> Result<()>
   where
     DO: DataOutput,
   {
     self.metadata.save(out)?;
-    self.fst_reader.lock().write_to(out)
+    self.fst_reader.write_to(out)
   }
 
   /// Writes the automaton to a file.
@@ -913,9 +912,7 @@ where
   }
   /// Returns a [`BytesReader`] for this FST, positioned at position 0.
   pub fn get_bytes_reader(&self) -> Result<F::FstBytesReader> {
-    let mut fst_reader = self.fst_reader.lock();
-    fst_reader.init_reader();
-    fst_reader.get_reverse_bytes_reader()
+    self.fst_reader.get_reverse_bytes_reader()
   }
 }
 
@@ -1531,7 +1528,6 @@ where
       empty_bytes.byte_buffer = Some(Rc::new(bytes));
     }
     empty_bytes.freeze()?;
-    empty_bytes.init_reader();
     // De-serialize empty-string output:
     let mut reader = empty_bytes.get_reverse_bytes_reader()?;
     // NoOutputs uses 0 bytes when writing its output,

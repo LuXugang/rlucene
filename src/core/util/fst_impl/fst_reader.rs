@@ -20,6 +20,12 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::BytesReader;
 
 /// Abstraction for reading bytes necessary for FST.
+///
+/// Prepare mutable storage before constructing a readable FST. Built-in stores
+/// do this when freezing compiled bytes or loading saved bytes. Every returned
+/// reader has an independent cursor. Sharing an FST across threads requires its
+/// store to be `Sync`; stores with interior mutable state must provide their
+/// own synchronization.
 pub trait FstReader: Accountable {
   type FstBytesReader: BytesReader;
   /// Get the reverse [`BytesReader`] for this FST.
@@ -38,6 +44,4 @@ pub trait FstReader: Accountable {
   fn write_to<DO>(&self, out: &mut DO) -> Result<()>
   where
     DO: DataOutput;
-
-  fn init_reader(&mut self) {}
 }

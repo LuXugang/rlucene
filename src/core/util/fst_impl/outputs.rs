@@ -186,6 +186,7 @@ impl OutputsBound for BytesRef<Arc<Vec<u8>>> {
     self.is_same_reference(no_output)
   }
 
+  #[inline]
   fn assign_from(&mut self, output: &Self) {
     if !self.is_same_reference(output) {
       *self = output.clone();
