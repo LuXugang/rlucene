@@ -23,7 +23,7 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
-use parking_lot::{Mutex, ReentrantMutex, RwLock};
+use parking_lot::{ReentrantMutex, RwLock};
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -50,7 +50,6 @@ struct SearcherTracker<
   searcher: Arc<ManagedSearcher<DR, SIM>>,
   record_time: Instant,
   version: i64,
-  close_lock: Mutex<()>,
 }
 
 impl<DR, SIM> SearcherTracker<DR, SIM>
@@ -69,12 +68,12 @@ where
       searcher,
       record_time,
       version,
-      close_lock: Mutex::new(()),
     })
   }
 
   fn close(&self) -> Result<()> {
-    let _close_lock = self.close_lock.lock();
+    // Published trackers are removed and closed under the manager's operation lock. A tracker
+    // rejected by record has never been published and is still exclusively owned by that call.
     self.searcher.get_index_reader().dec_ref()
   }
 }
@@ -236,14 +235,9 @@ where
     let _operation_lock = self.operation_lock.lock();
     self.closed.store(true, Ordering::SeqCst);
     // Remove up front in case closing fails, so a second close does not over-decRef.
-    let to_close = self
-      .searchers
-      .write()
-      .drain()
-      .map(|(_, tracker)| tracker)
-      .collect::<Vec<_>>();
+    let to_close = std::mem::take(&mut *self.searchers.write());
 
-    IOUtils::close_with(&to_close, |tracker| tracker.close())?;
+    IOUtils::close_with(to_close.values(), |tracker| tracker.close())?;
 
     // Make some effort to catch misuse.
     if !self.searchers.read().is_empty() {

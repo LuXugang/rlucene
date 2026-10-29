@@ -53,7 +53,7 @@ use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByte
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::sync::Arc;
 
 /// Read the quantized vector values and their score correction values from the index input. This
@@ -511,7 +511,7 @@ where
   ord_to_doc: Box<DirectMonotonicReader<I::RandomAccessSlice>>,
   data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
-  disi: RefCell<Option<DocIndexIteratorImpl<I>>>,
+  disi: Cell<Option<DocIndexIteratorImpl<I>>>,
 }
 
 impl<I, F> SparseOffHeapVectorValues<I, F>
@@ -564,7 +564,7 @@ where
       ord_to_doc: Box::new(ord_to_doc),
       data_in,
       configuration,
-      disi: RefCell::new(disi),
+      disi: Cell::new(disi),
     })
   }
 }
@@ -640,7 +640,7 @@ where
   type DocIndexIterator = DocIndexIteratorImpl<I>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    match self.disi.borrow_mut().take() {
+    match self.disi.take() {
       Some(disi) => Ok(disi),
       None => Err(LuceneError::illegal_state("iterator only called once")),
     }

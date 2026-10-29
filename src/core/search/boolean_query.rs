@@ -195,8 +195,6 @@ impl BooleanQuery {
     IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
-    let similarity = searcher.get_similarity();
-
     let mut weighted_clauses = Vec::with_capacity(self.clauses().len());
     for (clause_index, c) in self.clauses.iter().enumerate() {
       let clause_score_mode = if c.is_scoring() {
@@ -209,7 +207,6 @@ impl BooleanQuery {
       weighted_clauses.push(WeightedBooleanClause::new(clause_index, weight));
     }
     Ok(BooleanWeight::<_, SIM> {
-      similarity,
       weighted_clauses,
       query: self,
       score_mode: *score_mode,
@@ -412,8 +409,7 @@ impl QueryBase for BooleanQuery {
         let rewritten = match occur {
           Occur::Filter | Occur::MustNot if !matches!(query, Query::Term(_)) => {
             // Clauses that are not involved in scoring can get some extra simplifications.
-            // TermQuery's default rewrite is unchanged, so it needs no temporary wrapper.
-            let rewritten = ConstantScoreQuery::new(query.clone()).rewrite(searcher)?;
+            let rewritten = ConstantScoreQuery::rewrite_inner(query, searcher)?;
             match rewritten {
               Some(Query::ConstantScore(constant_score_query)) => {
                 Some(constant_score_query.into_inner())

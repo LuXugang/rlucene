@@ -357,46 +357,57 @@ where
   T: Into<Arc<Term>>,
 {
   let term = term.into();
-  let context = index_searcher.get_top_reader_context();
-  if !needs_stats {
-    return TermStates::with_term(Some(term), context);
+  if needs_stats {
+    build_with_stats(index_searcher, &term)
+  } else {
+    TermStates::with_term(Some(term), index_searcher.get_top_reader_context())
   }
+}
+
+/// Builds all leaf statistics without retaining the term after the lookup.
+pub(crate) fn build_with_stats<IRC, SIM>(
+  index_searcher: &IndexSearcher<IRC, SIM>,
+  term: &Term,
+) -> Result<TermStates>
+where
+  SIM: Similarity,
+  IRC: IndexReaderContext,
+{
+  let context = index_searcher.get_top_reader_context();
   let mut per_reader_term_state = TermStates::with_term(None, context)?;
 
-  if needs_stats {
-    let leaves = context.leaves()?;
-    let mut pending_term_lookups = Vec::with_capacity(leaves.len());
+  let leaves = context.leaves()?;
+  let mut pending_term_lookups = Vec::with_capacity(leaves.len());
 
-    for ctx in leaves {
-      let terms = ctx.reader().terms(term.field())?;
-      match terms {
-        None => {
-          continue;
-        },
-        Some(t) => {
-          let mut terms_enum = t.iterator()?;
-          if terms_enum.prepare_seek_exact(term.bytes())?.is_some() {
-            let ord = ctx.ord;
-            if pending_term_lookups.len() <= ord {
-              ArrayUtil::grow_with(&mut pending_term_lookups, ord + 1, || None)?;
-            }
-            pending_term_lookups[ord] = Some(terms_enum);
+  for ctx in leaves {
+    let terms = ctx.reader().terms(term.field())?;
+    match terms {
+      None => {
+        continue;
+      },
+      Some(t) => {
+        let mut terms_enum = t.iterator()?;
+        if terms_enum.prepare_seek_exact(term.bytes())?.is_some() {
+          let ord = ctx.ord;
+          if pending_term_lookups.len() <= ord {
+            ArrayUtil::grow_with(&mut pending_term_lookups, ord + 1, || None)?;
           }
-        },
-      }
+          pending_term_lookups[ord] = Some(terms_enum);
+        }
+      },
     }
+  }
 
-    for (ord, mut pending) in pending_term_lookups.into_iter().enumerate() {
-      if let Some(ref mut terms_enum) = pending
-        && terms_enum.get_prepare_seek_exact_status(term.bytes())?
-      {
-        per_reader_term_state.register_with_stats(
-          terms_enum.term_state()?,
-          ord,
-          terms_enum.doc_freq()?,
-          terms_enum.total_term_freq()?,
-        );
-      }
+  for (ord, mut pending) in pending_term_lookups.into_iter().enumerate() {
+    if let Some(ref mut terms_enum) = pending
+      && terms_enum.get_prepare_seek_exact_status(term.bytes())?
+    {
+      per_reader_term_state.register_with_stats(
+        terms_enum.term_state()?,
+        ord,
+        terms_enum.doc_freq()?,
+        terms_enum.total_term_freq()?,
+      );
     }
   }
   Ok(per_reader_term_state)

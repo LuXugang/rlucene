@@ -608,11 +608,11 @@ where
       let collection_stats = searcher.collection_statistics("field")?.unwrap();
       let term_stats = searcher.term_statistics(term, ts.doc_freq()?, ts.total_term_freq()?)?;
 
-      sims[ord as usize] = Some(
-        weight
-          .similarity
-          .scorer(1.0, &collection_stats, &[term_stats])?,
-      );
+      sims[ord as usize] = Some(searcher.similarity().scorer(
+        1.0,
+        &collection_stats,
+        &[term_stats],
+      )?);
     }
 
     let norms = reader.get_norm_values("field")?;

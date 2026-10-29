@@ -131,15 +131,14 @@ impl QueryBase for IndexOrDocValuesQuery {
     IndexSearcher<IRC, SIM>: Sync,
     Self: Sized,
   {
-    let query = self.clone();
-    let index_weight = self
-      .index_query
-      .create_weight(searcher, score_mode, boost)?;
-    let dv_weight = self.dv_query.create_weight(searcher, score_mode, boost)?;
+    let index_query = self.index_query.as_ref().clone();
+    let dv_query = self.dv_query.as_ref().clone();
+    let index_weight = index_query.create_weight(searcher, score_mode, boost)?;
+    let dv_weight = dv_query.create_weight(searcher, score_mode, boost)?;
     Ok(IndexOrDocValuesQueryWeight::new(
       dv_weight,
       index_weight,
-      query,
+      self,
     ))
   }
 

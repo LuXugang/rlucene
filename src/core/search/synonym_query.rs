@@ -184,12 +184,11 @@ impl QueryBase for SynonymQuery {
       if i != 0 {
         builder.push(' ');
       }
-      let term_query: Query = TermQuery::new(Term::new(
-        self.data.field.clone(),
-        term_and_boost.term.clone(),
-      ))
-      .into();
-      builder.push_str(&term_query.to_string(field)?);
+      builder.push_str(&TermQuery::format_term(
+        &self.data.field,
+        &term_and_boost.term,
+        field,
+      )?);
       if term_and_boost.boost != 1.0 {
         builder.push('^');
         write!(builder, "{:.1}", term_and_boost.boost)?;
@@ -347,7 +346,7 @@ where
         query.data.field.clone(),
         term_and_boost.term.clone(),
       ));
-      let ts = term_states::build(searcher, term.clone(), true)?;
+      let ts = term_states::build_with_stats(searcher, &term)?;
 
       let ts_doc_freq = ts.doc_freq()?;
       if ts_doc_freq > 0 {
@@ -1285,7 +1284,6 @@ pub struct SynonymScorer<
   ST: ScorerTypes + 'static,
 {
   impacts_disi: SynonymImpactsDISI<ST, SIM>,
-  sim_weight: Arc<SynonymSimScorer<SIM::SimScorer>>,
   norms: Option<<ST as ScorerTypes>::Norm>,
   score_mode: ScoreMode,
 }
@@ -1297,13 +1295,11 @@ where
 {
   fn new(
     impacts_disi: SynonymImpactsDISI<ST, SIM>,
-    sim_weight: Arc<SynonymSimScorer<SIM::SimScorer>>,
     norms: Option<<ST as ScorerTypes>::Norm>,
     score_mode: ScoreMode,
   ) -> Self {
     Self {
       impacts_disi,
-      sim_weight,
       norms,
       score_mode,
     }
@@ -1356,7 +1352,7 @@ where
       norm = norms.long_value()?;
     }
     let freq = self.freq()?;
-    Ok(self.sim_weight.score(freq, norm))
+    Ok(self.impacts_disi.max_score_cache().scorer.score(freq, norm))
   }
 
   fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
@@ -1516,7 +1512,6 @@ pub struct FreqBoostTermScorer<
 {
   boost: f32,
   in_: SynonymTermScorer<ST, SIM>,
-  scorer: Arc<SynonymSimScorer<SIM::SimScorer>>,
   norms: Option<<ST as ScorerTypes>::Norm>,
 }
 
@@ -1528,7 +1523,6 @@ where
   fn new(
     boost: f32,
     in_: SynonymTermScorer<ST, SIM>,
-    sim_weight: Arc<SynonymSimScorer<SIM::SimScorer>>,
     norms: Option<<ST as ScorerTypes>::Norm>,
   ) -> Result<Self> {
     if boost.is_nan()
@@ -1539,12 +1533,7 @@ where
         "boost must be a positive float between 0 (exclusive) and 1 (inclusive)",
       ));
     }
-    Ok(Self {
-      boost,
-      in_,
-      scorer: sim_weight,
-      norms,
-    })
+    Ok(Self { boost, in_, norms })
   }
 
   fn freq(&mut self) -> Result<f32> {
@@ -1578,7 +1567,7 @@ where
       norm = norms.long_value()?;
     }
     let freq = self.freq()?;
-    Ok(self.scorer.score(freq, norm))
+    Ok(self.in_.state.sim_scorer().score(freq, norm))
   }
 
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
@@ -1864,7 +1853,7 @@ where
       )));
     }
 
-    let sim_weight = self.sim_weight.as_ref().cloned().ok_or_else(|| {
+    let sim_weight = self.sim_weight.take().ok_or_else(|| {
       LuceneError::illegal_state("simWeight is missing for matching synonym terms")
     })?;
     let query = self.query.as_ref();
@@ -1877,9 +1866,9 @@ where
         let scorer = TermScorer::from_postings(iterator, sim_weight, norms);
         Ok(SynonymScorerEnum::C(scorer))
       } else {
-        let scorer = TermScorer::from_postings(iterator, sim_weight.clone(), None);
+        let scorer = TermScorer::from_postings(iterator, sim_weight, None);
         Ok(SynonymScorerEnum::B(FreqBoostTermScorer::new(
-          boost, scorer, sim_weight, norms,
+          boost, scorer, norms,
         )?))
       };
     }
@@ -1903,12 +1892,11 @@ where
 
     let iterator = DisjunctionDISIApproximation::new(queue, wrappers)?;
     let impacts_source = SynonymQuery::merge_impacts(impacts, term_boosts);
-    let max_score_cache = MaxScoreCache::new(impacts_source, sim_weight.clone());
+    let max_score_cache = MaxScoreCache::new(impacts_source, sim_weight);
     let impacts_disi = SeparateImpactsDISI::new(iterator, max_score_cache);
 
     Ok(SynonymScorerEnum::A(SynonymScorer::new(
       impacts_disi,
-      sim_weight,
       norms,
       self.score_mode,
     )))

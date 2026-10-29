@@ -300,32 +300,32 @@ where
 {
   fn new(
     lead: DocIdSetIteratorEnum2<D, ConjunctionDISI<D>>,
-    bit_set_iterators: Vec<D>,
+    mut bit_set_iterators: Vec<D>,
     mut iterator_locations: Vec<IteratorLocation>,
   ) -> Result<Self> {
     debug_assert!(!bit_set_iterators.is_empty());
-    let mut temp_bit_set_iterators = Vec::with_capacity(bit_set_iterators.len());
     let mut cost: SmallVec<[usize; 8]> = SmallVec::with_capacity(bit_set_iterators.len());
-    for (idx, v) in bit_set_iterators.into_iter().enumerate() {
+    for idx in 0..bit_set_iterators.len() {
       cost.push(idx);
-      temp_bit_set_iterators.push(Some(v));
     }
-    let cmp = BitSetIteratorCmp::new(temp_bit_set_iterators.as_ref());
+    let cmp = BitSetIteratorCmp::new(bit_set_iterators.as_ref());
     ArrayUtil::tim_sort_with_comparator(&mut cost, cmp)?;
 
-    let mut bit_set_iterators = Vec::with_capacity(cost.len());
     let mut sorted_indices: SmallVec<[usize; 8]> = SmallVec::from_elem(0, cost.len());
     for (sorted_idx, idx) in cost.into_iter().enumerate() {
       sorted_indices[idx] = sorted_idx;
-      bit_set_iterators.push(
-        temp_bit_set_iterators[idx]
-          .take()
-          .ok_or_else(|| LuceneError::illegal_state("sorted bit-set iterator is missing"))?,
-      );
     }
     for location in &mut iterator_locations {
       if let IteratorLocation::BitSet(index) = location {
         *index = sorted_indices[*index];
+      }
+    }
+    // Keep the iterators in their original allocation and resolve the sorted permutation.
+    for source in 0..bit_set_iterators.len() {
+      while sorted_indices[source] != source {
+        let destination = sorted_indices[source];
+        bit_set_iterators.swap(source, destination);
+        sorted_indices.swap(source, destination);
       }
     }
     let mut min_length = i32::MAX;
@@ -415,10 +415,10 @@ where
   }
 }
 struct BitSetIteratorCmp<'a, B> {
-  disi: &'a [Option<B>],
+  disi: &'a [B],
 }
 impl<'a, B> BitSetIteratorCmp<'a, B> {
-  fn new(disi: &'a [Option<B>]) -> Self {
+  fn new(disi: &'a [B]) -> Self {
     BitSetIteratorCmp { disi }
   }
 }
@@ -429,12 +429,8 @@ where
   const TYPE: &'static str = "BitSetIteratorCmp";
 
   fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-    let left = self.disi[*a]
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("left bit-set iterator is missing"))?;
-    let right = self.disi[*b]
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("right bit-set iterator is missing"))?;
+    let left = &self.disi[*a];
+    let right = &self.disi[*b];
     Ok(left.cost()?.cmp(&right.cost()?).to_int())
   }
 }

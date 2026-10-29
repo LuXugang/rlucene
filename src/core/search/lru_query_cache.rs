@@ -529,8 +529,8 @@ impl LRUQueryCache {
     <LRUQueryCacheHook as LRUQueryCacheBase>::on_clear(&self.hook, self, guard);
   }
   /// Whether evictions are required.
-  pub(crate) fn requires_eviction(&self, guard: &RwLockWriteGuard<Inner>) -> bool {
-    let size = guard.unique_queries.lock().len();
+  pub(crate) fn requires_eviction(&self, guard: &mut RwLockWriteGuard<Inner>) -> bool {
+    let size = guard.unique_queries.get_mut().len();
     if size == 0 {
       return false;
     }
@@ -594,7 +594,7 @@ impl LRUQueryCache {
     let mut inner = self.inner.write();
 
     let (singleton, inserted) = {
-      let mut uq = inner.unique_queries.lock();
+      let uq = inner.unique_queries.get_mut();
       if let Some(iq) = uq.get_refresh(query.as_ref()) {
         (iq.clone(), false)
       } else {
@@ -643,7 +643,7 @@ impl LRUQueryCache {
       }
 
       let singleton = {
-        let mut unique_queries = guard.unique_queries.lock();
+        let unique_queries = guard.unique_queries.get_mut();
         let query = {
           let mut iterator = unique_queries.entries();
           match iterator.next() {
@@ -703,10 +703,7 @@ impl LRUQueryCache {
   /// Remove all cache entries for the given query.
   pub fn clear_query(&self, query: &Query) -> Result<()> {
     let mut inner = self.inner.write();
-    let v = {
-      let mut unique_queries = inner.unique_queries.lock();
-      unique_queries.remove(query)
-    };
+    let v = inner.unique_queries.get_mut().remove(query);
     if let Some(singleton) = v {
       self.on_eviction(singleton.as_ref(), &mut inner)?;
     }
@@ -729,7 +726,7 @@ impl LRUQueryCache {
   pub fn clear(&self) {
     let mut inner = self.inner.write();
     inner.cache.clear();
-    inner.unique_queries.lock().clear();
+    inner.unique_queries.get_mut().clear();
     self.on_clear(&inner);
   }
   fn get_ram_bytes_used(&self, query: &Query) -> i64 {
@@ -787,9 +784,9 @@ impl LRUQueryCache {
   }
   #[cfg(test)]
   pub fn assert_consistent(&self) -> Result<()> {
-    let inner = self.inner.write();
+    let mut inner = self.inner.write();
 
-    if self.requires_eviction(&inner) {
+    if self.requires_eviction(&mut inner) {
       return Err(LuceneError::illegal_state(format!(
         "requires evictions: size={}, maxSize={}, ramBytesUsed={}, maxRamBytesUsed={}",
         inner.unique_queries.lock().len(),

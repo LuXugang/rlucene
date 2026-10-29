@@ -50,7 +50,8 @@ use std::hash::Hash;
 /// rewrite method.
 #[derive(Clone)]
 pub struct TermRangeQuery {
-  lower_term: Option<BytesRef<Vec<u8>>>,
+  // The lower endpoint's bytes are owned by base.term.
+  has_lower_term: bool,
   upper_term: Option<BytesRef<Vec<u8>>>,
   include_lower: bool,
   include_upper: bool,
@@ -128,14 +129,12 @@ impl TermRangeQuery {
       include_lower,
       include_upper,
     )?;
-    let lower = match lower_term {
-      Some(ref lt) => lt.clone(),
-      None => BytesRef::default(),
-    };
+    let has_lower_term = lower_term.is_some();
+    let lower = lower_term.unwrap_or_default();
     let base = AutomatonQuery::new(Term::new(field, lower), automaton, true, rewrite_method)?;
 
     Ok(Self {
-      lower_term,
+      has_lower_term,
       upper_term,
       include_lower,
       include_upper,
@@ -199,7 +198,7 @@ impl TermRangeQuery {
   }
   /// Returns the lower value of this range query.
   pub fn lower_term(&self) -> Option<&BytesRef<Vec<u8>>> {
-    self.lower_term.as_ref()
+    self.has_lower_term.then_some(self.base.term.bytes())
   }
 
   /// Returns the upper value of this range query.
@@ -235,7 +234,7 @@ impl QueryBase for TermRangeQuery {
 
     buffer.push(if self.include_lower { '[' } else { '{' });
 
-    let lower_str = match self.lower_term.as_ref() {
+    let lower_str = match self.lower_term() {
       Some(term) => {
         let s = BytesRefValue::utf8_to_string(term)?;
         if s == "*" {
@@ -355,7 +354,7 @@ impl Hash for TermRangeQuery {
       1237.hash(state);
     }
 
-    self.lower_term.hash(state);
+    self.lower_term().hash(state);
     self.upper_term.hash(state);
   }
 }
@@ -365,7 +364,7 @@ impl PartialEq for TermRangeQuery {
     self.base == other.base
       && self.include_lower == other.include_lower
       && self.include_upper == other.include_upper
-      && self.lower_term == other.lower_term
+      && self.lower_term() == other.lower_term()
       && self.upper_term == other.upper_term
   }
 }

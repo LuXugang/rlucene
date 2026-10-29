@@ -27,7 +27,6 @@ use std::sync::Arc;
 /// should be called instead of `IndexSearcher::search(query, CollectorManager)` as the former is
 /// faster whenever the count can be returned directly from the index statistics.
 pub struct TotalHitCountCollectorManager {
-  has_segment_partitions: bool,
   /// Internal state shared across the different collectors that this collector manager creates.
   /// This is necessary to support intra-segment concurrency. We track leaves seen as an argument
   /// of [`Collector::get_leaf_collector`](crate::core::search::collector::Collector::get_leaf_collector)
@@ -38,7 +37,7 @@ pub struct TotalHitCountCollectorManager {
   /// do the same, to prevent their counts from being retrieved from
   /// [`LRUQueryCache`](crate::core::search::lru_query_cache::LRUQueryCache), which returns counts for
   /// the entire segment while we'd need only that of the current leaf partition.
-  early_terminated_map: Arc<Mutex<EarlyTerminatedMap>>,
+  early_terminated_map: Option<Arc<Mutex<EarlyTerminatedMap>>>,
 }
 impl TotalHitCountCollectorManager {
   /// Creates a new total hit count collector manager, providing the array of leaf slices that search
@@ -49,10 +48,10 @@ impl TotalHitCountCollectorManager {
   ///   Used to optimize the collection depending on whether segments have been partitioned into
   ///   partitions or not.
   pub fn new(leaf_slices: &[LeafSlice]) -> Self {
-    let has_segment_partitions = Self::has_segment_partitions(leaf_slices);
+    let early_terminated_map = Self::has_segment_partitions(leaf_slices)
+      .then(|| Arc::new(Mutex::new(EarlyTerminatedMap::new())));
     Self {
-      has_segment_partitions,
-      early_terminated_map: Arc::new(Mutex::new(EarlyTerminatedMap::new())),
+      early_terminated_map,
     }
   }
   fn has_segment_partitions(leaf_slices: &[LeafSlice]) -> bool {
@@ -71,9 +70,9 @@ impl CollectorManager for TotalHitCountCollectorManager {
   type T = i32;
 
   fn new_collector(&self) -> crate::core::util::error::lucene_error::Result<Self::C> {
-    if self.has_segment_partitions {
+    if let Some(early_terminated_map) = &self.early_terminated_map {
       return Ok(TotalHitCountCollector::new_leaf_partition_aware(
-        self.early_terminated_map.clone(),
+        early_terminated_map.clone(),
       ));
     }
     Ok(TotalHitCountCollector::new())
@@ -87,12 +86,8 @@ impl CollectorManager for TotalHitCountCollectorManager {
     // It isn't a strict requirement but is generally supported as collector managers normally
     // don't hold state, as opposed to collectors.
 
-    {
-      let mut early_terminated_map = self.early_terminated_map.lock();
-      debug_assert!(self.has_segment_partitions || early_terminated_map.is_empty());
-      if self.has_segment_partitions {
-        early_terminated_map.clear();
-      }
+    if let Some(early_terminated_map) = &self.early_terminated_map {
+      early_terminated_map.lock().clear();
     }
     let mut total_hits = 0;
     for collector in collectors {

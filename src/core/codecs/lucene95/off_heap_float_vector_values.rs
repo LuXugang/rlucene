@@ -48,7 +48,7 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use parking_lot::{Mutex, MutexGuard};
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::sync::Arc;
 
 /// Read the vector values froGm the index input. This supports both iterated and random access.
@@ -449,7 +449,7 @@ where
   ord_to_doc: Box<DirectMonotonicReader<I::RandomAccessSlice>>,
   data_in: I,
   configuration: Arc<OrdToDocDISIReaderConfiguration>,
-  disi: RefCell<Option<DocIndexIteratorImpl<I>>>,
+  disi: Cell<Option<DocIndexIteratorImpl<I>>>,
 }
 
 impl<I, F> SparseOffHeapVectorValues<I, F>
@@ -498,7 +498,7 @@ where
       ord_to_doc: Box::new(ord_to_doc),
       data_in,
       configuration,
-      disi: RefCell::new(disi),
+      disi: Cell::new(disi),
     })
   }
 }
@@ -566,7 +566,7 @@ where
   type DocIndexIterator = DocIndexIteratorImpl<I>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    match self.disi.borrow_mut().take() {
+    match self.disi.take() {
       Some(disi) => Ok(disi),
       None => Err(LuceneError::illegal_state("iterator only called once")),
     }

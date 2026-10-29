@@ -76,11 +76,11 @@ impl TaskExecutor {
       tasks.push(Task::new(callable));
     }
     let count = tasks.len();
-    let task_id = AtomicUsize::new(0);
 
     if count > 1
       && let Some(executor) = &self.executor
     {
+      let task_id = AtomicUsize::new(0);
       executor.in_place_scope(|scope| {
         // Fork execution of count - 1 tasks to execute at least one task on the current thread to
         // minimize needless forking and blocking of the current thread.
@@ -112,13 +112,24 @@ impl TaskExecutor {
         }
       });
     } else {
-      loop {
-        let id = task_id.fetch_add(1, Ordering::SeqCst);
-        if id >= count {
-          break;
-        }
-        tasks[id].run(&tasks);
-        if id >= count - 1 {
+      // No task is shared in this branch. Keep outcomes and cancelled callables in
+      // their slots so collect_results retains the same error and drop order.
+      let mut remaining = tasks.iter_mut();
+      while let Some(task) = remaining.next() {
+        *task.started_or_cancelled.get_mut() = true;
+        let outcome = match task.callable.get_mut().take() {
+          Some(callable) => catch_unwind(AssertUnwindSafe(callable)),
+          None => Ok(Err(LuceneError::illegal_state(
+            "the task that starts must still own its callable",
+          ))),
+        };
+        let failed = !matches!(outcome, Ok(Ok(_)));
+        *task.outcome.get_mut() = Some(TaskOutcome::Completed(outcome));
+        if failed {
+          for task in remaining {
+            *task.started_or_cancelled.get_mut() = true;
+            *task.outcome.get_mut() = Some(TaskOutcome::Cancelled);
+          }
           break;
         }
       }

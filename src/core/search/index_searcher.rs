@@ -87,7 +87,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, LazyLock, OnceLock};
 use sysinfo::System;
 
 const DEFAULT_MAX_CLAUSE_COUNT: usize = 1024;
@@ -204,7 +204,9 @@ pub struct IndexSearcher<
   hook: IndexSearcherHook,
   pub reader_context: IRC,
   similarity: Arc<SIM>,
-  inner: Mutex<Inner>,
+  leaf_slices: OnceLock<Arc<Vec<LeafSlice>>>,
+  // Serializes fallible initialization; cached reads use leaf_slices directly.
+  slice_init_lock: Mutex<()>,
   query_timeout: Option<Arc<QueryTimeoutEnum>>,
   query_caching_policy: Arc<QueryCachingPolicyEnum>,
   query_cache: Option<QueryCacheEnum<IRC, SIM>>,
@@ -215,9 +217,6 @@ pub struct IndexSearcher<
   // value also makes cross-thread visibility explicit.
   // shouldn't hurt either.
   partial_result: AtomicBool,
-}
-pub(crate) struct Inner {
-  leaf_slices: Option<Arc<Vec<LeafSlice>>>,
 }
 pub type DefaultIndexSearcher<
   IRC,
@@ -263,11 +262,10 @@ where
     );
 
     let leaf_slices = if executor.is_none() {
-      Some(single_threaded_slices(&context)?)
+      OnceLock::from(single_threaded_slices(&context)?)
     } else {
-      None
+      OnceLock::new()
     };
-    let inner = Mutex::new(Inner { leaf_slices });
     let task_executor = match executor {
       Some(executor) => TaskExecutor::new(executor),
       None => TaskExecutor::direct(),
@@ -276,7 +274,8 @@ where
       hook: IndexSearcherHook::Default,
       reader_context: context,
       similarity,
-      inner,
+      leaf_slices,
+      slice_init_lock: Mutex::new(()),
       query_timeout: None,
       query_caching_policy: default_caching_policy(),
       query_cache: default_query_cache().map(Into::into),
@@ -346,12 +345,16 @@ where
   }
 
   pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
-    let mut inner = self.inner.lock();
-    self.compute_and_cache_slices(&mut inner)
+    if let Some(slices) = self.leaf_slices.get() {
+      Ok(Arc::clone(slices))
+    } else {
+      self.compute_and_cache_slices()
+    }
   }
 
-  fn compute_and_cache_slices(&self, inner: &mut Inner) -> Result<Arc<Vec<LeafSlice>>> {
-    if inner.leaf_slices.is_none() {
+  fn compute_and_cache_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
+    let _guard = self.slice_init_lock.lock();
+    if self.leaf_slices.get().is_none() {
       let leaves = self.reader_context.leaves()?;
       let res = self.hook.slices(self, leaves)?;
       // Enforce that there aren't multiple leaf partitions within the same leaf slice pointing to the
@@ -368,11 +371,11 @@ where
         enforce_distinct_leaves(leaf_slice)?;
       }
 
-      inner.leaf_slices = Some(Arc::new(res));
+      self.leaf_slices.get_or_init(|| Arc::new(res));
     }
-    inner
+    self
       .leaf_slices
-      .as_ref()
+      .get()
       .cloned()
       .ok_or_else(|| LuceneError::illegal_state("leaf slices are missing"))
   }
@@ -460,6 +463,10 @@ where
   }
   pub fn get_similarity(&self) -> Arc<SIM> {
     self.similarity.clone()
+  }
+
+  pub(crate) fn similarity(&self) -> &SIM {
+    &self.similarity
   }
 
   /// Count how many documents match the given query.
@@ -606,7 +613,14 @@ where
     CM::C: Send,
   {
     let weight = self.create_weight(query, score_mode, 1.0)?;
-    let leaf_slices = self.get_slices()?;
+    let initialized_slices;
+    let leaf_slices = match self.leaf_slices.get() {
+      Some(slices) => slices,
+      None => {
+        initialized_slices = self.get_slices()?;
+        &initialized_slices
+      },
+    };
     if leaf_slices.is_empty() {
       debug_assert!(self.reader_context.leaves()?.is_empty());
       return collector_manager.reduce(vec![first_collector]);
@@ -1946,7 +1960,15 @@ impl IndexSearcherDefaults {
         }
       }
     }
-    let v = TotalHitCountCollectorManager::new(searcher.get_slices()?.as_slice());
+    let initialized_slices;
+    let leaf_slices = match searcher.leaf_slices.get() {
+      Some(slices) => slices,
+      None => {
+        initialized_slices = searcher.get_slices()?;
+        &initialized_slices
+      },
+    };
+    let v = TotalHitCountCollectorManager::new(leaf_slices.as_slice());
     searcher.search_with_collector_manager(ConstantScoreQuery::new(query), &v)
   }
 

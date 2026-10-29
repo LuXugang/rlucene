@@ -570,7 +570,11 @@ where
 
     self.states = Vec::with_capacity(self.query.terms.len());
 
-    let mut term_stats = Vec::with_capacity(self.query.terms.len());
+    let mut term_stats = Vec::with_capacity(if self.base.score_mode.needs_scores() {
+      self.query.terms.len()
+    } else {
+      0
+    });
     let mut term_up_to = 0usize;
 
     for term in &*self.query.terms {

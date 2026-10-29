@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
@@ -87,17 +88,24 @@ impl TermQuery {
     self.per_reader_term_state.as_deref()
   }
 
-  pub(crate) fn format_term(term: &Term, field: &str) -> Result<String> {
+  pub(crate) fn format_term(
+    term_field: &str,
+    term_bytes: &BytesRef<Vec<u8>>,
+    field: &str,
+  ) -> Result<String> {
     let mut buffer = String::new();
-    if term.field != field {
-      buffer.push_str(&term.field);
+    if term_field != field {
+      buffer.push_str(term_field);
       buffer.push(':');
     }
     if buffer.is_empty() {
-      let bytes = term.bytes();
-      return Ok(bytes.utf8_to_string().unwrap_or_else(|_| bytes.to_string()));
+      return Ok(
+        term_bytes
+          .utf8_to_string()
+          .unwrap_or_else(|_| term_bytes.to_string()),
+      );
     }
-    match term.text() {
+    match Term::get_string(term_bytes) {
       Ok(text) => buffer.push_str(&text),
       Err(_) => {
         buffer.push_str("<?>");
@@ -146,7 +154,7 @@ impl QueryBase for TermQuery {
     IRC: IndexReaderContext + 'static;
 
   fn to_string(&self, field: &str) -> Result<String> {
-    Self::format_term(&self.term, field)
+    Self::format_term(self.term.field(), self.term.bytes(), field)
   }
 
   fn create_weight<IRC, SIM>(

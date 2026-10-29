@@ -365,12 +365,10 @@ impl LeafCollector for MaxFreqCollector {
     >;
     type Exact = PhraseScorer<
       crate::core::search::exact_phrase_matcher::ExactPhraseMatcher<IE, Arc<SimScorerType>>,
-      Arc<SimScorerType>,
       LRNormNumericDocValues<IRCLeafReader<DefaultIRCRC>>,
     >;
     type Sloppy = PhraseScorer<
       crate::core::search::sloppy_phrase_matcher::SloppyPhraseMatcher<IE, Arc<SimScorerType>>,
-      Arc<SimScorerType>,
       LRNormNumericDocValues<IRCLeafReader<DefaultIRCRC>>,
     >;
     let scorer = scorer.as_any();

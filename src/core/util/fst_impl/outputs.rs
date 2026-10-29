@@ -189,7 +189,13 @@ impl OutputsBound for BytesRef<Arc<Vec<u8>>> {
   #[inline]
   fn assign_from(&mut self, output: &Self) {
     if !self.is_same_reference(output) {
-      *self = output.clone();
+      if Arc::ptr_eq(&self.bytes, &output.bytes) {
+        debug_assert!(output.is_valid().is_ok());
+        self.offset = output.offset;
+        self.length = output.length;
+      } else {
+        *self = output.clone();
+      }
     }
   }
 }

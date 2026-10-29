@@ -28,7 +28,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{POSITIONS, PostingsEnum};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{TermStates, build};
+use crate::core::index::term_states::{TermStates, build, build_with_stats};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
@@ -618,8 +618,6 @@ pub struct TermAutomatonWeight<
 {
   term_states: Vec<Option<TermStates>>,
   stats: Option<Arc<SimilaritySimScorer<SIM>>>,
-  #[allow(dead_code)]
-  similarity: Arc<SIM>,
   parent_query: TermAutomatonQuery,
   run_automaton: OnceLock<RunAutomaton>,
 }
@@ -659,7 +657,11 @@ where
     for term in &query.id_to_term {
       if let Some(term) = term {
         let index_term = Arc::new(Term::new(query.field.clone(), term.as_ref()));
-        let states = build(searcher, index_term.clone(), score_mode.needs_scores())?;
+        let states = if score_mode.needs_scores() {
+          build_with_stats(searcher, &index_term)?
+        } else {
+          build(searcher, index_term.clone(), false)?
+        };
         if states.doc_freq()? > 0 {
           all_term_stats.push(searcher.term_statistics(
             index_term,
@@ -673,7 +675,7 @@ where
       }
     }
 
-    let similarity = searcher.get_similarity();
+    let similarity = searcher.similarity();
     let stats = if all_term_stats.is_empty() {
       None // no terms matched at all, will not use sim
     } else {
@@ -690,7 +692,6 @@ where
     Ok(Self {
       term_states,
       stats,
-      similarity,
       parent_query: query,
       run_automaton: OnceLock::new(),
     })

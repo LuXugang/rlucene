@@ -16,7 +16,7 @@
  */
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::{ReentrantMutex, RwLock};
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard, RwLock};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
@@ -68,7 +68,6 @@ where
 
   fn swap_reference(&self, new_reference: Option<Arc<G>>) -> Result<()> {
     let _reference_lock = self.reference_lock.lock();
-    self.ensure_open()?;
     let old_reference = {
       let mut current = self.current.write();
       let old_reference = current
@@ -140,12 +139,9 @@ where
     Ok(())
   }
 
-  fn do_maybe_refresh(&self) -> Result<()> {
-    // It is okay to call lock() here because callers have already obtained refresh_lock. This
-    // protects against accidentally calling this method outside the lock's scope. ReentrantMutex
-    // permits the same thread to lock more than once as long as it
-    // unlocks the same number of times.
-    let _refresh_lock = self.refresh_lock.lock();
+  fn do_maybe_refresh(&self, _refresh_guard: &ReentrantMutexGuard<'_, ()>) -> Result<()> {
+    // Both callers retain the refresh lock through this operation. Borrow their guard rather
+    // than taking the same reentrant lock again.
     let reference = self.acquire()?;
     let mut refreshed = false;
     let refresh_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
@@ -193,10 +189,10 @@ where
     self.ensure_open()?;
 
     // Ensure only one thread refreshes at once; other threads return immediately.
-    let Some(_refresh_lock) = self.refresh_lock.try_lock() else {
+    let Some(refresh_lock) = self.refresh_lock.try_lock() else {
       return Ok(false);
     };
-    self.do_maybe_refresh()?;
+    self.do_maybe_refresh(&refresh_lock)?;
     Ok(true)
   }
 
@@ -214,8 +210,8 @@ where
     self.ensure_open()?;
 
     // Ensure only one thread refreshes at once.
-    let _refresh_lock = self.refresh_lock.lock();
-    self.do_maybe_refresh()
+    let refresh_lock = self.refresh_lock.lock();
+    self.do_maybe_refresh(&refresh_lock)
   }
 
   /// Releases a reference previously obtained via [`acquire`](Self::acquire).

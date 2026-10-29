@@ -35,7 +35,6 @@ use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::HashMap;
-use std::sync::Arc;
 
 pub struct BooleanWeight<
   IRC: IndexReaderContext + 'static,
@@ -43,8 +42,6 @@ pub struct BooleanWeight<
 > where
   SIM: Similarity,
 {
-  #[allow(dead_code)]
-  pub(crate) similarity: Arc<SIM>,
   pub(crate) weighted_clauses: Vec<WeightedBooleanClause<IRC, SIM>>,
   pub(crate) query: BooleanQuery,
   pub(crate) score_mode: ScoreMode,

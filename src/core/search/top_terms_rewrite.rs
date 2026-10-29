@@ -33,7 +33,6 @@ use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, LuceneErrorKind, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use smallvec::SmallVec;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -68,16 +67,10 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
 
     let mut visited_terms = collector.st_queue.compare.visited_terms;
 
-    let mut score_terms: SmallVec<[(ScoreTermKey, ScoreTerm); 8]> =
-      SmallVec::with_capacity(keys.len());
-    for (key, _) in keys {
+    for (bytes, _) in keys {
       let st = visited_terms
-        .remove(&key)
+        .remove(&bytes)
         .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
-      score_terms.push((key, st));
-    }
-
-    for (bytes, st) in score_terms {
       let bytes = Arc::try_unwrap(bytes).unwrap_or_else(|shared| shared.as_ref().clone());
       let term = Term::new(query.get_field(), bytes);
 

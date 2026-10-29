@@ -804,21 +804,10 @@ impl PositionsQueue {
     self.array_size *= 2;
   }
 }
-#[derive(Clone)]
 struct PostingsAndPosition {
   pe: usize,
   pos: i32,
   upto: i32,
-}
-
-impl PostingsAndPosition {
-  fn new(pe: usize) -> Self {
-    Self {
-      pe,
-      pos: 0,
-      upto: 0,
-    }
-  }
 }
 
 struct PosQueueCmp;
@@ -835,7 +824,6 @@ pub struct UnionFullPostingsEnum<P> {
   freq: i32,
   started: bool,
   pos_queue: PriorityQueue<PostingsAndPosition, PosQueueCmp>,
-  subs: Vec<PostingsAndPosition>,
 }
 
 impl<P> UnionFullPostingsEnum<P>
@@ -847,17 +835,11 @@ where
 
     let base = UnionPostingsEnum::new(subs)?;
 
-    let mut postings = Vec::with_capacity(size);
-    for i in 0..size {
-      postings.push(PostingsAndPosition::new(i));
-    }
-
     Ok(Self {
       base,
       freq: -1,
       started: false,
       pos_queue: PriorityQueue::new(size, PosQueueCmp)?,
-      subs: postings,
     })
   }
 }
@@ -912,13 +894,16 @@ where
     self.started = false;
     self.pos_queue.clear();
     let postings = self.base.subs_mut();
-    for pp in &mut self.subs {
-      let pe = &mut postings[pp.pe];
+    for (index, pe) in postings.iter_mut().enumerate() {
       if pe.doc_id() == doc {
-        pp.pos = pe.next_position()?;
-        pp.upto = pe.freq()?;
-        self.pos_queue.add(pp.clone())?;
-        self.freq += pp.upto;
+        let pos = pe.next_position()?;
+        let upto = pe.freq()?;
+        self.pos_queue.add(PostingsAndPosition {
+          pe: index,
+          pos,
+          upto,
+        })?;
+        self.freq += upto;
       }
     }
     Ok(self.freq)

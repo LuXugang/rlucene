@@ -31,31 +31,29 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use std::any::Any;
-pub type Disi<M, SS, N, const TOP_SCORES: bool = false> =
-  TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>>;
-pub struct PhraseScorer<M, SS, N, const TOP_SCORES: bool = false> {
-  pub(crate) disi: Disi<M, SS, N, TOP_SCORES>,
+pub type Disi<M, N, const TOP_SCORES: bool = false> =
+  TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<M, N, TOP_SCORES>>;
+pub struct PhraseScorer<M, N, const TOP_SCORES: bool = false> {
+  pub(crate) disi: Disi<M, N, TOP_SCORES>,
 }
-impl<M, SS, N, const TOP_SCORES: bool> PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher,
-  SS: SimScorer,
   N: NumericDocValues,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
-  pub(crate) fn new(matcher: M, sim_scorer: SS, norms: Option<N>) -> Self {
-    let v = TwoPhaseIteratorImpl::new(matcher, sim_scorer, norms);
+  pub(crate) fn new(matcher: M, norms: Option<N>) -> Self {
+    let v = TwoPhaseIteratorImpl::new(matcher, norms);
     let disi = TwoPhaseIteratorAsDocIdSetIterator::new(v);
     Self { disi }
   }
 }
 
-impl<M, SS, N, const TOP_SCORES: bool> Scorable for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> Scorable for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
   type Child<'a>
     = crate::core::search::dummy::dummy_scorable::DummyScorable
@@ -82,7 +80,14 @@ where
       norm = norms.long_value()?;
     }
 
-    Ok(tpi.sim_scorer.score(tpi.freq, norm))
+    Ok(
+      tpi
+        .matcher
+        .impacts_approximation_mut()
+        .max_score_cache()
+        .scorer
+        .score(tpi.freq, norm),
+    )
   }
 
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
@@ -105,17 +110,16 @@ where
   }
 }
 
-impl<M, SS, N, const TOP_SCORES: bool> crate::core::search::scorable::FixedScore
-  for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> crate::core::search::scorable::FixedScore
+  for PhraseScorer<M, N, TOP_SCORES>
 {
 }
 
-impl<M, SS, N, const TOP_SCORES: bool> DocIdSetIterator for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> DocIdSetIterator for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
   fn doc_id(&self) -> i32 {
     DocIdSetIterator::doc_id(&self.disi)
@@ -133,32 +137,28 @@ where
     DocIdSetIterator::cost(&self.disi)
   }
 }
-impl<M, SS, N, const TOP_SCORES: bool>
+impl<M, N, const TOP_SCORES: bool>
   crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for PhraseScorer<M, SS, N, TOP_SCORES>
+  for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
 }
-impl<M, SS, N, const TOP_SCORES: bool>
-  crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
-  for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
 }
-impl<M, SS, N, const TOP_SCORES: bool> ApproximationDISI for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> ApproximationDISI for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
   fn approx_doc_id(&self) -> i32 {
     self.disi.two_phase_iterator.approx_doc_id()
@@ -177,13 +177,11 @@ where
     self.disi.two_phase_iterator.approx_cost()
   }
 }
-impl<M, SS, N, const TOP_SCORES: bool> ApproximationBitSetAccess
-  for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> ApproximationBitSetAccess for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
   fn approx_is_bit_iter(&self) -> bool {
     self.disi.two_phase_iterator.approx_is_bit_iter()
@@ -199,12 +197,11 @@ where
   }
 }
 
-impl<M, SS, N, const TOP_SCORES: bool> TwoPhaseIterator for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> TwoPhaseIterator for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
   fn matches(&mut self) -> Result<bool> {
     self.disi.two_phase_iterator.matches()
@@ -214,12 +211,11 @@ where
   }
 }
 
-impl<M, SS, N, const TOP_SCORES: bool> Scorer for PhraseScorer<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> Scorer for PhraseScorer<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher + 'static,
-  SS: SimScorer + 'static,
   N: NumericDocValues + 'static,
-  TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>: TwoPhaseIterator,
+  TwoPhaseIteratorImpl<M, N, TOP_SCORES>: TwoPhaseIterator,
 {
   fn scoring_doc_id(&mut self) -> Result<i32> {
     Ok(self.disi.two_phase_iterator.doc_id())
@@ -255,25 +251,22 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl<M, SS, N, const TOP_SCORES: bool = false> {
+pub struct TwoPhaseIteratorImpl<M, N, const TOP_SCORES: bool = false> {
   pub(crate) matcher: M,
-  sim_scorer: SS,
   norms: Option<N>,
   match_cost: f32,
   freq: f32,
   min_competitive_score: f32,
 }
-impl<M, SS, N, const TOP_SCORES: bool> TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> TwoPhaseIteratorImpl<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher,
-  SS: SimScorer,
   N: NumericDocValues,
 {
-  fn new(matcher: M, sim_scorer: SS, norms: Option<N>) -> Self {
+  fn new(matcher: M, norms: Option<N>) -> Self {
     let match_cost = matcher.get_match_cost();
     Self {
       matcher,
-      sim_scorer,
       norms,
       match_cost,
       freq: 0.0,
@@ -288,11 +281,9 @@ where
     self.approx_doc_id()
   }
 }
-impl<M, SS, N, const TOP_SCORES: bool> ApproximationDISI
-  for TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> ApproximationDISI for TwoPhaseIteratorImpl<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher,
-  SS: SimScorer,
   N: NumericDocValues,
 {
   fn approx_doc_id(&self) -> i32 {
@@ -313,11 +304,10 @@ where
   }
 }
 
-impl<M, SS, N, const TOP_SCORES: bool> ApproximationBitSetAccess
-  for TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> ApproximationBitSetAccess
+  for TwoPhaseIteratorImpl<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher,
-  SS: SimScorer,
   N: NumericDocValues,
 {
   fn approx_is_bit_iter(&self) -> bool {
@@ -334,11 +324,9 @@ where
   }
 }
 
-impl<M, SS, N, const TOP_SCORES: bool> TwoPhaseIterator
-  for TwoPhaseIteratorImpl<M, SS, N, TOP_SCORES>
+impl<M, N, const TOP_SCORES: bool> TwoPhaseIterator for TwoPhaseIteratorImpl<M, N, TOP_SCORES>
 where
   M: PhraseScorerMatcher,
-  SS: SimScorer,
   N: NumericDocValues,
 {
   fn matches(&mut self) -> Result<bool> {
@@ -355,7 +343,13 @@ where
         norm = norms.long_value()?;
       }
 
-      if self.sim_scorer.score(max_freq, norm) < self.min_competitive_score {
+      let max_score = self
+        .matcher
+        .impacts_approximation_mut()
+        .max_score_cache()
+        .scorer
+        .score(max_freq, norm);
+      if max_score < self.min_competitive_score {
         // The maximum score we could get is less than the min competitive score
         return Ok(false);
       }

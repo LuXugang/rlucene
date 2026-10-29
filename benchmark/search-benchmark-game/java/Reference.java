@@ -31,7 +31,7 @@ public class Reference {
     return "\"" + text.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
   }
   public static void main(String[] args) throws Exception {
-    try (var dir=FSDirectory.open(Path.of(args[1]));
+    try (var dir=new MMapDirectory(Path.of(args[1]));
          var analyzer=new StandardAnalyzer(CharArraySet.EMPTY_SET);
          var reader=DirectoryReader.open(dir);
          var input=new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8))) {

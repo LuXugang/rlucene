@@ -75,6 +75,71 @@ impl ConstantScoreQuery {
   pub fn into_inner(self) -> Query {
     *self.query
   }
+
+  pub(crate) fn rewrite_inner<IRC, SIM>(
+    query: &Query,
+    searcher: &IndexSearcher<IRC, SIM>,
+  ) -> Result<Option<Query>>
+  where
+    SIM: Similarity,
+    IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC, SIM>: Sync,
+  {
+    let rewritten = query.rewrite(searcher);
+    // Inspect the borrowed result before moving its large Query payload.
+    if matches!(&rewritten, Ok(None)) && matches!(query, Query::Term(_)) {
+      return Ok(None);
+    }
+    let rewritten = match rewritten? {
+      Some(rewritten) => Cow::Owned(rewritten),
+      None => Cow::Borrowed(query),
+    };
+
+    // Do some extra simplifications that are legal since scores are not needed on the wrapped
+    // query.
+    let rewritten = match rewritten {
+      Cow::Owned(Query::Boost(boost_query)) => Cow::Owned(boost_query.into_inner()),
+      Cow::Borrowed(Query::Boost(boost_query)) => Cow::Borrowed(boost_query.get_query()),
+
+      Cow::Owned(Query::ConstantScore(constant_score_query)) => {
+        Cow::Owned(constant_score_query.into_inner())
+      },
+      Cow::Borrowed(Query::ConstantScore(constant_score_query)) => {
+        Cow::Borrowed(constant_score_query.get_query())
+      },
+
+      Cow::Owned(Query::Boolean(boolean_query)) => match boolean_query.rewrite_no_scoring()? {
+        Some(rewritten) => Cow::Owned(rewritten),
+        None => Cow::Owned(Query::Boolean(boolean_query)),
+      },
+      Cow::Borrowed(Query::Boolean(boolean_query)) => match boolean_query.rewrite_no_scoring()? {
+        Some(rewritten) => Cow::Owned(rewritten),
+        None => Cow::Borrowed(query),
+      },
+      rewritten => rewritten,
+    };
+
+    if matches!(rewritten.as_ref(), Query::MatchNoDocs(_)) {
+      // bubble up MatchNoDocsQuery
+      return Ok(Some(rewritten.into_owned()));
+    }
+
+    if rewritten.identity() != query.identity() {
+      return Ok(Some(ConstantScoreQuery::new(rewritten.into_owned()).into()));
+    }
+
+    if matches!(rewritten.as_ref(), Query::ConstantScore(_)) {
+      return Ok(Some(rewritten.into_owned()));
+    }
+
+    if let Query::Boost(boost_query) = rewritten.as_ref() {
+      return Ok(Some(
+        ConstantScoreQuery::new(boost_query.get_query().clone()).into(),
+      ));
+    }
+
+    Ok(None)
+  }
 }
 impl Eq for ConstantScoreQuery {}
 
@@ -145,61 +210,7 @@ impl QueryBase for ConstantScoreQuery {
     IRC: IndexReaderContext + 'static,
     IndexSearcher<IRC, SIM>: Sync,
   {
-    let query = self.get_query();
-    let rewritten = query.rewrite(searcher);
-    // Inspect the borrowed result before moving its large Query payload.
-    if matches!(&rewritten, Ok(None)) && matches!(query, Query::Term(_)) {
-      return Ok(None);
-    }
-    let rewritten = match rewritten? {
-      Some(rewritten) => Cow::Owned(rewritten),
-      None => Cow::Borrowed(query),
-    };
-
-    // Do some extra simplifications that are legal since scores are not needed on the wrapped
-    // query.
-    let rewritten = match rewritten {
-      Cow::Owned(Query::Boost(boost_query)) => Cow::Owned(boost_query.into_inner()),
-      Cow::Borrowed(Query::Boost(boost_query)) => Cow::Borrowed(boost_query.get_query()),
-
-      Cow::Owned(Query::ConstantScore(constant_score_query)) => {
-        Cow::Owned(constant_score_query.into_inner())
-      },
-      Cow::Borrowed(Query::ConstantScore(constant_score_query)) => {
-        Cow::Borrowed(constant_score_query.get_query())
-      },
-
-      Cow::Owned(Query::Boolean(boolean_query)) => match boolean_query.rewrite_no_scoring()? {
-        Some(rewritten) => Cow::Owned(rewritten),
-        None => Cow::Owned(Query::Boolean(boolean_query)),
-      },
-      Cow::Borrowed(Query::Boolean(boolean_query)) => match boolean_query.rewrite_no_scoring()? {
-        Some(rewritten) => Cow::Owned(rewritten),
-        None => Cow::Borrowed(query),
-      },
-      rewritten => rewritten,
-    };
-
-    if matches!(rewritten.as_ref(), Query::MatchNoDocs(_)) {
-      // bubble up MatchNoDocsQuery
-      return Ok(Some(rewritten.into_owned()));
-    }
-
-    if rewritten.identity() != query.identity() {
-      return Ok(Some(ConstantScoreQuery::new(rewritten.into_owned()).into()));
-    }
-
-    if matches!(rewritten.as_ref(), Query::ConstantScore(_)) {
-      return Ok(Some(rewritten.into_owned()));
-    }
-
-    if let Query::Boost(boost_query) = rewritten.as_ref() {
-      return Ok(Some(
-        ConstantScoreQuery::new(boost_query.get_query().clone()).into(),
-      ));
-    }
-
-    Ok(None)
+    Self::rewrite_inner(self.get_query(), searcher)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

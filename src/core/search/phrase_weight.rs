@@ -54,7 +54,6 @@ pub type PhraseWeightScorer<
         <S as PhraseWeightBase<SIM>>::SimScorer,
         true,
       >,
-      <S as PhraseWeightBase<SIM>>::SimScorer,
       LRNormNumericDocValues<IRCLeafReader<IRC>>,
       true,
     >,
@@ -63,7 +62,6 @@ pub type PhraseWeightScorer<
         <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
         <S as PhraseWeightBase<SIM>>::SimScorer,
       >,
-      <S as PhraseWeightBase<SIM>>::SimScorer,
       LRNormNumericDocValues<IRCLeafReader<IRC>>,
       true,
     >,
@@ -75,7 +73,6 @@ pub type PhraseWeightScorer<
         <S as PhraseWeightBase<SIM>>::SimScorer,
         false,
       >,
-      <S as PhraseWeightBase<SIM>>::SimScorer,
       LRNormNumericDocValues<IRCLeafReader<IRC>>,
       false,
     >,
@@ -84,7 +81,6 @@ pub type PhraseWeightScorer<
         <S as PhraseWeightBase<SIM>>::IE<IRCLeafReader<IRC>>,
         <S as PhraseWeightBase<SIM>>::SimScorer,
       >,
-      <S as PhraseWeightBase<SIM>>::SimScorer,
       LRNormNumericDocValues<IRCLeafReader<IRC>>,
       false,
     >,
@@ -300,12 +296,8 @@ where
               None
             };
             let scorer: PhraseWeightScorer<S, IRC, SIM> = ScorerEnum2::$mode(match matcher {
-              PhraseMatcherEnum::Exact(m) => {
-                ScorerEnum2::A(PhraseScorer::new(m, self.stats.clone(), norms))
-              },
-              PhraseMatcherEnum::Sloppy(m) => {
-                ScorerEnum2::B(PhraseScorer::new(m, self.stats.clone(), norms))
-              },
+              PhraseMatcherEnum::Exact(m) => ScorerEnum2::A(PhraseScorer::new(m, norms)),
+              PhraseMatcherEnum::Sloppy(m) => ScorerEnum2::B(PhraseScorer::new(m, norms)),
             });
             Ok(Some(DefaultScorerSupplier::new(scorer)))
           },

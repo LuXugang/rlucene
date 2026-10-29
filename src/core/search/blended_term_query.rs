@@ -137,11 +137,11 @@ impl QueryBase for BlendedTermQuery {
       if self.boosts[i] != 1.0 {
         BoostQuery::check_boost(self.boosts[i])?;
         builder.push('(');
-        builder.push_str(&TermQuery::format_term(term, field)?);
+        builder.push_str(&TermQuery::format_term(term.field(), term.bytes(), field)?);
         builder.push_str(")^");
         write!(builder, "{:.1}", self.boosts[i])?;
       } else {
-        builder.push_str(&TermQuery::format_term(term, field)?);
+        builder.push_str(&TermQuery::format_term(term.field(), term.bytes(), field)?);
       }
     }
 
@@ -177,10 +177,9 @@ impl QueryBase for BlendedTermQuery {
     for (i, context) in self.contexts.iter().cloned().enumerate() {
       match context {
         Some(v) => contexts.push(v),
-        None => contexts.push(Arc::new(term_states::build(
+        None => contexts.push(Arc::new(term_states::build_with_stats(
           index_searcher,
-          self.terms[i].clone(),
-          true,
+          &self.terms[i],
         )?)),
       }
     }

@@ -21,7 +21,7 @@ use crate::core::search::query::{QueryWeightMatches, QueryWeightMatchesIterator}
 use crate::core::search::query_matches::FieldMatchesSupplier;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::util::error::lucene_error::Result;
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, OnceCell};
 use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
@@ -147,7 +147,7 @@ pub struct FieldMatches<
 {
   field: FieldName<'a>,
   supplier: FieldMatchesSupplier<'a, IRC, SIM>,
-  cached: RefCell<Option<QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>>,
+  cached: Cell<Option<QueryWeightMatchesIterator<'a, IRCLeafReader<IRC>, SIM>>>,
 }
 
 impl<'a, IRC: IndexReaderContext + 'static, SIM> Matches for FieldMatches<'a, IRC, SIM>
@@ -166,7 +166,7 @@ where
     if field != self.field.as_ref().as_str() {
       return Ok(None);
     }
-    if let Some(iterator) = self.cached.borrow_mut().take() {
+    if let Some(iterator) = self.cached.take() {
       Ok(Some(iterator))
     } else {
       self.supplier.get()
@@ -227,6 +227,6 @@ where
   > {
     field,
     supplier,
-    cached: RefCell::new(Some(first)),
+    cached: Cell::new(Some(first)),
   }))))
 }
