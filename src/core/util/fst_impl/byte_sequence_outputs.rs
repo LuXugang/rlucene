@@ -114,6 +114,35 @@ impl Outputs for ByteSequenceOutputs {
     }
   }
 
+  fn subtract_assign(&self, output: &mut Self::V, inc: &Self::V) {
+    if BytesRef::equals(inc, self.no_output) {
+      return;
+    }
+
+    debug_assert!(StringHelper::starts_with(
+      &output.bytes,
+      output.offset,
+      output.length,
+      &inc.bytes,
+      inc.offset,
+      inc.length
+    ));
+    if inc.length == output.length {
+      *output = self.no_output.clone();
+    } else {
+      debug_assert!(
+        inc.length < output.length,
+        "inc.length={} vs output.length={}",
+        inc.length,
+        output.length
+      );
+      debug_assert!(inc.length > 0);
+      // Only this disposable BytesRef changes; all shared bytes stay immutable.
+      output.offset += inc.length;
+      output.length -= inc.length;
+    }
+  }
+
   #[inline]
   fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V> {
     let no_output = self.no_output;

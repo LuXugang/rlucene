@@ -38,6 +38,19 @@ pub trait Outputs: Display + Clone + Default {
   /// Eg. `subtract("foobar", "foo") -> "bar"`
   fn subtract<'a>(&self, output: &'a Self::V, inc: &Self::V) -> std::borrow::Cow<'a, Self::V>;
 
+  /// Stores `subtract(output, inc)` in `output`.
+  ///
+  /// The old value of `output` is disposable. An implementation may update its
+  /// slice metadata while retaining the backing owner, but must not change data
+  /// visible through other output values.
+  fn subtract_assign(&self, output: &mut Self::V, inc: &Self::V) {
+    match self.subtract(output, inc) {
+      std::borrow::Cow::Borrowed(next) if std::ptr::eq(next, output) => {},
+      std::borrow::Cow::Borrowed(next) => *output = next.clone(),
+      std::borrow::Cow::Owned(next) => *output = next,
+    }
+  }
+
   /// Eg. `add("foo", "bar") -> "foobar"`
   fn add<'a>(&self, prefix: &'a Self::V, output: &'a Self::V) -> std::borrow::Cow<'a, Self::V>;
 

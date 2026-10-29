@@ -343,15 +343,9 @@ where
 
         let common_output_prefix = parent.set_last_output(label, common_output_prefix, no_output);
         node.prepend_output(&word_suffix, outputs, no_output);
-        let next_output = outputs.subtract(&output, common_output_prefix);
-        if let std::borrow::Cow::Owned(next_output) = next_output {
-          output = next_output;
-        }
+        outputs.subtract_assign(&mut output, common_output_prefix);
       } else {
-        let next_output = outputs.subtract(&output, no_output);
-        if let std::borrow::Cow::Owned(next_output) = next_output {
-          output = next_output;
-        }
+        outputs.subtract_assign(&mut output, no_output);
       }
       debug_assert!(output.is_no_output(no_output) || output != *no_output);
     }
