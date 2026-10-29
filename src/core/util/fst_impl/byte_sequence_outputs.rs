@@ -114,6 +114,7 @@ impl Outputs for ByteSequenceOutputs {
     }
   }
 
+  #[inline]
   fn subtract_assign(&self, output: &mut Self::V, inc: &Self::V) {
     if BytesRef::equals(inc, self.no_output) {
       return;
