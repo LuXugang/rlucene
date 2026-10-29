@@ -88,10 +88,17 @@ impl CompetitiveImpactAccumulator {
   pub fn get_competitive_freq_norm_pairs(&self) -> SmallVec<[Impact; 8]> {
     let mut impacts = SmallVec::new();
     let mut max_freq_for_lower_norms = 0;
-    for (i, &freq) in self.max_freqs.iter().enumerate() {
-      if freq > max_freq_for_lower_norms {
-        impacts.push(Impact::new(freq, i as i8 as i64));
-        max_freq_for_lower_norms = freq;
+    for (block_index, block) in self.max_freqs.as_chunks::<16>().0.iter().enumerate() {
+      // A block below the current frontier cannot contribute a new record.
+      if block.iter().copied().max().unwrap_or(0) <= max_freq_for_lower_norms {
+        continue;
+      }
+      for (offset, &freq) in block.iter().enumerate() {
+        if freq > max_freq_for_lower_norms {
+          let norm_index = block_index * 16 + offset;
+          impacts.push(Impact::new(freq, norm_index as i8 as i64));
+          max_freq_for_lower_norms = freq;
+        }
       }
     }
 

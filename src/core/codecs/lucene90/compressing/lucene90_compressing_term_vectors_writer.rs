@@ -691,13 +691,14 @@ where
             },
           };
           let cpt = chars_per_term[field_num_off];
+          let has_positions = field.has_positions;
           let mut pos = 0;
           for i in 0..field.num_terms {
             let freq = field.freqs[i];
             let mut previous_pos = 0;
             let mut previous_off = 0;
             for _ in 0..freq {
-              let position = if field.has_positions {
+              let position = if has_positions {
                 self.positions_buf[field.pos_start + pos]
               } else {
                 0

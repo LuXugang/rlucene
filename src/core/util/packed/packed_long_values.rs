@@ -181,7 +181,6 @@ pub struct Builder {
   pub(crate) values: Vec<PackedIntsReadEnum>,
   pub(crate) ram_bytes_used: i64,
   pub(crate) values_off: usize,
-  pending_off: usize,
   finished: bool,
   sub_builder: Option<DeltaPackedLongValuesBuilder>,
 }
@@ -221,7 +220,6 @@ impl Builder {
       values,
       ram_bytes_used,
       values_off: 0,
-      pending_off: 0,
       finished: false,
       sub_builder: sub_packed_long_values_builder,
     })
@@ -247,7 +245,7 @@ impl Builder {
     if self.finished {
       return Err(LuceneError::illegal_state("Cannot be reused after build()"));
     }
-    if self.pending_off == self.page_mask + 1 {
+    if self.pending.len() == self.page_mask + 1 {
       let current_value_len = self.values.capacity();
       if current_value_len == self.values_off {
         // Increase by half of the current length.
@@ -259,12 +257,11 @@ impl Builder {
     }
 
     self.pending.push(l);
-    self.pending_off += 1;
     self.size += 1;
     Ok(self)
   }
   pub(crate) fn finish(&mut self) -> Result<()> {
-    if self.pending_off > 0 {
+    if !self.pending.is_empty() {
       if self.values.capacity() == self.values_off {
         self.grow(self.values_off + 1)?;
       }
@@ -273,22 +270,18 @@ impl Builder {
     Ok(())
   }
   fn pack_impl(&mut self) -> Result<()> {
+    let num_values = self.pending.len();
     if let Some(sub_builder) = self.sub_builder.as_mut() {
-      sub_builder.pack(self.pending.as_mut(), self.pending_off, self.values_off);
+      sub_builder.pack(self.pending.as_mut(), num_values, self.values_off);
     }
 
-    self.pack(
-      self.pending_off,
-      self.values_off,
-      self.acceptable_overhead_ratio,
-    )?;
+    self.pack(num_values, self.values_off, self.acceptable_overhead_ratio)?;
 
     self.ram_bytes_used = self
       .ram_bytes_used
       .saturating_add(self.values[self.values_off].ram_bytes_used()?);
     self.values_off += 1;
     // Reset pending buffer
-    self.pending_off = 0;
     self.pending.clear();
     Ok(())
   }
@@ -298,22 +291,22 @@ impl Builder {
     block: usize,
     acceptable_overhead_ratio: f32,
   ) -> Result<()> {
-    let mut min_value = self.pending[0];
-    let mut max_value = self.pending[0];
+    let mut value_bits = self.pending[0];
 
-    for &value in self.pending.iter().take(num_values).skip(1) {
-      min_value = min_value.min(value);
-      max_value = max_value.max(value);
+    if value_bits >= 0 {
+      for &value in self.pending.iter().take(num_values).skip(1) {
+        value_bits |= value;
+      }
     }
 
-    // Build a new packed reader
-    let reader = if min_value == 0 && max_value == 0 {
+    // The union preserves zero, the sign bit and the highest required bit.
+    let reader = if value_bits == 0 {
       PackedIntsReadEnum::NullReader(NullReader::new(num_values))
     } else {
-      let bits_required = if min_value < 0 {
+      let bits_required = if value_bits < 0 {
         64
       } else {
-        PackedInts::bits_required(max_value)?
+        PackedInts::bits_required(value_bits)?
       };
 
       let mut mutable =

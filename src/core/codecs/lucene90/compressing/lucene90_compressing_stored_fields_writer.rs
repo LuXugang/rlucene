@@ -252,9 +252,22 @@ where
     )?;
 
     // convert end offsets into lengths
-    for i in (1..self.num_buffered_docs).rev() {
-      self.end_offsets[i] -= self.end_offsets[i - 1];
-      debug_assert!(self.end_offsets[i] >= 0);
+    if self.num_buffered_docs > 1
+      && let Some(end_offsets) = self.end_offsets.get_mut(..self.num_buffered_docs)
+    {
+      let mut offsets = end_offsets.iter_mut().rev();
+      if let Some(mut current) = offsets.next() {
+        for previous in offsets {
+          *current -= *previous;
+          debug_assert!(*current >= 0);
+          current = previous;
+        }
+      }
+    } else {
+      for i in (1..self.num_buffered_docs).rev() {
+        self.end_offsets[i] -= self.end_offsets[i - 1];
+        debug_assert!(self.end_offsets[i] >= 0);
+      }
     }
 
     let sliced = self.buffered_docs.size() >= 2 * self.chunk_size as usize;

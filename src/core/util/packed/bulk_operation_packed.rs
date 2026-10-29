@@ -263,6 +263,7 @@ impl Encoder for BulkOperationPacked {
     Decoder::byte_value_count(self)
   }
 
+  // Match the integer directly while keeping the three encoding cases unchanged.
   fn encode_i64_to_u64(
     &self,
     values: &[i64],
@@ -277,13 +278,8 @@ impl Encoder for BulkOperationPacked {
     for _ in 0..(self.long_value_count * iterations) {
       bits_left -= self.bits_per_value;
 
-      match bits_left.cmp(&0) {
-        std::cmp::Ordering::Greater => {
-          // Buffer the value
-          next_block |= (values[values_offset] << bits_left) as u64;
-          values_offset += 1;
-        },
-        std::cmp::Ordering::Equal => {
+      match bits_left {
+        0 => {
           next_block |= values[values_offset] as u64;
           values_offset += 1;
           blocks[blocks_offset] = next_block;
@@ -291,7 +287,12 @@ impl Encoder for BulkOperationPacked {
           next_block = 0;
           bits_left = 64;
         },
-        std::cmp::Ordering::Less => {
+        1.. => {
+          // Buffer the value
+          next_block |= (values[values_offset] << bits_left) as u64;
+          values_offset += 1;
+        },
+        _ => {
           // Handle case where bits_left < 0
           next_block |= (values[values_offset] as u64).wrapping_shr((-bits_left) as u32);
 

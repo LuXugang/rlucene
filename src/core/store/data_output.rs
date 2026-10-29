@@ -73,6 +73,17 @@ pub trait DataOutput {
     Ok(())
   }
 
+  /// Writes integers in little-endian order, preserving [`Self::write_int`] errors.
+  ///
+  /// This Rust bulk entry defaults to the original primitive calls. Implementations
+  /// may batch only when their observable callbacks and failure state are preserved.
+  fn write_ints(&mut self, values: &[i32]) -> Result<()> {
+    for &value in values {
+      self.write_int(value)?;
+    }
+    Ok(())
+  }
+
   /// Writes an `i16` as two bytes (little-endian byte order).
   ///
   /// # See Also

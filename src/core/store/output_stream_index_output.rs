@@ -111,14 +111,100 @@ where
     self.output_stream()?.write_i32(i)
   }
 
+  fn write_ints(&mut self, values: &[i32]) -> Result<()> {
+    if let Some(byte_count) = values.len().checked_mul(BitUtil::INT_BYTES)
+      && let Some(bytes_written) = self.bytes_written.checked_add(byte_count)
+      && let Some(os) = self.os.as_mut()
+      && byte_count < os.inner.capacity() - os.inner.buffer().len()
+    {
+      // Strict spare capacity keeps every write in the existing buffer. No inner
+      // Write callback can observe different primitive accounting or CRC updates.
+      let mut encoded = [0u8; 128];
+      for chunk in values.chunks(32) {
+        for (value, bytes) in chunk.iter().zip(encoded.as_chunks_mut::<4>().0) {
+          *bytes = value.to_le_bytes();
+        }
+        os.write_bytes(&encoded[..chunk.len() * 4])?;
+      }
+      self.bytes_written = bytes_written;
+      return Ok(());
+    }
+    for &value in values {
+      self.write_int(value)?;
+    }
+    Ok(())
+  }
+
   fn write_short(&mut self, i: i16) -> Result<()> {
     self.bytes_written += 2;
     self.output_stream()?.write_i16(i)
   }
 
+  fn write_vint(&mut self, i: i32) -> Result<()> {
+    let mut value = i as u32;
+    if value < 0x80 {
+      return self.write_byte(value as u8);
+    }
+    let mut encoded = [0u8; 5];
+    let mut len = 0;
+    for byte in &mut encoded {
+      len += 1;
+      *byte = (value & 0x7F) as u8;
+      value >>= 7;
+      if value == 0 {
+        break;
+      }
+      *byte |= 0x80;
+    }
+    if let Some(bytes_written) = self.bytes_written.checked_add(len)
+      && let Some(os) = self.os.as_mut()
+      && len < os.inner.capacity() - os.inner.buffer().len()
+    {
+      // Buffered-only writes cannot expose different callbacks or error prefixes.
+      os.write_bytes(&encoded[..len])?;
+      self.bytes_written = bytes_written;
+      return Ok(());
+    }
+    for &byte in &encoded[..len] {
+      self.write_byte(byte)?;
+    }
+    Ok(())
+  }
+
   fn write_long(&mut self, i: i64) -> Result<()> {
     self.bytes_written += 8;
     self.output_stream()?.write_i64(i)
+  }
+
+  fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
+    let mut value = i as u64;
+    if value < 0x80 {
+      return self.write_byte(value as u8);
+    }
+    let mut encoded = [0u8; 10];
+    let mut len = 0;
+    for byte in &mut encoded {
+      len += 1;
+      *byte = (value & 0x7F) as u8;
+      value >>= 7;
+      if value == 0 {
+        break;
+      }
+      *byte |= 0x80;
+    }
+    if let Some(bytes_written) = self.bytes_written.checked_add(len)
+      && let Some(os) = self.os.as_mut()
+      && len < os.inner.capacity() - os.inner.buffer().len()
+    {
+      // Buffered-only writes cannot expose different callbacks or error prefixes.
+      os.write_bytes(&encoded[..len])?;
+      self.bytes_written = bytes_written;
+      return Ok(());
+    }
+    for &byte in &encoded[..len] {
+      self.write_byte(byte)?;
+    }
+    Ok(())
   }
 }
 

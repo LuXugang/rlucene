@@ -120,10 +120,13 @@ impl<const N: usize> HeapPointWriter<N> {
     self
       .scratch
       .copy_from(&heap_value.value[index_i..index_i + bytes_per_doc], 0);
-    heap_value
-      .value
-      .copy_within(index_j..index_j + bytes_per_doc, index_i);
-    heap_value.value.copy_from(&self.scratch, index_j);
+    // Keep the existing scratch update when swapping a point with itself.
+    if index_i != index_j || self.scratch.len() != bytes_per_doc {
+      heap_value
+        .value
+        .copy_within(index_j..index_j + bytes_per_doc, index_i);
+      heap_value.value.copy_from(&self.scratch, index_j);
+    }
     Ok(())
   }
 

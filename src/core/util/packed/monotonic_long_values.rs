@@ -80,8 +80,10 @@ impl MonotonicLongValuesBuilder {
       values[num_values - 1].wrapping_sub(values[0]) as f32 / (num_values - 1) as f32
     };
 
-    for (i, value) in values.iter_mut().enumerate().take(num_values) {
-      *value = value.wrapping_sub(expected(0, average, i));
+    if average != 0.0 {
+      for (i, value) in values.iter_mut().enumerate().take(num_values) {
+        *value = value.wrapping_sub(expected(0, average, i));
+      }
     }
     if block == self.averages.len() {
       self.averages.push(average);

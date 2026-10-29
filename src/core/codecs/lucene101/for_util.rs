@@ -173,27 +173,21 @@ impl ForUtil {
               | (ints[24 + i] << 1)
               | ints[28 + i];
           }
-          for &value in &tmp[..4] {
-            out.write_int(value)?;
-          }
+          out.write_ints(&tmp[..4])?;
           return Ok(());
         },
         2 => {
           for i in 0..8 {
             tmp[i] = (ints[i] << 6) | (ints[8 + i] << 4) | (ints[16 + i] << 2) | ints[24 + i];
           }
-          for &value in &tmp[..8] {
-            out.write_int(value)?;
-          }
+          out.write_ints(&tmp[..8])?;
           return Ok(());
         },
         4 => {
           for i in 0..16 {
             tmp[i] = (ints[i] << 4) | ints[16 + i];
           }
-          for &value in &tmp[..16] {
-            out.write_int(value)?;
-          }
+          out.write_ints(&tmp[..16])?;
           return Ok(());
         },
         _ => {},
@@ -294,9 +288,7 @@ impl ForUtil {
         }
       }
     }
-    for &val in tmp.iter().take(num_ints_per_shift) {
-      out.write_int(val)?;
-    }
+    out.write_ints(&tmp[..num_ints_per_shift.min(tmp.len())])?;
 
     Ok(())
   }

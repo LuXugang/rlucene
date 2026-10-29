@@ -45,21 +45,34 @@ impl LowercaseAsciiCompression {
     let mut previous_exception_index = 0;
     let mut num_exceptions = 0;
 
-    // An indexed read preserves Java's failure timing when input is shorter than len.
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..len {
-      let b = input[i] as i32;
-      if !Self::is_compressible(b) {
-        while i - previous_exception_index > 0xFF {
-          num_exceptions += 1;
-          previous_exception_index += 0xFF;
+    let mut block_start = 0;
+    while block_start < len {
+      let block_end = block_start + 16.min(len - block_start);
+      let clean_block = block_end - block_start == 16
+        && input.get(block_start..block_end).is_some_and(|block| {
+          block.iter().fold(0u8, |bad, &b| {
+            bad | u8::from((b.wrapping_add(1) & 0xA0) != 0x20)
+          }) == 0
+        });
+      if !clean_block {
+        // Indexed reads retain early false and partial-input failure timing.
+        #[allow(clippy::needless_range_loop)]
+        for i in block_start..block_end {
+          let b = input[i] as i32;
+          if !Self::is_compressible(b) {
+            while i - previous_exception_index > 0xFF {
+              num_exceptions += 1;
+              previous_exception_index += 0xFF;
+            }
+            num_exceptions += 1;
+            if num_exceptions > max_exceptions {
+              return Ok(false);
+            }
+            previous_exception_index = i;
+          }
         }
-        num_exceptions += 1;
-        if num_exceptions > max_exceptions {
-          return Ok(false);
-        }
-        previous_exception_index = i;
       }
+      block_start = block_end;
     }
 
     debug_assert!(num_exceptions <= max_exceptions);
@@ -74,22 +87,23 @@ impl LowercaseAsciiCompression {
     }
 
     // 3. Pack exception bits into tmp[0..compressed_len]
-    let mut o = 0usize;
+    let saved = len >> 2;
     {
-      let tmp = &mut tmp[..len];
-      for i in compressed_len..len {
-        tmp[o] |= (tmp[i] & 0x30) << 2; // bits 4-5
-        o += 1;
+      let (packed, tail) = tmp[..len].split_at_mut(compressed_len);
+      let (a, rest) = packed.split_at_mut(saved);
+      let (b, rest) = rest.split_at_mut(saved);
+      let c = &mut rest[..saved];
+      for (dest, &source) in a.iter_mut().zip(tail.iter()) {
+        *dest |= (source & 0x30) << 2; // bits 4-5
       }
-      for i in compressed_len..len {
-        tmp[o] |= (tmp[i] & 0x0C) << 4; // bits 2-3
-        o += 1;
+      for (dest, &source) in b.iter_mut().zip(tail.iter()) {
+        *dest |= (source & 0x0C) << 4; // bits 2-3
       }
-      for i in compressed_len..len {
-        tmp[o] |= (tmp[i] & 0x03) << 6; // bits 0-1
-        o += 1;
+      for (dest, &source) in c.iter_mut().zip(tail.iter()) {
+        *dest |= (source & 0x03) << 6; // bits 0-1
       }
     }
+    let o = saved * 3;
 
     debug_assert!(o <= compressed_len);
     out.write_bytes_range(tmp, 0, compressed_len)?;

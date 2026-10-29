@@ -68,6 +68,13 @@ where
     }
   }
 
+  fn write_ints(&mut self, values: &[i32]) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_ints(values),
+      Self::B(output) => output.write_ints(values),
+    }
+  }
+
   fn write_short(&mut self, i: i16) -> Result<()> {
     match self {
       Self::A(output) => output.write_short(i),

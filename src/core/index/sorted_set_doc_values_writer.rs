@@ -310,7 +310,6 @@ pub(crate) struct SortedSetDocValuesWriter {
 
   current_doc: i32,
   current_values: Vec<i32>,
-  current_upto: usize,
   max_count: usize,
 
   final_ords: Option<PackedLongValues>,
@@ -343,7 +342,6 @@ impl SortedSetDocValuesWriter {
       field_info,
       current_doc: -1,
       current_values,
-      current_upto: 0,
       max_count: 0,
       final_ords: None,
       final_ord_counts: None,
@@ -379,12 +377,12 @@ impl SortedSetDocValuesWriter {
     if self.current_doc == -1 {
       return Ok(());
     }
-    if self.current_upto > 1 {
-      self.current_values[..self.current_upto].sort_unstable();
+    if self.current_values.len() > 1 {
+      self.current_values.sort_unstable();
     }
     let mut last_value = -1;
     let mut count = 0;
-    for &term_id in &self.current_values[..self.current_upto] {
+    for &term_id in &self.current_values {
       // if it's not a duplicate
       if term_id != last_value {
         self.pending.add(term_id as i64)?;
@@ -404,7 +402,6 @@ impl SortedSetDocValuesWriter {
       self.pending_counts = Some(pc);
     }
     self.max_count = self.max_count.max(count);
-    self.current_upto = 0;
     self.current_values.clear();
     self.docs_with_field.add(self.current_doc)?;
     Ok(())
@@ -423,10 +420,10 @@ impl SortedSetDocValuesWriter {
         .add_and_get((2 * BitUtil::INT_BYTES) as i64);
     }
     if self.current_values.len() == self.current_values.capacity() {
-      ArrayUtil::grow_capacity(&mut self.current_values, self.current_upto + 1)?;
+      let required = self.current_values.len() + 1;
+      ArrayUtil::grow_capacity(&mut self.current_values, required)?;
     }
     self.current_values.push(term_id);
-    self.current_upto += 1;
     Ok(())
   }
 

@@ -124,6 +124,13 @@ impl DataOutput for IndexOutputEnum {
     }
   }
 
+  fn write_ints(&mut self, values: &[i32]) -> Result<()> {
+    match self {
+      Self::Fs(inner) => inner.write_ints(values),
+      Self::Custom(inner) => inner.write_ints(values),
+    }
+  }
+
   fn write_short(&mut self, i: i16) -> Result<()> {
     match self {
       Self::Fs(inner) => inner.write_short(i),
@@ -310,6 +317,12 @@ macro_rules! either_index_output {
             fn write_int(&mut self, i: i32) -> Result<()> {
                 match self {
                     $( Self::$Variant(inner) => inner.write_int(i), )+
+                }
+            }
+
+            fn write_ints(&mut self, values: &[i32]) -> Result<()> {
+                match self {
+                    $( Self::$Variant(inner) => inner.write_ints(values), )+
                 }
             }
 
