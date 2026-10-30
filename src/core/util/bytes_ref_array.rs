@@ -181,7 +181,7 @@ impl BytesRefArray {
     let mut ordered_entries: Vec<usize> = (0..size).collect();
     if stable {
       let delegate = StableStringSorterImpl {
-        tmp: vec![0; size],
+        tmp: Vec::new(),
         ordered_entries: ordered_entries.as_mut_slice(),
         bytes_ref_array: self,
       };
@@ -435,7 +435,11 @@ impl<'a> StringSorterBase for StableStringSorterImpl<'a, '_> {
 
 impl StableStringSorterBase for StableStringSorterImpl<'_, '_> {
   fn save(&mut self, i: usize, j: usize) {
-    self.tmp[j] = self.ordered_entries[i];
+    let value = self.ordered_entries[i];
+    if self.tmp.is_empty() {
+      self.tmp = vec![0; self.ordered_entries.len()];
+    }
+    self.tmp[j] = value;
   }
   fn restore(&mut self, i: usize, j: usize) {
     self.ordered_entries.copy_from(&self.tmp[i..j], i);

@@ -401,7 +401,7 @@ where
 pub(crate) struct MergeSortQueueCmp<'a, C, B = TopDocs<TopFieldScoreDoc>> {
   shard_hits: &'a [B],
   comparators: Vec<FieldComparatorEnum>,
-  reverse_mul: Vec<i32>,
+  reverse_mul: Vec<i8>,
   tie_breaker: C,
 }
 
@@ -449,7 +449,7 @@ where
     let first_fields = first_fd.fields()?;
     let second_fields = second_fd.fields()?;
     for (i, comp) in self.comparators.iter().enumerate() {
-      let cmp = self.reverse_mul[i]
+      let cmp = i32::from(self.reverse_mul[i])
         * comp.compare_values(Some(&first_fields[i]), Some(&second_fields[i]))?;
       if cmp != 0 {
         return Ok(cmp < 0);

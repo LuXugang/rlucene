@@ -81,7 +81,7 @@ impl LevenshteinAutomata {
     alphabet.dedup();
     alphabet.shrink_to_fit();
 
-    let mut ranges = vec![(0, 0); alphabet.len() + 2];
+    let mut ranges = vec![(0, 0); alphabet.len() + 1];
     let mut num_ranges = 0;
 
     let mut lower = 0;

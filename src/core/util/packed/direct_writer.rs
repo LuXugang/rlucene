@@ -54,7 +54,11 @@ where
     let next_values = vec![0i64; buffer_size as usize];
     let next_blocks_size =
       (buffer_size * bits_per_value) as usize / i8::BITS as usize + BitUtil::LONG_BYTES - 1;
-    let next_blocks = vec![0u8; next_blocks_size];
+    let next_blocks = if num_values == 0 && SUPPORTED_BITS_PER_VALUE.contains(&bits_per_value) {
+      Vec::new()
+    } else {
+      vec![0u8; next_blocks_size]
+    };
 
     Ok(DirectWriter {
       bits_per_value,

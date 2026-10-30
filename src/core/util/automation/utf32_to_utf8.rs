@@ -248,7 +248,7 @@ impl UTF32ToUTF8 {
       return Ok(Cow::Borrowed(utf32));
     }
 
-    let mut map = vec![-1; utf32.get_num_states() as usize];
+    let mut map: SmallVec<[i32; 16]> = SmallVec::from_elem(-1, utf32.get_num_states() as usize);
     let mut pending: SmallVec<[i32; 8]> = SmallVec::new();
 
     let utf32_state = 0;

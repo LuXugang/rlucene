@@ -338,10 +338,8 @@ pub struct BKDPointTree<I: IndexInput> {
   last_leaf_node_point_count: usize,
   /// Right-most leaf node ID.
   right_most_leaf_node: i32,
-  /// Helper objects for reading doc values.
-  scratch_data_packed_value: Vec<u8>,
-  scratch_min_index_packed_value: Vec<u8>,
-  scratch_max_index_packed_value: Vec<u8>,
+  /// Data value, then indexed minimum and maximum, using the config's fixed widths.
+  scratch_packed_values: Vec<u8>,
   common_prefix_lengths: Vec<usize>,
   scratch_iterator: BKDReaderDocIDSetIterator,
   /// If true, the tree is balanced; otherwise, it is unbalanced.
@@ -381,9 +379,7 @@ where
       min_packed_value,
       max_packed_value,
       BKDReaderDocIDSetIterator::new(disi_len),
-      vec![0; packed_bytes_len],
-      vec![0; packed_index_bytes_len],
-      vec![0; packed_index_bytes_len],
+      vec![0; packed_bytes_len + 2 * packed_index_bytes_len],
       vec![0; num_dims],
       is_tree_balanced,
     )?;
@@ -404,9 +400,7 @@ where
     min_packed_value: &[u8],
     max_packed_value: &[u8],
     scratch_iterator: BKDReaderDocIDSetIterator,
-    scratch_data_packed_value: Vec<u8>,
-    scratch_min_index_packed_value: Vec<u8>,
-    scratch_max_index_packed_value: Vec<u8>,
+    scratch_packed_values: Vec<u8>,
     common_prefix_lengths: Vec<usize>,
     is_tree_balanced: bool,
   ) -> Result<Self> {
@@ -457,9 +451,7 @@ where
       // creating those objects in every clone.
       scratch_iterator,
       common_prefix_lengths,
-      scratch_data_packed_value,
-      scratch_min_index_packed_value,
-      scratch_max_index_packed_value,
+      scratch_packed_values,
     })
   }
   fn reset_node_data_position(&mut self) -> Result<()> {
@@ -832,18 +824,19 @@ where
   where
     V: IntersectVisitor,
   {
+    let packed_bytes_length = self.config.packed_bytes_length();
     let packed_index_bytes_length = self.config.packed_index_bytes_length();
 
     self.read_common_prefixes(leaf_node)?;
 
     if self.config.num_index_dims > 1 && self.version >= VERSION_LEAF_STORES_BOUNDS {
-      self.scratch_max_index_packed_value.copy_from(
-        &self.scratch_data_packed_value[..packed_index_bytes_length],
-        0,
+      self.scratch_packed_values.copy_within(
+        ..packed_index_bytes_length,
+        packed_bytes_length + packed_index_bytes_length,
       );
-      self.scratch_max_index_packed_value.copy_from(
-        &self.scratch_min_index_packed_value[..packed_index_bytes_length],
-        0,
+      self.scratch_packed_values.copy_within(
+        packed_bytes_length..packed_bytes_length + packed_index_bytes_length,
+        packed_bytes_length + packed_index_bytes_length,
       );
       self.read_min_max(leaf_node)?;
 
@@ -857,8 +850,9 @@ where
       // dimension also significantly changes the range of
       // values in another dimension.
       let relation = visitor.compare(
-        &self.scratch_min_index_packed_value,
-        &self.scratch_max_index_packed_value,
+        &self.scratch_packed_values
+          [packed_bytes_length..packed_bytes_length + packed_index_bytes_length],
+        &self.scratch_packed_values[packed_bytes_length + packed_index_bytes_length..],
       )?;
       if relation == Relation::CellOutsideQuery {
         return Ok(());
@@ -894,6 +888,7 @@ where
   where
     V: IntersectVisitor,
   {
+    let packed_bytes_length = self.config.packed_bytes_length();
     let packed_index_bytes_length = self.config.packed_index_bytes_length();
     self.read_common_prefixes(leaf_node)?;
     let compressed_dim = self.read_compressed_dim(leaf_node)?;
@@ -903,13 +898,12 @@ where
       self.visit_unique_raw_doc_values(count, visitor)?;
     } else {
       if self.config.num_index_dims != 1 {
-        self.scratch_min_index_packed_value.copy_from(
-          &self.scratch_data_packed_value[..packed_index_bytes_length],
-          0,
-        );
-        self.scratch_max_index_packed_value.copy_from(
-          &self.scratch_min_index_packed_value[..packed_index_bytes_length],
-          0,
+        self
+          .scratch_packed_values
+          .copy_within(..packed_index_bytes_length, packed_bytes_length);
+        self.scratch_packed_values.copy_within(
+          packed_bytes_length..packed_bytes_length + packed_index_bytes_length,
+          packed_bytes_length + packed_index_bytes_length,
         );
         self.read_min_max(leaf_node)?;
 
@@ -924,8 +918,9 @@ where
         // significantly changes the range of values in another
         // dimension.
         let relation = visitor.compare(
-          &self.scratch_min_index_packed_value,
-          &self.scratch_max_index_packed_value,
+          &self.scratch_packed_values
+            [packed_bytes_length..packed_bytes_length + packed_index_bytes_length],
+          &self.scratch_packed_values[packed_bytes_length + packed_index_bytes_length..],
         )?;
         if relation == Relation::CellOutsideQuery {
           return Ok(());
@@ -960,13 +955,15 @@ where
       let len = self.config.bytes_per_dim - prefix;
       DataInput::read_bytes(
         index_input,
-        &mut self.scratch_min_index_packed_value,
+        &mut self.scratch_packed_values[self.config.packed_bytes_length()
+          ..self.config.packed_bytes_length() + self.config.packed_index_bytes_length()],
         offset,
         len,
       )?;
       DataInput::read_bytes(
         index_input,
-        &mut self.scratch_max_index_packed_value,
+        &mut self.scratch_packed_values
+          [self.config.packed_bytes_length() + self.config.packed_index_bytes_length()..],
         offset,
         len,
       )?;
@@ -993,7 +990,7 @@ where
           let prefix = self.common_prefix_lengths[dim];
           DataInput::read_bytes(
             index_input,
-            &mut self.scratch_data_packed_value,
+            &mut self.scratch_packed_values[..self.config.packed_bytes_length()],
             dim * self.config.bytes_per_dim + prefix,
             self.config.bytes_per_dim - prefix,
           )?;
@@ -1001,7 +998,7 @@ where
         self.scratch_iterator.reset(i, length);
         visitor.visit_iterator_with_packed_value(
           &mut self.scratch_iterator,
-          &self.scratch_data_packed_value,
+          &self.scratch_packed_values[..self.config.packed_bytes_length()],
         )?;
         i += length;
       }
@@ -1025,7 +1022,7 @@ where
     self.scratch_iterator.reset(0, count);
     visitor.visit_iterator_with_packed_value(
       &mut self.scratch_iterator,
-      &self.scratch_data_packed_value,
+      &self.scratch_packed_values[..self.config.packed_bytes_length()],
     )?;
     Ok(())
   }
@@ -1050,7 +1047,8 @@ where
 
     let num_dims = self.config.num_dims;
     let common_prefix_lengths = &self.common_prefix_lengths[..num_dims];
-    let scratch_data_packed_value = self.scratch_data_packed_value.as_mut_slice();
+    let scratch_data_packed_value =
+      &mut self.scratch_packed_values[..self.config.packed_bytes_length()];
     let doc_ids = self.scratch_iterator.doc_ids.as_slice();
     let mut i = 0;
     {
@@ -1108,7 +1106,7 @@ where
       if prefix > 0 {
         DataInput::read_bytes(
           index_input,
-          &mut self.scratch_data_packed_value,
+          &mut self.scratch_packed_values[..self.config.packed_bytes_length()],
           dim * self.config.bytes_per_dim,
           prefix,
         )?;
@@ -1138,9 +1136,7 @@ where
       &self.packed_bounds[..self.config.packed_index_bytes_length()],
       &self.packed_bounds[self.config.packed_index_bytes_length()..],
       self.scratch_iterator.clone(),
-      self.scratch_data_packed_value.clone(),
-      self.scratch_min_index_packed_value.clone(),
-      self.scratch_max_index_packed_value.clone(),
+      self.scratch_packed_values.clone(),
       self.common_prefix_lengths.clone(),
       self.is_tree_balanced,
     )?;

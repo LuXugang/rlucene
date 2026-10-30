@@ -64,7 +64,7 @@ impl<'a> FiniteStringsIterator<'a> {
   /// from given state
   pub fn with_start_end(a: &'a Automaton, start_state: i32, end_state: i32) -> Result<Self> {
     let num_states = a.get_num_states();
-    let mut nodes = Vec::with_capacity(16);
+    let mut nodes = Vec::with_capacity((num_states as usize).clamp(1, 16));
     nodes.push(PathNode::new());
 
     let mut path_states = BitSet::with_capacity(num_states as usize);
