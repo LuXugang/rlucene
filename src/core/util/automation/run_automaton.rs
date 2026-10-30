@@ -40,7 +40,7 @@ pub(crate) struct RunAutomatonTables {
   accept: FixedBitSet,
   transitions: Vec<i32>, // transitions[state * points.len() + get_char_class(c)]
   points: Vec<i32>,
-  classmap: Vec<usize>,
+  classmap: Vec<u16>,
 }
 
 impl RunAutomaton {
@@ -89,7 +89,8 @@ impl RunAutomaton {
       if i + 1 < points.len() && j as i32 == points[i + 1] {
         i += 1;
       }
-      *class = i;
+      // There are at most 256 iterations, each increasing i at most once.
+      *class = i as u16;
     }
 
     Ok(Self {
@@ -153,7 +154,7 @@ impl RunAutomaton {
     let class = if char_index >= self.tables.classmap.len() {
       self.get_char_class(c)
     } else {
-      self.tables.classmap[char_index]
+      usize::from(self.tables.classmap[char_index])
     };
     self.tables.transitions[state as usize * self.tables.points.len() + class]
   }

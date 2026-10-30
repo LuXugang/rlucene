@@ -26,7 +26,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE, OFFSETS};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{PrepareState, TermStates, build};
+use crate::core::index::term_states::{PrepareState, TermStates, build, build_with_stats};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::constant_score_scorer::ConstantScoreDisiScorer;
@@ -172,11 +172,11 @@ impl QueryBase for TermQuery {
     let context = searcher.get_top_reader_context();
     let ts = match self.per_reader_term_state.take() {
       Some(v) if { v.was_built_for_id(&context.base().identity) } => v,
-      _ => Arc::new(build(
-        searcher,
-        self.term.clone(),
-        score_mode.needs_scores(),
-      )?),
+      _ => Arc::new(if score_mode.needs_scores() {
+        build_with_stats(searcher, &self.term)?
+      } else {
+        build(searcher, self.term.clone(), false)?
+      }),
     };
     TermWeight::new(searcher, *score_mode, boost, ts, self)
   }

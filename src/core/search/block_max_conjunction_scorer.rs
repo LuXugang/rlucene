@@ -27,6 +27,7 @@ use crate::core::search::two_phase_iterator::{
 };
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
+use smallvec::SmallVec;
 
 pub type BlockMaxConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
   DocIdSetIteratorImpl<S>,
@@ -53,7 +54,7 @@ impl<S: Scorer> BlockMaxConjunctionScorer<DocIdSetIteratorImpl<S>> {
       scorers.push(v);
     }
 
-    let mut match_cost = Vec::with_capacity(scorers.len());
+    let mut match_cost: SmallVec<[_; 8]> = SmallVec::with_capacity(scorers.len());
     for (i, s) in scorers.iter_mut().enumerate() {
       if s.has_two_phase_iterator() == TwoPhaseState::Yes {
         match_cost.push((i, s.match_cost()));
@@ -64,6 +65,12 @@ impl<S: Scorer> BlockMaxConjunctionScorer<DocIdSetIteratorImpl<S>> {
     if match_cost.is_empty() {
       Ok(BlockMaxConjunctionScorerDisi::A(approx))
     } else {
+      // Move spilled storage; copy inline indices into an exactly sized Vec.
+      let match_cost = if match_cost.spilled() {
+        match_cost.into_vec()
+      } else {
+        match_cost.to_vec()
+      };
       Ok(BlockMaxConjunctionScorerDisi::B(
         TwoPhaseIteratorAsDocIdSetIterator::new(TwoPhaseIteratorImpl::new(approx, match_cost)),
       ))

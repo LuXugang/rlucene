@@ -78,6 +78,7 @@ use crate::core::util::core_helper::{CoreHelper, HasIdentity};
 use crate::core::util::error::UncheckedIOError;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -342,10 +343,7 @@ where
     let mut term_states = Vec::with_capacity(query.data.terms.len());
 
     for term_and_boost in query.data.terms.iter() {
-      let term = Arc::new(Term::new(
-        query.data.field.clone(),
-        term_and_boost.term.clone(),
-      ));
+      let term = Term::new(query.data.field.clone(), term_and_boost.term.clone());
       let ts = term_states::build_with_stats(searcher, &term)?;
 
       let ts_doc_freq = ts.doc_freq()?;
@@ -831,9 +829,11 @@ impl<I: Impacts, IE> SynonymImpacts<'_, I, IE> {
     (0..impacts.num_levels()).find(|&level| impacts.get_doc_id_upto(level) >= doc_id_up_to)
   }
 
-  fn merge_impacts(to_merge: Vec<Vec<Impact>>) -> Result<Vec<Impact>> {
+  fn merge_impacts(to_merge: SmallVec<[Vec<Impact>; 8]>) -> Result<Vec<Impact>> {
     let mut pq = PriorityQueue::new(to_merge.len(), SynonymSubIteratorCmp)?;
-    pq.add_all(to_merge.into_iter().map(SynonymSubIterator::new))?;
+    let mut subs = Vec::with_capacity(to_merge.len());
+    subs.extend(to_merge.into_iter().map(SynonymSubIterator::new));
+    pq.add_all(subs)?;
 
     let mut merged_impacts = Vec::new();
 
@@ -892,7 +892,7 @@ impl<I: Impacts, IE: ImpactsEnum> Impacts for SynonymImpacts<'_, I, IE> {
 
   fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
     let doc_id_up_to = self.get_doc_id_upto(level);
-    let mut to_merge = Vec::with_capacity(self.impacts.len());
+    let mut to_merge: SmallVec<[_; 8]> = SmallVec::with_capacity(self.impacts.len());
 
     for i in 0..self.impacts.len() {
       if self.impacts_enums[i].doc_id() <= doc_id_up_to {

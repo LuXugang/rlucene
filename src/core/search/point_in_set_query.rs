@@ -656,7 +656,7 @@ impl<'a> MergePointVisitor<'a> {
 
   fn matches(&mut self, packed_value: &[u8]) -> Result<bool> {
     loop {
-      let cmp = match self.next_query_point.borrow().as_ref() {
+      let cmp = match self.next_query_point.get_mut().as_ref() {
         Some(next_query_point) => self.comparator.compare(
           &next_query_point.bytes,
           next_query_point.offset,

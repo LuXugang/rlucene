@@ -335,11 +335,10 @@ where
     }
 
     let mut skipper_opt = context.reader().get_doc_values_skipper(field)?;
-    let mut values = DocValues::get_sorted_set(context.reader(), field)?;
     // Create a bit set for the "term set" ordinals (these are the terms provided by the
     // query that are actually present in the doc values field). Cannot use FixedBitSet
     // because we require long index (ord):
-    let mut term_set = LongBitSet::new(values.get_value_count()? as usize)?;
+    let mut term_set = LongBitSet::new(term_values.borrow().get_value_count()? as usize)?;
     let min_ord = terms_enum.ord()?;
     debug_assert!(min_ord >= 0);
     let mut max_ord = -1;
@@ -353,6 +352,10 @@ where
         break;
       }
     }
+    // Dictionary lookups leave the document cursor untouched. Reclaim its owner
+    // once the terms enum no longer borrows it.
+    drop(terms_enum);
+    let mut values = term_values.into_inner();
 
     if let Some(ref skipper) = skipper_opt
       && (min_ord > skipper.max_value() || max_ord < skipper.min_value())

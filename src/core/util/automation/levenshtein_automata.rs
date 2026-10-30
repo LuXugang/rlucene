@@ -41,10 +41,8 @@ pub struct LevenshteinAutomata {
   /// The maximum symbol in the alphabet (e.g. 255 for UTF-8 or 10FFFF for UTF-32).
   #[allow(dead_code)]
   alpha_max: i32,
-  /// Lower bounds for ranges outside of alphabet.
-  range_lower: Vec<i32>,
-  /// Upper bounds for ranges outside of alphabet.
-  range_upper: Vec<i32>,
+  /// Inclusive bounds for ranges outside of alphabet.
+  ranges: Vec<(i32, i32)>,
   num_ranges: usize,
   descriptions: [Option<ParametricDescription>; 3],
 }
@@ -83,23 +81,20 @@ impl LevenshteinAutomata {
     alphabet.dedup();
     alphabet.shrink_to_fit();
 
-    let mut range_lower = vec![0; alphabet.len() + 2];
-    let mut range_upper = vec![0; alphabet.len() + 2];
+    let mut ranges = vec![(0, 0); alphabet.len() + 2];
     let mut num_ranges = 0;
 
     let mut lower = 0;
     for &higher in &alphabet {
       if higher > lower {
-        range_lower[num_ranges] = lower;
-        range_upper[num_ranges] = higher - 1;
+        ranges[num_ranges] = (lower, higher - 1);
         num_ranges += 1;
       }
       lower = higher + 1;
     }
 
     if lower <= alpha_max {
-      range_lower[num_ranges] = lower;
-      range_upper[num_ranges] = alpha_max;
+      ranges[num_ranges] = (lower, alpha_max);
       num_ranges += 1;
     }
 
@@ -122,8 +117,7 @@ impl LevenshteinAutomata {
       word,
       alphabet,
       alpha_max,
-      range_lower,
-      range_upper,
+      ranges,
       num_ranges,
       descriptions,
     })
@@ -154,6 +148,18 @@ impl LevenshteinAutomata {
   /// - They are not minimal (some transitions could be combined).
   pub fn to_automaton_with_prefix(&self, n: usize, prefix: &str) -> Result<Option<Automaton>> {
     if n == 0 {
+      if prefix.is_empty()
+        && self
+          .word
+          .iter()
+          .all(|&cp| char::from_u32(cp as u32).is_some())
+      {
+        return Ok(Some(Automata::make_string_from_codepoints(
+          &self.word,
+          0,
+          self.word.len(),
+        )?));
+      }
       let mut word = String::with_capacity(prefix.len() + self.word.len());
       word.push_str(prefix);
       for &cp in &self.word {
@@ -223,8 +229,8 @@ impl LevenshteinAutomata {
           a.add_transition(
             state_offset + k,
             state_offset + dest,
-            self.range_lower[r],
-            self.range_upper[r],
+            self.ranges[r].0,
+            self.ranges[r].1,
           )?;
         }
       }

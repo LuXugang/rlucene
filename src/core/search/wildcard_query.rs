@@ -213,8 +213,8 @@ impl PartialEq for WildcardQuery {
 
 pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Result<Automaton> {
   let wildcard_text = wildcard_query.text()?;
-  let mut automata = Vec::with_capacity(wildcard_text.len());
   let mut chars = wildcard_text.chars();
+  let mut automata = Vec::with_capacity(chars.clone().count());
 
   while let Some(c) = chars.next() {
     match c {

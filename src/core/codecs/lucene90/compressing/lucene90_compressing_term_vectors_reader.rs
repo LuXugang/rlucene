@@ -937,19 +937,16 @@ where
     );
 
     let mut field_flags = vec![0i32; num_fields];
-    let mut field_num_terms = vec![0; num_fields];
 
-    for (i, (flag_slot, term_slot)) in field_flags
-      .iter_mut()
-      .zip(field_num_terms.iter_mut())
-      .enumerate()
-    {
+    for (i, flag_slot) in field_flags.iter_mut().enumerate() {
       *flag_slot = all_flags[skip + i];
-      *term_slot = num_terms[skip + i];
     }
 
-    let mut field_term_freqs = vec![Vec::new(); num_fields];
-    {
+    let field_term_freqs = if num_fields == 1 && skip == 0 && num_terms[0] == term_freqs.len() {
+      // This field owns the entire decoded chunk; keep its exact-sized buffer.
+      vec![term_freqs]
+    } else {
+      let mut field_term_freqs = vec![Vec::new(); num_fields];
       let mut term_idx = 0;
       #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
       for n in 0..skip {
@@ -965,7 +962,8 @@ where
         }
         *slot = v;
       }
-    }
+      field_term_freqs
+    };
 
     debug_assert_eq!(sum(&field_lengths), doc_len);
 
@@ -973,7 +971,6 @@ where
       field_nums,
       field_flags,
       field_num_offs,
-      field_num_terms,
       field_lengths,
       prefix_lengths
         .into_iter()
@@ -1128,10 +1125,8 @@ impl TVTermData {
 }
 
 pub struct TVFields {
-  field_nums: Vec<i32>,
+  field_nums: Vec<usize>,
   field_flags: Vec<i32>,
-  field_num_offs: Vec<usize>,
-  num_terms: Vec<usize>,
   field_lengths: Vec<usize>,
 
   term_data: Vec<Rc<TVTermData>>,
@@ -1147,8 +1142,7 @@ impl TVFields {
   pub(crate) fn new(
     field_nums: Vec<i32>,
     field_flags: Vec<i32>,
-    field_num_offs: Vec<usize>,
-    num_terms: Vec<usize>,
+    mut field_num_offs: Vec<usize>,
     field_lengths: Vec<usize>,
     term_data: Vec<Rc<TVTermData>>,
     payload_offset: usize,
@@ -1156,8 +1150,8 @@ impl TVFields {
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
     field_infos: Arc<FieldInfos>,
   ) -> Result<Self> {
-    for i in 0..field_num_offs.len() {
-      let field_num = field_nums[field_num_offs[i]];
+    for off in &mut field_num_offs {
+      let field_num = field_nums[*off];
       let field_info = field_infos.field_info_by_number(field_num)?;
       match field_info {
         Some(_) => {},
@@ -1167,13 +1161,13 @@ impl TVFields {
           )));
         },
       }
+      *off = field_num as usize;
     }
 
     Ok(Self {
-      field_nums,
+      // Reuse the document's offsets buffer for its validated field numbers.
+      field_nums: field_num_offs,
       field_flags,
-      field_num_offs,
-      num_terms,
       field_lengths,
 
       term_data,
@@ -1196,7 +1190,7 @@ impl<'a> IteratorExt for TVFieldsIterator<'a> {
     if !self.has_next()? {
       return Ok(None);
     }
-    let field_num = self.fields.field_nums[self.fields.field_num_offs[self.index]];
+    let field_num = self.fields.field_nums[self.index] as i32;
     self.index += 1;
     let field_info = self.fields.field_infos.field_info_by_number(field_num)?;
     match field_info {
@@ -1208,7 +1202,7 @@ impl<'a> IteratorExt for TVFieldsIterator<'a> {
   }
 
   fn has_next(&self) -> Result<bool> {
-    Ok(self.index < self.fields.field_num_offs.len())
+    Ok(self.index < self.fields.field_nums.len())
   }
 }
 
@@ -1231,8 +1225,8 @@ impl Fields for TVFields {
     };
 
     let mut idx = None;
-    for (i, &off) in self.field_num_offs.iter().enumerate() {
-      if self.field_nums[off] == field_info.number {
+    for (i, &number) in self.field_nums.iter().enumerate() {
+      if number as i32 == field_info.number {
         idx = Some(i);
         break;
       }
@@ -1240,7 +1234,8 @@ impl Fields for TVFields {
     let Some(idx) = idx else {
       return Ok(None);
     };
-    if self.num_terms[idx] == 0 {
+    let num_terms = self.term_data[idx].prefix_lengths.len();
+    if num_terms == 0 {
       // no term
       return Ok(None);
     }
@@ -1261,7 +1256,7 @@ impl Fields for TVFields {
       field_len,
     );
     let tv_terms = TVTerms::new(
-      self.num_terms[idx],
+      num_terms,
       self.field_flags[idx],
       self.term_data[idx].clone(),
       self.payload_offset,
@@ -1272,8 +1267,8 @@ impl Fields for TVFields {
   }
 
   fn size(&self) -> Result<i32> {
-    debug_assert!(self.field_num_offs.len() <= i32::MAX as usize);
-    Ok(self.field_num_offs.len() as i32)
+    debug_assert!(self.field_nums.len() <= i32::MAX as usize);
+    Ok(self.field_nums.len() as i32)
   }
 }
 

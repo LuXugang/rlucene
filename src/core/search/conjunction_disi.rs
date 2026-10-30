@@ -159,7 +159,7 @@ where
 {
   pub(crate) fn new(iterators: Vec<D>) -> Result<Self> {
     debug_assert!(iterators.len() >= 2);
-    let mut cost = Vec::with_capacity(iterators.len());
+    let mut cost: SmallVec<[usize; 8]> = SmallVec::with_capacity(iterators.len());
     for idx in 0..iterators.len() {
       cost.push(idx);
     }
@@ -167,12 +167,17 @@ where
     CollectionUtil::tim_sort_with_comparator(&mut cost, cmp)?;
     let lead1 = cost[0];
     let lead2 = cost[1];
-    // Reuse the sorted indices and shift the remaining indices only once.
-    cost.drain(..2);
+    // Short conjunctions only need heap storage for the remaining indices.
+    let others = if cost.spilled() {
+      cost.drain(..2);
+      cost.into_vec()
+    } else {
+      cost[2..].to_vec()
+    };
     let v = Self {
       lead1,
       lead2,
-      others: cost,
+      others,
       all_disi: iterators,
     };
     Ok(v)

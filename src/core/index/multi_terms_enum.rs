@@ -35,8 +35,6 @@ use crate::core::util::{Comparator, ToInt};
 /// merge sort, by term text, of the sub-readers.
 pub struct MultiTermsEnum<TE> {
   queue: TermMergeQueue<TE>,
-  /// All subs (one per sub-reader), stored as indices
-  subs: Vec<usize>,
   /// Current subs that have at least one term for this field
   current_subs: Vec<usize>,
   top: Vec<usize>,
@@ -60,7 +58,6 @@ where
   {
     let slices = slices.into_iter();
     let len = slices.len();
-    let mut subs = vec![0usize; len];
     let current_subs = vec![0usize; len];
     let top = vec![0usize; len];
     let mut sub_docs = Vec::with_capacity(len);
@@ -68,12 +65,10 @@ where
     for (i, slice) in slices.enumerate() {
       all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i, slice));
       sub_docs.push(EnumWithSlice::with_slice(slice));
-      subs[i] = i;
     }
     let queue = TermMergeQueue::new(len, all_terms_enum_with_slice)?;
     Ok(Self {
       queue,
-      subs,
       current_subs,
       top,
       sub_docs,
@@ -102,8 +97,7 @@ where
 
     for mut terms_enum_index in terms_enums_index.into_iter() {
       if (terms_enum_index.next()?).is_some() {
-        let sub_idx = terms_enum_index.sub_index;
-        let entry_idx = self.subs[sub_idx];
+        let entry_idx = terms_enum_index.sub_index;
         let entry = self.queue.entry_mut(entry_idx);
         entry.base.reset(terms_enum_index);
         self.queue.q.add(entry_idx)?;
@@ -493,10 +487,10 @@ where
         if reuse.can_reuse(&self.parent) {
           reuse
         } else {
-          MultiPostingsEnum::new(self.parent.clone(), self.subs.len())
+          MultiPostingsEnum::new(self.parent.clone(), self.current_subs.len())
         }
       },
-      None => MultiPostingsEnum::new(self.parent.clone(), self.subs.len()),
+      None => MultiPostingsEnum::new(self.parent.clone(), self.current_subs.len()),
     };
     let mut upto: usize = 0;
     let cmp = TopTermsEnumWithSliceCmp::new(self.queue.entries());
@@ -512,7 +506,7 @@ where
         "{} vs {}; {}",
         sub_index,
         docs_enum.sub_postings_enums.len(),
-        self.subs.len()
+        self.current_subs.len()
       );
 
       let terms_enum = entry

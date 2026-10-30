@@ -51,7 +51,7 @@ pub struct NFARunAutomaton {
 pub(crate) struct NFARunAutomatonTables {
   pub(crate) automaton: Automaton,
   points: Vec<i32>,
-  classmap: Vec<usize>, // map from char number to class
+  classmap: Vec<u16>, // map from char number to class
 }
 
 #[derive(Clone)]
@@ -74,7 +74,8 @@ impl NFARunAutomaton {
       if i + 1 < points.len() && j as i32 == points[i + 1] {
         i += 1;
       }
-      *class = i;
+      // At most 256 entries, each increasing the class by at most one.
+      *class = i as u16;
     }
 
     let state = State {
@@ -95,8 +96,7 @@ impl NFARunAutomaton {
       states_set: StateSet::new(5),
     };
 
-    let initial_state = DState::new(Arc::new(vec![0]), &automaton_instance);
-    automaton_instance.find_dstate(Some(initial_state))?;
+    automaton_instance.find_dstate(Some(Arc::new(vec![0])))?;
 
     Ok(automaton_instance)
   }
@@ -131,22 +131,31 @@ impl NFARunAutomaton {
   }
   /// return the ordinal of given DFA state, generate a new ordinal if the
   /// given DFA state is a new one
-  fn find_dstate(&mut self, dstate: Option<DState>) -> Result<i32> {
-    match dstate {
-      Some(dstate) => {
+  fn find_dstate(&mut self, nfa_states: Option<Arc<Vec<i32>>>) -> Result<i32> {
+    match nfa_states {
+      Some(nfa_states) => {
+        let hash_code = nfa_states
+          .iter()
+          .fold(nfa_states.len() as u32, |hash, &state| {
+            hash.wrapping_add(BitMixer::mix_i32(state))
+          });
         let dstate_key = DStateKey {
-          nfa_states: dstate.nfa_states.clone(),
-          hash_code: dstate.hash_code as i32,
+          nfa_states,
+          hash_code: hash_code as i32,
         };
         let ord = self.state.dstate_to_ord.len();
-        match self.state.dstate_to_ord.entry(dstate_key) {
+        let nfa_states = match self.state.dstate_to_ord.entry(dstate_key) {
           Entry::Occupied(entry) => return Ok(*entry.get()),
           Entry::Vacant(entry) => {
             debug_assert!(ord <= i32::MAX as usize);
+            let nfa_states = Arc::clone(&entry.key().nfa_states);
             entry.insert(ord as i32);
+            nfa_states
           },
-        }
+        };
 
+        // Existing state sets need no duplicate transition table or candidate state.
+        let dstate = DState::new(nfa_states, self);
         if ord >= self.dstate_slots {
           // ByteRunnable::get_size exposes the historical slot growth, separately
           // from the number of initialized states.
@@ -173,7 +182,7 @@ impl NFARunAutomaton {
     debug_assert!(c < self.alphabet_size);
 
     if let Some(&class) = self.tables.classmap.get(c as usize) {
-      return class;
+      return usize::from(class);
     }
 
     // binary search
@@ -251,7 +260,7 @@ impl NFARunAutomaton {
   }
   ///  given a list of NFA states and a character c, compute the output list
   /// of NFA state which is wrapped as a DFA state
-  fn step_with_index(&mut self, c: i32, index: usize) -> Result<Option<DState>> {
+  fn step_with_index(&mut self, c: i32, index: usize) -> Result<Option<Arc<Vec<i32>>>> {
     self.states_set.reset();
 
     let dstate = &mut self.dstates[index];
@@ -296,7 +305,7 @@ impl NFARunAutomaton {
       Some(self.states_set.get_array().clone())
     };
 
-    Ok(next_states.map(|states| DState::new(states, self)))
+    Ok(next_states)
   }
   fn determinize(&mut self, index: usize) -> Result<()> {
     let len = self.tables.points.len();
@@ -341,8 +350,7 @@ impl NFARunAutomaton {
         debug_assert_ne!(last_point, -1);
 
         let v = self.states_set.get_array().clone();
-        let new_dstate = DState::new(v, self);
-        let ord = self.find_dstate(Some(new_dstate))?;
+        let ord = self.find_dstate(Some(v))?;
         let dstate = &mut self.dstates[index];
 
         while self.tables.points[char_class] < last_point {
@@ -516,7 +524,6 @@ impl Accountable for NFARunAutomaton {
 struct DState {
   nfa_states: Arc<Vec<i32>>,
   transitions: Vec<i32>,
-  hash_code: u32,
   is_accept: bool,
   step_transition: Transition,
   minimal_transition: Option<Transition>,
@@ -528,11 +535,9 @@ impl DState {
     debug_assert!(!nfa_states.is_empty());
 
     debug_assert!(nfa_states.len() <= i32::MAX as usize);
-    let mut hash_code = nfa_states.len() as u32;
     let mut is_accept = false;
 
     for s in nfa_states.iter() {
-      hash_code = hash_code.wrapping_add(BitMixer::mix_i32(*s));
       if nfa.tables.automaton.is_accept(*s) {
         is_accept = true;
       }
@@ -541,7 +546,6 @@ impl DState {
     DState {
       nfa_states,
       transitions,
-      hash_code,
       is_accept,
       step_transition: Transition::default(),
       minimal_transition: None,

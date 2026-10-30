@@ -825,8 +825,8 @@ impl RegExp {
         }
       },
       Automaton => {
-        set.reserve(1);
         if !set.contains(self.s.as_str()) {
+          set.reserve(1);
           set.insert(self.s.clone());
         }
       },
@@ -1443,18 +1443,18 @@ impl Drop for RegExp {
   fn drop(&mut self) {
     let mut stack = Vec::new();
     if let Some(exp1) = self.exp1.take() {
-      stack.push(*exp1);
+      stack.push(exp1);
     }
     if let Some(exp2) = self.exp2.take() {
-      stack.push(*exp2);
+      stack.push(exp2);
     }
 
     while let Some(mut node) = stack.pop() {
       if let Some(exp1) = node.exp1.take() {
-        stack.push(*exp1);
+        stack.push(exp1);
       }
       if let Some(exp2) = node.exp2.take() {
-        stack.push(*exp2);
+        stack.push(exp2);
       }
     }
   }

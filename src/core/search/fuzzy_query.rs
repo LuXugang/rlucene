@@ -575,7 +575,7 @@ impl MultiTermQuery for FuzzyQuery {
     }
     Ok(FuzzyQueryTermsEnum::Fuzzy(FuzzyTermsEnum::new_with_attrs(
       terms,
-      self.term.clone(),
+      &self.term,
       self.max_edits,
       self.prefix_length,
       self.transpositions,

@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automaton::{Automaton, Builder};
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::strings_to_automaton::StringsToAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, ToInt};
+use smallvec::SmallVec;
 use std::borrow::Borrow;
 
 /// Construction of basic automata.
@@ -137,7 +139,7 @@ impl Automata {
     builder: &mut Builder,
     x: &str,
     n: usize,
-    initials: &mut Vec<i32>,
+    initials: &mut SmallVec<[i32; 16]>,
     zeros: bool,
   ) -> Result<i32> {
     let s = builder.create_state();
@@ -182,7 +184,7 @@ impl Automata {
     x: &str,
     y: &str,
     n: usize,
-    initials: &mut Vec<i32>,
+    initials: &mut SmallVec<[i32; 16]>,
     zeros: bool,
   ) -> Result<i32> {
     let s = builder.create_state();
@@ -482,7 +484,7 @@ impl Automata {
       builder.create_state();
     }
 
-    let mut initials = Vec::with_capacity(if digits <= 0 { y.len() } else { 0 });
+    let mut initials = SmallVec::<[i32; 16]>::new();
     Self::between(&mut builder, &x, &y, 0, &mut initials, digits <= 0)?;
 
     let mut a1 = builder.finish()?;
@@ -500,7 +502,14 @@ impl Automata {
   /// Returns a new (deterministic) automaton that accepts exactly the given
   /// UTF-8 string.
   pub fn make_string(s: &str) -> Result<Automaton> {
-    let mut a = Automaton::new();
+    let length = s.chars().count();
+    let max_length = ArrayUtil::MAX_ARRAY_LENGTH.min(isize::MAX as usize / size_of::<i32>()) / 3;
+    // Keep the original growth checks for oversized inputs.
+    let mut a = if length <= max_length {
+      Automaton::with_capacity(length + 1, length)
+    } else {
+      Automaton::new()
+    };
     let mut last_state = a.create_state()?;
 
     for ch in s.chars() {
@@ -520,7 +529,17 @@ impl Automata {
   /// Returns a new (deterministic) automaton that accepts exactly the given
   /// binary term.
   pub fn make_binary(term: &BytesRef<Vec<u8>>) -> Result<Automaton> {
-    let mut a = Automaton::new();
+    let max_length = ArrayUtil::MAX_ARRAY_LENGTH.min(isize::MAX as usize / size_of::<i32>()) / 3;
+    let mut a = if term.length <= max_length
+      && term
+        .offset
+        .checked_add(term.length)
+        .is_some_and(|end| end <= term.bytes.len())
+    {
+      Automaton::with_capacity(term.length + 1, term.length)
+    } else {
+      Automaton::new()
+    };
     let mut last_state = a.create_state()?;
 
     for i in 0..term.length {
@@ -545,7 +564,16 @@ impl Automata {
     offset: usize,
     length: usize,
   ) -> Result<Automaton> {
-    let mut a = Automaton::new();
+    let max_length = ArrayUtil::MAX_ARRAY_LENGTH.min(isize::MAX as usize / size_of::<i32>()) / 3;
+    let mut a = if length <= max_length
+      && offset
+        .checked_add(length)
+        .is_some_and(|end| end <= word.len())
+    {
+      Automaton::with_capacity(length + 1, length)
+    } else {
+      Automaton::new()
+    };
     a.create_state()?;
     let mut s = 0;
     for &label in &word[offset..offset + length] {

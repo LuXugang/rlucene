@@ -66,7 +66,6 @@ where
   max_pointer: usize,
   chunk_size: i32,
   compression_mode: CompressionModeEnum,
-  decompressor: DecompressorEnum,
   num_docs: i32,
   merging: bool,
   state: BlockState<I>,
@@ -199,7 +198,7 @@ where
         fields_stream
           .take()
           .ok_or_else(|| LuceneError::illegal_state("stored fields input is missing"))?,
-        compression_mode.new_decompressor(),
+        decompressor,
         chunk_size,
       );
       reader = Some(Self {
@@ -211,7 +210,6 @@ where
         max_pointer,
         chunk_size,
         compression_mode,
-        decompressor,
         num_docs,
         merging,
         state,
@@ -262,7 +260,6 @@ where
       max_pointer: reader.max_pointer,
       chunk_size: reader.chunk_size,
       compression_mode: reader.compression_mode.clone(),
-      decompressor: reader.decompressor.clone(),
       num_docs: reader.num_docs,
       merging,
       state: BlockState::new(

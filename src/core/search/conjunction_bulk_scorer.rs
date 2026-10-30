@@ -62,15 +62,26 @@ where
 
     costs.sort_by_key(|a| a.0);
 
-    let mut all_scores = Vec::with_capacity(num_clauses);
     let mut all_scores_input_idx = vec![0; num_clauses].into_boxed_slice();
-    for (_, idx) in costs {
-      let scorer = tmp_all_scores[idx]
-        .take()
-        .ok_or_else(|| LuceneError::illegal_state("scorer is missing"))?;
-      all_scores_input_idx[idx] = all_scores.len();
-      all_scores.push(scorer);
+    for (destination, &(_, source)) in costs.iter().enumerate() {
+      all_scores_input_idx[source] = destination;
     }
+    for source in 0..num_clauses {
+      while all_scores_input_idx[source] != source {
+        let destination = all_scores_input_idx[source];
+        tmp_all_scores.swap(source, destination);
+        all_scores_input_idx.swap(source, destination);
+      }
+    }
+    // The permutation consumed the map; retain the original input-to-sorted mapping for scoring.
+    for (destination, &(_, source)) in costs.iter().enumerate() {
+      all_scores_input_idx[source] = destination;
+    }
+    // Consuming the Option values lets collect reuse their allocation when the layouts permit it.
+    let all_scores = tmp_all_scores
+      .into_iter()
+      .map(|scorer| scorer.ok_or_else(|| LuceneError::illegal_state("scorer is missing")))
+      .collect::<Result<Vec<_>>>()?;
 
     Ok(Self {
       all_scores,

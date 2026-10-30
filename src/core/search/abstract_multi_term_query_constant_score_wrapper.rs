@@ -240,7 +240,7 @@ SIM: Similarity,
 }
 fn rewrite_as_boolean_query<IRC, SIM>(
   context: &LeafReaderContext<IRCLeafReader<IRC>>,
-  collected_terms: &[TermAndState],
+  collected_terms: Vec<TermAndState>,
   searcher: &IndexSearcher<IRC, SIM>,
   score_mode: &ScoreMode,
   score: f32,
@@ -253,10 +253,10 @@ where
 {
   let mut builder = Builder::new();
 
-  for t in collected_terms.iter() {
+  for t in collected_terms {
     let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
-    let term = Term::new(field, t.term.clone());
-    term_states.register_with_stats(t.state.clone(), context.ord, t.doc_freq, t.total_term_freq);
+    let term = Term::new(field, t.term);
+    term_states.register_with_stats(t.state, context.ord, t.doc_freq, t.total_term_freq);
     let tq = TermQuery::with_term_state(term, Some(Arc::new(term_states)));
     builder.add(tq, Occur::Should)?;
   }
@@ -441,9 +441,10 @@ where
   {
     let s = match self.collect_result {
       true => {
+        // ScorerSupplier is consumed once, so transfer the collected terms into the query.
         let v = rewrite_as_boolean_query(
           context,
-          self.collected_terms.as_slice(),
+          std::mem::take(&mut self.collected_terms),
           searcher,
           &self.score_mode,
           self.score,
@@ -531,7 +532,7 @@ where
       true => {
         let v = rewrite_as_boolean_query(
           context,
-          self.collected_terms.as_slice(),
+          std::mem::take(&mut self.collected_terms),
           searcher,
           &self.score_mode,
           self.score,

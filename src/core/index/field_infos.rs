@@ -52,7 +52,8 @@ pub struct FieldInfos {
   soft_deletes_field: Option<Arc<FieldInfo>>,
 
   parent_field: Option<Arc<FieldInfo>>,
-  by_number: Vec<Option<Arc<FieldInfo>>>,
+  // Dense field numbers use the already sorted values; sparse numbers retain indexed slots.
+  by_number: Option<Vec<Option<Arc<FieldInfo>>>>,
   by_name: HashMap<String, Arc<FieldInfo>>,
   values: Vec<Arc<FieldInfo>>,
   pub(crate) hook: FieldInfosHook,
@@ -156,12 +157,12 @@ impl FieldInfosDefaults {
         "Illegal field number: {field_number}"
       )));
     }
-    Ok(
-      in_
-        .by_number
+    Ok(match &in_.by_number {
+      Some(by_number) => by_number
         .get(field_number as usize)
         .and_then(|fi| fi.as_ref()),
-    )
+      None => in_.values.get(field_number as usize),
+    })
   }
 }
 
@@ -367,24 +368,21 @@ impl FieldInfos {
     let by_number_len = max_field_number.checked_add(1).ok_or_else(|| {
       LuceneError::illegal_argument(format!("field number is too large: {max_field_number}"))
     })? as usize;
-    let mut by_number: Vec<Option<Arc<FieldInfo>>>;
+    let by_number;
     let values: Vec<Arc<FieldInfo>>;
     if field_number_strictly_ascending && by_number_len == infos.len() {
       // The input FieldInfo[] contains all fields numbered from 0 to
       // infos.length - 1, and they are sorted, use it
       // directly. This is an optimization when reading a segment with all
       // fields since the FieldInfo[] is sorted.
-      by_number = Vec::with_capacity(infos.len());
-      for x in &infos {
-        by_number.push(Some(x.clone()));
-      }
+      by_number = None;
       infos.shrink_to_fit();
       values = infos;
     } else {
-      by_number = vec![None; by_number_len];
+      let mut indexed_slots: Vec<Option<Arc<FieldInfo>>> = vec![None; by_number_len];
       for field_info in &infos {
         let field_number = field_info.number as usize;
-        match &by_number[field_number] {
+        match &indexed_slots[field_number] {
           None => {},
           Some(existing) => {
             return Err(LuceneError::illegal_argument(format!(
@@ -393,7 +391,7 @@ impl FieldInfos {
             )));
           },
         }
-        by_number[field_number] = Some(field_info.clone());
+        indexed_slots[field_number] = Some(field_info.clone());
       }
       if by_number_len == infos.len() {
         // Unique field numbers now cover 0..infos.len(), so retain these owners
@@ -405,12 +403,14 @@ impl FieldInfos {
           }
         }
         values = infos;
+        by_number = None;
       } else {
         if !field_number_strictly_ascending {
           infos.sort_unstable_by_key(|fi| fi.number);
         }
         infos.shrink_to_fit();
         values = infos;
+        by_number = Some(indexed_slots);
       }
     }
 
@@ -1148,8 +1148,14 @@ impl Builder {
       cur_fi.verify_same_schema(fi)?;
 
       let attributes = fi.attributes();
-      for (k, v) in attributes.iter() {
-        cur_fi.put_attribute(k.clone(), v.clone());
+      let unchanged = attributes.is_empty() || {
+        let current = cur_fi.attributes();
+        attributes.iter().all(|(k, v)| current.get(k) == Some(v))
+      };
+      if !unchanged {
+        for (k, v) in attributes.iter() {
+          cur_fi.put_attribute(k.clone(), v.clone());
+        }
       }
       if fi.has_payloads() {
         cur_fi.set_store_payloads()?;

@@ -44,7 +44,7 @@ where
   attrs: FuzzyTermsEnumAttributeSource,
   terms: T,
   term_length: usize,
-  term: Term,
+  term: BytesRef<Vec<u8>>,
   bottom: f32,
   bottom_term: Option<BytesRef<Vec<u8>>>,
   queued_bottom: Option<BytesRef<Vec<u8>>>,
@@ -80,7 +80,7 @@ where
     transpositions: bool,
   ) -> Result<Self> {
     let text = term.text()?.into_owned();
-    Self::with_builder(terms, term, || {
+    Self::with_builder(terms, term.bytes, || {
       FuzzyAutomatonBuilder::new(text, max_edits, prefix_length, transpositions)
     })
   }
@@ -105,17 +105,17 @@ where
   /// Returns an error if there is a low-level IO error.
   pub(crate) fn new_with_attrs(
     terms: T,
-    term: Term,
+    term: &Term,
     max_edits: i32,
     prefix_length: usize,
     transpositions: bool,
   ) -> Result<Self> {
     let text = term.text()?.into_owned();
-    Self::with_builder(terms, term, || {
+    Self::with_builder(terms, term.bytes().clone(), || {
       FuzzyAutomatonBuilder::new(text, max_edits, prefix_length, transpositions)
     })
   }
-  fn with_builder<B>(terms: T, term: Term, automaton_builder: B) -> Result<Self>
+  fn with_builder<B>(terms: T, term: BytesRef<Vec<u8>>, automaton_builder: B) -> Result<Self>
   where
     B: FnOnce() -> Result<FuzzyAutomatonBuilder>,
   {
@@ -212,13 +212,13 @@ where
   /// returns true if term is within k edits of the query term
   fn matches<BS: ByteSource>(
     attrs: &mut FuzzyTermsEnumAttributeSource,
-    query_term: &Term,
+    query_term: &BytesRef<Vec<u8>>,
     term_in: &BytesRef<BS>,
     k: usize,
   ) -> Result<bool> {
     let bytes = term_in.bytes.as_slice();
     if k == 0 {
-      return Ok(term_in.as_byte_slice() == query_term.bytes().as_byte_slice());
+      return Ok(term_in.as_byte_slice() == query_term.as_byte_slice());
     }
 
     let automata = attrs.get_automata_mut();

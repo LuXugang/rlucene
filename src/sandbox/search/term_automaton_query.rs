@@ -653,7 +653,8 @@ where
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("Call finish first"))?;
     let mut term_states = Vec::with_capacity(query.id_to_term.len());
-    let mut all_term_stats = Vec::<TermStatistics>::with_capacity(query.id_to_term.len());
+    let mut all_term_stats =
+      smallvec::SmallVec::<[TermStatistics; 8]>::with_capacity(query.id_to_term.len());
     for term in &query.id_to_term {
       if let Some(term) = term {
         let index_term = Arc::new(Term::new(query.field.clone(), term.as_ref()));

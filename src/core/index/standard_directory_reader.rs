@@ -214,11 +214,14 @@ where
   D: Directory + 'static,
   IO: IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>,
 {
+  let snapshot;
   let infos = match infos {
     Some(infos) => infos,
-    None => &inner.segment_infos,
-  }
-  .try_clone()?;
+    None => {
+      snapshot = inner.segment_infos.try_clone()?;
+      &snapshot
+    },
+  };
   // IndexWriter synchronizes externally before calling
   // us, which ensures infos will not change; so there's
   // no need to process segments in reverse order

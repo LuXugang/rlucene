@@ -218,14 +218,9 @@ where
       Err(err) => return Err(err),
     }
     match self.secondary_dir.list_all() {
-      Ok(secondary_files) => {
-        files.reserve(secondary_files.len());
-        for file in secondary_files {
-          let ext = get_extension(&file);
-          if !self.primary_extensions.contains(ext) {
-            files.push(file);
-          }
-        }
+      Ok(mut secondary_files) => {
+        secondary_files.retain(|file| !self.primary_extensions.contains(get_extension(file)));
+        files.extend(secondary_files);
       },
       Err(err) if Self::is_no_such_file(&err) => {
         // Both directories returned a not-found I/O error.

@@ -33,6 +33,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
+use smallvec::SmallVec;
 
 /// Implements the WAND (Weak AND) algorithm for dynamic pruning as described in
 /// “Efficient Query Evaluation using a Two-Level Retrieval Process”
@@ -371,7 +372,7 @@ where
     };
 
     let mut all_scorers = Vec::with_capacity(num_scorers);
-    let mut cost = Vec::with_capacity(num_scorers);
+    let mut cost: SmallVec<[i64; 8]> = SmallVec::with_capacity(num_scorers);
     for scorer in scorers {
       cost.push(DocIdSetIterator::cost(&scorer)?);
       all_scorers.push(DisiWrapper::new(scorer)?);

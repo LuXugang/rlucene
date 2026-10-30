@@ -81,7 +81,7 @@ use crate::core::util::merged_iterator::MergedIterator;
 use crate::core::util::{CoreHelper, SliceCopyOps, TryIntoInt};
 use parking_lot::Mutex;
 use std::borrow::Cow;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
@@ -2090,7 +2090,7 @@ where
   dimension: usize,
   size: usize,
   subs: Vec<DocValuesSub<F>>,
-  iterator: RefCell<Option<MergedDocIterator<F::DocIndexIterator>>>,
+  iterator: Cell<Option<MergedDocIterator<F::DocIndexIterator>>>,
   starts: Vec<i32>,
   last_sub_index: Cell<usize>,
 }
@@ -2110,7 +2110,7 @@ where
       dimension,
       size,
       subs,
-      iterator: RefCell::new(Some(iterator)),
+      iterator: Cell::new(Some(iterator)),
       starts,
       last_sub_index: Cell::new(0),
     })
@@ -2166,7 +2166,7 @@ where
   type DocIndexIterator = MergedDocIterator<F::DocIndexIterator>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    self.iterator.borrow_mut().take().ok_or_else(|| {
+    self.iterator.take().ok_or_else(|| {
       LuceneError::illegal_state("iterator() can only be called once on MergedFloatVectorValues")
     })
   }
@@ -2224,7 +2224,7 @@ where
   dimension: usize,
   size: usize,
   subs: Vec<DocValuesSub<B>>,
-  iterator: RefCell<Option<MergedDocIterator<B::DocIndexIterator>>>,
+  iterator: Cell<Option<MergedDocIterator<B::DocIndexIterator>>>,
   starts: Vec<i32>,
   last_sub_index: Cell<usize>,
 }
@@ -2244,7 +2244,7 @@ where
       dimension,
       size,
       subs,
-      iterator: RefCell::new(Some(iterator)),
+      iterator: Cell::new(Some(iterator)),
       starts,
       last_sub_index: Cell::new(0),
     })
@@ -2300,7 +2300,7 @@ where
   type DocIndexIterator = MergedDocIterator<B::DocIndexIterator>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    self.iterator.borrow_mut().take().ok_or_else(|| {
+    self.iterator.take().ok_or_else(|| {
       LuceneError::illegal_state("iterator() can only be called once on MergedByteVectorValues")
     })
   }

@@ -41,6 +41,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::unicode_util::UnicodeUtil;
+use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 use std::mem;
@@ -400,7 +401,7 @@ impl CompiledAutomaton {
     }
 
     let mut idx = 0;
-    let mut stack = Vec::with_capacity(input.length);
+    let mut stack: SmallVec<[i32; 8]> = SmallVec::with_capacity(input.length);
 
     loop {
       let mut label = input.bytes[input.offset + idx] as i32;

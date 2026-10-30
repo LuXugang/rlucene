@@ -509,18 +509,19 @@ impl QueryBase for BooleanQuery {
       if !filter_idx.is_empty() {
         let must_indices = self.get_clauses_idx(Occur::Must);
 
-        let mut new_filter_ixd: Vec<usize> = filter_idx.to_vec();
+        let mut new_filter_ixd = SmallVec::<[usize; 8]>::from_slice(filter_idx);
         let mut modified = false;
 
         // remove MatchAllDocsQuery if needed
         if new_filter_ixd.len() > 1 || !must_indices.is_empty() {
           let before = new_filter_ixd.len();
-          new_filter_ixd.retain(|&idx| !matches!(self.clauses[idx].query, Query::MatchAllDocs(_)));
+          new_filter_ixd
+            .retain(|&mut idx| !matches!(self.clauses[idx].query, Query::MatchAllDocs(_)));
           modified |= new_filter_ixd.len() != before;
         }
 
         let before = new_filter_ixd.len();
-        new_filter_ixd.retain(|&f_idx| {
+        new_filter_ixd.retain(|&mut f_idx| {
           let fq = &self.clauses[f_idx].query;
           !must_indices
             .iter()
@@ -555,7 +556,7 @@ impl QueryBase for BooleanQuery {
 
       if !should_indices.is_empty() && !filter_indices.is_empty() {
         // compute intersection by Query equality (not identity)
-        let intersection: Vec<usize> = filter_indices
+        let intersection: SmallVec<[usize; 8]> = filter_indices
           .iter()
           .cloned()
           .filter(|&f_idx| {

@@ -230,7 +230,8 @@ where
   {
     self.ensure_open()?;
     let slice = self.in_.slice(0, self.in_.length())?;
-    let mut cloned = ByteBuffersIndexInput::new(slice, format!("(clone of) {self}"));
+    let resource_description = ["(clone of) ", self.resource_description.as_str()].concat();
+    let mut cloned = ByteBuffersIndexInput::new(slice, resource_description);
     cloned.seek(self.get_file_pointer()?)?;
     Ok(cloned)
   }

@@ -232,7 +232,7 @@ impl Accountable for PrefixCodedTerms<Arc<Vec<u8>>> {
 /// Builder for [`PrefixCodedTerms`]: call `add` repeatedly, then `finish`.
 pub struct PrefixCodedTermsBuilder {
   output: ByteBuffersDataOutput,
-  last_term: Term,
+  last_field: String,
   last_term_bytes: BytesRefBuilder<Vec<u8>>,
   size: i64,
 }
@@ -248,7 +248,7 @@ impl PrefixCodedTermsBuilder {
   pub fn new() -> Self {
     Self {
       output: ByteBuffersDataOutput::new_resettable_instance(),
-      last_term: Term::from_empty("".to_string()),
+      last_field: String::new(),
       last_term_bytes: BytesRefBuilder::new(),
       size: 0,
     }
@@ -266,19 +266,18 @@ impl PrefixCodedTermsBuilder {
     let field = field.into();
     let field_name = field.as_ref();
     debug_assert!(
-      self.last_term == Term::from_empty("".to_string())
-        || field_name.cmp(&self.last_term.field) == Ordering::Greater
-        || (field_name == self.last_term.field
+      (self.last_field.is_empty() && self.last_term_bytes.length() == 0)
+        || field_name.cmp(&self.last_field) == Ordering::Greater
+        || (field_name == self.last_field
           && bytes.bytes.as_slice()[bytes.offset..bytes.offset + bytes.length]
-            > self.last_term.bytes.bytes[self.last_term.bytes.offset
-              ..self.last_term.bytes.offset + self.last_term.bytes.length]),
+            > self.last_term_bytes.bytes().bytes[..self.last_term_bytes.length()]),
     );
 
     let prefix;
     let mut new_field = None;
-    if self.size > 0 && field_name == self.last_term.field {
+    if self.size > 0 && field_name == self.last_field {
       // Same field as the last term
-      prefix = StringHelper::bytes_difference(&self.last_term.bytes, bytes)?;
+      prefix = StringHelper::bytes_difference(self.last_term_bytes.bytes(), bytes)?;
       self.output.write_vint((prefix << 1) as i32)?;
     } else {
       // Field change
@@ -297,15 +296,13 @@ impl PrefixCodedTermsBuilder {
       0,
       suffix,
     )?;
+    // A size error must preserve the previous term used for prefix encoding.
+    self.last_term_bytes.grow_no_copy(bytes.length)?;
     self
       .last_term_bytes
       .copy_bytes_from_vec(source, bytes.offset, bytes.length)?;
-    std::mem::swap(
-      &mut self.last_term.bytes,
-      self.last_term_bytes.get_bytes_mut_ref(),
-    );
     if let Some(field) = new_field {
-      self.last_term.field = field;
+      self.last_field = field;
     }
     self.size += 1;
 

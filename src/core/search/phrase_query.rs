@@ -27,7 +27,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::{OFFSETS, POSITIONS};
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{TermStates, build};
+use crate::core::index::term_states::{TermStates, build, build_with_stats};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
@@ -47,6 +47,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use smallvec::SmallVec;
 use std::borrow::{Borrow, Cow};
 use std::cmp::Ordering;
 use std::fmt::Debug;
@@ -570,19 +571,24 @@ where
 
     self.states = Vec::with_capacity(self.query.terms.len());
 
-    let mut term_stats = Vec::with_capacity(if self.base.score_mode.needs_scores() {
-      self.query.terms.len()
-    } else {
-      0
-    });
+    let mut term_stats: SmallVec<[_; 8]> =
+      SmallVec::with_capacity(if self.base.score_mode.needs_scores() {
+        self.query.terms.len()
+      } else {
+        0
+      });
     let mut term_up_to = 0usize;
 
     for term in &*self.query.terms {
-      let term = Arc::new(term.clone());
-      let ts = build(searcher, term.clone(), self.base.score_mode.needs_scores())?;
+      let ts = if self.base.score_mode.needs_scores() {
+        build_with_stats(searcher, term)?
+      } else {
+        build(searcher, term.clone(), false)?
+      };
 
       if self.base.score_mode.needs_scores() && ts.doc_freq()? > 0 {
-        let stats = searcher.term_statistics(term, ts.doc_freq()?, ts.total_term_freq()?)?;
+        let stats =
+          searcher.term_statistics(term.clone(), ts.doc_freq()?, ts.total_term_freq()?)?;
         term_stats.push(stats);
         term_up_to += 1;
       }

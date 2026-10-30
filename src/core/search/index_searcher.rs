@@ -81,6 +81,7 @@ use parking_lot::Mutex;
 #[cfg(not(test))]
 use parking_lot::RwLock;
 use rayon::ThreadPool;
+use smallvec::SmallVec;
 use std::borrow::Borrow;
 #[cfg(test)]
 use std::cell::{Cell, RefCell};
@@ -639,19 +640,16 @@ where
     }
 
     let weight = weight.as_ref();
-    let mut collectors = collectors.into_iter();
-    let mut list_tasks = Vec::with_capacity(leaf_slices.len());
-    for leaf_slice in leaf_slices.iter() {
-      let mut collector = collectors
-        .next()
-        .ok_or_else(|| LuceneError::illegal_state("each leaf slice must have a collector"))?;
-      list_tasks.push(move || {
-        self.search_partitions(leaf_slice.partitions.as_slice(), weight, &mut collector)?;
-        Ok(collector)
+    let tasks = collectors
+      .into_iter()
+      .zip(leaf_slices.iter())
+      .map(|(mut collector, slice)| {
+        move || {
+          self.search_partitions(slice.partitions.as_slice(), weight, &mut collector)?;
+          Ok(collector)
+        }
       });
-    }
-    debug_assert!(collectors.next().is_none());
-    let results = self.task_executor.invoke_all(list_tasks)?;
+    let results = self.task_executor.invoke_all(tasks)?;
     collector_manager.reduce(results)
   }
 
@@ -900,7 +898,7 @@ pub fn do_slices<LR>(
 where
   LR: LeafReader,
 {
-  let mut sorted_leaves = Vec::with_capacity(leaves.len());
+  let mut sorted_leaves: SmallVec<[_; 8]> = SmallVec::with_capacity(leaves.len());
 
   for ctx in leaves {
     let max_doc = ctx.reader().max_doc()?;

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use bit_set::BitSet;
+use smallvec::SmallVec;
 use std::borrow::Borrow;
 use std::borrow::Cow;
 use std::cmp::Ordering;
@@ -263,12 +264,18 @@ impl Operations {
       return Operations::repeat(a);
     }
 
-    let mut automata = Vec::with_capacity(count as usize + 1);
+    // The borrowed repetition must outlive the list, including its destructor.
+    #[expect(
+      clippy::needless_late_init,
+      reason = "preserve initialization order while letting the borrowed value outlive SmallVec"
+    )]
+    let repeated;
+    let mut automata: SmallVec<[_; 8]> = SmallVec::with_capacity(count as usize + 1);
     for _ in 0..count {
       automata.push(a);
     }
-    let v = Operations::repeat(a)?;
-    automata.push(&v);
+    repeated = Operations::repeat(a)?;
+    automata.push(&repeated);
 
     Ok(Cow::Owned(Operations::concatenate_with_list(&automata)?))
   }
@@ -289,7 +296,7 @@ impl Operations {
       base
     } else {
       let min = min as usize;
-      let mut reps = Vec::with_capacity(min);
+      let mut reps: SmallVec<[_; 8]> = SmallVec::with_capacity(min);
       for _ in 0..min {
         reps.push(a);
       }
@@ -398,8 +405,6 @@ impl Operations {
       return Ok(Cow::Borrowed(a2));
     }
 
-    let transitions1 = a1.get_sorted_transitions();
-    let transitions2 = a2.get_sorted_transitions();
     let mut c = Automaton::new();
     c.create_state()?;
 
@@ -411,23 +416,34 @@ impl Operations {
     let state = p.s;
     newstates.insert(p, state);
 
+    // Read each visited row from the inputs instead of copying both transition tables.
+    let mut t1 = Transition::default();
+    let mut t2 = Transition::default();
     while let Some(p) = worklist.pop_front() {
       c.set_accept(p.s, a1.is_accept(p.s1) && a2.is_accept(p.s2));
 
-      let t1 = &transitions1[p.s1 as usize];
-      let t2 = &transitions2[p.s2 as usize];
+      let count1 = a1.get_num_transitions_with_state(p.s1);
+      let count2 = a2.get_num_transitions_with_state(p.s2);
 
-      let mut n1 = 0;
       let mut b2 = 0;
 
-      while n1 < t1.len() {
-        while b2 < t2.len() && t2[b2].max < t1[n1].min {
+      for n1 in 0..count1 {
+        a1.get_transition(p.s1, n1, &mut t1);
+        while b2 < count2 {
+          a2.get_transition(p.s2, b2, &mut t2);
+          if t2.max >= t1.min {
+            break;
+          }
           b2 += 1;
         }
         let mut n2 = b2;
-        while n2 < t2.len() && t1[n1].max >= t2[n2].min {
-          if t2[n2].max >= t1[n1].min {
-            let mut q = StatePair::new(t1[n1].dest, t2[n2].dest);
+        while n2 < count2 {
+          a2.get_transition(p.s2, n2, &mut t2);
+          if t1.max < t2.min {
+            break;
+          }
+          if t2.max >= t1.min {
+            let mut q = StatePair::new(t1.dest, t2.dest);
             let r = match newstates.get(&q) {
               Some(&r) => r,
               None => {
@@ -439,14 +455,13 @@ impl Operations {
               },
             };
 
-            let min = t1[n1].min.max(t2[n2].min);
-            let max = t1[n1].max.min(t2[n2].max);
+            let min = t1.min.max(t2.min);
+            let max = t1.max.min(t2.max);
 
             c.add_transition(p.s, r, min, max)?;
           }
           n2 += 1;
         }
-        n1 += 1;
       }
     }
 
@@ -950,7 +965,6 @@ impl Operations {
     let mut builder = String::new();
     let mut scratch = Transition::default();
     let capacity = a.get_num_states() as usize;
-    let mut visited = FixedBitSet::new(capacity);
     let mut current = FixedBitSet::new(capacity);
     let mut next = FixedBitSet::new(capacity);
     current.set(0)?; // start with initial state
@@ -959,8 +973,6 @@ impl Operations {
       let mut state = current.next_set_bit(0);
       // do a pass, stepping all current paths forward once
       while state != NO_MORE_DOCS as usize {
-        visited.set(state)?;
-
         let state_id = state as i32;
         if a.is_accept(state_id) {
           break 'algorithm;

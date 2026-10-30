@@ -17,6 +17,7 @@
 use crate::core::search::collector_manager::CollectorManager;
 use crate::core::search::multi_collector::{MultiCollector, OneOrMultiCollector};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use smallvec::SmallVec;
 
 /// A [`CollectorManager`] implementation which wraps a set of [`CollectorManager`]s as
 /// [`MultiCollector`] acts for
@@ -63,9 +64,11 @@ where
 
   fn reduce(&self, reducable_collectors: Vec<Self::C>) -> Result<Self::T> {
     let size = reducable_collectors.len();
-    let mut reducable_collectors_by_manager: Vec<Vec<M::C>> = (0..self.collector_managers.len())
-      .map(|_| Vec::with_capacity(size))
-      .collect();
+    // A single manager needs only one inline Vec descriptor; collectors keep their own buffers.
+    let mut reducable_collectors_by_manager: SmallVec<[Vec<M::C>; 1]> =
+      (0..self.collector_managers.len())
+        .map(|_| Vec::with_capacity(size))
+        .collect();
 
     for collector in reducable_collectors {
       let collectors = match collector {

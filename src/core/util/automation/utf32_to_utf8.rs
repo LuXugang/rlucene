@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use smallvec::SmallVec;
 use std::borrow::Cow;
 
 use crate::core::util::automation::automaton::{Automaton, Builder};
@@ -248,7 +249,7 @@ impl UTF32ToUTF8 {
     }
 
     let mut map = vec![-1; utf32.get_num_states() as usize];
-    let mut pending = Vec::new();
+    let mut pending: SmallVec<[i32; 8]> = SmallVec::new();
 
     let utf32_state = 0;
     pending.push(utf32_state);

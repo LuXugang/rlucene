@@ -25,7 +25,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{TermStates, build};
+use crate::core::index::term_states::{TermStates, build, build_with_stats};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::boolean_clause::Occur;
@@ -48,6 +48,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
+use smallvec::SmallVec;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -402,17 +403,22 @@ where
   where
     IRC: IndexReaderContext + 'static,
   {
-    let mut all_term_stats = Vec::with_capacity(if self.base.score_mode.needs_scores() {
-      self.query.data.term_arrays.len()
-    } else {
-      0
-    });
+    let mut all_term_stats: SmallVec<[_; 8]> =
+      SmallVec::with_capacity(if self.base.score_mode.needs_scores() {
+        self.query.data.term_arrays.len()
+      } else {
+        0
+      });
 
     for terms in &*self.query.data.term_arrays {
       for term in terms {
         if !self.term_states.contains_key(term) {
           let term = Arc::new(term.clone());
-          let ts = build(searcher, term.clone(), self.base.score_mode.needs_scores())?;
+          let ts = if self.base.score_mode.needs_scores() {
+            build_with_stats(searcher, &term)?
+          } else {
+            build(searcher, term.clone(), false)?
+          };
           self.term_states.insert(term, ts);
         }
         if self.base.score_mode.needs_scores() {
@@ -423,6 +429,10 @@ where
           if ts.doc_freq()? > 0 {
             let stats =
               searcher.term_statistics(term.clone(), ts.doc_freq()?, ts.total_term_freq()?)?;
+            if all_term_stats.len() == all_term_stats.capacity() {
+              // Match Vec's doubling when alternatives exceed the position count.
+              all_term_stats.reserve_exact(all_term_stats.len());
+            }
             all_term_stats.push(stats);
           }
         }
