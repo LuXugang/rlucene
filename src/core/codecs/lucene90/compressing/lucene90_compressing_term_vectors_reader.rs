@@ -557,7 +557,7 @@ where
 
     // read field numbers and flags
     let mut field_num_offs = vec![0; num_fields];
-    let flags = {
+    let (flags, expanded_flags) = {
       let bits_per_off = bits_required((field_nums.len() - 1) as i64)?;
       let bytes = Self::slice(&mut self.vectors_stream)?;
       let length = bytes.len();
@@ -566,6 +566,7 @@ where
         bits_per_off,
       )?;
       let v = self.vectors_stream.read_vint()?;
+      let mut expanded_flags = smallvec::SmallVec::<[i32; 32]>::new();
       let flags = match v {
         0 => {
           let length = self.vectors_stream.read_vint()?.try_convert()?;
@@ -574,23 +575,37 @@ where
             ByteBuffersDataInput::new(vec![Cursor::new(bytes.as_ref())], length)?,
             *FLAGS_BITS,
           )?;
-          let mut out = ByteBuffersDataOutput::new();
-          let mut writer = DirectWriter::get_instance(&mut out, total_fields as i64, *FLAGS_BITS)?;
-          for i in 0..total_fields {
-            let field_num_off = all_field_num_offs.get(i)? as usize;
-            debug_assert!(field_num_off < field_nums.len());
-            writer.add(field_flags.get(field_num_off)?)?;
+          // Direct expansion is bounded by the existing inline flags buffer.
+          if total_fields <= expanded_flags.capacity() {
+            for i in 0..total_fields {
+              let field_num_off = all_field_num_offs.get(i)? as usize;
+              debug_assert!(field_num_off < field_nums.len());
+              expanded_flags.push(field_flags.get(field_num_off)? as i32);
+            }
+            None
+          } else {
+            let mut out = ByteBuffersDataOutput::new();
+            let mut writer =
+              DirectWriter::get_instance(&mut out, total_fields as i64, *FLAGS_BITS)?;
+            for i in 0..total_fields {
+              let field_num_off = all_field_num_offs.get(i)? as usize;
+              debug_assert!(field_num_off < field_nums.len());
+              writer.add(field_flags.get(field_num_off)?)?;
+            }
+            writer.finish()?;
+            Some(DirectReader::get_instance(
+              out.get_data_input_owner(false)?,
+              *FLAGS_BITS,
+            )?)
           }
-          writer.finish()?;
-          DirectReader::get_instance(out.get_data_input_owner(false)?, *FLAGS_BITS)?
         },
         1 => {
           let bytes = Self::slice(&mut self.vectors_stream)?;
           let length = bytes.len();
-          DirectReader::get_instance(
+          Some(DirectReader::get_instance(
             ByteBuffersDataInput::new(vec![Cursor::new(bytes)], length)?,
             *FLAGS_BITS,
-          )?
+          )?)
         },
         _ => {
           return Err(LuceneError::illegal_state(format!(
@@ -601,7 +616,7 @@ where
       for (slot, off) in field_num_offs.iter_mut().zip((skip..).take(num_fields)) {
         *slot = all_field_num_offs.get(off)? as usize;
       }
-      flags
+      (flags, expanded_flags)
     };
 
     // number of terms per field for all fields
@@ -727,11 +742,19 @@ where
     let mut total_offsets = 0;
     let mut total_payloads = 0;
     let mut term_index = 0;
-    let mut all_flags = smallvec::SmallVec::<[i32; 32]>::with_capacity(total_fields);
+    let mut all_flags = expanded_flags;
+    if flags.is_some() {
+      all_flags.reserve_exact(total_fields);
+    }
     #[allow(clippy::needless_range_loop)] // Preserve indexed failure timing for malformed chunks.
     for i in 0..total_fields {
-      let f = flags.get(i)? as i32;
-      all_flags.push(f);
+      let f = if let Some(flags) = &flags {
+        let f = flags.get(i)? as i32;
+        all_flags.push(f);
+        f
+      } else {
+        all_flags[i]
+      };
       let term_count = num_terms[i];
       for _ in 0..term_count {
         let freq = term_freqs[term_index];
@@ -765,7 +788,7 @@ where
         &position_index,
       )?
     } else {
-      vec![Vec::new(); num_fields]
+      Vec::new()
     };
     let (start_offsets, lengths) = if total_offsets > 0 {
       // average number of chars per term
@@ -798,7 +821,7 @@ where
 
       for i in 0..num_fields {
         let f_start_offsets = &mut start_offsets[i];
-        let f_positions = &positions[i];
+        let f_positions = positions.get(i).map_or(&[][..], Vec::as_slice);
         // patch offsets from positions
         if !f_start_offsets.is_empty() && !f_positions.is_empty() {
           let field_chars_per_term = chars_per_term[field_num_offs[i]];
@@ -830,7 +853,7 @@ where
 
       (start_offsets, lengths)
     } else {
-      (vec![Vec::new(); num_fields], vec![Vec::new(); num_fields])
+      (Vec::new(), Vec::new())
     };
 
     if total_positions > 0 {
@@ -849,7 +872,11 @@ where
         }
       }
     }
-    let mut payload_index = vec![Vec::new(); num_fields];
+    let mut payload_index = if total_payloads > 0 {
+      vec![Vec::new(); num_fields]
+    } else {
+      Vec::new()
+    };
     let mut total_payload_length = 0;
     let mut payload_off = 0;
     let mut payload_len = 0;
@@ -936,10 +963,11 @@ where
         && payload_offset + payload_len <= suffix_bytes.bytes.len()
     );
 
-    let mut field_flags = vec![0i32; num_fields];
+    let mut field_flags = vec![0u8; num_fields];
 
     for (i, flag_slot) in field_flags.iter_mut().enumerate() {
-      *flag_slot = all_flags[skip + i];
+      // The packed flags use four bits, including all values of malformed flag masks.
+      *flag_slot = all_flags[skip + i] as u8;
     }
 
     let field_term_freqs = if num_fields == 1 && skip == 0 && num_terms[0] == term_freqs.len() {
@@ -977,10 +1005,30 @@ where
         .zip(suffix_lengths)
         .zip(field_term_freqs)
         .zip(position_index)
-        .zip(positions)
-        .zip(start_offsets)
-        .zip(lengths)
-        .zip(payload_index)
+        .zip(
+          positions
+            .into_iter()
+            .chain(std::iter::repeat_with(Vec::new))
+            .take(num_fields),
+        )
+        .zip(
+          start_offsets
+            .into_iter()
+            .chain(std::iter::repeat_with(Vec::new))
+            .take(num_fields),
+        )
+        .zip(
+          lengths
+            .into_iter()
+            .chain(std::iter::repeat_with(Vec::new))
+            .take(num_fields),
+        )
+        .zip(
+          payload_index
+            .into_iter()
+            .chain(std::iter::repeat_with(Vec::new))
+            .take(num_fields),
+        )
         .map(
           |(
             (
@@ -1126,7 +1174,7 @@ impl TVTermData {
 
 pub struct TVFields {
   field_nums: Vec<usize>,
-  field_flags: Vec<i32>,
+  field_flags: Vec<u8>,
   field_lengths: Vec<usize>,
 
   term_data: Vec<Rc<TVTermData>>,
@@ -1141,7 +1189,7 @@ impl TVFields {
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new(
     field_nums: Vec<i32>,
-    field_flags: Vec<i32>,
+    field_flags: Vec<u8>,
     mut field_num_offs: Vec<usize>,
     field_lengths: Vec<usize>,
     term_data: Vec<Rc<TVTermData>>,
@@ -1257,7 +1305,7 @@ impl Fields for TVFields {
     );
     let tv_terms = TVTerms::new(
       num_terms,
-      self.field_flags[idx],
+      i32::from(self.field_flags[idx]),
       self.term_data[idx].clone(),
       self.payload_offset,
       self.payload_length,

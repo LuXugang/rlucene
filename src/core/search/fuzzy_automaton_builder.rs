@@ -25,7 +25,7 @@ pub(crate) struct FuzzyAutomatonBuilder {
   term: String,
   max_edits: usize,
   lev_builder: LevenshteinAutomata,
-  prefix: String,
+  prefix_end: usize,
   term_length: usize,
 }
 
@@ -49,21 +49,17 @@ impl FuzzyAutomatonBuilder {
 
     let term = term.into();
     let mut chars = term.chars();
-    let mut term_length = 0;
-    let prefix = chars
-      .by_ref()
-      .take(prefix_length)
-      .inspect(|_| term_length += 1)
-      .collect();
+    let prefix_length = chars.by_ref().take(prefix_length).count();
+    let prefix_end = term.len() - chars.as_str().len();
     let suffix: Vec<i32> = chars.map(|ch| ch as i32).collect();
-    term_length += suffix.len();
+    let term_length = prefix_length + suffix.len();
     let lev_builder = LevenshteinAutomata::from_word(suffix, char::MAX as i32, transpositions)?;
 
     Ok(Self {
       term,
       max_edits: max_edits as usize,
       lev_builder,
-      prefix,
+      prefix_end,
       term_length,
     })
   }
@@ -87,7 +83,7 @@ impl FuzzyAutomatonBuilder {
   fn compile(&self, edits: usize) -> Result<CompiledAutomaton> {
     let automaton = self
       .lev_builder
-      .to_automaton_with_prefix(edits, &self.prefix)?
+      .to_automaton_with_prefix(edits, &self.term[..self.prefix_end])?
       .ok_or_else(|| {
         LuceneError::illegal_argument(format!("unsupported edit distance: {}", edits))
       })?;

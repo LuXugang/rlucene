@@ -332,9 +332,56 @@ impl RegExp {
   {
     use RegExpKind::*;
     let a = match self.kind {
-      PreClass => self
-        .expand_predefined()?
-        .to_automaton_impl(automata, provider)?,
+      PreClass => {
+        // Preserve the state numbering of the expanded character-class union,
+        // including its separate accepting states for whitespace and word chars.
+        let (num_states, transitions): (usize, &[(i32, i32, i32)]) =
+          match char::from_u32(self.from as u32) {
+            Some('d') => (2, &[(1, 48, 57)]),
+            Some('D') => (2, &[(1, 0, 47), (1, 58, char::MAX as i32)]),
+            Some('s') => (5, &[(2, 9, 9), (3, 10, 10), (4, 13, 13), (1, 32, 32)]),
+            Some('S') => (
+              2,
+              &[
+                (1, 0, 8),
+                (1, 11, 12),
+                (1, 14, 31),
+                (1, 33, char::MAX as i32),
+              ],
+            ),
+            Some('w') => (5, &[(4, 48, 57), (2, 65, 90), (3, 95, 95), (1, 97, 122)]),
+            Some('W') => (
+              2,
+              &[
+                (1, 0, 47),
+                (1, 58, 64),
+                (1, 91, 94),
+                (1, 96, 96),
+                (1, 123, char::MAX as i32),
+              ],
+            ),
+            _ => {
+              return self
+                .expand_predefined()?
+                .to_automaton_impl(automata, provider);
+            },
+          };
+        let mut a = crate::core::util::automation::automaton::Automaton::with_capacity(
+          num_states,
+          transitions.len(),
+        );
+        for state in 0..num_states {
+          a.create_state()?;
+          if state != 0 {
+            a.set_accept(state as i32, true);
+          }
+        }
+        for &(dest, min, max) in transitions {
+          a.add_transition(0, dest, min, max)?;
+        }
+        a.finish_state()?;
+        Cow::Owned(a)
+      },
 
       Union => {
         let mut list = Vec::new();
@@ -907,8 +954,13 @@ impl RegExp {
     let mut b = match exp1.kind {
       RegExpKind::String => std::mem::take(&mut exp1.s),
       RegExpKind::Char => {
-        let mut b = String::new();
-        if let Some(ch) = std::char::from_u32(exp1.c as u32) {
+        let ch = std::char::from_u32(exp1.c as u32);
+        let mut b = if exp2.kind == RegExpKind::String {
+          String::with_capacity(ch.map_or(0, char::len_utf8) + exp2.s.len())
+        } else {
+          String::new()
+        };
+        if let Some(ch) = ch {
           b.push(ch);
         }
         b

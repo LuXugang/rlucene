@@ -25,6 +25,7 @@ use crate::core::util::{Comparator, Sorter, TimSorter, TimSorterBase};
 pub struct ArrayTimSorter<'a, T, C> {
   arr: &'a mut [T],
   tmp: Vec<T>,
+  max_temp_slots: usize,
   comparator: C,
   pivot_index: usize,
 }
@@ -37,14 +38,16 @@ where
     comparator: C,
     max_temp_slots: usize,
   ) -> TimSorter<ArrayTimSorter<'a, T, C>> {
-    let tmp = if max_temp_slots > 0 {
+    // Preserve Vec's constructor overflow behavior for oversized capacities.
+    let tmp = if max_temp_slots > isize::MAX as usize / size_of::<T>().max(1) {
       Vec::with_capacity(max_temp_slots)
     } else {
-      vec![]
+      Vec::new()
     };
     let sub = ArrayTimSorter {
       arr,
       tmp,
+      max_temp_slots,
       comparator,
       pivot_index: 0,
     };
@@ -83,6 +86,9 @@ where
   }
 
   fn save(&mut self, start: usize, len: usize) -> Result<()> {
+    if self.tmp.capacity() == 0 {
+      self.tmp.reserve_exact(self.max_temp_slots);
+    }
     self.tmp.clear();
     self.tmp.extend_from_slice(&self.arr[start..start + len]);
     Ok(())

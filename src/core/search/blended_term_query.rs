@@ -173,7 +173,7 @@ impl QueryBase for BlendedTermQuery {
   {
     let term_len = self.terms.len();
     let top_reader_context = index_searcher.get_top_reader_context();
-    let mut contexts = Vec::with_capacity(self.contexts.len());
+    let mut contexts: SmallVec<[Arc<TermStates>; 8]> = SmallVec::with_capacity(self.contexts.len());
     for (i, context) in self.contexts.iter().cloned().enumerate() {
       match context {
         Some(v) => contexts.push(v),

@@ -51,6 +51,7 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
 use crate::core::util::{CoreHelper, TryIntoInt};
+use smallvec::SmallVec;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::vec;
@@ -257,7 +258,8 @@ where
   T: IntoQuery,
   S: ScoreDocLike,
 {
-  let mut top_docs_idxs: Vec<usize> = (0..top_docs.len()).collect();
+  let mut top_docs_idxs: SmallVec<[usize; 16]> = SmallVec::with_capacity(top_docs.len());
+  top_docs_idxs.extend(0..top_docs.len());
   top_docs_idxs.sort_unstable_by_key(|idx| top_docs[*idx].doc());
 
   let rewritten = searcher.rewrite(query)?;

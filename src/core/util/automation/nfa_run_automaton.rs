@@ -310,7 +310,7 @@ impl NFARunAutomaton {
   fn determinize(&mut self, index: usize) -> Result<()> {
     let len = self.tables.points.len();
     let dstate = &mut self.dstates[index];
-    if dstate.computed_transitions == dstate.transitions.len() {
+    if dstate.computed_transitions == len {
       return Ok(());
     }
     dstate.init_transitions(len);
@@ -542,10 +542,9 @@ impl DState {
         is_accept = true;
       }
     }
-    let transitions = vec![NFARunAutomaton::NOT_COMPUTED; nfa.tables.points.len()];
     DState {
       nfa_states,
-      transitions,
+      transitions: Vec::new(),
       is_accept,
       step_transition: Transition::default(),
       minimal_transition: None,
@@ -566,6 +565,9 @@ impl DState {
 
   fn init_transitions(&mut self, points_len: usize) {
     if self.transitions.len() < points_len {
+      self
+        .transitions
+        .reserve_exact(points_len - self.transitions.len());
       self
         .transitions
         .resize(points_len, NFARunAutomaton::NOT_COMPUTED);

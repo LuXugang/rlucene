@@ -406,8 +406,10 @@ impl Automaton {
   }
   /// Returns sorted array of all interval start points.
   pub fn get_start_points(&self) -> Vec<i32> {
-    let mut points = Vec::with_capacity(1 + 2 * (self.next_transition / 3));
-    points.push(0);
+    // Byte transitions have only 257 possible endpoints, including 255 + 1.
+    let mut byte_points = [0_u64; 5];
+    byte_points[0] = 1;
+    let mut points = None;
 
     for s in (0..self.next_state).step_by(2) {
       let mut trans = self.states[s] as usize;
@@ -416,17 +418,50 @@ impl Automaton {
       while trans < limit {
         let min = self.transitions[trans + 1];
         let max = self.transitions[trans + 2];
-        points.push(min);
-        if max < char::MAX as i32 {
-          points.push(max + 1);
+        if points.is_none() && (0..=255).contains(&min) && (0..=255).contains(&max) {
+          byte_points[min as usize / 64] |= 1 << (min % 64);
+          let end = max as usize + 1;
+          byte_points[end / 64] |= 1 << (end % 64);
+        } else {
+          let points = points.get_or_insert_with(|| {
+            let mut points = Vec::with_capacity(1 + 2 * (self.next_transition / 3));
+            for (word, &bits) in byte_points.iter().enumerate() {
+              let mut bits = bits;
+              while bits != 0 {
+                points.push((word * 64 + bits.trailing_zeros() as usize) as i32);
+                bits &= bits - 1;
+              }
+            }
+            points
+          });
+          points.push(min);
+          if max < char::MAX as i32 {
+            points.push(max + 1);
+          }
         }
         trans += 3;
       }
     }
-    points.sort_unstable();
-    points.dedup();
-    points.shrink_to_fit();
-    points
+    if let Some(mut points) = points {
+      points.sort_unstable();
+      points.dedup();
+      points.shrink_to_fit();
+      points
+    } else {
+      let count = byte_points
+        .iter()
+        .map(|bits| bits.count_ones() as usize)
+        .sum();
+      let mut points = Vec::with_capacity(count);
+      for (word, &bits) in byte_points.iter().enumerate() {
+        let mut bits = bits;
+        while bits != 0 {
+          points.push((word * 64 + bits.trailing_zeros() as usize) as i32);
+          bits &= bits - 1;
+        }
+      }
+      points
+    }
   }
   /// Performs lookup in transitions, assuming determinism.
   ///

@@ -80,26 +80,37 @@ impl StringsToAutomaton {
     self.all_states.len() - 1
   }
   /// Internal recursive traversal for conversion.
-  fn convert(
+  fn convert<const DENSE: bool>(
     a: &mut Builder,
     state: usize,
     all_states: &[State],
     visited: &mut HashMap<usize, i32>,
+    dense: &mut [i32],
   ) -> Result<i32> {
-    let converted = match visited.entry(state) {
-      Entry::Occupied(entry) => return Ok(*entry.get()),
-      Entry::Vacant(entry) => {
-        let converted = a.create_state();
-        let s = &all_states[state];
-        a.set_accept(converted, s.is_final);
-        entry.insert(converted);
-        converted
-      },
+    let converted = if DENSE {
+      if dense[state] != -1 {
+        return Ok(dense[state]);
+      }
+      let converted = a.create_state();
+      a.set_accept(converted, all_states[state].is_final);
+      dense[state] = converted;
+      converted
+    } else {
+      match visited.entry(state) {
+        Entry::Occupied(entry) => return Ok(*entry.get()),
+        Entry::Vacant(entry) => {
+          let converted = a.create_state();
+          let s = &all_states[state];
+          a.set_accept(converted, s.is_final);
+          entry.insert(converted);
+          converted
+        },
+      }
     };
 
     let s = &all_states[state];
     for (i, &target) in s.states.iter().enumerate() {
-      let v = Self::convert(a, target, all_states, visited)?;
+      let v = Self::convert::<DENSE>(a, target, all_states, visited, dense)?;
       a.add_transition_label(converted, v, s.labels[i])?;
     }
 
@@ -116,12 +127,27 @@ impl StringsToAutomaton {
     self.state_registry.clear();
 
     let mut a = Builder::new();
-    Self::convert(
-      &mut a,
-      self.root,
-      &self.all_states,
-      &mut HashMap::with_capacity(num_states),
-    )?;
+    // Interning may leave many unreachable old states. Bound the dense table
+    // relative to the registered state count and keep -1 outside valid IDs.
+    if self.all_states.len() <= num_states.saturating_mul(2)
+      && self.all_states.len() <= i32::MAX as usize
+    {
+      Self::convert::<true>(
+        &mut a,
+        self.root,
+        &self.all_states,
+        &mut HashMap::new(),
+        &mut vec![-1; self.all_states.len()],
+      )?;
+    } else {
+      Self::convert::<false>(
+        &mut a,
+        self.root,
+        &self.all_states,
+        &mut HashMap::with_capacity(num_states),
+        &mut [],
+      )?;
+    }
     a.finish()
   }
   /// Builds a minimal, deterministic automaton from a sorted list of

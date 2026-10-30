@@ -107,7 +107,7 @@ pub struct Builder {
 
 impl Builder {
   pub fn new(max_doc: usize) -> Builder {
-    let buffer: Vec<i16> = Vec::with_capacity(MAX_ARRAY_LENGTH);
+    let buffer: Vec<i16> = Vec::with_capacity(max_doc.min(MAX_ARRAY_LENGTH));
     let sets_length = (max_doc + (1 << 16) - 1) >> 16;
     let mut sets = Vec::with_capacity(sets_length);
     // not want to impl Copy of DocIdSetEnum
@@ -136,7 +136,7 @@ impl Builder {
     }
     let block = (doc_id >> 16) as usize;
     if Some(block) != self.current_block {
-      self.flush()?;
+      self.flush(false)?;
       self.current_block = Some(block);
     }
 
@@ -173,18 +173,24 @@ impl Builder {
   }
   /// Build an instance, consuming this builder.
   pub fn build(mut self) -> Result<RoaringDocIdSet> {
-    self.flush()?;
+    self.flush(true)?;
     Ok(RoaringDocIdSet::new(self.sets, self.cardinality))
   }
-  fn flush(&mut self) -> Result<()> {
+  fn flush(&mut self, last_block: bool) -> Result<()> {
     debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
     if self.current_block_cardinality <= MAX_ARRAY_LENGTH {
       // use sparse encoding
       debug_assert_eq!(self.dense_buffer.length(), 0);
       if self.current_block_cardinality > 0 {
-        let sparse = Some(DocIdSetEnum::Sparse(ShortArrayDocIdSet::new(
-          self.buffer[..self.current_block_cardinality].to_vec(),
-        )));
+        let doc_ids = if last_block
+          && self.buffer.len() == self.current_block_cardinality
+          && self.buffer.capacity() == self.current_block_cardinality
+        {
+          std::mem::take(&mut self.buffer)
+        } else {
+          self.buffer[..self.current_block_cardinality].to_vec()
+        };
+        let sparse = Some(DocIdSetEnum::Sparse(ShortArrayDocIdSet::new(doc_ids)));
         self.buffer.clear();
         debug_assert!(self.buffer.is_empty());
         self.sets[self.current_block.ok_or_else(|| {

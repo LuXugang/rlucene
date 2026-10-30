@@ -1112,8 +1112,14 @@ impl Operations {
     }
 
     let num_states = a.get_num_states();
-
-    let mut builder = Builder::new();
+    let num_transitions = a.get_num_transitions();
+    // Only state 1 is accepting; reserve transitions without enlarging that bit set.
+    let mut builder =
+      if num_transitions >= 0 && num_transitions as usize <= ArrayUtil::MAX_ARRAY_LENGTH / 4 {
+        Builder::with_capacity(2, num_transitions as usize)
+      } else {
+        Builder::new()
+      };
 
     builder.create_state(); // New initial state
 

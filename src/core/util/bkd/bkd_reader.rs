@@ -285,6 +285,18 @@ where
   }
 }
 
+#[derive(Clone, Copy)]
+struct LeafLevelPositions {
+  leaf_block_fp: usize,
+  read_node_data: usize,
+}
+
+#[derive(Clone, Copy)]
+struct SplitLevelPositions {
+  right_node: usize,
+  dimension: usize,
+}
+
 pub struct BKDPointTree<I: IndexInput> {
   /// Current node ID in the tree.
   node_id: i32,
@@ -297,17 +309,10 @@ pub struct BKDPointTree<I: IndexInput> {
   inner_nodes: I::IndexInput,
   /// Used to read the packed leaves off-heap.
   leaf_nodes: Arc<Mutex<I>>,
-  /// Holds the minimum (left-most) leaf block file pointer for each level
-  /// we've recursed to.
-  leaf_block_fp_stack: Vec<usize>,
-  /// Holds the address, in the off-heap index, after reading the node data
-  /// of each level.
-  read_node_data_positions: Vec<usize>,
-  /// Holds the address, in the off-heap index, of the right-node of each
-  /// level.
-  right_node_positions: Vec<usize>,
-  /// Holds the splitDim position for each level.
-  split_dims_pos: Vec<usize>,
+  /// Leaf file pointer and position after node data, including the leaf sentinel level.
+  leaf_positions: Vec<LeafLevelPositions>,
+  /// Right-child address and split dimension for internal levels.
+  split_positions: Vec<SplitLevelPositions>,
   /// True if the per-dimension delta we read for the node at this level is a
   /// negative offset versus the last split on this dimension.
   /// This is a packed 2D array, i.e., to access `array[level][dim]`,
@@ -317,9 +322,8 @@ pub struct BKDPointTree<I: IndexInput> {
   negative_deltas: Vec<bool>,
   /// Holds the packed per-level split values.
   split_values_stack: Vec<Vec<u8>>,
-  /// Holds the min / max value of the current node.
-  min_packed_value: Vec<u8>,
-  max_packed_value: Vec<u8>,
+  /// Minimum then maximum value of the current node, each packed_index_bytes_length bytes.
+  packed_bounds: Vec<u8>,
   /// Holds the previous value of the split dimension.
   split_dim_value_stack: Vec<Vec<u8>>,
   /// Tree parameters.
@@ -428,14 +432,23 @@ where
       leaf_node_offset: num_leaves,
       inner_nodes,
       leaf_nodes,
-      min_packed_value: min_packed_value.to_vec(),
-      max_packed_value: max_packed_value.to_vec(),
+      packed_bounds: [min_packed_value, max_packed_value].concat(),
       split_dim_value_stack: vec![vec![]; tree_depth],
       split_values_stack,
-      leaf_block_fp_stack: vec![0; tree_depth + 1],
-      read_node_data_positions: vec![0; tree_depth + 1],
-      right_node_positions: vec![0; tree_depth],
-      split_dims_pos: vec![0; tree_depth],
+      leaf_positions: vec![
+        LeafLevelPositions {
+          leaf_block_fp: 0,
+          read_node_data: 0
+        };
+        tree_depth + 1
+      ],
+      split_positions: vec![
+        SplitLevelPositions {
+          right_node: 0,
+          dimension: 0
+        };
+        tree_depth
+      ],
       negative_deltas: vec![false; negative_deltas_len],
       point_count,
       right_most_leaf_node,
@@ -451,7 +464,7 @@ where
   }
   fn reset_node_data_position(&mut self) -> Result<()> {
     // move position of the inner nodes index to visit the first child
-    let position = self.read_node_data_positions[self.level];
+    let position = self.leaf_positions[self.level].read_node_data;
     debug_assert!(position <= self.inner_nodes.get_file_pointer()?);
     self.inner_nodes.seek(position)?;
     Ok(())
@@ -459,33 +472,34 @@ where
   fn push_bounds_left(&mut self) {
     let level = self.level;
     let bytes_per_dim = self.config.bytes_per_dim;
-    let split_dim_pos = self.split_dims_pos[level];
+    let split_dim_pos = self.split_positions[level].dimension;
 
     if self.split_dim_value_stack[level].is_empty() {
       self.split_dim_value_stack[level] = vec![0; bytes_per_dim];
     }
     // save the dimension we are going to change
     self.split_dim_value_stack[level].copy_from(
-      &self.max_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim],
+      &self.packed_bounds[self.config.packed_index_bytes_length()..]
+        [split_dim_pos..split_dim_pos + bytes_per_dim],
       0,
     );
 
     debug_assert!(
       BKDBytes::<0>::new(bytes_per_dim).compare(
-        &self.max_packed_value,
+        &self.packed_bounds[self.config.packed_index_bytes_length()..],
         split_dim_pos,
         &self.split_values_stack[level],
         split_dim_pos
       ) >= 0,
       "config.bytesPerDim={} splitDimPos={} config.numIndexDims={} config.numDims={}",
       self.config.bytes_per_dim,
-      self.split_dims_pos[level],
+      self.split_positions[level].dimension,
       self.config.num_index_dims,
       self.config.num_dims
     );
 
     // add the split dim value:
-    self.max_packed_value.copy_from(
+    self.packed_bounds[self.config.packed_index_bytes_length()..].copy_from(
       &self.split_values_stack[level][split_dim_pos..split_dim_pos + bytes_per_dim],
       split_dim_pos,
     );
@@ -498,36 +512,37 @@ where
   fn push_bounds_right(&mut self) {
     let level = self.level;
     let bytes_per_dim = self.config.bytes_per_dim;
-    let split_dim_pos = self.split_dims_pos[level];
+    let split_dim_pos = self.split_positions[level].dimension;
     // we should have already visited the left node
     debug_assert!(!self.split_dim_value_stack[level].is_empty());
     // save the dimension we are going to change
     self.split_dim_value_stack[level].copy_from(
-      &self.min_packed_value[split_dim_pos..split_dim_pos + bytes_per_dim],
+      &self.packed_bounds[..self.config.packed_index_bytes_length()]
+        [split_dim_pos..split_dim_pos + bytes_per_dim],
       0,
     );
 
     debug_assert!(
       BKDBytes::<0>::new(bytes_per_dim).compare(
-        &self.min_packed_value,
+        &self.packed_bounds[..self.config.packed_index_bytes_length()],
         split_dim_pos,
         &self.split_values_stack[level],
         split_dim_pos
       ) <= 0,
       "config.bytesPerDim={} splitDimPos={} config.numIndexDims={} config.numDims={}",
       self.config.bytes_per_dim,
-      self.split_dims_pos[level],
+      self.split_positions[level].dimension,
       self.config.num_index_dims,
       self.config.num_dims
     );
     // add the split dim value:
-    self.min_packed_value.copy_from(
+    self.packed_bounds[..self.config.packed_index_bytes_length()].copy_from(
       &self.split_values_stack[level][split_dim_pos..split_dim_pos + bytes_per_dim],
       split_dim_pos,
     );
   }
   fn push_right(&mut self) -> Result<()> {
-    let node_position = self.right_node_positions[self.level];
+    let node_position = self.split_positions[self.level].right_node;
 
     debug_assert!(
       node_position >= self.inner_nodes.get_file_pointer()?,
@@ -548,16 +563,16 @@ where
 
   fn pop_bounds(&mut self, is_left: bool) {
     let level = self.level;
-    let split_dim_pos = self.split_dims_pos[level];
+    let split_dim_pos = self.split_positions[level].dimension;
     let bytes_per_dim = self.config.bytes_per_dim;
 
     if is_left {
-      self.max_packed_value.copy_from(
+      self.packed_bounds[self.config.packed_index_bytes_length()..].copy_from(
         &self.split_dim_value_stack[level][..bytes_per_dim],
         split_dim_pos,
       );
     } else {
-      self.min_packed_value.copy_from(
+      self.packed_bounds[..self.config.packed_index_bytes_length()].copy_from(
         &self.split_dim_value_stack[level][..bytes_per_dim],
         split_dim_pos,
       );
@@ -581,7 +596,7 @@ where
   /// Only valid after pushLeft or pushRight, not pop!.
   fn get_leaf_block_fp(&self) -> Result<usize> {
     debug_assert!(self.is_leaf_node(), "nodeID={} is not a leaf", self.node_id);
-    Ok(self.leaf_block_fp_stack[self.level])
+    Ok(self.leaf_positions[self.level].leaf_block_fp)
   }
   fn size_from_balanced_tree(
     &self,
@@ -730,11 +745,12 @@ where
   }
 
   fn read_node_data(&mut self, is_left: bool) -> Result<()> {
-    self.leaf_block_fp_stack[self.level] = self.leaf_block_fp_stack[self.level - 1];
+    self.leaf_positions[self.level].leaf_block_fp =
+      self.leaf_positions[self.level - 1].leaf_block_fp;
     if !is_left {
       // Read leaf block FP delta
       let v: usize = self.inner_nodes.read_vlong()?.try_convert()?;
-      self.leaf_block_fp_stack[self.level] += v;
+      self.leaf_positions[self.level].leaf_block_fp += v;
     }
 
     if !self.is_leaf_node() {
@@ -746,8 +762,8 @@ where
       self
         .negative_deltas
         .copy_within(prev_offset..prev_offset + num_index_dims, curr_offset);
-      self.negative_deltas
-        [curr_offset + self.split_dims_pos[self.level - 1] / self.config.bytes_per_dim] = is_left;
+      self.negative_deltas[curr_offset
+        + self.split_positions[self.level - 1].dimension / self.config.bytes_per_dim] = is_left;
 
       // Clone or copy the previous level's split values
       if self.split_values_stack[self.level].is_empty() {
@@ -761,7 +777,7 @@ where
       // Read split dim, prefix, and firstDiffByteDelta encoded as an int
       let mut code: usize = self.inner_nodes.read_vint()?.try_convert()?;
       let split_dim = code % self.config.num_index_dims;
-      self.split_dims_pos[self.level] = split_dim * self.config.bytes_per_dim;
+      self.split_positions[self.level].dimension = split_dim * self.config.bytes_per_dim;
       code /= self.config.num_index_dims;
       let prefix = code % (1 + self.config.bytes_per_dim);
       let suffix = self.config.bytes_per_dim - prefix;
@@ -771,7 +787,7 @@ where
         if self.negative_deltas[curr_offset + split_dim] {
           first_diff_byte_delta = -first_diff_byte_delta;
         }
-        let start_pos = self.split_dims_pos[self.level] + prefix;
+        let start_pos = self.split_positions[self.level].dimension + prefix;
         let old_byte = self.split_values_stack[self.level][start_pos] as i32;
         self.split_values_stack[self.level][start_pos] = (old_byte + first_diff_byte_delta) as u8;
         DataInput::read_bytes(
@@ -790,8 +806,9 @@ where
       } else {
         0
       };
-      self.right_node_positions[self.level] = self.inner_nodes.get_file_pointer()? + left_num_bytes;
-      self.read_node_data_positions[self.level] = self.inner_nodes.get_file_pointer()?;
+      self.split_positions[self.level].right_node =
+        self.inner_nodes.get_file_pointer()? + left_num_bytes;
+      self.leaf_positions[self.level].read_node_data = self.inner_nodes.get_file_pointer()?;
     }
     Ok(())
   }
@@ -1118,8 +1135,8 @@ where
       self.point_count,
       self.node_id,
       self.level,
-      self.min_packed_value.as_ref(),
-      self.max_packed_value.as_ref(),
+      &self.packed_bounds[..self.config.packed_index_bytes_length()],
+      &self.packed_bounds[self.config.packed_index_bytes_length()..],
       self.scratch_iterator.clone(),
       self.scratch_data_packed_value.clone(),
       self.scratch_min_index_packed_value.clone(),
@@ -1131,11 +1148,11 @@ where
     let level = self.level;
     let dims = self.config.num_index_dims;
 
-    index.leaf_block_fp_stack[level] = self.leaf_block_fp_stack[level];
+    index.leaf_positions[level].leaf_block_fp = self.leaf_positions[level].leaf_block_fp;
 
     if !self.is_leaf_node() {
-      index.right_node_positions[level] = self.right_node_positions[level];
-      index.read_node_data_positions[level] = self.read_node_data_positions[level];
+      index.split_positions[level].right_node = self.split_positions[level].right_node;
+      index.leaf_positions[level].read_node_data = self.leaf_positions[level].read_node_data;
       index.split_values_stack[level] = self.split_values_stack[level].clone();
 
       let src = level * dims;
@@ -1143,7 +1160,7 @@ where
         .negative_deltas
         .copy_from(&self.negative_deltas[src..src + dims], src);
 
-      index.split_dims_pos[level] = self.split_dims_pos[level];
+      index.split_positions[level].dimension = self.split_positions[level].dimension;
     }
 
     Ok(index)
@@ -1191,11 +1208,15 @@ where
   }
 
   fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-    Ok(Cow::Borrowed(&self.min_packed_value))
+    Ok(Cow::Borrowed(
+      &self.packed_bounds[..self.config.packed_index_bytes_length()],
+    ))
   }
 
   fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-    Ok(Cow::Borrowed(&self.max_packed_value))
+    Ok(Cow::Borrowed(
+      &self.packed_bounds[self.config.packed_index_bytes_length()..],
+    ))
   }
 
   fn size(&self) -> Result<usize> {

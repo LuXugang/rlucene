@@ -650,6 +650,7 @@ pub struct FieldEntry {
   dimension: i32,
   size: usize,
   nodes_by_level: Arc<Vec<Vec<usize>>>,
+  graph_level_node_index_offsets: Arc<Vec<usize>>,
   // for each level the start offsets in vectorIndex file from where to read neighbours
   offsets_meta: Option<Meta>,
   offsets_offset: usize,
@@ -715,6 +716,13 @@ impl FieldEntry {
       } else {
         (0, 0, None, 0)
       };
+    let mut graph_level_node_index_offsets = vec![0usize; num_levels];
+    for i in 1..num_levels {
+      let nodes = &nodes_by_level[i - 1];
+      let node_count = if nodes.is_empty() { size } else { nodes.len() };
+      graph_level_node_index_offsets[i] = graph_level_node_index_offsets[i - 1] + node_count;
+    }
+    let graph_level_node_index_offsets = Arc::new(graph_level_node_index_offsets);
     let nodes_by_level = Arc::new(nodes_by_level);
     Ok(Self {
       similarity_function,
@@ -726,6 +734,7 @@ impl FieldEntry {
       dimension,
       size,
       nodes_by_level,
+      graph_level_node_index_offsets,
       offsets_meta,
       offsets_offset,
       offsets_block_shift,
@@ -745,6 +754,9 @@ impl Accountable for FieldEntry {
     for nodes in self.nodes_by_level.iter().skip(1) {
       size = size.saturating_add(size_of_vec(nodes));
     }
+    size = size
+      .saturating_add(mem::size_of_val(self.graph_level_node_index_offsets.as_ref()) as i64)
+      .saturating_add(size_of_vec(self.graph_level_node_index_offsets.as_ref()));
     if let Some(offsets_meta) = self.offsets_meta.as_ref() {
       size = size.saturating_add(offsets_meta.ram_bytes_used()?);
     }
@@ -777,7 +789,7 @@ where
   arc_up_to: usize,
   arc: usize,
   graph_level_node_offsets: DirectMonotonicReader<I::RandomAccessSlice>,
-  graph_level_node_index_offsets: Vec<usize>,
+  graph_level_node_index_offsets: Arc<Vec<usize>>,
   // Allocated to be M*2 to track the current neighbors being explored
   current_neighbors_buffer: Vec<usize>,
 }
@@ -815,15 +827,6 @@ where
 
     let current_neighbors_buffer = vec![0usize; entry.m * 2];
 
-    let mut graph_level_node_index_offsets = vec![0usize; num_levels];
-    graph_level_node_index_offsets[0] = 0;
-
-    for i in 1..num_levels {
-      let nodes = &nodes_by_level[i - 1];
-      let node_count = if nodes.is_empty() { size } else { nodes.len() };
-      graph_level_node_index_offsets[i] = graph_level_node_index_offsets[i - 1] + node_count;
-    }
-
     Ok(Self {
       data_in,
       nodes_by_level: Arc::clone(nodes_by_level),
@@ -834,7 +837,7 @@ where
       arc_up_to: 0,
       arc: 0,
       graph_level_node_offsets,
-      graph_level_node_index_offsets,
+      graph_level_node_index_offsets: Arc::clone(&entry.graph_level_node_index_offsets),
       current_neighbors_buffer,
     })
   }
@@ -848,18 +851,17 @@ where
       target_ord
     } else {
       let nodes = &self.nodes_by_level[level];
-      match nodes.binary_search(&target_ord) {
+      let node_index = match nodes.binary_search(&target_ord) {
         Ok(idx) => idx,
         Err(_) => {
           debug_assert!(false, "target_ord not found in level");
           return Err(LuceneError::illegal_state("target_ord not found"));
         },
-      }
+      };
+      node_index + self.graph_level_node_index_offsets[level]
     };
 
-    let offset = self
-      .graph_level_node_offsets
-      .get(target_index + self.graph_level_node_index_offsets[level])?;
+    let offset = self.graph_level_node_offsets.get(target_index)?;
 
     self.data_in.seek(offset as usize)?;
 

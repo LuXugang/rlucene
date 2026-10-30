@@ -57,7 +57,13 @@ where
       "Value count must be 0 or iterations must be greater than 0."
     );
 
-    let next_blocks = vec![0u8; iterations as usize * bulk_operation.byte_block_count()];
+    let next_blocks_len = iterations as usize * bulk_operation.byte_block_count();
+    // Keep invalid-capacity failures at construction, before converting value counts.
+    let next_blocks = if next_blocks_len > isize::MAX as usize {
+      vec![0u8; next_blocks_len]
+    } else {
+      Vec::new()
+    };
     let next_values_long_length =
       (iterations * bulk_operation.byte_value_count() as i32).try_convert()?;
     let iterations = iterations as usize;
@@ -106,9 +112,10 @@ where
         self
           .format
           .byte_count(self.packed_ints_version, remaining, self.bits_per_value);
-      let blocks_to_read = remaining_blocks.min(self.next_blocks.len());
+      let next_blocks_len = self.iterations * self.bulk_operation.byte_block_count();
+      let blocks_to_read = remaining_blocks.min(next_blocks_len);
       debug_assert!(blocks_to_read <= i32::MAX as usize);
-      if blocks_to_read == self.next_blocks.len() {
+      if blocks_to_read == next_blocks_len {
         let blocks = self.data_input.get_bytes(blocks_to_read)?;
         self.bulk_operation.decode_u8_to_i64(
           &blocks,
@@ -121,9 +128,12 @@ where
         && self.next_values.longs.len() == self.iterations * self.bulk_operation.byte_value_count()
       {
         let iterations = blocks_to_read / self.bulk_operation.byte_block_count();
-        let blocks = if blocks_to_read <= self.next_blocks.len() / 2 {
+        let blocks = if blocks_to_read <= next_blocks_len / 2 {
           self.data_input.get_bytes(blocks_to_read)?
         } else {
+          if self.next_blocks.is_empty() {
+            self.next_blocks = vec![0; next_blocks_len];
+          }
           self
             .data_input
             .read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read)?;
@@ -138,11 +148,14 @@ where
         );
         self.next_values.longs[iterations * self.bulk_operation.byte_value_count()..].fill(0);
       } else {
+        if self.next_blocks.is_empty() {
+          self.next_blocks = vec![0; next_blocks_len];
+        }
         self
           .data_input
           .read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read)?;
         let iterations = if blocks_to_read
-          <= self.next_blocks.len() - self.bulk_operation.byte_block_count()
+          <= next_blocks_len - self.bulk_operation.byte_block_count()
           && self.next_values.longs.len()
             == self.iterations * self.bulk_operation.byte_value_count()
         {
